@@ -230,7 +230,8 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		case params.CodeHasAssignedUnits,
 			params.CodeNoAddressSet,
 			params.CodeUpgradeInProgress,
-			params.CodeMachineHasAttachedStorage:
+			params.CodeMachineHasAttachedStorage,
+			params.CodeDischargeRequired:
 			continue
 		case params.CodeNotFound:
 			if common.IsUnknownEnviromentError(t.err) {

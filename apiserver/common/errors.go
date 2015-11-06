@@ -290,6 +290,13 @@ func RestoreError(err error) (error, bool) {
 		return err, false
 	case params.IsCodeNotSupported(err):
 		return errors.NewNotSupported(nil, msg), true
+	case params.IsBadRequest(err):
+		return errors.NewBadRequest(nil, msg), true
+	case params.IsMethodNotAllowed(err):
+		return errors.NewMethodNotAllowed(nil, msg), true
+	case params.ErrCode(err) == params.CodeDischargeRequired:
+		// TODO(ericsnow) Handle DischargeRequiredError here.
+		return err, false
 	default:
 		return err, false
 	}
