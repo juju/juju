@@ -28,6 +28,8 @@ def parse_args(args=None):
     parser_get_juju_bin.add_argument('config')
     parser_get_juju_bin.add_argument('revision_build', type=int)
     parser_get_juju_bin.add_argument('workspace', nargs='?', default='.')
+    parser_get_juju_bin.add_argument('--verbose', '-v', default=0,
+                                     action='count')
     return parser.parse_args(args)
 
 
@@ -72,8 +74,10 @@ def fetch_juju_binary(bucket, revision_build, workspace):
 
 
 def main():
-    configure_logging(logging.INFO)
     args = parse_args()
+    log_level = logging.WARNING - args.verbose * (
+        logging.WARNING - logging.INFO)
+    configure_logging(log_level)
     if args.command == 'get-juju-bin':
         return get_juju_bin(args)
     else:

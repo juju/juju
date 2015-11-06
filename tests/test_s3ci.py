@@ -1,5 +1,6 @@
 from argparse import Namespace
 from ConfigParser import NoOptionError
+import logging
 import os
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
@@ -38,7 +39,7 @@ class TestParseArgs(TestCase):
         args = parse_args(['get-juju-bin', 'myconfig', '3275'])
         self.assertEqual(Namespace(
             command='get-juju-bin', config='myconfig', revision_build=3275,
-            workspace='.'),
+            workspace='.', verbose=0),
             args)
 
     def test_get_juju_bin_workspace(self):
@@ -49,6 +50,12 @@ class TestParseArgs(TestCase):
         with parse_error(self) as stderr:
             parse_args(['get-juju-bin', 'myconfig'])
         self.assertRegexpMatches(stderr.getvalue(), 'too few arguments$')
+
+    def test_get_juju_bin_verbosity(self):
+        args = parse_args(['get-juju-bin', 'myconfig', '3275', '-v'])
+        self.assertEqual(1, args.verbose)
+        args = parse_args(['get-juju-bin', 'myconfig', '3275', '-vv'])
+        self.assertEqual(2, args.verbose)
 
 
 class TestGetS3Credentials(TestCase):
