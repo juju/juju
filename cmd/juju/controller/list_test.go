@@ -75,7 +75,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ListSuite) TestSystemList(c *gc.C) {
+func (s *ListSuite) TestControllerList(c *gc.C) {
 	context, err := testing.RunCommand(c, controller.NewListCommand(s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "test1\ntest3\n")

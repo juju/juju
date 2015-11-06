@@ -54,8 +54,9 @@ func getCurrentControllerFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
 }
 
-// Read the file $JUJU_HOME/current-environment and return the value stored
-// there.  If the file doesn't exist an empty string is returned and no error.
+// ReadCurrentEnvironment reads the file $JUJU_HOME/current-environment and
+// return the value stored there.  If the file doesn't exist an empty string
+// is returned and no error.
 func ReadCurrentEnvironment() (string, error) {
 	lock, err := acquireEnvironmentLock("read current-environment")
 	if err != nil {
@@ -73,8 +74,9 @@ func ReadCurrentEnvironment() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// Read the file $JUJU_HOME/current-controller and return the value stored there.
-// If the file doesn't exist an empty string is returned and no error.
+// ReadCurrentController reads the file $JUJU_HOME/current-controller and
+// return the value stored there. If the file doesn't exist an empty string is
+// returned and no error.
 func ReadCurrentController() (string, error) {
 	lock, err := acquireEnvironmentLock("read current-controller")
 	if err != nil {
@@ -92,7 +94,8 @@ func ReadCurrentController() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// Write the envName to the file $JUJU_HOME/current-environment file.
+// WriteCurrentEnvironment writes the envName to the file
+// $JUJU_HOME/current-environment file.
 func WriteCurrentEnvironment(envName string) error {
 	lock, err := acquireEnvironmentLock("write current-environment")
 	if err != nil {
@@ -115,7 +118,8 @@ func WriteCurrentEnvironment(envName string) error {
 	return nil
 }
 
-// Write the controllerName to the file $JUJU_HOME/current-controller file.
+// WriteCurrentController writes the controllerName to the file
+// $JUJU_HOME/current-controller file.
 func WriteCurrentController(controllerName string) error {
 	lock, err := acquireEnvironmentLock("write current-controller")
 	if err != nil {

@@ -51,9 +51,9 @@ the --config option, the command line args take priority.
 
 Examples:
 
-    juju system create-environment new-env
+    juju controller create-environment new-env
 
-    juju system create-environment new-env --config=aws-creds.yaml
+    juju controller create-environment new-env --config=aws-creds.yaml
 
 See Also:
     juju help environment share

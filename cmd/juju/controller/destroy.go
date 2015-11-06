@@ -41,7 +41,7 @@ This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
 
-// destroyControllerAPI defines the methods on the system manager API endpoint
+// destroyControllerAPI defines the methods on the controller API endpoint
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
@@ -74,7 +74,7 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 }
 
-func (c *destroyCommand) getSystemAPI() (destroyControllerAPI, error) {
+func (c *destroyCommand) getControllerAPI() (destroyControllerAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
@@ -112,14 +112,14 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
 	// need to use the controller kill command if we can't connect.
-	api, err := c.getSystemAPI()
+	api, err := c.getControllerAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
 
 	// Obtain bootstrap / controller environ information
-	controllerEnviron, err := c.getSystemEnviron(cfgInfo, api)
+	controllerEnviron, err := c.getControllerEnviron(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
@@ -139,7 +139,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 }
 
 // destroyControLleRviaclient attempts to destroy the controller using the client
-// endpoint for older juju controllers which do not implement controller.DestroySystem
+// endpoint for older juju controllers which do not implement controller.DestroyController
 func (c *destroyCommand) destroyControLleRviaclient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
@@ -277,10 +277,10 @@ func (c *destroyCommandBase) Init(args []string) error {
 	}
 }
 
-// getSystemEnviron gets the bootstrap information required to destroy the environment
-// by first checking the config store, then querying the API if the information is not
-// in the store.
-func (c *destroyCommandBase) getSystemEnviron(info configstore.EnvironInfo, sysAPI destroyControllerAPI) (_ environs.Environ, err error) {
+// getControllerEnviron gets the bootstrap information required to destroy the
+// environment by first checking the config store, then querying the API if
+// the information is not in the store.
+func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, sysAPI destroyControllerAPI) (_ environs.Environ, err error) {
 	bootstrapCfg := info.BootstrapConfig()
 	if bootstrapCfg == nil {
 		if sysAPI == nil {

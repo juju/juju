@@ -26,7 +26,7 @@ type listBlocksCommand struct {
 
 var listBlocksDoc = `List all blocks for environments within the specified controller`
 
-// listBlocksAPI defines the methods on the system manager API endpoint
+// listBlocksAPI defines the methods on the controller API endpoint
 // that the list-blocks command calls.
 type listBlocksAPI interface {
 	Close() error
