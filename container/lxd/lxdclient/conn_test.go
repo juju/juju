@@ -16,9 +16,10 @@ type ConnectSuite struct {
 
 func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClient, fakeNewClient)
+	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
 	// Empty remote means connect locally.
-	client, err := Connect(Config{Remote: ""})
+	client, err := Connect(Config{Remote: configIDForLocal})
 	c.Assert(client, gc.IsNil)
 
 	// Yes, the error message actually matters here... this is being displayed
@@ -28,16 +29,20 @@ func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 
 func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClient, fakeNewClient)
+	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
-	// Empty remote means connect locally.
 	client, err := Connect(Config{Remote: "foo"})
 	c.Assert(client, gc.IsNil)
 
-	// Yes, the error message actually matters here... this is being displayed
-	// to the user.
-	c.Assert(err, gc.ErrorMatches, "boo!")
+	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
 
+var testerr = errors.Errorf("boo!")
+
 func fakeNewClient(config *lxd.Config, remote string) (*lxd.Client, error) {
-	return nil, errors.Errorf("boo!")
+	return nil, testerr
+}
+
+func fakeLoadConfig() (*lxd.Config, error) {
+	return nil, nil
 }

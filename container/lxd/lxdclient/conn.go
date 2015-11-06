@@ -50,6 +50,7 @@ func Connect(cfg Config) (*Client, error) {
 }
 
 var lxdNewClient = lxd.NewClient
+var lxdLoadConfig = lxd.LoadConfig
 
 func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("loading LXD client config from %q", configDir)
@@ -58,7 +59,7 @@ func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	origDirname := updateLXDVars(configDir)
 	defer updateLXDVars(origDirname)
 
-	cfg, err := lxd.LoadConfig()
+	cfg, err := lxdLoadConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
