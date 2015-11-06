@@ -25,9 +25,9 @@ var _ = gc.Suite(&ValidateSuite{})
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = charmrevision.Config{
-		Facade: struct{ charmrevision.Facade }{},
-		Clock:  struct{ clock.Clock }{},
-		Period: time.Hour,
+		RevisionUpdater: struct{ charmrevision.RevisionUpdater }{},
+		Clock:           struct{ clock.Clock }{},
+		Period:          time.Hour,
 	}
 }
 
@@ -36,9 +36,9 @@ func (s *ValidateSuite) TestValid(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ValidateSuite) TestNilFacade(c *gc.C) {
-	s.config.Facade = nil
-	s.checkNotValid(c, "nil Facade not valid")
+func (s *ValidateSuite) TestNilRevisionUpdater(c *gc.C) {
+	s.config.RevisionUpdater = nil
+	s.checkNotValid(c, "nil RevisionUpdater not valid")
 }
 
 func (s *ValidateSuite) TestNilClock(c *gc.C) {

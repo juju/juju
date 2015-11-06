@@ -10,13 +10,13 @@ import (
 	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/worker"
 )
 
-// Facade exposes the capabilities required by the worker.
-type Facade interface {
+// RevisionUpdater exposes the "single" capability required by the worker.
+// As the worker gains more responsibilities, it will likely need more; see
+// storageprovisioner for a helpful model to grow towards.
+type RevisionUpdater interface {
 
 	// UpdateLatestRevisions causes the environment to be scanned, the charm
 	// store to be interrogated, and model representations of updated charms
@@ -29,16 +29,11 @@ type Facade interface {
 	UpdateLatestRevisions() error
 }
 
-// NewFacade returns a Facade backed by the supplied APICaller.
-func NewFacade(apiCaller base.APICaller) (Facade, error) {
-	return charmrevisionupdater.NewState(apiCaller), nil
-}
-
 // Config defines the operation of a charm revision updater worker.
 type Config struct {
 
-	// Facade is the worker's view of the controller.
-	Facade Facade
+	// RevisionUpdater is the worker's view of the controller.
+	RevisionUpdater RevisionUpdater
 
 	// Clock is the worker's view of time.
 	Clock clock.Clock
@@ -50,8 +45,8 @@ type Config struct {
 // Validate returns an error if the configuration cannot be expected
 // to start a functional worker.
 func (config Config) Validate() error {
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
+	if config.RevisionUpdater == nil {
+		return errors.NotValidf("nil RevisionUpdater")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -63,7 +58,8 @@ func (config Config) Validate() error {
 }
 
 // NewWorker returns a worker that calls UpdateLatestRevisions on the
-// configured Facade, once when started and subsequently every Period.
+// configured RevisionUpdater, once when started and subsequently every
+// Period.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -90,7 +86,7 @@ func (ruw *revisionUpdateWorker) loop() error {
 		case <-ruw.tomb.Dying():
 			return tomb.ErrDying
 		case <-ruw.config.Clock.After(delay):
-			err := ruw.config.Facade.UpdateLatestRevisions()
+			err := ruw.config.RevisionUpdater.UpdateLatestRevisions()
 			if err != nil {
 				return errors.Trace(err)
 			}

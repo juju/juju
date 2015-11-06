@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevision_test
+package charmrevisionmanifold_test
 
 import (
 	"time"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/charmrevision"
+	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 )
@@ -26,7 +27,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "billy",
 		ClockName:     "bob",
 	})
@@ -37,7 +38,7 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
@@ -50,7 +51,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
@@ -66,10 +67,10 @@ func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
-		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return nil, errors.New("blefgh")
 		},
@@ -91,10 +92,10 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
-		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return fakeFacade, nil
 		},
@@ -113,8 +114,8 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		"NewFacade", []interface{}{fakeAPICaller},
 	}, {
 		"NewWorker", []interface{}{charmrevision.Config{
-			Facade: fakeFacade,
-			Clock:  fakeClock,
+			RevisionUpdater: fakeFacade,
+			Clock:           fakeClock,
 		}},
 	}})
 }
@@ -126,11 +127,11 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
+	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 		Period:        10 * time.Minute,
-		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return fakeFacade, nil
 		},
@@ -150,9 +151,9 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 		"NewFacade", []interface{}{fakeAPICaller},
 	}, {
 		"NewWorker", []interface{}{charmrevision.Config{
-			Period: 10 * time.Minute,
-			Facade: fakeFacade,
-			Clock:  fakeClock,
+			Period:          10 * time.Minute,
+			RevisionUpdater: fakeFacade,
+			Clock:           fakeClock,
 		}},
 	}})
 }
@@ -170,5 +171,5 @@ type fakeWorker struct {
 }
 
 type fakeFacade struct {
-	charmrevision.Facade
+	charmrevisionmanifold.Facade
 }

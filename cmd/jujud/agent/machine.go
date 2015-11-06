@@ -1213,9 +1213,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevision.NewWorker(charmrevision.Config{
-			Facade: apiSt.CharmRevisionUpdater(),
-			Clock:  clock.WallClock,
-			Period: 24 * time.Hour,
+			RevisionUpdater: apiSt.CharmRevisionUpdater(),
+			Clock:           clock.WallClock,
+			Period:          24 * time.Hour,
 		})
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {

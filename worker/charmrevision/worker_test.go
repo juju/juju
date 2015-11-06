@@ -28,7 +28,7 @@ func (s *WorkerSuite) TestUpdatesImmediately(c *gc.C) {
 		fix.waitCall(c)
 		fix.waitNoCall(c)
 	})
-	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
 func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *gc.C) {
@@ -38,7 +38,7 @@ func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *gc.C) {
 		fix.clock.Advance(time.Minute - time.Nanosecond)
 		fix.waitNoCall(c)
 	})
-	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
 func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
@@ -49,12 +49,12 @@ func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
 		fix.waitCall(c)
 		fix.waitNoCall(c)
 	})
-	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
 }
 
 func (s *WorkerSuite) TestImmediateUpdateError(c *gc.C) {
 	fix := newFixture(time.Minute)
-	fix.facade.stub.SetErrors(
+	fix.revisionUpdater.stub.SetErrors(
 		errors.New("no updates for you"),
 	)
 	fix.dirtyTest(c, func(w worker.Worker) {
@@ -62,12 +62,12 @@ func (s *WorkerSuite) TestImmediateUpdateError(c *gc.C) {
 		c.Check(w.Wait(), gc.ErrorMatches, "no updates for you")
 		fix.waitNoCall(c)
 	})
-	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
 func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 	fix := newFixture(time.Minute)
-	fix.facade.stub.SetErrors(
+	fix.revisionUpdater.stub.SetErrors(
 		nil,
 		errors.New("no more updates for you"),
 	)
@@ -78,21 +78,21 @@ func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 		c.Check(w.Wait(), gc.ErrorMatches, "no more updates for you")
 		fix.waitNoCall(c)
 	})
-	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
+	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
 }
 
 // workerFixture isolates a charmrevision worker for testing.
 type workerFixture struct {
-	facade mockFacade
-	clock  *coretesting.Clock
-	period time.Duration
+	revisionUpdater mockRevisionUpdater
+	clock           *coretesting.Clock
+	period          time.Duration
 }
 
 func newFixture(period time.Duration) workerFixture {
 	return workerFixture{
-		facade: newMockFacade(),
-		clock:  coretesting.NewClock(time.Now()),
-		period: period,
+		revisionUpdater: newMockRevisionUpdater(),
+		clock:           coretesting.NewClock(time.Now()),
+		period:          period,
 	}
 }
 
@@ -108,9 +108,9 @@ func (fix workerFixture) dirtyTest(c *gc.C, test testFunc) {
 
 func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 	w, err := charmrevision.NewWorker(charmrevision.Config{
-		Facade: fix.facade,
-		Clock:  fix.clock,
-		Period: fix.period,
+		RevisionUpdater: fix.revisionUpdater,
+		Clock:           fix.clock,
+		Period:          fix.period,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -124,7 +124,7 @@ func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 
 func (fix workerFixture) waitCall(c *gc.C) {
 	select {
-	case <-fix.facade.calls:
+	case <-fix.revisionUpdater.calls:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out")
 	}
@@ -132,26 +132,26 @@ func (fix workerFixture) waitCall(c *gc.C) {
 
 func (fix workerFixture) waitNoCall(c *gc.C) {
 	select {
-	case <-fix.facade.calls:
-		c.Fatalf("unexpected facade call")
+	case <-fix.revisionUpdater.calls:
+		c.Fatalf("unexpected revisionUpdater call")
 	case <-time.After(coretesting.ShortWait):
 	}
 }
 
-// mockFacade records (and notifies of) calls made to UpdateLatestRevisions.
-type mockFacade struct {
+// mockRevisionUpdater records (and notifies of) calls made to UpdateLatestRevisions.
+type mockRevisionUpdater struct {
 	stub  *testing.Stub
 	calls chan struct{}
 }
 
-func newMockFacade() mockFacade {
-	return mockFacade{
+func newMockRevisionUpdater() mockRevisionUpdater {
+	return mockRevisionUpdater{
 		stub:  &testing.Stub{},
 		calls: make(chan struct{}, 1000),
 	}
 }
 
-func (mock mockFacade) UpdateLatestRevisions() error {
+func (mock mockRevisionUpdater) UpdateLatestRevisions() error {
 	mock.stub.AddCall("UpdateLatestRevisions")
 	mock.calls <- struct{}{}
 	return mock.stub.NextErr()

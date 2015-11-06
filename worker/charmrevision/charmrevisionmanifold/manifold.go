@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevision
+package charmrevisionmanifold
 
 import (
 	"time"
@@ -10,7 +10,9 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -24,11 +26,11 @@ type ManifoldConfig struct {
 
 	// The remaining dependencies will be used with the resources to configure
 	// and create the worker. The period must be greater than 0; the NewFacade
-	// and NewWorker fields must not be nil, but many clients can safely use
-	// the NewFacade and NewWorker funcs defined in this package and not worry.
+	// and NewWorker fields must not be nil. charmrevision.NewWorker, and
+	// NewAPIFacade, are suitable implementations for most clients.
 	Period    time.Duration
 	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker func(charmrevision.Config) (worker.Worker, error)
 }
 
 // Manifold returns a dependency.Manifold that runs a charm revision worker
@@ -53,10 +55,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotatef(err, "cannot create facade")
 			}
 
-			worker, err := config.NewWorker(Config{
-				Period: config.Period,
-				Facade: facade,
-				Clock:  clock,
+			worker, err := config.NewWorker(charmrevision.Config{
+				RevisionUpdater: facade,
+				Clock:           clock,
+				Period:          config.Period,
 			})
 			if err != nil {
 				return nil, errors.Annotatef(err, "cannot create worker")
@@ -64,4 +66,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return worker, nil
 		},
 	}
+}
+
+// NewAPIFacade returns a Facade backed by the supplied APICaller.
+func NewAPIFacade(apiCaller base.APICaller) (Facade, error) {
+	return charmrevisionupdater.NewState(apiCaller), nil
+}
+
+// Facade has all the controller methods used by the charm revision worker.
+type Facade interface {
+	charmrevision.RevisionUpdater
 }
