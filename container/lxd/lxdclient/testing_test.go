@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"crypto/x509"
 	"os"
 
 	"github.com/juju/errors"
@@ -29,6 +30,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
 	s.Cert = &Cert{
+		Name:    "some cert",
 		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
 		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
 	}
@@ -45,6 +47,24 @@ type stubClient struct {
 
 func (s *stubClient) WaitForSuccess(waitURL string) error {
 	s.stub.AddCall("WaitForSuccess", waitURL)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubClient) SetServerConfig(key string, value string) (*lxd.Response, error) {
+	s.stub.AddCall("SetServerConfig", key, value)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.Response, nil
+}
+
+func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
+	s.stub.AddCall("CertificateAdd", cert, name)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -113,13 +133,4 @@ func (s *stubClient) SetContainerConfig(name, key, value string) error {
 	}
 
 	return nil
-}
-
-func (s *stubClient) ContainerDeviceAdd(name, devname, devtype string, props []string) (*lxd.Response, error) {
-	s.stub.AddCall("ContainerDeviceAdd", name, devname, devtype, props)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
 }

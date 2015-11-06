@@ -6,6 +6,10 @@
 package lxdclient
 
 import (
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -20,11 +24,17 @@ const (
 
 	pemBlockTypeCert = "CERTIFICATE"
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
+
+	// TODO(ericsnow) Is this the right default?
+	certDefaultName = configCertFile
 )
 
 // Cert holds the information for a single certificate a client
 // may use to connect to a remote server.
 type Cert struct {
+	// Name is the name that LXD will use for the cert.
+	Name string
+
 	// CertPEM is the PEM-encoded x.509 cert.
 	CertPEM []byte
 
@@ -32,12 +42,27 @@ type Cert struct {
 	KeyPEM []byte
 }
 
-// NewCert creates a new Cert for the given cert and key.
-func NewCert(certPEM, keyPEM []byte) *Cert {
-	return &Cert{
+// NewCertificate creates a new Certificate for the given cert and key.
+func NewCert(certPEM, keyPEM []byte) Cert {
+	return Cert{
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	}
+}
+
+// WithDefaults updates a copy of the remote with default values
+// where needed.
+func (cert Cert) WithDefaults() (Cert, error) {
+	// Note that cert is a value receiver, so it is an implicit copy.
+
+	if cert.Name == "" {
+		// TODO(ericsnow) Use x509.Certificate.Subject for the default?
+		cert.Name = certDefaultName
+	}
+
+	// TODO(ericsnow) populate cert/key (use genCertAndKey)?
+
+	return cert, nil
 }
 
 // Validate ensures that the cert is valid.
@@ -68,6 +93,32 @@ func (cert Cert) WriteKeyPEM(out io.Writer) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Fingerprint returns the cert's LXD fingerprint.
+func (cert Cert) Fingerprint() (string, error) {
+	// See: https://github.com/lxc/lxd/blob/master/lxd/certificates.go
+	x509Cert, err := cert.X509()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	data := sha256.Sum256(x509Cert.Raw)
+	return fmt.Sprintf("%x", data), nil
+}
+
+// X509 returns the x.509 certificate.
+func (cert Cert) X509() (*x509.Certificate, error) {
+	block, _ := pem.Decode(cert.CertPEM)
+	if block == nil {
+		return nil, errors.Errorf("invalid cert PEM (%d bytes)", len(cert.CertPEM))
+	}
+
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return x509Cert, nil
 }
 
 func genCertAndKey() ([]byte, []byte, error) {

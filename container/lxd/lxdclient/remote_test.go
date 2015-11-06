@@ -6,15 +6,19 @@
 package lxdclient_test
 
 import (
+	"net"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/container/lxd/lxdclient"
 )
 
 var (
 	_ = gc.Suite(&remoteSuite{})
+	_ = gc.Suite(&remoteFunctionalSuite{})
 )
 
 type remoteSuite struct {
@@ -233,4 +237,59 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	id := remote.ID()
 
 	c.Check(id, gc.Equals, "")
+}
+
+func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {
+	c.Skip("not implemented yet")
+	// TODO(ericsnow) Finish this!
+}
+
+func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: s.Cert,
+	}
+	nonlocal, err := remote.UsingTCP()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(nonlocal, jc.DeepEquals, remote)
+}
+
+type remoteFunctionalSuite struct {
+	lxdclient.BaseSuite
+}
+
+func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
+	if _, err := net.InterfaceByName(lxc.DefaultLxcBridge); err != nil {
+		c.Skip("network bridge interface not found")
+	}
+
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "",
+		Cert: nil,
+	}
+	nonlocal, err := remote.UsingTCP()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkValidRemote(c, &nonlocal)
+	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
+		Name: "my-remote",
+		Host: nonlocal.Host,
+		Cert: nonlocal.Cert,
+	})
+}
+
+func checkValidRemote(c *gc.C, remote *lxdclient.Remote) {
+	c.Check(remote.Host, jc.Satisfies, isValidAddr)
+	checkValidCert(c, remote.Cert)
+}
+
+func isValidAddr(value interface{}) bool {
+	addr, ok := value.(string)
+	if !ok {
+		return false
+	}
+	return net.ParseIP(addr) != nil
 }

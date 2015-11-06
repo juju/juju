@@ -49,6 +49,7 @@ type Config struct {
 // where needed.
 func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
+	// Also, note that cfg is a value receiver, so it is an implicit copy.
 
 	if cfg.Filename == "" {
 		cfg.Filename = configDefaultFile
@@ -94,6 +95,51 @@ func (cfg Config) Write() error {
 	defer updateLXDVars(origConfigDir)
 
 	if err := cfg.write(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// UsingTCPRemote converts the config into a "non-local" version. An
+// already non-local remote is left alone.
+//
+// For a "local" remote (see Local), the remote is changed to a one
+// with the host set to the IP address of the local lxcbr0 bridge
+// interface. The LXD server is also set up for remote access, exposing
+// the TCP port and adding a certificate for remote access.
+func (cfg Config) UsingTCPRemote() (Config, error) {
+	// Note that cfg is a value receiver, so it is an implicit copy.
+
+	if !cfg.Remote.isLocal() {
+		return cfg, nil
+	}
+
+	remote, err := cfg.Remote.UsingTCP()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	// Update the server config and authorized certs.
+	if err := prepareRemote(cfg, *remote.Cert); err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	cfg.Remote = remote
+	return cfg, nil
+}
+
+func prepareRemote(cfg Config, newCert Cert) error {
+	client, err := Connect(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.AddCert(newCert); err != nil {
 		return errors.Trace(err)
 	}
 

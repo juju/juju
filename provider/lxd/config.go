@@ -6,6 +6,8 @@
 package lxd
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -263,7 +265,9 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
 		keyPEM := []byte(c.clientKey())
-		remote.Cert = lxdclient.NewCert(certPEM, keyPEM)
+		cert := lxdclient.NewCert(certPEM, keyPEM)
+		cert.Name = fmt.Sprintf("juju cert for env %q", c.Name())
+		remote.Cert = &cert
 	}
 
 	cfg := lxdclient.Config{
@@ -278,11 +282,8 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	return cfg, nil
 }
 
-func asNonLocal(cfg lxdclient.Config) (lxdclient.Config, error) {
-	// TODO(ericsnow) If local then set up cert and reset clientCfg.
-	//return errors.Errorf("not finished!")
-	return cfg, nil
-}
+// TODO(ericsnow) Switch to a DI testing approach and eliminiate this var.
+var asNonLocal = lxdclient.Config.UsingTCPRemote
 
 func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
 	nonlocal, err := asNonLocal(clientCfg)
@@ -381,18 +382,4 @@ func (c *environConfig) update(cfg *config.Config) error {
 	c.Config = cfg
 	c.attrs = cfg.UnknownAttrs()
 	return nil
-}
-
-// setRemoteFromHost sets the "remote" option to the address of the
-// host machine, as reachable by an LXD container. It also ensures that
-// the host's LXD is configured properly.
-func (c *environConfig) setRemoteFromHost() (*environConfig, error) {
-	updated, err := newValidConfig(c.Config, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(ericsnow) Do the work.
-
-	return updated, nil
 }

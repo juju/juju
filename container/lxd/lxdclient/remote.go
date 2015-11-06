@@ -7,6 +7,9 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+
+	"github.com/juju/juju/container/lxc"
 )
 
 const (
@@ -64,6 +67,8 @@ func (r Remote) ID() string {
 // WithDefaults updates a copy of the remote with default values
 // where needed.
 func (r Remote) WithDefaults() (Remote, error) {
+	// Note that ri is a value receiver, so it is an implicit copy.
+
 	if r.isLocal() {
 		return r.withLocalDefaults(), nil
 	}
@@ -73,8 +78,15 @@ func (r Remote) WithDefaults() (Remote, error) {
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		r.Cert = NewCert(certPEM, keyPEM)
+		cert := NewCert(certPEM, keyPEM)
+		r.Cert = &cert
 	}
+
+	cert, err := r.Cert.WithDefaults()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
+	r.Cert = &cert
 
 	return r, nil
 }
@@ -119,6 +131,37 @@ func (r Remote) validateLocal() error {
 	}
 
 	return nil
+}
+
+// UsingTCP converts the remote into a non-local version. For
+// non-local remotes this is a no-op.
+//
+// For a "local" remote (see Local), the remote is changed to a one
+// with the host set to the IP address of the local lxcbr0 bridge
+// interface. The remote is also set up for remote access, setting
+// the cert if not already set.
+func (r Remote) UsingTCP() (Remote, error) {
+	// Note that r is a value receiver, so it is an implicit copy.
+
+	if !r.isLocal() {
+		return r, nil
+	}
+
+	netIF := lxc.DefaultLxcBridge
+	addr, err := utils.GetAddressForInterface(netIF)
+	if err != nil {
+		return r, errors.Trace(err)
+	}
+	r.Host = addr
+
+	r, err = r.WithDefaults()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
+
+	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
+
+	return r, nil
 }
 
 // TODO(ericsnow) Add a "Connect(Config)" method that connects
