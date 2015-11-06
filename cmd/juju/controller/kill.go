@@ -53,7 +53,7 @@ type killCommand struct {
 func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill",
-		Args:    "<system name>",
+		Args:    "<controller name>",
 		Purpose: "forcibly terminate all machines and other associated resources for a juju controller",
 		Doc:     killDoc,
 	}
@@ -70,7 +70,7 @@ func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
-func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroyControllerAPI, error) {
+func (c *killCommand) getControllerAPI(info configstore.EnvironInfo) (destroyControllerAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
@@ -128,7 +128,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to connect to the API.
-	api, err := c.getSystemAPI(cfgInfo)
+	api, err := c.getControllerAPI(cfgInfo)
 	switch {
 	case err == nil:
 		defer api.Close()
@@ -143,7 +143,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Obtain bootstrap / controller environ information
-	controllerEnviron, err := c.getSystemEnviron(cfgInfo, api)
+	controllerEnviron, err := c.getControllerEnviron(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
@@ -170,7 +170,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 }
 
 // killControllerViaClient attempts to kill the controller using the client
-// endpoint for older juju controllers which do not implement systemmanager.DestroySystem
+// endpoint for older juju controllers which do not implement
+// controller.DestroyController
 func (c *killCommand) killControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {

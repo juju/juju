@@ -199,12 +199,12 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 	c.Assert(info.Nonce, gc.Equals, "")
 }
 
-func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
+func (s *LoginSuite) TestWritesCurrentController(c *gc.C) {
 	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
-	currentSystem, err := envcmd.ReadCurrentController()
+	currentController, err := envcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentSystem, gc.Equals, "foo")
+	c.Assert(currentController, gc.Equals, "foo")
 }
 
 type mockAPIConnection struct {

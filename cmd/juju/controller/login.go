@@ -182,7 +182,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 
 	// If we get to here, the credentials supplied were sufficient to connect
 	// to the Juju System and login. Now we cache the details.
-	serverInfo, err := c.cacheConnectionInfo(serverDetails, apiState)
+	controllerInfo, err := c.cacheConnectionInfo(serverDetails, apiState)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -194,7 +194,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	// update the cached information knowing that the likelihood of failure is
 	// minimal.
 	if !c.KeepPassword {
-		if err := c.updatePassword(ctx, apiState, userTag, serverInfo); err != nil {
+		if err := c.updatePassword(ctx, apiState, userTag, controllerInfo); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -207,7 +207,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	serverInfo := store.CreateInfo(c.Name)
+	controllerInfo := store.CreateInfo(c.Name)
 
 	controllerTag, err := apiState.ControllerTag()
 	if err != nil {
@@ -221,33 +221,33 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 	}
 	addressConnectedTo := connectedAddresses[0]
 
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(serverInfo, apiState.APIHostPorts(), addressConnectedTo)
+	addrs, hosts, changed := juju.PrepareEndpointsForCaching(controllerInfo, apiState.APIHostPorts(), addressConnectedTo)
 	if !changed {
 		logger.Infof("api addresses: %v", apiState.APIHostPorts())
 		logger.Infof("address connected to: %v", addressConnectedTo)
 		return nil, errors.New("no addresses returned from prepare for caching")
 	}
 
-	serverInfo.SetAPICredentials(
+	controllerInfo.SetAPICredentials(
 		configstore.APICredentials{
 			User:     serverDetails.Username,
 			Password: serverDetails.Password,
 		})
 
-	serverInfo.SetAPIEndpoint(configstore.APIEndpoint{
+	controllerInfo.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  addrs,
 		Hostnames:  hosts,
 		CACert:     serverDetails.CACert,
 		ServerUUID: controllerTag.Id(),
 	})
 
-	if err = serverInfo.Write(); err != nil {
+	if err = controllerInfo.Write(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return serverInfo, nil
+	return controllerInfo, nil
 }
 
-func (c *loginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, userTag names.UserTag, serverInfo configstore.EnvironInfo) error {
+func (c *loginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, userTag names.UserTag, controllerInfo configstore.EnvironInfo) error {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Annotate(err, "failed to generate random password")
@@ -261,10 +261,10 @@ func (c *loginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, use
 		errors.Trace(err)
 	}
 	ctx.Infof("password updated\n")
-	creds := serverInfo.APICredentials()
+	creds := controllerInfo.APICredentials()
 	creds.Password = password
-	serverInfo.SetAPICredentials(creds)
-	if err = serverInfo.Write(); err != nil {
+	controllerInfo.SetAPICredentials(creds)
+	if err = controllerInfo.Write(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
