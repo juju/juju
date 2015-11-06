@@ -16,8 +16,6 @@ func DefaultNetworkBridge(cType instance.ContainerType) string {
 	switch cType {
 	case instance.LXC:
 		return lxc.DefaultLxcBridge
-	case instance.LXD:
-		return lxc.DefaultLxcBridge
 	case instance.KVM:
 		return kvm.DefaultKvmBridge
 	default:

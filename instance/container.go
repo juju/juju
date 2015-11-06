@@ -12,14 +12,13 @@ type ContainerType string
 const (
 	NONE = ContainerType("none")
 	LXC  = ContainerType("lxc")
-	LXD  = ContainerType("lxd")
 	KVM  = ContainerType("kvm")
 )
 
 // ContainerTypes is used to validate add-machine arguments.
 var ContainerTypes []ContainerType = []ContainerType{
 	LXC,
-	LXD,
+	// LXD is also added under Go 1.3+.
 	KVM,
 }
 

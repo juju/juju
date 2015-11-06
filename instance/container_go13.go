@@ -3,14 +3,12 @@
 
 // +build go1.3
 
-package lxd_test
+package instance
 
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
+const (
+	LXD = ContainerType("lxd")
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+func init() {
+	ContainerTypes = append(ContainerTypes, LXD)
 }
