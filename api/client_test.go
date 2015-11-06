@@ -170,7 +170,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `POST http://.*/environment/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
 }
 
-func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
+func (s *clientSuite) TestMinVersionTooHighLocalCharm(c *gc.C) {
 	client := s.APIState.Client()
 
 	cleanup := api.PatchClientFacadeCall(client,
@@ -196,6 +196,34 @@ func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
 	_, err := client.AddLocalCharm(curl, charmArchive)
 
 	c.Assert(err, jc.Satisfies, api.IsMinVersionError)
+}
+
+func (s *clientSuite) TestMinVersionOKLocalCharm(c *gc.C) {
+	client := s.APIState.Client()
+
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			c.Assert(paramsIn, gc.IsNil)
+			if response, ok := response.(*params.AgentVersionResult); ok {
+				response.Version = version.Number{Major: 2}
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	charmArchive.Meta().MinJujuVersion = &version.Number{Major: 1}
+
+	_, err := client.AddLocalCharm(curl, charmArchive)
+
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
