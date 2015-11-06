@@ -581,28 +581,28 @@ func createVirtualMachine(
 	// On Windows, we must add the CustomScriptExtension VM extension
 	// to run the CustomData script.
 	if osProfile.WindowsConfiguration != nil {
-		// TODO(axw) see if we can just put this straight in vmArgs.Resources.
 		const extensionName = "JujuCustomScriptExtension"
 		extensionSettings := map[string]*string{
 			"commandToExecute": to.StringPtr(
-				"powershell.exe -ExecutionPolicy Unrestricted -File C:\\AzureData\\CustomData.bin",
+				`move C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1 && ` +
+					`powershell.exe -ExecutionPolicy Unrestricted -File C:\AzureData\CustomData.ps1 && ` +
+					`del /q C:\AzureData\CustomData.ps1`,
 			),
 		}
-		_, err := vmExtensionClient.CreateOrUpdate(
-			resourceGroup, vmName, extensionName,
-			compute.VirtualMachineExtension{
-				Location: to.StringPtr(location),
-				Tags:     toTagsPtr(vmTags),
-				Properties: &compute.VirtualMachineExtensionProperties{
-					Publisher:               to.StringPtr("Microsoft.Compute"),
-					Type:                    to.StringPtr("CustomScriptExtension"),
-					TypeHandlerVersion:      to.StringPtr("1.4"),
-					AutoUpgradeMinorVersion: to.BoolPtr(true),
-					Settings:                &extensionSettings,
-				},
+		extension := compute.VirtualMachineExtension{
+			Location: to.StringPtr(location),
+			Tags:     toTagsPtr(vmTags),
+			Properties: &compute.VirtualMachineExtensionProperties{
+				Publisher:               to.StringPtr("Microsoft.Compute"),
+				Type:                    to.StringPtr("CustomScriptExtension"),
+				TypeHandlerVersion:      to.StringPtr("1.4"),
+				AutoUpgradeMinorVersion: to.BoolPtr(true),
+				Settings:                &extensionSettings,
 			},
-		)
-		if err != nil {
+		}
+		if _, err := vmExtensionClient.CreateOrUpdate(
+			resourceGroup, vmName, extensionName, extension,
+		); err != nil {
 			return compute.VirtualMachine{}, errors.Annotate(
 				err, "creating CustomScript extension",
 			)
@@ -776,12 +776,15 @@ func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*c
 			SSH: &compute.SSHConfiguration{PublicKeys: &publicKeys},
 		}
 	case os.Windows:
-		// Later we will add WinRM configuration here
-		// Windows does not accept hostnames over 15 characters.
 		osProfile.AdminUsername = to.StringPtr("JujuAdministrator")
+		// A password is required by Azure, but we will never use it.
+		// We generate something sufficiently long and random that it
+		// should be infeasible to guess.
+		osProfile.AdminPassword = to.StringPtr(randomAdminPassword())
 		osProfile.WindowsConfiguration = &compute.WindowsConfiguration{
 			ProvisionVMAgent:       to.BoolPtr(true),
 			EnableAutomaticUpdates: to.BoolPtr(true),
+			// TODO(?) add WinRM configuration here.
 		}
 	default:
 		return nil, errors.NotSupportedf("%s", seriesOS)

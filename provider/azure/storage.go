@@ -705,6 +705,6 @@ func getStorageClient(
 // RandomStorageAccountName returns a random storage account name.
 func RandomStorageAccountName() string {
 	const maxStorageAccountNameLen = 24
-	validRunes := append([]rune(utils.LowerAlpha), []rune(utils.Digits)...)
+	validRunes := append(utils.LowerAlpha, utils.Digits...)
 	return utils.RandomString(maxStorageAccountNameLen, validRunes)
 }
