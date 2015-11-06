@@ -68,6 +68,8 @@ func newDebugLogHandler(
 //      - has no meaning if 'replay' is true
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
+//   noTail -> string - one of [true, false], if true, existing logs are sent back,
+//      - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {

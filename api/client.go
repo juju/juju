@@ -833,6 +833,9 @@ type DebugLogParams struct {
 	// Replay tells the server to start at the start of the log file rather
 	// than the end. If replay is true, backlog is ignored.
 	Replay bool
+	// NoTail tells the server to only return the logs it has now, and not
+	// to wait for new logs to arrive.
+	NoTail bool
 }
 
 // WatchDebugLog returns a ReadCloser that the caller can read the log
@@ -860,6 +863,9 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))
+	}
+	if args.NoTail {
+		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
 	if args.Limit > 0 {
 		attrs.Set("maxLines", fmt.Sprint(args.Limit))
