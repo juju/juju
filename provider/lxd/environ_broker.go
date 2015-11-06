@@ -112,6 +112,14 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata: metadata,
+		Profiles: []string{
+			//TODO(wwitzel3) move this to environments.yaml allowing the user to specify
+			// lxc profiles to apply. This allows the user to setup any custom devices order
+			// config settings for their environment. Also we must ensure that a device with
+			// the parent: lxcbr0 exists in at least one of the profiles.
+			"default",
+			env.profileName(),
+		},
 		//Tags:              tags,
 		// Network is omitted (left empty).
 	}
