@@ -22,27 +22,21 @@ type serviceDirectorySuite struct {
 var _ = gc.Suite(&serviceDirectorySuite{})
 
 func (s *serviceDirectorySuite) createDirectoryRecord(c *gc.C) *state.ServiceDirectoryRecord {
-	eps := []state.Endpoint{
+	eps := []charm.Relation{
 		{
-			ServiceName: "mysql",
-			Relation: charm.Relation{
-				Interface: "mysql",
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 		{
-			ServiceName: "mysql",
-			Relation: charm.Relation{
-				Interface: "mysql-root",
-				Name:      "db-admin",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
-	record, err := s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
 		ServiceName:   "mysql",
 		Endpoints:     eps,
 		SourceEnvUUID: "source-uuid",
@@ -85,7 +79,7 @@ func (s *serviceDirectorySuite) TestEndpoints(c *gc.C) {
 
 func (s *serviceDirectorySuite) TestDirectoryRecordRefresh(c *gc.C) {
 	record := s.createDirectoryRecord(c)
-	s1, err := s.State.ServiceDirectoryRecord(record.ServiceName())
+	s1, err := s.State.ServiceDirectoryRecord("local:/u/me/service")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s1.Destroy()
@@ -102,20 +96,60 @@ func (s *serviceDirectorySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
+	eps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+		{
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
+		ServiceName:   "mysql",
+		Endpoints:     eps,
+		SourceEnvUUID: "source-uuid",
+		SourceLabel:   "source",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(record.ServiceName(), gc.Equals, "mysql")
+	c.Assert(record.URL(), gc.Equals, "local:/u/me/service")
+	record, err = s.State.ServiceDirectoryRecord("local:/u/me/service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(record.ServiceName(), gc.Equals, "mysql")
+	endpoints, err := record.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedEndpoints := make([]state.Endpoint, len(eps))
+	for i, ep := range eps {
+		expectedEndpoints[i] = state.Endpoint{
+			ServiceName: "mysql",
+			Relation:    ep,
+		}
+	}
+	c.Assert(endpoints, jc.DeepEquals, expectedEndpoints)
+}
+
 func (s *serviceDirectorySuite) TestAllServiceDirectoryRecordsNone(c *gc.C) {
 	services, err := s.State.AllServiceDirectoryEntries()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 0)
 }
 
-func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
+func (s *serviceDirectorySuite) TestAllServiceDirectoryRecords(c *gc.C) {
 	record := s.createDirectoryRecord(c)
 	records, err := s.State.AllServiceDirectoryEntries()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(records), gc.Equals, 1)
 	c.Assert(records[0], jc.DeepEquals, record)
 
-	_, err = s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	_, err = s.State.AddServiceDirectoryRecord("local:/u/me/another-service", state.AddServiceDirectoryParams{
 		ServiceName:   "another",
 		SourceEnvUUID: "uuid",
 	})
@@ -124,30 +158,30 @@ func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(records, gc.HasLen, 2)
 
-	// Check the returned record, order is defined by sorted keys.
-	names := make([]string, len(records))
+	// Check the returned record, order is defined by sorted urls.
+	urls := make([]string, len(records))
 	for i, record := range records {
-		names[i] = record.ServiceName()
+		urls[i] = record.URL()
 	}
-	sort.Strings(names)
-	c.Assert(names[0], gc.Equals, "another")
-	c.Assert(names[1], gc.Equals, "mysql")
+	sort.Strings(urls)
+	c.Assert(urls[0], gc.Equals, "local:/u/me/another-service")
+	c.Assert(urls[1], gc.Equals, "local:/u/me/service")
 }
 
 func (s *serviceDirectorySuite) TestAddServiceDirectoryRecordUUIDRequired(c *gc.C) {
-	_, err := s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
 		ServiceName: "another",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add service direcotry record "another": missing source environment UUID`)
 }
 
 func (s *serviceDirectorySuite) TestAddServiceDirectoryRecordDuplicate(c *gc.C) {
-	_, err := s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
 		ServiceName:   "another",
 		SourceEnvUUID: "uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	_, err = s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
 		ServiceName:   "another",
 		SourceEnvUUID: "another-uuid",
 	})
@@ -155,17 +189,17 @@ func (s *serviceDirectorySuite) TestAddServiceDirectoryRecordDuplicate(c *gc.C) 
 }
 
 func (s *remoteServiceSuite) TestAddServiceDirectoryEntryDuplicateAddedAfterInitial(c *gc.C) {
-	// Check that a record with a name conflict cannot be added if
+	// Check that a record with a URL conflict cannot be added if
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+		_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
 			ServiceName:   "record",
 			SourceEnvUUID: "uuid",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddServiceDirectoryRecord(state.AddServiceDirectoryParams{
+	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
 		ServiceName:   "record",
 		SourceEnvUUID: "another-uuid",
 	})

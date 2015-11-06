@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -24,11 +25,12 @@ type ServiceDirectoryRecord struct {
 
 // serviceDirectoryDoc represents the internal state of a service directory record in MongoDB.
 type serviceDirectoryDoc struct {
-	DocID         string     `bson:"_id"`
-	SourceEnvUUID string     `bson:"sourceuuid"`
-	SourceLabel   string     `bson:"sourcelabel"`
-	ServiceName   string     `bson:"servicename"`
-	Endpoints     []Endpoint `bson:"endpoints"`
+	DocID         string              `bson:"_id"`
+	URL           string              `bson:"url"`
+	SourceEnvUUID string              `bson:"sourceuuid"`
+	SourceLabel   string              `bson:"sourcelabel"`
+	ServiceName   string              `bson:"servicename"`
+	Endpoints     []remoteEndpointDoc `bson:"endpoints"`
 }
 
 func newServiceDirectoryRecord(st *State, doc *serviceDirectoryDoc) *ServiceDirectoryRecord {
@@ -37,6 +39,11 @@ func newServiceDirectoryRecord(st *State, doc *serviceDirectoryDoc) *ServiceDire
 		doc: *doc,
 	}
 	return record
+}
+
+// ServiceName returns the service URL.
+func (s *ServiceDirectoryRecord) URL() string {
+	return s.doc.URL
 }
 
 // ServiceName returns the service name.
@@ -87,7 +94,15 @@ func (s *ServiceDirectoryRecord) destroyOps() ([]txn.Op, error) {
 func (s *ServiceDirectoryRecord) Endpoints() ([]Endpoint, error) {
 	eps := make([]Endpoint, len(s.doc.Endpoints))
 	for i, ep := range s.doc.Endpoints {
-		eps[i] = ep
+		eps[i] = Endpoint{
+			ServiceName: s.ServiceName(),
+			Relation: charm.Relation{
+				Name:      ep.Name,
+				Role:      ep.Role,
+				Interface: ep.Interface,
+				Limit:     ep.Limit,
+				Scope:     ep.Scope,
+			}}
 	}
 	sort.Sort(epSlice(eps))
 	return eps, nil
@@ -132,15 +147,20 @@ func (s *ServiceDirectoryRecord) Refresh() error {
 // AddServiceDirectoryParams defines the parameters used to add a ServiceDirectory record.
 type AddServiceDirectoryParams struct {
 	ServiceName   string
-	Endpoints     []Endpoint
+	Endpoints     []charm.Relation
 	SourceEnvUUID string
 	SourceLabel   string
 }
 
 var errDuplicateServiceDirectoryRecord = errors.Errorf("service directory record already exists")
 
-// AddServiceDirectoryRecord creates a new service directory record, having the supplied parameters,
-func (st *State) AddServiceDirectoryRecord(params AddServiceDirectoryParams) (_ *ServiceDirectoryRecord, err error) {
+func serviceDirectoryKey(name, url string) string {
+	return fmt.Sprintf("%s-%s", name, url)
+}
+
+// AddServiceDirectoryRecord creates a new service directory record for the specified URL,
+// having the supplied parameters,
+func (st *State) AddServiceDirectoryRecord(url string, params AddServiceDirectoryParams) (_ *ServiceDirectoryRecord, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service direcotry record %q", params.ServiceName)
 
 	// Sanity checks.
@@ -157,20 +177,25 @@ func (st *State) AddServiceDirectoryRecord(params AddServiceDirectoryParams) (_ 
 		return nil, errors.Errorf("environment is no longer alive")
 	}
 
-	if _, err := st.ServiceDirectoryRecord(params.ServiceName); err == nil {
-		return nil, errDuplicateServiceDirectoryRecord
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	docID := st.docID(params.ServiceName)
+	docID := url
 	doc := &serviceDirectoryDoc{
 		DocID:         docID,
+		URL:           url,
 		ServiceName:   params.ServiceName,
-		Endpoints:     params.Endpoints,
 		SourceEnvUUID: params.SourceEnvUUID,
 		SourceLabel:   params.SourceLabel,
 	}
+	eps := make([]remoteEndpointDoc, len(params.Endpoints))
+	for i, ep := range params.Endpoints {
+		eps[i] = remoteEndpointDoc{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+	doc.Endpoints = eps
 	record := newServiceDirectoryRecord(st, doc)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -179,6 +204,10 @@ func (st *State) AddServiceDirectoryRecord(params AddServiceDirectoryParams) (_ 
 		if attempt > 0 {
 			if err := checkEnvLife(st); err != nil {
 				return nil, errors.Trace(err)
+			}
+			_, err := st.ServiceDirectoryRecord(url)
+			if err == nil {
+				return nil, errDuplicateServiceDirectoryRecord
 			}
 		}
 		ops := []txn.Op{
@@ -192,36 +221,24 @@ func (st *State) AddServiceDirectoryRecord(params AddServiceDirectoryParams) (_ 
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
-		return record, nil
-	}
-	if err != jujutxn.ErrExcessiveContention {
-		return nil, err
-	}
-	// Check the reason for failure - may be because of a name conflict.
-	if _, err = st.ServiceDirectoryRecord(params.ServiceName); err == nil {
-		return nil, errDuplicateServiceDirectoryRecord
-	} else if !errors.IsNotFound(err) {
+	if err = st.run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return nil, errors.Trace(err)
+	return record, nil
 }
 
 // ServiceDirectoryRecord returns a service directory record by name.
-func (st *State) ServiceDirectoryRecord(serviceName string) (record *ServiceDirectoryRecord, err error) {
+func (st *State) ServiceDirectoryRecord(url string) (record *ServiceDirectoryRecord, err error) {
 	serviceDirectoryCollection, closer := st.getCollection(serviceDirectoryC)
 	defer closer()
 
-	if !names.IsValidService(serviceName) {
-		return nil, errors.Errorf("%q is not a valid service name", serviceName)
-	}
 	doc := &serviceDirectoryDoc{}
-	err = serviceDirectoryCollection.FindId(serviceName).One(doc)
+	err = serviceDirectoryCollection.FindId(url).One(doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("service directory record %q", serviceName)
+		return nil, errors.NotFoundf("service directory record %q", url)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get service directory record %q", serviceName)
+		return nil, errors.Annotatef(err, "cannot get service directory record %q", url)
 	}
 	return newServiceDirectoryRecord(st, doc), nil
 }
@@ -239,5 +256,19 @@ func (st *State) AllServiceDirectoryEntries() (records []*ServiceDirectoryRecord
 	for _, v := range docs {
 		records = append(records, newServiceDirectoryRecord(st, &v))
 	}
+	sort.Sort(srSlice(records))
 	return records, nil
+}
+
+type srSlice []*ServiceDirectoryRecord
+
+func (sr srSlice) Len() int      { return len(sr) }
+func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
+func (sr srSlice) Less(i, j int) bool {
+	sr1 := sr[i]
+	sr2 := sr[j]
+	if sr1.doc.URL != sr2.doc.URL {
+		return sr1.doc.ServiceName < sr2.doc.ServiceName
+	}
+	return sr1.doc.URL < sr2.doc.URL
 }

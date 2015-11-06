@@ -130,6 +130,15 @@ func allCollections() collectionSchema {
 		// was implemented.
 		actionresultsC: {global: true},
 
+		// This collection holds information about services that have been
+		// offered (exported) for use in other models.
+		serviceDirectoryC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"url"},
+			}},
+		},
+
 		// -----------------
 
 		// Local collections
