@@ -15,6 +15,7 @@ from mock import (
     )
 
 from jujuci import PackageNamer
+from jujuconfig import get_juju_home
 from s3ci import (
     fetch_juju_binary,
     find_package_key,
@@ -36,25 +37,26 @@ from utility import temp_dir
 class TestParseArgs(TestCase):
 
     def test_get_juju_bin_defaults(self):
-        args = parse_args(['get-juju-bin', 'myconfig', '3275'])
+        default_config = os.path.join(get_juju_home(), 'juju-qa.s3cfg')
+        args = parse_args(['get-juju-bin', '3275'])
         self.assertEqual(Namespace(
-            command='get-juju-bin', config='myconfig', revision_build=3275,
+            command='get-juju-bin', config=default_config, revision_build=3275,
             workspace='.', verbose=0),
             args)
 
     def test_get_juju_bin_workspace(self):
-        args = parse_args(['get-juju-bin', 'myconfig', '3275', 'myworkspace'])
+        args = parse_args(['get-juju-bin', '3275', 'myworkspace'])
         self.assertEqual('myworkspace', args.workspace)
 
     def test_get_juju_bin_too_few(self):
         with parse_error(self) as stderr:
-            parse_args(['get-juju-bin', 'myconfig'])
+            parse_args(['get-juju-bin'])
         self.assertRegexpMatches(stderr.getvalue(), 'too few arguments$')
 
     def test_get_juju_bin_verbosity(self):
-        args = parse_args(['get-juju-bin', 'myconfig', '3275', '-v'])
+        args = parse_args(['get-juju-bin', '3275', '-v'])
         self.assertEqual(1, args.verbose)
-        args = parse_args(['get-juju-bin', 'myconfig', '3275', '-vv'])
+        args = parse_args(['get-juju-bin', '3275', '-vv'])
         self.assertEqual(2, args.verbose)
 
 
@@ -95,6 +97,10 @@ class TestGetS3Credentials(TestCase):
                     NoOptionError,
                     "No option 'secret_key' in section: 'default'"):
                 get_s3_credentials(temp_file.name)
+
+    def test_get_s3_credentials(self):
+        with self.assertRaises(IOError) as exc:
+            get_s3_credentials('/dev/null/null')
 
 
 def mock_package_key(revision_build, build=27, distro_release=None):
@@ -194,8 +200,8 @@ class TestMain(StrictTestCase):
                 """))
             temp_file.flush()
             with patch('sys.argv', [
-                    'foo', 'get-juju-bin', temp_file.name, '28',
-                    'bar-workspace']):
+                    'foo', 'get-juju-bin', '28', 'bar-workspace',
+                    '--config', temp_file.name]):
                 with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
                     with patch('s3ci.fetch_juju_binary', autospec=True,
                                return_value='gjb') as gbj_mock:

@@ -8,26 +8,28 @@ import sys
 
 from boto.s3.connection import S3Connection
 
+from download_juju import (
+    _download_files,
+    filter_keys,
+    )
 from jujuci import (
     acquire_binary,
     JobNamer,
     PackageNamer,
     )
-from download_juju import (
-    _download_files,
-    filter_keys,
-    )
+from jujuconfig import get_juju_home
 from utility import configure_logging
 
 
 def parse_args(args=None):
     parser = ArgumentParser()
+    default_config = os.path.join(get_juju_home(), 'juju-qa.s3cfg')
     subparsers = parser.add_subparsers(help='sub-command help', dest='command')
     parser_get_juju_bin = subparsers.add_parser(
         'get-juju-bin', help='Retrieve and extract juju binaries.')
-    parser_get_juju_bin.add_argument('config')
     parser_get_juju_bin.add_argument('revision_build', type=int)
     parser_get_juju_bin.add_argument('workspace', nargs='?', default='.')
+    parser_get_juju_bin.add_argument('--config', default=default_config)
     parser_get_juju_bin.add_argument('--verbose', '-v', default=0,
                                      action='count')
     return parser.parse_args(args)
@@ -35,7 +37,8 @@ def parse_args(args=None):
 
 def get_s3_credentials(s3cfg_path):
     config = ConfigParser()
-    config.read(s3cfg_path)
+    with open(s3cfg_path) as fp:
+        config.readfp(fp)
     access_key = config.get('default', 'access_key')
     secret_key = config.get('default', 'secret_key')
     return access_key, secret_key
