@@ -663,6 +663,17 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return curl, nil
 }
 
+type minJujuVersionErr struct {
+	*errors.Err
+}
+
+func minVersionError(minver, jujuver version.Number) error {
+	err := errors.NewErr("charm's min version (%s) is higher than this juju environment's version (%s)",
+		minver, jujuver)
+	err.SetLocation(1)
+	return minJujuVersionErr{&err}
+}
+
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != nil {
@@ -672,7 +683,7 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 		}
 
 		if minver.Compare(agentver) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current)
+			return minVersionError(*minver, agentver)
 		}
 	}
 	return nil
