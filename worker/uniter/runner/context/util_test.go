@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 

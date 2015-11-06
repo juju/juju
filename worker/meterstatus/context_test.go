@@ -19,10 +19,11 @@ var _ = gc.Suite(&ContextSuite{})
 
 type dummyPaths struct{}
 
-func (*dummyPaths) GetToolsDir() string        { return "/dummy/tools" }
-func (*dummyPaths) GetCharmDir() string        { return "/dummy/charm" }
-func (*dummyPaths) GetJujucSocket() string     { return "/dummy/jujuc.sock" }
-func (*dummyPaths) GetMetricsSpoolDir() string { return "/dummy/spool" }
+func (*dummyPaths) GetToolsDir() string             { return "/dummy/tools" }
+func (*dummyPaths) GetCharmDir() string             { return "/dummy/charm" }
+func (*dummyPaths) GetJujucSocket() string          { return "/dummy/jujuc.sock" }
+func (*dummyPaths) GetMetricsSpoolDir() string      { return "/dummy/spool" }
+func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := meterstatus.NewLimitedContext("u/0")

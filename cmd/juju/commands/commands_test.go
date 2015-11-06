@@ -54,9 +54,10 @@ func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
 }
 
 type stubCommand struct {
-	cmd.CommandBase
-	stub *testing.Stub
-	info *cmd.Info
+	envcmd.JujuCommandBase
+	stub    *testing.Stub
+	info    *cmd.Info
+	envName string
 }
 
 func (c *stubCommand) Info() *cmd.Info {
@@ -84,7 +85,14 @@ func (c *stubCommand) SetEnvName(name string) {
 	c.stub.AddCall("SetEnvName", name)
 	c.stub.NextErr() // pop one off
 
-	// Do nothing.
+	c.envName = name
+}
+
+func (c *stubCommand) EnvName() string {
+	c.stub.AddCall("EnvName")
+	c.stub.NextErr() // pop one off
+
+	return c.envName
 }
 
 type stubRegistry struct {
