@@ -105,7 +105,8 @@ func mungeIDSubQueryForMultiEnv(doc interface{}, envUUID string) (bson.D, error)
 		case "$in":
 			ids, ok := elem.Value.([]string)
 			if !ok {
-				return bDoc, errors.New("$in requires []string")
+				// TODO(ericsnow) Support other types? (e.g. []interface{})
+				continue
 			}
 			var fullIDs []string
 			for _, id := range ids {
