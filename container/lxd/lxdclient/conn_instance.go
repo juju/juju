@@ -19,11 +19,13 @@ import (
 // get handled in container/lxc/clonetemplate.go.
 
 func (client *Client) addInstance(spec InstanceSpec) error {
-	remote := ""
-	//remote := client.remote
-	//remote := spec.Remote
+	// TODO(ericsnow) Default to spec.ImageRemote (once it gets added).
+	imageRemote := ""
+	if imageRemote == "" {
+		imageRemote = client.remote
+	}
 	imageAlias := "ubuntu" // TODO(ericsnow) Do not hard-code.
-	//image := spec.Image
+	//imageAlias := spec.Image
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
 		profiles = &spec.Profiles
@@ -31,7 +33,7 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	resp, err := client.raw.Init(spec.Name, remote, imageAlias, profiles, spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -52,12 +54,14 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Only do this if it's a state server...
-	if err := client.exposeHostAPI(spec); err != nil {
-		if err := client.removeInstance(spec.Name); err != nil {
-			logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
+	if client.isLocal {
+		// TODO(ericsnow) Only do this if it's a state server...
+		if err := client.exposeHostAPI(spec); err != nil {
+			if err := client.removeInstance(spec.Name); err != nil {
+				logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
+			}
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
 	}
 
 	return nil

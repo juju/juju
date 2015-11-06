@@ -9,32 +9,33 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 
-	Stub   *gitjujutesting.Stub
+	Stub   *testing.Stub
 	Client *stubClient
+	Cert   *Cert
 }
 
-var _ = gc.Suite(&BaseSuite{})
-
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
-	s.Stub = &gitjujutesting.Stub{}
+	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
+	s.Cert = &Cert{
+		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
+		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
+	}
 }
 
 type stubClient struct {
-	stub *gitjujutesting.Stub
+	stub *testing.Stub
 
 	Instance   *shared.ContainerState
 	Instances  []shared.ContainerInfo
