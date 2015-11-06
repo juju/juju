@@ -84,7 +84,7 @@ func (c *loginCommand) Info() *cmd.Info {
 		// TODO(thumper): support user and address options
 		// Args: "<name> [<server address>[:<server port>]]"
 		Args:    "<name>",
-		Purpose: "login to a Juju System",
+		Purpose: "login to a Juju Controller",
 		Doc:     loginDoc,
 	}
 }
@@ -181,7 +181,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	defer apiState.Close()
 
 	// If we get to here, the credentials supplied were sufficient to connect
-	// to the Juju System and login. Now we cache the details.
+	// to the Juju Controller and login. Now we cache the details.
 	controllerInfo, err := c.cacheConnectionInfo(serverDetails, apiState)
 	if err != nil {
 		return errors.Trace(err)

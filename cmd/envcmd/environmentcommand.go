@@ -45,10 +45,10 @@ func GetDefaultEnvironment() (string, error) {
 	} else if currentEnv != "" {
 		return currentEnv, nil
 	}
-	if currentSystem, err := ReadCurrentController(); err != nil {
+	if currentController, err := ReadCurrentController(); err != nil {
 		return "", errors.Trace(err)
-	} else if currentSystem != "" {
-		return "", errors.Errorf("not operating on an environment, using system %q", currentSystem)
+	} else if currentController != "" {
+		return "", errors.Errorf("not operating on an environment, using controller %q", currentController)
 	}
 	envs, err := environs.ReadEnvirons("")
 	if environs.IsNoEnv(err) {

@@ -19,9 +19,9 @@ when bootstrapping is called a "controller".
 The "juju controller" command provides the commands to create, use, and destroy
 environments running withing a Juju controller.
 
-System commands also allow the user to connect to an existing controller using the
-"login" command, and to use an environment that already exists in the current
-controller through the "use-environment" command.
+Controller commands also allow the user to connect to an existing controller
+using the "login" command, and to use an environment that already exists in
+the current controller through the "use-environment" command.
 
 see also:
     juju help juju-controllers
