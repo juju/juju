@@ -1602,13 +1602,13 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 }
 
 func serviceByName(st *State, name string) (ServiceEntity, error) {
-	s, err := st.Service(name)
+	s, err := st.RemoteService(name)
 	if err == nil {
 		return s, nil
 	} else if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
-	return st.RemoteService(name)
+	return st.Service(name)
 }
 
 // endpoints returns all endpoints that could be intended by the
