@@ -331,6 +331,20 @@ func (s *EnvironSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *stat
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
+func (s *EnvironSuite) TestEnvironMode(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(env.Mode(), gc.Equals, state.EnvNormal)
+	c.Assert(env.SetMode(state.EnvFrozen), jc.ErrorIsNil)
+	c.Assert(env.Refresh(), jc.ErrorIsNil)
+	c.Assert(env.Mode(), gc.Equals, state.EnvFrozen)
+
+	c.Assert(env.SetMode(40), jc.ErrorIsNil)
+	c.Assert(env.Refresh(), jc.ErrorIsNil)
+	c.Assert(env.Mode().String(), gc.Equals, "invalid")
+}
+
 func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()

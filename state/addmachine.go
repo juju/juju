@@ -187,7 +187,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, ssOps...)
-	ops = append(ops, env.assertAliveOp())
+	ops = append(ops, env.assertAliveAndNormalOp())
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, errors.New("environment is no longer alive"))
 	}
@@ -201,7 +201,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	} else if env.Life() != Alive {
 		return nil, errors.New("environment is no longer alive")
 	}
-	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
+	ops = append([]txn.Op{env.assertAliveAndNormalOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
 		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
@@ -290,8 +290,10 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertEnvAliveOp(st.EnvironUUID()))
-	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps = append(prereqOps,
+		assertEnvAliveAndNormalOp(st.EnvironUUID()),
+		st.insertNewContainerRefOp(mdoc.Id),
+	)
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,

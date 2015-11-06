@@ -712,6 +712,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
+		assertEnvAliveAndNormalOp(s.st.EnvironUUID()),
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
 		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),

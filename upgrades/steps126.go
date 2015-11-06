@@ -41,5 +41,12 @@ func stateStepsFor126() []Step {
 				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			},
 		},
+		&upgradeStep{
+			description: "add the mode field to all environment docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvironMode(context.State())
+			},
+		},
 	}
 }
