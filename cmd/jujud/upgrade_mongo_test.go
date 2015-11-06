@@ -127,7 +127,7 @@ func (s *UpgradeMongoSuite) TestMongoRestore(c *gc.C) {
 	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{}, 1234, true, 100)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 1)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--port", "1234", "--host", "localhost", "--sslAllowInvalidCertificates", "100", "--batchSize", "100", "-u", "admin", "-p", "adminpass", "/fake/tmp/dir/migrateToaMigrationNamedump"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--port", "1234", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "-u", "admin", "-p", "adminpass", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoRestoreWithoutAdmin(c *gc.C) {
@@ -322,7 +322,7 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		{"mongo.DialInfo"},
 		{"mongo.StartService"},
 		{"peergrouper.InitiateMongoServer"},
-		{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "100", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
+		{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
 		{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "3.0/wiredTiger", "true"},
 		{"mongo.ReStartService"},
 	}

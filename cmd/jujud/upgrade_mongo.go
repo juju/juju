@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -41,6 +43,7 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		dialAndLogin:         dialAndLogin,
 		satisfyPrerequisites: satisfyPrerequisites,
 		createTempDir:        createTempDir,
+		discoverService:      service.DiscoverService,
 
 		mongoStart:                  mongo.StartService,
 		mongoStop:                   mongo.StopService,
@@ -55,6 +58,7 @@ type statFunc func(string) (os.FileInfo, error)
 type removeFunc func(string) error
 type mkdirFunc func(string, os.FileMode) error
 type createTempDirFunc func() (string, error)
+type discoverService func(string, common.Conf) (service.Service, error)
 
 type utilsRun func(command string, args ...string) (output string, err error)
 
@@ -94,6 +98,7 @@ type UpgradeMongoCommand struct {
 	dialAndLogin         dialAndLogger
 	satisfyPrerequisites requisitesSatisfier
 	createTempDir        createTempDirFunc
+	discoverService      discoverService
 
 	// mongo related utils.
 	mongoStart                  mongoService
@@ -148,6 +153,22 @@ func (u *UpgradeMongoCommand) run() error {
 	// If the version is not 2.4 we consider it already migrated.
 	if current := u.agentConfig.MongoVersion(); current != mongo.Mongo24 {
 		return nil
+	}
+
+	agentServiceName := u.agentConfig.Value(agent.AgentServiceName)
+	if agentServiceName == "" {
+		// For backwards compatibility, handle lack of AgentServiceName.
+		agentServiceName = os.Getenv("UPSTART_JOB")
+	}
+	if agentServiceName != "" {
+		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
+		if err != nil {
+			return errors.Annotate(err, "cannot determine juju service")
+		}
+		if err := svc.Stop(); err != nil {
+			return errors.Annotate(err, "cannot stop juju to begin migration")
+		}
+		defer svc.Start()
 	}
 
 	u.tmpDir, err = u.createTempDir()
@@ -587,7 +608,7 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 	}
 
 	if invalidSSL {
-		restoreParams = append(restoreParams, "--sslAllowInvalidCertificates", strconv.Itoa(batchSize))
+		restoreParams = append(restoreParams, "--sslAllowInvalidCertificates")
 	}
 	if batchSize > 0 {
 		restoreParams = append(restoreParams, "--batchSize", strconv.Itoa(batchSize))
