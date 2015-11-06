@@ -15,15 +15,20 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
+// TODO(ericsnow) Put these methods in their own struct
+// (a la clientServerMethods).
+
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
 
 func (client *Client) addInstance(spec InstanceSpec) error {
-	remote := ""
-	//remote := client.remote
-	//remote := spec.Remote
+	// TODO(ericsnow) Default to spec.ImageRemote (once it gets added).
+	imageRemote := ""
+	if imageRemote == "" {
+		imageRemote = client.remote
+	}
 	imageAlias := "ubuntu" // TODO(ericsnow) Do not hard-code.
-	//image := spec.Image
+	//imageAlias := spec.Image
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
 		profiles = &spec.Profiles
@@ -31,7 +36,7 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	resp, err := client.raw.Init(spec.Name, remote, imageAlias, profiles, spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -52,14 +57,6 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Only do this if it's a state server...
-	if err := client.exposeHostAPI(spec); err != nil {
-		if err := client.removeInstance(spec.Name); err != nil {
-			logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
-		}
-		return errors.Trace(err)
-	}
-
 	return nil
 }
 
@@ -71,31 +68,6 @@ func (client *Client) initInstanceConfig(spec InstanceSpec) error {
 			return errors.Trace(err)
 		}
 	}
-	return nil
-}
-
-func (client *Client) exposeHostAPI(spec InstanceSpec) error {
-	// lxc config device add juju-container lxdsock disk \
-	// source=/var/lib/lxd/unix.socket path=var/lib/lxd/unix.socket
-	const apiDevName = "lxdsock"
-	const devType = "disk"
-	const filename = "/var/lib/lxd/unix.socket"
-	props := []string{
-		// TODO(ericsnow) hard-coded, unix-centric...
-		"source=/var/lib/lxd/unix.socket",
-		"path=var/lib/lxd/unix.socket",
-	}
-	resp, err := client.raw.ContainerDeviceAdd(spec.Name, apiDevName, devType, props)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
-		// TODO(ericsnow) Handle different failures (from the async
-		// operation) differently?
-		return errors.Trace(err)
-	}
-
 	return nil
 }
 
@@ -189,47 +161,6 @@ func (client *Client) startInstance(spec InstanceSpec) error {
 	return nil
 }
 
-func (client *Client) fixSockfile(spec InstanceSpec) error {
-	const filename = "/var/lib/lxd/unix.socket"
-
-	//info, err := os.Stat(filename)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//gid := info.Sys().(*syscall.Stat_t).Gid
-
-	//cmd := []string{
-	//	"/usr/sbin/groupadd",
-	//	fmt.Sprintf("--gid=%d", gid),
-	//	"lxd",
-	//}
-	//if err := client.exec(spec, cmd); err != nil {
-	//	return errors.Trace(err)
-	//}
-
-	//cmd = []string{
-	//	"/usr/sbin/usermod",
-	//	"-a",
-	//	"-G", "lxd",
-	//	"root",
-	//}
-	//if err := client.exec(spec, cmd); err != nil {
-	//	return errors.Trace(err)
-	//}
-
-	// TODO(ericsnow) Instead of modifying the socket file, add the
-	// "lxd" group, ensure the GID matches the one on the host, and add
-	// the root user to that group.
-
-	// TODO(ericsnow) For now, ensure that your local unix.socket is 0666...
-	//if err := client.chmod(spec, filename, 0666); err != nil {
-	//	fmt.Println("---- ", err)
-	//	//return errors.Trace(err)
-	//}
-
-	return nil
-}
-
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the client.
 func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
@@ -241,11 +172,6 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 		if err := client.removeInstance(spec.Name); err != nil {
 			logger.Errorf("could not remove container %q after starting it failed", spec.Name)
 		}
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
-	if err := client.fixSockfile(spec); err != nil {
 		return nil, errors.Trace(err)
 	}
 

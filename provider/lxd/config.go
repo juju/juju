@@ -6,6 +6,8 @@
 package lxd
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -15,10 +17,14 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+// TODO(ericsnow) Support providing cert/key file.
+
 // The LXD-specific config keys.
 const (
-	cfgNamespace = "namespace"
-	cfgRemote    = "remote"
+	cfgNamespace  = "namespace"
+	cfgRemoteURL  = "remote-url"
+	cfgClientCert = "client-cert"
+	cfgClientKey  = "client-key"
 )
 
 // TODO(ericsnow) Use configSchema.ExampleYAML (once it is implemented)
@@ -36,10 +42,17 @@ lxd:
     #
     # namespace: lxd
 
-    # remote Identifies the LXD API server to use for managing
-    # containers, if any.
+    # remote-url is the URL to the LXD API server to use for managing
+    # containers, if any. If not specified then the locally running LXD
+    # server is used.
     #
-    # remote:
+    # remote-url:
+
+    # The cert and key the client should use to connect to the remote
+    # may also be provided. If not then they are auto-generated.
+    #
+    # client-cert:
+    # client-key:
 
 `[1:]
 
@@ -51,8 +64,18 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
-	cfgRemote: {
+	cfgRemoteURL: {
 		Description: `Identifies the LXD API server to use for managing containers, if any.`,
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
+	cfgClientKey: {
+		Description: `The client key used for connecting to a LXD host machine.`,
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
+	cfgClientCert: {
+		Description: `The client cert used for connecting to a LXD host machine.`,
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
@@ -63,8 +86,10 @@ var (
 	// (or if) environschema.Attr supports defaults.
 
 	configBaseDefaults = schema.Defaults{
-		cfgNamespace: "",
-		cfgRemote:    "",
+		cfgNamespace:  "",
+		cfgRemoteURL:  "",
+		cfgClientCert: "",
+		cfgClientKey:  "",
 	}
 
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
@@ -182,6 +207,16 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	// Build the config.
 	ecfg := newConfig(validCfg)
 
+	// Update to defaults set via client config.
+	clientCfg, err := ecfg.clientConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ecfg, err = ecfg.updateForClientConfig(clientCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Do final (more complex, provider-specific) validation.
 	if err := ecfg.validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -201,18 +236,79 @@ func (c *environConfig) namespace() string {
 	return raw.(string)
 }
 
-func (c *environConfig) remote() string {
-	raw := c.attrs[cfgRemote]
+func (c *environConfig) dirname() string {
+	// TODO(ericsnow) Put it under one of the juju/paths.*() directories.
+	return ""
+}
+
+func (c *environConfig) remoteURL() string {
+	raw := c.attrs[cfgRemoteURL]
+	return raw.(string)
+}
+
+func (c *environConfig) clientCert() string {
+	raw := c.attrs[cfgClientCert]
+	return raw.(string)
+}
+
+func (c *environConfig) clientKey() string {
+	raw := c.attrs[cfgClientKey]
 	return raw.(string)
 }
 
 // clientConfig builds a LXD Config based on the env config and returns it.
-func (c *environConfig) clientConfig() lxdclient.Config {
-	return lxdclient.Config{
-		Namespace: c.namespace(),
-		Remote:    c.remote(),
-		// TODO(ericsnow) Also set certs...
+func (c *environConfig) clientConfig() (lxdclient.Config, error) {
+	remote := lxdclient.Remote{
+		Name: "juju-remote",
+		Host: c.remoteURL(),
 	}
+	if c.clientCert() != "" {
+		certPEM := []byte(c.clientCert())
+		keyPEM := []byte(c.clientKey())
+		cert := lxdclient.NewCert(certPEM, keyPEM)
+		cert.Name = fmt.Sprintf("juju cert for env %q", c.Name())
+		remote.Cert = &cert
+	}
+
+	cfg := lxdclient.Config{
+		Namespace: c.namespace(),
+		Dirname:   lxdclient.ConfigPath("juju-" + c.namespace()),
+		Remote:    remote,
+	}
+	cfg, err := cfg.WithDefaults()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+	return cfg, nil
+}
+
+// TODO(ericsnow) Switch to a DI testing approach and eliminiate this var.
+var asNonLocal = lxdclient.Config.UsingTCPRemote
+
+func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
+	nonlocal, err := asNonLocal(clientCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	clientCfg = nonlocal
+
+	c.attrs[cfgNamespace] = clientCfg.Namespace
+
+	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
+
+	var cert lxdclient.Cert
+	if clientCfg.Remote.Cert != nil {
+		cert = *clientCfg.Remote.Cert
+	}
+	c.attrs[cfgClientCert] = string(cert.CertPEM)
+	c.attrs[cfgClientKey] = string(cert.KeyPEM)
+
+	// Apply the updates.
+	cfg, err := c.Config.Apply(c.attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newConfig(cfg), nil
 }
 
 // secret gathers the "secret" config values and returns them.
@@ -241,8 +337,20 @@ func (c environConfig) validate() error {
 		}
 	}
 
+	// If cert is provided then key must be (and vice versa).
+	if c.clientCert() == "" && c.clientKey() != "" {
+		return errors.Errorf("missing %s (got %s value %q)", cfgClientCert, cfgClientKey, c.clientKey())
+	}
+	if c.clientCert() != "" && c.clientKey() == "" {
+		return errors.Errorf("missing %s (got %s value %q)", cfgClientKey, cfgClientCert, c.clientCert())
+	}
+
 	// Check sanity of complex provider-specific fields.
-	if err := c.clientConfig().Validate(); err != nil {
+	cfg, err := c.clientConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := cfg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -270,21 +378,8 @@ func (c *environConfig) update(cfg *config.Config) error {
 	}
 
 	// Apply the updates.
+	// TODO(ericsnow) Should updates.Config be set in instead of cfg?
 	c.Config = cfg
 	c.attrs = cfg.UnknownAttrs()
 	return nil
-}
-
-// setRemoteFromHost sets the "remote" option to the address of the
-// host machine, as reachable by an LXD container. It also ensures that
-// the host's LXD is configured properly.
-func (c *environConfig) setRemoteFromHost() (*environConfig, error) {
-	updated, err := newValidConfig(c.Config, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(ericsnow) Do the work.
-
-	return updated, nil
 }

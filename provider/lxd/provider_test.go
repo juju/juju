@@ -79,10 +79,17 @@ lxd:
     #
     # namespace: lxd
 
-    # remote Identifies the LXD API server to use for managing
-    # containers, if any.
+    # remote-url is the URL to the LXD API server to use for managing
+    # containers, if any. If not specified then the locally running LXD
+    # server is used.
     #
-    # remote:
+    # remote-url:
+
+    # The cert and key the client should use to connect to the remote
+    # may also be provided. If not then they are auto-generated.
+    #
+    # client-cert:
+    # client-key:
 
 `[1:]
 	boilerplateConfig := s.provider.BoilerplateConfig()

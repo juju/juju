@@ -46,7 +46,14 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 }
 
 func newClient(ecfg *environConfig) (*lxdclient.Client, error) {
-	clientCfg := ecfg.clientConfig()
+	clientCfg, err := ecfg.clientConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := clientCfg.Write(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	client, err := lxdclient.Connect(clientCfg)
 	if err != nil {

@@ -12,38 +12,75 @@ import (
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
+	*serverConfigClient
+	*certClient
+
 	raw       rawClientWrapper
 	namespace string
+	remote    string
+	isLocal   bool
 }
 
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
 func Connect(cfg Config) (*Client, error) {
-	raw, err := newRawClient(cfg.Remote)
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(ericsnow) Call cfg.Write here if necessary?
+	remote := cfg.Remote.ID()
+
+	raw, err := newRawClient(remote, cfg.Dirname)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	conn := &Client{
+		serverConfigClient: &serverConfigClient{raw},
+		certClient:         &certClient{raw},
+
 		raw:       raw,
 		namespace: cfg.Namespace,
+		remote:    remote,
+		isLocal:   cfg.Remote.isLocal(),
 	}
 	return conn, nil
 }
 
-// TODO(ericsnow) Support passing auth info to newRawClient?
+func newRawClient(remote, configDir string) (*lxd.Client, error) {
+	logger.Debugf("loading LXD client config from %q", configDir)
 
-func newRawClient(remote string) (*lxd.Client, error) {
-	// TODO(ericsnow) Yuck! This write the config file to the current
-	// user's home directory...
+	// This will go away once LoadConfig takes a dirname argument.
+	origDirname := updateLXDVars(configDir)
+	defer updateLXDVars(origDirname)
+
 	cfg, err := lxd.LoadConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	logger.Debugf("using LXD remote %q", remote)
 	client, err := lxd.NewClient(cfg, remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return client, nil
+}
+
+func prepareRemote(cfg Config, newCert Cert) error {
+	client, err := Connect(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.AddCert(newCert); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
