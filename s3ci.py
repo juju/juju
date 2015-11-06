@@ -32,7 +32,8 @@ def parse_args(args=None):
         Download the package for this client machine from s3.
         Extract the package files.  Print the location of the juju client.
         """)
-    parser_get_juju_bin.add_argument('revision_build', type=int,
+    parser_get_juju_bin.add_argument(
+        'revision_build', type=int,
         help='The revision-build to get binaries from')
     parser_get_juju_bin.add_argument(
         'workspace', nargs='?', default='.',

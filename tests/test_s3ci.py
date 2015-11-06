@@ -1,6 +1,6 @@
 from argparse import Namespace
 from ConfigParser import NoOptionError
-import logging
+import errno
 import os
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
@@ -98,9 +98,10 @@ class TestGetS3Credentials(TestCase):
                     "No option 'secret_key' in section: 'default'"):
                 get_s3_credentials(temp_file.name)
 
-    def test_get_s3_credentials(self):
+    def test_get_s3_credentials_missing(self):
         with self.assertRaises(IOError) as exc:
-            get_s3_credentials('/dev/null/null')
+            get_s3_credentials('/asdf')
+        self.assertEqual(exc.exception.errno, errno.ENOENT)
 
 
 def mock_package_key(revision_build, build=27, distro_release=None):
