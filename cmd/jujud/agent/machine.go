@@ -100,7 +100,6 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
-	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -786,11 +785,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		addressUpdater := agent.APIHostPortsSetter{a}
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
 	})
-
-	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
-		return unitassigner.New(st.UnitAssigner()), nil
-	})
-
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
