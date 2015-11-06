@@ -149,6 +149,11 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 					c.Assert(cfg[j].Address, gc.Matches, rex)
 					expectResults.Results[i].Config[j].Address = cfg[j].Address
 				}
+				if strings.HasPrefix(expCfg.MACAddress, "regex:") {
+					rex := strings.TrimPrefix(expCfg.MACAddress, "regex:")
+					c.Assert(cfg[j].MACAddress, gc.Matches, rex)
+					expectResults.Results[i].Config[j].MACAddress = cfg[j].MACAddress
+				}
 			}
 		}
 		c.Assert(results, jc.DeepEquals, *expectResults)
@@ -170,9 +175,12 @@ func (s *prepareSuite) TestErrorWitnNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flags.
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
-	s.assertCall(c, args, &params.MachineNetworkConfigResults{},
-		`address allocation not supported`,
-	)
+	expectedError := `failed to allocate an address for "0/lxc/0": address allocation not supported`
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{
+			Error: apiservertesting.ServerError(expectedError),
+		}},
+	}, "")
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -407,9 +415,10 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	// Record each time allocateAddrTo, setAddrsTo, and setAddrState
 	// are called along with the addresses to verify the logs later.
 	var allocAttemptedAddrs, allocAddrsOK, setAddrs, releasedAddrs []string
-	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine) error {
-		c.Logf("allocateAddrTo called for address %q, machine %q", ip.String(), m)
+	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine, mac string) error {
+		c.Logf("allocateAddrTo called for address %q, machine %q, mac %q", ip.String(), m, mac)
 		c.Assert(m.Id(), gc.Equals, container.Id())
+		c.Assert(mac, gc.Matches, "([a-f0-9]{2}:){5}[a-f0-9]{2}")
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
 
 		// Succeed on every other call to give a chance to call
@@ -512,7 +521,7 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -594,7 +603,7 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -631,7 +640,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		VLANTag:          1,
-		MACAddress:       "aa:bb:cc:dd:ee:f1",
+		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
@@ -705,9 +714,12 @@ func (s *releaseSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flags.
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
-	s.assertCall(c, args, &params.ErrorResults{},
-		"address allocation not supported",
-	)
+	expectedError := `cannot mark addresses for removal for "machine-0": not a container`
+	s.assertCall(c, args, &params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservertesting.ServerError(expectedError),
+		}},
+	}, "")
 }
 
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
@@ -795,7 +807,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(containerId, "")
+		err = ipaddr.AllocateTo(containerId, "nic42", "aa:bb:cc:dd:ee:f0")
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
