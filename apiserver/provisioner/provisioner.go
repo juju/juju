@@ -841,6 +841,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 
+	logger.Tracef("checking if the environment supports releasing addresses")
 	netEnviron, err := p.maybeGetNetworkingEnviron()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -875,6 +876,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		}
 
 		if !environs.AddressAllocationEnabled() {
+			logger.Tracef("trying to release all addresses for container %q", container.Id())
 			// Even if the address allocation feature flag is not enabled, we
 			// might be running on MAAS 1.8+ with devices support, which we
 			// detected earlier when the container has starter and registered a
@@ -889,6 +891,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 				zeroMAC,
 				hostname,
 			)
+			logger.Tracef("ReleaseAddress for hostname %q returned: %v", hostname, err)
 			if err != nil && errors.IsNotSupported(err) {
 				// Not using MAAS 1.8+, just record the error.
 				result.Results[i].Error = common.ServerError(err)

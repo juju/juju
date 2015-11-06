@@ -1442,12 +1442,14 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	logger.Tracef("created device %q", device)
 	return device, nil
 }
 
 // fetchFullDevice fetches an existing device Id associated with a MAC address
 // and/or hostname, or returns an error if there is no device.
 func (environ *maasEnviron) fetchFullDevice(macAddress, hostname string) (map[string]gomaasapi.JSONObject, error) {
+	logger.Tracef("trying to fetch device with MAC %q and/or hostname %q", macAddress, hostname)
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
 	params := url.Values{}
@@ -1455,7 +1457,7 @@ func (environ *maasEnviron) fetchFullDevice(macAddress, hostname string) (map[st
 		params.Add("mac_address", macAddress)
 	}
 	if hostname != "" {
-		params.Add("hostname", macAddress)
+		params.Add("hostname", hostname)
 	}
 	result, err := devices.CallGet("list", params)
 	if err != nil {
@@ -1475,6 +1477,7 @@ func (environ *maasEnviron) fetchFullDevice(macAddress, hostname string) (map[st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Tracef("device found as %+v", resultMap)
 	return resultMap, nil
 }
 
@@ -1512,6 +1515,10 @@ func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instan
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) (err error) {
 
+	logger.Tracef(
+		"AllocateAddress for instId %q, subnet %q, addr %q, MAC %q, hostname %q",
+		instId, subnetId, addr, macAddress, hostname,
+	)
 	if !environs.AddressAllocationEnabled() {
 		if !environ.devicesAPISupported {
 			logger.Warningf(
@@ -1520,6 +1527,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 			)
 			return errors.NotSupportedf("address allocation")
 		}
+		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
 			return errors.Annotatef(
@@ -1583,14 +1591,16 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
 
+	logger.Tracef("ReleaseAddress for instId %q, addr %q, MAC %q, hostname %q", instId, addr, macAddress, hostname)
 	if !environs.AddressAllocationEnabled() {
 		if !environ.devicesAPISupported {
 			logger.Warningf(
 				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				instId, macAddress,
+				hostname, macAddress,
 			)
 			return errors.NotSupportedf("address allocation")
 		}
+		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
 		deviceID, err := environ.fetchDevice(macAddress, hostname)
 		if err != nil {
 			return errors.Annotatef(
@@ -1599,6 +1609,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 				hostname, macAddress,
 			)
 		}
+		logger.Tracef("deleting device %q for container %q", deviceID, hostname)
 		apiDevice := environ.getMAASClient().GetSubObject("devices").GetSubObject(deviceID)
 		if err := apiDevice.Delete(); err != nil {
 			return errors.Annotatef(
