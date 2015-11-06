@@ -1114,16 +1114,6 @@ func (st *State) AddService(
 	if ch == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	if exists, err := isNotDead(st, servicesC, name); err != nil {
-		return nil, errors.Trace(err)
-	} else if exists {
-		return nil, errLocalServiceExists
-	}
-	if _, err := st.RemoteService(name); err == nil {
-		return nil, errSameNameRemoteServiceExists
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
 	env, err := st.Environment()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1179,6 +1169,12 @@ func (st *State) AddService(
 			if err := checkEnvLife(st); err != nil {
 				return nil, errors.Trace(err)
 			}
+			// Ensure a local service with the same name doesn't exist.
+			if exists, err := isNotDead(st, servicesC, name); err != nil {
+				return nil, errors.Trace(err)
+			} else if exists {
+				return nil, errLocalServiceExists
+			}
 			// Ensure a remote service with the same name doesn't exist.
 			if remoteExists, err := isNotDead(st, remoteServicesC, name); err != nil {
 				return nil, errors.Trace(err)
@@ -1233,20 +1229,6 @@ func (st *State) AddService(
 			return nil, errors.Trace(err)
 		}
 		return svc, nil
-	}
-	if err != jujutxn.ErrExcessiveContention {
-		return nil, err
-	}
-	// Check the reason for failure - may be because of a name conflict.
-	if _, err = st.Service(name); err == nil {
-		return nil, errLocalServiceExists
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if _, err = st.RemoteService(name); err == nil {
-		return nil, errSameNameRemoteServiceExists
-	} else if !errors.IsNotFound(err) {
-		return nil, txn.ErrAborted
 	}
 	return nil, errors.Trace(err)
 }
@@ -1462,7 +1444,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	defer closer()
 
 	if !names.IsValidService(name) {
-		return nil, errors.Errorf("%q is not a valid service name", name)
+		return nil, errors.NotValidf("service name %q", name)
 	}
 	sdoc := &serviceDoc{}
 	err = services.FindId(name).One(sdoc)
@@ -1549,7 +1531,11 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
+				scopeOk, err := containerScopeOk(st, ep1, ep2)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if ep1.CanRelateTo(ep2) && scopeOk {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1594,23 +1580,25 @@ func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
 }
 
-func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
-		return true
+		return true, nil
 	}
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
-		svc, err := st.Service(ep.ServiceName)
-		// If local service not found, it may be a remote service
-		// and so container scoped relations are not allowed.
+		svc, err := serviceByName(st, ep.ServiceName)
 		if err != nil {
-			return false
+			return false, err
 		}
-		if svc.doc.Subordinate {
+		// Container scoped relations are not allowed for remote services.
+		if svc.IsRemote() {
+			return false, nil
+		}
+		if svc.(*Service).doc.Subordinate {
 			subordinateCount++
 		}
 	}
-	return subordinateCount >= 1
+	return subordinateCount >= 1, nil
 }
 
 func serviceByName(st *State, name string) (ServiceEntity, error) {
@@ -1797,7 +1785,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 
 func aliveService(st *State, name string) (ServiceEntity, error) {
 	svc1, err := serviceByName(st, name)
-	// Increment relation count for local service.
 	if errors.IsNotFound(err) {
 		return nil, errors.Errorf("service %q does not exist", name)
 	} else if err != nil {

@@ -23,33 +23,24 @@ var _ = gc.Suite(&remoteServiceSuite{})
 
 func (s *remoteServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	eps := []state.Endpoint{
+	eps := []charm.Relation{
 		{
-			ServiceName: "mysql",
-			Relation: charm.Relation{
-				Interface: "mysql",
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 		{
-			ServiceName: "mysql",
-			Relation: charm.Relation{
-				Interface: "mysql-root",
-				Name:      "db-admin",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 		{
-			ServiceName: "mysql",
-			Relation: charm.Relation{
-				Interface: "logging",
-				Name:      "logging",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	var err error
@@ -126,15 +117,12 @@ func (s *remoteServiceSuite) TestServiceRefresh(c *gc.C) {
 }
 
 func (s *remoteServiceSuite) TestAddRelationBothRemote(c *gc.C) {
-	wpep := []state.Endpoint{
+	wpep := []charm.Relation{
 		{
-			ServiceName: "wordpress",
-			Relation: charm.Relation{
-				Interface: "mysql",
-				Name:      "db",
-				Role:      charm.RoleRequirer,
-				Scope:     charm.ScopeGlobal,
-			},
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
 		},
 	}
 	_, err := s.State.AddRemoteService("wordpress", wpep)
@@ -150,6 +138,22 @@ func (s *remoteServiceSuite) TestInferEndpointsWrongScope(c *gc.C) {
 	s.AddTestingService(c, "logging", subCharm)
 	_, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *remoteServiceSuite) TestAddRemoteServiceErrors(c *gc.C) {
+	_, err := s.State.AddRemoteService("haha/borken", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "haha/borken": invalid name`)
+	_, err = s.State.RemoteService("haha/borken")
+	c.Assert(err, gc.ErrorMatches, `remote service name "haha/borken" not valid`)
+}
+
+func (s *remoteServiceSuite) TestAddRemoteService(c *gc.C) {
+	foo, err := s.State.AddRemoteService("foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foo.Name(), gc.Equals, "foo")
+	foo, err = s.State.RemoteService("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foo.Name(), gc.Equals, "foo")
 }
 
 func (s *remoteServiceSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
@@ -334,6 +338,16 @@ func (s *remoteServiceSuite) TestAllRemoteServices(c *gc.C) {
 	c.Assert(names[1], gc.Equals, "mysql")
 }
 
+func (s *remoteServiceSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+	// Check that services cannot be added if the environment is initially Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": environment is no longer alive`)
+}
+
 func (s *remoteServiceSuite) TestAddServiceSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
@@ -372,4 +386,18 @@ func (s *remoteServiceSuite) TestAddServiceRemoteAddedAfterInitial(c *gc.C) {
 	}).Check()
 	_, err := s.State.AddRemoteService("s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": remote service already exists`)
+}
+
+func (s *remoteServiceSuite) TestAddServiceEnvironDiesAfterInitial(c *gc.C) {
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a remote service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		env, err := s.State.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		err = env.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": environment is no longer alive`)
 }

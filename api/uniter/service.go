@@ -47,7 +47,6 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
 // the lifecycles of relations involving s.
-// TODO(wallyworld) - remove in Juju 2.0 as no longer used.
 func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{

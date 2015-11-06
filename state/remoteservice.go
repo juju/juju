@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -24,11 +25,20 @@ type RemoteService struct {
 
 // remoteServiceDoc represents the internal state of a remote service in MongoDB.
 type remoteServiceDoc struct {
-	DocID         string     `bson:"_id"`
-	Name          string     `bson:"name"`
-	Endpoints     []Endpoint `bson:"endpoints"`
-	Life          Life       `bson:"life"`
-	RelationCount int        `bson:"relationcount"`
+	DocID         string              `bson:"_id"`
+	Name          string              `bson:"name"`
+	Endpoints     []remoteEndpointDoc `bson:"endpoints"`
+	Life          Life                `bson:"life"`
+	RelationCount int                 `bson:"relationcount"`
+}
+
+// remoteEndpointDoc represents the internal state of a remote service endpoint in MongoDB.
+type remoteEndpointDoc struct {
+	Name      string              `bson:"name"`
+	Role      charm.RelationRole  `bson:"role"`
+	Interface string              `bson:"interface"`
+	Limit     int                 `bson:"limit"`
+	Scope     charm.RelationScope `bson:"scope"`
 }
 
 func newRemoteService(st *State, doc *remoteServiceDoc) *RemoteService {
@@ -176,7 +186,15 @@ func (s *RemoteService) removeOps(asserts bson.D) []txn.Op {
 func (s *RemoteService) Endpoints() ([]Endpoint, error) {
 	eps := make([]Endpoint, len(s.doc.Endpoints))
 	for i, ep := range s.doc.Endpoints {
-		eps[i] = ep
+		eps[i] = Endpoint{
+			ServiceName: s.Name(),
+			Relation: charm.Relation{
+				Name:      ep.Name,
+				Role:      ep.Role,
+				Interface: ep.Interface,
+				Limit:     ep.Limit,
+				Scope:     ep.Scope,
+			}}
 	}
 	sort.Sort(epSlice(eps))
 	return eps, nil
@@ -228,24 +246,14 @@ var (
 	errRemoteServiceExists        = errors.Errorf("remote service already exists")
 )
 
-// AddRemoteService creates a new remote service record, having the supplied endpoints,
+// AddRemoteService creates a new remote service record, having the supplied relation endpoints,
 // with the supplied name (which must be unique across all services, local and remote).
-func (st *State) AddRemoteService(name string, endpoints []Endpoint) (service *RemoteService, err error) {
+func (st *State) AddRemoteService(name string, endpoints []charm.Relation) (service *RemoteService, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add remote service %q", name)
 
 	// Sanity checks.
 	if !names.IsValidService(name) {
 		return nil, errors.Errorf("invalid name")
-	}
-	if exists, err := isNotDead(st, remoteServicesC, name); err != nil {
-		return nil, errors.Trace(err)
-	} else if exists {
-		return nil, errRemoteServiceExists
-	}
-	if _, err := st.Service(name); err == nil {
-		return nil, errSameNameLocalServiceExists
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
 	}
 	env, err := st.Environment()
 	if err != nil {
@@ -257,11 +265,21 @@ func (st *State) AddRemoteService(name string, endpoints []Endpoint) (service *R
 	serviceID := st.docID(name)
 	// Create the service addition operations.
 	svcDoc := &remoteServiceDoc{
-		DocID:     serviceID,
-		Name:      name,
-		Life:      Alive,
-		Endpoints: endpoints,
+		DocID: serviceID,
+		Name:  name,
+		Life:  Alive,
 	}
+	eps := make([]remoteEndpointDoc, len(endpoints))
+	for i, ep := range endpoints {
+		eps[i] = remoteEndpointDoc{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+	svcDoc.Endpoints = eps
 	svc := newRemoteService(st, svcDoc)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -276,6 +294,12 @@ func (st *State) AddRemoteService(name string, endpoints []Endpoint) (service *R
 				return nil, errors.Trace(err)
 			} else if localExists {
 				return nil, errSameNameLocalServiceExists
+			}
+			// Ensure a remote service with the same name doesn't exist.
+			if exists, err := isNotDead(st, remoteServicesC, name); err != nil {
+				return nil, errors.Trace(err)
+			} else if exists {
+				return nil, errRemoteServiceExists
 			}
 		}
 		ops := []txn.Op{
@@ -293,24 +317,10 @@ func (st *State) AddRemoteService(name string, endpoints []Endpoint) (service *R
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
-		return svc, nil
-	}
-	if err != jujutxn.ErrExcessiveContention {
-		return nil, err
-	}
-	// Check the reason for failure - may be because of a name conflict.
-	if _, err = st.RemoteService(name); err == nil {
-		return nil, errRemoteServiceExists
-	} else if !errors.IsNotFound(err) {
+	if err = st.run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err = st.Service(name); err == nil {
-		return nil, errSameNameLocalServiceExists
-	} else if !errors.IsNotFound(err) {
-		return nil, txn.ErrAborted
-	}
-	return nil, errors.Trace(err)
+	return svc, nil
 }
 
 // RemoteService returns a remote service state by name.
@@ -319,7 +329,7 @@ func (st *State) RemoteService(name string) (service *RemoteService, err error) 
 	defer closer()
 
 	if !names.IsValidService(name) {
-		return nil, errors.Errorf("%q is not a valid service name", name)
+		return nil, errors.NotValidf("remote service name %q", name)
 	}
 	sdoc := &remoteServiceDoc{}
 	err = services.FindId(name).One(sdoc)
