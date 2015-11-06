@@ -184,7 +184,6 @@ func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactor
 	} else {
 		f.facades[name] = versions{version: record}
 	}
-	logger.Tracef("Registered facade %q v%d", name, version)
 	return nil
 }
 

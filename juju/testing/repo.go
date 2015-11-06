@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // BaseRepoSuite sets up $JUJU_REPOSITORY to point to a local charm repository.
@@ -87,7 +86,6 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
-
 	units, err := svc.AllUnits()
 	c.Logf("Service units: %+v", units)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,30 +118,16 @@ func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
 	}
 	sort.Strings(expectUnitNames)
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		machines, err := s.State.AllMachines()
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, len(units))
+	unitNames := []string{}
+	for _, m := range machines {
+		mUnits, err := m.Units()
 		c.Assert(err, jc.ErrorIsNil)
-		if !a.HasNext() {
-			c.Assert(machines, gc.HasLen, len(units))
-		} else if len(machines) != len(units) {
-			continue
-		}
-
-		unitNames := []string{}
-		for _, m := range machines {
-			mUnits, err := m.Units()
-			c.Assert(err, jc.ErrorIsNil)
-			if !a.HasNext() {
-				c.Assert(mUnits, gc.HasLen, 1)
-			} else if len(mUnits) != 1 {
-				// not all units have been assigned to machines yet.
-				// wait a bit longer
-				continue
-			}
-			unitNames = append(unitNames, mUnits[0].Name())
-		}
-		sort.Strings(unitNames)
-		c.Assert(unitNames, gc.DeepEquals, expectUnitNames)
-		break
+		c.Assert(mUnits, gc.HasLen, 1)
+		unitNames = append(unitNames, mUnits[0].Name())
 	}
+	sort.Strings(unitNames)
+	c.Assert(unitNames, gc.DeepEquals, expectUnitNames)
 }

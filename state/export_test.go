@@ -128,7 +128,7 @@ func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, ow
 
 func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
+	service, err := st.AddService(name, owner.String(), ch, networks, storage)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -246,8 +246,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) string) error {
-	return mergeIds(st, changeset, updates, idconv)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -427,5 +427,3 @@ func MakeLogDoc(
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
-
-var ActionNotificationIdToActionId = actionNotificationIdToActionId

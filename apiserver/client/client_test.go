@@ -1605,7 +1605,6 @@ var _ = gc.Suite(&clientRepoSuite{})
 func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.baseSuite.SetUpSuite(c)
-
 }
 
 func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
@@ -1617,8 +1616,6 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.CharmStoreSuite.Session = s.baseSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
-
-	c.Assert(s.APIState, gc.NotNil)
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {
@@ -1791,20 +1788,12 @@ func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		units, err := service.AllUnits()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(units, gc.HasLen, 1)
-
-		mid, err := units[0].AssignedMachineId()
-		if !a.HasNext() {
-			c.Assert(err, jc.ErrorIsNil)
-		} else if err != nil {
-			continue // we'll retry
-		}
-		c.Assert(mid, gc.Equals, machine.Id())
-		break
-	}
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {

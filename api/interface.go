@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
-	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
@@ -183,5 +182,4 @@ type Connection interface {
 	Cleaner() *cleaner.API
 	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
-	UnitAssigner() unitassigner.API
 }
