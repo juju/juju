@@ -2500,7 +2500,7 @@ func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("10.0.0..2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempting to set the addresses of a dead machine will fail, so we
@@ -2527,7 +2527,7 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 }
 
@@ -2541,14 +2541,14 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 
 	err = AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 }
 

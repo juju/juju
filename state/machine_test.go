@@ -2141,9 +2141,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewAddress("10.0.0.2"), network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
