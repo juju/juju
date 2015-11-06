@@ -67,11 +67,10 @@ func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", remote)
 	client, err := lxdNewClient(cfg, remote)
 	if err != nil {
-		if remote == "" {
+		if remote == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
 	}
-
 	return client, nil
 }
