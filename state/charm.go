@@ -47,10 +47,11 @@ type charmDoc struct {
 }
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
-// charm data.
-func insertCharmOps(
-	st *State, ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string,
-) ([]txn.Op, error) {
+// charm data. If curl is nil, an error will be returned.
+func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) ([]txn.Op, error) {
+	if curl == nil {
+		return nil, errors.New("*charm.URL was nil")
+	}
 	return insertAnyCharmOps(&charmDoc{
 		DocID:        curl.String(),
 		URL:          curl,
@@ -66,8 +67,11 @@ func insertCharmOps(
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
 // charm document referencing a store charm that is not yet directly accessible
-// within the environment.
+// within the environment. If curl is nil, an error will be returned.
 func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+	if curl == nil {
+		return nil, errors.New("*charm.URL was nil")
+	}
 	return insertAnyCharmOps(&charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
@@ -78,7 +82,11 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 
 // insertPendingCharmOps returns the txn operations necessary to insert a charm
 // document referencing a charm that has yet to be uploaded to the environment.
+// If curl is nil, an error will be returned.
 func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+	if curl == nil {
+		return nil, errors.New("*charm.URL was nil")
+	}
 	return insertAnyCharmOps(&charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
