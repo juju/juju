@@ -7,7 +7,6 @@ package lxd_test
 
 import (
 	"fmt"
-	"os"
 
 	jc "github.com/juju/testing/checkers"
 	lxdlib "github.com/lxc/lxd"
@@ -62,8 +61,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
-		Filename:  "config.yml",
+		Dirname:   lxdlib.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "",
@@ -86,8 +84,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
-		Filename:  "config.yml",
+		Dirname:   lxdlib.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "10.0.0.1",
