@@ -6,6 +6,7 @@ import hashlib
 import os
 import sys
 
+from build_package import juju_series
 from generate_simplestreams import json_dump
 
 
@@ -15,10 +16,12 @@ def parse_args():
     ubuntu = parsers.add_parser('ubuntu')
     ubuntu.add_argument('release')
     ubuntu.add_argument('series')
-    ubuntu.add_argument('arch')
+    living_ubuntu = parsers.add_parser('living-ubuntu')
+    for subparser in [ubuntu, living_ubuntu]:
+        subparser.add_argument('arch')
     windows = parsers.add_parser('windows')
     centos = parsers.add_parser('centos')
-    for subparser in [ubuntu, windows, centos]:
+    for subparser in [ubuntu, living_ubuntu, windows, centos]:
         subparser.add_argument('version')
         subparser.add_argument('revision_build')
         subparser.add_argument('tarfile')
@@ -45,6 +48,15 @@ class StanzaWriter:
         return cls(
             [(release, series)], arch, version, revision_build, tarfile,
             filename)
+
+    @classmethod
+    def for_living_ubuntu(cls, arch, version, revision_build, tarfile):
+        filename = 'revision-build-ubuntu-{}.json'.format(arch)
+        releases = [
+            (juju_series.get_version(name), name) for name
+            in juju_series.get_living_names()]
+        return cls(
+            releases, arch, version, revision_build, tarfile, filename)
 
     @classmethod
     def for_windows(cls, version, revision_build, tarfile):
@@ -104,6 +116,8 @@ def main():
     del kwargs['command']
     if args.command == 'ubuntu':
         writer = StanzaWriter.for_ubuntu(**kwargs)
+    if args.command == 'living-ubuntu':
+        writer = StanzaWriter.for_living_ubuntu(**kwargs)
     elif args.command == 'windows':
         writer = StanzaWriter.for_windows(**kwargs)
     elif args.command == 'centos':
