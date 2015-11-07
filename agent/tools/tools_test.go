@@ -12,12 +12,12 @@ import (
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/testing"
 	coretest "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type ToolsSuite struct {

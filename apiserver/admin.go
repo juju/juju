@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/version"
 )
 
 type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
@@ -168,7 +168,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		ControllerTag: environ.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
-		ServerVersion: version.Current.String(),
+		ServerVersion: jujuversion.Current.String(),
 	}
 
 	// For sufficiently modern login versions, stop serving the

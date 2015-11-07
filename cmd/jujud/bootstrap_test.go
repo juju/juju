@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -42,6 +43,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -53,7 +55,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var _ = configstore.Default
@@ -89,7 +90,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 
@@ -114,7 +115,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -165,7 +166,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
 		Environment:       testing.EnvironmentTag,
@@ -585,7 +586,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
 		Version: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		},
@@ -838,7 +839,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     version.Current.String(),
+			"agent-version":     jujuversion.Current.String(),
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")

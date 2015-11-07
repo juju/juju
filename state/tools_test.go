@@ -12,13 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type tooler interface {

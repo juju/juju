@@ -8,6 +8,7 @@ import (
 
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type environInstanceSuite struct {

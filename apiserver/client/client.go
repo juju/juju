@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -926,7 +926,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	return params.AgentVersionResult{Version: version.Current}, nil
+	return params.AgentVersionResult{Version: jujuversion.Current}, nil
 }
 
 // EnvironmentGet implements the server-side part of the

@@ -15,13 +15,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	jujuseries "github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -80,10 +81,10 @@ func SyncTools(syncContext *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
-		syncContext.MajorVersion = version.Current.Major
+		syncContext.MajorVersion = jujuversion.Current.Major
 		syncContext.MinorVersion = -1
 		if !syncContext.AllVersions {
-			syncContext.MinorVersion = version.Current.Minor
+			syncContext.MinorVersion = jujuversion.Current.Minor
 		}
 	}
 
@@ -93,7 +94,7 @@ func SyncTools(syncContext *SyncContext) error {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
 		toolsDir = envtools.LegacyReleaseDirectory
-		syncContext.Stream = envtools.PreferredStream(&version.Current, false, syncContext.Stream)
+		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, syncContext.Stream)
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},

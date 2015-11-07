@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"launchpad.net/tomb"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -23,11 +24,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -624,7 +625,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current,
+			jujuversion.Current,
 			pInfo.Series,
 			arch,
 		)

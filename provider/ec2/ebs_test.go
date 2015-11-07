@@ -23,10 +23,10 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type storageSuite struct {
@@ -77,7 +77,7 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.BaseSuite.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.BaseSuite.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
 	s.BaseSuite.SetUpTest(c)

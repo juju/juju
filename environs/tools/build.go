@@ -15,8 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/version"
+
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in

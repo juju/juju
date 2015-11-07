@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/feature"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
 )
 
 var maybeSystemd = service.InitSystemSystemd

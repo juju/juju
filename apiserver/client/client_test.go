@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -38,7 +40,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 type Killer interface {
@@ -3424,7 +3425,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
-	s.PatchValue(&version.Current, current)
+	s.PatchValue(&jujuversion.Current, current)
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)

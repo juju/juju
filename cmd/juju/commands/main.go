@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
@@ -30,9 +31,9 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuversion"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -258,7 +259,7 @@ type versionDeprecation struct {
 // If the current version is after the deprecate version number,
 // the command is deprecated and the replacement should be used.
 func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Compare(v.deprecate) > 0 {
+	if jujuversion.Current.Compare(v.deprecate) > 0 {
 		return true, v.replacement
 	}
 	return false, ""
@@ -268,7 +269,7 @@ func (v *versionDeprecation) Deprecated() (bool, string) {
 // If the current version is after the obsolete version number,
 // the command is obsolete and shouldn't be registered.
 func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Compare(v.obsolete) > 0
+	return jujuversion.Current.Compare(v.obsolete) > 0
 }
 
 func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {

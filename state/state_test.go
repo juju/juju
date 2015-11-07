@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -2881,7 +2881,7 @@ func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	cur := version.Current
+	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForEnvironConfigChanges()
@@ -3681,7 +3681,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
-	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
@@ -3697,15 +3697,15 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetEnvironAgentVersion(version.Current)
+	err = otherSt.SetEnvironAgentVersion(jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String())
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
 		higher.Number,
-		version.Current,
+		jujuversion.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }

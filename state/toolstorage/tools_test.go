@@ -18,17 +18,17 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&ToolsSuite{})
 var current = version.Binary{
-	Number: version.Current,
+	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
 	Series: series.HostSeries(),
 }

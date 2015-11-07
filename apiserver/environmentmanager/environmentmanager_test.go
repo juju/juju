@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuversion"
 	// Register the providers for the field check test
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -25,7 +26,6 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type envManagerBaseSuite struct {
@@ -270,7 +270,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 func (s *envManagerSuite) TestCreateEnvironmentSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
-	args := s.createArgsForVersion(c, admin, version.Current.String())
+	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
 	_, err := s.envmanager.CreateEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -279,10 +279,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 
-	bigger := version.Current
+	bigger := jujuversion.Current
 	bigger.Minor += 1
 
-	smaller := version.Current
+	smaller := jujuversion.Current
 	smaller.Minor -= 1
 
 	for i, test := range []struct {

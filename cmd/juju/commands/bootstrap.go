@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
@@ -28,9 +29,9 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
@@ -155,7 +156,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.NoAutoUpgrade {
-		vers := version.Current
+		vers := jujuversion.Current
 		c.AgentVersion = &vers
 	} else if c.AgentVersionParam != "" {
 		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
@@ -166,7 +167,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return err
 		}
 	}
-	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
 		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 	return cmd.CheckEmpty(args)

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -36,7 +38,6 @@ import (
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -431,10 +432,10 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
+	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsStateServer() {
 		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
 			newVersion.String(),
-			version.Current,
+			jujuversion.Current,
 		)
 	}
 
@@ -825,8 +826,8 @@ type hasMeta interface {
 func validateCharmVersion(ch hasMeta) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != nil {
-		if minver.Compare(version.Current) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current)
+		if minver.Compare(jujuversion.Current) > 0 {
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
 		}
 	}
 	return nil

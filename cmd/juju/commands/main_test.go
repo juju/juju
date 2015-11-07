@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -26,9 +27,9 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuversion"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type MainSuite struct {
@@ -150,7 +151,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"version"},
 		code:    0,
 		out: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
@@ -485,19 +486,19 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 	check := twoDotOhDeprecation("the replacement")
 
 	// first check pre-2.0
-	s.PatchValue(&version.Current, version.MustParse("1.26.4"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.26.4"))
 	deprecated, replacement := check.Deprecated()
 	c.Check(deprecated, jc.IsFalse)
 	c.Check(replacement, gc.Equals, "")
 	c.Check(check.Obsolete(), jc.IsFalse)
 
-	s.PatchValue(&version.Current, version.MustParse("2.0-alpha1"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.0-alpha1"))
 	deprecated, replacement = check.Deprecated()
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
 	c.Check(check.Obsolete(), jc.IsFalse)
 
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("3.0-alpha1"))
 	deprecated, replacement = check.Deprecated()
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
@@ -524,7 +525,7 @@ var obsoleteCommandNames = []string{
 
 func (s *MainSuite) TestObsoleteRegistration(c *gc.C) {
 	var commands commands
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("3.0-alpha1"))
 	registerCommands(&commands, testing.Context(c))
 
 	cmdSet := set.NewStrings(obsoleteCommandNames...)

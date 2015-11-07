@@ -14,14 +14,15 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // retryAfter returns a channel that receives a value
@@ -123,7 +124,7 @@ func closeChannel(ch chan struct{}) {
 func (u *Upgrader) loop() error {
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the state server in communicating the desired version below).
-	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(version.Current)); err != nil {
+	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
@@ -159,10 +160,10 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion == version.Current {
+		if wantVersion == jujuversion.Current {
 			closeChannel(u.agentUpgradeComplete)
 			continue
-		} else if !allowedTargetVersion(u.origAgentVersion, version.Current,
+		} else if !allowedTargetVersion(u.origAgentVersion, jujuversion.Current,
 			u.areUpgradeStepsRunning(), wantVersion) {
 			// See also bug #1299802 where when upgrading from
 			// 1.16 to 1.18 there is a race condition that can
@@ -170,11 +171,11 @@ func (u *Upgrader) loop() error {
 			// downgrade when its associate machine agent has not
 			// finished upgrading.
 			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
-				wantVersion, version.Current)
+				wantVersion, jujuversion.Current)
 			closeChannel(u.agentUpgradeComplete)
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)
+		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion)
@@ -218,7 +219,7 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 
 func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		OldTools:  toBinaryVersion(version.Current),
+		OldTools:  toBinaryVersion(jujuversion.Current),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

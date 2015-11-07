@@ -6,7 +6,7 @@ package toolstorage
 import (
 	"io"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // Metadata describes a Juju tools tarball.

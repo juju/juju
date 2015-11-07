@@ -5,8 +5,8 @@ package environment
 
 import (
 	"github.com/juju/errors"
-
 	"github.com/juju/loggo"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.environment")

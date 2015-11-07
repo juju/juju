@@ -11,11 +11,11 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
-	"github.com/juju/juju/version"
 )
 
 // Stub stubs out the external functions used in the service package.

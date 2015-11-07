@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -22,8 +23,8 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 func newUpgradeJujuCommand() cmd.Command {
@@ -105,7 +106,7 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 		if err != nil {
 			return err
 		}
-		if vers.Major != version.Current.Major {
+		if vers.Major != jujuversion.Current.Major {
 			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
 		}
 		if c.UploadTools && vers.Build != 0 {
@@ -256,7 +257,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	if c.Version == agent {
 		return nil, errUpToDate
 	}
-	clientVersion := version.Current
+	clientVersion := jujuversion.Current
 	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err
@@ -304,7 +305,7 @@ type upgradeContext struct {
 // with the ones just uploaded.
 func (context *upgradeContext) uploadTools() (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
-	// version.Current matches whatever source happens to be built. The
+	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
 	//  1) compile jujud from $GOPATH into some build dir
 	//  2) get actual version with `jujud version`

@@ -7,18 +7,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/wrench"
 )
@@ -84,12 +85,12 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", version.Current)
+				"have already been run.", jujuversion.Current)
 			close(c.UpgradeComplete)
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(version.Current)
+			agentConfig.SetUpgradedToVersion(jujuversion.Current)
 		}
 		return nil
 	})
@@ -144,7 +145,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	c.agentConfig = c.agent.CurrentConfig()
 
 	c.fromVersion = c.agentConfig.UpgradedToVersion()
-	c.toVersion = version.Current
+	c.toVersion = jujuversion.Current
 	if c.fromVersion == c.toVersion {
 		logger.Infof("upgrade to %v already completed.", c.toVersion)
 		close(c.UpgradeComplete)
