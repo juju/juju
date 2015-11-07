@@ -81,35 +81,68 @@ func (s *CatacombSuite) TestKillNonNilDoesNotOverwriteNonNil(c *gc.C) {
 	s.assertDoneError(c, first)
 }
 
+func (s *CatacombSuite) TestAliveErrDyingDifferent(c *gc.C) {
+	notDying := s.catacomb.ErrDying()
+	c.Check(notDying, gc.ErrorMatches, "bad catacomb ErrDying: still alive")
+
+	s.catacomb.Kill(nil)
+	dying := s.catacomb.ErrDying()
+	c.Check(dying, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ is dying")
+}
+
+func (s *CatacombSuite) TestKillAliveErrDying(c *gc.C) {
+	notDying := s.catacomb.ErrDying()
+	s.catacomb.Kill(notDying)
+	s.assertDoneError(c, notDying)
+}
+
 func (s *CatacombSuite) TestKillErrDyingDoesNotOverwriteNil(c *gc.C) {
 	s.catacomb.Kill(nil)
-	for _, err := range errDyingVariants {
-		s.catacomb.Kill(err)
-	}
+	s.catacomb.Kill(s.catacomb.ErrDying())
 	s.assertDoneError(c, nil)
 }
 
 func (s *CatacombSuite) TestKillErrDyingDoesNotOverwriteNonNil(c *gc.C) {
 	first := errors.New("FRIST!")
 	s.catacomb.Kill(first)
-	for _, err := range errDyingVariants {
-		s.catacomb.Kill(err)
-	}
+	s.catacomb.Kill(s.catacomb.ErrDying())
 	s.assertDoneError(c, first)
 }
 
-func (s *CatacombSuite) TestKillErrDyingFatalWhenAlive(c *gc.C) {
-	for i, err := range errDyingVariants {
-		c.Logf("test %d", i)
-		f := func() {
-			s.catacomb.Kill(err)
-		}
-		c.Check(f, gc.PanicMatches, "tomb: Kill with ErrDying while still alive")
-	}
+func (s *CatacombSuite) TestKillCauseErrDyingDoesNotOverwriteNil(c *gc.C) {
+	s.catacomb.Kill(nil)
+	disguised := errors.Annotatef(s.catacomb.ErrDying(), "disguised")
+	s.catacomb.Kill(disguised)
+	s.assertDoneError(c, nil)
+}
 
-	// the attempts panicked, but shouldn't have affected the catacomb itself.
-	s.assertNotDying(c)
-	s.assertNotDead(c)
+func (s *CatacombSuite) TestKillCauseErrDyingDoesNotOverwriteNonNil(c *gc.C) {
+	first := errors.New("FRIST!")
+	s.catacomb.Kill(first)
+	disguised := errors.Annotatef(s.catacomb.ErrDying(), "disguised")
+	s.catacomb.Kill(disguised)
+	s.assertDoneError(c, first)
+}
+
+func (s *CatacombSuite) TestKillTombErrDying(c *gc.C) {
+	s.catacomb.Kill(tomb.ErrDying)
+	s.catacomb.Done()
+	err := s.catacomb.Wait()
+	c.Check(err, gc.ErrorMatches, "bad catacomb Kill: tomb.ErrDying")
+}
+
+func (s *CatacombSuite) TestKillErrDyingFromOtherCatacomb(c *gc.C) {
+	other := catacomb.New()
+	other.Kill(nil)
+	defer func() {
+		other.Done()
+		other.Wait()
+	}()
+
+	s.catacomb.Kill(other.ErrDying())
+	s.catacomb.Done()
+	err := s.catacomb.Wait()
+	c.Check(err, gc.ErrorMatches, "bad catacomb Kill: other catacomb's ErrDying")
 }
 
 func (s *CatacombSuite) TestKillStopsAddedWorker(c *gc.C) {
@@ -146,7 +179,7 @@ func (s *CatacombSuite) TestAddWhenDyingStopsWorker(c *gc.C) {
 
 	s.catacomb.Kill(nil)
 	err := s.catacomb.Add(w)
-	c.Assert(err, gc.ErrorMatches, "catacomb not alive")
+	c.Assert(err, gc.Equals, s.catacomb.ErrDying())
 	w.assertDead(c)
 }
 
@@ -311,11 +344,4 @@ func (ew *errorWorker) assertDead(c *gc.C) {
 	default:
 		c.Fatalf("not yet dead")
 	}
-}
-
-var errDyingVariants = []error{
-	tomb.ErrDying,
-	errors.Annotatef(tomb.ErrDying, "disguised"),
-	catacomb.ErrDying,
-	errors.Annotatef(catacomb.ErrDying, "disguised"),
 }
