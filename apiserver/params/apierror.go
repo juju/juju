@@ -40,11 +40,11 @@ type ErrorInfo struct {
 	MacaroonPath string `json:",omitempty"`
 }
 
-func (e *Error) Error() string {
+func (e Error) Error() string {
 	return e.Message
 }
 
-func (e *Error) ErrorCode() string {
+func (e Error) ErrorCode() string {
 	return e.Code
 }
 

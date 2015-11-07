@@ -53,6 +53,12 @@ func (paths Paths) GetMetricsSpoolDir() string {
 	return paths.State.MetricsSpoolDir
 }
 
+// ComponentDir returns the filesystem path to the directory
+// containing all data files for a component.
+func (paths Paths) ComponentDir(name string) string {
+	return filepath.Join(paths.State.BaseDir, name)
+}
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 
@@ -68,6 +74,9 @@ type RuntimePaths struct {
 // StatePaths represents the set of paths that hold persistent local state for
 // the uniter.
 type StatePaths struct {
+
+	// BaseDir is the unit agent's base directory.
+	BaseDir string
 
 	// CharmDir is the directory to which the charm the uniter runs is deployed.
 	CharmDir string
@@ -136,6 +145,7 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string) Paths 
 			JujucServerSocket: socket("agent", true),
 		},
 		State: StatePaths{
+			BaseDir:         baseDir,
 			CharmDir:        join(baseDir, "charm"),
 			OperationsFile:  join(stateDir, "uniter"),
 			RelationsDir:    join(stateDir, "relations"),

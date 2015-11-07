@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/state"
@@ -116,6 +117,41 @@ func wrapNewFacade(newFunc interface{}) (FacadeFactory, reflect.Type, error) {
 		return out[0].Interface(), nil
 	}
 	return wrapped, funcValue.Type().Out(0), nil
+}
+
+// NewHookContextFacadeFn specifies the function signature that can be
+// used to register a hook context facade.
+type NewHookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
+
+// RegisterHookContextFacade registers facades for use within a hook
+// context. This function handles the translation from a
+// hook-context-facade to a standard facade so the caller's factory
+// method can elide unnecessary arguments. This function also handles
+// any necessary authorization for the client.
+func RegisterHookContextFacade(name string, version int, newHookContextFacade NewHookContextFacadeFn, facadeType reflect.Type) {
+
+	newFacade := func(st *state.State, _ *Resources, authorizer Authorizer, _ string) (interface{}, error) {
+
+		if !authorizer.AuthUnitAgent() {
+			return nil, ErrPerm
+		}
+
+		// Verify that the unit's ID matches a unit that we know
+		// about.
+		tag := authorizer.GetAuthTag()
+		if _, ok := tag.(names.UnitTag); !ok {
+			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
+		}
+
+		unit, err := st.Unit(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return newHookContextFacade(st, unit)
+	}
+
+	RegisterFacade(name, version, newFacade, facadeType)
 }
 
 // RegisterStandardFacade registers a factory function for a normal New* style

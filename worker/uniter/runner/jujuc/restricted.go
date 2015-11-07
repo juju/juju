@@ -127,3 +127,8 @@ func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedC
 
 // SetActionFailed implements jujuc.Context.
 func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext }
+
+// Component implements jujc.Context.
+func (*RestrictedContext) Component(string) (ContextComponent, error) {
+	return nil, ErrRestrictedContext
+}

@@ -4,9 +4,9 @@
 package worker
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/tomb"
 )
 
@@ -274,4 +274,45 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 	}
 	logger.Infof("stopped %q, err: %v", id, err)
 	runner.donec <- doneInfo{id, err}
+}
+
+// Workers is an order-preserving registry of worker factory functions.
+type Workers struct {
+	ids   []string
+	funcs map[string]func() (Worker, error)
+}
+
+// NewWorkers returns a new Workers.
+func NewWorkers() Workers {
+	return Workers{
+		funcs: make(map[string]func() (Worker, error)),
+	}
+}
+
+// IDs returns the list of registered worker IDs.
+func (r Workers) IDs() []string {
+	ids := make([]string, len(r.ids))
+	copy(ids, r.ids)
+	return ids
+}
+
+// Add registered the factory function for the identified worker.
+func (r *Workers) Add(id string, newWorker func() (Worker, error)) error {
+	if _, ok := r.funcs[id]; ok {
+		return errors.Errorf("worker %q already registered", id)
+	}
+	r.funcs[id] = newWorker
+	r.ids = append(r.ids, id)
+	return nil
+}
+
+// Start starts all the registered workers under the given runner.
+func (r *Workers) Start(runner Runner) error {
+	for _, id := range r.ids {
+		newWorker := r.funcs[id]
+		if err := runner.StartWorker(id, newWorker); err != nil {
+			return errors.Annotatef(err, "worker %q failed to start", id)
+		}
+	}
+	return nil
 }
