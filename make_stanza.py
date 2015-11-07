@@ -16,9 +16,11 @@ def parse_args():
     ubuntu.add_argument('release')
     ubuntu.add_argument('series')
     ubuntu.add_argument('arch')
-    ubuntu.add_argument('version')
-    ubuntu.add_argument('revision_build')
-    ubuntu.add_argument('tarfile')
+    windows = parsers.add_parser('windows')
+    for subparser in [ubuntu, windows]:
+        subparser.add_argument('version')
+        subparser.add_argument('revision_build')
+        subparser.add_argument('tarfile')
     return parser.parse_args()
 
 
@@ -42,6 +44,17 @@ class StanzaWriter:
         return cls(
             [(release, series)], arch, version, revision_build, tarfile,
             filename)
+
+    @classmethod
+    def for_windows(cls, version, revision_build, tarfile):
+        filename = 'revision-build-{}-windows.json'.format(
+            revision_build)
+        releases = [(r, r) for r in [
+            'win2012', 'win2012hv', 'win2012hvr2', 'win2012r2', 'win7',
+            'win81', 'win8',
+            ]]
+        return cls(releases, 'amd64', version, revision_build, tarfile,
+                   filename)
 
     def write_stanzas(self):
         path = 'agent/revision-build-{}/{}'.format(
@@ -84,6 +97,8 @@ def main():
     del kwargs['command']
     if args.command == 'ubuntu':
         writer = StanzaWriter.for_ubuntu(**kwargs)
+    if args.command == 'windows':
+        writer = StanzaWriter.for_windows(**kwargs)
     writer.write_stanzas()
 
 if __name__ == '__main__':
