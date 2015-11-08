@@ -1305,15 +1305,17 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 	assertPassword(newPassword, true)
 }
 
-func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
 	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
 
-	// juju-run symlink should have been created
-	_, err := os.Stat(filepath.Join(a.rootDir, JujuRun))
-	c.Assert(err, jc.ErrorIsNil)
+	// Symlinks should have been created
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		_, err := os.Stat(filepath.Join(a.rootDir, link))
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
+	}
 
 	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
@@ -1329,19 +1331,25 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	a := s.newAgent(c, stm)
 	defer a.Stop()
 
-	// Pre-create the juju-run symlink
+	// Pre-create the symlinks, but pointing to the incorrect location.
+	links := []string{jujuRun, jujuDumpLogs}
 	a.rootDir = c.MkDir()
-	jujuRunLink := filepath.Join(a.rootDir, JujuRun)
-	c.Assert(os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755)), jc.ErrorIsNil)
-	c.Assert(symlink.New("/nowhere/special", jujuRunLink), jc.ErrorIsNil)
+	for _, link := range links {
+		fullLink := filepath.Join(a.rootDir, link)
+		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
+		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
+	}
 
 	// Start the agent and wait for it be running.
 	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
 
 	// juju-run symlink should have been recreated.
-	link, err := symlink.Read(jujuRunLink)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
+	for _, link := range links {
+		fullLink := filepath.Join(a.rootDir, link)
+		linkTarget, err := symlink.Read(fullLink)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
+	}
 
 	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
@@ -1408,9 +1416,14 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
-	// juju-run should have been removed on termination
-	_, err = os.Stat(filepath.Join(a.rootDir, JujuRun))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// juju-run and juju-dumplogs symlinks should have been removed on
+	// termination.
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		_, err = os.Stat(filepath.Join(a.rootDir, link))
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
+	}
+
 	// data-dir should have been removed on termination
 	_, err = os.Stat(ac.DataDir())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)

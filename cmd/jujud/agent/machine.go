@@ -107,9 +107,10 @@ import (
 const bootstrapMachineId = "0"
 
 var (
-	logger     = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	logger       = loggo.GetLogger("juju.cmd.jujud")
+	retryDelay   = 3 * time.Second
+	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -449,8 +450,8 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	network.InitializeFromConfig(agentConfig)
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
-	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
-		return fmt.Errorf("cannot create juju run symlink: %v", err)
+	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
+		return err
 	}
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
@@ -1727,29 +1728,49 @@ func (a *MachineAgent) Tag() names.Tag {
 	return names.NewMachineTag(a.machineId)
 }
 
-func (a *MachineAgent) createJujuRun(dataDir string) error {
+func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	jujuRunLink := filepath.Join(a.rootDir, JujuRun)
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := a.createSymlink(jujud, link)
+		if err != nil {
+			return errors.Annotatef(err, "failed to create %s symlink", link)
+		}
+	}
+	return nil
+}
 
-	link, err := symlink.Read(jujuRunLink)
+func (a *MachineAgent) createSymlink(target, link string) error {
+	fullLink := filepath.Join(a.rootDir, link)
+
+	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	} else if err == nil {
 		// Link already in place - check it.
-		if link == jujud {
+		if currentTarget == target {
 			// Link already points to the right place - nothing to do.
 			return nil
 		}
 		// Link points to the wrong place - delete it.
-		if err := os.Remove(jujuRunLink); err != nil {
+		if err := os.Remove(fullLink); err != nil {
 			return err
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)); err != nil {
 		return err
 	}
-	return symlink.New(jujud, jujuRunLink)
+	return symlink.New(target, fullLink)
+}
+
+func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := os.Remove(filepath.Join(a.rootDir, link))
+		if err != nil && !os.IsNotExist(err) {
+			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
+		}
+	}
+	return
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
@@ -1784,10 +1805,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		}
 	}
 
-	// Remove the juju-run symlink.
-	if err := os.Remove(filepath.Join(a.rootDir, JujuRun)); err != nil && !os.IsNotExist(err) {
-		errors = append(errors, err)
-	}
+	errors = append(errors, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
