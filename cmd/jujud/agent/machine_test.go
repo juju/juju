@@ -210,7 +210,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, jc.ErrorIsNil)
-		agentConfig, tools = s.AgentSuite.PrimeStateAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
 		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
