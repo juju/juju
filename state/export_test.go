@@ -443,3 +443,11 @@ func WriteLogWithOplog(
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
+
+func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
+	return m.forceDestroyOps()
+}
+
+func IsManagerMachineError(err error) bool {
+	return isManagerMachineError(err)
+}

@@ -354,7 +354,18 @@ func IsHasHostedEnvironsError(err error) bool {
 
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
-func (e *Environment) Destroy(destroyHostedEnvirons bool) (err error) {
+func (e *Environment) Destroy() (err error) {
+	return e.destroy(false)
+}
+
+// Destroy sets the environment's lifecycle to Dying, preventing addition of
+// services or machines to state. If this environment is a controller hosting
+// other environments, they will also be destroyed.
+func (e *Environment) DestroyIncludingHosted() error {
+	return e.destroy(true)
+}
+
+func (e *Environment) destroy(destroyHostedEnvirons bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -416,18 +427,24 @@ func (e *Environment) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
 		}
 		ops = append(ops, assertNoHostedEnvironsOp())
 	} else {
-		// When we're destroying a hosted environment, no further
-		// checks are necessary -- we just need to make sure we
-		// update the refcount.
+		// If this environment isn't hosting any environments, no further
+		// checks are necessary -- we just need to make sure we update the
+		// refcount.
 		ops = append(ops, decHostedEnvironCountOp())
 	}
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
-	// sure the cleanup op is the last thing that will execute.
-	cleanupOp := e.st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
-	ops = append(ops, cleanupOp)
+	// sure the cleanup ops are the last thing that will execute.
+	if uuid == e.doc.ServerUUID && destroyHostedEnvirons {
+		cleanupOp := e.st.newCleanupOp(cleanupEnvironmentsForDyingController, uuid)
+		ops = append(ops, cleanupOp)
+	}
+	cleanupMachinesOp := e.st.newCleanupOp(cleanupMachinesForDyingEnvironment, uuid)
+	ops = append(ops, cleanupMachinesOp)
+	cleanupServicesOp := e.st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
+	ops = append(ops, cleanupServicesOp)
 	return ops, nil
 }
 

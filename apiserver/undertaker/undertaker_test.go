@@ -72,7 +72,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	} {
 		env, err := test.st.Environment()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Destroy(false), jc.ErrorIsNil)
+		c.Assert(env.Destroy(), jc.ErrorIsNil)
 
 		result, err := test.api.EnvironInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
-	err = env.Destroy(false)
+	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(env.Life(), gc.Equals, state.Dying)
@@ -124,7 +124,7 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dying
-	err = env.Destroy(false)
+	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
@@ -137,7 +137,7 @@ func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dead
-	err = env.Destroy(false)
+	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = hostedAPI.ProcessDyingEnviron()
 	c.Assert(err, gc.IsNil)

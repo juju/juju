@@ -61,5 +61,5 @@ type Environment interface {
 
 	// Destroy sets the environment's lifecycle to Dying, preventing
 	// addition of services or machines to state.
-	Destroy(bool) error
+	Destroy() error
 }

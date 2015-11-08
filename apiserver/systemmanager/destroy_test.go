@@ -67,8 +67,7 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	s.otherEnvUUID = s.otherState.EnvironUUID()
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
-	s.startMockUndertaker(c)
+func (s *destroySystemSuite) TestCanDestroySystemWithHostedEnvsWithBlocks(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -79,17 +78,12 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.otherState.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dead)
-
-	env, err = s.State.Environment()
+	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
-	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -108,23 +102,18 @@ func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
-	s.startMockUndertaker(c)
+func (s *destroySystemSuite) TestCanDestroySystemWithHostedEnvs(c *gc.C) {
 	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.otherState.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dead)
-	env, err = s.State.Environment()
+	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfIgnoreBlocks(c *gc.C) {
-	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -139,7 +128,6 @@ func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfIgnoreBlocks(c *gc.C
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
-	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -152,7 +140,6 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
-	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -170,7 +157,6 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
-	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -183,45 +169,4 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C)
 	numBlocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
-}
-
-// startMockUndertaker processes a dying environment and sets it to dead.
-// Normally the undertaker worker, running on the machine agent, would
-// process all dying environments. But for the unit tests, we run a mock
-// undertaker in the background.
-func (s *destroySystemSuite) startMockUndertaker(c *gc.C) {
-	watcher := watchEnvironResources(c, s.otherState)
-	s.AddCleanup(func(c *gc.C) { c.Assert(watcher.Stop(), jc.ErrorIsNil) })
-	go func() {
-		for {
-			select {
-			case _, ok := <-watcher.Changes():
-				if !ok {
-					return
-				}
-				if err := s.otherState.ProcessDyingEnviron(); err == nil {
-					watcher.Stop()
-					return
-				}
-			}
-		}
-	}()
-}
-
-func watchEnvironResources(c *gc.C, st *state.State) state.NotifyWatcher {
-	env, err := st.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	machines, err := st.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	services, err := st.AllServices()
-	c.Assert(err, jc.ErrorIsNil)
-
-	watchers := []state.NotifyWatcher{env.Watch()}
-	for _, machine := range machines {
-		watchers = append(watchers, machine.Watch())
-	}
-	for _, service := range services {
-		watchers = append(watchers, service.Watch())
-	}
-	return common.NewMultiNotifyWatcher(watchers...)
 }

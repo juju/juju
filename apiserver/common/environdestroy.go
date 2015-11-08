@@ -16,9 +16,10 @@ var sendMetrics = func(st *state.State) error {
 	return errors.Trace(err)
 }
 
-// DestroyEnvironment destroys all services and non-manager machine
-// instances in the specified environment. This function assumes that all
-// necessary authentication checks have been done.
+// DestroyEnvironment sets the environment to dying. Cleanup jobs then destroy
+// all services and non-manager machine instances in the specified
+// environment. This function assumes that all necessary authentication checks
+// have been done.
 func DestroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHostedEnvirons bool) error {
 	var err error
 	if environTag != st.EnvironTag() {
@@ -38,13 +39,14 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHos
 		return errors.Trace(err)
 	}
 
-	if err = env.Destroy(destroyHostedEnvirons); err != nil {
-		return errors.Trace(err)
-	}
-
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
+	if destroyHostedEnvirons {
+		if err := env.DestroyIncludingHosted(); err != nil {
+			return err
+		}
+	} else {
+		if err = env.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	err = sendMetrics(st)
@@ -52,66 +54,10 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHos
 		logger.Warningf("failed to send leftover metrics: %v", err)
 	}
 
-	// We must destroy instances server-side to support JES (Juju Environment
-	// Server), as there's no CLI to fall back on. In that case, we only ever
-	// destroy non-state machines; we leave destroying state servers in non-
-	// hosted environments to the CLI, as otherwise the API server may get cut
-	// off.
-	if err := destroyNonManagerMachines(st, machines); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := destroyAllServices(st); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Return to the caller. If it's the CLI, it will finish up by calling the
 	// provider's Destroy method, which will destroy the state servers, any
-	// straggler instances, and other provider-specific resources. Once all
-	// resources are torn down, the Undertaker worker handles the removal of
-	// the environment.
+	// straggler instances, and other provider-specific resources. The Reaper
+	// worker will teardown all resources. After which, the Undertaker worker
+	// handles the removal of the environment.
 	return nil
-}
-
-// destroyNonManagerMachines directly destroys all non-manager, non-manual
-// machine instances.
-func destroyNonManagerMachines(st *state.State, machines []*state.Machine) error {
-	var ids []string
-	for _, m := range machines {
-		if m.IsManager() {
-			continue
-		}
-		if _, isContainer := m.ParentId(); isContainer {
-			continue
-		}
-		manual, err := m.IsManual()
-		if err != nil {
-			return err
-		} else if manual {
-			continue
-		}
-		ids = append(ids, m.Id())
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-
-	return DestroyMachines(st, true, ids...)
-}
-
-func destroyAllServices(st *state.State) error {
-	var errs []string
-	services, err := st.AllServices()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var ids []string
-	for _, service := range services {
-		ids = append(ids, service.Name())
-		if err := service.Destroy(); err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-
-	return DestroyErr("service", ids, errs)
 }

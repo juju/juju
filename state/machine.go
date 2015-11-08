@@ -436,17 +436,42 @@ func (m *Machine) Destroy() error {
 // ForceDestroy queues the machine for complete removal, including the
 // destruction of all units and containers on the machine.
 func (m *Machine) ForceDestroy() error {
-	if !m.IsManager() {
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
-		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
+	ops, err := m.forceDestroyOps()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+	if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+type managerMachineError string
+
+func (e managerMachineError) Error() string {
+	return string(e)
+}
+
+// isManagerMachineError returns true if err is of type managerMachineError.
+func isManagerMachineError(err error) bool {
+	_, ok := errors.Cause(err).(managerMachineError)
+	return ok
+}
+
+func newManagerMachineError(id string) managerMachineError {
+	errMsg := fmt.Sprintf("machine %s is required by the environment", id)
+	return managerMachineError(errMsg)
+}
+
+func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
+	if m.IsManager() {
+		return nil, errors.Trace(newManagerMachineError(m.doc.Id))
+	}
+	return []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+	}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.

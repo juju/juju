@@ -327,6 +327,28 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *MachineSuite) TestDestroyOps(c *gc.C) {
+	m := s.Factory.MakeMachine(c, nil)
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.NotNil)
+}
+
+func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
+	// s.Factory does not allow us to make a manager machine, so we grab one
+	// from State ...
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), jc.GreaterThan, 0)
+	m := machines[0]
+	c.Assert(m.IsManager(), jc.IsTrue)
+
+	// ... and assert that we cannot get the destroy ops for it.
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(ops, gc.IsNil)
+}
+
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Destroy(), gc.IsNil)
