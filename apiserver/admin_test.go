@@ -675,6 +675,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,
 			Tag:       names.NewMachineTag("0"),
+			LogDir:    c.MkDir(),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

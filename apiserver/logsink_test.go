@@ -218,16 +218,3 @@ func (s *logsinkSuite) makeAuthHeader() http.Header {
 	header.Add(params.MachineNonceHeader, s.nonce)
 	return header
 }
-
-type logsinkNoFeatureSuite struct {
-	logsinkBaseSuite
-}
-
-var _ = gc.Suite(&logsinkNoFeatureSuite{})
-
-func (s *logsinkNoFeatureSuite) TestNoApiWithoutFeatureFlag(c *gc.C) {
-	server := s.logsinkURL(c, "wss").String()
-	config := s.makeWebsocketConfigFromURL(c, server, nil)
-	_, err := websocket.DialConfig(config)
-	c.Assert(err, gc.ErrorMatches, ".+/logsink: bad status$")
-}
