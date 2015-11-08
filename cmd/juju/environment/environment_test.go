@@ -5,7 +5,6 @@ package environment_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/environment"
