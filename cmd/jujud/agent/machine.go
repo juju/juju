@@ -34,6 +34,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
@@ -178,7 +179,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string) *MachineAgent,
+	machineAgentFactory func(string, string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -196,7 +197,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string) *MachineAgent
+	machineAgentFactory func(string, string) *MachineAgent
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -245,7 +246,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId)
+	machineAgent := a.machineAgentFactory(a.machineId, c.Dir)
 	return machineAgent.Run(c)
 }
 
@@ -269,8 +270,8 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string, string) *MachineAgent {
+	return func(machineId, rootDir string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -278,6 +279,7 @@ func MachineAgentFactoryFn(
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 			loopDeviceManager,
+			rootDir,
 		)
 	}
 }
@@ -290,6 +292,7 @@ func NewMachineAgent(
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	rootDir string,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:            machineId,
@@ -298,6 +301,7 @@ func NewMachineAgent(
 		upgradeWorkerContext: upgradeWorkerContext,
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
+		rootDir:              rootDir,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		loopDeviceManager:                loopDeviceManager,
 	}
@@ -312,6 +316,7 @@ type MachineAgent struct {
 	machineId            string
 	previousAgentVersion version.Number
 	runner               worker.Runner
+	rootDir              string
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
@@ -1723,13 +1728,28 @@ func (a *MachineAgent) Tag() names.Tag {
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
-	// TODO do not remove the symlink if it already points
-	// to the right place.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
+	jujuRunLink := filepath.Join(a.rootDir, JujuRun)
+
+	link, err := symlink.Read(jujuRunLink)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if err == nil {
+		// Link already in place - check it.
+		if link == jujud {
+			// Link already points to the right place - nothing to do.
+			return nil
+		}
+		// Link points to the wrong place - delete it.
+		if err := os.Remove(jujuRunLink); err != nil {
+			return err
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755)); err != nil {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
-	return symlink.New(jujud, JujuRun)
+	return symlink.New(jujud, jujuRunLink)
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
@@ -1765,7 +1785,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 
 	// Remove the juju-run symlink.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(filepath.Join(a.rootDir, JujuRun)); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
 	}
 
