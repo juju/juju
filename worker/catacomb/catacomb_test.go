@@ -4,7 +4,7 @@
 package catacomb_test
 
 import (
-	"time"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -12,336 +12,361 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/catacomb"
+	_ "github.com/juju/juju/worker/catacomb"
 )
 
 type CatacombSuite struct {
 	testing.IsolationSuite
-	catacomb *catacomb.Catacomb
+	fix *fixture
 }
 
 var _ = gc.Suite(&CatacombSuite{})
 
 func (s *CatacombSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.catacomb = catacomb.New()
-}
-
-func (s *CatacombSuite) TearDownTest(c *gc.C) {
-	if s.catacomb != nil {
-		select {
-		case <-s.catacomb.Dead():
-		default:
-			s.catacomb.Done()
-		}
-	}
-	s.IsolationSuite.TearDownTest(c)
+	s.fix = &fixture{cleaner: s}
 }
 
 func (s *CatacombSuite) TestStartsAlive(c *gc.C) {
-	s.assertNotDying(c)
-	s.assertNotDead(c)
+	s.fix.run(c, func() {
+		s.fix.assertNotDying(c)
+		s.fix.assertNotDead(c)
+	})
 }
 
 func (s *CatacombSuite) TestKillClosesDying(c *gc.C) {
-	s.catacomb.Kill(nil)
-	s.assertDying(c)
+	s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+		s.fix.assertDying(c)
+	})
 }
 
 func (s *CatacombSuite) TestKillDoesNotCloseDead(c *gc.C) {
-	s.catacomb.Kill(nil)
-	s.assertNotDead(c)
+	s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+		s.fix.assertNotDead(c)
+	})
 }
 
-func (s *CatacombSuite) TestDoneStopsCompletely(c *gc.C) {
-	s.assertDoneError(c, nil)
-	s.assertDying(c)
+func (s *CatacombSuite) TestFinishTaskStopsCompletely(c *gc.C) {
+	s.fix.run(c, func() {})
+
+	s.fix.assertDying(c)
+	s.fix.assertDead(c)
+}
+
+func (s *CatacombSuite) TestKillNil(c *gc.C) {
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+	})
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *CatacombSuite) TestKillNonNilOverwritesNil(c *gc.C) {
-	s.catacomb.Kill(nil)
 	second := errors.New("blah")
-	s.catacomb.Kill(second)
-	s.assertDoneError(c, second)
+
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+		s.fix.catacomb.Kill(second)
+	})
+	c.Check(err, gc.Equals, second)
 }
 
 func (s *CatacombSuite) TestKillNilDoesNotOverwriteNonNil(c *gc.C) {
 	first := errors.New("blib")
-	s.catacomb.Kill(first)
-	s.catacomb.Kill(nil)
-	s.assertDoneError(c, first)
+
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(first)
+		s.fix.catacomb.Kill(nil)
+	})
+	c.Check(err, gc.Equals, first)
 }
 
 func (s *CatacombSuite) TestKillNonNilDoesNotOverwriteNonNil(c *gc.C) {
 	first := errors.New("blib")
-	s.catacomb.Kill(first)
 	second := errors.New("blob")
-	s.catacomb.Kill(second)
-	s.assertDoneError(c, first)
+
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(first)
+		s.fix.catacomb.Kill(second)
+	})
+	c.Check(err, gc.Equals, first)
 }
 
 func (s *CatacombSuite) TestAliveErrDyingDifferent(c *gc.C) {
-	notDying := s.catacomb.ErrDying()
-	c.Check(notDying, gc.ErrorMatches, "bad catacomb ErrDying: still alive")
+	s.fix.run(c, func() {
+		notDying := s.fix.catacomb.ErrDying()
+		c.Check(notDying, gc.ErrorMatches, "bad catacomb ErrDying: still alive")
 
-	s.catacomb.Kill(nil)
-	dying := s.catacomb.ErrDying()
-	c.Check(dying, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ is dying")
+		s.fix.catacomb.Kill(nil)
+		dying := s.fix.catacomb.ErrDying()
+		c.Check(dying, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ is dying")
+	})
 }
 
 func (s *CatacombSuite) TestKillAliveErrDying(c *gc.C) {
-	notDying := s.catacomb.ErrDying()
-	s.catacomb.Kill(notDying)
-	s.assertDoneError(c, notDying)
+	var notDying error
+
+	err := s.fix.run(c, func() {
+		notDying = s.fix.catacomb.ErrDying()
+		s.fix.catacomb.Kill(notDying)
+	})
+	c.Check(err, gc.Equals, notDying)
 }
 
 func (s *CatacombSuite) TestKillErrDyingDoesNotOverwriteNil(c *gc.C) {
-	s.catacomb.Kill(nil)
-	s.catacomb.Kill(s.catacomb.ErrDying())
-	s.assertDoneError(c, nil)
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+		errDying := s.fix.catacomb.ErrDying()
+		s.fix.catacomb.Kill(errDying)
+	})
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *CatacombSuite) TestKillErrDyingDoesNotOverwriteNonNil(c *gc.C) {
 	first := errors.New("FRIST!")
-	s.catacomb.Kill(first)
-	s.catacomb.Kill(s.catacomb.ErrDying())
-	s.assertDoneError(c, first)
+
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(first)
+		errDying := s.fix.catacomb.ErrDying()
+		s.fix.catacomb.Kill(errDying)
+	})
+	c.Check(err, gc.Equals, first)
 }
 
 func (s *CatacombSuite) TestKillCauseErrDyingDoesNotOverwriteNil(c *gc.C) {
-	s.catacomb.Kill(nil)
-	disguised := errors.Annotatef(s.catacomb.ErrDying(), "disguised")
-	s.catacomb.Kill(disguised)
-	s.assertDoneError(c, nil)
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(nil)
+		errDying := s.fix.catacomb.ErrDying()
+		disguised := errors.Annotatef(errDying, "disguised")
+		s.fix.catacomb.Kill(disguised)
+	})
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *CatacombSuite) TestKillCauseErrDyingDoesNotOverwriteNonNil(c *gc.C) {
 	first := errors.New("FRIST!")
-	s.catacomb.Kill(first)
-	disguised := errors.Annotatef(s.catacomb.ErrDying(), "disguised")
-	s.catacomb.Kill(disguised)
-	s.assertDoneError(c, first)
+
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(first)
+		errDying := s.fix.catacomb.ErrDying()
+		disguised := errors.Annotatef(errDying, "disguised")
+		s.fix.catacomb.Kill(disguised)
+	})
+	c.Check(err, gc.Equals, first)
 }
 
 func (s *CatacombSuite) TestKillTombErrDying(c *gc.C) {
-	s.catacomb.Kill(tomb.ErrDying)
-	s.catacomb.Done()
-	err := s.catacomb.Wait()
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(tomb.ErrDying)
+	})
 	c.Check(err, gc.ErrorMatches, "bad catacomb Kill: tomb.ErrDying")
 }
 
 func (s *CatacombSuite) TestKillErrDyingFromOtherCatacomb(c *gc.C) {
-	other := catacomb.New()
-	other.Kill(nil)
-	defer func() {
-		other.Done()
-		other.Wait()
-	}()
+	fix2 := &fixture{}
+	fix2.run(c, func() {})
+	errDying := fix2.catacomb.ErrDying()
 
-	s.catacomb.Kill(other.ErrDying())
-	s.catacomb.Done()
-	err := s.catacomb.Wait()
+	err := s.fix.run(c, func() {
+		s.fix.catacomb.Kill(errDying)
+	})
 	c.Check(err, gc.ErrorMatches, "bad catacomb Kill: other catacomb's ErrDying")
 }
 
-func (s *CatacombSuite) TestKillStopsAddedWorker(c *gc.C) {
-	w := s.startErrorWorker(c, nil)
-	s.assertAddAlive(c, w)
+func (s *CatacombSuite) TestStopsAddedWorker(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
 
-	s.catacomb.Kill(nil)
-	s.assertDoneError(c, nil)
+	err := s.fix.run(c, func() {
+		s.fix.assertAddAlive(c, w)
+	})
+	c.Check(err, jc.ErrorIsNil)
 	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestStoppedWorkerErrorOverwritesNil(c *gc.C) {
 	expect := errors.New("splot")
-	w := s.startErrorWorker(c, expect)
-	s.assertAddAlive(c, w)
+	w := s.fix.startErrorWorker(c, expect)
 
-	s.catacomb.Kill(nil)
-	s.assertDoneError(c, expect)
+	err := s.fix.run(c, func() {
+		s.fix.assertAddAlive(c, w)
+	})
+	c.Check(err, gc.Equals, expect)
 	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestStoppedWorkerErrorDoesNotOverwriteNonNil(c *gc.C) {
-	w := s.startErrorWorker(c, errors.New("not interesting"))
-	s.assertAddAlive(c, w)
-
 	expect := errors.New("splot")
-	s.catacomb.Kill(expect)
-	s.assertDoneError(c, expect)
+	w := s.fix.startErrorWorker(c, errors.New("not interesting"))
+
+	err := s.fix.run(c, func() {
+		s.fix.assertAddAlive(c, w)
+		s.fix.catacomb.Kill(expect)
+	})
+	c.Check(err, gc.Equals, expect)
 	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestAddWhenDyingStopsWorker(c *gc.C) {
-	w := s.startErrorWorker(c, nil)
+	err := s.fix.run(c, func() {
+		w := s.fix.startErrorWorker(c, nil)
+		s.fix.catacomb.Kill(nil)
+		expect := s.fix.catacomb.ErrDying()
 
-	s.catacomb.Kill(nil)
-	err := s.catacomb.Add(w)
-	c.Assert(err, gc.Equals, s.catacomb.ErrDying())
-	w.assertDead(c)
+		err := s.fix.catacomb.Add(w)
+		c.Assert(err, gc.Equals, expect)
+		w.assertDead(c)
+	})
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *CatacombSuite) TestAddWhenDyingReturnsWorkerError(c *gc.C) {
-	expect := errors.New("squelch")
-	w := s.startErrorWorker(c, expect)
+	err := s.fix.run(c, func() {
+		expect := errors.New("squelch")
+		w := s.fix.startErrorWorker(c, expect)
+		s.fix.catacomb.Kill(nil)
 
-	s.catacomb.Kill(nil)
-	actual := s.catacomb.Add(w)
+		actual := s.fix.catacomb.Add(w)
+		c.Assert(errors.Cause(actual), gc.Equals, expect)
+		w.assertDead(c)
+	})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *CatacombSuite) TestAddWhenDeadStopsWorker(c *gc.C) {
+	s.fix.run(c, func() {})
+	expect := s.fix.catacomb.ErrDying()
+
+	w := s.fix.startErrorWorker(c, nil)
+	err := s.fix.catacomb.Add(w)
+	c.Assert(err, gc.Equals, expect)
+	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestAddWhenDeadReturnsWorkerError(c *gc.C) {
+	s.fix.run(c, func() {})
+
+	expect := errors.New("squelch")
+	w := s.fix.startErrorWorker(c, expect)
+	actual := s.fix.catacomb.Add(w)
 	c.Assert(errors.Cause(actual), gc.Equals, expect)
 	w.assertDead(c)
 }
 
-func (s *CatacombSuite) TestFailedAddedWorkerKills(c *gc.C) {
+func (s *CatacombSuite) TestFailAddedWorkerKills(c *gc.C) {
 	expect := errors.New("blarft")
-	w := s.startErrorWorker(c, expect)
-	s.assertAddAlive(c, w)
+	w := s.fix.startErrorWorker(c, expect)
 
-	w.Kill()
-	s.waitDying(c)
-	s.assertDoneError(c, expect)
+	err := s.fix.run(c, func() {
+		s.fix.assertAddAlive(c, w)
+		w.Kill()
+		s.fix.waitDying(c)
+	})
+	c.Check(err, gc.Equals, expect)
 	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestAddFailedWorkerKills(c *gc.C) {
 	expect := errors.New("blarft")
-	w := s.startErrorWorker(c, expect)
-	w.Kill()
-	err := s.catacomb.Add(w)
-	c.Assert(err, jc.ErrorIsNil)
+	w := s.fix.startErrorWorker(c, expect)
+	w.stop()
 
-	s.waitDying(c)
-	s.assertDoneError(c, expect)
-	w.assertDead(c)
+	err := s.fix.run(c, func() {
+		err := s.fix.catacomb.Add(w)
+		c.Assert(err, jc.ErrorIsNil)
+		s.fix.waitDying(c)
+	})
+	c.Check(err, gc.Equals, expect)
 }
 
 func (s *CatacombSuite) TestFinishAddedWorkerDoesNotKill(c *gc.C) {
-	w := s.startErrorWorker(c, nil)
-	s.assertAddAlive(c, w)
-	w.Kill()
-	s.assertAddAlive(c, s.startErrorWorker(c, nil))
+	w := s.fix.startErrorWorker(c, nil)
+
+	err := s.fix.run(c, func() {
+		s.fix.assertAddAlive(c, w)
+		w.Kill()
+
+		w2 := s.fix.startErrorWorker(c, nil)
+		s.fix.assertAddAlive(c, w2)
+	})
+	c.Check(err, jc.ErrorIsNil)
 	w.assertDead(c)
-	s.assertDoneError(c, nil)
 }
 
 func (s *CatacombSuite) TestAddFinishedWorkerDoesNotKill(c *gc.C) {
-	w := s.startErrorWorker(c, nil)
-	w.Kill()
-	err := s.catacomb.Add(w)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAddAlive(c, s.startErrorWorker(c, nil))
-	s.assertDoneError(c, nil)
+	w := s.fix.startErrorWorker(c, nil)
+	w.stop()
+
+	err := s.fix.run(c, func() {
+		err := s.fix.catacomb.Add(w)
+		c.Assert(err, jc.ErrorIsNil)
+
+		w2 := s.fix.startErrorWorker(c, nil)
+		s.fix.assertAddAlive(c, w2)
+	})
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *CatacombSuite) TestStress(c *gc.C) {
-	const workerCount = 100
-	for i := 0; i < workerCount; i++ {
-		w := s.startErrorWorker(c, errors.Errorf("error %d", i))
-		defer w.assertDead(c)
-		err := s.catacomb.Add(w)
-		c.Check(err, jc.ErrorIsNil)
-	}
-	s.catacomb.Done()
-	err := s.catacomb.Wait()
-	c.Check(err, gc.ErrorMatches, "error [0-9]+")
-}
+	const workerCount = 1000
+	workers := make([]*errorWorker, 0, workerCount)
 
-func (s *CatacombSuite) waitDying(c *gc.C) {
-	select {
-	case <-s.catacomb.Dying():
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out; still alive")
-	}
-}
-
-func (s *CatacombSuite) assertDying(c *gc.C) {
-	select {
-	case <-s.catacomb.Dying():
-	default:
-		c.Fatalf("still alive")
-	}
-}
-
-func (s *CatacombSuite) assertNotDying(c *gc.C) {
-	select {
-	case <-s.catacomb.Dying():
-		c.Fatalf("already dying")
-	default:
-	}
-}
-
-func (s *CatacombSuite) assertDead(c *gc.C) {
-	select {
-	case <-s.catacomb.Dead():
-	default:
-		c.Fatalf("not dead")
-	}
-}
-
-func (s *CatacombSuite) assertNotDead(c *gc.C) {
-	select {
-	case <-s.catacomb.Dead():
-		c.Fatalf("already dead")
-	default:
-	}
-}
-
-func (s *CatacombSuite) assertDoneError(c *gc.C, expect error) {
-	s.catacomb.Done()
-	s.assertDead(c)
-	actual := s.catacomb.Wait()
-	if expect == nil {
-		c.Assert(actual, jc.ErrorIsNil)
-	} else {
-		c.Assert(actual, gc.Equals, expect)
-	}
-}
-
-func (s *CatacombSuite) assertAddAlive(c *gc.C, w *errorWorker) {
-	err := s.catacomb.Add(w)
-	c.Assert(err, jc.ErrorIsNil)
-	w.waitStillAlive(c)
-}
-
-func (s *CatacombSuite) startErrorWorker(c *gc.C, err error) *errorWorker {
-	ew := &errorWorker{}
-	go func() {
-		defer ew.tomb.Done()
-		defer ew.tomb.Kill(err)
-		<-ew.tomb.Dying()
-	}()
-	s.AddCleanup(func(c *gc.C) {
-		ew.Kill()
-		ew.Wait()
+	// Just add a whole bunch of workers...
+	err := s.fix.run(c, func() {
+		for i := 0; i < workerCount; i++ {
+			w := s.fix.startErrorWorker(c, errors.Errorf("error %d", i))
+			err := s.fix.catacomb.Add(w)
+			c.Check(err, jc.ErrorIsNil)
+			workers = append(workers, w)
+		}
 	})
-	return ew
-}
 
-type errorWorker struct {
-	tomb tomb.Tomb
-}
-
-func (ew *errorWorker) Kill() {
-	ew.tomb.Kill(nil)
-}
-
-func (ew *errorWorker) Wait() error {
-	return ew.tomb.Wait()
-}
-
-func (ew *errorWorker) waitStillAlive(c *gc.C) {
-	select {
-	case <-ew.tomb.Dying():
-		c.Fatalf("already dying")
-	case <-time.After(coretesting.ShortWait):
+	// ...and check that one of them killed the catacomb when it shut down;
+	// and that all of them have been stopped.
+	c.Check(err, gc.ErrorMatches, "error [0-9]+")
+	for _, w := range workers {
+		defer w.assertDead(c)
 	}
 }
 
-func (ew *errorWorker) assertDead(c *gc.C) {
-	select {
-	case <-ew.tomb.Dead():
-	default:
-		c.Fatalf("not yet dead")
+func (s *CatacombSuite) TestStressAddKillRaces(c *gc.C) {
+	const workerCount = 500
+
+	// This construct lets us run a bunch of funcs "simultaneously"...
+	var wg sync.WaitGroup
+	block := make(chan struct{})
+	together := func(f func()) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-block
+			f()
+		}()
 	}
+
+	// ...so we can queue up a whole bunch of adds/kills...
+	errFailed := errors.New("pow")
+	w := s.fix.startErrorWorker(c, errFailed)
+	err := s.fix.run(c, func() {
+		for i := 0; i < workerCount; i++ {
+			together(func() {
+				// NOTE: we reuse the same worker, largely for brevity's sake;
+				// the important thing is that it already exists so we can hit
+				// Add() as soon as possible, just like the Kill() below.
+				if err := s.fix.catacomb.Add(w); err != nil {
+					cause := errors.Cause(err)
+					c.Check(cause, gc.Equals, errFailed)
+				}
+			})
+			together(func() {
+				s.fix.catacomb.Kill(errFailed)
+			})
+		}
+
+		// ...then activate them all and see what happens.
+		close(block)
+		wg.Wait()
+	})
+	cause := errors.Cause(err)
+	c.Check(cause, gc.Equals, errFailed)
 }

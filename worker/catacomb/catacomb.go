@@ -6,6 +6,7 @@ package catacomb
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
@@ -14,49 +15,81 @@ import (
 )
 
 // Catacomb is a variant of tomb.Tomb with its own internal goroutine, designed
-// for coordinating the lifetimes of a set of private workers needed by a single
-// parent. See the package documentation for detailed discussion and usage notes.
+// for coordinating the lifetimes of private workers needed by a single parent.
+//
+// As a client, you should only ever create zero values; these should be used
+// with Invoke to manage a parent task. No Catacomb methods are meaningful
+// until the catacomb has been started with a successful Invoke.
+//
+// See the package documentation for more detailed discussion and usage notes.
 type Catacomb struct {
-	tomb tomb.Tomb
-	wg   sync.WaitGroup
-	adds chan addRequest
+	tomb  tomb.Tomb
+	wg    sync.WaitGroup
+	adds  chan worker.Worker
+	dirty int32
 }
 
-// addRequest holds a worker to be added and a channel to close when the
-// addition is confirmed.
-type addRequest struct {
-	worker worker.Worker
-	reply  chan struct{}
+// Plan holds a task to be run on a new goroutine, and a catacomb to manage it.
+type Plan struct {
+	Work func() error
+	Site *Catacomb
 }
 
-// New creates a new Catacomb. The caller is reponsible for calling Done exactly
-// once (twice will panic; never will leak a goroutine).
-func New() *Catacomb {
-	catacomb := &Catacomb{
-		adds: make(chan addRequest),
+// Validate returns an error if the plan cannot be used. It doesn't check for
+// reused catacombs: plan validity is necessary but not sufficient to determine
+// that an Invoke will succeed.
+func (plan Plan) Validate() error {
+	if plan.Site == nil {
+		return errors.NotValidf("nil Site")
 	}
+	if plan.Work == nil {
+		return errors.NotValidf("nil Work")
+	}
+	return nil
+}
+
+// Invoke uses the plan's catacomb to run the work func. It will return an
+// error if the plan is not valid, or if the catacomb has already been used.
+// If Invoke returns no error, the catacomb is now controlling the work func,
+// and its exported methods can be called safely.
+func Invoke(plan Plan) error {
+	if err := plan.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	catacomb := plan.Site
+	if !atomic.CompareAndSwapInt32(&catacomb.dirty, 0, 1) {
+		return errors.Errorf("catacomb %p has already been used", catacomb)
+	}
+	catacomb.adds = make(chan worker.Worker)
+
+	// This goroutine listens for added workers until the catacomb is Killed.
+	// We ensure the wg can't complete until we know no new workers will be
+	// added.
 	catacomb.wg.Add(1)
 	go func() {
 		defer catacomb.wg.Done()
-		catacomb.loop()
-	}()
-	return catacomb
-}
-
-// loop registers added workers and waits for death. It must be called exactly
-// once, on its own goroutine.
-func (catacomb *Catacomb) loop() {
-	for {
-		select {
-		case <-catacomb.tomb.Dying():
-			return
-		case request := <-catacomb.adds:
-			catacomb.add(request)
+		for {
+			select {
+			case <-catacomb.tomb.Dying():
+				return
+			case w := <-catacomb.adds:
+				catacomb.add(w)
+			}
 		}
-	}
+	}()
+
+	// This goroutine runs the work func and stops the catacomb with its error;
+	// and waits for for the listen goroutine and all added workers to complete
+	// before marking the catacomb's tomb Dead.
+	go func() {
+		defer catacomb.tomb.Done()
+		defer catacomb.wg.Wait()
+		catacomb.Kill(plan.Work())
+	}()
+	return nil
 }
 
-// Add causes the supplied worker's lifetime to be bound to that of the Catacomb,
+// Add causes the supplied worker's lifetime to be bound to the catacomb's,
 // relieving the client of responsibility for Kill()ing it and Wait()ing for an
 // error, *whether or not this method succeeds*. If the method returns an error,
 // it always indicates that the catacomb is shutting down; the value will either
@@ -68,50 +101,65 @@ func (catacomb *Catacomb) loop() {
 // encountered will still kill the catacomb, so the workers stay under control
 // until the last moment, and so can be managed pretty casually once they've
 // been added.
+//
+// Don't try to add a worker to its own catacomb; that'll deadlock the shutdown
+// procedure. I don't think there's much we can do about that.
 func (catacomb *Catacomb) Add(w worker.Worker) error {
-	adds := catacomb.adds
-	reply := make(chan struct{})
-	for {
-		select {
-		case <-catacomb.tomb.Dying():
-			if err := worker.Stop(w); err != nil {
-				return errors.Trace(err)
-			}
-			return catacomb.ErrDying()
-		case adds <- addRequest{w, reply}:
-			adds = nil
-		case <-reply:
-			return nil
+	select {
+	case <-catacomb.tomb.Dying():
+		if err := worker.Stop(w); err != nil {
+			return errors.Trace(err)
 		}
+		return catacomb.ErrDying()
+	case catacomb.adds <- w:
+		// Note that we don't need to wait for confirmation here. This depends
+		// on the catacomb.wg.Add() for the listen loop, which ensures the wg
+		// won't complete until no more adds can be received.
+		return nil
 	}
 }
 
 // add starts two goroutines that (1) kill the catacomb's tomb with any
 // error encountered by the worker; and (2) kill the worker when the
-// catacomb starts dying. The reply channel is closed only once the worker
-// has been recorded in the catacomb's WaitGroup.
-func (catacomb *Catacomb) add(request addRequest) {
-	catacomb.wg.Add(1)
-	close(request.reply)
+// catacomb starts dying.
+func (catacomb *Catacomb) add(w worker.Worker) {
 
-	// The coordination via stopped is not externally observable, and hence
-	// not tested, but it's yucky to leave the second goroutine running when
-	// we don't need to.
+	// The coordination via stopped is not reliably observable, and hence not
+	// tested, but it's yucky to leave the second goroutine running when we
+	// don't need to.
 	stopped := make(chan struct{})
+	catacomb.wg.Add(1)
 	go func() {
 		defer catacomb.wg.Done()
 		defer close(stopped)
-		if err := request.worker.Wait(); err != nil {
-			catacomb.tomb.Kill(err)
+		if err := w.Wait(); err != nil {
+			catacomb.Kill(err)
 		}
 	}()
 	go func() {
 		select {
 		case <-stopped:
 		case <-catacomb.tomb.Dying():
-			request.worker.Kill()
+			w.Kill()
 		}
 	}()
+}
+
+// Dying returns a channel that will be closed when Kill is called.
+func (catacomb *Catacomb) Dying() <-chan struct{} {
+	return catacomb.tomb.Dying()
+}
+
+// Dead returns a channel that will be closed when Invoke has completed (and
+// thus when subsequent calls to Wait() are known not to block).
+func (catacomb *Catacomb) Dead() <-chan struct{} {
+	return catacomb.tomb.Dead()
+}
+
+// Wait blocks until Invoke completes, and returns the first non-nil and
+// non-tomb.ErrDying error passed to Kill before Invoke finished.
+func (catacomb *Catacomb) Wait() error {
+	return catacomb.tomb.Wait()
 }
 
 // Kill kills the Catacomb's internal tomb with the supplied error, or one
@@ -134,12 +182,12 @@ func (catacomb *Catacomb) Kill(err error) {
 			err = tomb.ErrDying
 		}
 	}
-	catacomb.tomb.Kill(err)
-}
 
-// Dying returns a channel that will be closed when Kill is called.
-func (catacomb *Catacomb) Dying() <-chan struct{} {
-	return catacomb.tomb.Dying()
+	// TODO(fwereade) it's pretty clear that this ought to be a Kill(nil), and
+	// the catacomb should be responsible for ranking errors, just like the
+	// dependency.Engine does, rather than determining priority by scheduling
+	// alone.
+	catacomb.tomb.Kill(err)
 }
 
 // ErrDying returns an error that can be used to Kill *this* catacomb without
@@ -153,29 +201,6 @@ func (catacomb *Catacomb) ErrDying() error {
 	default:
 		return errors.New("bad catacomb ErrDying: still alive")
 	}
-}
-
-// Done kills the Catacomb's internal tomb (with no error), waits for all added
-// workers to complete, and records their errors, before marking the tomb Dead
-// and impervious to further changes.
-// It is safe to call Done without having called Kill.
-// It is incorrect to call Done more than once.
-func (catacomb *Catacomb) Done() {
-	catacomb.tomb.Kill(nil)
-	catacomb.wg.Wait()
-	catacomb.tomb.Done()
-}
-
-// Dead returns a channel that will be closed when Done has completed (and thus
-// when subsequent calls to Wait() are known not to block).
-func (catacomb *Catacomb) Dead() <-chan struct{} {
-	return catacomb.tomb.Dead()
-}
-
-// Wait blocks until someone calls Done, and returns the first non-nil and
-// non-tomb.ErrDying error passed to Kill before Done was called.
-func (catacomb *Catacomb) Wait() error {
-	return catacomb.tomb.Wait()
 }
 
 // dyingError holds a reference to the catacomb that created it.
