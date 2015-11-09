@@ -41,5 +41,12 @@ func stateStepsFor126() []Step {
 				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			},
 		},
+		&upgradeStep{
+			description: "update machine preferred addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
 	}
 }
