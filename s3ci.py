@@ -9,7 +9,7 @@ import sys
 from boto.s3.connection import S3Connection
 
 from download_juju import (
-    _download_files,
+    download_files,
     filter_keys,
     )
 from jujuci import (
@@ -83,7 +83,7 @@ def find_package_key(bucket, revision_build):
 def fetch_juju_binary(bucket, revision_build, workspace):
     package_key, filename = find_package_key(bucket, revision_build)
     logging.info('Selected: %s', package_key.name)
-    _download_files([package_key], workspace)
+    download_files([package_key], workspace)
     package_path = os.path.join(workspace, filename)
     logging.info('Extracting: %s', package_path)
     return acquire_binary(package_path, workspace)

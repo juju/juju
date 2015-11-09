@@ -28,7 +28,7 @@ def s3_download_files(s3_path, credential_path, dst_dir=None,
     if dst_dir:
         mkdir_p(dst_dir)
     keys = bucket.list(uri.path.strip('/'))
-    return _download_files(keys, dst_dir, overwrite, suffix)
+    return download_files(keys, dst_dir, overwrite, suffix)
 
 
 def filter_keys(keys, suffix):
@@ -39,7 +39,7 @@ def filter_keys(keys, suffix):
         yield key, filename
 
 
-def _download_files(keys, dst_dir=None, overwrite=False, suffix=None):
+def download_files(keys, dst_dir=None, overwrite=False, suffix=None):
     remote_files = []
     if dst_dir:
         local_files = os.listdir(dst_dir)

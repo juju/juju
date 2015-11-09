@@ -10,7 +10,7 @@ from mock import patch, call
 
 from download_juju import (
     _download,
-    _download_files,
+    download_files,
     download_candidate_juju,
     download_released_juju,
     get_md5,
@@ -117,7 +117,7 @@ class TestDownloadFiles(TestCase):
     def test_download_files(self):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.txt", "foo2")]
         with temp_dir() as dst:
-            downloaded_files = _download_files(keys, dst)
+            downloaded_files = download_files(keys, dst)
             self.assertItemsEqual(os.listdir(dst), ['test.txt', 'test2.txt'])
             self.assertEqual("foo", get_file_content('test.txt', dst))
             self.assertEqual("foo2", get_file_content('test2.txt', dst))
@@ -127,7 +127,7 @@ class TestDownloadFiles(TestCase):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.txt", "foo2")]
         with temp_dir() as dst:
             set_file_content("test.txt", "foo", dst)
-            downloaded_files = _download_files(keys, dst)
+            downloaded_files = download_files(keys, dst)
             self.assertItemsEqual(os.listdir(dst), ['test.txt', 'test2.txt'])
             self.assertEqual("foo", get_file_content('test.txt', dst))
             self.assertEqual("foo2", get_file_content('test2.txt', dst))
@@ -137,7 +137,7 @@ class TestDownloadFiles(TestCase):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.txt", "foo2")]
         with temp_dir() as dst:
             set_file_content("test.txt", "not foo", dst)
-            downloaded_files = _download_files(keys, dst)
+            downloaded_files = download_files(keys, dst)
             self.assertItemsEqual(os.listdir(dst), ['test.txt', 'test2.txt'])
             self.assertEqual("foo", get_file_content('test.txt', dst))
             self.assertEqual("foo2", get_file_content('test2.txt', dst))
@@ -147,7 +147,7 @@ class TestDownloadFiles(TestCase):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.txt", "foo2")]
         with temp_dir() as dst:
             set_file_content("test.txt", "foo", dst)
-            downloaded_files = _download_files(keys, dst, overwrite=True)
+            downloaded_files = download_files(keys, dst, overwrite=True)
             self.assertItemsEqual(os.listdir(dst), ['test.txt', 'test2.txt'])
             self.assertEqual("foo", get_file_content('test.txt', dst))
             self.assertEqual("foo2", get_file_content('test2.txt', dst))
@@ -156,7 +156,7 @@ class TestDownloadFiles(TestCase):
     def test_download_files__suffix(self):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.tar", "foo2")]
         with temp_dir() as dst:
-            downloaded_files = _download_files(keys, dst, suffix=".tar")
+            downloaded_files = download_files(keys, dst, suffix=".tar")
             self.assertItemsEqual(os.listdir(dst), ['test2.tar'])
             self.assertEqual("foo2", get_file_content('test2.tar', dst))
         self.assertItemsEqual(downloaded_files, ['test2.tar'])
@@ -164,14 +164,14 @@ class TestDownloadFiles(TestCase):
     def test_download_files__dst_dir_none(self):
         keys = [KeyStub("test.txt", "foo"), KeyStub("test2.txt", "foo2")]
         with patch('download_juju._download', autospec=True) as dj:
-            _download_files(keys)
+            download_files(keys)
         self.assertFalse(dj.called)
 
     def test_s3_download_files(self):
         with temp_dir() as dst:
             with patch('download_juju.s3_auth_with_rc', autospec=True) as ds:
                 with patch(
-                        'download_juju._download_files', autospec=True) as dd:
+                        'download_juju.download_files', autospec=True) as dd:
                     s3_download_files('s3://foo/path', '/cred/path', dst)
             ds.assert_called_once_with('/cred/path')
             dd.assert_called_once_with(
