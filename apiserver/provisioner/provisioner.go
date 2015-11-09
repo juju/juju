@@ -879,7 +879,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			logger.Tracef("trying to release all addresses for container %q", container.Id())
 			// Even if the address allocation feature flag is not enabled, we
 			// might be running on MAAS 1.8+ with devices support, which we
-			// detected earlier when the container has starter and registered a
+			// detected earlier when the container has started and registered a
 			// device for it. Now we can just call ReleaseAddress with the
 			// hostname set and the rest left empty.
 			zeroIP, zeroMAC := network.Address{}, ""
@@ -951,6 +951,9 @@ const MACAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 
 // generateMACAddress creates a random MAC address within the space defined by
 // MACAddressTemplate above.
+//
+// TODO(dimitern): We should make a best effort to ensure the MAC address we
+// generate is unique at least within the current environment.
 func generateMACAddress() string {
 	digits := make([]interface{}, 3)
 	for i := range digits {

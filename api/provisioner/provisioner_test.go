@@ -88,7 +88,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
-	// We'll still attempt to release the address, in case we're running on MAAS
+	// We'll still attempt to reserve an address, in case we're running on MAAS
 	// 1.8+ and have registered the container as a device.
 	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
 	c.Assert(ifaceInfo, gc.HasLen, 0)
@@ -97,8 +97,8 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.
 func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
-	// We'll still attempt to release the address, in case we're running on MAAS
-	// 1.8+ and have registered the container as a device.
+	// We'll still attempt to release all addresses, in case we're running on
+	// MAAS 1.8+ and have registered the container as a device.
 	c.Assert(err, gc.ErrorMatches,
 		`cannot release static addresses for "42": machine 42 not found`,
 	)
