@@ -13,7 +13,8 @@ import (
 	"github.com/juju/errors"
 
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	apihttp "github.com/juju/juju/apiserver/http"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -26,24 +27,19 @@ var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 
 // backupHandler handles backup requests.
 type backupHandler struct {
-	httpHandler
+	ctxt httpContext
 }
 
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.validateEnvironUUID(req)
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
-		h.sendError(resp, http.StatusNotFound, err.Error())
+		h.sendError(resp, err)
 		return
 	}
 
-	if err := stateWrapper.authenticateUser(req); err != nil {
-		h.authError(resp, h)
-		return
-	}
-
-	backups, closer := newBackups(stateWrapper.state)
+	backups, closer := newBackups(st)
 	defer closer.Close()
 
 	switch req.Method {
@@ -51,7 +47,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups download request")
 		id, err := h.download(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			h.sendError(resp, err)
 			return
 		}
 		logger.Infof("backups download request successful for %q", id)
@@ -59,12 +55,12 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups upload request")
 		id, err := h.upload(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			h.sendError(resp, err)
 			return
 		}
 		logger.Infof("backups upload request successful for %q", id)
 	default:
-		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
+		h.sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
 }
 
@@ -81,7 +77,7 @@ func (h *backupHandler) download(backups backups.Backups, resp http.ResponseWrit
 	}
 	defer archive.Close()
 
-	err = h.sendFile(archive, meta.Checksum(), apihttp.DigestSHA, resp)
+	err = h.sendFile(archive, meta.Checksum(), resp)
 	return args.ID, err
 }
 
@@ -91,7 +87,7 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 	defer req.Body.Close()
 
 	var metaResult params.BackupsMetadataResult
-	archive, err := apihttp.ExtractRequestAttachment(req, &metaResult)
+	archive, err := httpattachment.Get(req, &metaResult)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +102,7 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 		return "", err
 	}
 
-	h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 	return id, nil
 }
 
@@ -137,7 +133,7 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 }
 
 func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, apihttp.CTypeJSON)
+	body, err := h.read(req, params.ContentTypeJSON)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,10 +146,10 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 	return &args, nil
 }
 
-func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apihttp.DigestAlgorithm, resp http.ResponseWriter) error {
+func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
-	resp.Header().Set("Content-Type", apihttp.CTypeRaw)
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", algorithm, checksum))
+	resp.Header().Set("Content-Type", params.ContentTypeRaw)
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, checksum))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, file); err != nil {
 		return errors.Annotate(err, "while streaming archive")
@@ -161,27 +157,12 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apih
 	return nil
 }
 
-// sendJSON sends a JSON-encoded result.
-func (h *backupHandler) sendJSON(w http.ResponseWriter, statusCode int, result interface{}) {
-	body, err := json.Marshal(result)
-	if err != nil {
-		logger.Errorf("failed to serialize the result (%v): %v", result, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", apihttp.CTypeJSON)
-	w.WriteHeader(statusCode)
-	w.Write(body)
-
-	logger.Infof("backups request successful")
-}
-
 // sendError sends a JSON-encoded error response.
-func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	failure := params.Error{
-		Message: message,
-		// Leave Code empty.
-	}
+// Note the difference from the error response sent by
+// the sendError function - the error is encoded directly
+// rather than in the Error field.
+func (h *backupHandler) sendError(w http.ResponseWriter, err error) {
+	err, status := common.ServerErrorAndStatus(err)
 
-	h.sendJSON(w, statusCode, &failure)
+	sendStatusAndJSON(w, status, err)
 }

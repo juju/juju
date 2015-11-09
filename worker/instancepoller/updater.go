@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.instanceupdater")
+var logger = loggo.GetLogger("juju.worker.instancepoller")
 
 // ShortPoll and LongPoll hold the polling intervals for the instance
 // updater. When a machine has no address or is not started, it will be

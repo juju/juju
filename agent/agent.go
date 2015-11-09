@@ -33,6 +33,13 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
+const (
+	// UninstallAgentFile is the name of the file inside the data
+	// dir that, if it exists, will cause a machine agent to uninstall
+	// when it receives the termination signal.
+	UninstallAgentFile = "uninstall-agent"
+)
+
 // These are base values used for the corresponding defaults.
 var (
 	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
@@ -213,8 +220,9 @@ type Config interface {
 	// are available
 	StateServingInfo() (params.StateServingInfo, bool)
 
-	// APIInfo returns details for connecting to the API server.
-	APIInfo() *api.Info
+	// APIInfo returns details for connecting to the API server and
+	// reports whether the details are available.
+	APIInfo() (*api.Info, bool)
 
 	// MongoInfo returns details for connecting to the state server's mongo
 	// database and reports whether those details are available
@@ -580,12 +588,10 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addr := network.SelectInternalHostPort(serverHostPorts, false)
-		if addr != "" {
-			addrs = append(addrs, addr)
-		}
+		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
 	}
 	c.apiDetails.addresses = addrs
+	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetValue(key, value string) {
@@ -746,6 +752,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
 	data, err := c.fileContents()
 	if err != nil {
@@ -758,7 +765,11 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 	return commands, nil
 }
 
-func (c *configInternal) APIInfo() *api.Info {
+// APIInfo is defined on Config interface.
+func (c *configInternal) APIInfo() (*api.Info, bool) {
+	if c.apiDetails == nil || c.apiDetails.addresses == nil {
+		return nil, false
+	}
 	servingInfo, isStateServer := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
 	if isStateServer {
@@ -785,9 +796,10 @@ func (c *configInternal) APIInfo() *api.Info {
 		Tag:        c.tag,
 		Nonce:      c.nonce,
 		EnvironTag: c.environment,
-	}
+	}, true
 }
 
+// MongoInfo is defined on Config interface.
 func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {

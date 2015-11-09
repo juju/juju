@@ -12,7 +12,6 @@ import (
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -126,7 +125,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ListKeysCommand{}))
+	context, err := coretesting.RunCommand(c, newListKeysCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +137,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ListKeysCommand{}), "--full")
+	context, err := coretesting.RunCommand(c, newListKeysCommand(), "--full")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +150,7 @@ func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 	s.setAuthorizedKeys(c, key1, key2)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ListKeysCommand{}), "--user", "fred")
+	context, err := coretesting.RunCommand(c, newListKeysCommand(), "--user", "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,7 +158,7 @@ func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ListKeysCommand{}), "foo")
+	_, err := coretesting.RunCommand(c, newListKeysCommand(), "foo")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
@@ -174,7 +173,7 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	s.setAuthorizedKeys(c, key1)
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
+	context, err := coretesting.RunCommand(c, newAddKeysCommand(), key2, "invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot add key "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, key2)
@@ -187,7 +186,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockAddKey")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
+	_, err := coretesting.RunCommand(c, newAddKeysCommand(), key2, "invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockAddKey.*")
 }
 
@@ -197,7 +196,7 @@ func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), "--user", "fred", key2)
+	context, err := coretesting.RunCommand(c, newAddKeysCommand(), "--user", "fred", key2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "")
 	s.assertEnvironKeys(c, key1, key2)
@@ -214,7 +213,7 @@ func (s *DeleteKeySuite) TestDeleteKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+	context, err := coretesting.RunCommand(c, newDeleteKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot delete key id "invalid-key".*\n`)
@@ -228,7 +227,7 @@ func (s *DeleteKeySuite) TestBlockDeleteKeys(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockDeleteKeys")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+	_, err := coretesting.RunCommand(c, newDeleteKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockDeleteKeys.*")
 }
@@ -239,7 +238,7 @@ func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
 	s.setAuthorizedKeys(c, key1, key2)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+	context, err := coretesting.RunCommand(c, newDeleteKeysCommand(),
 		"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "")
@@ -261,7 +260,7 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
+	context, err := coretesting.RunCommand(c, newImportKeysCommand(), "lp:validuser", "invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
@@ -273,7 +272,7 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockImportKeys")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
+	_, err := coretesting.RunCommand(c, newImportKeysCommand(), "lp:validuser", "invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockImportKeys.*")
 }
 
@@ -282,7 +281,7 @@ func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
 	s.setAuthorizedKeys(c, key1)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
-	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "--user", "fred", "lp:validuser")
+	context, err := coretesting.RunCommand(c, newImportKeysCommand(), "--user", "fred", "lp:validuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "")
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)

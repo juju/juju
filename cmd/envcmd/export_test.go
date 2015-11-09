@@ -12,10 +12,11 @@ var (
 
 // NewEnvCommandBase returns a new EnvCommandBase with the environment name, client,
 // and error as specified for testing purposes.
-func NewEnvCommandBase(name string, client EnvironmentGetter, err error) *EnvCommandBase {
+// If getterErr != nil then the NewEnvironmentGetter returns the specified error.
+func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *EnvCommandBase {
 	return &EnvCommandBase{
 		envName:         name,
 		envGetterClient: client,
-		envGetterErr:    err,
+		envGetterErr:    getterErr,
 	}
 }

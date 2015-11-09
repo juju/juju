@@ -4,14 +4,20 @@
 package backups
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
+
+var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
@@ -29,10 +35,13 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	addr, err := machine.PrivateAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching internal address for machine %q", machine)
+
 	}
+
 	publicAddress, err := machine.PublicAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching public address for machine %q", machine)
+
 	}
 
 	info, err := a.st.RestoreInfoSetter()
@@ -62,8 +71,32 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstTag:     machine.Tag(),
 		NewInstSeries:  machine.Series(),
 	}
-	if err := backup.Restore(p.BackupId, restoreArgs); err != nil {
+
+	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
+	if err != nil {
 		return errors.Annotate(err, "restore failed")
+	}
+
+	// A backup can be made of any component of an ha array.
+	// The files in a backup dont contain purely relativized paths.
+	// If the backup is made of the bootstrap node (machine 0) the
+	// recently created machine will have the same paths and therefore
+	// the startup scripts will fit the new juju. If the backup belongs
+	// to a different machine, we need to create a new set of startup
+	// scripts and exit with 0 (so that the current script does not try
+	// to restart the old juju, which will no longer be there).
+	if oldTagString != nil && oldTagString != bootstrapNode {
+		srvName := fmt.Sprintf("jujud-%s", oldTagString)
+		srv, err := service.DiscoverService(srvName, common.Conf{})
+		if err != nil {
+			return errors.Annotatef(err, "cannot find %q service", srvName)
+		}
+		if err := srv.Start(); err != nil {
+			return errors.Annotatef(err, "cannot start %q service", srvName)
+		}
+		// We dont want machine-0 to restart since the new one has a different tag.
+		// We started the new one above.
+		os.Exit(0)
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work

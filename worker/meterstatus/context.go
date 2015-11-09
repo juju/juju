@@ -6,7 +6,6 @@ package meterstatus
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -60,7 +59,7 @@ func (ctx *limitedContext) UnitName() string {
 }
 
 // SetProcess implements runner.Context.
-func (ctx *limitedContext) SetProcess(process *os.Process) {}
+func (ctx *limitedContext) SetProcess(process context.HookProcess) {}
 
 // ActionData implements runner.Context.
 func (ctx *limitedContext) ActionData() (*context.ActionData, error) {

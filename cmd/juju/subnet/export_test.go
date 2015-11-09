@@ -3,30 +3,52 @@
 
 package subnet
 
-func NewCreateCommand(api SubnetAPI) *CreateCommand {
-	createCmd := &CreateCommand{}
-	createCmd.api = api
-	return createCmd
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/envcmd"
+)
+
+type CreateCommand struct {
+	*createCommand
 }
 
-func NewAddCommand(api SubnetAPI) *AddCommand {
-	addCmd := &AddCommand{}
-	addCmd.api = api
-	return addCmd
+func NewCreateCommand(api SubnetAPI) (cmd.Command, *CreateCommand) {
+	cmd := &createCommand{
+		SubnetCommandBase: SubnetCommandBase{api: api},
+	}
+	return envcmd.Wrap(cmd), &CreateCommand{cmd}
 }
 
-func NewRemoveCommand(api SubnetAPI) *RemoveCommand {
-	removeCmd := &RemoveCommand{}
-	removeCmd.api = api
-	return removeCmd
+type AddCommand struct {
+	*addCommand
 }
 
-func NewListCommand(api SubnetAPI) *ListCommand {
-	listCmd := &ListCommand{}
-	listCmd.api = api
-	return listCmd
+func NewAddCommand(api SubnetAPI) (cmd.Command, *AddCommand) {
+	cmd := &addCommand{
+		SubnetCommandBase: SubnetCommandBase{api: api},
+	}
+	return envcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
-func ListFormat(cmd *ListCommand) string {
-	return cmd.out.Name()
+type RemoveCommand struct {
+	*removeCommand
+}
+
+func NewRemoveCommand(api SubnetAPI) (cmd.Command, *RemoveCommand) {
+	removeCmd := &removeCommand{
+		SubnetCommandBase: SubnetCommandBase{api: api},
+	}
+	return envcmd.Wrap(removeCmd), &RemoveCommand{removeCmd}
+}
+
+type ListCommand struct {
+	*listCommand
+}
+
+func NewListCommand(api SubnetAPI) (cmd.Command, *ListCommand) {
+	cmd := &listCommand{
+		SubnetCommandBase: SubnetCommandBase{api: api},
+	}
+	return envcmd.Wrap(cmd), &ListCommand{cmd}
 }

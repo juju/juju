@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -32,9 +31,6 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockAddAPI{}
-	s.PatchValue(storage.GetStorageAddAPI, func(c *storage.AddCommand) (storage.StorageAddAPI, error) {
-		return s.mockAPI, nil
-	})
 	s.args = nil
 }
 
@@ -60,12 +56,12 @@ func (s *addSuite) TestAddArgs(c *gc.C) {
 }
 
 func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string) {
-	_, err := runAdd(c, s.args...)
+	_, err := s.runAdd(c, s.args...)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
 }
 
-func runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&storage.AddCommand{}), args...)
+func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommand(c, storage.NewAddCommand(s.mockAPI), args...)
 }
 
 func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
@@ -110,7 +106,7 @@ success: storage "a"`[1:]
 }
 
 func (s *addSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
-	context, err := runAdd(c, s.args...)
+	context, err := s.runAdd(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedErr := testing.Stderr(context)

@@ -57,7 +57,7 @@ func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 
-	_, err := testing.RunCommand(c, envcmd.Wrap(&service.SetCommand{}), "dummy-service",
+	_, err := testing.RunCommand(c, service.NewSuperCommand(), "set", "dummy-service",
 		"username=hello", "outlook=hello@world.tld")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -83,7 +83,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	err := svc.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, envcmd.Wrap(&service.UnsetCommand{}), "dummy-service", "username")
+	_, err = testing.RunCommand(c, service.NewSuperCommand(), "unset", "dummy-service", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{
@@ -120,7 +120,7 @@ settings:
 	ch := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "dummy-service", ch)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&service.GetCommand{}), "dummy-service")
+	context, err := testing.RunCommand(c, service.NewSuperCommand(), "get", "dummy-service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -138,7 +138,7 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, envcmd.Wrap(&service.AddUnitCommand{}), "some-service-name",
+	_, err = testing.RunCommand(c, service.NewSuperCommand(), "add-unit", "some-service-name",
 		"--to", container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
