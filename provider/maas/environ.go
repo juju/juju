@@ -75,6 +75,16 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
+func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) error {
+	device := devices.GetSubObject(deviceId)
+	params := url.Values{}
+	if addr.Value != "" {
+		params.Add("requested_address", addr.Value)
+	}
+	_, err := device.CallPost("claim_sticky_ip_address", params)
+	return err
+}
+
 func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
 	params := url.Values{}
 	params.Add("ip", addr.Value)
@@ -1540,6 +1550,12 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 			"created device %q for container %q with MAC address %q on parent node %q",
 			deviceID, hostname, macAddress, instId,
 		)
+		devices := environ.getMAASClient().GetSubObject("devices")
+		if err := reserveIPAddressOnDevice(devices, deviceID, network.Address{}); err != nil {
+			return errors.Annotatef(err, "reserving a sticky IP address for device %q", deviceID)
+		}
+		logger.Infof("reserved sticky IP address for device %q representing container %q", deviceID, hostname)
+
 		return nil
 	}
 
