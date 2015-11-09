@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 )

@@ -129,7 +129,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		if test.stream != "" {
 			c.Check(findStream, gc.Equals, test.stream)
 		} else {
-			if test.dev || test.version.IsDev() {
+			if test.dev || jujuversion.IsDev(test.version) {
 				c.Check(findStream, gc.Equals, "devel")
 			} else {
 				c.Check(findStream, gc.Equals, "released")

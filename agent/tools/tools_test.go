@@ -39,7 +39,7 @@ func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
 		gc.DeepEquals,
-		[]string{"tools", "version"})
+		[]string{"tools"})
 }
 
 const toolsFile = "downloaded-tools.txt"
