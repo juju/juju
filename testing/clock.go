@@ -19,23 +19,50 @@ type Clock struct {
 	currentAlarmID int
 }
 
+// timerClock gives timer access to some of clock's internals.
+type timerClock interface {
+	reset(id int, d time.Duration) bool
+	stop(id int) bool
+}
+
 // Timer implements a mock clock.Timer for testing purposes.
-// It's Reset and Stop functions might alter the contents
-// of clock by changing the alarm with id ID.
 type Timer struct {
-	clock *Clock
 	ID    int
+	clock timerClock
+}
+
+// reset is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) reset(id int, d time.Duration) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms[i].time = clock.now.Add(d)
+			sort.Sort(byTime(clock.alarms))
+			return true
+		}
+	}
+	return false
 }
 
 // Reset is part of the clock.Timer interface
 func (t *Timer) Reset(d time.Duration) bool {
-	t.clock.mu.Lock()
-	defer t.clock.mu.Unlock()
+	return t.clock.reset(t.ID, d)
+}
 
-	for i, alarm := range t.clock.alarms {
-		if t.ID == alarm.ID {
-			t.clock.alarms[i].time = t.clock.now.Add(d)
-			sort.Sort(byTime(t.clock.alarms))
+// stop is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) stop(id int) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms = removeFromSlice(clock.alarms, i)
 			return true
 		}
 	}
@@ -44,17 +71,14 @@ func (t *Timer) Reset(d time.Duration) bool {
 
 // Stop is part of the clock.Timer interface
 func (t *Timer) Stop() bool {
-	t.clock.mu.Lock()
-	defer t.clock.mu.Unlock()
-
-	for i, alarm := range t.clock.alarms {
-		if t.ID == alarm.ID {
-			t.clock.alarms = removeFromSlice(t.clock.alarms, i)
-			return true
-		}
-	}
-	return false
+	return t.clock.stop(t.ID)
 }
+
+// stoppedTimer is a noop implementation for timer
+type stoppedTimer struct{}
+
+func (stoppedTimer) Reset(time.Duration) bool { return false }
+func (stoppedTimer) Stop() bool               { return false }
 
 // NewClock returns a new clock set to the supplied time.
 func NewClock(now time.Time) *Clock {
@@ -77,7 +101,6 @@ func (clock *Clock) After(d time.Duration) <-chan time.Time {
 		notify <- clock.now
 	} else {
 		clock.setAlarm(clock.now.Add(d), func() { notify <- clock.now })
-		clock.currentAlarmID = clock.currentAlarmID + 1
 	}
 	return notify
 }
@@ -88,18 +111,15 @@ func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	defer clock.mu.Unlock()
 	if d <= 0 {
 		f()
-	} else {
-		clock.setAlarm(clock.now.Add(d), f)
+		return &stoppedTimer{}
 	}
-
-	// If d <= we're sending an id that's not attached to any alarm
-	// which is what's intended
-	clock.currentAlarmID = clock.currentAlarmID + 1
-	t := &Timer{clock, clock.currentAlarmID}
-	return t
+	id := clock.setAlarm(clock.now.Add(d), f)
+	return &Timer{id, clock}
 }
 
-func (clock *Clock) setAlarm(t time.Time, trigger func()) {
+// setAlarm adds an alarm at time t.
+// It also sorts the alarms and increments the current ID by 1.
+func (clock *Clock) setAlarm(t time.Time, trigger func()) int {
 	alarm := alarm{
 		time:    t,
 		trigger: trigger,
@@ -107,6 +127,8 @@ func (clock *Clock) setAlarm(t time.Time, trigger func()) {
 	}
 	clock.alarms = append(clock.alarms, alarm)
 	sort.Sort(byTime(clock.alarms))
+	clock.currentAlarmID = clock.currentAlarmID + 1
+	return alarm.ID
 }
 
 // Advance advances the result of Now by the supplied duration, and sends
@@ -128,9 +150,9 @@ func (clock *Clock) Advance(d time.Duration) {
 
 // alarm records the time at which we're expected to execute trigger.
 type alarm struct {
+	ID      int
 	time    time.Time
 	trigger func()
-	ID      int
 }
 
 // removeFromSlice removes item at the specified index from the slice
