@@ -20,7 +20,7 @@ func ExportOffer(offer Offer) error {
 
 // Search looks through offered services and returns the ones
 // that match speified filter.
-func Search(filter params.SAASSearchFilter) ([]ServiceDetails, error) {
+func Search(filter params.EndpointsSearchFilter) ([]ServiceDetails, error) {
 	// TODO(anastasiamac 2015-11-02) needs the actual implementation - this is a placeholder.
 
 	byURL := make(map[string][]ServiceDetails, len(TempPlaceholder))
