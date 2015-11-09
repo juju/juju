@@ -45,12 +45,12 @@ func (s *cmdCrossModelSuite) TestOfferAndShow(c *gc.C) {
 	_, err := runJujuCommand(c, "offer", "test:db", "local:/u/fred/prod/hosted-db2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := runJujuCommand(c, "show-saas", "local:/u/fred/prod/hosted-db2")
+	context, err := runJujuCommand(c, "show-endpoints", "local:/u/fred/prod/hosted-db2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := `
-SAAS  INTERFACES  DESCRIPTION
-test  db          
+SERVICE  INTERFACES  DESCRIPTION
+test     db          
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
