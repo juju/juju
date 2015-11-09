@@ -113,6 +113,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	logArgs := url.Values{"noTail": []string{"true"}}
 	conn, err := client.ConnectStream("/log", logArgs)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
 	conn.Close()
 
 	// Then delete all the cookies by deleting the cookie jar

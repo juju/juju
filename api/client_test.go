@@ -388,6 +388,7 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	// don't set up mongo in replicaset mode.
 	reader, err := client.WatchDebugLog(api.DebugLogParams{NoTail: true})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reader, gc.NotNil)
 	reader.Close()
 }
 
