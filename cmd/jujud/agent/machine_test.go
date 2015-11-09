@@ -1891,6 +1891,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 			c.Fatalf("timed out waiting for the machiner to start")
 		}
 		s.waitStopped(c, state.JobHostUnits, a, doneCh)
+		logsender.UninstallBufferedLogWriter()
 	}
 }
 
