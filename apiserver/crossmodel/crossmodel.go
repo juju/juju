@@ -66,9 +66,9 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 	return params.ErrorResults{Results: offers}, nil
 }
 
-// Show gets SAAS endpoints details matching to provided filter.
-func (api *API) Show(filter params.SAASSearchFilter) (params.SAASDetailsResult, error) {
-	noResult := params.SAASDetailsResult{}
+// Show gets offered endpoints details matching to provided filter.
+func (api *API) Show(filter params.EndpointsSearchFilter) (params.EndpointsDetailsResult, error) {
+	noResult := params.EndpointsDetailsResult{}
 
 	found, err := crossmodel.Search(filter)
 	if err != nil {
@@ -81,7 +81,7 @@ func (api *API) Show(filter params.SAASSearchFilter) (params.SAASDetailsResult, 
 		return noResult, errors.Errorf("expected to find one result for url %q but found %d", filter.URL, len(found))
 	}
 
-	return ConvertSAASDetails(found[0]), nil
+	return ConvertEndpointsDetails(found[0]), nil
 }
 
 // ParseOffer is a helper function that translates from params
@@ -103,10 +103,10 @@ func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
 	return crossmodel.NewOffer(serviceTag, p.Endpoints, p.URL, users), nil
 }
 
-// ParseOffer is a helper function that translates from params
-// structure into internal service layer one.
-func ConvertSAASDetails(c crossmodel.ServiceDetails) params.SAASDetailsResult {
-	return params.SAASDetailsResult{
+// ConvertEndpointsDetails is a helper function that translates from internal service layer
+// structure into params one.
+func ConvertEndpointsDetails(c crossmodel.ServiceDetails) params.EndpointsDetailsResult {
+	return params.EndpointsDetailsResult{
 		Service:     c.Service().String(),
 		Endpoints:   c.Endpoints(),
 		Description: c.Description(),

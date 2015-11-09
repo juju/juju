@@ -12,18 +12,18 @@ import (
 	"github.com/juju/errors"
 )
 
-// formatTabular returns a tabular summary of SAAS endpoints or
+// formatTabular returns a tabular summary of offered services' endpoints or
 // errors out if parameter is not of expected type.
 func formatTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.([]SAASEndpoint)
+	endpoints, ok := value.([]OfferedEndpoint)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
-	return formatSAASEndpointsTabular(endpoints)
+	return formatOfferedEndpointsTabular(endpoints)
 }
 
-// formatSAASEndpointsTabular returns a tabular summary of SAAS endpoints.
-func formatSAASEndpointsTabular(all []SAASEndpoint) ([]byte, error) {
+// formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
+func formatOfferedEndpointsTabular(all []OfferedEndpoint) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -38,7 +38,7 @@ func formatSAASEndpointsTabular(all []SAASEndpoint) ([]byte, error) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	print("SAAS", "INTERFACES", "DESCRIPTION")
+	print("SERVICE", "INTERFACES", "DESCRIPTION")
 
 	for _, one := range all {
 		print(one.Service, strings.Join(one.Endpoints, ","), one.Desc)

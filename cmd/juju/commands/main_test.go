@@ -56,8 +56,8 @@ func offerHelpText() string {
 	return cmdtesting.HelpText(crossmodel.NewOfferCommand(), "juju offer")
 }
 
-func showSAASHelpText() string {
-	return cmdtesting.HelpText(crossmodel.NewShowSAASEndpointCommand(), "juju show-saas")
+func showEndpointsHelpText() string {
+	return cmdtesting.HelpText(crossmodel.NewShowOfferedEndpointCommand(), "juju show-endpoints")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -182,13 +182,13 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     "error: an offer must at least specify service endpoint\n",
 	}, {
-		summary: "check show-saas command has help",
-		args:    []string{"show-saas", "-h"},
+		summary: "check show-endpoints command has help",
+		args:    []string{"show-endpoints", "-h"},
 		code:    0,
-		out:     showSAASHelpText(),
+		out:     showEndpointsHelpText(),
 	}, {
-		summary: "check show-saas command registered properly",
-		args:    []string{"show-saas"},
+		summary: "check show-endpoints command registered properly",
+		args:    []string{"show-endpoints"},
 		code:    0,
 		out:     "error: must specify endpoint URL\n",
 	},
@@ -272,7 +272,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
-	"show-saas",
+	"show-endpoints",
 	"space",
 	"ssh",
 	"stat", // alias for status

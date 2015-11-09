@@ -28,7 +28,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewShowSAASEndpointCommandForTest(s.mockAPI), args...)
+	return testing.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.mockAPI), args...)
 }
 
 func (s *showSuite) TestShowNoUrl(c *gc.C) {
@@ -64,7 +64,7 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SAAS        INTERFACES  DESCRIPTION
+SERVICE     INTERFACES  DESCRIPTION
 hosted-db2  db2,log     IBM DB2 Express Server Edition is an entry level database system
 
 `[1:],
@@ -92,12 +92,12 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(url string) (params.SAASDetailsResult, error) {
+func (s mockShowAPI) Show(url string) (params.EndpointsDetailsResult, error) {
 	if s.msg != "" {
-		return params.SAASDetailsResult{}, errors.New(s.msg)
+		return params.EndpointsDetailsResult{}, errors.New(s.msg)
 	}
 
-	return params.SAASDetailsResult{
+	return params.EndpointsDetailsResult{
 		Service:     s.serviceTag,
 		Endpoints:   []string{"db2", "log"},
 		Description: "IBM DB2 Express Server Edition is an entry level database system",

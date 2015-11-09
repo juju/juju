@@ -14,7 +14,7 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about SAAS endpoint, an offered cross model relations endpoint.
+Show extended information about service's endpoints previously offered through "juju offer". 
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 The details are shown if the user has read permission to the directory containing the endpoint.
@@ -26,8 +26,8 @@ options:
    specify output format (tabular|json|yaml)
 
 Examples:
-   $ juju show-saas local:/u/fred/prod/db2
-   $ juju show-saas vendor:/u/ibm/hosted-db2
+   $ juju show-endpoints local:/u/fred/prod/db2
+   $ juju show-endpoints vendor:/u/ibm/hosted-db2
 `
 
 type showCommand struct {
@@ -38,9 +38,9 @@ type showCommand struct {
 	api ShowAPI
 }
 
-// NewShowSAASEndpointCommand constructs command that
-// allows to show details of SAAS endpoint.
-func NewShowSAASEndpointCommand() cmd.Command {
+// NewShowOfferedEndpointCommand constructs command that
+// allows to show details of offered service's endpoint.
+func NewShowOfferedEndpointCommand() cmd.Command {
 	return envcmd.Wrap(&showCommand{})
 }
 
@@ -61,8 +61,8 @@ func (c *showCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-saas",
-		Purpose: "shows SAAS endpoints details",
+		Name:    "show-endpoints",
+		Purpose: "shows offered services' endpoints details",
 		Doc:     showCommandDoc,
 	}
 }
@@ -103,7 +103,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	Show(url string) (params.SAASDetailsResult, error)
+	Show(url string) (params.EndpointsDetailsResult, error)
 }
 
 var getShowAPI = (*showCommand).getShowAPI

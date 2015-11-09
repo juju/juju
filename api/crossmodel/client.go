@@ -38,12 +38,12 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 	return out.Results, nil
 }
 
-// Show returns SAAS endpoints details for a given URL.
-func (c *Client) Show(url string) (params.SAASDetailsResult, error) {
-	found := params.SAASDetailsResult{}
-	filter := params.SAASSearchFilter{URL: url}
+// Show returns offered endpoints details for a given URL.
+func (c *Client) Show(url string) (params.EndpointsDetailsResult, error) {
+	found := params.EndpointsDetailsResult{}
+	filter := params.EndpointsSearchFilter{URL: url}
 	if err := c.facade.FacadeCall("Show", filter, &found); err != nil {
-		return params.SAASDetailsResult{}, errors.Trace(err)
+		return params.EndpointsDetailsResult{}, errors.Trace(err)
 	}
 	return found, nil
 }

@@ -32,25 +32,25 @@ func (c *CrossModelCommandBase) NewCrossModelAPI() (*crossmodel.Client, error) {
 	return crossmodel.NewClient(root), nil
 }
 
-// SAASEndpoint defines the serialization behaviour of SAAS endpoint details.
-type SAASEndpoint struct {
+// OfferedEndpoint defines the serialization behaviour of offered endpoints details.
+type OfferedEndpoint struct {
 	// Service has service name.
 	Service string `yaml:"service" json:"service"`
 
-	// Endpoints list of SAAS endpoints.
+	// Endpoints list of offered service endpoints.
 	Endpoints []string `yaml:"endpoints" json:"endpoints"`
 
 	// Desc is the user entered description.
 	Desc string `yaml:"desc,omitempty" json:"desc,omitempty"`
 }
 
-// formatEndpoints takes any number of api-formatted SAAS endpoints and
+// formatEndpoints takes any number of api-formatted offered services' endpoints and
 // creates a collection of ui-formatted endpoints.
-func formatEndpoints(apiEndpoints ...params.SAASDetailsResult) ([]SAASEndpoint, error) {
+func formatEndpoints(apiEndpoints ...params.EndpointsDetailsResult) ([]OfferedEndpoint, error) {
 	if len(apiEndpoints) == 0 {
 		return nil, nil
 	}
-	output := make([]SAASEndpoint, len(apiEndpoints))
+	output := make([]OfferedEndpoint, len(apiEndpoints))
 	for i, one := range apiEndpoints {
 		serviceName, err := getServiceNameFromTag(one.Service)
 		if err != nil {

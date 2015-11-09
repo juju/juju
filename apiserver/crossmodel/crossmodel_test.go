@@ -48,17 +48,17 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 
 	crossmodel.TempPlaceholder[tag] = anOffer
 
-	found, err := s.api.Show(params.SAASSearchFilter{URL: url})
+	found, err := s.api.Show(params.EndpointsSearchFilter{URL: url})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals, params.SAASDetailsResult{Service: tag.String()})
+	c.Assert(found, gc.DeepEquals, params.EndpointsDetailsResult{Service: tag.String()})
 }
 
 func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	url := "local:/u/fred/prod/hosted-db2"
 
-	found, err := s.api.Show(params.SAASSearchFilter{URL: url})
+	found, err := s.api.Show(params.EndpointsSearchFilter{URL: url})
 	c.Assert(err, gc.ErrorMatches, `endpoints with url "local:/u/fred/prod/hosted-db2" not found`)
-	c.Assert(found, gc.DeepEquals, params.SAASDetailsResult{})
+	c.Assert(found, gc.DeepEquals, params.EndpointsDetailsResult{})
 }
 
 func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	crossmodel.TempPlaceholder[tag] = anOffer
 	crossmodel.TempPlaceholder[tag2] = anOffer2
 
-	found, err := s.api.Show(params.SAASSearchFilter{URL: url})
+	found, err := s.api.Show(params.EndpointsSearchFilter{URL: url})
 	c.Assert(err, gc.ErrorMatches, `expected to find one result for url "local:/u/fred/prod/hosted-db2" but found 2`)
-	c.Assert(found, gc.DeepEquals, params.SAASDetailsResult{})
+	c.Assert(found, gc.DeepEquals, params.EndpointsDetailsResult{})
 }
