@@ -2451,12 +2451,29 @@ func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) 
 
 	err := machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.DocElem{"preferredpublicaddress", ""}}},
+		bson.D{{"$unset", bson.D{{"preferredpublicaddress", ""}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.DocElem{"preferredprivateaddress", ""}}},
+		bson.D{{"$unset", bson.D{{"preferredprivateaddress", ""}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, addr string) {
+	machinesCol, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+
+	stateAddr := fromNetworkAddress(network.NewAddress(addr), OriginUnknown)
+	err := machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredpublicaddress", stateAddr}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredprivateaddress", stateAddr}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2545,6 +2562,37 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
 	assertMachineAddresses(c, m3, "", "")
 
 	err = AddPreferredAddressesToMachines(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
+	assertMachineAddresses(c, m3, "", "")
+}
+
+func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields(c *gc.C) {
+	machines := s.createMachinesWithAddresses(c)
+	m1 := machines[0]
+	m2 := machines[1]
+	m3 := machines[2]
+	s.setPreferredAddressFields(c, m1, "1.1.2.2")
+	s.setPreferredAddressFields(c, m2, "1.1.2.2")
+	s.setPreferredAddressFields(c, m3, "1.1.2.2")
+
+	assertMachineInitial := func(m *Machine) {
+		err := m.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		addr, err := m.PublicAddress()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
+		addr, err = m.PrivateAddress()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
+	}
+	assertMachineInitial(m1)
+	assertMachineInitial(m2)
+	assertMachineInitial(m3)
+
+	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
