@@ -2471,13 +2471,13 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 		c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	}
 	c.Assert(addr.Value, gc.Equals, publicAddress)
-	addr, err = machine.PrivateAddress()
+	privAddr, err := machine.PrivateAddress()
 	if privateAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	}
-	c.Assert(addr.Value, gc.Equals, privateAddress)
+	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
@@ -2500,7 +2500,7 @@ func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("10.0.0..2"))
+	err = m2.SetProviderAddresses(network.NewAddress("10.0.0.2"), network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempting to set the addresses of a dead machine will fail, so we

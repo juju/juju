@@ -1208,7 +1208,7 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
 		return newAddr, true
 	}
-	if Origin(addr.Origin) == OriginMachine && Origin(newAddr.Origin) == OriginProvider {
+	if Origin(addr.Origin) != OriginProvider && Origin(newAddr.Origin) == OriginProvider {
 		return newAddr, true
 	}
 	if !checkScope(addr) {
