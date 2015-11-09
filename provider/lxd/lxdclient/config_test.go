@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 var (

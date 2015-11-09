@@ -12,10 +12,10 @@ import (
 	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/testing"
 )
 

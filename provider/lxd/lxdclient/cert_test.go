@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 var (

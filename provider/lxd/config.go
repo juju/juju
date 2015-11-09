@@ -12,9 +12,9 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 // TODO(ericsnow) Support providing cert/key file.
