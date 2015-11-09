@@ -20,9 +20,10 @@ func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClient, fakeNewClient)
 	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
-	// Empty remote means connect locally.
-	client, err := Connect(Config{Remote: configIDForLocal})
-	c.Assert(client, gc.IsNil)
+	cfg := Config{
+		Remote: Local,
+	}
+	_, err := Connect(cfg)
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
@@ -33,8 +34,13 @@ func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClient, fakeNewClient)
 	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
-	client, err := Connect(Config{Remote: "foo"})
-	c.Assert(client, gc.IsNil)
+	cfg := Config{
+		Remote: Remote{
+			Name: "foo",
+			Host: "a.b.c",
+		},
+	}
+	_, err := Connect(cfg)
 
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
