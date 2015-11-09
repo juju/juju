@@ -11,7 +11,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
-github.com/juju/bundlechanges	git	b2d0b097c9a98f88cd85b964c7c096b83bd1346b	2015-10-13T13:38:12Z
+github.com/juju/bundlechanges	git	dcaa5f25952025b262d7ad23c912d5abd8b20d86	2015-11-04T11:17:50Z
 github.com/juju/cmd	git	33554d631f79b840d76673665b292215882ba90a	2015-10-28T03:05:29Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
@@ -30,7 +30,7 @@ github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T0
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	ad6f815f49f8209a27a3b7efb6d44876493e5939	2015-10-12T16:09:06Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	cfaebddd3ca4b7d740e7e81810a7ea52984c342e	2015-10-01T16:18:32Z
+github.com/juju/utils	git	cfaebddd3ca4b7d740e7e81810a7ea52984c342e	2015-11-09T02:09:38Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/julienschmidt/httprouter	git	109e267447e95ad1bb48b758e40dd7453eb7b039	2015-09-05T17:25:33Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
@@ -42,8 +42,8 @@ gopkg.in/amz.v3	git	bff3a097c4108da57bb8cbe3aad2990d74d23676	2015-08-20T12:28:33
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
 gopkg.in/goose.v1	git	be6030ce33a6d77f5e9c63b7698030e6431d5343	2015-08-24T15:19:40Z
-gopkg.in/juju/charm.v6-unstable	git	0c23b5a82a3878b2f8538f45806968a2a93effc3	2015-10-08T18:38:33Z
-gopkg.in/juju/charmrepo.v1	git	8677b12d9772a2a596a99e65b7e6f642fceb6c40	2015-09-14T13:26:00Z
+gopkg.in/juju/charm.v6-unstable	git	fcea74e783acf89c3d095dfec7b52a5d00d536ae	2015-11-06T09:56:06Z
+gopkg.in/juju/charmrepo.v1	git	12348f5cefcac2fdc8c81a2a9ec80c5f6ce57d77	2015-11-05T17:57:21Z
 gopkg.in/juju/charmstore.v5-unstable	git	475920bf612769da77969237ed511a921fb785be	2015-09-16T09:44:01Z
 gopkg.in/juju/environschema.v1	git	7bea6a9a531586600a7741e9bdd5e3c978ffda15	2015-10-20T16:12:31Z
 gopkg.in/juju/jujusvg.v1	git	3eedb1c722ece2b66d62508368ca3e8b7f916569	2015-05-20T11:48:32Z
