@@ -83,7 +83,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 	return testing.RunCommand(c, cmd, args...)
 }
 
-func (s *DestroySuite) newDestroyCommand() *environment.DestroyCommand {
+func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return environment.NewDestroyCommand(s.api)
 }
 

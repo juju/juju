@@ -60,16 +60,23 @@ type manifoldHarness struct {
 	inputs             []string
 	errors             chan error
 	starts             chan struct{}
+	requireResources   bool
 	ignoreExternalKill bool
 }
 
 func newManifoldHarness(inputs ...string) *manifoldHarness {
 	return &manifoldHarness{
-		inputs:             inputs,
-		errors:             make(chan error, 1000),
-		starts:             make(chan struct{}, 1000),
-		ignoreExternalKill: false,
+		inputs:           inputs,
+		errors:           make(chan error, 1000),
+		starts:           make(chan struct{}, 1000),
+		requireResources: true,
 	}
+}
+
+func newResourceIgnoringManifoldHarness(inputs ...string) *manifoldHarness {
+	mh := newManifoldHarness(inputs...)
+	mh.requireResources = false
+	return mh
 }
 
 // newErrorIgnoringManifoldHarness starts a minimal worker that ignores
@@ -77,64 +84,63 @@ func newManifoldHarness(inputs ...string) *manifoldHarness {
 // This is potentially nasty, but it's useful in tests where we want
 // to generate fatal errors but not race on which one the engine see first.
 func newErrorIgnoringManifoldHarness(inputs ...string) *manifoldHarness {
-	return &manifoldHarness{
-		inputs:             inputs,
-		errors:             make(chan error, 1000),
-		starts:             make(chan struct{}, 1000),
-		ignoreExternalKill: true,
-	}
+	mh := newManifoldHarness(inputs...)
+	mh.ignoreExternalKill = true
+	return mh
 }
 
-func (ews *manifoldHarness) Manifold() dependency.Manifold {
+func (mh *manifoldHarness) Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: ews.inputs,
-		Start:  ews.start,
+		Inputs: mh.inputs,
+		Start:  mh.start,
 	}
 }
 
-func (ews *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-	for _, resourceName := range ews.inputs {
+func (mh *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	for _, resourceName := range mh.inputs {
 		if err := getResource(resourceName, nil); err != nil {
-			return nil, err
+			if mh.requireResources {
+				return nil, err
+			}
 		}
 	}
-	w := &minimalWorker{tomb.Tomb{}, ews.ignoreExternalKill}
+	w := &minimalWorker{tomb.Tomb{}, mh.ignoreExternalKill}
 	go func() {
 		defer w.tomb.Done()
-		ews.starts <- struct{}{}
+		mh.starts <- struct{}{}
 		select {
 		case <-w.tombDying():
-		case err := <-ews.errors:
+		case err := <-mh.errors:
 			w.tomb.Kill(err)
 		}
 	}()
 	return w, nil
 }
 
-func (ews *manifoldHarness) AssertOneStart(c *gc.C) {
-	ews.AssertStart(c)
-	ews.AssertNoStart(c)
+func (mh *manifoldHarness) AssertOneStart(c *gc.C) {
+	mh.AssertStart(c)
+	mh.AssertNoStart(c)
 }
 
-func (ews *manifoldHarness) AssertStart(c *gc.C) {
+func (mh *manifoldHarness) AssertStart(c *gc.C) {
 	select {
-	case <-ews.starts:
+	case <-mh.starts:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("never started")
 	}
 }
 
-func (ews *manifoldHarness) AssertNoStart(c *gc.C) {
+func (mh *manifoldHarness) AssertNoStart(c *gc.C) {
 	select {
 	case <-time.After(coretesting.ShortWait):
-	case <-ews.starts:
+	case <-mh.starts:
 		c.Fatalf("started unexpectedly")
 	}
 }
 
-func (ews *manifoldHarness) InjectError(c *gc.C, err error) {
+func (mh *manifoldHarness) InjectError(c *gc.C, err error) {
 	select {
-	case ews.errors <- err:
+	case mh.errors <- err:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("never sent")
 	}
@@ -155,26 +161,26 @@ type tracedManifoldHarness struct {
 	*manifoldHarness
 }
 
-func (ews *tracedManifoldHarness) Manifold() dependency.Manifold {
+func (mh *tracedManifoldHarness) Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: ews.inputs,
-		Start:  ews.start,
+		Inputs: mh.inputs,
+		Start:  mh.start,
 	}
 }
 
-func (ews *tracedManifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-	for _, resourceName := range ews.inputs {
+func (mh *tracedManifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	for _, resourceName := range mh.inputs {
 		if err := getResource(resourceName, nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	w := &minimalWorker{tomb.Tomb{}, ews.ignoreExternalKill}
+	w := &minimalWorker{tomb.Tomb{}, mh.ignoreExternalKill}
 	go func() {
 		defer w.tomb.Done()
-		ews.starts <- struct{}{}
+		mh.starts <- struct{}{}
 		select {
 		case <-w.tombDying():
-		case err := <-ews.errors:
+		case err := <-mh.errors:
 			w.tomb.Kill(err)
 		}
 	}()

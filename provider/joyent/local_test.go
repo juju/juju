@@ -120,7 +120,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
@@ -154,7 +154,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)

@@ -12,8 +12,13 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/storage"
 )
+
+func newAddCommand() cmd.Command {
+	return envcmd.Wrap(&addCommand{})
+}
 
 const (
 	addCommandDoc = `
@@ -70,18 +75,19 @@ Example:
 `
 )
 
-// AddCommand adds unit storage instances dynamically.
-type AddCommand struct {
+// addCommand adds unit storage instances dynamically.
+type addCommand struct {
 	StorageCommandBase
 	unitTag string
 
 	// storageCons is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
 	storageCons map[string]storage.Constraints
+	api         StorageAddAPI
 }
 
 // Init implements Command.Init.
-func (c *AddCommand) Init(args []string) (err error) {
+func (c *addCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("storage add requires a unit and a storage directive")
 	}
@@ -97,7 +103,7 @@ func (c *AddCommand) Init(args []string) (err error) {
 }
 
 // Info implements Command.Info.
-func (c *AddCommand) Info() *cmd.Info {
+func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Purpose: "adds unit storage dynamically",
@@ -107,12 +113,15 @@ func (c *AddCommand) Info() *cmd.Info {
 }
 
 // Run implements Command.Run.
-func (c *AddCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getStorageAddAPI(c)
-	if err != nil {
-		return err
+func (c *addCommand) Run(ctx *cmd.Context) (err error) {
+	api := c.api
+	if api == nil {
+		api, err = c.NewStorageAPI()
+		if err != nil {
+			return err
+		}
+		defer api.Close()
 	}
-	defer api.Close()
 
 	storages := c.createStorageAddParams()
 	results, err := api.AddToUnit(storages)
@@ -139,10 +148,9 @@ func (c *AddCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 var (
-	getStorageAddAPI = (*AddCommand).getStorageAddAPI
-	storageName      = "storage %q"
-	success          = "success: " + storageName
-	fail             = "fail: " + storageName
+	storageName = "storage %q"
+	success     = "success: " + storageName
+	fail        = "fail: " + storageName
 )
 
 // StorageAddAPI defines the API methods that the storage commands use.
@@ -151,11 +159,7 @@ type StorageAddAPI interface {
 	AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error)
 }
 
-func (c *AddCommand) getStorageAddAPI() (StorageAddAPI, error) {
-	return c.NewStorageAPI()
-}
-
-func (c *AddCommand) createStorageAddParams() []params.StorageAddParams {
+func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
 	all := make([]params.StorageAddParams, 0, len(c.storageCons))
 	for one, cons := range c.storageCons {
 		all = append(all,

@@ -6,6 +6,7 @@ package subnets_test
 import (
 	"errors"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 // SubnetsSuite tests the client side subnets API

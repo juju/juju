@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/testing"
 )
@@ -23,17 +22,17 @@ var _ = gc.Suite(&GetSuite{})
 
 func (s *GetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := environment.NewGetCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *GetSuite) TestInit(c *gc.C) {
 	// zero or one args is fine.
-	err := testing.InitCommand(&environment.GetCommand{}, nil)
+	err := testing.InitCommand(environment.NewGetCommand(s.fake), nil)
 	c.Check(err, jc.ErrorIsNil)
-	err = testing.InitCommand(&environment.GetCommand{}, []string{"one"})
+	err = testing.InitCommand(environment.NewGetCommand(s.fake), []string{"one"})
 	c.Check(err, jc.ErrorIsNil)
 	// More than one is not allowed.
-	err = testing.InitCommand(&environment.GetCommand{}, []string{"one", "two"})
+	err = testing.InitCommand(environment.NewGetCommand(s.fake), []string{"one", "two"})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["two"\]`)
 }
 

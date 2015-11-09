@@ -431,19 +431,19 @@ func (v *Value) setRaw(raw string) error {
 	return nil
 }
 
-// SetYAML is required to unmarshall a constraints.Value object
+// UnmarshalYAML is required to unmarshal a constraints.Value object
 // to ensure the container attribute is correctly handled when it is empty.
 // Because ContainerType is an alias for string, Go's reflect logic used in the
 // YAML decode determines that *string and *ContainerType are not assignable so
 // the container value of "" in the YAML is ignored.
-func (v *Value) SetYAML(tag string, value interface{}) bool {
-	values, ok := value.(map[interface{}]interface{})
-	if !ok {
-		return false
+func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	values := map[interface{}]interface{}{}
+	err := unmarshal(&values)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	for k, val := range values {
 		vstr := fmt.Sprintf("%v", val)
-		var err error
 		switch k {
 		case Arch:
 			v.Arch = &vstr
@@ -466,7 +466,7 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			var spaces *[]string
 			spaces, err = parseYamlStrings("spaces", val)
 			if err != nil {
-				return false
+				return errors.Trace(err)
 			}
 			err = v.validateSpaces(spaces)
 			if err == nil {
@@ -476,20 +476,20 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			var networks *[]string
 			networks, err = parseYamlStrings("networks", val)
 			if err != nil {
-				return false
+				return errors.Trace(err)
 			}
 			err = v.validateNetworks(networks)
 			if err == nil {
 				v.Networks = networks
 			}
 		default:
-			return false
+			return errors.Errorf("unknown constraint value: %v", k)
 		}
 		if err != nil {
-			return false
+			return errors.Trace(err)
 		}
 	}
-	return true
+	return nil
 }
 
 func (v *Value) setContainer(str string) error {

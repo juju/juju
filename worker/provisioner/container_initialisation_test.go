@@ -182,7 +182,12 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetAgentVersion(version.Current)
+		current := version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		}
+		err = m.SetAgentVersion(current)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
@@ -208,10 +213,11 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
 			called = true
 			c.Assert(arch, gc.Equals, expectArch)
-			result := version.Current
-			result.Number = v
-			result.Series = series
-			result.Arch = arch
+			result := version.Binary{
+				Number: v,
+				Arch:   arch,
+				Series: series,
+			}
 			return tools.List{{Version: result}}, nil
 		})
 	})
@@ -219,7 +225,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		toolsFinder.FindTools(version.Current.Number, series.HostSeries(), arch.AMD64)
+		toolsFinder.FindTools(version.Current, series.HostSeries(), arch.AMD64)
 		return nil
 	})
 
@@ -232,7 +238,12 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{containerType})
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createContainer(c, m, containerType)
@@ -250,7 +261,12 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	brokerCalled := false
@@ -321,7 +337,12 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Before starting /etc/default/lxc-net should be missing.
@@ -366,7 +387,12 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 		Constraints: s.defaultConstraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.RemoveAll(s.initLockDir)
@@ -583,7 +609,12 @@ func (s *LXCDefaultMTUSuite) TestDefaultMTUPropagatedToNewLXCBroker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	brokerCalled := false

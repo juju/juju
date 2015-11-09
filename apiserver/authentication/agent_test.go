@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -101,8 +102,12 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, jc.ErrorIsNil)
+		entity, err := authenticator.Authenticate(s.State, t.entity.Tag(), params.LoginRequest{
+			Credentials: t.credentials,
+			Nonce:       t.nonce,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(entity.Tag(), gc.DeepEquals, t.entity.Tag())
 	}
 }
 
@@ -133,7 +138,11 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.ErrorMatches, t.errorMessage)
+		entity, err := authenticator.Authenticate(s.State, t.entity.Tag(), params.LoginRequest{
+			Credentials: t.credentials,
+			Nonce:       t.nonce,
+		})
+		c.Assert(err, gc.ErrorMatches, t.errorMessage)
+		c.Assert(entity, gc.IsNil)
 	}
 }

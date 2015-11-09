@@ -6,7 +6,6 @@ package apiserver
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/common"
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
@@ -28,96 +26,57 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// toolsHandler is the base type for uploading and downloading
-// tools over HTTPS via the API server.
-type toolsHandler struct {
-	httpHandler
-}
-
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
-	toolsHandler
+	ctxt httpContext
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.
 type toolsDownloadHandler struct {
-	toolsHandler
+	ctxt httpContext
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.validateEnvironUUID(r)
+	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
-		h.sendExistingError(w, http.StatusNotFound, err)
+		sendError(w, err)
 		return
 	}
 
 	switch r.Method {
 	case "GET":
-		tarball, err := h.processGet(r, stateWrapper.state)
+		tarball, err := h.processGet(r, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.sendExistingError(w, http.StatusBadRequest, err)
+			sendError(w, errors.NewBadRequest(err, ""))
 			return
 		}
 		h.sendTools(w, http.StatusOK, tarball)
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.validateEnvironUUID(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
 	if err != nil {
-		h.sendExistingError(w, http.StatusNotFound, err)
-		return
-	}
-
-	if err := stateWrapper.authenticateUser(r); err != nil {
-		h.authError(w, h)
+		sendError(w, err)
 		return
 	}
 
 	switch r.Method {
 	case "POST":
 		// Add tools to storage.
-		agentTools, err := h.processPost(r, stateWrapper.state)
+		agentTools, err := h.processPost(r, st)
 		if err != nil {
-			h.sendExistingError(w, http.StatusBadRequest, err)
+			sendError(w, err)
 			return
 		}
-		h.sendJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
+		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
-	}
-}
-
-// sendJSON sends a JSON-encoded response to the client.
-func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.ToolsResult) error {
-	w.Header().Set("Content-Type", apihttp.CTypeJSON)
-	w.WriteHeader(statusCode)
-	body, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-	w.Write(body)
-	return nil
-}
-
-// sendError sends a JSON-encoded error response using desired
-// error message.
-func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	h.sendExistingError(w, statusCode, errors.New(message))
-}
-
-// sendExistingError sends a JSON-encoded error response
-// for errors encountered during processing.
-func (h *toolsHandler) sendExistingError(w http.ResponseWriter, statusCode int, existing error) {
-	logger.Debugf("sending error: %v %v", statusCode, existing)
-	err := common.ServerError(existing)
-	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
-		logger.Errorf("failed to send error: %v", err)
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
@@ -214,7 +173,7 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
-		h.sendExistingError(w, http.StatusBadRequest, errors.Annotatef(err, "failed to write tools"))
+		sendError(w, errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""))
 		return
 	}
 }
@@ -225,23 +184,23 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 
 	binaryVersionParam := query.Get("binaryVersion")
 	if binaryVersionParam == "" {
-		return nil, errors.New("expected binaryVersion argument")
+		return nil, errors.BadRequestf("expected binaryVersion argument")
 	}
 	toolsVersion, err := version.ParseBinary(binaryVersionParam)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid tools version %q", binaryVersionParam)
+		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid tools version %q", binaryVersionParam))
 	}
 
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
-		return nil, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
 	// Get the server root, so we know how to form the URL in the Tools returned.
 	serverRoot, err := h.getServerRoot(r, query, st)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot to determine server root")
+		return nil, errors.NewBadRequest(err, "cannot to determine server root")
 	}
 
 	// We'll clone the tools for each additional series specified.
@@ -291,7 +250,7 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 		return nil, err
 	}
 	if len(data) == 0 {
-		return nil, errors.New("no tools uploaded")
+		return nil, errors.BadRequestf("no tools uploaded")
 	}
 
 	// TODO(wallyworld): check integrity of tools tarball.

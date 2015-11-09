@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 )
 
 // CacheFile represents the YAML structure of the file

@@ -26,13 +26,31 @@ var logger = loggo.GetLogger("juju.container.lxc.mock")
 
 type Action int
 
-var transientErrorInjection chan error
+var (
+	startTransientErrorInjection  chan error
+	createTransientErrorInjection chan error
+	cloneTransientErrorInjection  chan error
+)
 
-// PatchTransientErrorInjectionChannel sets the transientInjectionError
-// channel which can be used to inject errors into Start function for
-// testing purposes
-func PatchTransientErrorInjectionChannel(c chan error) func() {
-	return testing.PatchValue(&transientErrorInjection, c)
+// PatchStartTransientErrorInjectionChannel sets the startTransientInjectionError
+// channel which can be used to inject errors into the Start function for
+// testing purposes.
+func PatchStartTransientErrorInjectionChannel(c chan error) func() {
+	return testing.PatchValue(&startTransientErrorInjection, c)
+}
+
+// PatchCreateTransientErrorInjectionChannel sets the createTransientInjectionError
+// channel which can be used to inject errors into the Create function for
+// testing purposes.
+func PatchCreateTransientErrorInjectionChannel(c chan error) func() {
+	return testing.PatchValue(&createTransientErrorInjection, c)
+}
+
+// PatchCloneTransientErrorInjectionChannel sets the cloneTransientInjectionError
+// channel which can be used to inject errors into the Clone function for
+// testing purposes.
+func PatchCloneTransientErrorInjectionChannel(c chan error) func() {
+	return testing.PatchValue(&cloneTransientErrorInjection, c)
 }
 
 const (
@@ -125,6 +143,12 @@ func (mock *mockContainer) configFilename() string {
 
 // Create creates a new container based on the given template.
 func (mock *mockContainer) Create(configFile, template string, extraArgs []string, templateArgs []string, envArgs []string) error {
+	select {
+	case injectedError := <-createTransientErrorInjection:
+		return injectedError
+	default:
+	}
+
 	if mock.getState() != golxc.StateUnknown {
 		return fmt.Errorf("container is already created")
 	}
@@ -145,7 +169,7 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 // Start runs the container as a daemon.
 func (mock *mockContainer) Start(configFile, consoleFile string) error {
 	select {
-	case injectedError := <-transientErrorInjection:
+	case injectedError := <-startTransientErrorInjection:
 		return injectedError
 	default:
 	}
@@ -179,6 +203,12 @@ func (mock *mockContainer) Stop() error {
 
 // Clone creates a copy of the container, giving the copy the specified name.
 func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs []string) (golxc.Container, error) {
+	select {
+	case injectedError := <-cloneTransientErrorInjection:
+		return nil, injectedError
+	default:
+	}
+
 	state := mock.getState()
 	if state == golxc.StateUnknown {
 		return nil, fmt.Errorf("container has not been created")
@@ -220,7 +250,7 @@ func (mock *mockContainer) Unfreeze() error {
 // Destroy stops and removes the container.
 func (mock *mockContainer) Destroy() error {
 	select {
-	case injectedError := <-transientErrorInjection:
+	case injectedError := <-startTransientErrorInjection:
 		return injectedError
 	default:
 	}

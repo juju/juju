@@ -153,7 +153,7 @@ func cloudInitUserData(
 	return data, nil
 }
 
-// templateUserData returns a minimal user data necessary for the template.
+// TemplateUserData returns a minimal user data necessary for the template.
 // This should have the authorized keys, base packages, the cloud archive if
 // necessary,  initial apt proxy config, and it should do the apt-get
 // update/upgrade initially.
@@ -179,6 +179,7 @@ func TemplateUserData(
 			return nil, errors.Trace(err)
 		}
 	}
+	cloudconfig.SetUbuntuUser(config, authorizedKeys)
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
@@ -190,7 +191,6 @@ func TemplateUserData(
 		enablePackageUpdates = true
 	}
 
-	config.AddSSHAuthorizedKeys(authorizedKeys)
 	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
 		config.AddCloudArchiveCloudTools()
 	}

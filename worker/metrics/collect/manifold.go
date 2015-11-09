@@ -8,8 +8,6 @@
 package collect
 
 import (
-	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,16 +17,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
 	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/utils/os"
 )
 
 const defaultPeriod = 5 * time.Minute
@@ -100,7 +97,7 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 		return nil, err
 	}
 
-	var charmdir charmdir.Consumer
+	var charmdir fortress.Guest
 	err = getResource(config.CharmDirName, &charmdir)
 	if err != nil {
 		return nil, err
@@ -134,7 +131,7 @@ type collect struct {
 	agent           agent.Agent
 	unitCharmLookup UnitCharmLookup
 	metricFactory   spool.MetricFactory
-	charmdir        charmdir.Consumer
+	charmdir        fortress.Guest
 }
 
 var errMetricsNotDefined = errors.New("no metrics defined")
@@ -162,40 +159,12 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 
 // Do satisfies the worker.PeriodWorkerCall function type.
 func (w *collect) Do(stop <-chan struct{}) error {
-	err := w.charmdir.Run(w.do)
-	if err == charmdir.ErrNotAvailable {
-		logger.Debugf("cannot execute collect-metrics - charmdir locked")
+	err := w.charmdir.Visit(w.do, stop)
+	if err == fortress.ErrAborted {
+		logger.Tracef("cannot execute collect-metrics: %v", err)
 		return nil
 	}
 	return err
-}
-
-type collectPaths struct {
-	dataDir string
-	unitTag names.UnitTag
-}
-
-func (p *collectPaths) GetToolsDir() string {
-	return filepath.FromSlash(tools.ToolsDir(p.dataDir, p.unitTag.String()))
-}
-
-func (p *collectPaths) GetCharmDir() string {
-	return filepath.Join(p.baseDir(), "charm")
-}
-
-func (p *collectPaths) GetJujucSocket() string {
-	if os.HostOS() == os.Windows {
-		return fmt.Sprintf(`\\.\pipe\%s-metrics`, p.unitTag)
-	}
-	return filepath.Join(p.baseDir(), "metrics.socket@")
-}
-
-func (p *collectPaths) GetMetricsSpoolDir() string {
-	return ""
-}
-
-func (p *collectPaths) baseDir() string {
-	return filepath.Join(p.dataDir, "agents", p.unitTag.String())
 }
 
 func (w *collect) do() error {
@@ -207,7 +176,7 @@ func (w *collect) do() error {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := &collectPaths{dataDir: config.DataDir(), unitTag: unitTag}
+	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect")
 
 	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {

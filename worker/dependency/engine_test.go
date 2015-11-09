@@ -392,6 +392,34 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 	mh2.AssertOneStart(c)
 }
 
+func (s *EngineSuite) TestErrUninstall(c *gc.C) {
+
+	// Start a simple dependency.
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+
+	// Start its dependent. Note that in this case we want to record all start
+	// attempts, even if there are resource errors.
+	mh2 := newResourceIgnoringManifoldHarness("some-task")
+	err = s.engine.Install("another-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+
+	// Uninstall the dependency; it should not be restarted, but its dependent should.
+	mh1.InjectError(c, dependency.ErrUninstall)
+	mh1.AssertNoStart(c)
+	mh2.AssertOneStart(c)
+
+	// Installing a new some-task manifold restarts the dependent.
+	mh3 := newManifoldHarness()
+	err = s.engine.Install("some-task", mh3.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh3.AssertOneStart(c)
+	mh2.AssertOneStart(c)
+}
+
 // TestWorstError starts an engine with two manifolds that always error
 // with fatal errors. We test that the most important error is the one
 // returned by the engine.
@@ -517,7 +545,7 @@ func (s *EngineSuite) TestValidateComplexManifolds(c *gc.C) {
 func (s *EngineSuite) TestTracedErrMissing(c *gc.C) {
 
 	// Install a worker with an unmet dependency, check it doesn't start
-	// (because the implementation returns ErrMissing).
+	// (because the implementation returns a Trace()d ErrMissing).
 	mh1 := newTracedManifoldHarness("later-task")
 	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)

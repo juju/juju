@@ -7,11 +7,12 @@ import (
 	"time"
 
 	coreagent "github.com/juju/juju/agent"
+	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
@@ -83,9 +84,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			AgentName:       AgentName,
-			APIInfoGateName: APIInfoGateName,
-			LogSource:       config.LogSource,
+			LogSource:     config.LogSource,
+			APICallerName: APICallerName,
 		}),
 
 		// The rsyslog config updater is a leaf worker that causes rsyslog
@@ -162,10 +162,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: AgentName,
 		}),
 
-		// The charmdir resource tracks whether the charm directory is available or
-		// not; after 'start' hook and before 'stop' hook executes, and not during
-		// upgrades.
-		CharmDirName: charmdir.Manifold(),
+		// The charmdir resource coordinates whether the charm directory is
+		// available or not; after 'start' hook and before 'stop' hook
+		// executes, and not during upgrades.
+		CharmDirName: fortress.Manifold(),
 
 		// The metric collect worker executes the collect-metrics hook in a
 		// restricted context that can safely run concurrently with other hooks.
@@ -179,9 +179,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The meter status worker executes the meter-status-changed hook when it detects
 		// that the meter status has changed.
 		MeterStatusName: meterstatus.Manifold(meterstatus.ManifoldConfig{
-			AgentName:       AgentName,
-			APICallerName:   APICallerName,
-			MachineLockName: MachineLockName,
+			AgentName:                AgentName,
+			APICallerName:            APICallerName,
+			MachineLockName:          MachineLockName,
+			NewHookRunner:            meterstatus.NewHookRunner,
+			NewMeterStatusAPIClient:  msapi.NewClient,
+			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
+			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 		}),
 
 		// The metric sender worker periodically sends accumulated metrics to the state server.
