@@ -1238,6 +1238,12 @@ func (a *MachineAgent) startEnvWorkers(
 		return newAddresser(apiSt.Addresser())
 	})
 
+	if machine.IsManager() {
+		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
+			return unitassigner.New(apiSt.UnitAssigner()), nil
+		})
+	}
+
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
