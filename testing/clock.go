@@ -31,42 +31,9 @@ type Timer struct {
 	clock timerClock
 }
 
-// reset is a bridge method for timer. It basically
-// implements clock.Timer, but it needs access to clock's internals
-// so the access is somewhat restricted
-func (clock *Clock) reset(id int, d time.Duration) bool {
-	clock.mu.Lock()
-	defer clock.mu.Unlock()
-
-	for i, alarm := range clock.alarms {
-		if id == alarm.ID {
-			clock.alarms[i].time = clock.now.Add(d)
-			sort.Sort(byTime(clock.alarms))
-			return true
-		}
-	}
-	return false
-}
-
 // Reset is part of the clock.Timer interface
 func (t *Timer) Reset(d time.Duration) bool {
 	return t.clock.reset(t.ID, d)
-}
-
-// stop is a bridge method for timer. It basically
-// implements clock.Timer, but it needs access to clock's internals
-// so the access is somewhat restricted
-func (clock *Clock) stop(id int) bool {
-	clock.mu.Lock()
-	defer clock.mu.Unlock()
-
-	for i, alarm := range clock.alarms {
-		if id == alarm.ID {
-			clock.alarms = removeFromSlice(clock.alarms, i)
-			return true
-		}
-	}
-	return false
 }
 
 // Stop is part of the clock.Timer interface
@@ -117,20 +84,6 @@ func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	return &Timer{id, clock}
 }
 
-// setAlarm adds an alarm at time t.
-// It also sorts the alarms and increments the current ID by 1.
-func (clock *Clock) setAlarm(t time.Time, trigger func()) int {
-	alarm := alarm{
-		time:    t,
-		trigger: trigger,
-		ID:      clock.currentAlarmID,
-	}
-	clock.alarms = append(clock.alarms, alarm)
-	sort.Sort(byTime(clock.alarms))
-	clock.currentAlarmID = clock.currentAlarmID + 1
-	return alarm.ID
-}
-
 // Advance advances the result of Now by the supplied duration, and sends
 // the "current" time on all alarms which are no longer "in the future".
 func (clock *Clock) Advance(d time.Duration) {
@@ -146,6 +99,53 @@ func (clock *Clock) Advance(d time.Duration) {
 		rung++
 	}
 	clock.alarms = clock.alarms[rung:]
+}
+
+// reset is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) reset(id int, d time.Duration) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms[i].time = clock.now.Add(d)
+			sort.Sort(byTime(clock.alarms))
+			return true
+		}
+	}
+	return false
+}
+
+// stop is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) stop(id int) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms = removeFromSlice(clock.alarms, i)
+			return true
+		}
+	}
+	return false
+}
+
+// setAlarm adds an alarm at time t.
+// It also sorts the alarms and increments the current ID by 1.
+func (clock *Clock) setAlarm(t time.Time, trigger func()) int {
+	alarm := alarm{
+		time:    t,
+		trigger: trigger,
+		ID:      clock.currentAlarmID,
+	}
+	clock.alarms = append(clock.alarms, alarm)
+	sort.Sort(byTime(clock.alarms))
+	clock.currentAlarmID = clock.currentAlarmID + 1
+	return alarm.ID
 }
 
 // alarm records the time at which we're expected to execute trigger.
