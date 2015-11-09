@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -17,7 +18,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
