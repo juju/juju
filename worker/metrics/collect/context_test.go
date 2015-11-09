@@ -49,10 +49,11 @@ func (s *ContextSuite) TestCtxDeclaredMetric(c *gc.C) {
 
 type dummyPaths struct{}
 
-func (*dummyPaths) GetToolsDir() string        { return "/dummy/tools" }
-func (*dummyPaths) GetCharmDir() string        { return "/dummy/charm" }
-func (*dummyPaths) GetJujucSocket() string     { return "/dummy/jujuc.sock" }
-func (*dummyPaths) GetMetricsSpoolDir() string { return "/dummy/spool" }
+func (*dummyPaths) GetToolsDir() string             { return "/dummy/tools" }
+func (*dummyPaths) GetCharmDir() string             { return "/dummy/charm" }
+func (*dummyPaths) GetJujucSocket() string          { return "/dummy/jujuc.sock" }
+func (*dummyPaths) GetMetricsSpoolDir() string      { return "/dummy/spool" }
+func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := collect.NewHookContext("u/0", s.recorder)

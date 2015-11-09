@@ -44,6 +44,7 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 			JujucServerSocket: `\\.\pipe\unit-some-service-323-agent`,
 		},
 		State: uniter.StatePaths{
+			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
 			OperationsFile:  relAgent("state", "uniter"),
 			RelationsDir:    relAgent("state", "relations"),
@@ -72,6 +73,7 @@ func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
 			JujucServerSocket: `\\.\pipe\unit-some-service-323-some-worker-agent`,
 		},
 		State: uniter.StatePaths{
+			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
 			OperationsFile:  relAgent("state", "uniter"),
 			RelationsDir:    relAgent("state", "relations"),
@@ -99,6 +101,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 			JujucServerSocket: "@" + relAgent("agent.socket"),
 		},
 		State: uniter.StatePaths{
+			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
 			OperationsFile:  relAgent("state", "uniter"),
 			RelationsDir:    relAgent("state", "relations"),
@@ -127,6 +130,7 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 			JujucServerSocket: "@" + relAgent(worker+"-agent.socket"),
 		},
 		State: uniter.StatePaths{
+			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
 			OperationsFile:  relAgent("state", "uniter"),
 			RelationsDir:    relAgent("state", "relations"),

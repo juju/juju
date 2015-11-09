@@ -34,6 +34,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
@@ -106,9 +107,10 @@ import (
 const bootstrapMachineId = "0"
 
 var (
-	logger     = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	logger       = loggo.GetLogger("juju.cmd.jujud")
+	retryDelay   = 3 * time.Second
+	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -178,7 +180,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string) *MachineAgent,
+	machineAgentFactory func(string, string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -196,7 +198,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string) *MachineAgent
+	machineAgentFactory func(string, string) *MachineAgent
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -245,7 +247,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId)
+	machineAgent := a.machineAgentFactory(a.machineId, c.Dir)
 	return machineAgent.Run(c)
 }
 
@@ -269,8 +271,8 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string, string) *MachineAgent {
+	return func(machineId, rootDir string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -278,6 +280,7 @@ func MachineAgentFactoryFn(
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 			loopDeviceManager,
+			rootDir,
 		)
 	}
 }
@@ -290,6 +293,7 @@ func NewMachineAgent(
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	rootDir string,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:            machineId,
@@ -298,6 +302,7 @@ func NewMachineAgent(
 		upgradeWorkerContext: upgradeWorkerContext,
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
+		rootDir:              rootDir,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		loopDeviceManager:                loopDeviceManager,
 	}
@@ -312,6 +317,7 @@ type MachineAgent struct {
 	machineId            string
 	previousAgentVersion version.Number
 	runner               worker.Runner
+	rootDir              string
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
@@ -444,8 +450,8 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	network.InitializeFromConfig(agentConfig)
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
-	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
-		return fmt.Errorf("cannot create juju run symlink: %v", err)
+	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
+		return err
 	}
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
@@ -1722,14 +1728,49 @@ func (a *MachineAgent) Tag() names.Tag {
 	return names.NewMachineTag(a.machineId)
 }
 
-func (a *MachineAgent) createJujuRun(dataDir string) error {
-	// TODO do not remove the symlink if it already points
-	// to the right place.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := a.createSymlink(jujud, link)
+		if err != nil {
+			return errors.Annotatef(err, "failed to create %s symlink", link)
+		}
+	}
+	return nil
+}
+
+func (a *MachineAgent) createSymlink(target, link string) error {
+	fullLink := filepath.Join(a.rootDir, link)
+
+	currentTarget, err := symlink.Read(fullLink)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if err == nil {
+		// Link already in place - check it.
+		if currentTarget == target {
+			// Link already points to the right place - nothing to do.
+			return nil
+		}
+		// Link points to the wrong place - delete it.
+		if err := os.Remove(fullLink); err != nil {
+			return err
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)); err != nil {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
-	return symlink.New(jujud, JujuRun)
+	return symlink.New(target, fullLink)
+}
+
+func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := os.Remove(filepath.Join(a.rootDir, link))
+		if err != nil && !os.IsNotExist(err) {
+			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
+		}
+	}
+	return
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
@@ -1764,10 +1805,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		}
 	}
 
-	// Remove the juju-run symlink.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
-		errors = append(errors, err)
-	}
+	errors = append(errors, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
