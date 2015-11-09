@@ -25,12 +25,13 @@ type ServiceDirectoryRecord struct {
 
 // serviceDirectoryDoc represents the internal state of a service directory record in MongoDB.
 type serviceDirectoryDoc struct {
-	DocID         string              `bson:"_id"`
-	URL           string              `bson:"url"`
-	SourceEnvUUID string              `bson:"sourceuuid"`
-	SourceLabel   string              `bson:"sourcelabel"`
-	ServiceName   string              `bson:"servicename"`
-	Endpoints     []remoteEndpointDoc `bson:"endpoints"`
+	DocID              string              `bson:"_id"`
+	URL                string              `bson:"url"`
+	SourceEnvUUID      string              `bson:"sourceuuid"`
+	SourceLabel        string              `bson:"sourcelabel"`
+	ServiceName        string              `bson:"servicename"`
+	ServiceDescription string              `bson:"servicedescription"`
+	Endpoints          []remoteEndpointDoc `bson:"endpoints"`
 }
 
 func newServiceDirectoryRecord(st *State, doc *serviceDirectoryDoc) *ServiceDirectoryRecord {
@@ -49,6 +50,11 @@ func (s *ServiceDirectoryRecord) URL() string {
 // ServiceName returns the service name.
 func (s *ServiceDirectoryRecord) ServiceName() string {
 	return s.doc.ServiceName
+}
+
+// ServiceDescription returns the service name.
+func (s *ServiceDirectoryRecord) ServiceDescription() string {
+	return s.doc.ServiceDescription
 }
 
 // SourceLabel returns the label of the source environment.
@@ -146,10 +152,11 @@ func (s *ServiceDirectoryRecord) Refresh() error {
 
 // AddServiceDirectoryParams defines the parameters used to add a ServiceDirectory record.
 type AddServiceDirectoryParams struct {
-	ServiceName   string
-	Endpoints     []charm.Relation
-	SourceEnvUUID string
-	SourceLabel   string
+	ServiceName        string
+	ServiceDescription string
+	Endpoints          []charm.Relation
+	SourceEnvUUID      string
+	SourceLabel        string
 }
 
 var errDuplicateServiceDirectoryRecord = errors.Errorf("service directory record already exists")
@@ -179,11 +186,12 @@ func (st *State) AddServiceDirectoryRecord(url string, params AddServiceDirector
 
 	docID := url
 	doc := &serviceDirectoryDoc{
-		DocID:         docID,
-		URL:           url,
-		ServiceName:   params.ServiceName,
-		SourceEnvUUID: params.SourceEnvUUID,
-		SourceLabel:   params.SourceLabel,
+		DocID:              docID,
+		URL:                url,
+		ServiceName:        params.ServiceName,
+		ServiceDescription: params.ServiceDescription,
+		SourceEnvUUID:      params.SourceEnvUUID,
+		SourceLabel:        params.SourceLabel,
 	}
 	eps := make([]remoteEndpointDoc, len(params.Endpoints))
 	for i, ep := range params.Endpoints {

@@ -37,10 +37,11 @@ func (s *serviceDirectorySuite) createDirectoryRecord(c *gc.C) *state.ServiceDir
 		},
 	}
 	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
-		ServiceName:   "mysql",
-		Endpoints:     eps,
-		SourceEnvUUID: "source-uuid",
-		SourceLabel:   "source",
+		ServiceName:        "mysql",
+		ServiceDescription: "mysql is a db server",
+		Endpoints:          eps,
+		SourceEnvUUID:      "source-uuid",
+		SourceLabel:        "source",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return record
@@ -112,18 +113,21 @@ func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
 		},
 	}
 	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
-		ServiceName:   "mysql",
-		Endpoints:     eps,
-		SourceEnvUUID: "source-uuid",
-		SourceLabel:   "source",
+		ServiceName:        "mysql",
+		ServiceDescription: "mysql is a db server",
+		Endpoints:          eps,
+		SourceEnvUUID:      "source-uuid",
+		SourceLabel:        "source",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(record.ServiceName(), gc.Equals, "mysql")
+	c.Assert(record.ServiceDescription(), gc.Equals, "mysql is a db server")
 	c.Assert(record.URL(), gc.Equals, "local:/u/me/service")
 	record, err = s.State.ServiceDirectoryRecord("local:/u/me/service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(record.ServiceName(), gc.Equals, "mysql")
+	c.Assert(record.ServiceDescription(), gc.Equals, "mysql is a db server")
 	endpoints, err := record.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedEndpoints := make([]state.Endpoint, len(eps))
