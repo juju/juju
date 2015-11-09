@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -43,7 +42,6 @@ func (errorStore) ReadInfo(envName string) (configstore.EnvironInfo, error) {
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 	s.store = configstore.NewMem()
 
 	var envList = []struct {

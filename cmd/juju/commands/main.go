@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
@@ -214,16 +213,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(subnet.NewSuperCommand())
 
 	// Manage controllers
-	if featureflag.Enabled(feature.JES) {
-		r.Register(controller.NewSuperCommand())
-		r.RegisterSuperAlias("list-controllers", "controller", "list", nil)
+	r.Register(controller.NewSuperCommand())
+	r.RegisterSuperAlias("list-controllers", "controller", "list", nil)
 
-		// Add top level aliases of the same name as the subcommands.
-		r.RegisterSuperAlias("list-environments", "controller", "environments", nil)
-		r.RegisterSuperAlias("login", "controller", "login", nil)
-		r.RegisterSuperAlias("create-environment", "controller", "create-environment", nil)
-		r.RegisterSuperAlias("create-env", "controller", "create-env", nil)
-	}
+	// Add top level aliases of the same name as the subcommands.
+	r.RegisterSuperAlias("list-environments", "controller", "environments", nil)
+	r.RegisterSuperAlias("login", "controller", "login", nil)
+	r.RegisterSuperAlias("create-environment", "controller", "create-environment", nil)
+	r.RegisterSuperAlias("create-env", "controller", "create-env", nil)
 }
 
 func main() {

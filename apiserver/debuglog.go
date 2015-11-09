@@ -68,6 +68,8 @@ func newDebugLogHandler(
 //      - has no meaning if 'replay' is true
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
+//   noTail -> string - one of [true, false], if true, existing logs are sent back,
+//      - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
@@ -144,6 +146,7 @@ func (s *debugLogSocketImpl) sendError(err error) {
 type debugLogParams struct {
 	maxLines      uint
 	fromTheStart  bool
+	noTail        bool
 	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
@@ -169,6 +172,14 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
+	}
+
+	if value := queryMap.Get("noTail"); value != "" {
+		noTail, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+		}
+		params.noTail = noTail
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {

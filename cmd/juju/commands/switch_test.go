@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )
@@ -113,7 +112,6 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 
 func (s *SwitchSimpleSuite) addTestController(c *gc.C) {
 	// First set up a controller in the config store.
-	s.SetFeatureFlags(feature.JES)
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	info := store.CreateInfo("a-controller")

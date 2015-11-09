@@ -130,8 +130,6 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
 	logsCh, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
@@ -153,8 +151,6 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
 	_, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -164,19 +160,6 @@ func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
 	// Second uninstall attempt should fail
 	err = logsender.UninstallBufferedLogWriter()
 	c.Assert(err, gc.ErrorMatches, "failed to uninstall log buffering: .+")
-}
-
-func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
-	logsCh, err := logsender.InstallBufferedLogWriter(10)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(logsCh, gc.IsNil)
-}
-
-func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
-	err := logsender.UninstallBufferedLogWriter()
-	// With the feature flag, uninstalling without first installing
-	// would result in an error.
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bufferedLogWriterSuite) writeAndReceive(c *gc.C) {

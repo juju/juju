@@ -27,8 +27,6 @@ var (
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
 	NewBackups            = &newBackups
-	ParseLogLine          = parseLogLine
-	AgentMatchesFilter    = agentMatchesFilter
 	NewLogTailer          = &newLogTailer
 )
 
@@ -191,14 +189,4 @@ func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
 func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	r := TestingApiRoot(st)
 	return newAboutToRestoreRoot(r)
-}
-
-// LogLineAgentTag gives tests access to an internal logFileLine attribute
-func (logFileLine *logFileLine) LogLineAgentTag() string {
-	return logFileLine.agentTag
-}
-
-// LogLineAgentName gives tests access to an internal logFileLine attribute
-func (logFileLine *logFileLine) LogLineAgentName() string {
-	return logFileLine.agentName
 }

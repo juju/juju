@@ -740,11 +740,9 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
-	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
-		})
-	}
+	runner.StartWorker("logsender", func() (worker.Worker, error) {
+		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
+	})
 
 	envConfig, err := st.Environment().EnvironConfig()
 	if err != nil {
@@ -1110,11 +1108,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
-			if feature.IsDbLogEnabled() {
-				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
-				})
-			}
+			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil

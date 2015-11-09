@@ -15,14 +15,13 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("Controller", 1, NewControllerAPI, feature.JES)
+	common.RegisterStandardFacade("Controller", 1, NewControllerAPI)
 }
 
 // Controller defines the methods on the controller API end point.

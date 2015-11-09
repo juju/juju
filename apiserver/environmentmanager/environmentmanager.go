@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -25,7 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.JES)
+	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end

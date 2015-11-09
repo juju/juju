@@ -36,7 +36,6 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Create a machine for the client to log in as.

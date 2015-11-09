@@ -207,6 +207,9 @@ var commandNames = []string{
 	"block",
 	"bootstrap",
 	"cached-images",
+	"controller",
+	"create-env",
+	"create-environment",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
@@ -227,6 +230,9 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"init",
+	"list-controllers",
+	"list-environments",
+	"login",
 	"machine",
 	"publish",
 	"remove-machine",  // alias for destroy-machine
@@ -283,7 +289,8 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
-	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
+	// Use sorted values here so we can better see what is wrong.
+	c.Assert(getHelpCommandNames(c), jc.DeepEquals, cmdSet.SortedValues())
 
 	// 2. Enable development features, and test again.
 	setFeatureFlags(strings.Join(devFeatures, ","))

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -32,7 +31,6 @@ type controllerSuite struct {
 var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.JES)
 	s.JujuConnSuite.SetUpTest(c)
 }
 

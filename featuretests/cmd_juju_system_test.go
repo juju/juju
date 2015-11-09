@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -30,11 +29,6 @@ import (
 
 type cmdControllerSuite struct {
 	jujutesting.JujuConnSuite
-}
-
-func (s *cmdControllerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.JES)
-	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {

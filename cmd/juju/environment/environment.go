@@ -6,9 +6,6 @@ package environment
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/feature"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.environment")
@@ -33,12 +30,9 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(newRetryProvisioningCommand())
 	environmentCmd.Register(newEnvSetConstraintsCommand())
 	environmentCmd.Register(newEnvGetConstraintsCommand())
-
-	if featureflag.Enabled(feature.JES) {
-		environmentCmd.Register(newShareCommand())
-		environmentCmd.Register(newUnshareCommand())
-		environmentCmd.Register(newUsersCommand())
-		environmentCmd.Register(newDestroyCommand())
-	}
+	environmentCmd.Register(newShareCommand())
+	environmentCmd.Register(newUnshareCommand())
+	environmentCmd.Register(newUsersCommand())
+	environmentCmd.Register(newDestroyCommand())
 	return environmentCmd
 }

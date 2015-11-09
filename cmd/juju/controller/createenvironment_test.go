@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -36,7 +35,6 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 	s.fake = &fakeCreateClient{}
 	s.parser = nil
 	store := configstore.Default
