@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker_test
+package watcher_test
 
 import (
 	"fmt"
@@ -10,11 +10,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -38,7 +36,8 @@ func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError err
 		},
 		setupDone: make(chan struct{}),
 	}
-	w := worker.NewNotifyWorker(nh)
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{Handler: nh})
+	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-nh.setupDone:
 	case <-time.After(coretesting.ShortWait):
@@ -53,7 +52,6 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
-	worker.SetEnsureErr(nil)
 	s.stopWorker(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -70,9 +68,7 @@ type notifyHandler struct {
 	setupDone     chan struct{}
 }
 
-var _ worker.NotifyWatchHandler = (*notifyHandler)(nil)
-
-func (nh *notifyHandler) SetUp() (apiWatcher.NotifyWatcher, error) {
+func (nh *notifyHandler) SetUp() (watcher.NotifyWatcher, error) {
 	defer func() { nh.setupDone <- struct{}{} }()
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
@@ -135,24 +131,18 @@ type testNotifyWatcher struct {
 	stopError error
 }
 
-var _ apiWatcher.NotifyWatcher = (*testNotifyWatcher)(nil)
-
-func (tnw *testNotifyWatcher) Changes() <-chan struct{} {
+func (tnw *testNotifyWatcher) Changes() watcher.NotifyChan {
 	return tnw.changes
 }
 
-func (tnw *testNotifyWatcher) Err() error {
-	return tnw.stopError
+func (tnw *testNotifyWatcher) Kill() {
+	tnw.mu.Lock()
+	tnw.tomb.Kill(tnw.stopError)
+	tnw.mu.Unlock()
 }
 
-func (tnw *testNotifyWatcher) Stop() error {
-	tnw.mu.Lock()
-	defer tnw.mu.Unlock()
-	if !tnw.stopped {
-		close(tnw.changes)
-	}
-	tnw.stopped = true
-	return tnw.stopError
+func (tnw *testNotifyWatcher) Wait() error {
+	return tnw.tomb.Wait()
 }
 
 func (tnw *testNotifyWatcher) SetStopError(err error) {
@@ -301,55 +291,10 @@ func (s *notifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.worker = nil
 }
 
-func noopHandler(watcher.Errer) error {
-	return nil
-}
-
-type CannedErrer struct {
-	err error
-}
-
-func (c CannedErrer) Err() error {
-	return c.err
-}
-
-func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
-	// Roundabout check for function equality.
-	// Is this test really worth it?
-	c.Assert(fmt.Sprintf("%p", worker.EnsureErr()), gc.Equals, fmt.Sprintf("%p", watcher.EnsureErr))
-}
-
-func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
-	foundErr := fmt.Errorf("did not get an error")
-	triggeredHandler := func(errer watcher.Errer) error {
-		foundErr = errer.Err()
-		return foundErr
-	}
-	worker.SetEnsureErr(triggeredHandler)
-	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
-	s.actor.watcher.Stop()
-	err := waitShort(c, s.worker)
-	c.Check(foundErr, gc.Equals, tomb.ErrStillAlive)
-	// ErrStillAlive is trapped by the Stop logic and gets turned into a
-	// 'nil' when stopping. However TestDefaultClosedHandler can assert
-	// that it would have triggered a panic.
-	c.Check(err, jc.ErrorIsNil)
-	s.actor.CheckActions(c, "setup", "teardown")
-	// Worker is stopped, don't fail TearDownTest
-	s.worker = nil
-}
-
 func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
-	foundErr := fmt.Errorf("did not get an error")
-	triggeredHandler := func(errer watcher.Errer) error {
-		foundErr = errer.Err()
-		return foundErr
-	}
-	worker.SetEnsureErr(triggeredHandler)
+	c.Fatalf("borken")
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
-	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)
-	c.Check(foundErr, gc.IsNil)
 	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 }
