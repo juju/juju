@@ -49,31 +49,9 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
 	c.Assert(foundLogs, jc.IsTrue)
 }
 
-func (s *dblogSuite) TestMachineAgentLogsGoToDBWithJES(c *gc.C) {
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestMachineAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
-}
-
 func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	foundLogs := s.runUnitAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentLogsGoToDBWithJES(c *gc.C) {
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
 }
 
 func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
