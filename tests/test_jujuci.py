@@ -38,7 +38,7 @@ from jujuci import (
 )
 import jujupy
 from utility import temp_dir
-from test_utility import parse_error
+from tests import parse_error
 
 
 def make_build_data(number='lastSuccessfulBuild'):

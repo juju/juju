@@ -59,7 +59,7 @@ from test_substrate import (
     make_os_security_group_instance,
     make_os_security_groups,
     )
-from test_utility import parse_error
+from tests import parse_error
 
 
 __metaclass__ = type

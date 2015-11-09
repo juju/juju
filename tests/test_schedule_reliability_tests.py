@@ -20,9 +20,9 @@ from schedule_reliability_tests import (
     )
 from test_utility import (
     make_candidate_dir,
-    parse_error,
     write_config,
     )
+from tests import parse_error
 from utility import temp_dir
 
 

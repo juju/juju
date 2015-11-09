@@ -16,7 +16,7 @@ from timeout import (
     run_command,
     signals,
     )
-from test_utility import parse_error
+from tests import parse_error
 
 
 class TestParseArgs(TestCase):
