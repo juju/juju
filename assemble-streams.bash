@@ -457,7 +457,7 @@ generate_streams() {
     # When 1.21.0 is run this way, the released product file still uses
     # the releases dir.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
-        $JUJU_EXEC metadata generate-tools -d $DEST_DIST
+        $JUJU_EXEC metadata generate-tools $CLEAN -d $DEST_DIST
 
     # Colon-to-dashed transition part 2, ensure both sets are the same.
     echo "Reconciling the current product file names with other file names."
@@ -553,7 +553,7 @@ generate_streams() {
     $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools \
-        -d $JUJU_DIST --stream $PURPOSE
+        --clean -d $JUJU_DIST --stream $PURPOSE
     rm -r $JUJU_PATH
 
     # Colon-to-dashed transition part 2, ensure both sets are the same.
