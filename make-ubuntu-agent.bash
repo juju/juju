@@ -10,5 +10,5 @@ version=$(echo $jujud|sed -r "s/.\/juju-build-$SERIES-amd64\/juju-core-\
 (.*)\/bin\/jujud/\1/")
 tarfile=juju-$version-$SERIES-$ARCH.tgz
 tar -czvf $tarfile  -C $(dirname $jujud) jujud
-$RELEASE_TOOLS/make_stanza.py ubuntu $RELEASE $SERIES $ARCH $version \
-  $revision_build $tarfile
+$RELEASE_TOOLS/make_agent_json.py ubuntu $tarfile $revision_build $version\
+  $ARCH $RELEASE $SERIES

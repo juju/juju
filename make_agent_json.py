@@ -14,17 +14,17 @@ def parse_args():
     parser = ArgumentParser()
     parsers = parser.add_subparsers(dest='command')
     ubuntu = parsers.add_parser('ubuntu')
-    ubuntu.add_argument('release')
-    ubuntu.add_argument('series')
     living_ubuntu = parsers.add_parser('living-ubuntu')
-    for subparser in [ubuntu, living_ubuntu]:
-        subparser.add_argument('arch')
     windows = parsers.add_parser('windows')
     centos = parsers.add_parser('centos')
     for subparser in [ubuntu, living_ubuntu, windows, centos]:
-        subparser.add_argument('version')
-        subparser.add_argument('revision_build')
         subparser.add_argument('tarfile')
+        subparser.add_argument('revision_build')
+        subparser.add_argument('version')
+    for subparser in [ubuntu, living_ubuntu]:
+        subparser.add_argument('arch')
+    ubuntu.add_argument('release')
+    ubuntu.add_argument('series')
     return parser.parse_args()
 
 
@@ -73,7 +73,7 @@ class StanzaWriter:
     def for_centos(cls, version, revision_build, tarfile):
         filename = 'revision-build-{}-centos.json'.format(revision_build)
         return cls([('centos7', 'centos7')], 'amd64', version, revision_build,
-                    tarfile, filename)
+                   tarfile, filename)
 
     def write_stanzas(self):
         path = 'agent/revision-build-{}/{}'.format(
