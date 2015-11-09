@@ -7,6 +7,7 @@ import (
 	"time"
 
 	coreagent "github.com/juju/juju/agent"
+	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -178,9 +179,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The meter status worker executes the meter-status-changed hook when it detects
 		// that the meter status has changed.
 		MeterStatusName: meterstatus.Manifold(meterstatus.ManifoldConfig{
-			AgentName:       AgentName,
-			APICallerName:   APICallerName,
-			MachineLockName: MachineLockName,
+			AgentName:                AgentName,
+			APICallerName:            APICallerName,
+			MachineLockName:          MachineLockName,
+			NewHookRunner:            meterstatus.NewHookRunner,
+			NewMeterStatusAPIClient:  msapi.NewClient,
+			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
+			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 		}),
 
 		// The metric sender worker periodically sends accumulated metrics to the state server.

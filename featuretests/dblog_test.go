@@ -5,7 +5,6 @@ package featuretests
 
 import (
 	"bufio"
-	"io/ioutil"
 	"time"
 
 	"github.com/juju/loggo"
@@ -38,12 +37,6 @@ type dblogSuite struct {
 func (s *dblogSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
-
-	// Change the path to "juju-run", so that the
-	// tests don't try to write to /usr/local/bin.
-	file, _ := ioutil.TempFile("", "juju-run")
-	defer file.Close()
-	s.PatchValue(&agentcmd.JujuRun, file.Name())
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
@@ -94,7 +87,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, nil)
-	a := machineAgentFactory(m.Id())
+	a := machineAgentFactory(m.Id(), c.MkDir())
 
 	// Ensure there's no logs to begin with.
 	c.Assert(s.getLogCount(c, m.Tag()), gc.Equals, 0)

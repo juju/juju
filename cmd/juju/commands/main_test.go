@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
@@ -384,6 +386,33 @@ command\.(.|\n)*`)
 	for i, line := range flags {
 		c.Assert(line, gc.Matches, globalFlags[i])
 	}
+}
+
+func (s *MainSuite) TestRegisterCommands(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	extraNames := []string{"cmd-a", "cmd-b"}
+	for i := range extraNames {
+		name := extraNames[i]
+		RegisterCommand(func() cmd.Command {
+			return &stubCommand{
+				stub: stub,
+				info: &cmd.Info{
+					Name: name,
+				},
+			}
+		})
+	}
+
+	registry := &stubRegistry{stub: stub}
+	registry.names = append(registry.names, "help", "version") // implicit
+	registerCommands(registry, testing.Context(c))
+	sort.Strings(registry.names)
+
+	expected := make([]string, len(commandNames))
+	copy(expected, commandNames)
+	expected = append(expected, extraNames...)
+	sort.Strings(expected)
+	c.Check(registry.names, jc.DeepEquals, expected)
 }
 
 type commands []cmd.Command
