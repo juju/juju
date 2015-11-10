@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
@@ -188,8 +189,20 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	retryHookChan := make(chan struct{}, 1)
+	defer close(retryHookChan)
 	// TODO extract constants
-	retryHookTimer := NewBackoffTimer(10*time.Second, 20*time.Minute, true, 2)
+	// TODO decide on exact duration
+	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
+		Min:    10 * time.Second,
+		Max:    20 * time.Minute,
+		Jitter: true,
+		Factor: 2,
+		Func: func() {
+			retryHookChan <- struct{}{}
+		},
+		Clock: clock.WallClock,
+	})
 
 	restartWatcher := func() error {
 		watcherMu.Lock()
@@ -208,7 +221,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UnitTag:             unitTag,
 				UpdateStatusChannel: u.updateStatusAt,
 				CommandChannel:      u.commandChannel,
-				RetryHookChannel:    retryHookTimer.Channel(),
+				RetryHookChannel:    retryHookChan,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -265,7 +278,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
 			FixDeployer:         u.deployer.Fix,
-			StartRetryHookTimer: retryHookTimer.Signal,
+			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
