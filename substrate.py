@@ -1,3 +1,5 @@
+import urlparse
+
 __metaclass__ = type
 
 from contextlib import (
@@ -394,7 +396,7 @@ class MAASAccount:
 
     def __init__(self, profile, url, oauth):
         self.profile = profile
-        self.url = url + 'api/1.0/'
+        self.url = urlparse.urljoin(url, 'api/1.0/')
         self.oauth = oauth
 
     @classmethod
