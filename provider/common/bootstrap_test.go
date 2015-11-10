@@ -119,10 +119,17 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints:    checkCons,
-		Placement:      checkPlacement,
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
-	})
+		Constraints: checkCons,
+		Placement:   checkPlacement,
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: version.Current,
+					Arch:   arch.HostArch(),
+					Series: series.HostSeries(),
+				},
+			},
+		}})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
@@ -158,8 +165,15 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	ctx := envtesting.BootstrapContext(c)
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
-	})
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: version.Current,
+					Arch:   arch.HostArch(),
+					Series: series.HostSeries(),
+				},
+			},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
