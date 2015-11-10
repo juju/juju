@@ -1,13 +1,19 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
 from copy import deepcopy
-from datetime import date
+from datetime import datetime
 import hashlib
 import os
 import sys
 
 from build_package import juju_series
 from generate_simplestreams import json_dump
+
+
+supported_windows_releases = (
+    'win2012', 'win2012hv', 'win2012hvr2', 'win2012r2', 'win7', 'win81',
+    'win8',
+    )
 
 
 def parse_args():
@@ -37,7 +43,7 @@ class StanzaWriter:
         self.version = version
         self.revision_build = revision_build
         self.tarfile = tarfile
-        self.version_name = date.today().strftime('%Y%m%d')
+        self.version_name = datetime.utcnow().strftime('%Y%m%d')
         self.filename = filename
 
     @classmethod
@@ -62,10 +68,7 @@ class StanzaWriter:
     def for_windows(cls, version, revision_build, tarfile):
         filename = 'revision-build-{}-windows.json'.format(
             revision_build)
-        releases = [(r, r) for r in [
-            'win2012', 'win2012hv', 'win2012hvr2', 'win2012r2', 'win7',
-            'win81', 'win8',
-            ]]
+        releases = [(r, r) for r in supported_windows_releases]
         return cls(releases, 'amd64', version, revision_build, tarfile,
                    filename)
 
