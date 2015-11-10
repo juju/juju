@@ -6,4 +6,4 @@ stanza_dir=$3
 testing=$4
 set_stream.py $stanza_dir/release.json $stanza_dir/release-$revision_build.json $revision_build
 cp $rb_stanzas $stanza_dir
-stanzas_to_streams.py $stanza_dir/* $testing
+json2streams --juju-format $stanza_dir/* $testing
