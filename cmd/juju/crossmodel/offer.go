@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/crossmodel"
+	jujucrossmodel "github.com/juju/juju/crossmodel"
 )
 
 const (
@@ -94,7 +94,7 @@ func (c *offerCommand) Init(args []string) error {
 
 	if len(args) == 2 {
 		hostedURL := args[1]
-		if !crossmodel.IsValidURL(hostedURL) {
+		if _, err := jujucrossmodel.ParseServiceURL(hostedURL); err != nil {
 			return errors.Errorf(`hosted url %q is not valid" `, hostedURL)
 		}
 		c.URL = hostedURL
