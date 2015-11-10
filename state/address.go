@@ -185,12 +185,17 @@ type address struct {
 	Origin      string `bson:"origin,omitempty"`
 }
 
+// Origin specifies where an address comes from, whether it was reported by a
+// provider or by a machine.
 type Origin string
 
 const (
-	OriginUnknown  Origin = ""
+	// Address origin unknown.
+	OriginUnknown Origin = ""
+	// Address comes from a provider.
 	OriginProvider Origin = "provider"
-	OriginMachine  Origin = "machine"
+	// Address comes from a machine.
+	OriginMachine Origin = "machine"
 )
 
 // fromNetworkAddress is a convenience helper to create a state type
