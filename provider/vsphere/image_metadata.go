@@ -40,6 +40,7 @@ func findImageMetadata(env *environ, args environs.StartInstanceParams) (*OvaFil
 		LookupParams: simplestreams.LookupParams{
 			Series: []string{series},
 			Arches: arches,
+			Stream: env.ecfg.ImageStream(),
 		},
 	}
 	sources, err := environs.ImageMetadataSources(env)
