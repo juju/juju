@@ -5,7 +5,7 @@ SERIES=$2
 ARCH=$3
 revision_build=$4
 RELEASE_TOOLS=$(readlink -f $(dirname $0))
-jujud=$(find -path ./juju-build-$SERIES-amd64/juju-core-*/bin/jujud -type f)
+jujud=$(find -path ./juju-build-$SERIES-$ARCH/juju-core-*/bin/jujud -type f)
 version=$(echo $jujud|sed -r "s/.\/juju-build-$SERIES-$ARCH\/juju-core-\
 (.*)\/bin\/jujud/\1/")
 tarfile=juju-$version-$SERIES-$ARCH.tgz
