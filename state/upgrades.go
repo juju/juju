@@ -684,15 +684,14 @@ func AddPreferredAddressesToMachines(st *State) error {
 		}
 		// Setting the addresses is enough to trigger setting the preferred
 		// addresses.
-		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

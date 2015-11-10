@@ -182,16 +182,31 @@ type address struct {
 	AddressType string `bson:"addresstype"`
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
+	Origin      string `bson:"origin,omitempty"`
 }
 
+// Origin specifies where an address comes from, whether it was reported by a
+// provider or by a machine.
+type Origin string
+
+const (
+	// Address origin unknown.
+	OriginUnknown Origin = ""
+	// Address comes from a provider.
+	OriginProvider Origin = "provider"
+	// Address comes from a machine.
+	OriginMachine Origin = "machine"
+)
+
 // fromNetworkAddress is a convenience helper to create a state type
-// out of the network type, here for Address.
-func fromNetworkAddress(netAddr network.Address) address {
+// out of the network type, here for Address with a given Origin.
+func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
 		Value:       netAddr.Value,
 		AddressType: string(netAddr.Type),
 		NetworkName: netAddr.NetworkName,
 		Scope:       string(netAddr.Scope),
+		Origin:      string(origin),
 	}
 }
 
@@ -207,11 +222,11 @@ func (addr *address) networkAddress() network.Address {
 }
 
 // fromNetworkAddresses is a convenience helper to create a state type
-// out of the network type, here for a slice of Address.
-func fromNetworkAddresses(netAddrs []network.Address) []address {
+// out of the network type, here for a slice of Address with a given origin.
+func fromNetworkAddresses(netAddrs []network.Address, origin Origin) []address {
 	addrs := make([]address, len(netAddrs))
 	for i, netAddr := range netAddrs {
-		addrs[i] = fromNetworkAddress(netAddr)
+		addrs[i] = fromNetworkAddress(netAddr, origin)
 	}
 	return addrs
 }

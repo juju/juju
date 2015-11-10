@@ -466,9 +466,9 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals:              template.principals,
 		Life:                    Alive,
 		Nonce:                   template.Nonce,
-		Addresses:               fromNetworkAddresses(template.Addresses),
-		PreferredPrivateAddress: fromNetworkAddress(privateAddr),
-		PreferredPublicAddress:  fromNetworkAddress(publicAddr),
+		Addresses:               fromNetworkAddresses(template.Addresses, OriginMachine),
+		PreferredPrivateAddress: fromNetworkAddress(privateAddr, OriginMachine),
+		PreferredPublicAddress:  fromNetworkAddress(publicAddr, OriginMachine),
 		NoVote:                  template.NoVote,
 		Placement:               template.Placement,
 	}
