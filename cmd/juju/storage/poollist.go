@@ -39,16 +39,20 @@ options:
 `
 
 func newPoolListCommand() cmd.Command {
-	return envcmd.Wrap(&poolListCommand{})
+	cmd := &poolListCommand{}
+	cmd.newAPIFunc = func() (PoolListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 // poolListCommand lists storage pools.
 type poolListCommand struct {
 	PoolCommandBase
-	api       PoolListAPI
-	Providers []string
-	Names     []string
-	out       cmd.Output
+	newAPIFunc func() (PoolListAPI, error)
+	Providers  []string
+	Names      []string
+	out        cmd.Output
 }
 
 // Init implements Command.Init.
@@ -80,15 +84,12 @@ func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *poolListCommand) Run(ctx *cmd.Context) (err error) {
-	if c.api == nil {
-		api, err := getPoolListAPI(c)
-		if err != nil {
-			return err
-		}
-		defer api.Close()
-		c.api = api
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
-	result, err := c.api.ListPools(c.Providers, c.Names)
+	defer api.Close()
+	result, err := api.ListPools(c.Providers, c.Names)
 	if err != nil {
 		return err
 	}
@@ -99,16 +100,8 @@ func (c *poolListCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-var (
-	getPoolListAPI = (*poolListCommand).getPoolListAPI
-)
-
 // PoolListAPI defines the API methods that the storage commands use.
 type PoolListAPI interface {
 	Close() error
 	ListPools(providers, names []string) ([]params.StoragePool, error)
-}
-
-func (c *poolListCommand) getPoolListAPI() (PoolListAPI, error) {
-	return c.NewStorageAPI()
 }

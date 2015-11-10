@@ -33,15 +33,20 @@ options:
 `
 
 func newVolumeListCommand() cmd.Command {
-	return envcmd.Wrap(&volumeListCommand{})
+	cmd := &volumeListCommand{}
+	cmd.newAPIFunc = func() (VolumeListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 // volumeListCommand lists storage volumes.
 type volumeListCommand struct {
 	VolumeCommandBase
-	api VolumeListAPI
-	Ids []string
-	out cmd.Output
+	api        VolumeListAPI
+	Ids        []string
+	out        cmd.Output
+	newAPIFunc func() (VolumeListAPI, error)
 }
 
 // Init implements Command.Init.
@@ -72,16 +77,13 @@ func (c *volumeListCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *volumeListCommand) Run(ctx *cmd.Context) (err error) {
-	if c.api == nil {
-		api, err := c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
-		c.api = api
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
-	found, err := c.api.ListVolumes(c.Ids)
+	found, err := api.ListVolumes(c.Ids)
 	if err != nil {
 		return err
 	}

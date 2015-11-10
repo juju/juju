@@ -14,7 +14,11 @@ import (
 )
 
 func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+	cmd := &listCommand{}
+	cmd.newAPIFunc = func() (StorageListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 const listCommandDoc = `
@@ -32,8 +36,8 @@ options:
 // listCommand returns storage instances.
 type listCommand struct {
 	StorageCommandBase
-	out cmd.Output
-	api StorageListAPI
+	out        cmd.Output
+	newAPIFunc func() (StorageListAPI, error)
 }
 
 // Init implements Command.Init.
@@ -62,14 +66,11 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) (err error) {
-	api := c.api
-	if api == nil {
-		api, err = c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
 	found, err := api.List()
 	if err != nil {

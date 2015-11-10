@@ -53,14 +53,18 @@ options:
 `
 
 func newPoolCreateCommand() cmd.Command {
-	return envcmd.Wrap(&poolCreateCommand{})
+	cmd := &poolCreateCommand{}
+	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 // poolCreateCommand lists storage pools.
 type poolCreateCommand struct {
 	PoolCommandBase
-	api      PoolCreateAPI
-	poolName string
+	newAPIFunc func() (PoolCreateAPI, error)
+	poolName   string
 	// TODO(anastasiamac 2015-01-29) type will need to become optional
 	// if type is unspecified, use the environment's default provider type
 	provider string
@@ -108,14 +112,10 @@ func (c *poolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *poolCreateCommand) Run(ctx *cmd.Context) (err error) {
-	if c.api == nil {
-		api, err := c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
-		c.api = api
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
-
-	return c.api.CreatePool(c.poolName, c.provider, c.attrs)
+	defer api.Close()
+	return api.CreatePool(c.poolName, c.provider, c.attrs)
 }
