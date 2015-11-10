@@ -147,7 +147,7 @@ func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := fmt.Sprintf(`cannot allocate IP address %q to machine %q, interface "frogger": address is dead`, ipAddr.String(), machine.Id())
-	err = ipAddr.AllocateTo(machine.Id(), "frogger")
+	err = ipAddr.AllocateTo(machine.Id(), "frogger", "mac")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -158,10 +158,11 @@ func (s *IPAddressSuite) TestAllocateToProvisionedMachine(c *gc.C) {
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ipAddr.AllocateTo(machine.Id(), "fake")
+	err = ipAddr.AllocateTo(machine.Id(), "fake", "mac")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
+	c.Assert(ipAddr.MACAddress(), gc.Equals, "mac")
 }
 
 func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
@@ -262,12 +263,13 @@ func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 
-	err = ipAddr.AllocateTo(machine.Id(), "wobble")
+	err = ipAddr.AllocateTo(machine.Id(), "wobble", "mac")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateAllocated)
 	c.Assert(ipAddr.MachineId(), gc.Equals, machine.Id())
 	c.Assert(ipAddr.InterfaceId(), gc.Equals, "wobble")
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
+	c.Assert(ipAddr.MACAddress(), gc.Equals, "mac")
 
 	freshCopy, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,7 +280,7 @@ func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
 
 	// allocating twice should fail.
 	machine2 := s.createMachine(c)
-	err = ipAddr.AllocateTo(machine2.Id(), "i")
+	err = ipAddr.AllocateTo(machine2.Id(), "i", "mac")
 
 	msg := fmt.Sprintf(
 		`cannot allocate IP address "public:0.1.2.3" to machine %q, interface "i": `+
@@ -301,11 +303,11 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 		{"0.1.2.4", machine.Id()},
 		{"0.1.2.5", machine2.Id()},
 	}
-	for _, details := range addresses {
+	for i, details := range addresses {
 		addr := network.NewScopedAddress(details[0], network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(details[1], "wobble")
+		err = ipAddr.AllocateTo(details[1], "wobble", fmt.Sprintf("mac%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := s.State.AllocatedIPAddresses(machine.Id())
@@ -331,7 +333,7 @@ func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {
 		addr := network.NewAddress(details)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(machine.Id(), "wobble")
+		err = ipAddr.AllocateTo(machine.Id(), "wobble", "mac")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 0 {
 			err := ipAddr.EnsureDead()
