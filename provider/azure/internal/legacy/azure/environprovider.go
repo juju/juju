@@ -20,6 +20,11 @@ type azureEnvironProvider struct{}
 // azureEnvironProvider implements EnvironProvider.
 var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 
+// EnvironProvider returns the legacy azure EnvironProvider.
+func EnvironProvider() environs.EnvironProvider {
+	return azureEnvironProvider{}
+}
+
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
