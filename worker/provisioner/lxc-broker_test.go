@@ -869,7 +869,7 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     provisioner.MACAddressTemplate,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),

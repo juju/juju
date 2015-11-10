@@ -532,11 +532,6 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
 
-// MACAddressTemplate is used to generate a unique MAC address for a
-// container. Every 'x' is replaced by a random hexadecimal digit,
-// while the rest is kept as-is.
-const MACAddressTemplate = "00:16:3e:xx:xx:xx"
-
 // configureContainerNetworking tries to allocate a static IP address
 // for the given containerId using the provisioner API, when
 // allocateAddress is true. Otherwise it configures the container with
@@ -598,7 +593,6 @@ func configureContainerNetwork(
 		// interface name.
 		finalIfaceInfo[i].DeviceIndex = i
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
-		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearch = searchDomain
