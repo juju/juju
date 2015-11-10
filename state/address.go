@@ -199,7 +199,7 @@ const (
 )
 
 // fromNetworkAddress is a convenience helper to create a state type
-// out of the network type, here for Address.
+// out of the network type, here for Address with a given Origin.
 func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
 		Value:       netAddr.Value,
@@ -222,7 +222,7 @@ func (addr *address) networkAddress() network.Address {
 }
 
 // fromNetworkAddresses is a convenience helper to create a state type
-// out of the network type, here for a slice of Address.
+// out of the network type, here for a slice of Address with a given origin.
 func fromNetworkAddresses(netAddrs []network.Address, origin Origin) []address {
 	addrs := make([]address, len(netAddrs))
 	for i, netAddr := range netAddrs {
