@@ -58,7 +58,7 @@ def go_test(args, gopath):
     if args.project_url:
         print_now("Cloning {} from {}".format(args.project, args.project_url))
         git("clone", args.project_url, directory)
-    if args.go_get_all:
+    if args.go_get_all and not (args.project_url and args.merge_url):
         print_now("Getting {} and dependencies using go".format(args.project))
         go("get", "-v", "-d", "-t", project_ellipsis)
     os.chdir(directory)
@@ -69,6 +69,9 @@ def go_test(args, gopath):
         print_now("Merging {} ref {}".format(args.merge_url, args.merge_ref))
         git("fetch", args.merge_url, args.merge_ref)
         git("merge", "--no-ff", "-m", "Merged " + args.merge_ref, "FETCH_HEAD")
+        if args.go_get_all:
+            print_now("Updating {} dependencies using go".format(args.project))
+            go("get", "-v", "-d", "-t", project_ellipsis)
     if args.dependencies:
         for dep in args.dependencies:
             print_now("Getting {} and dependencies using go".format(dep))
@@ -86,6 +89,9 @@ def parse_args(args=None):
     """Parse arguments for gating script."""
     parser = argparse.ArgumentParser()
     project_group = parser.add_argument_group()
+    project_group.add_argument(
+        "--keep", action="store_true",
+        help="Do not remove working dir after testing.")
     project_group.add_argument(
         "--project", required=True, help="Go import path of package to test.")
     project_group.add_argument(
@@ -116,7 +122,7 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    with temp_dir() as d:
+    with temp_dir(keep=args.keep) as d:
         try:
             go_test(args, d)
         except SubcommandError as err:

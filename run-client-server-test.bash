@@ -4,93 +4,70 @@ SCRIPTS=$(readlink -f $(dirname $0))
 export PATH=$HOME/workspace-runner:$PATH
 
 usage() {
-    echo "usage: $0 old-version candidate-version new-to-old client-os revision-build log-dir"
+    echo "usage: $0 old-version candidate-version new-to-old client-os log-dir"
     exit 1
 }
-test $# -eq 6 || usage
+test $# -eq 5 || usage
 old_version="$1"
 candidate_version="$2"
 new_to_old="$3"
 client_os="$4"
-revision_build="$5"
-log_dir="$6"
+local_log_dir="$5"
 
 set -x
+
+if [[ "$new_to_old" == "true"  && -d $HOME/candidate/$candidate_version ]]; then
+    echo "Using weekly streams for unreleased version"
+    agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
+else
+    echo "Using official proposed (or released) streams"
+    agent_arg="--agent-stream proposed"
+fi
+
+
 if [[ "$client_os" == "ubuntu" ]]; then
+    if [[ -d $HOME/old-juju/$candidate_version ]]; then
+        candidate_juju=$(find $HOME/old-juju/$candidate_version -name juju)
+    else
+        candidate_juju=$(find $HOME/candidate/$candidate_version -name juju)
+    fi
     old_juju=$(find $HOME/old-juju/$old_version -name juju)
-    candidate_juju=$(find $HOME/candidate/$candidate_version -name juju)
+    server=$old_juju
+    client=$candidate_juju
+    if [[ "$new_to_old" == "true" ]]; then
+        server=$candidate_juju
+        client=$old_juju
+    fi
+    echo "Server: " `$server --version`
+    echo "Client: " `$client --version`
 elif [[ "$client_os" == "osx" ]]; then
-    package=juju-$candidate_version-osx.tar.gz
-    build_dir="build-osx-client"
-    old_package=juju-$old_version-osx.tar.gz
-    archive_dir="osx"
     user_at_host="jenkins@osx-slave.vapour.ws"
     remote_script="run-client-server-test-remote.bash"
 elif [[ "$client_os" == "windows" ]]; then
-    package=juju-setup-$candidate_version.exe
-    build_dir="build-win-client"
-    old_package=juju-$old_version-win.zip
-    archive_dir="win"
-    user_at_host="Administrator@win-slave.vapour.ws"
     remote_script="run-win-client-server-remote.bash"
+    user_at_host="Administrator@win-slave.vapour.ws"
 else
     echo "Unkown client OS."
     exit 1
 fi
 
-# Get OS X and Windows Juju from S3.
-if [[ "$client_os" == "osx" ]] || [[ "$client_os" == "windows" ]]; then
-    temp_dir=$(mktemp -d)
-    s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
-        s3://juju-qa-data/juju-ci/products/version-$revision_build/$build_dir \
-        $temp_dir --exclude '*' --include $package
-    candidate_juju=$(find $temp_dir -name $package)
-    if [ "$client_os" == "windows" ]; then
-        # Extract Windows exe file and compress it.
-        innoextract -e $candidate_juju -d $temp_dir
-        zip -D $temp_dir/juju-$candidate_version-win.zip $temp_dir/app/juju.exe
-        candidate_juju=$temp_dir/juju-$candidate_version-win.zip
-    fi
-    # Get the old juju from S3.
-    old_temp_dir=$(mktemp -d)
-    s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
-        s3://juju-qa-data/client-archive/$archive_dir $old_temp_dir --exclude '*' \
-        --include $old_package
-    old_juju=$(find $old_temp_dir -name $old_package)
-fi
-
-if [[ "$new_to_old" == "true" ]]; then
-    server=$candidate_juju
-    client=$old_juju
-    echo "Using weekly streams for unreleased version"
-    agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
-else
-    server=$old_juju
-    client=$candidate_juju
-    echo "Using official proposed (or released) streams"
-    agent_arg="--agent-stream proposed"
-fi
-
+remote_log_dir="logs"
 run_remote_script() {
     cat > temp-config.yaml <<EOT
 install:
     remote:
         - $SCRIPTS/$remote_script
-    client:
-        - $client
-    server:
-        - $server
-command: [remote/$remote_script,
-          "server/$(basename $server)", "client/$(basename $client)",
-          "$agent_arg"]
+command: [remote/$remote_script, "$candidate_version", "$old_version", "$new_to_old", "$remote_log_dir", "$agent_arg"]
+download-dir:
+    $remote_log_dir: "$local_log_dir"
 EOT
-    workspace-run temp-config.yaml $user_at_host
+    workspace-run temp-config.yaml $user_at_host -v
 }
 
 set +e
 for i in `seq 1 2`; do
     if [[ "$client_os" == "ubuntu" ]]; then
-        $SCRIPTS/assess_heterogeneous_control.py $server $client test-reliability-aws $JOB_NAME $log_dir $agent_arg
+        $SCRIPTS/assess_heterogeneous_control.py $server $client parallel-reliability-aws $JOB_NAME $local_log_dir $agent_arg
     else
         run_remote_script
     fi
@@ -100,13 +77,8 @@ for i in `seq 1 2`; do
     fi
     if [[ $i == 1 ]]; then
         # Don't remove the log if it fails on the second try.
-        rm -rf $log_dir/*
+        rm -rf $local_log_dir/*
     fi
 done
-
-# Cleanup
-if [[ "$client_os" == "osx" ]] || [[ "$client_os" == "windows" ]]; then
-    rm -rf $temp_dir
-    rm -rf $old_temp_dir
-fi
 exit $RESULT
+

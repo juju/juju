@@ -11,14 +11,12 @@ import re
 from shutil import rmtree
 import subprocess
 import socket
-from StringIO import StringIO
 import sys
 from time import (
     sleep,
     time,
     )
 from tempfile import mkdtemp
-from unittest import FunctionTestCase
 import xml.etree.ElementTree as ET
 
 # Export shell quoting function which has moved in newer python versions
@@ -129,25 +127,13 @@ def print_now(string):
 
 
 @contextmanager
-def temp_dir(parent=None):
+def temp_dir(parent=None, keep=False):
     directory = mkdtemp(dir=parent)
     try:
         yield directory
     finally:
-        rmtree(directory)
-
-
-def setup_test_logging(testcase, level=None):
-    log = logging.getLogger()
-    testcase.addCleanup(setattr, log, 'handlers', log.handlers)
-    log.handlers = []
-    testcase.log_stream = StringIO()
-    handler = logging.StreamHandler(testcase.log_stream)
-    handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-    log.addHandler(handler)
-    if level is not None:
-        testcase.addCleanup(setattr, log, 'level', log.level)
-        log.level = level
+        if not keep:
+            rmtree(directory)
 
 
 def get_revision_build(build_info):
@@ -255,10 +241,11 @@ def add_basic_testing_arguments(parser, using_jes=False):
     parser.add_argument('--verbose', action='store_const',
                         default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
+    parser.add_argument('--region', help='Override environment region.')
     parser.add_argument('--agent-url', action='store', default=None,
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--agent-stream', action='store', default=None,
-                        help='URL for retrieving agent binaries.')
+                        help='Stream for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
     if not using_jes:
@@ -281,6 +268,14 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
+def ensure_dir(path):
+    try:
+        os.mkdir(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+
 def ensure_deleted(path):
     try:
         os.unlink(path)
@@ -293,6 +288,7 @@ def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 
 
+# GZ 2015-10-15: Paths returned in filesystem dependent order, may want sort?
 def find_candidates(root_dir, find_all=False):
     return (path for path, buildvars in _find_candidates(root_dir, find_all))
 
@@ -349,15 +345,3 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
-
-
-def to_unit_test(test_function):
-
-    def unit_testify(*args, **kwargs):
-        tc = FunctionTestCase(test_function)
-        largs = list(args)
-        largs.insert(1, tc)
-        args = tuple(largs)
-        return test_function(*args, **kwargs)
-
-    return unit_testify

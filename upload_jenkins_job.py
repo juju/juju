@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-from ConfigParser import ConfigParser
 import json
 import os
 import sys
@@ -21,6 +20,7 @@ from jujuci import(
     get_job_data,
     JENKINS_URL,
 )
+from s3ci import get_s3_credentials
 from utility import until_timeout
 
 
@@ -170,13 +170,14 @@ class S3Uploader:
     Uploads the result of a Jenkins job to S3.
     """
 
-    def __init__(self, s3, jenkins_build):
+    def __init__(self, s3, jenkins_build, unique_id=None):
         self.s3 = s3
         self.jenkins_build = jenkins_build
+        self.unique_id = unique_id
 
     @classmethod
     def factory(cls, credentials, jenkins_job, build_number, bucket,
-                directory):
+                directory, unique_id=None):
         """
         Creates S3Uploader.
         :param credentials: Jenkins credential
@@ -191,7 +192,7 @@ class S3Uploader:
         jenkins_build = JenkinsBuild.factory(
             credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
-        return cls(s3, jenkins_build)
+        return cls(s3, jenkins_build, unique_id)
 
     def upload(self):
         """Uploads Jenkins job results, console logs and artifacts to S3.
@@ -243,8 +244,13 @@ class S3Uploader:
     def upload_test_results(self):
         filename = self._create_filename('result-results.json')
         headers = {"Content-Type": "application/json"}
-        self.s3.store(filename, json.dumps(
-            self.jenkins_build.get_build_info()), headers=headers)
+        build_info = self.jenkins_build.get_build_info()
+        if self.unique_id:
+            build_info['origin_number'] = int(build_info['number'])
+            build_info['number'] = int(self.unique_id)
+        self.s3.store(
+            filename, json.dumps(build_info, indent=4),
+            headers=headers)
 
     def upload_console_log(self):
         filename = self._create_filename('console-consoleText.txt')
@@ -265,6 +271,8 @@ class S3Uploader:
         :return: Filename
         :rtype: str
         """
+        if self.unique_id:
+            return "{}-{}".format(self.unique_id, filename)
         return str(self.jenkins_build.get_build_number()) + '-' + filename
 
 
@@ -274,11 +282,7 @@ def get_s3_access():
     """
     s3cfg_path = os.path.join(
         os.getenv('HOME'), 'cloud-city/juju-qa.s3cfg')
-    config = ConfigParser()
-    config.read(s3cfg_path)
-    access_key = config.get('default', 'access_key')
-    secret_key = config.get('default', 'secret_key')
-    return access_key, secret_key
+    return get_s3_credentials(s3cfg_path)
 
 
 def get_args(argv=None):
@@ -291,6 +295,10 @@ def get_args(argv=None):
     parser.add_argument(
         's3_directory',
         help="Directory under the bucket name to store files.")
+    parser.add_argument(
+        '--unique-id',
+        help='Unique ID to be used to generate file names. If this is not '
+             'set, the parent build number will be used as a unique ID.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     args.all = False
@@ -309,10 +317,9 @@ def get_args(argv=None):
 def main(argv=None):
     args = get_args(argv)
     cred = get_credentials(args)
-
     uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
-        args.s3_directory)
+        args.s3_directory, unique_id=args.unique_id)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         uploader.upload()

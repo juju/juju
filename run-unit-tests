@@ -53,7 +53,7 @@ while [[ "${1-}" != "" ]]; do
             USE_TMPFS="true"
             ;;
         --race)
-            GOTESTCMD="$GOTESTCMD -race"
+            GOTESTCMD="$GOTESTCMD -race -test.timeout=1800s"
             ;;
     esac
     shift
@@ -169,6 +169,18 @@ if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
   echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
 fi
 
+if [[ $INSTANCE_TYPE == "host" ]]; then
+    echo "Cleaning up /tmp if it is dirty."
+    sudo killall -SIGABRT /usr/bin/mongod || true
+    sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
+    sudo rm -rf /tmp/adduser-* || true
+    sudo rm -rf /tmp/go-* || true
+    sudo rm -rf /tmp/gocheck-* || true
+    sudo rm -rf /tmp/juju-* || true
+    sudo rm -rf /tmp/test-* || true
+fi
+
+go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
 elif [[ "$ROBUST" == "true" ]]; then

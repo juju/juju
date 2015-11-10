@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 import os
 import subprocess
@@ -20,6 +18,9 @@ from substrate import (
     stop_libvirt_domain,
     verify_libvirt_domain,
 )
+
+
+__metaclass__ = type
 
 
 def deploy_stack(environment, debug, machines, deploy_charm):
