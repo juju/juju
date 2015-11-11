@@ -5,9 +5,12 @@ package watcher
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker/catacomb"
 )
+
+var logger = loggo.GetLogger("juju.watcher")
 
 // NotifyHandler defines the operation of a NotifyWorker.
 type NotifyHandler interface {
@@ -71,17 +74,23 @@ type NotifyWorker struct {
 
 func (nw *NotifyWorker) loop() (err error) {
 	changes := nw.setUp()
+	logger.Debugf("changes %v", changes)
 	defer nw.tearDown(err)
 	for {
+		logger.Debugf("waiting %p", nw)
 		select {
 		case <-nw.catacomb.Dying():
+			logger.Debugf("dying %p", nw)
 			return nw.catacomb.ErrDying()
 		case _, ok := <-changes:
+			logger.Debugf("handling")
 			if !ok {
 				return errors.New("change channel closed")
 			}
+			logger.Debugf("handling ...")
 			abort := nw.catacomb.Dying()
 			err = nw.config.Handler.Handle(abort)
+			logger.Debugf("handled ...  %v", err)
 			if err != nil {
 				return err
 			}
@@ -89,20 +98,24 @@ func (nw *NotifyWorker) loop() (err error) {
 	}
 }
 
-// setUp calls the handler's SetUp method and registers any returned watcher
-// with the worker's catacomb. Any errors encountered kill the worker and cause
-// a nil channel to be returned.
+// setUp calls the handler's SetUp method; registers any returned watcher with
+// the worker's catacomb; and returns the watcher's changes channel. Any errors
+// encountered kill the worker and cause a nil channel to be returned.
 func (nw *NotifyWorker) setUp() NotifyChan {
 	watcher, err := nw.config.Handler.SetUp()
 	if err != nil {
+		logger.Debugf("can't create watcher: %v", err)
 		nw.catacomb.Kill(err)
 	}
-	if watcher != nil {
-		if err := nw.catacomb.Add(watcher); err != nil {
-			nw.catacomb.Kill(err)
-		} else {
-			return watcher.Changes()
-		}
+	if watcher == nil {
+		logger.Debugf("no watcher")
+		nw.catacomb.Kill(errors.New("handler returned nil watcher"))
+	} else if err := nw.catacomb.Add(watcher); err != nil {
+		logger.Debugf("can't add watcher: %v", err)
+		nw.catacomb.Kill(err)
+	} else {
+		logger.Debugf("yay got watcher")
+		return watcher.Changes()
 	}
 	return nil
 }

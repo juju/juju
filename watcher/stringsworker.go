@@ -89,15 +89,17 @@ func (sw *StringsWorker) loop() (err error) {
 	}
 }
 
-// setUp calls the handler's SetUp method and registers any returned watcher
-// with the worker's catacomb. Any errors encountered kill the worker and cause
-// a nil channel to be returned.
+// setUp calls the handler's SetUp method; registers any returned watcher with
+// the worker's catacomb; and returns the watcher's changes channel. Any errors
+// encountered kill the worker and cause a nil channel to be returned.
 func (sw *StringsWorker) setUp() StringsChan {
 	watcher, err := sw.config.Handler.SetUp()
 	if err != nil {
 		sw.catacomb.Kill(err)
 	}
-	if watcher != nil {
+	if watcher == nil {
+		sw.catacomb.Kill(errors.New("handler returned nil watcher"))
+	} else {
 		if err := sw.catacomb.Add(watcher); err != nil {
 			sw.catacomb.Kill(err)
 		} else {
