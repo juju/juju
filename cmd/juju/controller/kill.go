@@ -36,7 +36,9 @@ not be destroyed and will never be reconnected to the Juju controller being
 destroyed. 
 `
 
-func newKillCommand() cmd.Command {
+// NewKillCommand returns a command to kill a controller. Killing is a forceful
+// destroy.
+func NewKillCommand() cmd.Command {
 	return envcmd.WrapBase(&killCommand{})
 }
 
@@ -52,7 +54,7 @@ type killCommand struct {
 // Info implements Command.Info.
 func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "kill",
+		Name:    "kill-controller",
 		Args:    "<controller name>",
 		Purpose: "forcibly terminate all machines and other associated resources for a juju controller",
 		Doc:     killDoc,

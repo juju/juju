@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newUseEnvironmentCommand() cmd.Command {
+// NewUseEnvironmentCommand returns a command that caches information
+// about an environment the user can use in the controller locally.
+func NewUseEnvironmentCommand() cmd.Command {
 	return envcmd.WrapController(&useEnvironmentCommand{})
 }
 
@@ -56,11 +58,11 @@ dash.
 If there is just one environment called "test" in the current controller that you
 have access to, then you can just specify the name.
 
-    $ juju controller use-environment test
+    $ juju use-environment test
 
 If however there are multiple enviornments called "test" that are owned
 
-    $ juju controller use-environment test
+    $ juju use-environment test
     Multiple environments matched name "test":
       cb4b94e8-29bb-44ae-820c-adac21194395, owned by bob@local
       ae673c19-73ef-437f-8224-4842a1772bdf, owned by mary@local
@@ -69,20 +71,20 @@ If however there are multiple enviornments called "test" that are owned
 
 You can specify either the environment UUID like this:
 
-    $ juju controller use-environment cb4b94e8-29bb-44ae-820c-adac21194395
+    $ juju use-environment cb4b94e8-29bb-44ae-820c-adac21194395
 
 Or, specify the owner:
 
-    $ juju controller use-environment mary@local/test
+    $ juju use-environment mary@local/test
 
 Since '@local' is the default for users, this can be shortened to:
 
-    $ juju controller use-environment mary/test
+    $ juju use-environment mary/test
 
 
 See Also:
-    juju help juju-controllers
-    juju help controller create-environment
+    juju help controllers
+    juju help create-environment
     juju help environment share
     juju help environment unshare
     juju help switch
@@ -95,7 +97,7 @@ func (c *useEnvironmentCommand) Info() *cmd.Info {
 		Name:    "use-environment",
 		Purpose: "use an environment that you have access to on the controller",
 		Doc:     useEnvDoc,
-		Aliases: []string{"use-env"},
+		Aliases: []string{"use-model"},
 	}
 }
 

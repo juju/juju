@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command to list the controllers the user knows about.
+func NewListCommand() cmd.Command {
 	return envcmd.WrapBase(&listCommand{})
 }
 
@@ -33,16 +34,16 @@ server and the underlying database used by Juju. A controller may host
 multiple environments.
 
 See Also:
-    juju help juju-controllers
-    juju help controller environments
-    juju help controller create-environment
-    juju help controller use-environment
+    juju help controllers
+    juju help list-environments
+    juju help create-environment
+    juju help use-environment
 `
 
 // Info implements Command.Info
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-controllers",
 		Purpose: "list all controllers logged in to on the current machine",
 		Doc:     listDoc,
 	}
