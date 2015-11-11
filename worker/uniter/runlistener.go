@@ -177,7 +177,7 @@ type ChannelCommandRunnerConfig struct {
 	CommandChannel chan<- string
 }
 
-func (cfg *ChannelCommandRunnerConfig) Validate() error {
+func (cfg ChannelCommandRunnerConfig) Validate() error {
 	if cfg.Abort == nil {
 		return errors.NotValidf("Abort unspecified")
 	}
@@ -194,7 +194,7 @@ func (cfg *ChannelCommandRunnerConfig) Validate() error {
 // arguments in a runcommands.Commands, sends the returned IDs to
 // a channel and waits for response callbacks.
 type ChannelCommandRunner struct {
-	ChannelCommandRunnerConfig
+	config ChannelCommandRunnerConfig
 }
 
 // NewChannelCommandRunner returns a new ChannelCommandRunner with the
@@ -221,12 +221,12 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 	responseChan := make(chan responseInfo)
 	responseFunc := func(response *exec.ExecResponse, err error) {
 		select {
-		case <-c.Abort:
+		case <-c.config.Abort:
 		case responseChan <- responseInfo{response, err}:
 		}
 	}
 
-	id := c.Commands.AddCommand(
+	id := c.config.Commands.AddCommand(
 		operation.CommandArgs{
 			Commands:        args.Commands,
 			RelationId:      args.RelationId,
@@ -236,13 +236,13 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 		responseFunc,
 	)
 	select {
-	case <-c.Abort:
+	case <-c.config.Abort:
 		return nil, errCommandAborted
-	case c.CommandChannel <- id:
+	case c.config.CommandChannel <- id:
 	}
 
 	select {
-	case <-c.Abort:
+	case <-c.config.Abort:
 		return nil, errCommandAborted
 	case response := <-responseChan:
 		return response.response, response.err

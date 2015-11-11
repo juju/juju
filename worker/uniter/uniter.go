@@ -253,15 +253,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			break
 		}
 
-		uniterResolver := newUniterResolver(resolverConfig{
-			ClearResolved:      clearResolved,
-			ReportHookError:    u.reportHookError,
-			FixDeployer:        u.deployer.Fix,
-			ActionsResolver:    actions.NewResolver(),
-			LeadershipResolver: uniterleadership.NewResolver(),
-			RelationsResolver:  relation.NewRelationsResolver(u.relations),
-			StorageResolver:    storage.NewResolver(u.storage),
-			CommandsResolver: runcommands.NewCommandsResolver(
+		uniterResolver := NewUniterResolver(ResolverConfig{
+			ClearResolved:   clearResolved,
+			ReportHookError: u.reportHookError,
+			FixDeployer:     u.deployer.Fix,
+			Actions:         actions.NewResolver(),
+			Leadership:      uniterleadership.NewResolver(),
+			Relations:       relation.NewRelationsResolver(u.relations),
+			Storage:         storage.NewResolver(u.storage),
+			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
 		})

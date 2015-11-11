@@ -14,22 +14,24 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type resolverConfig struct {
-	ClearResolved      func() error
-	ReportHookError    func(hook.Info) error
-	FixDeployer        func() error
-	LeadershipResolver resolver.Resolver
-	ActionsResolver    resolver.Resolver
-	RelationsResolver  resolver.Resolver
-	StorageResolver    resolver.Resolver
-	CommandsResolver   resolver.Resolver
+// ResolverConfig defines configuration for the uniter resolver.
+type ResolverConfig struct {
+	ClearResolved   func() error
+	ReportHookError func(hook.Info) error
+	FixDeployer     func() error
+	Leadership      resolver.Resolver
+	Actions         resolver.Resolver
+	Relations       resolver.Resolver
+	Storage         resolver.Resolver
+	Commands        resolver.Resolver
 }
 
 type uniterResolver struct {
-	resolverConfig
+	config ResolverConfig
 }
 
-func newUniterResolver(cfg resolverConfig) *uniterResolver {
+// NewUniterResolver returns a new resolver.Resolver for the uniter.
+func NewUniterResolver(cfg ResolverConfig) resolver.Resolver {
 	return &uniterResolver{cfg}
 }
 
@@ -59,27 +61,27 @@ func (s *uniterResolver) NextOp(
 	}
 
 	if localState.Kind == operation.Continue {
-		if err := s.FixDeployer(); err != nil {
+		if err := s.config.FixDeployer(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	op, err := s.LeadershipResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.config.Leadership.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.ActionsResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Actions.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.CommandsResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Commands.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.StorageResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Storage.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -126,7 +128,7 @@ func (s *uniterResolver) nextOpConflicted(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if remoteState.ResolvedMode != params.ResolvedNone {
-		if err := s.ClearResolved(); err != nil {
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
@@ -145,7 +147,7 @@ func (s *uniterResolver) nextOpHookError(
 ) (operation.Operation, error) {
 
 	// Report the hook error.
-	if err := s.ReportHookError(*localState.Hook); err != nil {
+	if err := s.config.ReportHookError(*localState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -158,12 +160,12 @@ func (s *uniterResolver) nextOpHookError(
 	case params.ResolvedNone:
 		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
-		if err := s.ClearResolved(); err != nil {
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
-		if err := s.ClearResolved(); err != nil {
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewSkipHook(*localState.Hook)
@@ -184,7 +186,7 @@ func (s *uniterResolver) nextOp(
 	case params.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
-		op, err := s.RelationsResolver.NextOp(localState, remoteState, opFactory)
+		op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
@@ -222,7 +224,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	op, err := s.RelationsResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
