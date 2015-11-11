@@ -285,7 +285,7 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
 	}
-	return caps.Contains(capSpaces), nil
+	return caps.Contains(capNetworkDeploymentUbuntu), nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -575,10 +575,10 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement = "networks-management"
-	capStaticIPAddresses  = "static-ipaddresses"
-	capDevices            = "devices-management"
-	capSpaces             = "network-deployment-ubuntu"
+	capNetworksManagement      = "networks-management"
+	capStaticIPAddresses       = "static-ipaddresses"
+	capDevices                 = "devices-management"
+	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
