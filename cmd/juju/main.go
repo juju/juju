@@ -6,15 +6,21 @@ package main
 import (
 	"os"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/cmd/juju/commands"
 	components "github.com/juju/juju/component/all"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/utils"
 )
 
+var log = loggo.GetLogger("juju.cmd.juju")
+
 func init() {
-	utils.Must(components.RegisterForClient())
+	if err := components.RegisterForClient(); err != nil {
+		log.Criticalf("unable to register client components: %v", err)
+		os.Exit(1)
+	}
 }
 
 func main() {
