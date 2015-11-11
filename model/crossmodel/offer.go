@@ -12,6 +12,7 @@ import (
 )
 
 // RemoteService has information about remote service.
+// TODO (anastasiamac 2015-11-11) Fix this up when merged with WIP backend branch.
 type RemoteService struct {
 	// Service has service's tag.
 	Service names.ServiceTag
@@ -29,6 +30,7 @@ type RemoteService struct {
 }
 
 // Offer holds information about offered service and its endpoints.
+// TODO (anastasiamac 2015-11-11) Fix this up when merged with WIP backend branch.
 type Offer struct {
 	// RemoteService has information about offered service.
 	RemoteService
@@ -38,6 +40,7 @@ type Offer struct {
 }
 
 // RemoteEndpoint has information about remote service relation.
+// TODO (anastasiamac 2015-11-11) Fix this up when merged with WIP backend branch.
 type RemoteEndpoint struct {
 	// Name is a name of exported relation.
 	Name string
@@ -51,6 +54,7 @@ type RemoteEndpoint struct {
 
 // RemoteServiceEndpoints has information about remote service and its
 // exported endpoints.
+// TODO (anastasiamac 2015-11-11) Fix this up when merged with WIP backend branch.
 type RemoteServiceEndpoints struct {
 	// RemoteService has information about offered service.
 	RemoteService
