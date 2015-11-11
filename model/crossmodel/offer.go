@@ -1,6 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// crossmodel is service layer package that supports cross model relations
+// functionality.
 package crossmodel
 
 import (
@@ -9,81 +11,61 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// ExportOffer prepares service endpoints for consumption.
-func ExportOffer(offer Offer) error {
-	// TODO(anastasiamac 2015-11-02) needs the actual implementation - this is a placeholder.
-	// actual implementation will coordinate the work:
-	// validate entities exist, access the service directory, write to state etc.
-	TempPlaceholder[offer.Service()] = offer
-	return nil
+// RemoteService has information about remote service.
+type RemoteService struct {
+	// Service has service's tag.
+	Service names.ServiceTag
+
+	// URL is Juju location where exported service's endpoints are.
+	URL string
+
+	// Description is description for the exported service.
+	// For now, this defaults to description provided in the charm.
+	// It could later be moved to describe a single exported endpoint.
+	Description string
+
+	// Users is the list of user tags that are given permission to this exported service.
+	Users []names.UserTag
 }
 
-// Search looks through offered services and returns the ones
-// that match speified filter.
-func Search(filter params.EndpointsSearchFilter) ([]ServiceDetails, error) {
-	// TODO(anastasiamac 2015-11-02) needs the actual implementation - this is a placeholder.
+// Offer holds information about offered service and its endpoints.
+type Offer struct {
+	// RemoteService has information about offered service.
+	RemoteService
 
-	byURL := make(map[string][]ServiceDetails, len(TempPlaceholder))
-	for _, v := range TempPlaceholder {
-		//TODO(anastasiamac 2015-11-4) Pull description from the charm metadata
-		s := service{baseDetails{v.Service(), v.Endpoints()}, ""}
-		byURL[v.URL()] = append(byURL[v.URL()], &s)
-	}
-	return byURL[filter.URL], nil
+	// Endpoints are service's endpoint names that are being offered.
+	Endpoints []string
 }
 
-type baseDetails struct {
-	service   names.ServiceTag
-	endpoints []string
+// RemoteEndpoint has information about remote service relation.
+type RemoteEndpoint struct {
+	// Name is a name of exported relation.
+	Name string
+
+	// Interface is an interface of exported relation.
+	Interface string
+
+	// Role is a role of exported relation.
+	Role string
 }
 
-// Service implements BaseDetails.Service.
-func (b *baseDetails) Service() names.ServiceTag {
-	return b.service
+// RemoteServiceEndpoints has information about remote service and its
+// exported endpoints.
+type RemoteServiceEndpoints struct {
+	// RemoteService has information about offered service.
+	RemoteService
+
+	// Endpoints are service's endpoint details that have been exported.
+	Endpoints []RemoteEndpoint
 }
 
-// Endpoints implements BaseDetails.Endpoints.
-func (b *baseDetails) Endpoints() []string {
-	return b.endpoints
+//////////////////////TEMP PLACEHOLDER REMOVE WHEN REAL THING IS PLUGGED IN???????????
+type ExporterStub struct{}
+
+func (e ExporterStub) ExportOffer(offer Offer) error { return nil }
+
+func (e ExporterStub) Search(filter params.EndpointsSearchFilter) ([]RemoteServiceEndpoints, error) {
+	return nil, nil
 }
 
-type anOffer struct {
-	baseDetails
-	aURL  string
-	users []names.UserTag
-}
-
-func NewOffer(serviceTag names.ServiceTag, endpoints []string, URL string, users []names.UserTag) Offer {
-	offer := anOffer{
-		baseDetails{serviceTag, endpoints},
-		URL,
-		users,
-	}
-	return &offer
-}
-
-// URL implements Offer.URL.
-func (o *anOffer) URL() string {
-	return o.aURL
-}
-
-// Users implements Offer.Users.
-func (o *anOffer) Users() []names.UserTag {
-	return o.users
-}
-
-type service struct {
-	baseDetails
-	desc string
-}
-
-// Description implements ServiceDetails.Description.
-func (s *service) Description() string {
-	return s.desc
-}
-
-// START TEMP IN-MEMORY PLACEHOLDER ///////////////
-
-var TempPlaceholder = make(map[names.ServiceTag]Offer)
-
-// END TEMP IN-MEMORY PLACEHOLDER ///////////////
+//////////////////////END TEMP PLACEHOLDER REMOVE WHEN REAL THING IS PLUGGED IN???????????
