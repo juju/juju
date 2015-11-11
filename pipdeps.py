@@ -41,7 +41,8 @@ def run_pip_install(extra_args, verbose=False):
     cmd = ["pip"]
     if not verbose:
         cmd.append("-q")
-    requirements = os.path.join(os.path.dirname(__file__), "requirements.txt")
+    requirements = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                                "requirements.txt")
     cmd.extend(["install", "-r", requirements])
     cmd.extend(extra_args)
     subprocess.check_call(cmd)

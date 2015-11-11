@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from datetime import datetime
 import logging
@@ -12,6 +10,7 @@ import sys
 from deploy_stack import (
     dump_env_logs,
     get_machine_dns_name,
+    update_env,
 )
 from jujuconfig import (
     get_juju_home,
@@ -25,6 +24,9 @@ from jujupy import (
 from utility import (
     print_now,
 )
+
+
+__metaclass__ = type
 
 
 class LogRotateError(Exception):
@@ -190,15 +192,22 @@ def parse_args(argv=None):
     parser.add_argument(
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
+    parser.add_argument('--agent-stream',
+                        help='Stream for retrieving agent binaries.')
     return parser.parse_args(argv)
+
+
+def make_client_from_args(args):
+    client = make_client(
+        args.juju_path, args.debug, args.env_name, args.temp_env_name)
+    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream)
+    return client
 
 
 def main():
     args = parse_args()
     log_dir = args.logs
-
-    client = make_client(
-        args.juju_path, args.debug, args.env_name, args.temp_env_name)
+    client = make_client_from_args(args)
     client.destroy_environment()
     juju_home = get_juju_home()
     bootstrap_host = None

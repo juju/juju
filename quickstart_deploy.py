@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-__metaclass__ = type
-
 from argparse import ArgumentParser
 import logging
 import sys
@@ -11,6 +8,7 @@ from deploy_stack import (
     get_machine_dns_name,
     safe_print_status,
     temp_bootstrap_env,
+    update_env,
 )
 from jujuconfig import (
     get_juju_home
@@ -25,16 +23,21 @@ from utility import (
 )
 
 
+__metaclass__ = type
+
+
 class QuickstartTest:
 
     @classmethod
     def from_args(cls, env, tmp_name, juju_path, log_dir, bundle_path,
                   service_count, series=None, agent_url=None,
-                  debug_flag=False):
+                  debug_flag=False, region=None, agent_stream=None,
+                  bootstrap_host=None):
         env_config = SimpleEnvironment.from_config(env)
-        env_config.environment = tmp_name
-        env_config.config['series'] = series
-        env_config.config['agent_url'] = agent_url
+        update_env(
+            env_config, tmp_name, series=series, agent_url=agent_url,
+            region=region, agent_stream=agent_stream,
+            bootstrap_host=bootstrap_host)
         client = EnvJujuClient.by_version(env_config, juju_path,
                                           debug=debug_flag)
         return cls(client, bundle_path, log_dir, service_count)
@@ -93,7 +96,9 @@ def main():
                                           args.juju_bin, args.logs,
                                           args.bundle_path, args.service_count,
                                           args.series, args.agent_url,
-                                          args.debug)
+                                          args.debug, args.region,
+                                          args.agent_stream,
+                                          args.bootstrap_host)
     try:
         quickstart.run()
     except Exception as e:

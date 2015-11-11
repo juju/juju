@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -36,6 +33,9 @@ from utility import (
     temp_dir,
     until_timeout,
     )
+
+
+__metaclass__ = type
 
 
 QUICK = 'quick'

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from __future__ import print_function
-__metaclass__ = type
 
 
 from argparse import ArgumentParser
@@ -58,16 +57,23 @@ from utility import (
 )
 
 
+__metaclass__ = type
+
+
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if (client.env.config['type'] == 'manual'
-            and 'AWS_ACCESS_KEY' in os.environ):
+    if (client.env.config['type'] == 'manual' and
+            'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
 
 def deploy_dummy_stack(client, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
+    # Centos requires specific machine configuration (i.e. network device
+    # order).
+    if charm_prefix.startswith("local:centos") and client.env.maas:
+        client.juju('set-constraints', ('tags=MAAS_NIC_1',))
     client.deploy(charm_prefix + 'dummy-source')
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
@@ -215,7 +221,9 @@ def iter_remote_machines(client):
 
 def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
-    log_files = glob.glob(os.path.join(log_dir, '*.log'))
+    log_files = []
+    for r, ds, fs in os.walk(log_dir):
+        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
 
@@ -249,6 +257,8 @@ def copy_remote_logs(remote, directory):
         log_paths = [
             '/var/log/cloud-init*.log',
             '/var/log/juju/*.log',
+            # TODO(gz): Also capture kvm container logs?
+            '/var/lib/juju/containers/juju-*-lxc-*/',
         ]
 
         try:
@@ -258,7 +268,7 @@ def copy_remote_logs(remote, directory):
             return
 
         try:
-            remote.run('sudo chmod go+r /var/log/juju/*')
+            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")
@@ -307,8 +317,7 @@ def assess_upgrade(old_client, juju_path, skip_juju_run=False):
 def upgrade_juju(client):
     client.set_testing_tools_metadata_url()
     tools_metadata_url = client.get_env_option('tools-metadata-url')
-    print(
-        'The tools-metadata-url is %s' % tools_metadata_url)
+    logging.info('The tools-metadata-url is %s', tools_metadata_url)
     client.upgrade_juju()
 
 
@@ -333,20 +342,20 @@ def deploy_job():
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
-    # Don't need windows state server to test windows charms, trusty is faster.
-    if series.startswith("win"):
-        logging.info('Setting default series to trusty for windows deploy.')
+    # Don't need windows or centos state servers.
+    if series.startswith("win") or series.startswith("centos"):
+        logging.info('Setting default series to trusty for win and centos.')
         series = 'trusty'
     return _deploy_job(args.temp_env_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        series, args.logs, args.debug, args.juju_bin,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools, args.with_chaos,
-                       args.jes, args.pre_destroy)
+                       args.jes, args.pre_destroy, args.region)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
-               agent_url=None, agent_stream=None):
+               agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.environment = new_env_name
     env.config['name'] = new_env_name
@@ -358,6 +367,8 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['tools-metadata-url'] = agent_url
     if agent_stream is not None:
         env.config['agent-stream'] = agent_stream
+    if region is not None:
+        env.config['region'] = region
 
 
 def tear_down(client, jes_enabled):
@@ -377,7 +388,7 @@ def tear_down(client, jes_enabled):
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
-                 permanent=False):
+                 permanent=False, region=None):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -408,7 +419,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     running_domains = dict()
     try:
         if client.env.config['type'] == 'manual' and bootstrap_host is None:
-            instances = run_instances(3, temp_env_name)
+            instances = run_instances(3, temp_env_name, series)
             created_machines = True
             bootstrap_host = instances[0][1]
             machines.extend(i[1] for i in instances[1:])
@@ -430,7 +441,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 
         update_env(client.env, temp_env_name, series=series,
                    bootstrap_host=bootstrap_host, agent_url=agent_url,
-                   agent_stream=agent_stream)
+                   agent_stream=agent_stream, region=region)
         try:
             host = bootstrap_host
             ssh_machines = [] + machines
@@ -501,7 +512,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
                 agent_stream, keep_env, upload_tools, with_chaos, use_jes,
-                pre_destroy):
+                pre_destroy, region):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -519,7 +530,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         client.enable_jes()
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools, permanent=use_jes):
+                      upload_tools, permanent=use_jes, region=region):
         if machines is not None:
             client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
@@ -536,12 +547,12 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_prefix)
-        is_windows_charm = charm_prefix.startswith("local:win")
-        if not is_windows_charm:
+        skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
+        if not skip_juju_run:
             assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
+            assess_upgrade(client, juju_path, skip_juju_run)
 
 
 def safe_print_status(client):
