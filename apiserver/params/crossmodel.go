@@ -28,11 +28,6 @@ type CrossModelOffers struct {
 	Offers []CrossModelOffer `json:"offers"`
 }
 
-// SAASDetailsResult holds information about SAAS endpoints.
-type SAASDetailsResult struct {
-	// Service has service's tag.
-	Service string `json:"service"`
-
 // OfferFilters is used to query offers in a service directory.
 // Offers matching any of the filters are returned.
 type OfferFilters struct {
