@@ -128,16 +128,22 @@ class EnvJujuClient:
         return subprocess.check_output((juju_path, '--version')).strip()
 
     def is_jes_enabled(self):
-        """Does the state-server support multiple environments.
+        """Does the state-server support multiple environments."""
+        return self.get_jes_command() is not None
+
+    def get_jes_command(self):
+        """Return the JES command or None when not supported.
 
         Juju 1.26 has the 'controller' command to manage the master env.
         Juju 1.25 has the 'system' command to manage the master env.
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith('system') or line.startswith('controller'):
-                return True
-        return False
+            if line.startswith('controller'):
+                return 'controller'
+            if line.startswith('system'):
+                return 'system'
+        return None
 
     @classmethod
     def get_full_path(cls):

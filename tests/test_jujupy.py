@@ -1191,6 +1191,27 @@ class TestEnvJujuClient(ClientTest):
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
 
+    def test_get_jes_command(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        # Juju 1.24 and older do not have a JES command.
+        fake_popen = FakePopen(' system', None, 0)
+        with patch('subprocess.Popen',
+                   return_value=fake_popen) as po_mock:
+            self.assertIs(None, client.get_jes_command())
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'))
+        # Juju 1.26 uses the controller command.
+        fake_popen = FakePopen('controller', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual('controller', client.get_jes_command())
+        # Juju 1.25 uses the system command.
+        fake_popen = FakePopen('system', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual('system', client.get_jes_command())
+
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
