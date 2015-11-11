@@ -11,11 +11,11 @@ from utility import (
     )
 
 
-def start_job(root, job, juju_bin, user, password):
+def start_job(root, job, juju_bin, user, password, number):
     """Use Jenkins API to start a job."""
     jenkins = Jenkins('http://localhost:8080', user, password)
     token = get_auth_token(root, job)
-    job_params = {'juju_bin': juju_bin}
+    job_params = {'juju_bin': juju_bin, 'sequence_number': number}
     jenkins.build_job(job, job_params, token=token)
 
 
@@ -45,7 +45,7 @@ def main(argv=None):
             ['find', candidate_path, '-name', 'juju']).strip()
         for i in range(args.count):
             start_job(args.root_dir, args.job, juju_bin, args.user,
-                      args.password)
+                      args.password, i)
 
 
 if __name__ == '__main__':

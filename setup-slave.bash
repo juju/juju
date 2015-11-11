@@ -12,6 +12,9 @@ SLAVE_ADDRESS="${2:-$(juju status $SLAVE |
     sed 's/ //g')}"
 LOCAL_CLOUD_CITY="${3:-./cloud-city}"
 
+SERIES=$(ssh -i $LOCAL_CLOUD_CITY/$KEY ubuntu@$SLAVE_ADDRESS "lsb_release -sc")
+DEB_LINE="http://archive.ubuntu.com/ubuntu/ $SERIES-proposed restricted main multiverse universe"
+
 # Copy the authorized_keys so that we can ssh as jenkins.
 ssh -i $LOCAL_CLOUD_CITY/$KEY ubuntu@$SLAVE_ADDRESS <<EOT
 sudo sed -i -r "s,(127.0.0.1.*localhost),\1 $SLAVE," /etc/hosts
@@ -32,10 +35,20 @@ Host 10.* 192.168.*
   UserKnownHostsFile /dev/null
   User ubuntu
   IdentityFile /var/lib/jenkins/cloud-city/$KEY
+EOC
+"
+
+# Setup proposed.
+ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS \
+"cat << EOC | sudo tee -a /etc/apt/preferences.d/proposed-updates
+Package: *
+Pin: release a=$SERIES-proposed
+Pin-Priority: 400
 EOC"
 
 # Install stable juju.
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
+echo "deb $DEB_LINE" | sudo tee -a /etc/apt/sources.list
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo apt-get install -y bzr make

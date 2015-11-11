@@ -79,18 +79,20 @@ def ssh(client, machine, cmd):
     :return: text output of the command
     """
     back_off = 2
-    for attempt in range(10):
+    attempts = 4
+    for attempt in range(attempts):
         try:
             return client.get_juju_output('ssh', machine, cmd)
         except subprocess.CalledProcessError as e:
             # If the connection to the host failed, try again in a couple of
             # seconds. This is usually due to heavy load.
-            if re.search('ssh_exchange_identification: '
-                         'Connection closed by remote host', e.stderr):
+            if(attempt < attempts-1 and
+               re.search('ssh_exchange_identification: '
+                         'Connection closed by remote host', e.stderr)):
                 time.sleep(back_off)
                 back_off *= 2
-                return client.get_juju_output('ssh', machine, cmd)
-            raise
+            else:
+                raise
 
 
 def clean_environment(client, services_only=False):
@@ -234,6 +236,13 @@ def assess_network_traffic(client, targets):
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
 
 
+def private_address(client, host):
+    default_route = ssh(client, host, 'ip -4 -o route list 0/0')
+    device = re.search(r'(\w+)\s*$', default_route).group(1)
+    device_ip = ssh(client, host, 'ip -4 -o addr show {}'.format(device))
+    return re.search(r'inet\s+(\S+)/\d+\s', device_ip).group(1)
+
+
 def assess_address_range(client, targets):
     """Test that two containers are in the same subnet as their host
     :param client: Juju client
@@ -242,13 +251,19 @@ def assess_address_range(client, targets):
     """
     status = client.wait_for_started().status
 
-    host = targets[0].split('/')[0]
-    host_address = socket.gethostbyname(status['machines'][host]['dns-name'])
-    host_subnet = find_network(client, host, host_address)
+    host_subnet_cache = {}
 
     for target in targets:
-        vm_host = target.split('/')[0]
-        addr = status['machines'][vm_host]['containers'][target]['dns-name']
+        host = target.split('/')[0]
+
+        if host in host_subnet_cache:
+            host_subnet = host_subnet_cache[host]
+        else:
+            host_address = private_address(client, host)
+            host_subnet = find_network(client, host, host_address)
+            host_subnet_cache[host] = host_subnet
+
+        addr = status['machines'][host]['containers'][target]['dns-name']
         subnet = find_network(client, host, addr)
         if host_subnet != subnet:
             raise ValueError(
@@ -257,7 +272,7 @@ def assess_address_range(client, targets):
 
 
 def assess_internet_connection(client, targets):
-    """Test that targets can ping Google's DNS server, google.com
+    """Test that targets can ping their default route
     :param client: Juju client
     :param targets: machine IDs of machines to test
     :return: None; raises ValueError on failure
@@ -336,7 +351,16 @@ def assess_container_networking(client, args):
     _assess_container_networking(client, types, hosts, containers)
     for host in hosts:
         ssh(client, host, 'sudo reboot')
+
+    # If wait_for_started is called too early the machines still appear to be
+    # up, so we wait a few seconds for the reboot.
+    time.sleep(10)
     client.wait_for_started()
+
+    # Once Juju is up it can take a little while before ssh responds. This
+    # seems to be around 25 seconds for an EC2 m3.medium machine. We pause for
+    # 20 seconds here and let the ssh retry logic deal with any extra delay.
+    time.sleep(20)
     _assess_container_networking(client, types, hosts, containers)
 
 
@@ -355,6 +379,7 @@ def main():
     client = get_client(args)
     juju_home = get_juju_home()
     bootstrap_host = None
+    success = True
     try:
         if args.clean_environment:
             try:
@@ -381,6 +406,7 @@ def main():
         assess_container_networking(client, args)
 
     except Exception as e:
+        success = False
         logging.exception(e)
         try:
             if bootstrap_host is None:
@@ -388,7 +414,6 @@ def main():
         except Exception as e:
             print_now('exception while dumping logs:\n')
             logging.exception(e)
-        exit(1)
     finally:
         if bootstrap_host is not None:
             dump_env_logs(client, bootstrap_host, args.logs)
@@ -398,7 +423,8 @@ def main():
             pass
         else:
             client.destroy_environment()
-
+        if not success:
+            exit(1)
 
 if __name__ == '__main__':
     main()

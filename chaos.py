@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-__metaclass__ = type
-
-
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import (
@@ -17,6 +14,9 @@ from remote import remote_from_unit
 from utility import (
     until_timeout,
 )
+
+
+__metaclass__ = type
 
 
 @contextmanager

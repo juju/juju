@@ -82,6 +82,7 @@ def jes_setup(args):
             args.logs, args.keep_env,
             False,
             permanent=True,
+            region=args.region,
             ):
         if args.machine is not None:
             client.add_ssh_machines(args.machine)
