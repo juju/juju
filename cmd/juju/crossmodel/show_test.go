@@ -140,6 +140,34 @@ hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM 
 	)
 }
 
+func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
+	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc[:36]
+	s.assertShow(
+		c,
+		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		`
+SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is an  db2       hhtp       role
+                                                                                                                  log       http       role
+
+`[1:],
+	)
+}
+
+func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
+	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc
+	s.assertShow(
+		c,
+		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		`
+SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is...  db2       hhtp       role
+                                                                                                                  log       http       role
+
+`[1:],
+	)
+}
+
 func (s *showSuite) assertShow(c *gc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
