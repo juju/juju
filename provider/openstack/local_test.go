@@ -20,6 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -49,7 +50,6 @@ import (
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 

@@ -180,7 +180,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string, string) *MachineAgent,
+	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -198,7 +198,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string, string) *MachineAgent
+	machineAgentFactory func(string) *MachineAgent
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -247,7 +247,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId, c.Dir)
+	machineAgent := a.machineAgentFactory(a.machineId)
 	return machineAgent.Run(c)
 }
 
@@ -271,8 +271,9 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
-) func(string, string) *MachineAgent {
-	return func(machineId, rootDir string) *MachineAgent {
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -1740,7 +1741,7 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 }
 
 func (a *MachineAgent) createSymlink(target, link string) error {
-	fullLink := filepath.Join(a.rootDir, link)
+	fullLink := utils.EnsureBaseDir(a.rootDir, link)
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {
@@ -1765,7 +1766,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		err := os.Remove(filepath.Join(a.rootDir, link))
+		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
 		}

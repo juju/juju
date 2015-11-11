@@ -14,11 +14,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/utils/ssh"
 )
 
 func newSSHCommand() cmd.Command {

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/utils/ssh"
 )
 
 func newSCPCommand() cmd.Command {

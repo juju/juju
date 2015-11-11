@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var _ = gc.Suite(&SSHSuite{})

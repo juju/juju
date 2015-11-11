@@ -148,7 +148,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf, logCh, looputil.NewLoopDeviceManager(),
+		agentConf, logCh, looputil.NewLoopDeviceManager(), "",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 

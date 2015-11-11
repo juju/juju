@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/ssh"
+	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
-	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
 
 type keyManagerSuite struct {
