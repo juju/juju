@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
@@ -1313,7 +1314,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 
 	// Symlinks should have been created
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		_, err := os.Stat(filepath.Join(a.rootDir, link))
+		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
 
@@ -1335,7 +1336,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	links := []string{jujuRun, jujuDumpLogs}
 	a.rootDir = c.MkDir()
 	for _, link := range links {
-		fullLink := filepath.Join(a.rootDir, link)
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
 		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -1345,7 +1346,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 
 	// juju-run symlink should have been recreated.
 	for _, link := range links {
-		fullLink := filepath.Join(a.rootDir, link)
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
@@ -1420,7 +1421,7 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	// juju-run and juju-dumplogs symlinks should have been removed on
 	// termination.
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		_, err = os.Stat(filepath.Join(a.rootDir, link))
+		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
 
