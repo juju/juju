@@ -7,12 +7,8 @@ revision_build=$1
 WORKSPACE=$2
 AGENT_JSON=$3
 TESTING=$4
+AGENT_JOBS=$5
 
-# General-case begins
-AGENT_JOBS="build-win-agent build-centos build-binary-precise-amd64 \
-   build-binary-trusty-amd64 build-binary-trusty-i386 \
-   build-binary-trusty-ppc64el build-binary-vivid-amd64 \
-   build-binary-wily-amd64"
 WS_JSON=$WORKSPACE/ws-json
 WS_AGENTS=$WORKSPACE/agent/revision-build-$revision_build
 VERSION=$(jujuci.py get-build-vars $revision_build --version)
