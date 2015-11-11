@@ -180,7 +180,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string, string) *MachineAgent,
+	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -198,7 +198,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string, string) *MachineAgent
+	machineAgentFactory func(string) *MachineAgent
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -247,7 +247,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId, c.Dir)
+	machineAgent := a.machineAgentFactory(a.machineId)
 	return machineAgent.Run(c)
 }
 
@@ -271,8 +271,9 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
-) func(string, string) *MachineAgent {
-	return func(machineId, rootDir string) *MachineAgent {
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,

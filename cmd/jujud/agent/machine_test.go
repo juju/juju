@@ -231,9 +231,9 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, logsCh, &mockLoopDeviceManager{},
+		&agentConf, logsCh, &mockLoopDeviceManager{}, c.MkDir(),
 	)
-	return machineAgentFactory(m.Id(), c.MkDir())
+	return machineAgentFactory(m.Id())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
@@ -241,7 +241,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}),
+			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -314,7 +314,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -338,7 +338,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
