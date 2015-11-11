@@ -12,6 +12,12 @@ import (
 	"github.com/juju/errors"
 )
 
+const (
+	maxColumnLength = 100
+	truncatedSuffix = "..."
+	maxFieldLength  = maxColumnLength - len(truncatedSuffix)
+)
+
 // formatTabular returns a tabular summary of remote services or
 // errors out if parameter is not of expected type.
 func formatTabular(value interface{}) ([]byte, error) {
@@ -43,6 +49,11 @@ func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 	for _, one := range all {
 		serviceName := one.Service
 		serviceDesc := one.Desc
+
+		// truncate long descritpion for now.
+		if len(serviceDesc) > maxColumnLength {
+			serviceDesc = fmt.Sprintf("%v%v", serviceDesc[:maxFieldLength], truncatedSuffix)
+		}
 		for _, endpoint := range one.Endpoints {
 			print(serviceName, serviceDesc, endpoint.Name, endpoint.Interface, endpoint.Role)
 			// Only print once.

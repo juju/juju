@@ -24,7 +24,10 @@ var _ = gc.Suite(&showSuite{})
 func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
-	s.mockAPI = &mockShowAPI{serviceTag: "service-hosted-db2"}
+	s.mockAPI = &mockShowAPI{
+		serviceTag: "service-hosted-db2",
+		desc:       "IBM DB2 Express Server Edition is an entry level database system",
+	}
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -76,6 +79,34 @@ hosted-db2  IBM DB2 Express Server Edition is an entry level database system  db
 	)
 }
 
+func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
+	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc[:36]
+	s.assertShow(
+		c,
+		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		`
+SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is an  db2       hhtp       role
+                                                                                                                  log       http       role
+
+`[1:],
+	)
+}
+
+func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
+	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc
+	s.assertShow(
+		c,
+		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		`
+SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is...  db2       hhtp       role
+                                                                                                                  log       http       role
+
+`[1:],
+	)
+}
+
 func (s *showSuite) assertShow(c *gc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +121,7 @@ func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
 }
 
 type mockShowAPI struct {
-	msg, serviceTag string
+	msg, serviceTag, desc string
 }
 
 func (s mockShowAPI) Close() error {
@@ -104,7 +135,7 @@ func (s mockShowAPI) Show(url string) (params.RemoteServiceInfo, error) {
 
 	return params.RemoteServiceInfo{
 		Service:     s.serviceTag,
-		Description: "IBM DB2 Express Server Edition is an entry level database system",
+		Description: s.desc,
 		Endpoints: []params.RemoteEndpoint{
 			params.RemoteEndpoint{"db2", "hhtp", "role"},
 			params.RemoteEndpoint{"log", "http", "role"},
