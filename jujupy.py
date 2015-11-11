@@ -137,13 +137,19 @@ class EnvJujuClient:
         Juju 1.26 has the 'controller' command to manage the master env.
         Juju 1.25 has the 'system' command to manage the master env.
         """
+        if self._jes_command in ('controller', 'system', None):
+            return self._jes_command
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
             if line.startswith('controller'):
-                return 'controller'
+                self._jes_command = 'controller'
+                break
             if line.startswith('system'):
-                return 'system'
-        return None
+                self._jes_command = 'system'
+                break
+        else:
+            self._jes_command = None
+        return self._jes_command
 
     @classmethod
     def get_full_path(cls):
@@ -204,6 +210,7 @@ class EnvJujuClient:
         self.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
+        self._jes_command = 'UNSET'
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -645,9 +652,16 @@ class EnvJujuClient26(EnvJujuClient):
         self._use_jes = False
 
     def enable_jes(self):
+        """Enable JES if JES is optional.
+
+        :raises: JESByDefault when JES is always enabled; Juju has the
+            'controller' command.
+        :raises: JESNotSupported when JES is not supported; Juju does not have
+            the 'system' command
+        """
         if self._use_jes:
             return
-        if self.is_jes_enabled():
+        if self.get_jes_command() == 'controller':
             raise JESByDefault()
         self._use_jes = True
         if not self.is_jes_enabled():
