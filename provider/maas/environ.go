@@ -578,7 +578,7 @@ const (
 	capNetworksManagement = "networks-management"
 	capStaticIPAddresses  = "static-ipaddresses"
 	capDevices            = "devices-management"
-	capSpaces             = "network-management"
+	capSpaces             = "network-deployment-ubuntu"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
