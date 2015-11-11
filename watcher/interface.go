@@ -31,18 +31,9 @@ import (
 // In addition to the above, all currently extant watchers implement, and are
 // accessed in terms of, Stop() and Err() methods, even though they're not very
 // helpful. See worker/catacomb/doc.go for a discussion of the problems with
-// those methods; for now, just hold your nose and implement them, but don't
-// use them.
+// those methods; when converting a watcher, be sure to remove them.
 type CoreWatcher interface {
 	worker.Worker
-
-	// Stop calls Kill() and returns Wait(). It's a bad method and it should
-	// feel bad, and so should you if you use it in new code.
-	Stop() error
-
-	// Err returns the internal tomb's Err(). It's a bad method and it should
-	// feel bad, and so should you if you use it in new code.
-	Err() error
 }
 
 // NotifyChan is a change channel as described in the CoreWatcher documentation.

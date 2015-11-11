@@ -4,17 +4,16 @@
 package watcher_test
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -33,12 +32,11 @@ func newStringsHandlerWorker(c *gc.C, setupError, handlerError, teardownError er
 		setupError:    setupError,
 		teardownError: teardownError,
 		handlerError:  handlerError,
-		watcher: &testStringsWatcher{
-			changes: make(chan []string),
-		},
-		setupDone: make(chan struct{}),
+		watcher:       newTestStringsWatcher(),
+		setupDone:     make(chan struct{}),
 	}
-	w := worker.NewStringsWorker(sh)
+	w, err := watcher.NewStringsWorker(watcher.StringsConfig{Handler: sh})
+	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-sh.setupDone:
 	case <-time.After(coretesting.ShortWait):
@@ -69,9 +67,7 @@ type stringsHandler struct {
 	setupDone     chan struct{}
 }
 
-var _ worker.StringsWatchHandler = (*stringsHandler)(nil)
-
-func (sh *stringsHandler) SetUp() (apiWatcher.StringsWatcher, error) {
+func (sh *stringsHandler) SetUp() (watcher.StringsWatcher, error) {
 	defer func() { sh.setupDone <- struct{}{} }()
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
@@ -92,7 +88,7 @@ func (sh *stringsHandler) TearDown() error {
 	return sh.teardownError
 }
 
-func (sh *stringsHandler) Handle(changes []string) error {
+func (sh *stringsHandler) Handle(_ <-chan struct{}, changes []string) error {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	sh.actions = append(sh.actions, "handler")
@@ -127,31 +123,45 @@ func (s *stringsWorkerSuite) stopWorker(c *gc.C) {
 	s.worker = nil
 }
 
+func newTestStringsWatcher() *testStringsWatcher {
+	w := &testStringsWatcher{
+		changes: make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+	}()
+	return w
+}
+
 type testStringsWatcher struct {
-	mu        sync.Mutex
+	tomb      tomb.Tomb
 	changes   chan []string
-	stopped   bool
+	mu        sync.Mutex
 	stopError error
 }
 
-var _ apiWatcher.StringsWatcher = (*testStringsWatcher)(nil)
-
-func (tsw *testStringsWatcher) Changes() <-chan []string {
+func (tsw *testStringsWatcher) Changes() watcher.StringsChan {
 	return tsw.changes
 }
 
-func (tsw *testStringsWatcher) Err() error {
-	return tsw.stopError
+func (tsw *testStringsWatcher) Kill() {
+	tsw.mu.Lock()
+	tsw.tomb.Kill(tsw.stopError)
+	tsw.mu.Unlock()
 }
 
-func (tsw *testStringsWatcher) Stop() error {
-	tsw.mu.Lock()
-	defer tsw.mu.Unlock()
-	if !tsw.stopped {
-		close(tsw.changes)
+func (tsw *testStringsWatcher) Wait() error {
+	return tsw.tomb.Wait()
+}
+
+func (tsw *testStringsWatcher) Stopped() bool {
+	select {
+	case <-tsw.tomb.Dead():
+		return true
+	default:
+		return false
 	}
-	tsw.stopped = true
-	return tsw.stopError
 }
 
 func (tsw *testStringsWatcher) SetStopError(err error) {
@@ -215,7 +225,7 @@ func (s *stringsWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
 	err := waitShort(c, s.worker)
 	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
-	c.Check(s.actor.watcher.stopped, jc.IsTrue)
+	c.Check(s.actor.watcher.Stopped(), jc.IsTrue)
 }
 
 func (s *stringsWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
@@ -235,16 +245,15 @@ func (s *stringsWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 func (s *stringsWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
-	actor, w := newStringsHandlerWorker(c, fmt.Errorf("my special error"), nil, nil)
+	actor, w := newStringsHandlerWorker(c, errors.New("my special error"), nil, nil)
 	err := waitShort(c, w)
 	c.Check(err, gc.ErrorMatches, "my special error")
-	// TearDown is not called on SetUp error.
-	actor.CheckActions(c, "setup")
-	c.Check(actor.watcher.stopped, jc.IsTrue)
+	actor.CheckActions(c, "setup", "teardown")
+	c.Check(actor.watcher.Stopped(), jc.IsTrue)
 }
 
 func (s *stringsWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
-	s.actor.watcher.SetStopError(fmt.Errorf("error while stopping watcher"))
+	s.actor.watcher.SetStopError(errors.New("error while stopping watcher"))
 	s.worker.Kill()
 	c.Assert(s.worker.Wait(), gc.ErrorMatches, "error while stopping watcher")
 	// We've already stopped the worker, don't let teardown notice the
@@ -253,7 +262,7 @@ func (s *stringsWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 }
 
 func (s *stringsWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
-	s.actor.teardownError = fmt.Errorf("failed to tear down watcher")
+	s.actor.teardownError = errors.New("failed to tear down watcher")
 	s.worker.Kill()
 	c.Assert(s.worker.Wait(), gc.ErrorMatches, "failed to tear down watcher")
 	s.worker = nil
@@ -261,21 +270,21 @@ func (s *stringsWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
 
 func (s *stringsWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
-	actor, w := newStringsHandlerWorker(c, nil, fmt.Errorf("my handling error"), nil)
+	actor, w := newStringsHandlerWorker(c, nil, errors.New("my handling error"), nil)
 	actor.watcher.TriggerChange(c, []string{"aa", "bb"})
 	waitForHandledStrings(c, actor.handled, []string{"aa", "bb"})
 	err := waitShort(c, w)
 	c.Check(err, gc.ErrorMatches, "my handling error")
 	actor.CheckActions(c, "setup", "handler", "teardown")
-	c.Check(actor.watcher.stopped, jc.IsTrue)
+	c.Check(actor.watcher.Stopped(), jc.IsTrue)
 }
 
 func (s *stringsWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	// The default closedHandler doesn't panic if you have a genuine error
 	// (because it assumes you want to propagate a real error and then
 	// restart
-	s.actor.watcher.SetStopError(fmt.Errorf("Stopped Watcher"))
-	s.actor.watcher.Stop()
+	s.actor.watcher.SetStopError(errors.New("Stopped Watcher"))
+	s.actor.watcher.Kill()
 	err := waitShort(c, s.worker)
 	c.Check(err, gc.ErrorMatches, "Stopped Watcher")
 	s.actor.CheckActions(c, "setup", "teardown")
@@ -283,37 +292,10 @@ func (s *stringsWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.worker = nil
 }
 
-func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
-	foundErr := fmt.Errorf("did not get an error")
-	triggeredHandler := func(errer watcher.Errer) error {
-		foundErr = errer.Err()
-		return foundErr
-	}
-	worker.SetEnsureErr(triggeredHandler)
-	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
-	s.actor.watcher.Stop()
-	err := waitShort(c, s.worker)
-	c.Check(foundErr, gc.Equals, tomb.ErrStillAlive)
-	// ErrStillAlive is trapped by the Stop logic and gets turned into a
-	// 'nil' when stopping. However TestDefaultClosedHandler can assert
-	// that it would have triggered an error.
-	c.Check(err, jc.ErrorIsNil)
-	s.actor.CheckActions(c, "setup", "teardown")
-	// Worker is stopped, don't fail TearDownTest
-	s.worker = nil
-}
-
 func (s *stringsWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
-	foundErr := fmt.Errorf("did not get an error")
-	triggeredHandler := func(errer watcher.Errer) error {
-		foundErr = errer.Err()
-		return foundErr
-	}
-	worker.SetEnsureErr(triggeredHandler)
-	s.actor.watcher.Stop()
+	close(s.actor.watcher.changes)
 	err := waitShort(c, s.worker)
-	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)
-	c.Check(foundErr, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, gc.ErrorMatches, "change channel closed")
 	s.actor.CheckActions(c, "setup", "teardown")
+	s.worker = nil
 }
