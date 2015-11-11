@@ -1108,7 +1108,15 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+}
+
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management", "network-deployment-ubuntu"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
