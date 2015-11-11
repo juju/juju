@@ -3501,7 +3501,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)

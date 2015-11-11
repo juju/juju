@@ -154,8 +154,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return environs.Destroy(systemEnviron, store)
 	}
 
-	// Attempt to destroy the system with destroyEnvs and ignoreBlocks = true
-	err = api.DestroySystem(true, true)
+	// Attempt to destroy the system with destroyEnvs.
+	err = api.DestroySystem(true)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.
@@ -164,9 +164,16 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	if err != nil {
 		ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+		return environs.Destroy(systemEnviron, store)
 	}
 
-	return environs.Destroy(systemEnviron, store)
+	// TODO(waigani) FIX BEFORE LANDING IN MASTER. A follow up branch will
+	// poll state and wait for the controller to be down before destroying
+	// it's provider.
+
+	// return environs.Destroy(systemEnviron, store)
+
+	return nil
 }
 
 // killSystemViaClient attempts to kill the system using the client

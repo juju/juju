@@ -12,13 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -27,7 +27,6 @@ import (
 type destroyEnvironmentSuite struct {
 	testing.JujuConnSuite
 	commontesting.BlockHelper
-	metricSender *testMetricSender
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
@@ -36,9 +35,6 @@ func (s *destroyEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-
-	s.metricSender = &testMetricSender{}
-	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
 }
 
 // setUpManual adds "manually provisioned" machines to state:
@@ -82,6 +78,25 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 	return m0, m1, m2
 }
 
+type testMetricSender struct {
+	jtesting.Stub
+}
+
+func (t *testMetricSender) SendMetrics(st *state.State) error {
+	t.AddCall("SendMetrics")
+	return nil
+}
+
+func (s *destroyEnvironmentSuite) TestMetrics(c *gc.C) {
+	metricSender := &testMetricSender{}
+	s.PatchValue(common.SendMetrics, metricSender.SendMetrics)
+
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
+}
+
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	_, nonManager := s.setUpManual(c)
 
@@ -105,7 +120,6 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
@@ -125,16 +139,10 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
+	runAllCleanups(c, s.State)
 
-	needsCleanup, err := s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsCleanup, jc.IsTrue)
-	err = s.State.Cleanup()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// After DestroyEnvironment returns, we should have:
-	//   - all non-manager machines dead
+	// After DestroyEnvironment returns and all cleanup jobs have run, we should have:
+	//   - all non-manager machines dying
 	assertLife(c, manager, state.Alive)
 	// Note: we leave the machine in a dead state and rely on the provisioner
 	// to stop the backing instances, remove the dead machines and finally
@@ -163,34 +171,27 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	c.Assert(entity.Life(), gc.Equals, life)
 }
 
-func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("DestroyEnvironment now queues hosted machines for removal.")
-	ops := make(chan dummy.Operation, 500)
-	dummy.Listen(ops)
-
-	_, nonManager, _ := s.setUpInstances(c)
-	nonManagerId, _ := nonManager.InstanceId()
-
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, jc.ErrorIsNil)
-	for op := range ops {
-		if op, ok := op.(dummy.OpStopInstances); ok {
-			c.Assert(op.Ids, jc.SameContents, []instance.Id{nonManagerId})
-			break
-		}
-	}
-
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
-}
-
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
+}
+
+func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyHostedEnvironment(c *gc.C) {
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+	info := s.APIInfo(c)
+	info.EnvironTag = otherSt.EnvironTag()
+	apiState, err := api.Open(info, api.DefaultDialOpts())
+
+	block := commontesting.NewBlockHelper(apiState)
+	defer block.Close()
+
+	block.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
+	err = common.DestroyEnvironmentIncludingHosted(s.State, s.State.EnvironTag())
+	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
@@ -199,7 +200,6 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
@@ -209,7 +209,6 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 type destroyTwoEnvironmentsSuite struct {
@@ -217,7 +216,6 @@ type destroyTwoEnvironmentsSuite struct {
 	otherState     *state.State
 	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
-	metricSender   *testMetricSender
 }
 
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
@@ -244,33 +242,56 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.metricSender = &testMetricSender{}
-	s.PatchValue(common.SendMetrics, s.metricSender.SendMetrics)
 }
 
-func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("DestroyEnvironment now queues machines to be destroyed. Environ docs are not removed until all machines and services have been torn down.")
+func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironResources(c *gc.C) {
 	otherFactory := factory.NewFactory(s.otherState)
-	otherFactory.MakeMachine(c, nil)
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
 	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	// Assert that the machines are not removed until the cleanup runs.
+	c.Assert(m.Refresh(), jc.ErrorIsNil)
+	assertMachineCount(c, s.otherState, 2)
+	runAllCleanups(c, s.otherState)
+	assertAllMachinesDeadAndRemove(c, s.otherState)
 
-	_, err = s.State.Environment()
+	otherEnv, err := s.otherState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
+	c.Assert(otherEnv.Life(), gc.Equals, state.Dying)
+
+	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(otherEnv.Refresh(), jc.ErrorIsNil)
+	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
+
+}
+
+// The provisioner will remove dead machines once their backing instances are
+// stopped. For the tests, we remove them directly.
+func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
+	machines, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
+		manual, err := m.IsManual()
+		c.Assert(err, jc.ErrorIsNil)
+		if manual {
+			continue
+		}
+
+		c.Assert(m.Life(), gc.Equals, state.Dead)
+		c.Assert(m.Remove(), jc.ErrorIsNil)
+	}
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("DestroyEnvironment now queues machines to be destroyed. Environ docs are not removed until all machines and services have been torn down.")
 	otherFactory := factory.NewFactory(s.otherState)
 	otherFactory.MakeMachine(c, nil)
 	m := otherFactory.MakeMachine(c, nil)
@@ -281,30 +302,76 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	runAllCleanups(c, s.otherState)
+	assertAllMachinesDeadAndRemove(c, s.otherState)
 
-	_, err = s.State.Environment()
+	otherEnv, err := s.otherState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
+	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(otherEnv.Refresh(), jc.ErrorIsNil)
+	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("DestroyEnvironment is now async. A followup branch will get these passing again before landing into master.")
+	otherFactory := factory.NewFactory(s.otherState)
+	otherFactory.MakeMachine(c, nil)
+	m := otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachineNested(c, m.Id(), nil)
+
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+
+	needsCleanup, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needsCleanup, jc.IsFalse)
+
 	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}, {FuncName: "SendMetrics"}})
+
+	// Make sure we can continue to take the hosted environ down while the
+	// controller environ is dying.
+	runAllCleanups(c, s.otherState)
+	assertAllMachinesDeadAndRemove(c, s.otherState)
+	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+
+	otherEnv, err := s.otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(s.State.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(env.Refresh(), jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dead)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAndNonStateServer(c *gc.C) {
+	otherFactory := factory.NewFactory(s.otherState)
+	otherFactory.MakeMachine(c, nil)
+	m := otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachineNested(c, m.Id(), nil)
+
+	err := common.DestroyEnvironmentIncludingHosted(s.State, s.State.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	runAllCleanups(c, s.State)
+	runAllCleanups(c, s.otherState)
+	assertAllMachinesDeadAndRemove(c, s.otherState)
+
+	// Make sure we can continue to take the hosted environ down while the
+	// controller environ is dying.
+	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("DestroyEnvironment is now async. A followup branch will get these passing again before landing into master.")
 	bh := commontesting.NewBlockHelper(s.APIState)
 	defer bh.Close()
 
@@ -315,15 +382,22 @@ func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
 
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
 	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
-
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
-type testMetricSender struct {
-	jtesting.Stub
+func runAllCleanups(c *gc.C, st *state.State) {
+	needCleanup, err := st.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for needCleanup {
+		err := st.Cleanup()
+		c.Assert(err, jc.ErrorIsNil)
+		needCleanup, err = st.NeedsCleanup()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
-func (t *testMetricSender) SendMetrics(st *state.State) error {
-	t.AddCall("SendMetrics")
-	return nil
+func assertMachineCount(c *gc.C, st *state.State, count int) {
+	otherMachines, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(otherMachines, gc.HasLen, count)
 }

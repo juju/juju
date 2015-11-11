@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -31,7 +32,8 @@ func newUndertakerAPI(st State, resources *common.Resources, authorizer common.A
 		return nil, common.ErrPerm
 	}
 	return &UndertakerAPI{
-		st: st,
+		st:        st,
+		resources: resources,
 	}, nil
 }
 
@@ -78,19 +80,18 @@ func (u *UndertakerAPI) RemoveEnviron() error {
 	return nil
 }
 
-// WatchEnvironResources creates watchers for changes to the lifecycle of an
-// environment's machines and services.
-func (u *UndertakerAPI) WatchEnvironResources() (params.NotifyWatchResults, error) {
-	results := params.NotifyWatchResults{}
+func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
+	var nothing params.NotifyWatchResult
 	machines, err := u.st.AllMachines()
 	if err != nil {
-		return results, errors.Trace(err)
+		nothing.Error = common.ServerError(err)
+		return nothing
 	}
 	services, err := u.st.AllServices()
 	if err != nil {
-		return results, errors.Trace(err)
+		nothing.Error = common.ServerError(err)
+		return nothing
 	}
-
 	var watchers []state.NotifyWatcher
 	for _, machine := range machines {
 		watchers = append(watchers, machine.Watch())
@@ -100,10 +101,22 @@ func (u *UndertakerAPI) WatchEnvironResources() (params.NotifyWatchResults, erro
 	}
 
 	watch := common.NewMultiNotifyWatcher(watchers...)
+
 	if _, ok := <-watch.Changes(); ok {
-		results.Results = append(results.Results, params.NotifyWatchResult{
+		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),
-		})
+		}
 	}
-	return results, nil
+	nothing.Error = common.ServerError(watcher.EnsureErr(watch))
+	return nothing
+}
+
+// WatchEnvironResources creates watchers for changes to the lifecycle of an
+// environment's machines and services.
+func (u *UndertakerAPI) WatchEnvironResources() params.NotifyWatchResults {
+	return params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			u.environResourceWatcher(),
+		},
+	}
 }

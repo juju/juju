@@ -266,6 +266,88 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
 }
 
+func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironments(c *gc.C) {
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+
+	controllerEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerEnv.DestroyIncludingHosted(), jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+
+	assertNeedsCleanup(c, s.State)
+	assertCleanupRuns(c, s.State)
+
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env2.Life(), gc.Equals, state.Dying)
+
+	c.Assert(st2.ProcessDyingEnviron(), jc.ErrorIsNil)
+
+	c.Assert(env2.Refresh(), jc.ErrorIsNil)
+	c.Assert(env2.Life(), gc.Equals, state.Dead)
+
+	c.Assert(s.State.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(env.Refresh(), jc.ErrorIsNil)
+	c.Assert(env2.Life(), gc.Equals, state.Dead)
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(c *gc.C) {
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+
+	assertEnv := func(env *state.Environment, st *state.State, life state.Life, expectedMachines, expectedServices int) {
+		c.Assert(env.Refresh(), jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, life)
+
+		machines, err := st.AllMachines()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machines, gc.HasLen, expectedMachines)
+
+		services, err := st.AllServices()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(services, gc.HasLen, expectedServices)
+	}
+
+	// add some machines and services
+	otherEnv, err := otherSt.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: otherEnv.Owner()})
+	ch, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	service, err = otherSt.AddService(service.Name(), service.GetOwnerTag(), ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerEnv.DestroyIncludingHosted(), jc.ErrorIsNil)
+
+	assertCleanupRuns(c, s.State)
+	assertDoesNotNeedCleanup(c, s.State)
+	assertAllMachinesDeadAndRemove(c, s.State)
+	assertEnv(controllerEnv, s.State, state.Dying, 0, 0)
+
+	err = s.State.ProcessDyingEnviron()
+	c.Assert(err, gc.ErrorMatches, `one or more hosted environments are not yet dead`)
+
+	assertCleanupCount(c, otherSt, 3)
+	assertAllMachinesDeadAndRemove(c, otherSt)
+	assertEnv(otherEnv, otherSt, state.Dying, 0, 0)
+	c.Assert(otherSt.ProcessDyingEnviron(), jc.ErrorIsNil)
+
+	c.Assert(otherEnv.Refresh(), jc.ErrorIsNil)
+	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
+
+	c.Assert(s.State.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(controllerEnv.Refresh(), jc.ErrorIsNil)
+	c.Assert(controllerEnv.Life(), gc.Equals, state.Dead)
+}
+
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
 	// Simulate an environment being added just before the remove txn is
 	// called.
@@ -373,6 +455,21 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 	}).Check()
 
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	controllerEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerEnv.DestroyIncludingHosted(), jc.ErrorIsNil)
+
+	err = s.State.ProcessDyingEnviron()
+	c.Assert(err, gc.ErrorMatches, `one or more hosted environments are not yet dead`)
+
+	c.Assert(controllerEnv.Refresh(), jc.ErrorIsNil)
+	c.Assert(controllerEnv.Life(), gc.Equals, state.Dying)
 }
 
 func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
@@ -493,4 +590,56 @@ func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
+}
+
+func assertCleanupRuns(c *gc.C, st *state.State) {
+	err := st.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertNeedsCleanup(c *gc.C, st *state.State) {
+	actual, err := st.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.IsTrue)
+}
+
+func assertDoesNotNeedCleanup(c *gc.C, st *state.State) {
+	actual, err := st.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.IsFalse)
+}
+
+// assertCleanupCount is useful because certain cleanups cause other cleanups
+// to be queued; it makes more sense to just run cleanup again than to unpick
+// object destruction so that we run the cleanups inline while running cleanups.
+func assertCleanupCount(c *gc.C, st *state.State, count int) {
+	for i := 0; i < count; i++ {
+		c.Logf("checking cleanups %d", i)
+		assertNeedsCleanup(c, st)
+		assertCleanupRuns(c, st)
+	}
+	assertDoesNotNeedCleanup(c, st)
+}
+
+// The provisioner will remove dead machines once their backing instances are
+// stopped. For the tests, we remove them directly.
+func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
+	machines, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
+		manual, err := m.IsManual()
+		c.Assert(err, jc.ErrorIsNil)
+		if manual {
+			continue
+		}
+
+		c.Assert(m.Life(), gc.Equals, state.Dead)
+		c.Assert(m.Remove(), jc.ErrorIsNil)
+	}
 }
