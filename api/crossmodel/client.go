@@ -38,12 +38,24 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 	return out.Results, nil
 }
 
-// Show returns offered endpoints details for a given URL.
-func (c *Client) Show(url string) (params.EndpointsDetailsResult, error) {
-	found := params.EndpointsDetailsResult{}
+// Show returns offered remote service details for a given URL.
+func (c *Client) Show(url string) (params.RemoteServiceInfo, error) {
+	found := params.RemoteServiceInfos{}
 	filter := params.EndpointsSearchFilter{URL: url}
-	if err := c.facade.FacadeCall("Show", filter, &found); err != nil {
-		return params.EndpointsDetailsResult{}, errors.Trace(err)
+
+	err := c.facade.FacadeCall("Show", filter, &found)
+	if err != nil {
+		return params.RemoteServiceInfo{}, errors.Trace(err)
 	}
-	return found, nil
+
+	result := found.Result
+	if len(result) > 1 {
+		return params.RemoteServiceInfo{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+	}
+
+	if len(result) == 0 {
+		return params.RemoteServiceInfo{}, errors.NotFoundf("endpoints with url %q", url)
+
+	}
+	return result[0], nil
 }

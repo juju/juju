@@ -52,8 +52,12 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		`
 - service: hosted-db2
   endpoints:
-  - db2
-  - log
+  - name: db2
+    interface: hhtp
+    role: role
+  - name: log
+    interface: http
+    role: role
   desc: IBM DB2 Express Server Edition is an entry level database system
 `[1:],
 	)
@@ -64,8 +68,9 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     INTERFACES  DESCRIPTION
-hosted-db2  db2,log     IBM DB2 Express Server Edition is an entry level database system
+SERVICE     DESCRIPTION                                                       RELATION  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition is an entry level database system  db2       hhtp       role
+                                                                              log       http       role
 
 `[1:],
 	)
@@ -92,14 +97,17 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(url string) (params.EndpointsDetailsResult, error) {
+func (s mockShowAPI) Show(url string) (params.RemoteServiceInfo, error) {
 	if s.msg != "" {
-		return params.EndpointsDetailsResult{}, errors.New(s.msg)
+		return params.RemoteServiceInfo{}, errors.New(s.msg)
 	}
 
-	return params.EndpointsDetailsResult{
+	return params.RemoteServiceInfo{
 		Service:     s.serviceTag,
-		Endpoints:   []string{"db2", "log"},
 		Description: "IBM DB2 Express Server Edition is an entry level database system",
+		Endpoints: []params.RemoteEndpoint{
+			params.RemoteEndpoint{"db2", "hhtp", "role"},
+			params.RemoteEndpoint{"log", "http", "role"},
+		},
 	}, nil
 }

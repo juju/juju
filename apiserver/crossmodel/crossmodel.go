@@ -23,10 +23,12 @@ func init() {
 // implementation of the api end point.
 type API struct {
 	authorizer common.Authorizer
+	exporter   crossmodel.Exporter
 }
 
 // createAPI returns a new cross model API facade.
 func createAPI(
+	exporter crossmodel.Exporter,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -36,6 +38,7 @@ func createAPI(
 
 	return &API{
 		authorizer: authorizer,
+		exporter:   exporter,
 	}, nil
 }
 
@@ -45,7 +48,11 @@ func NewAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return createAPI(resources, authorizer)
+	return createAPI(exporter(st), resources, authorizer)
+}
+
+func exporter(st *state.State) crossmodel.Exporter {
+	return crossmodel.ExporterStub{}
 }
 
 // Offer makes service endpoints available for consumption.
@@ -59,56 +66,69 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 			continue
 		}
 
-		if err := crossmodel.ExportOffer(offer); err != nil {
+		if err := api.exporter.ExportOffer(offer); err != nil {
 			offers[i].Error = common.ServerError(err)
 		}
 	}
 	return params.ErrorResults{Results: offers}, nil
 }
 
-// Show gets offered endpoints details matching to provided filter.
-func (api *API) Show(filter params.EndpointsSearchFilter) (params.EndpointsDetailsResult, error) {
-	noResult := params.EndpointsDetailsResult{}
-
-	found, err := crossmodel.Search(filter)
+// Show gets details about remote services that match given filter.
+func (api *API) Show(filter params.EndpointsSearchFilter) (params.RemoteServiceInfos, error) {
+	found, err := api.exporter.Search(filter)
 	if err != nil {
-		return noResult, errors.Trace(err)
+		return params.RemoteServiceInfos{}, errors.Trace(err)
 	}
 	if len(found) == 0 {
-		return noResult, errors.NotFoundf("endpoints with url %q", filter.URL)
-	}
-	if len(found) > 1 {
-		return noResult, errors.Errorf("expected to find one result for url %q but found %d", filter.URL, len(found))
+		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with url %q", filter.URL)
 	}
 
-	return ConvertEndpointsDetails(found[0]), nil
+	results := make([]params.RemoteServiceInfo, len(found))
+	for i, one := range found {
+		results[i] = ConvertRemoteServiceDetails(one)
+	}
+	return params.RemoteServiceInfos{results}, nil
 }
 
 // ParseOffer is a helper function that translates from params
 // structure into internal service layer one.
 func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
+	offer := crossmodel.Offer{}
+
 	serviceTag, err := names.ParseServiceTag(p.Service)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
+		return offer, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
 	}
 
 	users := make([]names.UserTag, len(p.Users))
 	for i, user := range p.Users {
 		users[i], err = names.ParseUserTag(user)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse user tag %q", user)
+			return offer, errors.Annotatef(err, "cannot parse user tag %q", user)
 		}
 	}
-
-	return crossmodel.NewOffer(serviceTag, p.Endpoints, p.URL, users), nil
+	offer.Service = serviceTag
+	offer.URL = p.URL
+	offer.Users = users
+	offer.Endpoints = p.Endpoints
+	return offer, nil
 }
 
-// ConvertEndpointsDetails is a helper function that translates from internal service layer
+// ConvertRemoteServiceDetails is a helper function that translates from internal service layer
 // structure into params one.
-func ConvertEndpointsDetails(c crossmodel.ServiceDetails) params.EndpointsDetailsResult {
-	return params.EndpointsDetailsResult{
-		Service:     c.Service().String(),
-		Endpoints:   c.Endpoints(),
-		Description: c.Description(),
+func ConvertRemoteServiceDetails(c crossmodel.RemoteServiceEndpoints) params.RemoteServiceInfo {
+	endpoints := make([]params.RemoteEndpoint, len(c.Endpoints))
+
+	for i, endpoint := range c.Endpoints {
+		endpoints[i] = params.RemoteEndpoint{
+			Name:      endpoint.Name,
+			Interface: endpoint.Interface,
+			Role:      endpoint.Role,
+		}
+	}
+	return params.RemoteServiceInfo{
+		Service:     c.Service.String(),
+		Endpoints:   endpoints,
+		Description: c.Description,
 	}
 }

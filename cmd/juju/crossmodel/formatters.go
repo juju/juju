@@ -12,10 +12,10 @@ import (
 	"github.com/juju/errors"
 )
 
-// formatTabular returns a tabular summary of offered services' endpoints or
+// formatTabular returns a tabular summary of remote services or
 // errors out if parameter is not of expected type.
 func formatTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.([]OfferedEndpoint)
+	endpoints, ok := value.([]RemoteService)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
@@ -23,7 +23,7 @@ func formatTabular(value interface{}) ([]byte, error) {
 }
 
 // formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
-func formatOfferedEndpointsTabular(all []OfferedEndpoint) ([]byte, error) {
+func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -38,10 +38,17 @@ func formatOfferedEndpointsTabular(all []OfferedEndpoint) ([]byte, error) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	print("SERVICE", "INTERFACES", "DESCRIPTION")
+	print("SERVICE", "DESCRIPTION", "RELATION", "INTERFACE", "ROLE")
 
 	for _, one := range all {
-		print(one.Service, strings.Join(one.Endpoints, ","), one.Desc)
+		serviceName := one.Service
+		serviceDesc := one.Desc
+		for _, endpoint := range one.Endpoints {
+			print(serviceName, serviceDesc, endpoint.Name, endpoint.Interface, endpoint.Role)
+			// Only print once.
+			serviceName = ""
+			serviceDesc = ""
+		}
 	}
 	tw.Flush()
 

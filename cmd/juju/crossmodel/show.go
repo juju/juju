@@ -93,7 +93,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := formatEndpoints(found)
+	output, err := convertRemoteServices(found)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	Show(url string) (params.EndpointsDetailsResult, error)
+	Show(url string) (params.RemoteServiceInfo, error)
 }
 
 var getShowAPI = (*showCommand).getShowAPI

@@ -4,6 +4,8 @@
 package crossmodel_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -96,7 +98,10 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	url := "local:/u/fred/prod/db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
-	endpoints := []string{"db2", "log"}
+	endpoints := []params.RemoteEndpoint{
+		params.RemoteEndpoint{"db2", "http", "provides"},
+		params.RemoteEndpoint{"log", "http", "requires"},
+	}
 	serviceTag := "service-hosted-db2"
 
 	called := false
@@ -117,10 +122,12 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.URL, gc.DeepEquals, url)
 
-			if points, k := result.(*params.EndpointsDetailsResult); k {
-				points.Description = desc
-				points.Endpoints = endpoints
-				points.Service = serviceTag
+			if points, k := result.(*params.RemoteServiceInfos); k {
+				points.Result = []params.RemoteServiceInfo{params.RemoteServiceInfo{
+					Description: desc,
+					Endpoints:   endpoints,
+					Service:     serviceTag,
+				}}
 			}
 			return nil
 		})
@@ -129,10 +136,61 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(called, jc.IsTrue)
-	c.Assert(found, gc.DeepEquals, params.EndpointsDetailsResult{
+	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfo{
 		Description: desc,
 		Endpoints:   endpoints,
 		Service:     serviceTag})
+}
+
+func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
+	url := "local:/u/fred/prod/db2"
+
+	desc := "IBM DB2 Express Server Edition is an entry level database system"
+	endpoints := []params.RemoteEndpoint{
+		params.RemoteEndpoint{"db2", "http", "provides"},
+		params.RemoteEndpoint{"log", "http", "requires"},
+	}
+	serviceTag := "service-hosted-db2"
+
+	called := false
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Show")
+
+			args, ok := a.(params.EndpointsSearchFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.URL, gc.DeepEquals, url)
+
+			if points, k := result.(*params.RemoteServiceInfos); k {
+				points.Result = []params.RemoteServiceInfo{
+					params.RemoteServiceInfo{
+						Description: desc,
+						Endpoints:   endpoints,
+						Service:     serviceTag,
+					},
+					params.RemoteServiceInfo{
+						Description: desc,
+						Endpoints:   endpoints,
+						Service:     serviceTag,
+					}}
+			}
+			return nil
+		})
+	client := crossmodel.NewClient(apiCaller)
+	found, err := client.Show(url)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
+	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfo{})
+
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
@@ -153,5 +211,5 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 	client := crossmodel.NewClient(apiCaller)
 	found, err := client.Show(url)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.EndpointsDetailsResult{})
+	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfo{})
 }
