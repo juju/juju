@@ -46,10 +46,20 @@ const jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
 type azureEnviron struct {
 	common.SupportsUnitPlacementPolicy
 
-	provider                *azureEnvironProvider
-	resourceGroup           string
+	// provider is the azureEnvironProvider used to open this environment.
+	provider *azureEnvironProvider
+
+	// resourceGroup is the name of the Resource Group in the Azure
+	// subscription that corresponds to the environment.
+	resourceGroup string
+
+	// controllerResourceGroup is the name of the Resource Group in the
+	// Azure subscription that corresponds to the Juju controller
+	// environment.
 	controllerResourceGroup string
-	envName                 string
+
+	// envName is the name of the environment.
+	envName string
 
 	mu            sync.Mutex
 	config        *azureEnvironConfig
