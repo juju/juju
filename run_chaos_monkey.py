@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from datetime import datetime
 import logging
@@ -13,6 +11,9 @@ from jujupy import (
     SimpleEnvironment,
 )
 from utility import configure_logging
+
+
+__metaclass__ = type
 
 
 def run_while_healthy_or_timeout(monkey):

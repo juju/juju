@@ -1,8 +1,6 @@
 #!/usr/bin/python
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from status import StatusTester
 from jujupy import (
@@ -13,6 +11,9 @@ from deploy_stack import (
     prepare_environment,
 )
 from utility import add_basic_testing_arguments
+
+
+__metaclass__ = type
 
 
 def run_complete_status(client, status):
