@@ -47,6 +47,7 @@ func (c *destroyEnvironmentCommand) Info() *cmd.Info {
 		Name:    "destroy-environment",
 		Args:    "<environment name>",
 		Purpose: "terminate all machines and other associated resources for an environment",
+		Aliases: []string{"destroy-model"},
 	}
 }
 
