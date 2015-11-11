@@ -14,7 +14,7 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about service's endpoints previously offered through "juju offer".
+Show extended information about service's endpoints previously exported through "juju offer".
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 The details are shown if the user has read permission to the directory containing the endpoint.
