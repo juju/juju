@@ -285,6 +285,7 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
 	}
+
 	return caps.Contains(capNetworkDeploymentUbuntu), nil
 }
 
