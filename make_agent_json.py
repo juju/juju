@@ -84,7 +84,7 @@ class StanzaWriter:
         with open(self.tarfile) as tarfile_fp:
             content = tarfile_fp.read()
         hashes = {}
-        for hash_algorithm in ['sha256', 'md5', 'sha1']:
+        for hash_algorithm in ['sha256', 'md5']:
             hash_obj = hashlib.new(hash_algorithm)
             hash_obj.update(content)
             hashes[hash_algorithm] = hash_obj.hexdigest()
