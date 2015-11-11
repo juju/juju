@@ -760,13 +760,13 @@ class TestBootContext(FakeHomeTestCase):
         return use_context(self, cxt)
 
     @contextmanager
-    def bc_context(self, client, log_dir=None, jes=False, keep_env=False):
+    def bc_context(self, client, log_dir=None, jes=None, keep_env=False):
         dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True))
         if jes:
-            output = 'system'
+            output = jes
         else:
             output = ''
         with patch('subprocess.Popen', autospec=True,
@@ -788,7 +788,7 @@ class TestBootContext(FakeHomeTestCase):
             if jes:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
-                        'juju', '--show-log', 'system', 'kill', 'bar', '-y'))
+                        'juju', '--show-log', jes, 'kill', 'bar', '-y'))
             else:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
@@ -893,7 +893,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir', jes=True):
+        with self.bc_context(client, 'log_dir', jes='controller'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
@@ -902,7 +902,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir', jes=True):
+        with self.bc_context(client, 'log_dir', jes='controller'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):

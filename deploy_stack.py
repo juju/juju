@@ -374,12 +374,13 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 def tear_down(client, jes_enabled):
     """Tear down a JES or non-JES environment.
 
-    JES environments are torn down via 'system kill', and non-JES environments
-    are torn down via 'destroy-environment --force.'
+    JES environments are torn down via 'controller kill' or 'system kill',
+    and non-JES environments are torn down via 'destroy-environment --force.'
     """
     if jes_enabled:
+        jes_command = '%s kill' % client.get_jes_command()
         client.juju(
-            'system kill', (client.env.environment, '-y'),
+            jes_command, (client.env.environment, '-y'),
             include_e=False, check=False, timeout=600)
     else:
         client.destroy_environment()
