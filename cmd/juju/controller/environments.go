@@ -45,7 +45,7 @@ The environments listed here are either environments you have created
 yourself, or environments which have been shared with you.
 
 See Also:
-    juju help controller
+    juju help controllers
     juju help environment users
     juju help environment share
     juju help environment unshare
