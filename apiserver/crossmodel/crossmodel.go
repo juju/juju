@@ -60,7 +60,7 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 	// export service offers
 	offers := make([]params.ErrorResult, len(all.Offers))
 	for i, one := range all.Offers {
-		offer, err := ParseOffer(one)
+		offer, err := parseOffer(one)
 		if err != nil {
 			offers[i].Error = common.ServerError(err)
 			continue
@@ -85,14 +85,14 @@ func (api *API) Show(filter params.EndpointsSearchFilter) (params.RemoteServiceI
 
 	results := make([]params.RemoteServiceInfo, len(found))
 	for i, one := range found {
-		results[i] = ConvertRemoteServiceDetails(one)
+		results[i] = convertRemoteServiceDetails(one)
 	}
 	return params.RemoteServiceInfos{results}, nil
 }
 
-// ParseOffer is a helper function that translates from params
+// parseOffer is a helper function that translates from params
 // structure into internal service layer one.
-func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
+func parseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
 	offer := crossmodel.Offer{}
 
 	serviceTag, err := names.ParseServiceTag(p.Service)
@@ -114,9 +114,9 @@ func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
 	return offer, nil
 }
 
-// ConvertRemoteServiceDetails is a helper function that translates from internal service layer
+// convertRemoteServiceDetails is a helper function that translates from internal service layer
 // structure into params one.
-func ConvertRemoteServiceDetails(c crossmodel.RemoteServiceEndpoints) params.RemoteServiceInfo {
+func convertRemoteServiceDetails(c crossmodel.RemoteServiceEndpoints) params.RemoteServiceInfo {
 	endpoints := make([]params.RemoteEndpoint, len(c.Endpoints))
 
 	for i, endpoint := range c.Endpoints {
