@@ -80,6 +80,12 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Replay:  true,
 			},
 		}, {
+			args: []string{"--no-tail"},
+			expected: api.DebugLogParams{
+				Backlog: 10,
+				NoTail:  true,
+			},
+		}, {
 			args: []string{"--limit", "100"},
 			expected: api.DebugLogParams{
 				Backlog: 10,
@@ -109,6 +115,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
+		"--no-tail",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
@@ -117,6 +124,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		ExcludeEntity: []string{"machine-1-lxc-1"},
 		Backlog:       500,
 		Level:         loggo.WARNING,
+		NoTail:        true,
 	})
 }
 

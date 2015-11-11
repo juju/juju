@@ -447,6 +447,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		Backlog:       200,
 		Level:         loggo.ERROR,
 		Replay:        true,
+		NoTail:        true,
 	}
 
 	client := s.APIState.Client()
@@ -464,6 +465,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		"backlog":       {"200"},
 		"level":         {"ERROR"},
 		"replay":        {"true"},
+		"noTail":        {"true"},
 	})
 }
 

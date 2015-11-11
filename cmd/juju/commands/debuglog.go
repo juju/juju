@@ -60,6 +60,7 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
 	f.UintVar(&c.params.Limit, "limit", 0, "show at most this many lines")
 	f.BoolVar(&c.params.Replay, "replay", false, "start filtering from the start")
+	f.BoolVar(&c.params.NoTail, "no-tail", false, "stop after returning existing commands")
 }
 
 func (c *debugLogCommand) Init(args []string) error {
