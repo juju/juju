@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// crossmodel is service layer pakcakge that supports cross model relations
-// functionality.
 package crossmodel
 
 // IsValidURL checks if given string represents a valid cross model relations URL.
