@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -21,13 +20,26 @@ import (
 
 // serviceOfferDoc represents the internal state of a service offer in MongoDB.
 type serviceOfferDoc struct {
-	DocID              string              `bson:"_id"`
-	URL                string              `bson:"url"`
-	SourceEnvUUID      string              `bson:"sourceuuid"`
-	SourceLabel        string              `bson:"sourcelabel"`
-	ServiceName        string              `bson:"servicename"`
-	ServiceDescription string              `bson:"servicedescription"`
-	Endpoints          []remoteEndpointDoc `bson:"endpoints"`
+	DocID string `bson:"_id"`
+
+	// URL is the URL used to locate the offer in a directory.
+	URL string `bson:"url"`
+
+	// SourceEnvUUID is the UUID of the environment hosting the service.
+	SourceEnvUUID string `bson:"sourceuuid"`
+
+	// SourceLabel is a user friendly name for the source environment.
+	SourceLabel string `bson:"sourcelabel"`
+
+	// ServiceName is the name of the service.
+	ServiceName string `bson:"servicename"`
+
+	// ServiceDescription is a description of the service's functionality,
+	// typically copied from the charm metadata.
+	ServiceDescription string `bson:"servicedescription"`
+
+	// Endpoints are the charm endpoints supported by the service.
+	Endpoints []remoteEndpointDoc `bson:"endpoints"`
 }
 
 var _ crossmodel.ServiceDirectory = (*serviceDirectory)(nil)
@@ -52,7 +64,7 @@ func ServiceOfferEndpoint(offer crossmodel.ServiceOffer, relationName string) (E
 			}, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("service offer %q has no %q relation", offer.String(), relationName)
+	return Endpoint{}, errors.NotFoundf("relation %q on service offer %q", relationName, offer.String())
 }
 
 func (s *serviceDirectory) offerAtURL(url string) (*serviceOfferDoc, error) {
@@ -70,25 +82,19 @@ func (s *serviceDirectory) offerAtURL(url string) (*serviceOfferDoc, error) {
 	return &doc, nil
 }
 
-// Delete deletes the service offer at url immediately.
-func (s *serviceDirectory) Delete(url string) (err error) {
+// Remove deletes the service offer at url immediately.
+func (s *serviceDirectory) Remove(url string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete service offer %q", url)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			_, err := s.offerAtURL(url)
-			if err == mgo.ErrNotFound {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		return s.destroyOps(url)
+	err = s.st.runTransaction(s.destroyOps(url))
+	if err == txn.ErrAborted {
+		// Already deleted.
+		return nil
 	}
-	return s.st.run(buildTxn)
+	return err
 }
 
 // destroyOps returns the operations required to destroy the record at url.
-func (s *serviceDirectory) destroyOps(url string) ([]txn.Op, error) {
+func (s *serviceDirectory) destroyOps(url string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      serviceOffersC,
@@ -96,7 +102,7 @@ func (s *serviceDirectory) destroyOps(url string) ([]txn.Op, error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
-	}, nil
+	}
 }
 
 var errDuplicateServiceOffer = errors.Errorf("service offer already exists")
@@ -115,7 +121,7 @@ func (s *serviceDirectory) validateOffer(offer crossmodel.ServiceOffer) (err err
 
 // AddOffer adds a new service offering to the directory.
 func (s *serviceDirectory) AddOffer(offer crossmodel.ServiceOffer) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service offer %q", offer.ServiceName)
+	defer errors.DeferredAnnotatef(&err, "cannot add service offer %q at %q", offer.ServiceName, offer.ServiceURL)
 
 	if err := s.validateOffer(offer); err != nil {
 		return err

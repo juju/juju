@@ -75,6 +75,6 @@ type ServiceDirectory interface {
 	// List offers returns the offers satisfying the specified filter.
 	ListOffers(filter ...OfferFilter) ([]ServiceOffer, error)
 
-	// Delete removes the service offering at the specified URL.
-	Delete(url string) error
+	// Remove removes the service offering at the specified URL.
+	Remove(url string) error
 }

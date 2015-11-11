@@ -51,7 +51,7 @@ func (s *serviceDirectorySuite) createDefaultOffer(c *gc.C) crossmodel.ServiceOf
 func (s *serviceDirectorySuite) TestEndpoints(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	_, err := state.ServiceOfferEndpoint(offer, "foo")
-	c.Assert(err, gc.ErrorMatches, `service offer "source-uuid-mysql" has no \"foo\" relation`)
+	c.Assert(err, gc.ErrorMatches, `relation "foo" on service offer "source-uuid-mysql" not found`)
 
 	serverEP, err := state.ServiceOfferEndpoint(offer, "db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,10 +66,10 @@ func (s *serviceDirectorySuite) TestEndpoints(c *gc.C) {
 	})
 }
 
-func (s *serviceDirectorySuite) TestDelete(c *gc.C) {
+func (s *serviceDirectorySuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	sd := state.NewServiceDirectory(s.State)
-	err := sd.Delete(offer.ServiceURL)
+	err := sd.Remove(offer.ServiceURL)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = state.OfferAtURL(sd, offer.ServiceURL)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -231,7 +231,7 @@ func (s *serviceDirectorySuite) TestAddServiceOfferUUIDRequired(c *gc.C) {
 		ServiceURL:  "local:/u/me/service",
 		ServiceName: "mysql",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "mysql": missing source environment UUID`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "mysql" at "local:/u/me/service": missing source environment UUID`)
 }
 
 func (s *serviceDirectorySuite) TestAddServiceOfferDuplicate(c *gc.C) {
@@ -247,7 +247,7 @@ func (s *serviceDirectorySuite) TestAddServiceOfferDuplicate(c *gc.C) {
 		ServiceName:   "another",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another" at "local:/u/me/service": service offer already exists`)
 }
 
 func (s *remoteServiceSuite) TestAddServiceOfferDuplicateAddedAfterInitial(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *remoteServiceSuite) TestAddServiceOfferDuplicateAddedAfterInitial(c *gc
 		SourceEnvUUID: "uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service directory record already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
 }
 
 func (s *serviceDirectorySuite) TestUpdateServiceOfferUUIDRequired(c *gc.C) {
@@ -291,7 +291,7 @@ func (s *serviceDirectorySuite) TestUpdateServiceOfferNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot update service offer "mysql": service offer "local:/u/me/service" not found`)
 }
 
-func (s *remoteServiceSuite) TestUpdateServiceOfferdeletedAfterInitial(c *gc.C) {
+func (s *remoteServiceSuite) TestUpdateServiceOfferRemovedAfterInitial(c *gc.C) {
 	// Check that a record with a URL conflict cannot be added if
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
@@ -303,7 +303,7 @@ func (s *remoteServiceSuite) TestUpdateServiceOfferdeletedAfterInitial(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := sd.Delete("local:/u/me/service")
+		err := sd.Remove("local:/u/me/service")
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	err = sd.UpdateOffer(crossmodel.ServiceOffer{
@@ -312,5 +312,5 @@ func (s *remoteServiceSuite) TestUpdateServiceOfferdeletedAfterInitial(c *gc.C) 
 		SourceEnvUUID: "uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service directory record already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
 }
