@@ -287,17 +287,16 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// manually run staged assignments
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 
-	// manually run staged assignments
-	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{units[0].UnitTag()})
-	c.Assert(errs, gc.DeepEquals, []error{nil})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// refresh units so we get the assigned machines with them.
-	units, err = svc.AllUnits()
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machineId)
