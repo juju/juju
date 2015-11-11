@@ -1108,6 +1108,13 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
