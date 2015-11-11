@@ -541,7 +541,7 @@ const (
 	capNetworksManagement = "networks-management"
 	capStaticIPAddresses  = "static-ipaddresses"
 	capDevices            = "devices-management"
-	capSpaces             = "network-management"
+	capSpaces             = "network-deployment-ubuntu"
 )
 
 func (env *maasEnviron) supportsDevices() (bool, error) {
