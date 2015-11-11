@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/utils/ssh"
 )
 
 const (

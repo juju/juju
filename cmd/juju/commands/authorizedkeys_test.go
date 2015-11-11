@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
@@ -16,7 +17,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
 
 type AuthorizedKeysSuite struct {

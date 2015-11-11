@@ -6,18 +6,18 @@ package testing
 import (
 	"strings"
 
-	sshtesting "github.com/juju/juju/utils/ssh/testing"
+	"github.com/juju/utils/ssh/testing"
 )
 
-var multiOneDup = sshtesting.ValidKeyFour.Key + "\n" + sshtesting.ValidKeyTwo.Key
+var multiOneDup = testing.ValidKeyFour.Key + "\n" + testing.ValidKeyTwo.Key
 
 var importResponses = map[string]string{
-	"lp:validuser":    sshtesting.ValidKeyThree.Key,
-	"lp:existing":     sshtesting.ValidKeyTwo.Key,
-	"lp:multi":        sshtesting.ValidKeyMulti,
-	"lp:multipartial": sshtesting.PartValidKeyMulti,
-	"lp:multiempty":   sshtesting.EmptyKeyMulti,
-	"lp:multiinvalid": sshtesting.MultiInvalid,
+	"lp:validuser":    testing.ValidKeyThree.Key,
+	"lp:existing":     testing.ValidKeyTwo.Key,
+	"lp:multi":        testing.ValidKeyMulti,
+	"lp:multipartial": testing.PartValidKeyMulti,
+	"lp:multiempty":   testing.EmptyKeyMulti,
+	"lp:multiinvalid": testing.MultiInvalid,
 	"lp:multionedup":  multiOneDup,
 }
 

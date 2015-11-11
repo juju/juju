@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
-	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/version"
 )
 
