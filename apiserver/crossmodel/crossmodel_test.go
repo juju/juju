@@ -23,12 +23,6 @@ type crossmodelSuite struct {
 
 var _ = gc.Suite(&crossmodelSuite{})
 
-func (s *crossmodelSuite) SetUpTest(c *gc.C) {
-	s.baseCrossmodelSuite.SetUpTest(c)
-
-	crossmodel.TempPlaceholder = make(map[names.ServiceTag]crossmodel.Offer)
-}
-
 func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	serviceName := names.NewServiceTag("test")
 	one := params.CrossModelOffer{serviceName.String(), nil, "", nil}
