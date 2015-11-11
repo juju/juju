@@ -316,7 +316,11 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	return false, errors.NotSupportedf("spaces")
+	caps, err := env.getCapabilities()
+	if err != nil {
+		return false, errors.Annotatef(err, "getCapabilities failed")
+	}
+	return caps.Contains(capSpaces), nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -609,6 +613,7 @@ const (
 	capNetworksManagement = "networks-management"
 	capStaticIPAddresses  = "static-ipaddresses"
 	capDevices            = "devices-management"
+	capSpaces             = "network-management"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
