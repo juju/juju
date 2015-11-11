@@ -16,8 +16,9 @@ var (
 	UserCurrent                  = &userCurrent
 )
 
-// NewListCommand returns a ListCommand with the configstore provided as specified.
-func NewListCommand(cfgStore configstore.Storage) *listCommand {
+// NewListCommandForTest returns a ListCommand with the configstore provided
+// as specified.
+func NewListCommandForTest(cfgStore configstore.Storage) *listCommand {
 	return &listCommand{
 		cfgStore: cfgStore,
 	}
@@ -27,8 +28,9 @@ type CreateEnvironmentCommand struct {
 	*createEnvironmentCommand
 }
 
-// NewCreateEnvironmentCommand returns a CreateEnvironmentCommand with the api provided as specified.
-func NewCreateEnvironmentCommand(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateEnvironmentCommand) {
+// NewCreateEnvironmentCommandForTest returns a CreateEnvironmentCommand with
+// the api provided as specified.
+func NewCreateEnvironmentCommandForTest(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateEnvironmentCommand) {
 	c := &createEnvironmentCommand{
 		api:          api,
 		configParser: parser,
@@ -36,9 +38,9 @@ func NewCreateEnvironmentCommand(api CreateEnvironmentAPI, parser func(interface
 	return envcmd.WrapController(c), &CreateEnvironmentCommand{c}
 }
 
-// NewEnvironmentsCommand returns a EnvironmentsCommand with the API and userCreds
-// provided as specified.
-func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
+// NewEnvironmentsCommandForTest returns a EnvironmentsCommand with the API
+// and userCreds provided as specified.
+func NewEnvironmentsCommandForTest(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
 	return envcmd.WrapController(&environmentsCommand{
 		envAPI:    envAPI,
 		sysAPI:    sysAPI,
@@ -46,9 +48,9 @@ func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI
 	})
 }
 
-// NewLoginCommand returns a LoginCommand with the function used to open
+// NewLoginCommandForTest returns a LoginCommand with the function used to open
 // the API connection mocked out.
-func NewLoginCommand(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *loginCommand {
+func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *loginCommand {
 	return &loginCommand{
 		loginAPIOpen:   apiOpen,
 		GetUserManager: getUserManager,
@@ -59,9 +61,9 @@ type UseEnvironmentCommand struct {
 	*useEnvironmentCommand
 }
 
-// NewUseEnvironmentCommand returns a UseEnvironmentCommand with the API and
-// userCreds provided as specified.
-func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseEnvironmentCommand) {
+// NewUseEnvironmentCommandForTest returns a UseEnvironmentCommand with the
+// API and userCreds provided as specified.
+func NewUseEnvironmentCommandForTest(api UseEnvironmentAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseEnvironmentCommand) {
 	c := &useEnvironmentCommand{
 		api:       api,
 		userCreds: userCreds,
@@ -70,17 +72,17 @@ func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APIC
 	return envcmd.WrapController(c), &UseEnvironmentCommand{c}
 }
 
-// NewRemoveBlocksCommand returns a RemoveBlocksCommand with the function used
-// to open the API connection mocked out.
-func NewRemoveBlocksCommand(api removeBlocksAPI) cmd.Command {
+// NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
+// function used to open the API connection mocked out.
+func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 	return envcmd.WrapController(&removeBlocksCommand{
 		api: api,
 	})
 }
 
-// NewDestroyCommand returns a DestroyCommand with the controller and client
-// endpoints mocked out.
-func NewDestroyCommand(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
+// NewDestroyCommandForTest returns a DestroyCommand with the controller and
+// client endpoints mocked out.
+func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
 	return envcmd.WrapBase(&destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
@@ -90,9 +92,9 @@ func NewDestroyCommand(api destroyControllerAPI, clientapi destroyClientAPI, api
 	})
 }
 
-// NewKillCommand returns a killCommand with the controller and client
+// NewKillCommandForTest returns a killCommand with the controller and client
 // endpoints mocked out.
-func NewKillCommand(api destroyControllerAPI,
+func NewKillCommandForTest(api destroyControllerAPI,
 	clientapi destroyClientAPI,
 	apierr error,
 	dialFunc func(string) (api.Connection, error)) cmd.Command {
@@ -106,9 +108,9 @@ func NewKillCommand(api destroyControllerAPI,
 	})
 }
 
-// NewListBlocksCommand returns a ListBlocksCommand with the controller
+// NewListBlocksCommandForTest returns a ListBlocksCommand with the controller
 // endpoint mocked out.
-func NewListBlocksCommand(api listBlocksAPI, apierr error) cmd.Command {
+func NewListBlocksCommandForTest(api listBlocksAPI, apierr error) cmd.Command {
 	return envcmd.WrapController(&listBlocksCommand{
 		api:    api,
 		apierr: apierr,

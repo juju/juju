@@ -65,7 +65,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := controller.NewCreateEnvironmentCommand(s.fake, s.parser)
+	command, _ := controller.NewCreateEnvironmentCommandForTest(s.fake, s.parser)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -108,7 +108,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewCreateEnvironmentCommand(nil, nil)
+		wrappedCommand, command := controller.NewCreateEnvironmentCommandForTest(nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)

@@ -62,7 +62,7 @@ func (s *LoginSuite) getUserManager(conn api.Connection) (controller.UserManager
 }
 
 func (s *LoginSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := controller.NewLoginCommand(s.apiOpen, s.getUserManager)
+	command := controller.NewLoginCommandForTest(s.apiOpen, s.getUserManager)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -82,7 +82,7 @@ password: ` + s.password + `
 }
 
 func (s *LoginSuite) TestInit(c *gc.C) {
-	loginCommand := controller.NewLoginCommand(nil, nil)
+	loginCommand := controller.NewLoginCommandForTest(nil, nil)
 
 	err := testing.InitCommand(loginCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "no name specified")

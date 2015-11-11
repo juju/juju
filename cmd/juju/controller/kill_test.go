@@ -33,18 +33,11 @@ func (s *KillSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := controller.NewKillCommand(
-		s.api,
-		s.clientapi,
-		s.apierror,
-		func(name string) (api.Connection, error) {
-			return juju.NewAPIFromName(name, nil)
-		})
-	return testing.RunCommand(c, cmd, args...)
+	return testing.RunCommand(c, s.newKillCommand(), args...)
 }
 
 func (s *KillSuite) newKillCommand() cmd.Command {
-	return controller.NewKillCommand(
+	return controller.NewKillCommandForTest(
 		s.api,
 		s.clientapi,
 		s.apierror,
@@ -166,7 +159,7 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 		return nil, common.ErrPerm
 	}
 
-	cmd := controller.NewKillCommand(nil, nil, nil, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, nil, testDialer)
 	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
@@ -184,7 +177,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		cmd := controller.NewKillCommand(nil, nil, nil, testDialer)
+		cmd := controller.NewKillCommandForTest(nil, nil, nil, testDialer)
 		ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to controller timed out")

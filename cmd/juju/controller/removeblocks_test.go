@@ -31,7 +31,7 @@ func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *removeBlocksSuite) newCommand() cmd.Command {
-	return controller.NewRemoveBlocksCommand(s.api)
+	return controller.NewRemoveBlocksCommandForTest(s.api)
 }
 
 func (s *removeBlocksSuite) TestRemove(c *gc.C) {

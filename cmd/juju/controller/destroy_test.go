@@ -142,12 +142,11 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := controller.NewDestroyCommand(s.api, s.clientapi, s.apierror)
-	return testing.RunCommand(c, cmd, args...)
+	return testing.RunCommand(c, s.newDestroyCommand(), args...)
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommand(s.api, s.clientapi, s.apierror)
+	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.apierror)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {
