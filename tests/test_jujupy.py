@@ -1180,7 +1180,13 @@ class TestEnvJujuClient(ClientTest):
             self.assertFalse(client.is_jes_enabled())
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
+        # Juju 1.25 uses the system command.
         fake_popen = FakePopen('system', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertTrue(client.is_jes_enabled())
+        # Juju 1.26 uses the controller command.
+        fake_popen = FakePopen('controller', None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
