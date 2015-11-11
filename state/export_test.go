@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
@@ -84,6 +85,14 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
 	db.runner = runner
 	return runner
+}
+
+func OfferAtURL(sd crossmodel.ServiceDirectory, url string) (*serviceDirectoryDoc, error) {
+	return sd.(*serviceDirectory).offerAtURL(url)
+}
+
+func MakeServiceDirectoryDoc(sd crossmodel.ServiceDirectory, url string, offer crossmodel.ServiceOffer) serviceDirectoryDoc {
+	return sd.(*serviceDirectory).makeServiceDirectoryDoc(offer)
 }
 
 // SetPolicy updates the State's policy field to the

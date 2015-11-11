@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 
 	"github.com/juju/errors"
@@ -14,14 +15,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-)
 
-// ServiceDirectoryRecord represents the state of a service hosted
-// in an external (remote) environment.
-type ServiceDirectoryRecord struct {
-	st  *State
-	doc serviceDirectoryDoc
-}
+	"github.com/juju/juju/model/crossmodel"
+)
 
 // serviceDirectoryDoc represents the internal state of a service directory record in MongoDB.
 type serviceDirectoryDoc struct {
@@ -34,167 +30,186 @@ type serviceDirectoryDoc struct {
 	Endpoints          []remoteEndpointDoc `bson:"endpoints"`
 }
 
-func newServiceDirectoryRecord(st *State, doc *serviceDirectoryDoc) *ServiceDirectoryRecord {
-	record := &ServiceDirectoryRecord{
-		st:  st,
-		doc: *doc,
+var _ crossmodel.ServiceDirectory = (*serviceDirectory)(nil)
+
+type serviceDirectory struct {
+	st *State
+}
+
+// NewServiceDirectory creates a service directory backed by a state instance.
+func NewServiceDirectory(st *State) crossmodel.ServiceDirectory {
+	return &serviceDirectory{st: st}
+}
+
+// ServiceOfferEndpoint returns from the specified offer, the relation endpoint
+// with the supplied name, if it exists.
+func ServiceOfferEndpoint(offer crossmodel.ServiceOffer, relationName string) (Endpoint, error) {
+	for _, ep := range offer.Endpoints {
+		if ep.Name == relationName {
+			return Endpoint{
+				ServiceName: offer.ServiceName,
+				Relation:    ep,
+			}, nil
+		}
 	}
-	return record
+	return Endpoint{}, errors.Errorf("service offer %q has no %q relation", offer.String(), relationName)
 }
 
-// ServiceName returns the service URL.
-func (s *ServiceDirectoryRecord) URL() string {
-	return s.doc.URL
+func (s *serviceDirectory) offerAtURL(url string) (*serviceDirectoryDoc, error) {
+	serviceDirectoryCollection, closer := s.st.getCollection(serviceDirectoryC)
+	defer closer()
+
+	var doc serviceDirectoryDoc
+	err := serviceDirectoryCollection.FindId(url).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("service offer %q", url)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot count service offers %q", url)
+	}
+	return &doc, nil
 }
 
-// ServiceName returns the service name.
-func (s *ServiceDirectoryRecord) ServiceName() string {
-	return s.doc.ServiceName
-}
-
-// ServiceDescription returns the service name.
-func (s *ServiceDirectoryRecord) ServiceDescription() string {
-	return s.doc.ServiceDescription
-}
-
-// SourceLabel returns the label of the source environment.
-func (s *ServiceDirectoryRecord) SourceLabel() string {
-	return s.doc.SourceLabel
-}
-
-// SourceEnvUUID returns the uuid of the source environment.
-func (s *ServiceDirectoryRecord) SourceEnvUUID() string {
-	return s.doc.SourceEnvUUID
-}
-
-// Destroy deletes the service directory record immediately.
-func (s *ServiceDirectoryRecord) Destroy() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy service directory record %q", s)
-	record := &ServiceDirectoryRecord{st: s.st, doc: s.doc}
+// Delete deletes the service directory record at url immediately.
+func (s *serviceDirectory) Delete(url string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot delete service offer %q", url)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := record.Refresh(); errors.IsNotFound(err) {
+			_, err := s.offerAtURL(url)
+			if err == mgo.ErrNotFound {
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
 		}
-		return record.destroyOps()
+		return s.destroyOps(url)
 	}
 	return s.st.run(buildTxn)
 }
 
-// destroyOps returns the operations required to destroy the record.
-func (s *ServiceDirectoryRecord) destroyOps() ([]txn.Op, error) {
+// destroyOps returns the operations required to destroy the record at url.
+func (s *serviceDirectory) destroyOps(url string) ([]txn.Op, error) {
 	return []txn.Op{
 		{
 			C:      serviceDirectoryC,
-			Id:     s.doc.DocID,
+			Id:     url,
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 	}, nil
 }
 
-// Endpoints returns the service record's currently available relation endpoints.
-func (s *ServiceDirectoryRecord) Endpoints() ([]Endpoint, error) {
-	eps := make([]Endpoint, len(s.doc.Endpoints))
-	for i, ep := range s.doc.Endpoints {
-		eps[i] = Endpoint{
-			ServiceName: s.ServiceName(),
-			Relation: charm.Relation{
-				Name:      ep.Name,
-				Role:      ep.Role,
-				Interface: ep.Interface,
-				Limit:     ep.Limit,
-				Scope:     ep.Scope,
-			}}
-	}
-	sort.Sort(epSlice(eps))
-	return eps, nil
-}
+var errDuplicateServiceDirectoryRecord = errors.Errorf("service offer already exists")
 
-// Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (s *ServiceDirectoryRecord) Endpoint(relationName string) (Endpoint, error) {
-	eps, err := s.Endpoints()
-	if err != nil {
-		return Endpoint{}, err
+func (s *serviceDirectory) validateOffer(offer crossmodel.ServiceOffer) (err error) {
+	// Sanity checks.
+	if offer.SourceEnvUUID == "" {
+		return errors.Errorf("missing source environment UUID")
 	}
-	for _, ep := range eps {
-		if ep.Name == relationName {
-			return ep, nil
-		}
+	if !names.IsValidService(offer.ServiceName) {
+		return errors.Errorf("invalid service name")
 	}
-	return Endpoint{}, fmt.Errorf("service directory record %q has no %q relation", s, relationName)
-}
-
-// String returns the directory record name.
-func (s *ServiceDirectoryRecord) String() string {
-	return fmt.Sprintf("%s-%s", s.doc.SourceEnvUUID, s.doc.ServiceName)
-}
-
-// Refresh refreshes the contents of the ServiceDirectoryRecord from the underlying
-// state. It returns an error that satisfies errors.IsNotFound if the
-// record has been removed.
-func (s *ServiceDirectoryRecord) Refresh() error {
-	serviceDirectoryCollection, closer := s.st.getCollection(serviceDirectoryC)
-	defer closer()
-
-	err := serviceDirectoryCollection.FindId(s.doc.DocID).One(&s.doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("service direcotry record %q", s)
-	}
-	if err != nil {
-		return fmt.Errorf("cannot refresh service directory record %q: %v", s, err)
-	}
+	// TODO(wallyworld) - validate service URL
 	return nil
 }
 
-// AddServiceDirectoryParams defines the parameters used to add a ServiceDirectory record.
-type AddServiceDirectoryParams struct {
-	ServiceName        string
-	ServiceDescription string
-	Endpoints          []charm.Relation
-	SourceEnvUUID      string
-	SourceLabel        string
-}
+// AddOffer adds a new service offering to the directory.
+func (s *serviceDirectory) AddOffer(offer crossmodel.ServiceOffer) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add service offer %q", offer.ServiceName)
 
-var errDuplicateServiceDirectoryRecord = errors.Errorf("service directory record already exists")
-
-func serviceDirectoryKey(name, url string) string {
-	return fmt.Sprintf("%s-%s", name, url)
-}
-
-// AddServiceDirectoryRecord creates a new service directory record for the specified URL,
-// having the supplied parameters,
-func (st *State) AddServiceDirectoryRecord(url string, params AddServiceDirectoryParams) (_ *ServiceDirectoryRecord, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service direcotry record %q", params.ServiceName)
-
-	// Sanity checks.
-	if params.SourceEnvUUID == "" {
-		return nil, errors.Errorf("missing source environment UUID")
+	if err := s.validateOffer(offer); err != nil {
+		return err
 	}
-	if !names.IsValidService(params.ServiceName) {
-		return nil, errors.Errorf("invalid service name")
-	}
-	env, err := st.Environment()
+	env, err := s.st.Environment()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, errors.Errorf("environment is no longer alive")
+		return errors.Errorf("environment is no longer alive")
 	}
 
-	docID := url
-	doc := &serviceDirectoryDoc{
-		DocID:              docID,
-		URL:                url,
-		ServiceName:        params.ServiceName,
-		ServiceDescription: params.ServiceDescription,
-		SourceEnvUUID:      params.SourceEnvUUID,
-		SourceLabel:        params.SourceLabel,
+	doc := s.makeServiceDirectoryDoc(offer)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// environment may have been destroyed.
+		if attempt > 0 {
+			if err := checkEnvLife(s.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			_, err := s.offerAtURL(offer.ServiceURL)
+			if err == nil {
+				return nil, errDuplicateServiceDirectoryRecord
+			}
+		}
+		ops := []txn.Op{
+			env.assertAliveOp(),
+			{
+				C:      serviceDirectoryC,
+				Id:     doc.DocID,
+				Assert: txn.DocMissing,
+				Insert: doc,
+			},
+		}
+		return ops, nil
 	}
-	eps := make([]remoteEndpointDoc, len(params.Endpoints))
-	for i, ep := range params.Endpoints {
+	err = s.st.run(buildTxn)
+	return errors.Trace(err)
+}
+
+// UpdateOffer replaces an existing offer at the same URL.
+func (s *serviceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot update service offer %q", offer.ServiceName)
+
+	if err := s.validateOffer(offer); err != nil {
+		return err
+	}
+	env, err := s.st.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	} else if env.Life() != Alive {
+		return errors.Errorf("environment is no longer alive")
+	}
+
+	doc := s.makeServiceDirectoryDoc(offer)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// environment may have been destroyed.
+		if attempt > 0 {
+			if err := checkEnvLife(s.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			_, err := s.offerAtURL(offer.ServiceURL)
+			if err != nil {
+				// This will either be NotFound or some other error.
+				// In either case, we return the error.
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{
+			env.assertAliveOp(),
+			{
+				C:      serviceDirectoryC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: doc,
+			},
+		}
+		return ops, nil
+	}
+	err = s.st.run(buildTxn)
+	return errors.Trace(err)
+}
+
+func (s *serviceDirectory) makeServiceDirectoryDoc(offer crossmodel.ServiceOffer) serviceDirectoryDoc {
+	doc := serviceDirectoryDoc{
+		DocID:              offer.ServiceURL,
+		URL:                offer.ServiceURL,
+		ServiceName:        offer.ServiceName,
+		ServiceDescription: offer.ServiceDescription,
+		SourceEnvUUID:      offer.SourceEnvUUID,
+		SourceLabel:        offer.SourceLabel,
+	}
+	eps := make([]remoteEndpointDoc, len(offer.Endpoints))
+	for i, ep := range offer.Endpoints {
 		eps[i] = remoteEndpointDoc{
 			Name:      ep.Name,
 			Role:      ep.Role,
@@ -204,79 +219,93 @@ func (st *State) AddServiceDirectoryRecord(url string, params AddServiceDirector
 		}
 	}
 	doc.Endpoints = eps
-	record := newServiceDirectoryRecord(st, doc)
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// If we've tried once already and failed, check that
-		// environment may have been destroyed.
-		if attempt > 0 {
-			if err := checkEnvLife(st); err != nil {
-				return nil, errors.Trace(err)
-			}
-			_, err := st.ServiceDirectoryRecord(url)
-			if err == nil {
-				return nil, errDuplicateServiceDirectoryRecord
-			}
-		}
-		ops := []txn.Op{
-			env.assertAliveOp(),
-			{
-				C:      serviceDirectoryC,
-				Id:     docID,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			},
-		}
-		return ops, nil
-	}
-	if err = st.run(buildTxn); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return record, nil
+	return doc
 }
 
-// ServiceDirectoryRecord returns a service directory record by name.
-func (st *State) ServiceDirectoryRecord(url string) (record *ServiceDirectoryRecord, err error) {
-	serviceDirectoryCollection, closer := st.getCollection(serviceDirectoryC)
+func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.OfferFilter) bson.D {
+	var filter bson.D
+	if filterTerm.ServiceName != "" {
+		filter = append(filter, bson.DocElem{"servicename", filterTerm.ServiceName})
+	}
+	if filterTerm.SourceLabel != "" {
+		filter = append(filter, bson.DocElem{"sourcelabel", filterTerm.SourceLabel})
+	}
+	if filterTerm.SourceEnvUUID != "" {
+		filter = append(filter, bson.DocElem{"sourceuuid", filterTerm.SourceEnvUUID})
+	}
+	// We match on partial URLs eg /u/user
+	if filterTerm.ServiceURL != "" {
+		url := regexp.QuoteMeta(filterTerm.ServiceURL)
+		filter = append(filter, bson.DocElem{"url", bson.D{{"$regex", fmt.Sprintf(".*%s.*", url)}}})
+	}
+	// We match descriptions by looking for containing terms.
+	if filterTerm.ServiceDescription != "" {
+		desc := regexp.QuoteMeta(filterTerm.ServiceDescription)
+		filter = append(filter, bson.DocElem{"servicedescription", bson.D{{"$regex", fmt.Sprintf(".*%s.*", desc)}}})
+	}
+	return filter
+}
+
+// ListOffers returns the service offers matching any one of the filter terms.
+func (s *serviceDirectory) ListOffers(filter ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+	serviceDirectoryCollection, closer := s.st.getCollection(serviceDirectoryC)
 	defer closer()
 
-	doc := &serviceDirectoryDoc{}
-	err = serviceDirectoryCollection.FindId(url).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("service directory record %q", url)
+	var mgoTerms []bson.D
+	for _, term := range filter {
+		elems := s.makeFilterTerm(term)
+		if len(elems) == 0 {
+			continue
+		}
+		mgoTerms = append(mgoTerms, bson.D{{"$and", []bson.D{elems}}})
 	}
+	var docs []serviceDirectoryDoc
+	var mgoQuery bson.D
+	if len(mgoTerms) > 0 {
+		mgoQuery = bson.D{{"$or", mgoTerms}}
+	}
+	err := serviceDirectoryCollection.Find(mgoQuery).All(&docs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get service directory record %q", url)
+		return nil, errors.Annotate(err, "cannot find service offers")
 	}
-	return newServiceDirectoryRecord(st, doc), nil
+	sort.Sort(srSlice(docs))
+	offers := make([]crossmodel.ServiceOffer, len(docs))
+	for i, doc := range docs {
+		offers[i] = s.makeServiceOffer(doc)
+	}
+	return offers, nil
 }
 
-// AllServiceDirectoryEntries returns all the service directory entries used by the environment.
-func (st *State) AllServiceDirectoryEntries() (records []*ServiceDirectoryRecord, err error) {
-	serviceDirectoryCollection, closer := st.getCollection(serviceDirectoryC)
-	defer closer()
-
-	docs := []serviceDirectoryDoc{}
-	err = serviceDirectoryCollection.Find(bson.D{}).All(&docs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get all service directory entries")
+func (s *serviceDirectory) makeServiceOffer(doc serviceDirectoryDoc) crossmodel.ServiceOffer {
+	offer := crossmodel.ServiceOffer{
+		ServiceURL:         doc.URL,
+		ServiceName:        doc.ServiceName,
+		ServiceDescription: doc.ServiceDescription,
+		SourceEnvUUID:      doc.SourceEnvUUID,
+		SourceLabel:        doc.SourceLabel,
 	}
-	for _, v := range docs {
-		records = append(records, newServiceDirectoryRecord(st, &v))
+	offer.Endpoints = make([]charm.Relation, len(doc.Endpoints))
+	for i, ep := range doc.Endpoints {
+		offer.Endpoints[i] = charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
 	}
-	sort.Sort(srSlice(records))
-	return records, nil
+	return offer
 }
 
-type srSlice []*ServiceDirectoryRecord
+type srSlice []serviceDirectoryDoc
 
 func (sr srSlice) Len() int      { return len(sr) }
 func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
 func (sr srSlice) Less(i, j int) bool {
 	sr1 := sr[i]
 	sr2 := sr[j]
-	if sr1.doc.URL != sr2.doc.URL {
-		return sr1.doc.ServiceName < sr2.doc.ServiceName
+	if sr1.URL != sr2.URL {
+		return sr1.ServiceName < sr2.ServiceName
 	}
-	return sr1.doc.URL < sr2.doc.URL
+	return sr1.URL < sr2.URL
 }

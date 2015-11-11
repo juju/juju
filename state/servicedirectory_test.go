@@ -4,24 +4,22 @@
 package state_test
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 )
 
 type serviceDirectorySuite struct {
 	ConnSuite
-	record state.ServiceDirectoryRecord
 }
 
 var _ = gc.Suite(&serviceDirectorySuite{})
 
-func (s *serviceDirectorySuite) createDirectoryRecord(c *gc.C) *state.ServiceDirectoryRecord {
+func (s *serviceDirectorySuite) createDefaultOffer(c *gc.C) crossmodel.ServiceOffer {
 	eps := []charm.Relation{
 		{
 			Interface: "mysql",
@@ -36,23 +34,26 @@ func (s *serviceDirectorySuite) createDirectoryRecord(c *gc.C) *state.ServiceDir
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
+	sd := state.NewServiceDirectory(s.State)
+	offer := crossmodel.ServiceOffer{
+		ServiceURL:         "local:/u/me/service",
 		ServiceName:        "mysql",
 		ServiceDescription: "mysql is a db server",
 		Endpoints:          eps,
 		SourceEnvUUID:      "source-uuid",
 		SourceLabel:        "source",
-	})
+	}
+	err := sd.AddOffer(offer)
 	c.Assert(err, jc.ErrorIsNil)
-	return record
+	return offer
 }
 
 func (s *serviceDirectorySuite) TestEndpoints(c *gc.C) {
-	record := s.createDirectoryRecord(c)
-	_, err := record.Endpoint("foo")
-	c.Assert(err, gc.ErrorMatches, `service directory record "source-uuid-mysql" has no \"foo\" relation`)
+	offer := s.createDefaultOffer(c)
+	_, err := state.ServiceOfferEndpoint(offer, "foo")
+	c.Assert(err, gc.ErrorMatches, `service offer "source-uuid-mysql" has no \"foo\" relation`)
 
-	serverEP, err := record.Endpoint("db")
+	serverEP, err := state.ServiceOfferEndpoint(offer, "db")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "mysql",
@@ -63,41 +64,18 @@ func (s *serviceDirectorySuite) TestEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
-
-	adminEp := state.Endpoint{
-		ServiceName: "mysql",
-		Relation: charm.Relation{
-			Interface: "mysql-root",
-			Name:      "db-admin",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	eps, err := record.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp})
 }
 
-func (s *serviceDirectorySuite) TestDirectoryRecordRefresh(c *gc.C) {
-	record := s.createDirectoryRecord(c)
-	s1, err := s.State.ServiceDirectoryRecord("local:/u/me/service")
+func (s *serviceDirectorySuite) TestDelete(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.Delete(offer.ServiceURL)
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = s1.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = record.Refresh()
+	_, err = state.OfferAtURL(sd, offer.ServiceURL)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *serviceDirectorySuite) TestDestroy(c *gc.C) {
-	record := s.createDirectoryRecord(c)
-	err := record.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = record.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
+func (s *serviceDirectorySuite) TestAddServiceOffer(c *gc.C) {
 	eps := []charm.Relation{
 		{
 			Interface: "mysql",
@@ -112,100 +90,227 @@ func (s *serviceDirectorySuite) TestAddServiceDirectoryRecords(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	record, err := s.State.AddServiceDirectoryRecord("local:/u/me/service", state.AddServiceDirectoryParams{
+	sd := state.NewServiceDirectory(s.State)
+	offer := crossmodel.ServiceOffer{
+		ServiceURL:         "local:/u/me/service",
 		ServiceName:        "mysql",
 		ServiceDescription: "mysql is a db server",
 		Endpoints:          eps,
 		SourceEnvUUID:      "source-uuid",
 		SourceLabel:        "source",
+	}
+	err := sd.AddOffer(offer)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedDoc := state.MakeServiceDirectoryDoc(sd, "local:/u/me/service", offer)
+	doc, err := state.OfferAtURL(sd, "local:/u/me/service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*doc, jc.DeepEquals, expectedDoc)
+}
+
+func (s *serviceDirectorySuite) TestListOffersNone(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	offers, err := sd.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 0)
+}
+
+func (s *serviceDirectorySuite) createOffer(c *gc.C, name, description, uuid, label string) crossmodel.ServiceOffer {
+	eps := []charm.Relation{
+		{
+			Interface: name + "-interface",
+			Name:      name,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+		{
+			Interface: name + "-interface2",
+			Name:      name + "2",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	sd := state.NewServiceDirectory(s.State)
+	offer := crossmodel.ServiceOffer{
+		ServiceURL:         "local:/u/me/" + name,
+		ServiceName:        name,
+		ServiceDescription: description,
+		Endpoints:          eps,
+		SourceEnvUUID:      uuid,
+		SourceLabel:        label,
+	}
+	err := sd.AddOffer(offer)
+	c.Assert(err, jc.ErrorIsNil)
+	return offer
+}
+
+func (s *serviceDirectorySuite) TestListOffersAll(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	offer := s.createDefaultOffer(c)
+	offers, err := sd.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *serviceDirectorySuite) TestListOffersOneFilter(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	offer := s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
+	s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
+	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
+	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+		ServiceOffer: crossmodel.ServiceOffer{
+			ServiceURL:    "local:/u/me/offer1",
+			ServiceName:   "offer1",
+			SourceEnvUUID: "uuid-1",
+			SourceLabel:   "label",
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(record.ServiceName(), gc.Equals, "mysql")
-	c.Assert(record.ServiceDescription(), gc.Equals, "mysql is a db server")
-	c.Assert(record.URL(), gc.Equals, "local:/u/me/service")
-	record, err = s.State.ServiceDirectoryRecord("local:/u/me/service")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(record.ServiceName(), gc.Equals, "mysql")
-	c.Assert(record.ServiceDescription(), gc.Equals, "mysql is a db server")
-	endpoints, err := record.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedEndpoints := make([]state.Endpoint, len(eps))
-	for i, ep := range eps {
-		expectedEndpoints[i] = state.Endpoint{
-			ServiceName: "mysql",
-			Relation:    ep,
-		}
-	}
-	c.Assert(endpoints, jc.DeepEquals, expectedEndpoints)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
-func (s *serviceDirectorySuite) TestAllServiceDirectoryRecordsNone(c *gc.C) {
-	services, err := s.State.AllServiceDirectoryEntries()
+func (s *serviceDirectorySuite) TestListOffersManyFilters(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	offer := s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
+	offer2 := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
+	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
+	offers, err := sd.ListOffers(
+		crossmodel.OfferFilter{
+			ServiceOffer: crossmodel.ServiceOffer{
+				ServiceURL:    "local:/u/me/offer1",
+				ServiceName:   "offer1",
+				SourceEnvUUID: "uuid-1",
+				SourceLabel:   "label",
+			}},
+		crossmodel.OfferFilter{
+			ServiceOffer: crossmodel.ServiceOffer{
+				ServiceURL:         "local:/u/me/offer2",
+				ServiceDescription: "offer2",
+				SourceLabel:        "label",
+			}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 0)
+	c.Assert(len(offers), gc.Equals, 2)
+	c.Assert(offers, jc.DeepEquals, []crossmodel.ServiceOffer{offer, offer2})
 }
 
-func (s *serviceDirectorySuite) TestAllServiceDirectoryRecords(c *gc.C) {
-	record := s.createDirectoryRecord(c)
-	records, err := s.State.AllServiceDirectoryEntries()
+func (s *serviceDirectorySuite) TestListOffersFilterDescriptionRegexp(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
+	offer := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
+	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
+	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+		ServiceOffer: crossmodel.ServiceOffer{
+			ServiceDescription: "for offer2",
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(records), gc.Equals, 1)
-	c.Assert(records[0], jc.DeepEquals, record)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
 
-	_, err = s.State.AddServiceDirectoryRecord("local:/u/me/another-service", state.AddServiceDirectoryParams{
-		ServiceName:   "another",
+func (s *serviceDirectorySuite) TestListOffersFilterServiceURLRegexp(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
+	offer := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
+	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
+	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+		ServiceOffer: crossmodel.ServiceOffer{
+			ServiceURL: "me/offer2",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *serviceDirectorySuite) TestAddServiceOfferUUIDRequired(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.AddOffer(crossmodel.ServiceOffer{
+		ServiceURL:  "local:/u/me/service",
+		ServiceName: "mysql",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "mysql": missing source environment UUID`)
+}
+
+func (s *serviceDirectorySuite) TestAddServiceOfferDuplicate(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.AddOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
+		ServiceName:   "mysql",
 		SourceEnvUUID: "uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	records, err = s.State.AllServiceDirectoryEntries()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(records, gc.HasLen, 2)
-
-	// Check the returned record, order is defined by sorted urls.
-	urls := make([]string, len(records))
-	for i, record := range records {
-		urls[i] = record.URL()
-	}
-	sort.Strings(urls)
-	c.Assert(urls[0], gc.Equals, "local:/u/me/another-service")
-	c.Assert(urls[1], gc.Equals, "local:/u/me/service")
-}
-
-func (s *serviceDirectorySuite) TestAddServiceDirectoryRecordUUIDRequired(c *gc.C) {
-	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
-		ServiceName: "another",
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service direcotry record "another": missing source environment UUID`)
-}
-
-func (s *serviceDirectorySuite) TestAddServiceDirectoryRecordDuplicate(c *gc.C) {
-	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
+	err = sd.AddOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
 		ServiceName:   "another",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
-		ServiceName:   "another",
-		SourceEnvUUID: "another-uuid",
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service direcotry record "another": service directory record already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
 }
 
-func (s *remoteServiceSuite) TestAddServiceDirectoryEntryDuplicateAddedAfterInitial(c *gc.C) {
+func (s *remoteServiceSuite) TestAddServiceOfferDuplicateAddedAfterInitial(c *gc.C) {
 	// Check that a record with a URL conflict cannot be added if
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
+	sd := state.NewServiceDirectory(s.State)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
-			ServiceName:   "record",
+		err := sd.AddOffer(crossmodel.ServiceOffer{
+			ServiceURL:    "local:/u/me/service",
+			ServiceName:   "mysql",
 			SourceEnvUUID: "uuid",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddServiceDirectoryRecord("url", state.AddServiceDirectoryParams{
-		ServiceName:   "record",
-		SourceEnvUUID: "another-uuid",
+	err := sd.AddOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
+		ServiceName:   "mysql",
+		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service direcotry record "record": service directory record already exists`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service directory record already exists`)
+}
+
+func (s *serviceDirectorySuite) TestUpdateServiceOfferUUIDRequired(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.UpdateOffer(crossmodel.ServiceOffer{
+		ServiceURL:  "local:/u/me/service",
+		ServiceName: "mysql",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update service offer "mysql": missing source environment UUID`)
+}
+
+func (s *serviceDirectorySuite) TestUpdateServiceOfferNotFound(c *gc.C) {
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.UpdateOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
+		ServiceName:   "mysql",
+		SourceEnvUUID: "uuid",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot update service offer "mysql": service offer "local:/u/me/service" not found`)
+}
+
+func (s *remoteServiceSuite) TestUpdateServiceOfferdeletedAfterInitial(c *gc.C) {
+	// Check that a record with a URL conflict cannot be added if
+	// there is no conflict initially but a record is added
+	// before the transaction is run.
+	sd := state.NewServiceDirectory(s.State)
+	err := sd.AddOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
+		ServiceName:   "mysql",
+		SourceEnvUUID: "uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := sd.Delete("local:/u/me/service")
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	err = sd.UpdateOffer(crossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/me/service",
+		ServiceName:   "mysql",
+		SourceEnvUUID: "uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service directory record already exists`)
 }

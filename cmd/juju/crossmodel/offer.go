@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 const (
