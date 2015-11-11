@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package apiserver
 
 import (
 	"net"
@@ -17,31 +17,32 @@ var (
 	// Use the NetworkOperationWithRetries() variant to explicitly
 	// use retry values better suited to different scenarios.
 
-	// DefaultNetworkOperationRetryDelay is the default time
+	// defaultNetworkOperationRetryDelay is the default time
 	// to wait between operation retries.
-	DefaultNetworkOperationRetryDelay = 30 * time.Second
+	defaultNetworkOperationRetryDelay = 30 * time.Second
 
-	// DefaultNetworkOperationAttempts is the default number
+	// defaultNetworkOperationAttempts is the default number
 	// of attempts before giving up.
-	DefaultNetworkOperationAttempts = 10
+	defaultNetworkOperationAttempts = 10
 )
 
-// NetworkOperationWithDefaultRetries calls the supplied function and if it returns a
+// networkOperationWithDefaultRetries calls the supplied function and if it returns a
 // network error which is temporary, will retry a number of times before giving up.
 // A default attempt strategy is used.
-func NetworkOperationWitDefaultRetries(networkOp func() error, description string) func() error {
+func networkOperationWitDefaultRetries(networkOp func() error, description string) func() error {
 	attempt := utils.AttemptStrategy{
-		Delay: DefaultNetworkOperationRetryDelay,
-		Min:   DefaultNetworkOperationAttempts,
+		Delay: defaultNetworkOperationRetryDelay,
+		Min:   defaultNetworkOperationAttempts,
 	}
-	return NetworkOperationWithRetries(attempt, networkOp, description)
+	return networkOperationWithRetries(attempt, networkOp, description)
 }
 
-// NetworkOperationWithRetries calls the supplied function and if it returns a
+// networkOperationWithRetries calls the supplied function and if it returns a
 // network error which is temporary, will retry a number of times before giving up.
-func NetworkOperationWithRetries(strategy utils.AttemptStrategy, networkOp func() error, description string) func() error {
+func networkOperationWithRetries(strategy utils.AttemptStrategy, networkOp func() error, description string) func() error {
 	return func() error {
-		for a := strategy.Start(); a.Next(); {
+		for a := strategy.Start(); ; {
+			a.Next()
 			err := networkOp()
 			if !a.HasNext() || err == nil {
 				return errors.Trace(err)
@@ -51,6 +52,5 @@ func NetworkOperationWithRetries(strategy utils.AttemptStrategy, networkOp func(
 			}
 			logger.Debugf("%q error, will retry: %v", description, err)
 		}
-		panic("unreachable")
 	}
 }
