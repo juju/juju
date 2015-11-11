@@ -76,8 +76,6 @@ var maasEnvAttrs = coretesting.Attrs{
 
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *providerSuite) makeEnviron() *maasEnviron {
-	testAttrs := maasEnvAttrs
-	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
