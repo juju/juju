@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/model/crossmodel"
 )
 
-// serviceDirectoryDoc represents the internal state of a service directory record in MongoDB.
-type serviceDirectoryDoc struct {
+// serviceOfferDoc represents the internal state of a service offer in MongoDB.
+type serviceOfferDoc struct {
 	DocID              string              `bson:"_id"`
 	URL                string              `bson:"url"`
 	SourceEnvUUID      string              `bson:"sourceuuid"`
@@ -55,12 +55,12 @@ func ServiceOfferEndpoint(offer crossmodel.ServiceOffer, relationName string) (E
 	return Endpoint{}, errors.Errorf("service offer %q has no %q relation", offer.String(), relationName)
 }
 
-func (s *serviceDirectory) offerAtURL(url string) (*serviceDirectoryDoc, error) {
-	serviceDirectoryCollection, closer := s.st.getCollection(serviceDirectoryC)
+func (s *serviceDirectory) offerAtURL(url string) (*serviceOfferDoc, error) {
+	serviceOffersCollection, closer := s.st.getCollection(serviceOffersC)
 	defer closer()
 
-	var doc serviceDirectoryDoc
-	err := serviceDirectoryCollection.FindId(url).One(&doc)
+	var doc serviceOfferDoc
+	err := serviceOffersCollection.FindId(url).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service offer %q", url)
 	}
@@ -70,7 +70,7 @@ func (s *serviceDirectory) offerAtURL(url string) (*serviceDirectoryDoc, error) 
 	return &doc, nil
 }
 
-// Delete deletes the service directory record at url immediately.
+// Delete deletes the service offer at url immediately.
 func (s *serviceDirectory) Delete(url string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete service offer %q", url)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -91,7 +91,7 @@ func (s *serviceDirectory) Delete(url string) (err error) {
 func (s *serviceDirectory) destroyOps(url string) ([]txn.Op, error) {
 	return []txn.Op{
 		{
-			C:      serviceDirectoryC,
+			C:      serviceOffersC,
 			Id:     url,
 			Assert: txn.DocExists,
 			Remove: true,
@@ -99,7 +99,7 @@ func (s *serviceDirectory) destroyOps(url string) ([]txn.Op, error) {
 	}, nil
 }
 
-var errDuplicateServiceDirectoryRecord = errors.Errorf("service offer already exists")
+var errDuplicateServiceOffer = errors.Errorf("service offer already exists")
 
 func (s *serviceDirectory) validateOffer(offer crossmodel.ServiceOffer) (err error) {
 	// Sanity checks.
@@ -127,7 +127,7 @@ func (s *serviceDirectory) AddOffer(offer crossmodel.ServiceOffer) (err error) {
 		return errors.Errorf("environment is no longer alive")
 	}
 
-	doc := s.makeServiceDirectoryDoc(offer)
+	doc := s.makeServiceOfferDoc(offer)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -137,13 +137,13 @@ func (s *serviceDirectory) AddOffer(offer crossmodel.ServiceOffer) (err error) {
 			}
 			_, err := s.offerAtURL(offer.ServiceURL)
 			if err == nil {
-				return nil, errDuplicateServiceDirectoryRecord
+				return nil, errDuplicateServiceOffer
 			}
 		}
 		ops := []txn.Op{
 			env.assertAliveOp(),
 			{
-				C:      serviceDirectoryC,
+				C:      serviceOffersC,
 				Id:     doc.DocID,
 				Assert: txn.DocMissing,
 				Insert: doc,
@@ -169,7 +169,7 @@ func (s *serviceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) (err error
 		return errors.Errorf("environment is no longer alive")
 	}
 
-	doc := s.makeServiceDirectoryDoc(offer)
+	doc := s.makeServiceOfferDoc(offer)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -187,7 +187,7 @@ func (s *serviceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) (err error
 		ops := []txn.Op{
 			env.assertAliveOp(),
 			{
-				C:      serviceDirectoryC,
+				C:      serviceOffersC,
 				Id:     doc.DocID,
 				Assert: txn.DocExists,
 				Update: doc,
@@ -199,8 +199,8 @@ func (s *serviceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) (err error
 	return errors.Trace(err)
 }
 
-func (s *serviceDirectory) makeServiceDirectoryDoc(offer crossmodel.ServiceOffer) serviceDirectoryDoc {
-	doc := serviceDirectoryDoc{
+func (s *serviceDirectory) makeServiceOfferDoc(offer crossmodel.ServiceOffer) serviceOfferDoc {
+	doc := serviceOfferDoc{
 		DocID:              offer.ServiceURL,
 		URL:                offer.ServiceURL,
 		ServiceName:        offer.ServiceName,
@@ -248,7 +248,7 @@ func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.OfferFilter) bso
 
 // ListOffers returns the service offers matching any one of the filter terms.
 func (s *serviceDirectory) ListOffers(filter ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
-	serviceDirectoryCollection, closer := s.st.getCollection(serviceDirectoryC)
+	serviceOffersCollection, closer := s.st.getCollection(serviceOffersC)
 	defer closer()
 
 	var mgoTerms []bson.D
@@ -259,12 +259,12 @@ func (s *serviceDirectory) ListOffers(filter ...crossmodel.OfferFilter) ([]cross
 		}
 		mgoTerms = append(mgoTerms, bson.D{{"$and", []bson.D{elems}}})
 	}
-	var docs []serviceDirectoryDoc
+	var docs []serviceOfferDoc
 	var mgoQuery bson.D
 	if len(mgoTerms) > 0 {
 		mgoQuery = bson.D{{"$or", mgoTerms}}
 	}
-	err := serviceDirectoryCollection.Find(mgoQuery).All(&docs)
+	err := serviceOffersCollection.Find(mgoQuery).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot find service offers")
 	}
@@ -276,7 +276,7 @@ func (s *serviceDirectory) ListOffers(filter ...crossmodel.OfferFilter) ([]cross
 	return offers, nil
 }
 
-func (s *serviceDirectory) makeServiceOffer(doc serviceDirectoryDoc) crossmodel.ServiceOffer {
+func (s *serviceDirectory) makeServiceOffer(doc serviceOfferDoc) crossmodel.ServiceOffer {
 	offer := crossmodel.ServiceOffer{
 		ServiceURL:         doc.URL,
 		ServiceName:        doc.ServiceName,
@@ -297,7 +297,7 @@ func (s *serviceDirectory) makeServiceOffer(doc serviceDirectoryDoc) crossmodel.
 	return offer
 }
 
-type srSlice []serviceDirectoryDoc
+type srSlice []serviceOfferDoc
 
 func (sr srSlice) Len() int      { return len(sr) }
 func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }

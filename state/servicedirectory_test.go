@@ -101,7 +101,7 @@ func (s *serviceDirectorySuite) TestAddServiceOffer(c *gc.C) {
 	}
 	err := sd.AddOffer(offer)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedDoc := state.MakeServiceDirectoryDoc(sd, "local:/u/me/service", offer)
+	expectedDoc := state.MakeServiceOfferDoc(sd, "local:/u/me/service", offer)
 	doc, err := state.OfferAtURL(sd, "local:/u/me/service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*doc, jc.DeepEquals, expectedDoc)
