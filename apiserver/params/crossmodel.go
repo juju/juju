@@ -47,9 +47,9 @@ type OfferFilter struct {
 	AllowedUserTags    []string                   `json:"allowedusers"`
 }
 
-// SAASSearchFilter holds filter used for show, find and list
+// EndpointsSearchFilter holds filter used for show, find and list
 // operations for cross model relations.
-type SAASSearchFilter struct {
-	// URL has Juju location for offered service.
-	URL string `json:"url"`
+type EndpointsSearchFilter struct {
+	// URLs has a collection of Juju locations for offered service.
+	URLs []string `json:"urls"`
 }
