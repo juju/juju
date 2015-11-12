@@ -1615,7 +1615,42 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 }
 
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	inst, err := environ.getInstance(instId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nodeId, err := environ.nodeIdFromInstance(inst)
+	if err != nil {
+		return nil, err
+	}
+	client := environ.getMAASClient().GetSubObject("subnets")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	params := url.Values{"node": {nodeId}}
+	json, err := client.CallGet("", params)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	jsonNets, err := json.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Warningf("%#v", jsonNets)
 	return nil, nil
+}
+
+func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
+	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not find instance %q", instId)
+	}
+	if len(instances) == 0 {
+		return nil, errors.NotFoundf("instance %v", instId)
+	}
+	inst := instances[0]
+	return inst, nil
 }
 
 // Subnets returns basic information about the specified subnets known
@@ -1634,14 +1669,10 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	if len(subnetIds) == 0 {
 		return nil, errors.Errorf("subnetIds must not be empty")
 	}
-	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	inst, err := environ.getInstance(instId)
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not find instance %q", instId)
+		return nil, errors.Trace(err)
 	}
-	if len(instances) == 0 {
-		return nil, errors.NotFoundf("instance %v", instId)
-	}
-	inst := instances[0]
 	// The MAAS API get networks call returns named subnets, not physical networks,
 	// so we save the data from this call into a variable called subnets.
 	// http://maas.ubuntu.com/docs/api.html#networks
@@ -1771,15 +1802,23 @@ type networkDetails struct {
 	Description string
 }
 
-// getInstanceNetworks returns a list of all MAAS networks for a given node.
-func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]networkDetails, error) {
+func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, error) {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
-	client := environ.getMAASClient().GetSubObject("networks")
 	nodeId, err := maasObj.GetField("system_id")
+	if err != nil {
+		return "", err
+	}
+	return nodeId, err
+}
+
+// getInstanceNetworks returns a list of all MAAS networks for a given node.
+func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]networkDetails, error) {
+	nodeId, err := environ.nodeIdFromInstance(inst)
 	if err != nil {
 		return nil, err
 	}
+	client := environ.getMAASClient().GetSubObject("networks")
 	params := url.Values{"node": {nodeId}}
 	json, err := client.CallGet("", params)
 	if err != nil {
