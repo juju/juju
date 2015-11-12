@@ -7,7 +7,7 @@ for ip in $ips; do
 set -ux
 JUJU_DIR="/var/lib/juju"
 DUMMY_DIR="/var/run/dummy-sink"
-if [[ -n "$(ps -C jujud --no-headers)" ]]; then
+if ps -f -C jujud; then
     sudo touch $JUJU_DIR/uninstall-agent
     sudo killall -SIGABRT jujud
 fi
