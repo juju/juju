@@ -437,7 +437,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog 
 		worker.Kill()
 	default:
 		// It's fine to use this worker; update info and copy back.
-		logger.Tracef("%q manifold worker started", name)
+		logger.Debugf("%q manifold worker started", name)
 		engine.current[name] = workerInfo{
 			worker:      worker,
 			resourceLog: resourceLog,
@@ -451,7 +451,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
 func (engine *engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
-	logger.Tracef("%q manifold worker stopped: %v", name, err)
+	logger.Debugf("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
 	info := engine.current[name]
