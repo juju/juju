@@ -1735,11 +1735,22 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	return result, nil
 }
 
+func subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return nil, nil
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty netIds may mean "fetch all subnets"
+	ok, err := environ.SupportsSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ok {
+		return environ.subnetsWithSpaces(instId, subnetIds)
+	}
+	// At some point in the future an empty subnetIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
 	if len(subnetIds) == 0 {
 		return nil, errors.Errorf("subnetIds must not be empty")
