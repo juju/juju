@@ -11,51 +11,75 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
-)
-
-var (
-	openWebBrowser = func(_ *url.URL) error { return nil }
+	"github.com/juju/juju/apiserver/params"
 )
 
 type metricRegistrationPost struct {
 	EnvironmentUUID string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
 	ServiceName     string `json:"service-name"`
+	PlanURL         string `json:"plan-url"`
 }
 
-var registerMeteredCharm = func(registrationURL string, state api.Connection, client *http.Client, charmURL string, serviceName, environmentUUID string) error {
+// RegisterMeteredCharm implements the DeployStep interface.
+type RegisterMeteredCharm struct {
+	Plan        string
+	RegisterURL string
+}
+
+func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
+}
+
+func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
-	metered, err := charmsClient.IsMetered(charmURL)
-	if err != nil {
+	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
+	if params.IsCodeNotImplemented(err) {
+		// The state server is too old to support metering.  Warn
+		// the user, but don't return an error.
+		logger.Warningf("current state server version does not support charm metering")
+		return nil
+	} else if err != nil {
 		return err
 	}
-	if metered {
-		bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
-		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, &bakeryClient)
-		if err != nil {
-			logger.Infof("failed to register metrics: %v", err)
-			return err
-		}
-
-		api, cerr := getMetricCredentialsAPI(state)
-		if cerr != nil {
-			logger.Infof("failed to get the metrics credentials setter: %v", cerr)
-		}
-		err = api.SetMetricCredentials(serviceName, credentials)
-		if err != nil {
-			logger.Infof("failed to set metric credentials: %v", err)
-			return err
-		}
-		api.Close()
+	if !metered {
+		return nil
 	}
+
+	bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+	credentials, err := r.registerMetrics(r.RegisterURL, deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	if err != nil {
+		logger.Infof("failed to obtain plan authorization: %v", err)
+		return err
+	}
+
+	api, cerr := getMetricCredentialsAPI(state)
+	if cerr != nil {
+		logger.Infof("failed to get the metrics credentials setter: %v", cerr)
+		return cerr
+	}
+	defer api.Close()
+
+	err = api.SetMetricCredentials(deployInfo.ServiceName, credentials)
+	if params.IsCodeNotImplemented(err) {
+		// The state server is too old to support metering.  Warn
+		// the user, but don't return an error.
+		logger.Warningf("current state server version does not support charm metering")
+		return nil
+	} else if err != nil {
+		logger.Infof("failed to set metric credentials: %v", err)
+		return err
+	}
+
 	return nil
 }
 
-func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
+func (r *RegisterMeteredCharm) registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
 	if registrationURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -68,6 +92,7 @@ func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName str
 		EnvironmentUUID: environmentUUID,
 		CharmURL:        charmURL,
 		ServiceName:     serviceName,
+		PlanURL:         r.Plan,
 	}
 
 	buff := &bytes.Buffer{}
