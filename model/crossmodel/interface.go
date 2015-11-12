@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
+// TODO(wallyworld) - remove this ASAP and use ServiceOffer
 // Offer holds information about service's offer.
 type Offer struct {
 	// Service has service's tag.
@@ -18,7 +19,7 @@ type Offer struct {
 	// Endpoints list of service's endpoints that are being offered.
 	Endpoints []string
 
-	// URL is the location where these endpoitns will be accessible from.
+	// URL is the location where these endpoints will be accessible from.
 	URL string
 
 	// Users is the list of user tags that are given permission to these endpoints.
@@ -53,28 +54,28 @@ func (s *ServiceOffer) String() string {
 	return fmt.Sprintf("%s-%s", s.SourceEnvUUID, s.ServiceName)
 }
 
-// OfferFilter is used to query offers in a service directory.
+// ServiceOfferFilter is used to query offers in a service directory.
 // We allow filtering on any of the service offer attributes plus
 // users allowed to consume the service.
-type OfferFilter struct {
+type ServiceOfferFilter struct {
 	ServiceOffer
 
 	// AllowedUsers are the users allowed to consume the service.
 	AllowedUsers []string
 }
 
-// A ServiceDirectoryProvider holds service offerings from external environments.
+// A ServiceDirectory holds service offers from external environments.
 type ServiceDirectory interface {
 
-	// AddOffer adds a new service offering to the directory.
+	// AddOffer adds a new service offer to the directory.
 	AddOffer(offer ServiceOffer) error
 
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer ServiceOffer) error
 
 	// List offers returns the offers satisfying the specified filter.
-	ListOffers(filter ...OfferFilter) ([]ServiceOffer, error)
+	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 
-	// Remove removes the service offering at the specified URL.
+	// Remove removes the service offer at the specified URL.
 	Remove(url string) error
 }
