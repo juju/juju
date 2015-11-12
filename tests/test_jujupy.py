@@ -137,13 +137,16 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
+        assert_juju_call(
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1)
         self.assertEqual(po_mock.call_count, 2)
 
     def test_enable_jes_requires_flag(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        # The help out put will change when the jes feature flag is set.
+        # The help output will change when the jes feature flag is set.
         with patch('subprocess.Popen', autospec=True, side_effect=[
                 FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
             client.enable_jes()
@@ -151,6 +154,10 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
+        # GZ 2015-10-26: Should assert that env has feature flag at call time.
+        assert_juju_call(
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1)
         self.assertEqual(po_mock.call_count, 2)
 
     def test__shell_environ_jes(self):

@@ -144,18 +144,15 @@ class EnvJujuClient:
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
+        :return: The JES command.
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
             if line.startswith('controller'):
-                self._jes_command = 'controller'
-                break
+                return 'controller'
             if line.startswith('system'):
-                self._jes_command = 'system'
-                break
-        else:
-            raise JESNotSupported()
-        return self._jes_command
+                return 'system'
+        raise JESNotSupported()
 
     @classmethod
     def get_full_path(cls):
@@ -216,7 +213,6 @@ class EnvJujuClient:
         self.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
-        self._jes_command = 'UNSET'
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -661,9 +657,9 @@ class EnvJujuClient26(EnvJujuClient):
         """Enable JES if JES is optional.
 
         :raises: JESByDefault when JES is always enabled; Juju has the
-            'conutroller' command.
+            'controller' command.
         :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system' command,k8y76
+            the 'system' command when the JES feature flag is set.
         """
         if self._use_jes:
             return
