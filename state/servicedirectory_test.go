@@ -268,8 +268,7 @@ func (s *remoteServiceSuite) TestAddServiceOfferDuplicateAddedAfterInitial(c *gc
 		ServiceName:   "mysql",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "mysql" at "local:/u/me/service": service offer already exists`)
 }
 
 func (s *serviceDirectorySuite) TestUpdateServiceOfferUUIDRequired(c *gc.C) {
@@ -311,6 +310,5 @@ func (s *remoteServiceSuite) TestUpdateServiceOfferRemovedAfterInitial(c *gc.C) 
 		ServiceName:   "mysql",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot update service offer "mysql": service offer "local:/u/me/service" not found`)
 }
