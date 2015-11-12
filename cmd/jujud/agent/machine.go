@@ -67,6 +67,7 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -751,7 +752,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+		w, err := proxyupdater.New(st.Environment(), writeSystemFiles)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 
 	if isEnvironManager {
@@ -801,10 +806,18 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
-		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
+		w, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
+		w, err := workerlogger.NewLogger(st.Logger(), agentConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 
 	if !featureflag.Enabled(feature.DisableRsyslog) {
@@ -820,7 +833,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if !isEnvironManager {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
-			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
+			// TODO(fwereade): this worker needs its own facade.
+			handler := conv2state.New(st.Machiner(), a)
+			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+				Handler: handler,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return w, nil
 		})
 	}
 
@@ -882,7 +903,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.machineId != bootstrapMachineId {
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+			w, err := authenticationworker.NewWorker(st.KeyUpdater(), agentConfig)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return w, nil
 		})
 	}
 
@@ -900,7 +925,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
-				return deployer.NewDeployer(apiDeployer, context), nil
+				w, err := deployer.NewDeployer(apiDeployer, context)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return w, nil
 			})
 		case multiwatcher.JobManageEnviron:
 			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
@@ -949,13 +978,17 @@ func (a *MachineAgent) agentUpgraderWorkerStarter(
 	agentConfig agent.Config,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		return upgrader.NewAgentUpgrader(
+		w, err := upgrader.NewAgentUpgrader(
 			st,
 			agentConfig,
 			a.previousAgentVersion,
 			a.upgradeWorkerContext.IsUpgradeRunning,
 			a.initialAgentUpgradeCheckComplete,
-		), nil
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	}
 }
 
@@ -1059,7 +1092,13 @@ func (a *MachineAgent) updateSupportedContainers(
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
-		return worker.NewStringsWorker(handler), nil
+		w, err := watcher.NewStringsWorker(watcher.StringsConfig{
+			Handler: handler,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 	return nil
 }
@@ -1234,7 +1273,11 @@ func (a *MachineAgent) startEnvWorkers(
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
+		w, err := provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
@@ -1260,10 +1303,18 @@ func (a *MachineAgent) startEnvWorkers(
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
 	})
 	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
-		return newInstancePoller(apiSt.InstancePoller()), nil
+		w, err := newInstancePoller(apiSt.InstancePoller())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		return newCleaner(apiSt.Cleaner()), nil
+		w, err := newCleaner(apiSt.Cleaner())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
 		return newAddresser(apiSt.Addresser())

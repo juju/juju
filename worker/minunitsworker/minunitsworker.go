@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 
-	// when the legacy package is no longer used, please delete it entirely
 	"github.com/juju/juju/worker/legacy"
 )
 
@@ -28,7 +27,7 @@ func NewMinUnitsWorker(st *state.State) worker.Worker {
 	return legacy.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (legacy.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 

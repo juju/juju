@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	jujufactory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type unitSuite struct {
@@ -241,8 +241,8 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -257,9 +257,6 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	err = s.apiUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitSuite) TestResolve(c *gc.C) {
@@ -491,8 +488,8 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err = s.apiUnit.WatchConfigSettings()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -514,22 +511,13 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// NOTE: This test is not as exhaustive as the one in state,
-	// because the watcher is already tested there. Here we just
-	// ensure we get the events when we expect them and don't get
-	// them when they're not expected.
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange()
@@ -550,9 +538,6 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitSuite) TestWatchActionNotificationsError(c *gc.C) {
@@ -639,8 +624,9 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 
 func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	w, err := s.apiUnit.WatchAddresses()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -666,14 +652,6 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	err = s.wordpressMachine.SetMachineAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	// NOTE: This test is not as exhaustive as the one in state,
-	// because the watcher is already tested there. Here we just
-	// ensure we get the events when we expect them and don't get
-	// them when they're not expected.
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
@@ -776,8 +754,8 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 
 func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	w, err := s.apiUnit.WatchMeterStatus()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -804,9 +782,6 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitSuite) patchNewState(
