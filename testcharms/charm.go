@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1/csclient"
-	"gopkg.in/juju/charmrepo.v1/csclient/params"
-	"gopkg.in/juju/charmrepo.v1/testing"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v2-unstable/testing"
 )
 
 // Repo provides access to the test charm repository.

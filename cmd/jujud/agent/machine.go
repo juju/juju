@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"

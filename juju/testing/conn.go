@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -421,11 +421,15 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 // and the revision number will be incremented before pushing.
 func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := charmrepo.Latest(repo, curl)
+		var err error
+		ref, _, err := repo.Resolve(curl.Reference())
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
-		curl = curl.WithRevision(rev)
+		curl, err = ref.URL("")
+		if err != nil {
+			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
+		}
 	}
 	ch, err := repo.Get(curl)
 	if err != nil {

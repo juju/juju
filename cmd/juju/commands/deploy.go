@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -31,7 +32,10 @@ func newDeployCommand() cmd.Command {
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
+	// CharmOrBundle is either a charm URL, a path where a charm can be found,
+	// or a bundle name.
 	CharmOrBundle string
+	Series        string
 	ServiceName   string
 	Config        cmd.FileVar
 	Constraints   constraints.Value
@@ -63,14 +67,20 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-
-The current series for charms is determined first by the default-series
-environment setting, followed by the preferred series in the charm store.
+  
+The current series for charms is determined first by the default-series environment
+setting, followed by the preferred series for the charm in the charm store.
 
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
-However, for local charms, when the default-series is not specified in the
+Charms may also be deployed from a user specified path. In this case, the
+path to the charm is specified along with an optional series.
+
+   juju deploy /path/to/charm --series trusty
+
+Deploying using a local repository is supported but deprecated.
+In this case, when the default-series is not specified in the
 environment, one must specify the series. For example:
   local:precise/mysql
 
@@ -162,6 +172,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
+	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
@@ -191,18 +202,53 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
-func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	client, err := c.NewAPIClient()
+func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
+	// We may have been given a local bundle file.
+	bundlePath := c.CharmOrBundle
+	bundleData, err := charmrepo.ReadBundleFile(bundlePath)
 	if err != nil {
+		// We may have been given a local bundle archive or exploded directory.
+		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); err == nil {
+			bundleData = bundle.Data()
+			bundlePath = burl.String()
+			err = pathErr
+		}
+	}
+	// If not a bundle then maybe a local charm.
+	if err != nil {
+		// Charm may have been supplied via a path reference.
+		ch, curl, charmErr := charmrepo.NewCharmAtPath(c.CharmOrBundle, c.Series)
+		if charmErr == nil {
+			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
+				return charmErr
+			}
+			return c.deployCharm(curl, ctx, client)
+		}
+		// We check for several types of known error which indicate
+		// that the supplied reference was indeed a path but there was
+		// an issue reading the charm located there.
+		if charm.IsMissingSeriesError(charmErr) {
+			return charmErr
+		}
+		if charm.IsUnsupportedSeriesError(charmErr) {
+			return charmErr
+		}
+		err = charmErr
+	}
+	if _, ok := err.(*charmrepo.NotFoundError); ok {
+		return errors.Errorf("no charm or bundle found at %q", c.CharmOrBundle)
+	}
+	// If we get a "not exists" error then we attempt to interpret the supplied
+	// charm or bundle reference as a URL below, otherwise we return the error.
+	if err != nil && err != os.ErrNotExist {
 		return err
 	}
-	defer client.Close()
 
+	repoPath := ctx.AbsPath(c.RepoPath)
 	conf, err := service.GetClientConfig(client)
 	if err != nil {
 		return err
 	}
-
 	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
@@ -212,57 +258,44 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	csClient := newCharmStoreClient(httpClient)
-	repoPath := ctx.AbsPath(c.RepoPath)
 
-	// Handle local bundle paths.
-	f, err := os.Open(c.CharmOrBundle)
-	if err == nil {
-		defer f.Close()
-		info, err := f.Stat()
+	var charmOrBundleURL *charm.URL
+	var repo charmrepo.Interface
+	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
+	if bundleData == nil {
+		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
+		charmOrBundleURL, repo, err = resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
 		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
+			return errors.Trace(err)
 		}
-		if info.IsDir() {
-			return errors.New("deployment of bundle directories not yet supported")
+		if charmOrBundleURL.Series == "bundle" {
+			// Load the bundle entity.
+			bundle, err := repo.GetBundle(charmOrBundleURL)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			bundleData = bundle.Data()
+			bundlePath = charmOrBundleURL.String()
 		}
-		bundleData, err := charm.ReadBundleData(f)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		if err := deployBundle(bundleData, client, csClient, repoPath, conf, ctx); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		ctx.Infof("deployment of bundle %q completed", f.Name())
-		return nil
-	} else if !os.IsNotExist(err) {
-		logger.Warningf("cannot open %q: %v; falling back to using charm repository", c.CharmOrBundle, err)
 	}
-
-	curl, repo, err := resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
+	// Handle a bundle.
+	if bundleData != nil {
+		if err := deployBundle(bundleData, client, csClient, repoPath, conf, ctx); err != nil {
+			return errors.Trace(err)
+		}
+		ctx.Infof("deployment of bundle %q completed", bundlePath)
+		return nil
+	}
+	// Handle a charm.
+	curl, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// Handle bundle URLs.
-	if curl.Series == "bundle" {
-		// Deploy a bundle entity.
-		bundle, err := repo.GetBundle(curl)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		if err := deployBundle(bundle.Data(), client, csClient, repoPath, conf, ctx); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		ctx.Infof("deployment of bundle %q completed", curl)
-		return nil
-	}
-
-	curl, err = addCharmViaAPI(client, curl, repo, csClient)
-	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
-	}
 	ctx.Infof("Added charm %q to the environment.", curl)
+	return c.deployCharm(curl, ctx, client)
+}
 
+func (c *DeployCommand) deployCharm(curl *charm.URL, ctx *cmd.Context, client *api.Client) error {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -324,28 +357,30 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if params.IsCodeNotImplemented(err) {
 			return notSupported
 		}
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return err
 	}
 
 	if len(c.Networks) > 0 {
 		ctx.Infof("use of --networks is deprecated and is ignored. Please use spaces to manage placement within networks")
 	}
 
-	err = client.ServiceDeploy(
+	if err := client.ServiceDeploy(
 		curl.String(),
 		serviceName,
 		numUnits,
 		string(configYAML),
 		c.Constraints,
-		c.PlacementSpec)
-
-	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		c.PlacementSpec); err != nil {
+		return errors.Trace(err)
 	}
 
 	state, err := c.NewAPIRoot()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	err = registerMeteredCharm(c.RegisterURL, state, httpClient, curl.String(), serviceName, client.EnvironmentUUID())
 	if params.IsCodeNotImplemented(err) {
@@ -354,7 +389,17 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		logger.Warningf("current state server version does not support charm metering")
 		return nil
 	}
+	return err
+}
 
+func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	client, err := c.NewAPIClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	err = c.deployCharmOrBundle(ctx, client)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
