@@ -1735,6 +1735,38 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	return result, nil
 }
 
+func (environ *maasEnviron) nodeOnSubnet(nodeId string, subnetId string) (bool, error) {
+	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
+
+	params := url.Values{"with_node_summary": {"true"}}
+	json, err := client.CallGet("ip_addresses", params)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	jsonAddresses, err := json.GetArray()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, jsonAddr := range jsonAddresses {
+		addrMap, err := jsonAddr.GetMap()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		node, err := addrMap["node_summary"].GetMap()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		thisNodeId, err := node["system_id"].GetString()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if thisNodeId == nodeId {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	inst, err := environ.getInstance(instId)
 	if err != nil {
@@ -1742,14 +1774,9 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	}
 	nodeId, err := environ.nodeIdFromInstance(inst)
 	if err != nil {
-		return nil, err
-	}
-	client := environ.getMAASClient().GetSubObject("subnets")
-	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	//params := url.Values{"node": {nodeId}}
+	client := environ.getMAASClient().GetSubObject("subnets")
 	json, err := client.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1758,16 +1785,35 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnetIdSet := make(map[network.Id]bool)
+	for _, netId := range subnetIds {
+		subnetIdSet[netId] = false
+	}
+
 	subnets := make([]network.SubnetInfo, len(jsonNets))
 	for i, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
 		if err != nil {
 			return nil, err
 		}
-		name, err := fields["name"].GetString()
+		subnetId, err := fields["id"].GetString()
 		if err != nil {
-			return nil, errors.Errorf("cannot get name: %v", err)
+			return nil, errors.Errorf("cannot get subnet Id: %v", err)
 		}
+		_, ok := subnetIdSet[network.Id(subnetId)]
+		if !ok {
+			// This id is not what we're looking for.
+			continue
+		}
+		match, err := environ.nodeOnSubnet(nodeId, subnetId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !match {
+			// The instance we're checking for isn't on this subnet.
+			continue
+		}
+
 		cidr, err := fields["cidr"].GetString()
 		if err != nil {
 			return nil, errors.Errorf("cannot get cidr: %v", err)
@@ -1776,20 +1822,20 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 		if err != nil {
 			return nil, errors.Errorf("cannot get space name: %v", err)
 		}
-		vlanTag := 0
-		vlanTagField, ok := fields["vlan_tag"]
-		if ok && !vlanTagField.IsNil() {
-			// vlan_tag is optional, so assume it's 0 when missing or nil.
-			vlanTagFloat, err := vlanTagField.GetFloat64()
+		vid := 0
+		vidField, ok := fields["vid"]
+		if ok && !vidField.IsNil() {
+			// vid is optional, so assume it's 0 when missing or nil.
+			vidFloat, err := vidField.GetFloat64()
 			if err != nil {
-				return nil, errors.Errorf("cannot get vlan_tag: %v", err)
+				return nil, errors.Errorf("cannot get vlan tag: %v", err)
 			}
-			vlanTag = int(vlanTagFloat)
+			vid = int(vidFloat)
 		}
 
 		subnets[i] = network.SubnetInfo{
-			ProviderId: network.Id(name),
-			VLANTag:    vlanTag,
+			ProviderId: network.Id(subnetId),
+			VLANTag:    vid,
 			CIDR:       cidr,
 			SpaceName:  spaceName,
 		}
