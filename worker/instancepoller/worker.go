@@ -60,8 +60,8 @@ func (u *updaterWorker) loop() (err error) {
 	// aggregator may get out of date. This should be addressed with a
 	// change to the observer; which should then be used with the
 	// firewaller and provisioner workers that still use WaitForEnviron,
-	// allowing us to maintain a single shared environ that updates in the
-	// background \o/.
+	// allowing us to maintain a single shared environ that updates in
+	// the background \o/.
 	u.aggregator = newAggregator(observer.Environ())
 	if err := u.catacomb.Add(u.aggregator); err != nil {
 		return errors.Trace(err)

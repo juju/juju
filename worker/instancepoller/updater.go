@@ -147,7 +147,11 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			p.machines[tag] = c
 			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
 		} else {
-			c <- struct{}{}
+			select {
+			case <-p.context.dying():
+				return p.context.errDying()
+			case c <- struct{}{}:
+			}
 		}
 	}
 	return nil
@@ -215,10 +219,10 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 			pollInstance = false
 		}
 		select {
+		case <-context.dying():
+			return context.errDying()
 		case <-time.After(pollInterval):
 			pollInstance = true
-		case <-context.dying():
-			return nil
 		case <-changed:
 			if err := m.Refresh(); err != nil {
 				return err
