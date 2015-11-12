@@ -52,7 +52,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Assert(offer.URL, gc.DeepEquals, url)
 			c.Assert(offer.Users, jc.SameContents, []string{user1, user2})
 
-			if results, k := result.(*params.ErrorResults); k {
+			if results, ok := result.(*params.ErrorResults); ok {
 				all := make([]params.ErrorResult, len(args.Offers))
 				// add one error to make sure it's catered for.
 				all = append(all, params.ErrorResult{
@@ -122,7 +122,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
-			if points, k := result.(*params.RemoteServiceInfos); k {
+			if points, ok := result.(*params.RemoteServiceInfos); ok {
 				points.Result = []params.RemoteServiceInfo{params.RemoteServiceInfo{
 					Description: desc,
 					Endpoints:   endpoints,
@@ -170,7 +170,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
-			if points, k := result.(*params.RemoteServiceInfos); k {
+			if points, ok := result.(*params.RemoteServiceInfos); ok {
 				points.Result = []params.RemoteServiceInfo{
 					params.RemoteServiceInfo{
 						Description: desc,
