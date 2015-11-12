@@ -27,7 +27,7 @@ func NewMinUnitsWorker(st *state.State) worker.Worker {
 	return legacy.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (legacy.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 
