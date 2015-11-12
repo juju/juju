@@ -90,7 +90,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
-	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
+	// params.NotifyWatcher conforms to the watcher.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
 	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
 	wc.AssertStops()

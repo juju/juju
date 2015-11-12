@@ -6,7 +6,6 @@ package legacy
 import (
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -20,6 +19,12 @@ type stringsWorker struct {
 	handler StringsWatchHandler
 }
 
+type StringsWatcher interface {
+	Changes() <-chan []string
+	Stop() error
+	Err() error
+}
+
 // StringsWatchHandler implements the business logic triggered as part
 // of watching a StringsWatcher.
 type StringsWatchHandler interface {
@@ -27,7 +32,7 @@ type StringsWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and strings Worker will make sure to
 	// stop the watcher.
-	SetUp() (state.StringsWatcher, error)
+	SetUp() (StringsWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
