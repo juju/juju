@@ -130,6 +130,15 @@ func allCollections() collectionSchema {
 		// was implemented.
 		actionresultsC: {global: true},
 
+		// This collection holds information about services that have been
+		// offered (exported) for use in other models.
+		serviceOffersC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"url"},
+			}},
+		},
+
 		// -----------------
 
 		// Local collections
@@ -369,6 +378,7 @@ const (
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"
 	servicesC              = "services"
+	serviceOffersC         = "serviceoffers"
 	settingsC              = "settings"
 	settingsrefsC          = "settingsrefs"
 	stateServersC          = "stateServers"

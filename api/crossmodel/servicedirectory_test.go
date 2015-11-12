@@ -5,7 +5,6 @@ package crossmodel_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/testing"
 )
 
@@ -57,6 +57,8 @@ func serviceForURLCaller(c *gc.C, offers []params.ServiceOffer, err string) base
 		})
 }
 
+var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
 func (s *serviceDirectoryMockSuite) TestServiceForURL(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{
 		{
@@ -67,24 +69,25 @@ func (s *serviceDirectoryMockSuite) TestServiceForURL(c *gc.C) {
 	}
 	offers := []params.ServiceOffer{
 		{
-			"local:/u/user/name",
-			params.ServiceOfferDetails{
-				ServiceName: "service",
-				Endpoints:   endpoints,
-			},
+			ServiceURL:       "local:/u/user/name",
+			ServiceName:      "service",
+			SourceEnvironTag: "environment-" + fakeUUID,
+			Endpoints:        endpoints,
 		},
 	}
 	apiCaller := serviceForURLCaller(c, offers, "")
-	client := crossmodel.NewServiceDirectory(apiCaller)
-	result, err := client.ServiceForURL("local:/u/user/name", names.NewUserTag("foo"))
+	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCaller)}
+	result, err := client.ServiceForURL("local:/u/user/name", "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, offers[0].ServiceOfferDetails)
+	expectedOffer, err := crossmodel.MakeOfferFromParams(offers[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedOffer)
 }
 
 func (s *serviceDirectoryMockSuite) TestServiceForURLError(c *gc.C) {
 	apiCaller := serviceForURLCaller(c, nil, "error")
-	client := crossmodel.NewServiceDirectory(apiCaller)
-	_, err := client.ServiceForURL("local:/u/user/name", names.NewUserTag("foo"))
+	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCaller)}
+	_, err := client.ServiceForURL("local:/u/user/name", "foo")
 	c.Assert(err, gc.ErrorMatches, "error")
 }
 
@@ -106,7 +109,7 @@ func listOffersCaller(c *gc.C, offers []params.ServiceOffer, err string) basetes
 			filter := args.Filters[0]
 			c.Check(filter.ServiceName, gc.Equals, "service")
 			c.Check(filter.ServiceDescription, gc.Equals, "description")
-			c.Check(filter.ServiceUser, gc.Equals, "me")
+			c.Check(filter.SourceEnvUUIDTag, gc.Equals, "environment-"+fakeUUID)
 
 			if results, ok := result.(*params.ServiceOfferResults); ok {
 				results.Offers = offers
@@ -126,36 +129,40 @@ func (s *serviceDirectoryMockSuite) TestListOffers(c *gc.C) {
 			Interface: "mysql",
 		},
 	}
-	details := params.ServiceOfferDetails{
-		ServiceName: "service",
-		Endpoints:   endpoints,
-	}
-
 	offers := []params.ServiceOffer{
 		{
-			"local:/u/user/name",
-			details,
+			ServiceURL:       "local:/u/user/name",
+			ServiceName:      "service",
+			SourceEnvironTag: "environment-" + fakeUUID,
+			Endpoints:        endpoints,
 		},
 	}
 	apiCaller := listOffersCaller(c, offers, "")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	filter := params.OfferFilter{
-		ServiceName:        "service",
-		ServiceDescription: "description",
-		ServiceUser:        "me",
+	filter := jujucrossmodel.OfferFilter{
+		ServiceOffer: jujucrossmodel.ServiceOffer{
+			ServiceName:        "service",
+			ServiceDescription: "description",
+			SourceEnvUUID:      fakeUUID,
+		},
 	}
 	result, err := client.ListOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, offers)
+	c.Assert(result, gc.HasLen, 1)
+	expectedOffer, err := crossmodel.MakeOfferFromParams(offers[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result[0], jc.DeepEquals, expectedOffer)
 }
 
 func (s *serviceDirectoryMockSuite) TestListOffersError(c *gc.C) {
 	apiCaller := listOffersCaller(c, nil, "error")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	filter := params.OfferFilter{
-		ServiceName:        "service",
-		ServiceDescription: "description",
-		ServiceUser:        "me",
+	filter := jujucrossmodel.OfferFilter{
+		ServiceOffer: jujucrossmodel.ServiceOffer{
+			ServiceName:        "service",
+			ServiceDescription: "description",
+			SourceEnvUUID:      fakeUUID,
+		},
 	}
 	_, err := client.ListOffers(filter)
 	c.Assert(err, gc.ErrorMatches, "error")
@@ -194,21 +201,22 @@ func (s *serviceDirectoryMockSuite) TestAddOffers(c *gc.C) {
 			Interface: "mysql",
 		},
 	}
-	details := params.ServiceOfferDetails{
-		ServiceName: "service",
-		Endpoints:   endpoints,
-	}
-
 	offers := []params.AddServiceOffer{
 		{
-			"local:/u/user/name",
-			details,
-			[]names.UserTag{names.NewUserTag("foo")},
+			ServiceOffer: params.ServiceOffer{
+				ServiceURL:       "local:/u/user/name",
+				ServiceName:      "service",
+				SourceEnvironTag: "environment-" + fakeUUID,
+				Endpoints:        endpoints,
+			},
+			UserTags: []string{"user-foo"},
 		},
 	}
 	apiCaller := addOffersCaller(c, offers, "")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	err := client.AddOffer("local:/u/user/name", details, []names.UserTag{names.NewUserTag("foo")})
+	offerToAdd, err := crossmodel.MakeOfferFromParams(offers[0].ServiceOffer)
+	c.Assert(err, jc.ErrorIsNil)
+	err = client.AddOffer(offerToAdd, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -220,21 +228,22 @@ func (s *serviceDirectoryMockSuite) TestAddOffersError(c *gc.C) {
 			Interface: "mysql",
 		},
 	}
-	details := params.ServiceOfferDetails{
-		ServiceName: "service",
-		Endpoints:   endpoints,
-	}
-
 	offers := []params.AddServiceOffer{
 		{
-			"local:/u/user/name",
-			details,
-			nil,
+			ServiceOffer: params.ServiceOffer{
+				ServiceURL:       "local:/u/user/name",
+				ServiceName:      "service",
+				SourceEnvironTag: "environment-" + fakeUUID,
+				Endpoints:        endpoints,
+			},
+			UserTags: []string{"user-foo"},
 		},
 	}
 	apiCaller := addOffersCaller(c, offers, "error")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	err := client.AddOffer("local:/u/user/name", details, nil)
+	offerToAdd, err := crossmodel.MakeOfferFromParams(offers[0].ServiceOffer)
+	c.Assert(err, jc.ErrorIsNil)
+	err = client.AddOffer(offerToAdd, []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, "error")
 }
 
@@ -254,19 +263,19 @@ func apiCallerWithError(c *gc.C, apiName string) basetesting.APICallerFunc {
 }
 
 func (s *serviceDirectoryMockSuite) TestServiceForURLFacadeCallError(c *gc.C) {
-	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))
-	_, err := client.ServiceForURL("local:/u/user/name", names.NewUserTag("user"))
+	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))}
+	_, err := client.ServiceForURL("local:/u/user/name", "user")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 
 func (s *serviceDirectoryMockSuite) TestListOffersFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))
-	_, err := client.ListOffers(params.OfferFilter{})
+	_, err := client.ListOffers(jujucrossmodel.OfferFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 
 func (s *serviceDirectoryMockSuite) TestAddOfferFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "AddOffers"))
-	err := client.AddOffer("", params.ServiceOfferDetails{}, nil)
+	err := client.AddOffer(jujucrossmodel.ServiceOffer{}, nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }

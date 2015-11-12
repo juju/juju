@@ -4,10 +4,14 @@
 package crossmodel
 
 import (
+	"github.com/juju/errors"
+
+	crossmodelapi "github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/names"
 )
 
 func init() {
@@ -18,12 +22,12 @@ func init() {
 // implementation of the api end point.
 type ServiceDirectoryAPI struct {
 	authorizer       common.Authorizer
-	serviceDirectory crossmodel.ServiceDirectoryProvider
+	serviceDirectory crossmodel.ServiceDirectory
 }
 
 // createServiceDirectoryAPI returns a new cross model API facade.
 func createServiceDirectoryAPI(
-	serviceDirectory crossmodel.ServiceDirectoryProvider,
+	serviceDirectory crossmodel.ServiceDirectory,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*ServiceDirectoryAPI, error) {
@@ -42,12 +46,44 @@ func newServiceDirectoryAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*ServiceDirectoryAPI, error) {
-	return createServiceDirectoryAPI(crossmodel.NewEmbeddedServiceDirectory(st), resources, authorizer)
+	return createServiceDirectoryAPI(NewEmbeddedServiceDirectory(st), resources, authorizer)
 }
 
 // ListOffers returns offers matching the filter from a service directory.
 func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) ([]params.ServiceOffer, error) {
-	return api.serviceDirectory.ListOffers(filters.Filters...)
+	offerFilters, err := makeOfferFilterFromParams(filters.Filters)
+	if err != nil {
+		return nil, err
+	}
+	offers, err := api.serviceDirectory.ListOffers(offerFilters...)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]params.ServiceOffer, len(offers))
+	for i, offer := range offers {
+		result[i] = crossmodelapi.MakeParamsFromOffer(offer)
+	}
+	return result, nil
+}
+
+func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.OfferFilter, error) {
+	offerFilters := make([]crossmodel.OfferFilter, len(filters))
+	for i, filter := range filters {
+		envTag, err := names.ParseEnvironTag(filter.SourceEnvUUIDTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offerFilters[i] = crossmodel.OfferFilter{
+			ServiceOffer: crossmodel.ServiceOffer{
+				ServiceURL:         filter.ServiceURL,
+				ServiceName:        filter.ServiceName,
+				ServiceDescription: filter.ServiceDescription,
+				SourceLabel:        filter.SourceLabel,
+				SourceEnvUUID:      envTag.Id(),
+			},
+		}
+	}
+	return offerFilters, nil
 }
 
 // AddOffers adds new service offerings to a directory, able to be consumed by
@@ -60,10 +96,45 @@ func (api *ServiceDirectoryAPI) AddOffers(offers params.AddServiceOffers) (param
 		return result, nil
 	}
 
-	for i, offer := range offers.Offers {
-		if err := api.serviceDirectory.AddOffer(offer.ServiceURL, offer.ServiceOfferDetails, offer.Users); err != nil {
+	for i, offerParams := range offers.Offers {
+		offer, err := crossmodelapi.MakeOfferFromParams(offerParams.ServiceOffer)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := api.serviceDirectory.AddOffer(offer); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
+	// TODO(wallyworld) - write ACLs with supplied users once we support that
 	return result, nil
+}
+
+// NewEmbeddedServiceDirectory creates a service directory used by a Juju controller.
+func NewEmbeddedServiceDirectory(st *state.State) crossmodel.ServiceDirectory {
+	return &controllerServiceDirectory{st}
+}
+
+type controllerServiceDirectory struct {
+	st *state.State
+}
+
+func (s *controllerServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
+	// TODO(wallyworld) - implement
+	return errors.NewNotImplemented(nil, "add offer")
+}
+
+func (s *controllerServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error {
+	// TODO(wallyworld) - implement
+	return errors.NewNotImplemented(nil, "update offer")
+}
+
+func (s *controllerServiceDirectory) ListOffers(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+	// TODO(wallyworld) - implement
+	return nil, errors.NewNotImplemented(nil, "list offers")
+}
+
+func (s *controllerServiceDirectory) Remove(url string) error {
+	// TODO(wallyworld) - implement
+	return errors.NewNotImplemented(nil, "delete offer")
 }

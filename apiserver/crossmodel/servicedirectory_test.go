@@ -5,7 +5,6 @@ package crossmodel_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,22 +27,22 @@ type serviceDirectorySuite struct {
 	api              *crossmodel.ServiceDirectoryAPI
 	calls            []string
 	serviceDirectory *mockServiceDirectory
-	offers           map[string]params.ServiceOfferDetails
+	offers           map[string]jujucrossmodel.ServiceOffer
 }
 
 func (s *serviceDirectorySuite) constructServiceDirectory() *mockServiceDirectory {
 	return &mockServiceDirectory{
-		addOffer: func(url string, offerDetails params.ServiceOfferDetails, users []names.UserTag) error {
+		addOffer: func(offer jujucrossmodel.ServiceOffer) error {
 			s.calls = append(s.calls, "addoffer")
-			s.offers[url] = offerDetails
+			s.offers[offer.ServiceURL] = offer
 			return nil
 		},
-		listOffers: func(filters ...params.OfferFilter) ([]params.ServiceOffer, error) {
+		listOffers: func(filters ...jujucrossmodel.OfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
 			s.calls = append(s.calls, "listoffers")
-			var result []params.ServiceOffer
+			var result []jujucrossmodel.ServiceOffer
 			for _, filter := range filters {
 				if offer, ok := s.offers[filter.ServiceURL]; ok {
-					result = append(result, params.ServiceOffer{filter.ServiceURL, offer})
+					result = append(result, offer)
 				}
 			}
 			return result, nil
@@ -58,7 +58,7 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.calls = []string{}
-	s.offers = make(map[string]params.ServiceOfferDetails)
+	s.offers = make(map[string]jujucrossmodel.ServiceOffer)
 	s.serviceDirectory = s.constructServiceDirectory()
 
 	var err error
@@ -74,14 +74,14 @@ func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 	offers := params.AddServiceOffers{
 		Offers: []params.AddServiceOffer{
 			{
-				ServiceURL: "local:/u/user/name",
-				ServiceOfferDetails: params.ServiceOfferDetails{
+				ServiceOffer: params.ServiceOffer{
+					ServiceURL:  "local:/u/user/name",
 					ServiceName: "service",
 				},
 			},
 			{
-				ServiceURL: "local:/u/user/anothername",
-				ServiceOfferDetails: params.ServiceOfferDetails{
+				ServiceOffer: params.ServiceOffer{
+					ServiceURL:  "local:/u/user/anothername",
 					ServiceName: "service",
 				},
 			},
@@ -92,20 +92,20 @@ func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	s.assertCalls(c, []string{"addoffer", "addoffer"})
-	c.Assert(s.offers["local:/u/user/name"], jc.DeepEquals, offers.Offers[0].ServiceOfferDetails)
-	c.Assert(s.offers["local:/u/user/anothername"], jc.DeepEquals, offers.Offers[1].ServiceOfferDetails)
+	c.Assert(s.offers["local:/u/user/name"], jc.DeepEquals, offers.Offers[0].ServiceOffer)
+	c.Assert(s.offers["local:/u/user/anothername"], jc.DeepEquals, offers.Offers[1].ServiceOffer)
 }
 
 func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
-	s.serviceDirectory.addOffer = func(url string, offerDetails params.ServiceOfferDetails, users []names.UserTag) error {
+	s.serviceDirectory.addOffer = func(offer jujucrossmodel.ServiceOffer) error {
 		s.calls = append(s.calls, "addoffer")
 		return errors.New("error")
 	}
 	offers := params.AddServiceOffers{
 		Offers: []params.AddServiceOffer{
 			{
-				ServiceURL: "local:/u/user/name",
-				ServiceOfferDetails: params.ServiceOfferDetails{
+				ServiceOffer: params.ServiceOffer{
+					ServiceURL:  "local:/u/user/name",
 					ServiceName: "service",
 				},
 			},
@@ -119,10 +119,10 @@ func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
 }
 
 func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
-	s.offers["local:/u/user/name"] = params.ServiceOfferDetails{
+	s.offers["local:/u/user/name"] = jujucrossmodel.ServiceOffer{
 		ServiceName: "service",
 	}
-	s.offers["local:/u/user/anothername"] = params.ServiceOfferDetails{
+	s.offers["local:/u/user/anothername"] = jujucrossmodel.ServiceOffer{
 		ServiceName: "anotherservice",
 	}
 	results, err := s.api.ListOffers(params.OfferFilters{
@@ -135,12 +135,12 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	s.assertCalls(c, []string{"listoffers"})
-	c.Assert(results[0].ServiceOfferDetails, jc.DeepEquals, s.offers["local:/u/user/name"])
+	c.Assert(results[0], jc.DeepEquals, s.offers["local:/u/user/name"])
 	c.Assert(results[0].ServiceURL, gc.Equals, "local:/u/user/name")
 }
 
 func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
-	s.serviceDirectory.listOffers = func(filters ...params.OfferFilter) ([]params.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(filters ...jujucrossmodel.OfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
 		s.calls = append(s.calls, "listoffers")
 		return nil, errors.New("error")
 	}

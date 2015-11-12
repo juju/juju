@@ -10,7 +10,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 type ServiceURLSuite struct{}
