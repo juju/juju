@@ -10,7 +10,7 @@ import (
 
 	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 type crossmodelSuite struct {

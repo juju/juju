@@ -11,7 +11,7 @@ type CrossModelOffer struct {
 	// Endpoints list of service's endpoints that are being offered.
 	Endpoints []string `json:"endpoints"`
 
-	// URL is the location where these endpoitns will be accessible from.
+	// URL is the location where these endpoints will be accessible from.
 	URL string `json:"url"`
 
 	// Users is the list of user tags that are given permission to these endpoints.
