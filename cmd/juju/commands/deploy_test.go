@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -248,19 +249,17 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	svc, err := s.State.Service("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		units, err := svc.AllUnits()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(units, gc.HasLen, 1)
-		mid, err := units[0].AssignedMachineId()
-		if !a.HasNext() {
-			c.Assert(err, jc.ErrorIsNil)
-		} else if err != nil {
-			continue
-		}
-		c.Assert(mid, gc.Not(gc.Equals), machine.Id())
-		break
-	}
+	// manually run staged assignments
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("dummy/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Not(gc.Equals), machine.Id())
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
@@ -289,19 +288,18 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, jc.ErrorIsNil)
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		units, err := svc.AllUnits()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(units, gc.HasLen, 1)
-		mid, err := units[0].AssignedMachineId()
-		if !a.HasNext() {
-			c.Assert(err, jc.ErrorIsNil)
-		} else if err != nil {
-			continue
-		}
-		c.Assert(mid, gc.Equals, machineId)
-		break
-	}
+	// manually run staged assignments
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("portlandia/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machineId)
 }
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
