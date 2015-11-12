@@ -6,8 +6,8 @@ package legacy
 import (
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/worker"
 )
 
 // stringsWorker is the internal implementation of the Worker
@@ -26,7 +26,7 @@ type StringsWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and strings Worker will make sure to
 	// stop the watcher.
-	SetUp() (apiWatcher.StringsWatcher, error)
+	SetUp() (StringsWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -36,10 +36,16 @@ type StringsWatchHandler interface {
 	Handle(changes []string) error
 }
 
+type StringsWatcher interface {
+	Changes() <-chan []string
+	Stop() error
+	Err() error
+}
+
 // NewStringsWorker starts a new worker running the business logic
 // from the handler. The worker loop is started in another goroutine
 // as a side effect of calling this.
-func NewStringsWorker(handler StringsWatchHandler) Worker {
+func NewStringsWorker(handler StringsWatchHandler) worker.Worker {
 	sw := &stringsWorker{
 		handler: handler,
 	}
