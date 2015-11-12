@@ -99,8 +99,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
-		params.RemoteEndpoint{"db2", "http", "provides"},
-		params.RemoteEndpoint{"log", "http", "requires"},
+		params.RemoteEndpoint{"db2", "mysql", "provider"},
+		params.RemoteEndpoint{"log", "http", "requirer"},
 	}
 	serviceTag := "service-hosted-db2"
 
@@ -147,8 +147,8 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
-		params.RemoteEndpoint{"db2", "http", "provides"},
-		params.RemoteEndpoint{"log", "http", "requires"},
+		params.RemoteEndpoint{"db2", "mysql", "provider"},
+		params.RemoteEndpoint{"log", "http", "requirer"},
 	}
 	serviceTag := "service-hosted-db2"
 
