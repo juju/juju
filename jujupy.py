@@ -127,15 +127,23 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
-    def is_jes_enabled(self):
+    def is_jes_enabled(self, cache=True):
         """Does the state-server support multiple environments."""
-        return self.get_jes_command() is not None
+        try:
+            self.get_jes_command(cache=cache)
+            return True
+        except JESNotSupported:
+            return False
 
     def get_jes_command(self, cache=True):
-        """Return the JES command or None when not supported.
+        """Return the JES command.
 
         Juju 1.26 has the 'controller' command to manage the master env.
-        Juju 1.25 has the 'system' command to manage the master env.
+        Juju 1.25 has the 'system' command to manage the master env when
+        the jes feature flag is set.
+
+        :raises: JESNotSupported when the version of Juju does not expose
+            a JES command.
         """
         jes_command_states = ('controller', 'system', None)
         if cache is True and self._jes_command in jes_command_states:
@@ -149,7 +157,7 @@ class EnvJujuClient:
                 self._jes_command = 'system'
                 break
         else:
-            self._jes_command = None
+            raise JESNotSupported()
         return self._jes_command
 
     @classmethod
