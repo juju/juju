@@ -14,8 +14,9 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/legacy"
 )
 
 var logger = loggo.GetLogger("juju.worker.certupdater")
@@ -37,7 +38,7 @@ type CertificateUpdater struct {
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
 // which can be used to watch for machine address changes.
 type AddressWatcher interface {
-	WatchAddresses() legacy.NotifyWatcher
+	WatchAddresses() state.NotifyWatcher
 	Addresses() (addresses []network.Address)
 }
 
@@ -79,7 +80,7 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (legacy.NotifyWatcher, error) {
+func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
 	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
 	if err != nil {

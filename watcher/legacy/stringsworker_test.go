@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/legacy"
 )
 
 type stringsWorkerSuite struct {
