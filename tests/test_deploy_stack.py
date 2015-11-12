@@ -767,13 +767,15 @@ class TestBootContext(FakeHomeTestCase):
         c_mock = self.addContext(patch('subprocess.call', autospec=True))
         if jes:
             output = jes
+            help_index = 1
         else:
             output = ''
+            help_index = None
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
         assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'))
+            'juju', '--show-log', 'help', 'commands'), call_index=help_index)
         if jes:
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'cache.yaml')

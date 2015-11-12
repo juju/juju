@@ -122,7 +122,8 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
-            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'))
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            call_index=1)
 
     def test_enable_jes_unsupported(self):
         client = self.client_class(
@@ -136,20 +137,21 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
-        self.assertEqual(po_mock.call_count, 1)
+        self.assertEqual(po_mock.call_count, 2)
 
     def test_enable_jes_requires_flag(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
+        # The help out put will change when the jes feature flag is set.
         with patch('subprocess.Popen', autospec=True, side_effect=[
-                FakePopen('system', '', 0)]) as po_mock:
+                FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
-        self.assertEqual(po_mock.call_count, 1)
+        self.assertEqual(po_mock.call_count, 2)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
@@ -1210,31 +1212,6 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertEqual('system', client.get_jes_command())
-
-    def test_get_jes_command_cache(self):
-        env = SimpleEnvironment('qux')
-        client = EnvJujuClient(env, None, '/foobar/baz')
-        # Juju 1.25 doesn't have the 'system' command by default.
-        # fake_popen = FakePopen('', None, 0)
-        # with patch('subprocess.Popen',
-        #            return_value=fake_popen) as po_mock:
-        #     self.assertIs(None, client.get_jes_command())
-        # assert_juju_call(self, po_mock, client, (
-        #     'juju', '--show-log', 'help', 'commands'))
-        # self.assertEqual(1, po_mock.call_count)
-        # Value is cached. Calling the command again returns the cache, even
-        # when the JES feature flag adds the 'system' command.
-        fake_popen = FakePopen('system', None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen) as po_mock:
-            # self.assertIsNone(client.get_jes_command())
-            # self.assertEqual(0, po_mock.call_count)
-            # The cache can ignored...
-            self.assertEqual('system', client.get_jes_command(cache=False))
-            self.assertEqual(1, po_mock.call_count)
-            # ... and that resets the cache.
-            self.assertEqual('system', client.get_jes_command())
-            self.assertEqual(1, po_mock.call_count)
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
