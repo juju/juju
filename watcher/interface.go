@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package watcher
 
 import (
@@ -24,39 +27,9 @@ import (
 //      still needs to check for closed channels (never trust a contract...) but
 //      can treat that scenario as a simple error.
 //
-// For this reason, you must *not* convert a pre-existing watcher by just adding
-// Kill and Wait methods; you must also stop the implementation from closing its
-// changes chan.
-//
-// In addition to the above, all currently extant watchers implement, and are
-// accessed in terms of, Stop() and Err() methods, even though they're not very
-// helpful. See worker/catacomb/doc.go for a discussion of the problems with
-// those methods; when converting a watcher, be sure to remove them.
+// To convert a state/watcher.Watcher to a CoreWatcher, replace Stop() and Err()
+// with the boilerplate Kill() and Wait() implementations; and ensure that the
+// watcher no longer closes its Changes channel.
 type CoreWatcher interface {
 	worker.Worker
-}
-
-// NotifyChan is a change channel as described in the CoreWatcher documentation.
-// It sends a single value to indicate that the watch is active, and subsequent
-// values whenever the value under observation changes.
-type NotifyChan <-chan struct{}
-
-// A NotifyWatcher conveniently ties a NotifyChan to the worker.Worker that
-// represents its validity.
-type NotifyWatcher interface {
-	CoreWatcher
-	Changes() NotifyChan
-}
-
-// StringsChan is a change channel as described in the CoreWatcher documentation.
-// It sends a single value indicating a baseline set of values, and subsequent
-// values representing additions, changes, and removals of those values. The
-// precise semantics depend upon the individual watcher.
-type StringsChan <-chan []string
-
-// A StringsWatcher conveniently ties a StringsChan to the worker.Worker that
-// represents its validity.
-type StringsWatcher interface {
-	CoreWatcher
-	Changes() StringsChan
 }

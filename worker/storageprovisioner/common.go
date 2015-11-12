@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/watcher"
 )
 
 // storageEntityLife queries the lifecycle state of each specified
@@ -186,4 +187,15 @@ func sourceParams(providerType storage.ProviderType, sourceName, baseStorageDir 
 		return nil, nil, errors.Annotate(err, "getting config")
 	}
 	return provider, sourceConfig, nil
+}
+
+func copyMachineStorageIds(src []watcher.MachineStorageId) []params.MachineStorageId {
+	dst := make([]params.MachineStorageId, len(src))
+	for i, msid := range src {
+		dst[i] = params.MachineStorageId{
+			MachineTag:    msid.MachineTag,
+			AttachmentTag: msid.AttachmentTag,
+		}
+	}
+	return dst
 }

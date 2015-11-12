@@ -12,16 +12,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/api/networker"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.networker")
@@ -32,7 +31,7 @@ const DefaultConfigBaseDir = "/etc/network"
 
 // Networker configures network interfaces on the machine, as needed.
 type Networker struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	st  apinetworker.State
 	tag names.MachineTag
@@ -100,21 +99,24 @@ func NewNetworker(
 		interfaceInfo: make(map[string]network.InterfaceInfo),
 		interfaces:    make(map[string]net.Interface),
 	}
-	go func() {
-		defer nw.tomb.Done()
-		nw.tomb.Kill(nw.loop())
-	}()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &nw.catacomb,
+		Work: nw.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return nw, nil
 }
 
 // Kill implements Worker.Kill().
 func (nw *Networker) Kill() {
-	nw.tomb.Kill(nil)
+	nw.catacomb.Kill(nil)
 }
 
 // Wait implements Worker.Wait().
 func (nw *Networker) Wait() error {
-	return nw.tomb.Wait()
+	return nw.catacomb.Wait()
 }
 
 // ConfigBaseDir returns the root directory where the networking config is
@@ -163,54 +165,54 @@ func (nw *Networker) loop() error {
 	logger.Infof("networker is disabled - not starting on machine %q", nw.tag)
 	return nil
 
-	logger.Debugf("starting on machine %q", nw.tag)
-	if !nw.IntrusiveMode() {
-		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")
+	if err := nw.setUp(); err != nil {
+		return errors.Trace(err)
 	}
-	w, err := nw.init()
+	interfacesWatcher, err := nw.st.WatchInterfaces(nw.tag)
 	if err != nil {
-		if w != nil {
-			// We don't bother to propagate an error, because we
-			// already have an error
-			w.Stop()
-		}
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(w, &nw.tomb)
+	if err := nw.catacomb.Add(interfacesWatcher); err != nil {
+		return errors.Trace(err)
+	}
 	logger.Debugf("initialized and started watching")
+
 	for {
 		select {
-		case <-nw.tomb.Dying():
-			logger.Debugf("shutting down")
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
-			logger.Debugf("got change notification")
+		case <-nw.catacomb.Dying():
+			logger.Tracef("shutting down")
+			return nw.catacomb.ErrDying()
+		case _, ok := <-interfacesWatcher.Changes():
+			logger.Tracef("got change notification")
 			if !ok {
-				return watcher.EnsureErr(w)
+				return errors.New("interfaces watcher closed")
 			}
 			if err := nw.handle(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
 }
 
-// init initializes the worker and starts a watcher for monitoring
-// network interface changes.
-func (nw *Networker) init() (apiwatcher.NotifyWatcher, error) {
+// setUp initializes the worker's data.
+func (nw *Networker) setUp() error {
+	logger.Debugf("starting on machine %q", nw.tag)
+	if !nw.IntrusiveMode() {
+		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")
+	}
 	// Discover all interfaces on the machine and populate internal
 	// maps, reading existing config files as well, and fetch the
 	// network info from the API..
 	if err := nw.updateInterfaces(); err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
 
 	// Apply changes (i.e. write managed config files and load the
 	// VLAN module if needed).
 	if err := nw.applyAndExecute(); err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
-	return nw.st.WatchInterfaces(nw.tag)
+	return nil
 }
 
 // handle processes changes to network interfaces in state.

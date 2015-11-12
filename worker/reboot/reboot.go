@@ -9,16 +9,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")
 
 const RebootMessage = "preparing for reboot"
-
-var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 
 // The reboot worker listens for changes to the reboot flag and
 // exists with worker.ErrRebootMachine if the machine should reboot or
@@ -42,7 +40,13 @@ func NewReboot(st *reboot.State, agentConfig agent.Config, machineLock *fslock.L
 		tag:         tag,
 		machineLock: machineLock,
 	}
-	return worker.NewNotifyWorker(r), nil
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: r,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (r *Reboot) checkForRebootState() error {

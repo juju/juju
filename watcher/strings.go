@@ -9,6 +9,20 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+// StringsChan is a change channel as described in the CoreWatcher docs.
+//
+// It sends a single value indicating a baseline set of values, and subsequent
+// values representing additions, changes, and/or removals of those values. The
+// precise semantics may depend upon the individual watcher.
+type StringsChan <-chan []string
+
+// StringsWatcher conveniently ties a StringsChan to the worker.Worker that
+// represents its validity.
+type StringsWatcher interface {
+	CoreWatcher
+	Changes() StringsChan
+}
+
 // StringsHandler defines the operation of a StringsWorker.
 type StringsHandler interface {
 

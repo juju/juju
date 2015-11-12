@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher"
 )
 
 type APIAddresserTests struct {
@@ -79,7 +79,7 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 
 	w, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
 
@@ -94,6 +94,6 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }

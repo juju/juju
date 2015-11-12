@@ -6,34 +6,12 @@ package remotestate
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"launchpad.net/tomb"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
-
-func newStorageAttachmentWatcher(
-	st StorageAccessor,
-	in apiwatcher.NotifyWatcher,
-	unitTag names.UnitTag,
-	storageTag names.StorageTag,
-	changes chan<- storageAttachmentChange,
-) *storageAttachmentWatcher {
-	s := &storageAttachmentWatcher{
-		st:         st,
-		watcher:    in,
-		changes:    changes,
-		storageTag: storageTag,
-		unitTag:    unitTag,
-	}
-	go func() {
-		defer s.tomb.Done()
-		defer watcher.Stop(in, &s.tomb)
-		s.tomb.Kill(s.loop())
-	}()
-	return s
-}
 
 type StorageAccessor interface {
 	// StorageAttachment returns the storage attachment with the specified
@@ -41,14 +19,47 @@ type StorageAccessor interface {
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 }
 
+// newStorageAttachmentsWatcher creates a new worker that wakes on input from
+// the supplied watcher's Changes chan, finds out more about them, and delivers
+// them on the supplied changes chan.
+//
+// The caller releases responsibility for stopping the supplied watcher and
+// waiting for errors, *whether or not this method succeeds*.
+func newStorageAttachmentWatcher(
+	st StorageAccessor,
+	watcher watcher.NotifyWatcher,
+	unitTag names.UnitTag,
+	storageTag names.StorageTag,
+	changes chan<- storageAttachmentChange,
+) (*storageAttachmentWatcher, error) {
+	s := &storageAttachmentWatcher{
+		st:         st,
+		watcher:    watcher,
+		changes:    changes,
+		storageTag: storageTag,
+		unitTag:    unitTag,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &s.catacomb,
+		Work: s.loop,
+	})
+	if err != nil {
+		if stopErr := worker.Stop(watcher); stopErr != nil {
+			logger.Errorf("while stopping storage attachment watcher: %v", stopErr)
+		}
+		return nil, errors.Trace(err)
+	}
+	return s, nil
+}
+
 // storageAttachmentWatcher watches for changes to the attachment status of
 // the storage with the specified tag and sends the tag to the specified channel
 // when a change occurs.
 type storageAttachmentWatcher struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	st         StorageAccessor
-	watcher    apiwatcher.NotifyWatcher
+	watcher    watcher.NotifyWatcher
 	storageTag names.StorageTag
 	unitTag    names.UnitTag
 	changes    chan<- storageAttachmentChange
@@ -78,13 +89,16 @@ func getStorageSnapshot(
 }
 
 func (s *storageAttachmentWatcher) loop() error {
+	if err := s.catacomb.Add(s.watcher); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
-		case <-s.tomb.Dying():
-			return tomb.ErrDying
+		case <-s.catacomb.Dying():
+			return s.catacomb.ErrDying()
 		case _, ok := <-s.watcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(s.watcher)
+				return errors.New("storage attachment watcher closed")
 			}
 			snapshot, err := getStorageSnapshot(
 				s.st, s.storageTag, s.unitTag,
@@ -105,15 +119,20 @@ func (s *storageAttachmentWatcher) loop() error {
 				snapshot,
 			}
 			select {
-			case <-s.tomb.Dying():
-				return tomb.ErrDying
+			case <-s.catacomb.Dying():
+				return s.catacomb.ErrDying()
 			case s.changes <- change:
 			}
 		}
 	}
 }
 
-func (s *storageAttachmentWatcher) Stop() error {
-	s.tomb.Kill(nil)
-	return s.tomb.Wait()
+// Kill is part of the worker.Worker interface.
+func (s *storageAttachmentWatcher) Kill() {
+	s.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (s *storageAttachmentWatcher) Wait() error {
+	return s.catacomb.Wait()
 }
