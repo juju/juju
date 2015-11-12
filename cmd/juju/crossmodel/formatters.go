@@ -6,6 +6,7 @@ package crossmodel
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -22,7 +23,7 @@ const (
 // formatTabular returns a tabular summary of remote services or
 // errors out if parameter is not of expected type.
 func formatTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.([]RemoteService)
+	endpoints, ok := value.(map[string]RemoteService)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
@@ -30,7 +31,7 @@ func formatTabular(value interface{}) ([]byte, error) {
 }
 
 // formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
-func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
+func formatOfferedEndpointsTabular(all map[string]RemoteService) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -47,9 +48,9 @@ func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 
 	print("SERVICE", "DESCRIPTION", "ENDPOINT", "INTERFACE", "ROLE")
 
-	for _, one := range all {
-		serviceName := one.Service
-		serviceDesc := one.Desc
+	for name, one := range all {
+		serviceName := name
+		serviceDesc := one.Description
 
 		// truncate long description for now.
 		if len(serviceDesc) > maxColumnLength {
@@ -61,10 +62,16 @@ func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 		// it will be either endpoints or description lines length
 		maxIterations := max(len(one.Endpoints), len(descLines))
 
+		names := []string{}
+		for name, _ := range one.Endpoints {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
 		for i := 0; i < maxIterations; i++ {
 			descLine := descAt(descLines, i)
-			endpoint := endpointAt(one.Endpoints, i)
-			print(serviceName, descLine, endpoint.Name, endpoint.Interface, endpoint.Role)
+			name, endpoint := endpointAt(one.Endpoints, names, i)
+			print(serviceName, descLine, name, endpoint.Interface, endpoint.Role)
 			// Only print once.
 			serviceName = ""
 		}
@@ -81,11 +88,12 @@ func descAt(lines []string, i int) string {
 	return ""
 }
 
-func endpointAt(endpoints []RemoteEndpoint, i int) RemoteEndpoint {
+func endpointAt(endpoints map[string]RemoteEndpoint, names []string, i int) (string, RemoteEndpoint) {
 	if i < len(endpoints) {
-		return endpoints[i]
+		name := names[i]
+		return name, endpoints[name]
 	}
-	return RemoteEndpoint{}
+	return "", RemoteEndpoint{}
 }
 
 func breakLines(text string) []string {

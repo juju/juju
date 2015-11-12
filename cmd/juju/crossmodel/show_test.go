@@ -53,15 +53,15 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "yaml"},
 		`
-- service: hosted-db2
+hosted-db2:
   endpoints:
-  - name: db2
-    interface: hhtp
-    role: role
-  - name: log
-    interface: http
-    role: role
-  desc: IBM DB2 Express Server Edition is an entry level database system
+    db2:
+      interface: hhtp
+      role: role
+    log:
+      interface: http
+      role: role
+  description: IBM DB2 Express Server Edition is an entry level database system
 `[1:],
 	)
 }
@@ -142,8 +142,8 @@ func (s mockShowAPI) Show(url string) (params.RemoteServiceInfo, error) {
 		Service:     s.serviceTag,
 		Description: s.desc,
 		Endpoints: []params.RemoteEndpoint{
-			params.RemoteEndpoint{"db2", "hhtp", "role"},
 			params.RemoteEndpoint{"log", "http", "role"},
+			params.RemoteEndpoint{"db2", "hhtp", "role"},
 		},
 	}, nil
 }

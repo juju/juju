@@ -34,9 +34,6 @@ func (c *CrossModelCommandBase) NewCrossModelAPI() (*crossmodel.Client, error) {
 
 // RemoteEndpoint defines the serialization behaviour of remote endpoints.
 type RemoteEndpoint struct {
-	// Name is relation name.
-	Name string `yaml:"name" json:"name"`
-
 	// Interface is relation interface.
 	Interface string `yaml:"interface" json:"interface"`
 
@@ -46,46 +43,43 @@ type RemoteEndpoint struct {
 
 // RemoteService defines the serialization behaviour of remote service.
 type RemoteService struct {
-	// Service has service name.
-	Service string `yaml:"service" json:"service"`
-
 	// Endpoints list of offered service endpoints.
-	Endpoints []RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
-	// Desc is the user entered description.
-	Desc string `yaml:"desc,omitempty" json:"desc,omitempty"`
+	// Description is the user entered description.
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 // convertRemoteServices takes any number of api-formatted remote services and
 // creates a collection of ui-formatted services.
-func convertRemoteServices(services ...params.RemoteServiceInfo) ([]RemoteService, error) {
+func convertRemoteServices(services ...params.RemoteServiceInfo) (map[string]RemoteService, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
-	output := make([]RemoteService, len(services))
-	for i, one := range services {
+	output := make(map[string]RemoteService, len(services))
+	for _, one := range services {
 		serviceName, err := getServiceNameFromTag(one.Service)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		output[i].Service = serviceName
-		output[i].Endpoints = convertRemoteEndpoints(one.Endpoints...)
+		service := RemoteService{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
 		if one.Description != "" {
-			output[i].Desc = one.Description
+			service.Description = one.Description
 		}
+		output[serviceName] = service
 	}
 	return output, nil
 }
 
 // convertRemoteEndpoints takes any number of api-formatted remote services' endpoints and
 // creates a collection of ui-formatted endpoints.
-func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) []RemoteEndpoint {
+func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]RemoteEndpoint {
 	if len(apiEndpoints) == 0 {
 		return nil
 	}
-	output := make([]RemoteEndpoint, len(apiEndpoints))
-	for i, one := range apiEndpoints {
-		output[i] = RemoteEndpoint{one.Name, one.Interface, one.Role}
+	output := make(map[string]RemoteEndpoint, len(apiEndpoints))
+	for _, one := range apiEndpoints {
+		output[one.Name] = RemoteEndpoint{one.Interface, one.Role}
 	}
 	return output
 }
