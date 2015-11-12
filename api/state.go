@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
+	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
@@ -272,6 +273,12 @@ func (st *state) Client() *Client {
 // required by the machiner worker.
 func (st *state) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// UnitAssigner returns a version of the state that provides functionality
+// required by the unitassigner worker.
+func (st *state) UnitAssigner() unitassigner.API {
+	return unitassigner.New(st)
 }
 
 // Resumer returns a version of the state that provides functionality

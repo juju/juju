@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -45,6 +46,8 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
@@ -90,6 +93,7 @@ type JujuConnSuite struct {
 	oldJujuHome  string
 	DummyConfig  testing.Attrs
 	Factory      *factory.Factory
+	runner       worker.Runner
 }
 
 const AdminSecret = "dummy-secret"
@@ -111,6 +115,14 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
+
+	// we need to manually run the unit assigner so that units which get
+	// deployed will get assigned to machines.
+	s.runner = worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
+	s.runner.StartWorker("unitassigner", func() (worker.Worker, error) {
+		c.Assert(s.APIState, gc.NotNil)
+		return unitassigner.New(s.APIState.UnitAssigner()), nil
+	})
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
@@ -118,6 +130,7 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+	s.runner.Kill()
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -607,7 +620,7 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, nil, storage)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -615,7 +628,7 @@ func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *s
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Networks: networks})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

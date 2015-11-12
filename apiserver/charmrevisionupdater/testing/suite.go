@@ -109,7 +109,7 @@ func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string, networks
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
 	owner := s.jcSuite.AdminUserTag(c)
-	_, err := s.jcSuite.State.AddService(serviceName, owner.String(), ch, networks, nil)
+	_, err := s.jcSuite.State.AddService(state.AddServiceArgs{Name: serviceName, Owner: owner.String(), Charm: ch, Networks: networks})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

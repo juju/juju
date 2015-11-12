@@ -267,6 +267,7 @@ var perEnvSingularWorkers = []string{
 	"charm-revision-updater",
 	"instancepoller",
 	"firewaller",
+	"unitassigner",
 }
 
 const initialMachinePassword = "machine-password-1234567890"

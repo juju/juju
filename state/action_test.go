@@ -615,7 +615,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		expected := sliceify(test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
-		err := state.WatcherMergeIds(s.State, &changes, updates)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes, jc.SameContents, expected)
 	}
@@ -639,7 +639,7 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 		changes, updates := []string{}, map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, &changes, updates)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
 
 		if test.ok {
 			c.Assert(err, jc.ErrorIsNil)

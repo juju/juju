@@ -101,6 +101,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -792,6 +793,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		addressUpdater := agent.APIHostPortsSetter{a}
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
 	})
+
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
@@ -1238,6 +1240,12 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
 		return newAddresser(apiSt.Addresser())
 	})
+
+	if machine.IsManager() {
+		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
+			return unitassigner.New(apiSt.UnitAssigner()), nil
+		})
+	}
 
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all

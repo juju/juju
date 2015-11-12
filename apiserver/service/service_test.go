@@ -369,6 +369,7 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.NotNil)
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
