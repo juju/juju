@@ -54,7 +54,7 @@ func (c *Client) Show(url string) (params.RemoteServiceInfo, error) {
 	}
 
 	if len(result) == 0 {
-		return params.RemoteServiceInfo{}, errors.NotFoundf("endpoints with url %q", url)
+		return params.RemoteServiceInfo{}, errors.NotFoundf("remote service with url %q", url)
 
 	}
 	return result[0], nil
