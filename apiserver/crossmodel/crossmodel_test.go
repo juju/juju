@@ -81,7 +81,7 @@ func (s *crossmodelSuite) TestListOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
 		params.RemoteServiceInfoResults{[]params.RemoteServiceInfoResult{
-			{RemoteService: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
+			{Result: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
 		}})
 	s.assertCalls(c, searchCall)
 }
@@ -163,8 +163,8 @@ func (s *crossmodelSuite) TestListOffersFoundMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfoResults{
 		[]params.RemoteServiceInfoResult{
-			{RemoteService: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
-			{RemoteService: params.RemoteServiceInfo{Service: tag2.String(), Endpoints: []params.RemoteEndpoint{}}},
+			{Result: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
+			{Result: params.RemoteServiceInfo{Service: tag2.String(), Endpoints: []params.RemoteEndpoint{}}},
 		}})
 	s.assertCalls(c, searchCall)
 }

@@ -60,5 +60,5 @@ func (c *Client) Show(url string) (params.RemoteServiceInfo, error) {
 	if theOne.Error != nil {
 		return params.RemoteServiceInfo{}, errors.Trace(theOne.Error)
 	}
-	return theOne.RemoteService, nil
+	return theOne.Result, nil
 }

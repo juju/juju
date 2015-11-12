@@ -122,12 +122,14 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.RemoteServiceInfos); ok {
-				points.Result = []params.RemoteServiceInfo{params.RemoteServiceInfo{
-					Description: desc,
-					Endpoints:   endpoints,
-					Service:     serviceTag,
-				}}
+			if points, ok := result.(*params.RemoteServiceInfoResults); ok {
+				points.Results = []params.RemoteServiceInfoResult{
+					{Result: params.RemoteServiceInfo{
+						Description: desc,
+						Endpoints:   endpoints,
+						Service:     serviceTag,
+					}},
+				}
 			}
 			return nil
 		})
@@ -140,6 +142,42 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		Description: desc,
 		Endpoints:   endpoints,
 		Service:     serviceTag})
+}
+
+func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
+	url := "local:/u/fred/prod/db2"
+	msg := "facade failure"
+
+	called := false
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Show")
+
+			args, ok := a.([]string)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args, gc.DeepEquals, []string{url})
+
+			if points, ok := result.(*params.RemoteServiceInfoResults); ok {
+				points.Results = []params.RemoteServiceInfoResult{
+					{Error: common.ServerError(errors.New(msg))}}
+			}
+			return nil
+		})
+	client := crossmodel.NewClient(apiCaller)
+	found, err := client.Show(url)
+
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfo{})
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
@@ -170,18 +208,18 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.RemoteServiceInfos); ok {
-				points.Result = []params.RemoteServiceInfo{
-					params.RemoteServiceInfo{
+			if points, ok := result.(*params.RemoteServiceInfoResults); ok {
+				points.Results = []params.RemoteServiceInfoResult{
+					{Result: params.RemoteServiceInfo{
 						Description: desc,
 						Endpoints:   endpoints,
 						Service:     serviceTag,
-					},
-					params.RemoteServiceInfo{
+					}},
+					{Result: params.RemoteServiceInfo{
 						Description: desc,
 						Endpoints:   endpoints,
 						Service:     serviceTag,
-					}}
+					}}}
 			}
 			return nil
 		})
