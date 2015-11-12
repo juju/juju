@@ -1749,8 +1749,8 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 		return nil, errors.Trace(err)
 	}
 
-	params := url.Values{"node": {nodeId}}
-	json, err := client.CallGet("", params)
+	//params := url.Values{"node": {nodeId}}
+	json, err := client.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1758,8 +1758,45 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Warningf("%#v", jsonNets)
-	return nil, nil
+	subnets := make([]network.SubnetInfo, len(jsonNets))
+	for i, jsonNet := range jsonNets {
+		fields, err := jsonNet.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		name, err := fields["name"].GetString()
+		if err != nil {
+			return nil, errors.Errorf("cannot get name: %v", err)
+		}
+		cidr, err := fields["cidr"].GetString()
+		if err != nil {
+			return nil, errors.Errorf("cannot get cidr: %v", err)
+		}
+		spaceName, err := fields["space"].GetString()
+		if err != nil {
+			return nil, errors.Errorf("cannot get space name: %v", err)
+		}
+		vlanTag := 0
+		vlanTagField, ok := fields["vlan_tag"]
+		if ok && !vlanTagField.IsNil() {
+			// vlan_tag is optional, so assume it's 0 when missing or nil.
+			vlanTagFloat, err := vlanTagField.GetFloat64()
+			if err != nil {
+				return nil, errors.Errorf("cannot get vlan_tag: %v", err)
+			}
+			vlanTag = int(vlanTagFloat)
+		}
+
+		subnets[i] = network.SubnetInfo{
+			ProviderId: name,
+			VLANTag:    vlanTag,
+			CIDR:       cidr,
+			SpaceName:  spaceName,
+		}
+	}
+	logger.Debugf("instance %q has subnets %v", instId, subnets)
+
+	return subnets, nil
 }
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
