@@ -9,6 +9,9 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
+
+	// when the legacy package is no longer used, please delete it entirely
+	"github.com/juju/juju/worker/legacy"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
@@ -23,10 +26,10 @@ type MinUnitsWorker struct {
 // minimum required number of units for a service is increased.
 func NewMinUnitsWorker(st *state.State) worker.Worker {
 	mu := &MinUnitsWorker{st: st}
-	return worker.NewStringsWorker(mu)
+	return legacy.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (watcher.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (legacy.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 
