@@ -89,7 +89,7 @@ func (api *API) Show(urls []string) (params.RemoteServiceInfoResults, error) {
 	for i, one := range found {
 		results[i].RemoteService = convertRemoteServiceDetails(one)
 		// TODO (anastasiamac 2015-11-12) once back-end is done in separate branch,
-		// fix values for results[i].URL and results[i].Error
+		// fix values for results[i].Error
 	}
 	return params.RemoteServiceInfoResults{results}, nil
 }
