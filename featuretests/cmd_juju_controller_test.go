@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -32,9 +32,10 @@ type cmdControllerSuite struct {
 }
 
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
-	command := controller.NewSuperCommand()
-	context, err := testing.RunCommand(c, command, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	context := testing.Context(c)
+	command := commands.NewJujuCommand(context)
+	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(command.Run(context), jc.ErrorIsNil)
 	return context
 }
 
@@ -52,14 +53,14 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 }
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
-	context := s.run(c, "list")
+	context := s.run(c, "list-controllers")
 	c.Assert(testing.Stdout(context), gc.Equals, "dummyenv\n")
 }
 
 func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
 	s.createEnv(c, "new-env", false)
-	context := s.run(c, "environments")
+	context := s.run(c, "list-environments")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME      OWNER              LAST CONNECTION\n"+
 		"dummyenv  dummy-admin@local  just now\n"+
@@ -120,7 +121,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	})
 
 	st.Close()
-	s.run(c, "destroy", "dummyenv", "-y", "--destroy-all-environments")
+	s.run(c, "destroy-controller", "dummyenv", "-y", "--destroy-all-environments")
 
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
@@ -132,7 +133,7 @@ func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	s.run(c, "remove-blocks")
+	s.run(c, "remove-all-blocks")
 
 	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,7 +147,7 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.Close()
 
-	s.run(c, "kill", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummyenv", "-y")
 
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
@@ -158,7 +159,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	ctx := s.run(c, "list-blocks", "--format", "json")
+	ctx := s.run(c, "list-all-blocks", "--format", "json")
 	expected := fmt.Sprintf(`[{"name":"dummyenv","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
 		s.State.EnvironUUID(), s.AdminUserTag(c).String())
 
