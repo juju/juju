@@ -311,11 +311,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleDirectoryError(c *gc.C) {
-	_, err := runDeployCommand(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "deployment of bundle directories not yet supported")
-}
-
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "mysql")
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "wordpress")

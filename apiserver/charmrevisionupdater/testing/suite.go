@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
-	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
@@ -66,7 +66,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
 		p.URL = s.Server.URL
 		return charmrepo.NewCharmStore(p)
 	})
