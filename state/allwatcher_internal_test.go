@@ -28,6 +28,7 @@ var (
 	_ backingEntityDoc = (*backingMachine)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingService)(nil)
+	_ backingEntityDoc = (*backingRemoteService)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
@@ -260,7 +261,40 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			},
 		})
 	}
+
+	_, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+	add(&remoteServiceInfo)
 	return
+}
+
+var mysqlRelations = []charm.Relation{{
+	Name:      "db",
+	Role:      "provider",
+	Scope:     charm.ScopeGlobal,
+	Interface: "mysql",
+}, {
+	Name:      "nrpe-external-master",
+	Role:      "provider",
+	Scope:     charm.ScopeGlobal,
+	Interface: "nrpe-external-master",
+}}
+
+func addTestingRemoteService(
+	c *gc.C, st *State, name string, relations []charm.Relation,
+) (*RemoteService, multiwatcher.RemoteServiceInfo) {
+
+	rs, err := st.AddRemoteService(name, relations)
+	c.Assert(err, jc.ErrorIsNil)
+	endpoints := make([]multiwatcher.Endpoint, len(relations))
+	for i, r := range relations {
+		endpoints[i] = multiwatcher.Endpoint{name, r}
+	}
+	return rs, multiwatcher.RemoteServiceInfo{
+		EnvUUID:   st.EnvironUUID(),
+		Name:      name,
+		Life:      multiwatcher.Life(rs.Life().String()),
+		Endpoints: endpoints,
+	}
 }
 
 var _ = gc.Suite(&allWatcherStateSuite{})
@@ -406,6 +440,34 @@ func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeRemoteServices(c *gc.C) {
+	testChangeRemoteServices(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestRemoveRemoteService(c *gc.C) {
+	mysql, remoteServiceInfo := addTestingRemoteService(c, s.state, "remote-mysql", mysqlRelations)
+	tw := newTestAllWatcher(s.state, c)
+	defer tw.Stop()
+
+	// We should see the initial remote service entity.
+	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
+		Entity: &remoteServiceInfo,
+	}})
+
+	// Destroying the remote service will remove it from state,
+	// because it has no relations.
+	err := mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.Refresh(), jc.Satisfies, errors.IsNotFound)
+	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
+		Removed: true,
+		Entity: &multiwatcher.RemoteServiceInfo{
+			EnvUUID: s.state.EnvironUUID(),
+			Name:    "remote-mysql",
+		},
+	}})
 }
 
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
@@ -1085,6 +1147,10 @@ func (s *allEnvWatcherStateSuite) TestChangeUnits(c *gc.C) {
 
 func (s *allEnvWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allEnvWatcherStateSuite) TestChangeRemoteServices(c *gc.C) {
+	testChangeRemoteServices(c, s.owner, s.performChangeTestCases)
 }
 
 func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
@@ -2854,6 +2920,83 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Data:    map[string]interface{}{},
 						},
 					}}}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no remote service in state, no remote service in store -> do nothing",
+				change: watcher.Change{
+					C:  "remoteservices",
+					Id: st.docID("remote-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "remote service is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.RemoteServiceInfo{
+						EnvUUID: st.EnvironUUID(),
+						Name:    "remote-mysql",
+					},
+				},
+				change: watcher.Change{
+					C:  "remoteservices",
+					Id: st.docID("remote-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			_, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+			return changeTestCase{
+				about: "remote service is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "remoteservices",
+					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			// Currently the only change we can make to a remote
+			// service is to destroy it.
+			//
+			// We must add a relation to the remote service, and
+			// a unit to the relation, so that the relation is not
+			// removed and thus the remote service is not removed
+			// upon destroying.
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			mysql, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+
+			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
+			c.Assert(err, jc.ErrorIsNil)
+			rel, err := st.AddRelation(eps[0], eps[1])
+			c.Assert(err, jc.ErrorIsNil)
+
+			wu, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			wru, err := rel.Unit(wu)
+			c.Assert(err, jc.ErrorIsNil)
+			err = wru.EnterScope(nil)
+			c.Assert(err, jc.ErrorIsNil)
+
+			err = mysql.Destroy()
+			c.Assert(err, jc.ErrorIsNil)
+			initialRemoteServiceInfo := remoteServiceInfo
+			remoteServiceInfo.Life = "dying"
+
+			return changeTestCase{
+				about:           "remote service is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},
+				change: watcher.Change{
+					C:  "remoteservices",
+					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
+			}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)

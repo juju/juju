@@ -86,6 +86,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 		case openedPortsC:
 			collection.docType = reflect.TypeOf(backingOpenedPorts{})
 			collection.subsidiary = true
+		case remoteServicesC:
+			collection.docType = reflect.TypeOf(backingRemoteService{})
 		default:
 			panic(errors.Errorf("unknown collection %q", collName))
 		}
@@ -480,6 +482,43 @@ func (svc *backingService) fixOwnerTag(env *Environment) string {
 }
 
 func (svc *backingService) mongoId() string {
+	return svc.DocID
+}
+
+type backingRemoteService remoteServiceDoc
+
+func (svc *backingRemoteService) updated(st *State, store *multiwatcherStore, id string) error {
+	if svc.Name == "" {
+		return errors.Errorf("remote service name is not set")
+	}
+	stateEndpoints := remoteEndpointDocsToEndpoints(svc.Name, svc.Endpoints)
+	endpoints := make([]multiwatcher.Endpoint, len(stateEndpoints))
+	for i, ep := range stateEndpoints {
+		endpoints[i] = multiwatcher.Endpoint{ep.ServiceName, ep.Relation}
+	}
+	info := &multiwatcher.RemoteServiceInfo{
+		EnvUUID:   st.EnvironUUID(),
+		Name:      svc.Name,
+		Endpoints: endpoints,
+		Life:      multiwatcher.Life(svc.Life.String()),
+	}
+	if store.Get(info.EntityId()) == nil {
+		logger.Debugf("new remote service %q added to backing state", svc.Name)
+	}
+	store.Update(info)
+	return nil
+}
+
+func (svc *backingRemoteService) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:    "remoteservice",
+		EnvUUID: envUUID,
+		Id:      id,
+	})
+	return nil
+}
+
+func (svc *backingRemoteService) mongoId() string {
 	return svc.DocID
 }
 
@@ -996,6 +1035,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 		machinesC,
 		unitsC,
 		servicesC,
+		remoteServicesC,
 		relationsC,
 		annotationsC,
 		statusesC,
@@ -1076,6 +1116,7 @@ func newAllEnvWatcherStateBacking(st *State) Backing {
 		machinesC,
 		unitsC,
 		servicesC,
+		remoteServicesC,
 		relationsC,
 		annotationsC,
 		statusesC,
