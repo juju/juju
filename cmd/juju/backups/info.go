@@ -6,21 +6,27 @@ package backups
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 const infoDoc = `
 "info" provides the metadata associated with a backup.
 `
 
-// InfoCommand is the sub-command for creating a new backup.
-type InfoCommand struct {
+func newInfoCommand() cmd.Command {
+	return envcmd.Wrap(&infoCommand{})
+}
+
+// infoCommand is the sub-command for creating a new backup.
+type infoCommand struct {
 	CommandBase
 	// ID is the backup ID to get.
 	ID string
 }
 
 // Info implements Command.Info.
-func (c *InfoCommand) Info() *cmd.Info {
+func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "info",
 		Args:    "<ID>",
@@ -30,7 +36,7 @@ func (c *InfoCommand) Info() *cmd.Info {
 }
 
 // Init implements Command.Init.
-func (c *InfoCommand) Init(args []string) error {
+func (c *infoCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing ID")
 	}
@@ -43,7 +49,7 @@ func (c *InfoCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *InfoCommand) Run(ctx *cmd.Context) error {
+func (c *infoCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)

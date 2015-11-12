@@ -84,14 +84,16 @@ tags
    tags constraints are supported, the latter have a "^" prefix. Tags are
    currently only supported by the MaaS environment.
 
-networks
-   Networks defines the list of networks to ensure are available or not on the
-   machine. Both positive and negative network constraints can be specified, the
-   later have a "^" prefix to the name. Multiple networks must be delimited by a
-   comma. Not supported on all providers. Example: networks=storage,db,^logging
-   specifies to select machines with "storage" and "db" networks but not "logging"
-   network. Positive network constraints do not imply the networks will be enabled,
-   use the --networks argument for that, just that they could be enabled.
+spaces
+   Spaces constraint allows specifying a list of Juju network space names a unit
+   or machine needs access to. Both positive and negative (prefixed with "^")
+   spaces can be in the list, separated by commas.
+
+   Example: spaces=storage,db,^logging,^public (meaning, select machines connected
+   to the storage and db spaces, but NOT to logging or public spaces).
+
+   EC2 is the only provider supporting for spaces constraints. Support for other
+   provides is planned for future releases.
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,

@@ -3,12 +3,22 @@
 
 package block
 
-import "github.com/juju/juju/apiserver/params"
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
+)
 
 var (
 	BlockClient   = &getBlockClientAPI
 	UnblockClient = &getUnblockClientAPI
 	ListClient    = &getBlockListAPI
+
+	NewDestroyCommand = newDestroyCommand
+	NewRemoveCommand  = newRemoveCommand
+	NewChangeCommand  = newChangeCommand
+	NewListCommand    = newListCommand
 )
 
 type MockBlockClient struct {
@@ -43,4 +53,8 @@ func (c *MockBlockClient) List() ([]params.Block, error) {
 			Message: c.Msg,
 		},
 	}, nil
+}
+
+func NewUnblockCommandWithClient(client UnblockClientAPI) cmd.Command {
+	return envcmd.Wrap(&unblockCommand{client: client})
 }

@@ -21,8 +21,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ToolsMetadataCommand is used to generate simplestreams metadata for juju tools.
-type ToolsMetadataCommand struct {
+func newToolsMetadataCommand() cmd.Command {
+	return envcmd.Wrap(&toolsMetadataCommand{})
+}
+
+// toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
+type toolsMetadataCommand struct {
 	envcmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
@@ -73,7 +77,7 @@ Examples:
 
 `
 
-func (c *ToolsMetadataCommand) Info() *cmd.Info {
+func (c *toolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "generate-tools",
 		Purpose: "generate simplestreams tools metadata",
@@ -81,7 +85,7 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 	// If no stream is specified, we'll generate metadata for the legacy tools location.
 	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to generate the metadata")
@@ -89,7 +93,7 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 }
 
-func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
+func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {

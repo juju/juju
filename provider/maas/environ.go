@@ -1126,21 +1126,28 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
-const bridgeConfigTemplate = `
-# In case we already created the bridge, don't do it again.
-grep -q "iface {{.Bridge}} inet dhcp" && exit 0
+const modifyEtcNetworkInterfaces = `isDHCP() {
+    grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
+    return $?
+}
 
-# Discover primary interface at run-time using the default route (if set)
-PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+isStatic() {
+    grep -q "iface ${PRIMARY_IFACE} inet static" {{.Config}}
+    return $?
+}
 
-# If $PRIMARY_IFACE is empty, there's nothing to do.
-[ -z "$PRIMARY_IFACE" ] && exit 0
+unAuto() {
+    # Remove the line auto starting the primary interface. \s*$ matches
+    # whitespace and the end of the line to avoid mangling aliases.
+    grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
+    sed -i "s/auto ${PRIMARY_IFACE}\s*$//" {{.Config}}
+}
 
 # Change the config to make $PRIMARY_IFACE manual instead of DHCP,
 # then create the bridge and enslave $PRIMARY_IFACE into it.
-grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}} && \
-sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}} && \
-cat >> {{.Config}} << EOF
+if isDHCP; then
+    sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}}
+    cat >> {{.Config}} << EOF
 
 # Primary interface (defining the default route)
 iface ${PRIMARY_IFACE} inet manual
@@ -1150,33 +1157,77 @@ auto {{.Bridge}}
 iface {{.Bridge}} inet dhcp
     bridge_ports ${PRIMARY_IFACE}
 EOF
+    # Make the primary interface not auto-starting.
+    unAuto
+elif isStatic
+then
+    sed -i "s/iface ${PRIMARY_IFACE} inet static/iface {{.Bridge}} inet static\n    bridge_ports ${PRIMARY_IFACE}/" {{.Config}}
+    sed -i "s/auto ${PRIMARY_IFACE}\s*$/auto {{.Bridge}}/" {{.Config}}
+    cat >> {{.Config}} << EOF
 
-# Make the primary interface not auto-starting.
-grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
-sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+# Primary interface (defining the default route)
+iface ${PRIMARY_IFACE} inet manual
+EOF
+fi`
 
-# Stop $PRIMARY_IFACE and start the bridge instead.
-ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
+const bridgeConfigTemplate = `
+# In case we already created the bridge, don't do it again.
+grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
 
-# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't
-# clash with the same automatically added route for juju-br0 (except
-# for the device name).
-ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
+# Discover primary interface at run-time using the default route (if set)
+PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+
+# If $PRIMARY_IFACE is empty, there's nothing to do.
+[ -z "$PRIMARY_IFACE" ] && exit 0
+
+# Bring down the primary interface while /e/n/i still matches the live config.
+# Will bring it back up within a bridge after updating /e/n/i.
+ifdown -v ${PRIMARY_IFACE}
+
+# Log the contents of /etc/network/interfaces prior to modifying
+echo "Contents of /etc/network/interfaces before changes"
+cat /etc/network/interfaces
+{{.Script}}
+# Log the contents of /etc/network/interfaces after modifying
+echo "Contents of /etc/network/interfaces after changes"
+cat /etc/network/interfaces
+
+ifup -v {{.Bridge}}
 `
 
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() (string, error) {
+	modifyConfigScript, err := renderEtcNetworkInterfacesScript("/etc/network/interfaces", instancecfg.DefaultBridgeName)
+	if err != nil {
+		return "", err
+	}
 	parsedTemplate := template.Must(
 		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
 	)
 	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+	err = parsedTemplate.Execute(&buf, map[string]interface{}{
 		"Config": "/etc/network/interfaces",
 		"Bridge": instancecfg.DefaultBridgeName,
+		"Script": modifyConfigScript,
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
+	}
+	return buf.String(), nil
+}
+
+func renderEtcNetworkInterfacesScript(config, bridge string) (string, error) {
+	parsedTemplate := template.Must(
+		template.New("ModifyConfigScript").Parse(modifyEtcNetworkInterfaces),
+	)
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config": config,
+		"Bridge": bridge,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "modify /etc/network/interfaces script template error")
 	}
 	return buf.String(), nil
 }

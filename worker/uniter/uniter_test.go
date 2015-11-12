@@ -121,7 +121,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
 				updateStatusHookTicker: s.updateStatusHookTicker,
-				charmDirLocker:         &mockCharmDirLocker{},
+				charmDirGuard:          &mockCharmDirGuard{},
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -1693,7 +1693,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		dataDir:                s.dataDir,
 		charms:                 make(map[string][]byte),
 		updateStatusHookTicker: s.updateStatusHookTicker,
-		charmDirLocker:         &mockCharmDirLocker{},
+		charmDirGuard:          &mockCharmDirGuard{},
 	}
 
 	addStateServerMachine(c, ctx.st)

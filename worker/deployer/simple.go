@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
@@ -108,7 +110,12 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
 
@@ -127,7 +134,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 				LogDir:          logDir,
 				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
 			},
-			UpgradedToVersion: version.Current.Number,
+			UpgradedToVersion: version.Current,
 			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",

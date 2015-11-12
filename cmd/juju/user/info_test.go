@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -36,7 +35,7 @@ var (
 )
 
 func newUserInfoCommand() cmd.Command {
-	return envcmd.WrapSystem(user.NewInfoCommand(&fakeUserInfoAPI{}))
+	return user.NewInfoCommand(&fakeUserInfoAPI{})
 }
 
 type fakeUserInfoAPI struct{}

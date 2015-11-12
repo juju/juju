@@ -57,8 +57,12 @@ var getBlockClientAPI = func(p *BaseBlockCommand) (BlockClientAPI, error) {
 	return getBlockAPI(&p.EnvCommandBase)
 }
 
-// DestroyCommand blocks destroy environment.
-type DestroyCommand struct {
+func newDestroyCommand() cmd.Command {
+	return envcmd.Wrap(&destroyCommand{})
+}
+
+// destroyCommand blocks destroy environment.
+type destroyCommand struct {
 	BaseBlockCommand
 }
 
@@ -79,7 +83,7 @@ Examples:
 
 // Info provides information about command.
 // Satisfying Command interface.
-func (c *DestroyCommand) Info() *cmd.Info {
+func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-environment",
 		Purpose: "block an operation that would destroy Juju environment",
@@ -88,12 +92,16 @@ func (c *DestroyCommand) Info() *cmd.Info {
 }
 
 // Satisfying Command interface.
-func (c *DestroyCommand) Run(_ *cmd.Context) error {
+func (c *destroyCommand) Run(_ *cmd.Context) error {
 	return c.internalRun(c.Info().Name)
 }
 
-// RemoveCommand blocks commands that remove juju objects.
-type RemoveCommand struct {
+func newRemoveCommand() cmd.Command {
+	return envcmd.Wrap(&removeCommand{})
+}
+
+// removeCommand blocks commands that remove juju objects.
+type removeCommand struct {
 	BaseBlockCommand
 }
 
@@ -120,7 +128,7 @@ Examples:
 
 // Info provides information about command.
 // Satisfying Command interface.
-func (c *RemoveCommand) Info() *cmd.Info {
+func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-object",
 		Purpose: "block an operation that would remove an object",
@@ -129,12 +137,16 @@ func (c *RemoveCommand) Info() *cmd.Info {
 }
 
 // Satisfying Command interface.
-func (c *RemoveCommand) Run(_ *cmd.Context) error {
+func (c *removeCommand) Run(_ *cmd.Context) error {
 	return c.internalRun(c.Info().Name)
 }
 
-// ChangeCommand blocks commands that may change environment.
-type ChangeCommand struct {
+func newChangeCommand() cmd.Command {
+	return envcmd.Wrap(&changeCommand{})
+}
+
+// changeCommand blocks commands that may change environment.
+type changeCommand struct {
 	BaseBlockCommand
 }
 
@@ -186,7 +198,7 @@ Examples:
 
 // Info provides information about command.
 // Satisfying Command interface.
-func (c *ChangeCommand) Info() *cmd.Info {
+func (c *changeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "all-changes",
 		Purpose: "block operations that could change Juju environment",
@@ -195,6 +207,6 @@ func (c *ChangeCommand) Info() *cmd.Info {
 }
 
 // Satisfying Command interface.
-func (c *ChangeCommand) Run(_ *cmd.Context) error {
+func (c *changeCommand) Run(_ *cmd.Context) error {
 	return c.internalRun(c.Info().Name)
 }

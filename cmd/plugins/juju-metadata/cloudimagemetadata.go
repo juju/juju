@@ -9,18 +9,18 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 )
 
-type CloudImageMetadataCommandBase struct {
-	ImageMetadataCommandBase
+type cloudImageMetadataCommandBase struct {
+	imageMetadataCommandBase
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *CloudImageMetadataCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	c.ImageMetadataCommandBase.SetFlags(f)
+func (c *cloudImageMetadataCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	c.imageMetadataCommandBase.SetFlags(f)
 }
 
 // NewImageMetadataAPI returns a image metadata api for the root api endpoint
 // that the environment command returns.
-func (c *CloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadata.Client, error) {
+func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadata.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err

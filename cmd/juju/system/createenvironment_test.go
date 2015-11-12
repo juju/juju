@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -67,8 +67,8 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewCreateEnvironmentCommand(s.fake, s.parser)
-	return testing.RunCommand(c, envcmd.WrapSystem(command), args...)
+	command, _ := system.NewCreateEnvironmentCommand(s.fake, s.parser)
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *createSuite) TestInit(c *gc.C) {
@@ -110,23 +110,23 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		create := &system.CreateEnvironmentCommand{}
-		err := testing.InitCommand(create, test.args)
+		wrappedCommand, command := system.NewCreateEnvironmentCommand(nil, nil)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			continue
 		}
 
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(create.Name(), gc.Equals, test.name)
-		c.Assert(create.Owner(), gc.Equals, test.owner)
-		c.Assert(create.ConfigFile().Path, gc.Equals, test.path)
+		c.Assert(command.Name, gc.Equals, test.name)
+		c.Assert(command.Owner, gc.Equals, test.owner)
+		c.Assert(command.ConfigFile.Path, gc.Equals, test.path)
 		// The config value parse method returns an empty map
 		// if there were no values
 		if len(test.values) == 0 {
-			c.Assert(create.ConfValues(), gc.HasLen, 0)
+			c.Assert(command.ConfValues, gc.HasLen, 0)
 		} else {
-			c.Assert(create.ConfValues(), jc.DeepEquals, test.values)
+			c.Assert(command.ConfValues, jc.DeepEquals, test.values)
 		}
 	}
 }
@@ -234,7 +234,7 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `unable to parse config file: YAML error: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: yaml: .*`)
 }
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {

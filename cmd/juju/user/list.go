@@ -13,34 +13,39 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const ListCommandDoc = `
+const listCommandDoc = `
 List all the current users in the Juju server.
 
 See Also:
    juju help user info
 `
 
-// ListCommand shows all the users in the Juju server.
-type ListCommand struct {
-	InfoCommandBase
-	all bool
+func newListCommand() cmd.Command {
+	return envcmd.WrapSystem(&listCommand{})
+}
+
+// listCommand shows all the users in the Juju server.
+type listCommand struct {
+	infoCommandBase
+	All bool
 }
 
 // Info implements Command.Info.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "shows all users",
-		Doc:     ListCommandDoc,
+		Doc:     listCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.InfoCommandBase.SetFlags(f)
-	f.BoolVar(&c.all, "all", false, "include disabled users in the listing")
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.infoCommandBase.SetFlags(f)
+	f.BoolVar(&c.All, "all", false, "include disabled users in the listing")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -49,7 +54,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
+func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	// Note: the InfoCommandBase and the UserInfo struct are defined
 	// in info.go.
 	client, err := c.getUserInfoAPI()
@@ -58,7 +63,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
-	result, err := client.UserInfo(nil, usermanager.IncludeDisabled(c.all))
+	result, err := client.UserInfo(nil, usermanager.IncludeDisabled(c.All))
 	if err != nil {
 		return err
 	}
@@ -66,7 +71,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
 }
 
-func (c *ListCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *listCommand) formatTabular(value interface{}) ([]byte, error) {
 	users, valueConverted := value.([]UserInfo)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)

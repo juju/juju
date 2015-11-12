@@ -25,7 +25,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command = subnet.NewAddCommand(s.api)
+	s.command, _ = subnet.NewAddCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -94,8 +94,8 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := subnet.NewAddCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := subnet.NewAddCommand(s.api)
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
@@ -236,16 +236,4 @@ func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {
 		names.NewSpaceTag("space"),
 		s.Strings("zone1", "zone2"),
 	)
-}
-
-func (s *AddSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
-	s.command = subnet.NewAddCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"10.10.0.0/24", "space",
-	)
-
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

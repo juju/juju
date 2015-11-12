@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker"
@@ -147,7 +148,7 @@ func (engine *engine) loop() error {
 			engine.gotStopped(ticket.name, ticket.error, ticket.resourceLog)
 		}
 		if engine.isDying() {
-			if engine.allStopped() {
+			if engine.allOthersStopped() {
 				return tomb.ErrDying
 			}
 		}
@@ -253,6 +254,21 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	engine.current[name] = workerInfo{}
 	engine.requestStart(name, 0)
 	return nil
+}
+
+// uninstall removes the named manifold from the engine's records.
+func (engine *engine) uninstall(name string) {
+	// Note that we *don't* want to remove dependents[name] -- all those other
+	// manifolds do still depend on this, and another manifold with the same
+	// name might be installed in the future -- but we do want to remove the
+	// named manifold from all *values* in the dependents map.
+	for dName, dependents := range engine.dependents {
+		depSet := set.NewStrings(dependents...)
+		depSet.Remove(name)
+		engine.dependents[dName] = depSet.Values()
+	}
+	delete(engine.current, name)
+	delete(engine.manifolds, name)
 }
 
 // checkAcyclic returns an error if the introduction of the supplied manifold
@@ -471,6 +487,9 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// The task can't even start with the current state. Nothing more
 			// can be done (until the inputs change, in which case we retry
 			// anyway).
+		case ErrUninstall:
+			// The task should never run again, and can be removed completely.
+			engine.uninstall(name)
 		default:
 			// Something went wrong but we don't know what. Try again soon.
 			logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
@@ -514,11 +533,12 @@ func (engine *engine) isDying() bool {
 	}
 }
 
-// allStopped returns true if no workers are running or starting. It must only
+// allOthersStopped returns true if no workers (other than the engine itself,
+// if it happens to have been injected) are running or starting. It must only
 // be called from the loop goroutine.
-func (engine *engine) allStopped() bool {
+func (engine *engine) allOthersStopped() bool {
 	for _, info := range engine.current {
-		if !info.stopped() {
+		if !info.stopped() && info.worker != engine {
 			return false
 		}
 	}

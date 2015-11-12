@@ -12,8 +12,12 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// ListBlocksCommand lists all blocks for environments within the system.
-type ListBlocksCommand struct {
+func newListBlocksCommand() cmd.Command {
+	return envcmd.WrapSystem(&listBlocksCommand{})
+}
+
+// listBlocksCommand lists all blocks for environments within the system.
+type listBlocksCommand struct {
 	envcmd.SysCommandBase
 	out    cmd.Output
 	api    listBlocksAPI
@@ -30,7 +34,7 @@ type listBlocksAPI interface {
 }
 
 // Info implements Command.Info.
-func (c *ListBlocksCommand) Info() *cmd.Info {
+func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-blocks",
 		Purpose: "list all blocks within the system",
@@ -39,7 +43,7 @@ func (c *ListBlocksCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListBlocksCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listBlocksCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -47,7 +51,7 @@ func (c *ListBlocksCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *ListBlocksCommand) getAPI() (listBlocksAPI, error) {
+func (c *listBlocksCommand) getAPI() (listBlocksAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
@@ -55,7 +59,7 @@ func (c *ListBlocksCommand) getAPI() (listBlocksAPI, error) {
 }
 
 // Run implements Command.Run
-func (c *ListBlocksCommand) Run(ctx *cmd.Context) error {
+func (c *listBlocksCommand) Run(ctx *cmd.Context) error {
 	api, err := c.getAPI()
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to the API")

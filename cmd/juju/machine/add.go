@@ -91,8 +91,12 @@ func init() {
 	)
 }
 
-// AddCommand starts a new machine and registers it in the environment.
-type AddCommand struct {
+func newAddCommand() cmd.Command {
+	return envcmd.Wrap(&addCommand{})
+}
+
+// addCommand starts a new machine and registers it in the environment.
+type addCommand struct {
 	envcmd.EnvCommandBase
 	api               AddMachineAPI
 	machineManagerAPI MachineManagerAPI
@@ -108,7 +112,7 @@ type AddCommand struct {
 	Disks []storage.Constraints
 }
 
-func (c *AddCommand) Info() *cmd.Info {
+func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
@@ -117,14 +121,14 @@ func (c *AddCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 	f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
 }
 
-func (c *AddCommand) Init(args []string) error {
+func (c *addCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -164,14 +168,14 @@ type MachineManagerAPI interface {
 
 var manualProvisioner = manual.ProvisionMachine
 
-func (c *AddCommand) getClientAPI() (AddMachineAPI, error) {
+func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *AddCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
+func (c *addCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -179,14 +183,14 @@ func (c *AddCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
 	return machinemanager.NewClient(root), nil
 }
 
-func (c *AddCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
+func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 	if c.machineManagerAPI != nil {
 		return c.machineManagerAPI, nil
 	}
 	return c.NewMachineManagerClient()
 }
 
-func (c *AddCommand) Run(ctx *cmd.Context) error {
+func (c *addCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getClientAPI()
 	if err != nil {
 		return errors.Trace(err)

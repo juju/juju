@@ -11,9 +11,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const AddImageCommandDoc = `
+func newAddImageMetadataCommand() cmd.Command {
+	return envcmd.Wrap(&addImageMetadataCommand{})
+}
+
+const addImageCommandDoc = `
 Add image metadata to Juju environment.
 
 Image metadata properties vary between providers. Consequently, some properties
@@ -40,9 +45,9 @@ options:
    image stream
 `
 
-// AddImageMetadataCommand stores image metadata in Juju environment.
-type AddImageMetadataCommand struct {
-	CloudImageMetadataCommandBase
+// addImageMetadataCommand stores image metadata in Juju environment.
+type addImageMetadataCommand struct {
+	cloudImageMetadataCommandBase
 
 	ImageId         string
 	Region          string
@@ -55,7 +60,7 @@ type AddImageMetadataCommand struct {
 }
 
 // Init implements Command.Init.
-func (c *AddImageMetadataCommand) Init(args []string) (err error) {
+func (c *addImageMetadataCommand) Init(args []string) (err error) {
 	if err := checkArgumentSet(c.ImageId, "image id"); err != nil {
 		return err
 	}
@@ -63,17 +68,17 @@ func (c *AddImageMetadataCommand) Init(args []string) (err error) {
 }
 
 // Info implements Command.Info.
-func (c *AddImageMetadataCommand) Info() *cmd.Info {
+func (c *addImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-image",
 		Purpose: "adds image metadata to environment",
-		Doc:     AddImageCommandDoc,
+		Doc:     addImageCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *AddImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CloudImageMetadataCommandBase.SetFlags(f)
+func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.ImageId, "image-id", "", "metadata image id")
 	f.StringVar(&c.Region, "region", "", "image cloud region")
@@ -88,7 +93,7 @@ func (c *AddImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *AddImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
+func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := getImageMetadataAddAPI(c)
 	if err != nil {
 		return err
@@ -118,9 +123,9 @@ type MetadataAddAPI interface {
 	Save(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error)
 }
 
-var getImageMetadataAddAPI = (*AddImageMetadataCommand).getImageMetadataAddAPI
+var getImageMetadataAddAPI = (*addImageMetadataCommand).getImageMetadataAddAPI
 
-func (c *AddImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, error) {
+func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, error) {
 	return c.NewImageMetadataAPI()
 }
 
@@ -132,7 +137,7 @@ func checkArgumentSet(arg, name string) (err error) {
 }
 
 // constructMetadataParam returns cloud image metadata as a param.
-func (c *AddImageMetadataCommand) constructMetadataParam() params.CloudImageMetadata {
+func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMetadata {
 	info := params.CloudImageMetadata{
 		ImageId:         c.ImageId,
 		Region:          c.Region,

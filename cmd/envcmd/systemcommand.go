@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 // ErrNoSystemSpecified is returned by commands that operate on
@@ -24,11 +23,12 @@ var ErrNoSystemSpecified = errors.New("no system specified")
 // SystemCommand is intended to be a base for all commands
 // that need to operate on systems as opposed to environments.
 type SystemCommand interface {
-	cmd.Command
+	CommandBase
 
 	// SetSystemName is called prior to the wrapped command's Init method with
 	// the active system name. The system name is guaranteed to be non-empty
-	// at entry of Init.
+	// at entry of Init. It records the current environment name in the
+	// SysCommandBase.
 	SetSystemName(systemName string)
 
 	// SystemName returns the name of the system or environment used to
@@ -39,17 +39,17 @@ type SystemCommand interface {
 // SysCommandBase is a convenience type for embedding in commands
 // that wish to implement SystemCommand.
 type SysCommandBase struct {
-	cmd.CommandBase
+	JujuCommandBase
+
 	systemName string
 }
 
-// SetSystemName records the current environment name in the SysCommandBase
+// SetSystemName implements the SystemCommand interface.
 func (c *SysCommandBase) SetSystemName(systemName string) {
 	c.systemName = systemName
 }
 
-// SystemName returns the name of the system or environment used to determine
-// that API end point.
+// SystemName implements the SystemCommand interface.
 func (c *SysCommandBase) SystemName() string {
 	return c.systemName
 }
@@ -91,7 +91,7 @@ func (c *SysCommandBase) newAPIRoot() (api.Connection, error) {
 	if c.systemName == "" {
 		return nil, errors.Trace(ErrNoSystemSpecified)
 	}
-	return juju.NewAPIFromName(c.systemName)
+	return c.NewAPIRoot(c.systemName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -134,21 +134,49 @@ func (c *SysCommandBase) ConnectionInfo() (configstore.EnvironInfo, error) {
 	return info, nil
 }
 
-// Wrap wraps the specified SystemCommand, returning a Command
+// WrapSystemOption sets various parameters of the
+// SystemCommand wrapper.
+type WrapSystemOption func(*sysCommandWrapper)
+
+// SystemSkipFlags instructs the wrapper to skip --s
+// and --system flag definition.
+func SystemSkipFlags(w *sysCommandWrapper) {
+	w.setFlags = false
+}
+
+// SystemSkipDefault instructs the wrapper not to
+// use the default system name.
+func SystemSkipDefault(w *sysCommandWrapper) {
+	w.useDefaultSystemName = false
+}
+
+// WrapSystem wraps the specified SystemCommand, returning a Command
 // that proxies to each of the SystemCommand methods.
-func WrapSystem(c SystemCommand) cmd.Command {
-	return &sysCommandWrapper{SystemCommand: c}
+func WrapSystem(c SystemCommand, options ...WrapSystemOption) cmd.Command {
+	wrapper := &sysCommandWrapper{
+		SystemCommand:        c,
+		setFlags:             true,
+		useDefaultSystemName: true,
+	}
+	for _, option := range options {
+		option(wrapper)
+	}
+	return WrapBase(wrapper)
 }
 
 type sysCommandWrapper struct {
 	SystemCommand
-	systemName string
+	setFlags             bool
+	useDefaultSystemName bool
+	systemName           string
 }
 
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
 func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&w.systemName, "s", "", "juju system to operate in")
-	f.StringVar(&w.systemName, "system", "", "")
+	if w.setFlags {
+		f.StringVar(&w.systemName, "s", "", "juju system to operate in")
+		f.StringVar(&w.systemName, "system", "", "")
+	}
 	w.SystemCommand.SetFlags(f)
 }
 
@@ -168,12 +196,17 @@ func (w *sysCommandWrapper) getDefaultSystemName() (string, error) {
 
 // Init implements Command.Init, then calls the wrapped command's Init.
 func (w *sysCommandWrapper) Init(args []string) error {
-	if w.systemName == "" {
-		name, err := w.getDefaultSystemName()
-		if err != nil {
-			return errors.Trace(err)
+	if w.setFlags {
+		if w.systemName == "" && w.useDefaultSystemName {
+			name, err := w.getDefaultSystemName()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			w.systemName = name
 		}
-		w.systemName = name
+		if w.systemName == "" && !w.useDefaultSystemName {
+			return ErrNoSystemSpecified
+		}
 	}
 	w.SetSystemName(w.systemName)
 	return w.SystemCommand.Init(args)

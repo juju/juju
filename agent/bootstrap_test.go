@@ -89,7 +89,7 @@ LXC_BRIDGE="ignored"`[1:])
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
@@ -136,7 +136,7 @@ LXC_BRIDGE="ignored"`[1:])
 		filteredAddrs = append([]network.Address{}, initialAddrs...)
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
@@ -222,7 +222,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
@@ -247,7 +247,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
@@ -272,7 +272,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Characteristics: expectHW,
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)

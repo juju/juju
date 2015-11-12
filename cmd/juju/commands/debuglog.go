@@ -15,7 +15,11 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-type DebugLogCommand struct {
+func newDebugLogCommand() cmd.Command {
+	return envcmd.Wrap(&debugLogCommand{})
+}
+
+type debugLogCommand struct {
 	envcmd.EnvCommandBase
 
 	level  string
@@ -33,7 +37,7 @@ Stream the consolidated debug log file. This file contains the log messages
 from all nodes in the environment.
 `
 
-func (c *DebugLogCommand) Info() *cmd.Info {
+func (c *debugLogCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-log",
 		Purpose: "display the consolidated log file",
@@ -41,7 +45,7 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "only show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "only show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "do not show log messages for these entities")
@@ -58,7 +62,7 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.params.Replay, "replay", false, "start filtering from the start")
 }
 
-func (c *DebugLogCommand) Init(args []string) error {
+func (c *debugLogCommand) Init(args []string) error {
 	if c.level != "" {
 		level, ok := loggo.ParseLevel(c.level)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
@@ -75,12 +79,12 @@ type DebugLogAPI interface {
 	Close() error
 }
 
-var getDebugLogAPI = func(c *DebugLogCommand) (DebugLogAPI, error) {
+var getDebugLogAPI = func(c *debugLogCommand) (DebugLogAPI, error) {
 	return c.NewAPIClient()
 }
 
 // Run retrieves the debug log via the API.
-func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
+func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 	client, err := getDebugLogAPI(c)
 	if err != nil {
 		return err
@@ -95,6 +99,6 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	return err
 }
 
-var runSSHCommand = func(sshCmd *SSHCommand, ctx *cmd.Context) error {
+var runSSHCommand = func(sshCmd *sshCommand, ctx *cmd.Context) error {
 	return sshCmd.Run(ctx)
 }

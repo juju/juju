@@ -140,6 +140,7 @@ type LogTailerParams struct {
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int
+	NoTail        bool
 	IncludeEntity []string
 	ExcludeEntity []string
 	IncludeModule []string
@@ -222,6 +223,10 @@ func (t *logTailer) loop() error {
 	err := t.processCollection()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if t.params.NoTail {
+		return nil
 	}
 
 	err = t.tailOplog()

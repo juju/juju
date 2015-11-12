@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -58,7 +59,11 @@ func ContextForDir(c *gc.C, dir string) *cmd.Context {
 // Stdout takes a command Context that we assume has been created in this
 // package, and gets the content of the Stdout buffer as a string.
 func Stdout(ctx *cmd.Context) string {
-	return ctx.Stdout.(*bytes.Buffer).String()
+	buff, ok := ctx.Stdout.(*bytes.Buffer)
+	if ok {
+		return buff.String()
+	}
+	return "not a buffer"
 }
 
 // Stderr takes a command Context that we assume has been created in this
@@ -72,10 +77,13 @@ func Stderr(ctx *cmd.Context) string {
 // the actual running of the command.  Access to the resulting output streams
 // is provided through the returned context instance.
 func RunCommand(c *gc.C, com cmd.Command, args ...string) (*cmd.Context, error) {
-	if err := InitCommand(com, args); err != nil {
-		return nil, err
-	}
 	var context = Context(c)
+	if err := InitCommand(com, args); err != nil {
+		if err != nil {
+			fmt.Fprintf(context.Stderr, "error: %v\n", err)
+		}
+		return context, err
+	}
 	return context, com.Run(context)
 }
 

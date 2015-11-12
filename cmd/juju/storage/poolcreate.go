@@ -8,9 +8,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const PoolCreateCommandDoc = `
+// PoolCreateAPI defines the API methods that pool create command uses.
+type PoolCreateAPI interface {
+	Close() error
+	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
+}
+
+const poolCreateCommandDoc = `
 Create or define a storage pool.
 
 Pools are a mechanism for administrators to define sources of storage that
@@ -44,9 +52,14 @@ options:
         for e.g. tags, size, path, etc...
 `
 
-// PoolCreateCommand lists storage pools.
-type PoolCreateCommand struct {
+func newPoolCreateCommand() cmd.Command {
+	return envcmd.Wrap(&poolCreateCommand{})
+}
+
+// poolCreateCommand lists storage pools.
+type poolCreateCommand struct {
 	PoolCommandBase
+	api      PoolCreateAPI
 	poolName string
 	// TODO(anastasiamac 2015-01-29) type will need to become optional
 	// if type is unspecified, use the environment's default provider type
@@ -55,7 +68,7 @@ type PoolCreateCommand struct {
 }
 
 // Init implements Command.Init.
-func (c *PoolCreateCommand) Init(args []string) (err error) {
+func (c *poolCreateCommand) Init(args []string) (err error) {
 	if len(args) < 3 {
 		return errors.New("pool creation requires names, provider type and attrs for configuration")
 	}
@@ -79,41 +92,30 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 }
 
 // Info implements Command.Info.
-func (c *PoolCreateCommand) Info() *cmd.Info {
+func (c *poolCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
 		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
 		Purpose: "create storage pool",
-		Doc:     PoolCreateCommandDoc,
+		Doc:     poolCreateCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *PoolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *poolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.
-func (c *PoolCreateCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getPoolCreateAPI(c)
-	if err != nil {
-		return err
+func (c *poolCreateCommand) Run(ctx *cmd.Context) (err error) {
+	if c.api == nil {
+		api, err := c.NewStorageAPI()
+		if err != nil {
+			return err
+		}
+		defer api.Close()
+		c.api = api
 	}
-	defer api.Close()
 
-	return api.CreatePool(c.poolName, c.provider, c.attrs)
-}
-
-var (
-	getPoolCreateAPI = (*PoolCreateCommand).getPoolCreateAPI
-)
-
-// PoolCreateAPI defines the API methods that pool create command uses.
-type PoolCreateAPI interface {
-	Close() error
-	CreatePool(pname, ptype string, pconfig map[string]interface{}) error
-}
-
-func (c *PoolCreateCommand) getPoolCreateAPI() (PoolCreateAPI, error) {
-	return c.NewStorageAPI()
+	return c.api.CreatePool(c.poolName, c.provider, c.attrs)
 }

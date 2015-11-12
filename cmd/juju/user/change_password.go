@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/readpass"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -35,8 +36,12 @@ Examples:
 
 `
 
-// ChangePasswordCommand changes the password for a user.
-type ChangePasswordCommand struct {
+func newChangePasswordCommand() cmd.Command {
+	return envcmd.WrapSystem(&changePasswordCommand{})
+}
+
+// changePasswordCommand changes the password for a user.
+type changePasswordCommand struct {
 	UserCommandBase
 	api      ChangePasswordAPI
 	writer   EnvironInfoCredsWriter
@@ -46,7 +51,7 @@ type ChangePasswordCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *ChangePasswordCommand) Info() *cmd.Info {
+func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-password",
 		Args:    "[username]",
@@ -56,14 +61,14 @@ func (c *ChangePasswordCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ChangePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
 	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user environment file")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 // Init implements Command.Init.
-func (c *ChangePasswordCommand) Init(args []string) error {
+func (c *changePasswordCommand) Init(args []string) error {
 	var err error
 	c.User, err = cmd.ZeroOrOneArgs(args)
 	if c.User == "" && c.OutPath != "" {
@@ -94,7 +99,7 @@ type EnvironInfoCredsWriter interface {
 }
 
 // Run implements Command.Run.
-func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
+func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
 		api, err := c.NewUserManagerAPIClient()
 		if err != nil {
@@ -157,7 +162,7 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 
 var readPassword = readpass.ReadPassword
 
-func (*ChangePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
+func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
 	if generate {
 		password, err := utils.RandomPassword()
 		if err != nil {

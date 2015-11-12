@@ -806,7 +806,12 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 }
 
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
-	var toolsList = coretools.List{&coretools.Tools{Version: version.Current}}
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	var toolsList = coretools.List{&coretools.Tools{Version: current}}
 	var called bool
 	var a string
 	if matchArch {
@@ -819,7 +824,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		called = true
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
-			Number:       version.Current.Number,
+			Number:       version.Current,
 			Series:       series.HostSeries(),
 			Arch:         a,
 			MinorVersion: -1,
@@ -833,7 +838,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(version.Current.Number, series.HostSeries(), a)
+	apiList, err := s.provisioner.FindTools(version.Current, series.HostSeries(), a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

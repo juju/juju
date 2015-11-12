@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	cmdsubnet "github.com/juju/juju/cmd/juju/subnet"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -50,12 +49,19 @@ func (s *cmdSubnetSuite) RunSuper(c *gc.C, expectedError string, args ...string)
 	return s.Run(c, cmdsubnet.NewSuperCommand(), expectedError, args...)
 }
 
-func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) *cmd.Context {
-	// To capture subcommand errors, we must *NOT* to run it through
-	// the supercommand, otherwise there error is logged and
-	// swallowed!
-	addCommand := envcmd.Wrap(&cmdsubnet.AddCommand{})
-	return s.Run(c, addCommand, expectedError, args...)
+func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"subnet", "add"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	stdout, stderr := "", ""
+	if ctx != nil {
+		stdout = testing.Stdout(ctx)
+		stderr = testing.Stderr(ctx)
+	}
+	if expectedError != "" {
+		c.Assert(err, gc.NotNil)
+		c.Assert(stderr, jc.Contains, expectedError)
+	}
+	return stdout, stderr, err
 }
 
 func (s *cmdSubnetSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {

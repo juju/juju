@@ -191,8 +191,8 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 					Persistent: true,
 				},
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -212,7 +212,7 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`volume "1"`))},
 			{Result: params.Volume{
 				VolumeTag: "volume-2",
@@ -222,7 +222,7 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 					Size:       4096,
 				},
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -248,7 +248,7 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.FilesystemResults{
 		Results: []params.FilesystemResult{
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: common.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
 			{Result: params.Filesystem{
 				FilesystemTag: "filesystem-2",
@@ -257,7 +257,7 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 					Size:         4096,
 				},
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -299,7 +299,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 				Code:    params.CodeNotProvisioned,
 				Message: `volume attachment "2" on "0" not provisioned`,
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -345,7 +345,7 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 				Code:    params.CodeNotProvisioned,
 				Message: `filesystem attachment "2" on "0" not provisioned`,
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -406,7 +406,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 					ReadOnly:   true,
 				},
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -441,7 +441,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 					tags.JujuEnv: testing.EnvironmentTag.Id(),
 				},
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -513,7 +513,7 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				VolumeTag:  "volume-4",
 				Provider:   "environscoped",
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -576,7 +576,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				FilesystemTag: "filesystem-3",
 				Provider:      "environscoped",
 			}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -622,9 +622,9 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
-			{Error: &params.Error{`cannot set info for volume attachment 1:0: volume "1" not provisioned`, "not provisioned"}},
-			{Error: &params.Error{`cannot set info for volume attachment 4:2: machine 2 not provisioned`, "not provisioned"}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: `cannot set info for volume attachment 1:0: volume "1" not provisioned`, Code: "not provisioned"}},
+			{Error: &params.Error{Message: `cannot set info for volume attachment 4:2: machine 2 not provisioned`, Code: "not provisioned"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -670,9 +670,9 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
-			{Error: &params.Error{`cannot set info for filesystem attachment 1:0: filesystem "1" not provisioned`, "not provisioned"}},
-			{Error: &params.Error{`cannot set info for filesystem attachment 3:2: machine 2 not provisioned`, "not provisioned"}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: `cannot set info for filesystem attachment 1:0: filesystem "1" not provisioned`, Code: "not provisioned"}},
+			{Error: &params.Error{Message: `cannot set info for filesystem attachment 3:2: machine 2 not provisioned`, Code: "not provisioned"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1009,7 +1009,7 @@ func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 			{Life: params.Alive},
 			{Life: params.Alive},
 			{Life: params.Alive},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1077,12 +1077,12 @@ func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "removing volume 2: volume is not dead"}},
 			{Error: nil},
 			{Error: &params.Error{Message: `"volume-invalid" is not a valid volume tag`}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1105,12 +1105,12 @@ func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "removing filesystem 2: filesystem is not dead"}},
 			{Error: nil},
 			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1136,9 +1136,9 @@ func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: &params.Error{Message: `"volume-invalid" is not a valid volume tag`}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1164,9 +1164,9 @@ func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: &params.Error{Message: `"filesystem-invalid" is not a valid filesystem tag`}},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 }
@@ -1198,8 +1198,8 @@ func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of volume 0/0 from machine 0: volume attachment is not dying"}},
 			{Error: nil},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
-			{Error: &params.Error{`removing attachment of volume 42 from machine 0: volume "42" on machine "0" not found`, "not found"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: &params.Error{Message: `removing attachment of volume 42 from machine 0: volume "42" on machine "0" not found`, Code: "not found"}},
 		},
 	})
 }
@@ -1231,8 +1231,8 @@ func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying"}},
 			{Error: nil},
-			{Error: &params.Error{"permission denied", "unauthorized access"}},
-			{Error: &params.Error{`removing attachment of filesystem 42 from machine 0: filesystem "42" on machine "0" not found`, "not found"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: &params.Error{Message: `removing attachment of filesystem 42 from machine 0: filesystem "42" on machine "0" not found`, Code: "not found"}},
 		},
 	})
 }

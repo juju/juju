@@ -10,19 +10,35 @@ import (
 	"strings"
 
 	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
 
-var configFields = schema.Fields{
-	"maas-server": schema.String(),
-	// maas-oauth is a colon-separated triplet of:
-	// consumer-key:resource-token:resource-secret
-	"maas-oauth": schema.String(),
-	// maas-agent-name is an optional UUID to group the instances
-	// acquired from MAAS, to support multiple environments per MAAS user.
-	"maas-agent-name": schema.String(),
+var configSchema = environschema.Fields{
+	"maas-server": {
+		Description: "maas-server specifies the location of the MAAS server. It must specify the base path.",
+		Type:        environschema.Tstring,
+		Example:     "http://192.168.1.1/MAAS/",
+	},
+	"maas-oauth": {
+		Description: "maas-oauth holds the OAuth credentials from MAAS.",
+		Type:        environschema.Tstring,
+	},
+	"maas-agent-name": {
+		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple environments per MAAS user.",
+		Type:        environschema.Tstring,
+	},
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
+
 var configDefaults = schema.Defaults{
 	// For backward-compatibility, maas-agent-name is the empty string
 	// by default. However, new environments should all use a UUID.
@@ -58,6 +74,15 @@ func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfi
 	result.Config = validCfg
 	result.attrs = validCfg.UnknownAttrs()
 	return result, nil
+}
+
+// Schema returns the configuration schema for an environment.
+func (maasEnvironProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")

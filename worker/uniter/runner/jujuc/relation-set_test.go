@@ -260,22 +260,22 @@ var relationSetInitTests = []relationSetInitTest{
 		summary: "accidental same format as command-line",
 		args:    []string{"--file", "spam"},
 		content: "foo=bar ham=eggs good=bad",
-		err:     `expected YAML map, got .*`,
+		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `foo=bar...` into map.*",
 	}, {
 		summary: "scalar instead of map",
 		args:    []string{"--file", "spam"},
 		content: "haha",
-		err:     `expected YAML map, got "haha"`,
+		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `haha` into map.*",
 	}, {
 		summary: "sequence instead of map",
 		args:    []string{"--file", "spam"},
 		content: "[haha]",
-		err:     `expected YAML map, got \[]string{"haha"}`,
+		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into map.*",
 	}, {
 		summary: "multiple maps",
 		args:    []string{"--file", "spam"},
 		content: "{a: b}\n{c: d}",
-		err:     `.*YAML error: .*`,
+		err:     `.*yaml: .*`,
 	}, {
 		summary:  "value with a space",
 		args:     []string{"--file", "spam"},

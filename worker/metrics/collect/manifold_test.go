@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -59,7 +59,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
 		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
-		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{available: true}},
+		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
 }
@@ -150,7 +150,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	charmdir := &dummyCharmdir{available: false}
+	charmdir := &dummyCharmdir{aborted: true}
 	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource := dt.StubGetResource(s.dummyResources)
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, getResource)
@@ -159,7 +159,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.batches, gc.HasLen, 0)
 
-	charmdir = &dummyCharmdir{available: true}
+	charmdir = &dummyCharmdir{aborted: false}
 	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource = dt.StubGetResource(s.dummyResources)
 	collectEntity, err = (*collect.NewCollect)(s.manifoldConfig, getResource)
@@ -219,16 +219,16 @@ type dummyAPICaller struct {
 }
 
 type dummyCharmdir struct {
-	charmdir.Consumer
+	fortress.Guest
 
-	available bool
+	aborted bool
 }
 
-func (a *dummyCharmdir) Run(f func() error) error {
-	if a.available {
-		return f()
+func (a *dummyCharmdir) Visit(visit fortress.Visit, _ fortress.Abort) error {
+	if a.aborted {
+		return fortress.ErrAborted
 	}
-	return nil
+	return visit()
 }
 
 type dummyMetricFactory struct {

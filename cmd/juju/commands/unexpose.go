@@ -12,13 +12,17 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// UnexposeCommand is responsible exposing services.
-type UnexposeCommand struct {
+func newUnexposeCommand() cmd.Command {
+	return envcmd.Wrap(&unexposeCommand{})
+}
+
+// unexposeCommand is responsible exposing services.
+type unexposeCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 }
 
-func (c *UnexposeCommand) Info() *cmd.Info {
+func (c *unexposeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unexpose",
 		Args:    "<service>",
@@ -26,7 +30,7 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UnexposeCommand) Init(args []string) error {
+func (c *unexposeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}
@@ -36,7 +40,7 @@ func (c *UnexposeCommand) Init(args []string) error {
 
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
-func (c *UnexposeCommand) Run(_ *cmd.Context) error {
+func (c *unexposeCommand) Run(_ *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

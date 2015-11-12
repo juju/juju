@@ -11,11 +11,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 type AuthKeysSuite struct {
@@ -44,8 +44,10 @@ func (s *AuthKeysSuite) TearDownTest(c *gc.C) {
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {
 	_, err := config.ReadAuthorizedKeys("")
 	c.Assert(err, gc.ErrorMatches, "no public ssh keys found")
+	c.Assert(err, gc.Equals, config.ErrNoAuthorizedKeys)
 	_, err = config.ReadAuthorizedKeys(filepath.Join(s.dotssh, "notthere.pub"))
 	c.Assert(err, gc.ErrorMatches, "no public ssh keys found")
+	c.Assert(err, gc.Equals, config.ErrNoAuthorizedKeys)
 }
 
 func writeFile(c *gc.C, filename string, contents string) {

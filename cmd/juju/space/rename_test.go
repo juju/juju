@@ -22,7 +22,7 @@ var _ = gc.Suite(&RenameSuite{})
 func (s *RenameSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command = space.NewRenameCommand(s.api)
+	s.command, _ = space.NewRenameCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -78,8 +78,8 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := space.NewRenameCommand(s.api) // surely can use s.command??
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := space.NewRenameCommand(s.api) // surely can use s.command??
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
@@ -114,14 +114,4 @@ func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "RenameSpace", "Close")
 	s.api.CheckCall(c, 0, "RenameSpace", "foo", "bar")
-}
-
-func (s *RenameSuite) TestRunAPIConnectFails(c *gc.C) {
-	s.command = space.NewRenameCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"myname", "newname", // Drop the args once RunWitnAPI is called internally.
-	)
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

@@ -48,12 +48,11 @@ type validateArgs struct {
 // apiserver components that need to check for a valid environment
 // UUID.  An empty envUUID means that the connection has come in at
 // the root of the URL space and refers to the state server
-// environment. The returned *state.State is a connection for the
-// specified environment UUID if the UUID refers to an environment
-// contained in the database.
-func validateEnvironUUID(args validateArgs) (*state.State, error) {
+// environment.
+//
+// It returns the validated environment UUID.
+func validateEnvironUUID(args validateArgs) (string, error) {
 	ssState := args.statePool.SystemState()
-
 	if args.envUUID == "" {
 		// We allow the environUUID to be empty for 2 cases
 		// 1) Compatibility with older clients
@@ -62,29 +61,25 @@ func validateEnvironUUID(args validateArgs) (*state.State, error) {
 		//    if the connection comes over a sufficiently up to date
 		//    login command.
 		if args.strict {
-			return nil, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+			return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 		}
 		logger.Debugf("validate env uuid: empty envUUID")
-		return ssState, nil
+		return ssState.EnvironUUID(), nil
 	}
 	if args.envUUID == ssState.EnvironUUID() {
 		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
-		return ssState, nil
+		return args.envUUID, nil
 	}
 	if args.stateServerEnvOnly {
-		return nil, errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
+		return "", errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
 	}
 	if !names.IsValidEnvironment(args.envUUID) {
-		return nil, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+		return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 	}
 	envTag := names.NewEnvironTag(args.envUUID)
 	if _, err := ssState.GetEnvironment(envTag); err != nil {
-		return nil, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
+		return "", errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
 	}
 	logger.Debugf("validate env uuid: %s", args.envUUID)
-	st, err := args.statePool.Get(args.envUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
+	return args.envUUID, nil
 }

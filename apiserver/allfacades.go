@@ -40,6 +40,7 @@ import (
 	_ "github.com/juju/juju/apiserver/rsyslog"
 	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/spaces"
+	_ "github.com/juju/juju/apiserver/statushistory"
 	_ "github.com/juju/juju/apiserver/storage"
 	_ "github.com/juju/juju/apiserver/storageprovisioner"
 	_ "github.com/juju/juju/apiserver/subnets"

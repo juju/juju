@@ -49,6 +49,12 @@ See Also:
    juju help add-unit
 `
 
+// NewGetConstraintsCommand return a new command that returns a
+// list of constraints that have been set on the environment.
+func NewGetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&GetConstraintsCommand{})
+}
+
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
 	envcmd.EnvCommandBase
@@ -122,6 +128,14 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	return c.out.Write(ctx, cons)
+}
+
+// NewSetConstraintsCommands returns a new command that sets machine
+// constraints on the system, which are used as the default
+// constraints for all new machines provisioned in the environment
+// (unless overridden).
+func NewSetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&SetConstraintsCommand{})
 }
 
 // SetConstraintsCommand shows the constraints for a service or environment.

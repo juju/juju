@@ -56,28 +56,27 @@ func (s *machineUpgraderSuite) TestNew(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("machine-42", version.Current)
+	err := s.st.SetVersion("machine-42", current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
-	err := s.st.SetVersion("foo-42", version.Current)
+	err := s.st.SetVersion("foo-42", current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
-	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetVersion(s.rawMachine.Tag().String(), cur)
+	err = s.st.SetVersion(s.rawMachine.Tag().String(), current)
 	c.Assert(err, jc.ErrorIsNil)
 	s.rawMachine.Refresh()
 	agentTools, err = s.rawMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agentTools.Version, gc.Equals, cur)
+	c.Check(agentTools.Version, gc.Equals, current)
 }
 
 func (s *machineUpgraderSuite) TestToolsWrongMachine(c *gc.C) {
@@ -95,17 +94,16 @@ func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
-	cur := version.Current
-	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(cur)
+	s.rawMachine.SetAgentVersion(current)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
 	stateTools, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateTools.Version, gc.Equals, cur)
+	c.Assert(stateTools.Version, gc.Equals, current)
 	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-		s.stateAPI.Addr(), coretesting.EnvironmentTag.Id(), cur)
+		s.stateAPI.Addr(), coretesting.EnvironmentTag.Id(), current)
 	c.Assert(stateTools.URL, gc.Equals, url)
 }
 
@@ -134,13 +132,12 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
-	cur := version.Current
-	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(cur)
+	s.rawMachine.SetAgentVersion(current)
 	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateVersion, gc.Equals, cur.Number)
+	c.Assert(stateVersion, gc.Equals, current.Number)
 }

@@ -42,11 +42,11 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check environment is mandatory
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand))
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand())
 	c.Check(<-errc, gc.Equals, NoEnvironmentError)
 
 	// normal destroy
-	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
+	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummyenv", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 
@@ -71,9 +71,9 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked, force bool) 
 	opc := make(chan dummy.Operation)
 	errc := make(chan error)
 	if force {
-		opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes", "--force")
+		opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), envName, "--yes", "--force")
 	} else {
-		opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
+		opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), envName, "--yes")
 	}
 	if force || !blocked {
 		c.Check(<-errc, gc.IsNil)
@@ -113,18 +113,18 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that either environment or the flag is mandatory
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand))
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand())
 	c.Check(<-errc, gc.Equals, NoEnvironmentError)
 
 	// We don't allow them to supply both entries at the same time
-	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "-e", "dummyenv", "dummyenv", "--yes")
+	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "-e", "dummyenv", "dummyenv", "--yes")
 	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
 	// We treat --environment the same way
-	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "--environment", "dummyenv", "dummyenv", "--yes")
+	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "--environment", "dummyenv", "dummyenv", "--yes")
 	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
 
 	// destroy using the -e flag
-	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "-e", "dummyenv", "--yes")
+	opc, errc = cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "-e", "dummyenv", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 
@@ -141,7 +141,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-no-bootstrap", "--yes")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummy-no-bootstrap", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 
@@ -152,7 +152,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummy-non-state-server", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	// Check that there are no operations on the provider, we do not want to call
 	// Destroy on it.
@@ -164,7 +164,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
 
 func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerFails(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes", "--force")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummy-non-state-server", "--yes", "--force")
 	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy environment without bootstrap information")
 	c.Check(<-opc, gc.IsNil)
 
@@ -175,7 +175,7 @@ func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerFail
 
 func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerNoConfimFails(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--force")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummy-non-state-server", "--force")
 	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy environment without bootstrap information")
 	c.Check(<-opc, gc.IsNil)
 
@@ -189,7 +189,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandTwiceOnNonStateServer(c *
 	oldInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummy-non-state-server", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check(<-opc, gc.IsNil)
 
@@ -205,7 +205,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandTwiceOnNonStateServer(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Call destroy again.
-	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	context, err := coretesting.RunCommand(c, newDestroyEnvironmentCommand(), "dummy-non-state-server", "--yes")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "environment not found, removing config file\n")
 
@@ -261,7 +261,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// destroy with broken environment
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummyenv", "--yes")
 	op, ok := (<-opc).(dummy.OpDestroy)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(op.Error, gc.ErrorMatches, ".*dummy.Destroy is broken")
@@ -270,16 +270,16 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 }
 
 func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
-	com := new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"dummyenv"}), gc.IsNil)
+	wrappedCom, com := NewDestroyEnvironmentCommand()
+	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsFalse)
 
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "-y"}), gc.IsNil)
+	wrappedCom, com = NewDestroyEnvironmentCommand()
+	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "-y"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsTrue)
 
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "--yes"}), gc.IsNil)
+	wrappedCom, com = NewDestroyEnvironmentCommand()
+	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "--yes"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsTrue)
 }
 
@@ -298,7 +298,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	opc, errc := cmdtesting.RunCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv")
+	opc, errc := cmdtesting.RunCommand(ctx, newDestroyEnvironmentCommand(), "dummyenv")
 	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")
@@ -307,7 +307,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	opc, errc = cmdtesting.RunCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv")
+	opc, errc = cmdtesting.RunCommand(ctx, newDestroyEnvironmentCommand(), "dummyenv")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
 	assertEnvironNotDestroyed(c, env, s.ConfigStore)
@@ -315,7 +315,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
 	stdout.Reset()
-	opc, errc = cmdtesting.RunCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv", "--yes")
+	opc, errc = cmdtesting.RunCommand(ctx, newDestroyEnvironmentCommand(), "dummyenv", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 	c.Check(stdout.String(), gc.Equals, "")
@@ -331,7 +331,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		opc, errc = cmdtesting.RunCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv")
+		opc, errc = cmdtesting.RunCommand(ctx, newDestroyEnvironmentCommand(), "dummyenv")
 		c.Check(<-errc, gc.IsNil)
 		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 		c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")

@@ -62,15 +62,14 @@ func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error 
 		// No worker running (or not declared).
 		return ErrMissing
 	}
+	if out == nil {
+		// No conversion necessary.
+		return nil
+	}
 	convert := rg.outputs[resourceName]
 	if convert == nil {
-		// No conversion func available...
-		if out != nil {
-			// ...and the caller wants a resource.
-			return ErrMissing
-		}
-		// ...but it's ok, because the caller depends on existence only.
-		return nil
+		// Conversion required, no func available.
+		return ErrMissing
 	}
 	return convert(input, out)
 }

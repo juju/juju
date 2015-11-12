@@ -88,8 +88,9 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
-		c.Assert(stdin, gc.DeepEquals, `
+		c.Assert(stdin, jc.DeepEquals, `
 set -x
+touch '/var/lib/juju/uninstall-agent'
 pkill -6 jujud && exit
 stop juju-db
 rm -f /etc/init/juju*

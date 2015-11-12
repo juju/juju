@@ -10,13 +10,18 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
-// ListCommand returns the list of all systems the user is
+func newListCommand() cmd.Command {
+	return envcmd.WrapBase(&listCommand{})
+}
+
+// listCommand returns the list of all systems the user is
 // currently logged in to on the current machine.
-type ListCommand struct {
-	cmd.CommandBase
+type listCommand struct {
+	envcmd.JujuCommandBase
 	cfgStore configstore.Storage
 }
 
@@ -35,7 +40,7 @@ See Also:
 `
 
 // Info implements Command.Info
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "list all systems logged in to on the current machine",
@@ -43,7 +48,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ListCommand) getConfigstore() (configstore.Storage, error) {
+func (c *listCommand) getConfigstore() (configstore.Storage, error) {
 	if c.cfgStore != nil {
 		return c.cfgStore, nil
 	}
@@ -51,7 +56,7 @@ func (c *ListCommand) getConfigstore() (configstore.Storage, error) {
 }
 
 // Run implements Command.Run
-func (c *ListCommand) Run(ctx *cmd.Context) error {
+func (c *listCommand) Run(ctx *cmd.Context) error {
 	store, err := c.getConfigstore()
 
 	if err != nil {

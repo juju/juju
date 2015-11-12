@@ -6,8 +6,6 @@ package service
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.service")
@@ -26,12 +24,12 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "manage services",
 	})
 
-	environmentCmd.Register(envcmd.Wrap(&AddUnitCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&ServiceGetConstraintsCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&ServiceSetConstraintsCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&GetCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
+	environmentCmd.Register(newAddUnitCommand())
+	environmentCmd.Register(newServiceGetConstraintsCommand())
+	environmentCmd.Register(newServiceSetConstraintsCommand())
+	environmentCmd.Register(newGetCommand())
+	environmentCmd.Register(NewSetCommand())
+	environmentCmd.Register(newUnsetCommand())
 
 	return environmentCmd
 }
