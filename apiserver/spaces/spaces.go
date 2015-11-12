@@ -185,8 +185,8 @@ func (api *spacesAPI) supportsSpaces() error {
 		return errors.NotSupportedf("networking")
 	}
 	ok, err = netEnv.SupportsSpaces()
-	if err != nil {
-		logger.Warningf("environment does not support spaces: %v", err)
+	if !ok {
+		return errors.NotSupportedf("spaces")
 	}
 	return err
 }
