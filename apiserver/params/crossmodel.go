@@ -46,10 +46,3 @@ type OfferFilter struct {
 	Endpoints          []EndpointFilterAttributes `json:"endpoints"`
 	AllowedUserTags    []string                   `json:"allowedusers"`
 }
-
-// EndpointsSearchFilter holds filter used for show, find and list
-// operations for cross model relations.
-type EndpointsSearchFilter struct {
-	// URLs has a collection of Juju locations for offered service.
-	URLs []string `json:"urls"`
-}

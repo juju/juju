@@ -3,32 +3,16 @@
 
 package crossmodel
 
-import "github.com/juju/names"
+import "github.com/juju/juju/apiserver/params"
 
-// BaseDetails holds information about offered service and its endpoints.
-type BaseDetails interface {
-	// Service has service's tag.
-	Service() names.ServiceTag
+// Exporter provides methods to export and inspect services endpoints.
+type Exporter interface {
+	// ExportOffer prepares service endpoints for consumption.
+	// An actual implementation will coordinate the work:
+	// validate entities exist, access the service directory, write to state etc.
+	ExportOffer(offer Offer) error
 
-	// Endpoints list of service's endpoints that are being offered.
-	Endpoints() []string
-}
-
-// Offer holds information about service's offer.
-type Offer interface {
-	BaseDetails
-
-	// URL is the location where these endpoints will be accessible from.
-	URL() string
-
-	// Users is the list of user tags that are given permission to these endpoints.
-	Users() []names.UserTag
-}
-
-// ServiceDetails holds additional information about offered service and its endpoints.
-type ServiceDetails interface {
-	BaseDetails
-
-	// Description is description of this service.
-	Description() string
+	// Search looks through offered services and returns the ones
+	// that match specified filter.
+	Search(filter params.EndpointsSearchFilter) ([]RemoteServiceEndpoints, error)
 }
