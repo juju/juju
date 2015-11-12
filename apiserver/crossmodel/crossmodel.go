@@ -6,6 +6,8 @@
 package crossmodel
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -73,14 +75,14 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 	return params.ErrorResults{Results: offers}, nil
 }
 
-// Show gets details about remote services that match given filter.
-func (api *API) Show(filter params.EndpointsSearchFilter) (params.RemoteServiceInfos, error) {
+// ListOffers gets details about remote services that match given filter.
+func (api *API) ListOffers(filter params.EndpointsSearchFilter) (params.RemoteServiceInfos, error) {
 	found, err := api.exporter.Search(filter)
 	if err != nil {
 		return params.RemoteServiceInfos{}, errors.Trace(err)
 	}
 	if len(found) == 0 {
-		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with url %q", filter.URL)
+		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with urls %v", strings.Join(filter.URLs, ","))
 	}
 
 	results := make([]params.RemoteServiceInfo, len(found))

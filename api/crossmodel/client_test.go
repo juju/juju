@@ -116,11 +116,11 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Show")
+			c.Check(request, gc.Equals, "ListOffers")
 
 			args, ok := a.(params.EndpointsSearchFilter)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URL, gc.DeepEquals, url)
+			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
 			if points, k := result.(*params.RemoteServiceInfos); k {
 				points.Result = []params.RemoteServiceInfo{params.RemoteServiceInfo{
@@ -164,11 +164,11 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Show")
+			c.Check(request, gc.Equals, "ListOffers")
 
 			args, ok := a.(params.EndpointsSearchFilter)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URL, gc.DeepEquals, url)
+			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
 			if points, k := result.(*params.RemoteServiceInfos); k {
 				points.Result = []params.RemoteServiceInfo{
@@ -204,7 +204,7 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Show")
+			c.Check(request, gc.Equals, "ListOffers")
 
 			return errors.New(msg)
 		})
