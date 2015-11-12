@@ -16,6 +16,7 @@ const (
 	maxColumnLength = 100
 	truncatedSuffix = "..."
 	maxFieldLength  = maxColumnLength - len(truncatedSuffix)
+	columnWidth     = 30
 )
 
 // formatTabular returns a tabular summary of remote services or
@@ -50,18 +51,94 @@ func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 		serviceName := one.Service
 		serviceDesc := one.Desc
 
-		// truncate long descritpion for now.
+		// truncate long description for now.
 		if len(serviceDesc) > maxColumnLength {
 			serviceDesc = fmt.Sprintf("%v%v", serviceDesc[:maxFieldLength], truncatedSuffix)
 		}
-		for _, endpoint := range one.Endpoints {
-			print(serviceName, serviceDesc, endpoint.Name, endpoint.Interface, endpoint.Role)
+		descLines := breakLines(serviceDesc)
+
+		// Find the maximum amount of iterations required:
+		// it will be either endpoints or description lines length
+		maxIterations := max(len(one.Endpoints), len(descLines))
+
+		for i := 0; i < maxIterations; i++ {
+			descLine := descAt(descLines, i)
+			endpoint := endpointAt(one.Endpoints, i)
+			print(serviceName, descLine, endpoint.Name, endpoint.Interface, endpoint.Role)
 			// Only print once.
 			serviceName = ""
-			serviceDesc = ""
 		}
 	}
 	tw.Flush()
 
 	return out.Bytes(), nil
+}
+
+func descAt(lines []string, i int) string {
+	if i < len(lines) {
+		return lines[i]
+	}
+	return ""
+}
+
+func endpointAt(endpoints []RemoteEndpoint, i int) RemoteEndpoint {
+	if i < len(endpoints) {
+		return endpoints[i]
+	}
+	return RemoteEndpoint{}
+}
+
+func breakLines(text string) []string {
+	words := strings.Fields(text)
+
+	// if there is one very long word, break it
+	if len(words) == 1 {
+		return breakOneWord(words[0])
+	}
+
+	numLines := len(text)/columnWidth + 1
+	lines := make([]string, numLines)
+
+	index := 0
+	for _, aWord := range words {
+		if len(lines[index]) == 0 {
+			lines[index] = aWord
+			continue
+		}
+		tp := fmt.Sprintf("%v %v", lines[index], aWord)
+		if len(tp) > columnWidth {
+			index++
+			continue
+		}
+		lines[index] = tp
+	}
+
+	return lines
+}
+
+func breakOneWord(one string) []string {
+	if len(one) <= columnWidth {
+		return []string{one}
+	}
+
+	numParts := (len(one) / columnWidth) + 1
+	parts := make([]string, numParts)
+
+	for i := 0; i < numParts; i++ {
+		start := i * columnWidth
+		end := start + columnWidth
+		if end > len(one) {
+			parts[i] = one[start:]
+			continue
+		}
+		parts[i] = one[start:end]
+	}
+	return parts
+}
+
+func max(one, two int) int {
+	if one > two {
+		return one
+	}
+	return two
 }

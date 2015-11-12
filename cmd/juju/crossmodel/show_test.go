@@ -71,9 +71,10 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                       ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry level database system  db2       hhtp       role
-                                                                              log       http       role
+SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
+            an entry level database system  log       http       role
+                                                                 
 
 `[1:],
 	)
@@ -85,9 +86,11 @@ func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                                                           ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is an  db2       hhtp       role
-                                                                                                                  log       http       role
+SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
+            an entry level database         log       http       role
+            DB2 Express Server Edition is                        
+                                                                 
 
 `[1:],
 	)
@@ -99,9 +102,11 @@ func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                                                           ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is...  db2       hhtp       role
-                                                                                                                  log       http       role
+SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
+            an entry level database         log       http       role
+            DB2 Express Server Edition                           
+                                                                 
 
 `[1:],
 	)

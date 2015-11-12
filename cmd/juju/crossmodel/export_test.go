@@ -9,6 +9,14 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
+var (
+	Max          = max
+	DescAt       = descAt
+	BreakLines   = breakLines
+	ColumnWidth  = columnWidth
+	BreakOneWord = breakOneWord
+)
+
 func NewOfferCommandForTest(api OfferAPI) cmd.Command {
 	cmd := &offerCommand{api: api}
 	return envcmd.Wrap(cmd)
