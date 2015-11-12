@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.instancepoller")
@@ -51,10 +52,18 @@ type instanceInfo struct {
 	status    string
 }
 
-type machineContext interface {
-	killAll(err error)
-	instanceInfo(id instance.Id) (instanceInfo, error)
+// lifetimeContext was extracted to allow the various context clients to get
+// the benefits of the catacomb encapsulating everything that should happen
+// here. A clean implementation would almost certainly not need this.
+type lifetimeContext interface {
+	kill(error)
 	dying() <-chan struct{}
+	errDying() error
+}
+
+type machineContext interface {
+	lifetimeContext
+	instanceInfo(id instance.Id) (instanceInfo, error)
 }
 
 type machineAddress struct {
@@ -62,16 +71,10 @@ type machineAddress struct {
 	addresses []network.Address
 }
 
-type machinesWatcher interface {
-	Changes() <-chan []string
-	Err() error
-	Stop() error
-}
-
 type updaterContext interface {
+	lifetimeContext
 	newMachineContext() machineContext
 	getMachine(tag names.MachineTag) (machine, error)
-	dying() <-chan struct{}
 }
 
 type updater struct {
@@ -84,29 +87,27 @@ type updater struct {
 // machinesWatcher and starts machine goroutines to deal with them,
 // using the provided newMachineContext function to create the
 // appropriate context for each new machine tag.
-func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
+func watchMachinesLoop(context updaterContext, machinesWatcher watcher.StringsWatcher) (err error) {
 	p := &updater{
 		context:     context,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
 	}
 	defer func() {
-		if stopErr := w.Stop(); stopErr != nil {
-			if err == nil {
-				err = fmt.Errorf("error stopping watcher: %v", stopErr)
-			} else {
-				logger.Warningf("ignoring error when stopping watcher: %v", stopErr)
-			}
-		}
+		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
+		// strongly suspect these machine goroutines could be managed rather
+		// less opaquely if we made them all workers.
 		for len(p.machines) > 0 {
 			delete(p.machines, (<-p.machineDead).Tag())
 		}
 	}()
 	for {
 		select {
-		case ids, ok := <-w.Changes():
+		case <-p.context.dying():
+			return p.context.errDying()
+		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(w)
+				return errors.New("machines watcher closed")
 			}
 			tags := make([]names.MachineTag, len(ids))
 			for i := range ids {
@@ -117,8 +118,6 @@ func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 			}
 		case m := <-p.machineDead:
 			delete(p.machines, m.Tag())
-		case <-p.context.dying():
-			return nil
 		}
 	}
 }
@@ -170,7 +169,7 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 		}
 	}()
 	if err := machineLoop(context, m, changed); err != nil {
-		context.killAll(err)
+		context.kill(err)
 	}
 }
 

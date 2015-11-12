@@ -16,12 +16,11 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -54,12 +53,11 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb      tomb.Tomb
+	catacomb  catacomb.Catacomb
 	st        *uniter.State
 	paths     Paths
 	unit      *uniter.Unit
 	relations relation.Relations
-	cleanups  []cleanup
 	storage   *storage.Attachments
 
 	// Cache the last reported status information
@@ -111,7 +109,7 @@ type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(uniterParams *UniterParams) *Uniter {
+func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
@@ -122,24 +120,16 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 	}
-	go func() {
-		defer u.tomb.Done()
-		defer u.runCleanups()
-		u.tomb.Kill(u.loop(uniterParams.UnitTag))
-	}()
-	return u
-}
-
-type cleanup func() error
-
-func (u *Uniter) addCleanup(cleanup cleanup) {
-	u.cleanups = append(u.cleanups, cleanup)
-}
-
-func (u *Uniter) runCleanups() {
-	for _, cleanup := range u.cleanups {
-		u.tomb.Kill(cleanup())
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &u.catacomb,
+		Work: func() error {
+			return u.loop(uniterParams.UnitTag)
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return u, nil
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
@@ -184,9 +174,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		defer watcherMu.Unlock()
 
 		if watcher != nil {
-			if err := watcher.Stop(); err != nil {
-				return errors.Trace(err)
-			}
+			// watcher added to catacomb, will kill uniter if there's an error.
+			worker.Stop(watcher)
 		}
 		var err error
 		watcher, err = remotestate.NewWatcher(
@@ -199,27 +188,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// Stop the uniter if the watcher fails. The watcher may be
-		// stopped cleanly, so only kill the tomb if the error is
-		// non-nil.
-		go func(w *remotestate.RemoteStateWatcher) {
-			if err := w.Wait(); err != nil {
-				u.tomb.Kill(err)
-			}
-		}(watcher)
-		return nil
-	}
-
-	// watcher may be replaced, so use a closure.
-	u.addCleanup(func() error {
-		watcherMu.Lock()
-		defer watcherMu.Unlock()
-
-		if watcher != nil {
-			return watcher.Stop()
+		if err := u.catacomb.Add(watcher); err != nil {
+			return errors.Trace(err)
 		}
 		return nil
-	})
+	}
 
 	onIdle := func() error {
 		opState := u.operationExecutor.State()
@@ -261,8 +234,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		// to the remote state. The watcher will trigger at least
 		// once initially.
 		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
 		case <-watcher.RemoteStateChanged():
 		}
 
@@ -273,15 +246,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Watcher:        watcher,
 				Executor:       u.operationExecutor,
 				Factory:        u.operationFactory,
-				Dying:          u.tomb.Dying(),
+				Abort:          u.catacomb.Dying(),
 				OnIdle:         onIdle,
 				CharmDirLocker: u.charmDirLocker,
 			}, &localState)
 			switch cause := errors.Cause(err); cause {
 			case nil:
 				// Loop back around.
-			case tomb.ErrDying:
-				err = tomb.ErrDying
+			case resolver.ErrLoopAborted:
+				err = u.catacomb.ErrDying()
 			case operation.ErrNeedsReboot:
 				err = worker.ErrRebootMachine
 			case operation.ErrHookFailed:
@@ -315,18 +288,20 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) terminate() error {
-	w, err := u.unit.Watch()
+	unitWatcher, err := u.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Stop(w, &u.tomb)
+	if err := u.catacomb.Add(unitWatcher); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
+		case _, ok := <-unitWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(w)
+				return errors.New("unit watcher closed")
 			}
 			if err := u.unit.Refresh(); err != nil {
 				return errors.Trace(err)
@@ -384,14 +359,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	relations, err := relation.NewRelations(
 		u.st, unitTag, u.paths.State.CharmDir,
-		u.paths.State.RelationsDir, u.tomb.Dying(),
+		u.paths.State.RelationsDir, u.catacomb.Dying(),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
 	storageAttachments, err := storage.NewAttachments(
-		u.st, unitTag, u.paths.State.StorageDir, u.tomb.Dying(),
+		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create storage hook source")
@@ -411,41 +386,38 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	runnerFactory, err := runner.NewFactory(
 		u.st, u.paths, contextFactory,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	u.operationFactory = operation.NewFactory(operation.FactoryParams{
 		Deployer:       u.deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
 		StorageUpdater: u.storage,
-		Abort:          u.tomb.Dying(),
+		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
 	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	u.operationExecutor = operationExecutor
 
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
 	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	u.addCleanup(func() error {
-		err := u.runListener.Close()
-		if err != nil {
-			logger.Warningf("error closing runlistener: %v", err)
-		}
-		return nil
-	})
+	rlw := newRunListenerWrapper(u.runListener)
+	if err := u.catacomb.Add(rlw); err != nil {
+		return errors.Trace(err)
+	}
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if jujuos.HostOS() != jujuos.Windows {
 		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
@@ -453,21 +425,26 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	return nil
 }
 
+// Kill is part of the worker.Worker interface.
 func (u *Uniter) Kill() {
-	u.tomb.Kill(nil)
+	u.catacomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (u *Uniter) Wait() error {
-	return u.tomb.Wait()
-}
-
-func (u *Uniter) Stop() error {
-	u.tomb.Kill(nil)
-	return u.Wait()
+	return u.catacomb.Wait()
 }
 
 func (u *Uniter) Dead() <-chan struct{} {
-	return u.tomb.Dead()
+	// TODO(fwereade): do we really need this? tests that use it could
+	// probably just use a:
+	//
+	//     go func() {
+	//         done <- u.Wait()
+	//     }()
+	//
+	// ...construction or similar.
+	return u.catacomb.Dead()
 }
 
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
@@ -523,11 +500,11 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		}
 	}
 	if errors.Cause(err) == operation.ErrNeedsReboot {
-		u.tomb.Kill(worker.ErrRebootMachine)
+		u.catacomb.Kill(worker.ErrRebootMachine)
 		err = nil
 	}
 	if err != nil {
-		u.tomb.Kill(err)
+		u.catacomb.Kill(err)
 	}
 	return results, err
 }
@@ -574,11 +551,11 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 	logger.Debugf("lock: %v", message)
 	// We want to make sure we don't block forever when locking, but take the
-	// Uniter's tomb into account.
+	// Uniter's catacomb into account.
 	checkTomb := func() error {
 		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
 		default:
 			return nil
 		}

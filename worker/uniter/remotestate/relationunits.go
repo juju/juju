@@ -4,61 +4,79 @@
 package remotestate
 
 import (
-	"launchpad.net/tomb"
+	"github.com/juju/errors"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type relationUnitsWatcher struct {
-	tomb       tomb.Tomb
+	catacomb   catacomb.Catacomb
 	relationId int
-	in         apiwatcher.RelationUnitsWatcher
+	watcher    watcher.RelationUnitsWatcher
 	out        chan<- relationUnitsChange
 }
 
 type relationUnitsChange struct {
 	relationId int
-	multiwatcher.RelationUnitsChange
+	watcher.RelationUnitsChange
 }
 
+// newRelationUnitsWatcher creates a new worker that takes values from the
+// supplied watcher's Changes chan, annotates them with the supplied relation
+// id, and delivers then on the supplied out chan.
+//
+// The caller releases responsibility for stopping the supplied watcher and
+// waiting for errors, *whether or not this method succeeds*.
 func newRelationUnitsWatcher(
 	relationId int,
-	in apiwatcher.RelationUnitsWatcher,
+	watcher watcher.RelationUnitsWatcher,
 	out chan<- relationUnitsChange,
-) *relationUnitsWatcher {
-	ruw := &relationUnitsWatcher{relationId: relationId, in: in, out: out}
-	go func() {
-		defer ruw.tomb.Done()
-		// TODO(axw) add Kill() and Wait() to watchers?
-		//
-		// At the moment we have to rely on the watcher's
-		// channel being closed inside loop() to react
-		// to it being killed/stopped.
-		ruw.tomb.Kill(ruw.loop())
-		ruw.tomb.Kill(in.Stop())
-	}()
-	return ruw
+) (*relationUnitsWatcher, error) {
+	ruw := &relationUnitsWatcher{
+		relationId: relationId,
+		watcher:    watcher,
+		out:        out,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &ruw.catacomb,
+		Work: ruw.loop,
+	})
+	if err != nil {
+		if stopErr := worker.Stop(watcher); err != nil {
+			logger.Errorf("while stopping relation units watcher: %v", stopErr)
+		}
+		return nil, errors.Trace(err)
+	}
+	return ruw, nil
 }
 
-func (w *relationUnitsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
+// Kill is part of the worker.Worker interface.
+func (w *relationUnitsWatcher) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *relationUnitsWatcher) Wait() error {
+	return w.catacomb.Wait()
 }
 
 func (w *relationUnitsWatcher) loop() error {
+	if err := w.catacomb.Add(w.watcher); err != nil {
+		return err
+	}
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case change, ok := <-w.in.Changes():
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case change, ok := <-w.watcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(w.in)
+				return errors.New("watcher closed channel")
 			}
 			select {
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
 			case w.out <- relationUnitsChange{w.relationId, change}:
 			}
 		}

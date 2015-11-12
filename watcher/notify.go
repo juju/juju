@@ -5,12 +5,22 @@ package watcher
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker/catacomb"
 )
 
-var logger = loggo.GetLogger("juju.watcher")
+// NotifyChan is a change channel as described in the CoreWatcher docs.
+//
+// It sends a single value to indicate that the watch is active, and subsequent
+// values whenever the value(s) under observation change(s).
+type NotifyChan <-chan struct{}
+
+// NotifyWatcher conveniently ties a NotifyChan to the worker.Worker that
+// represents its validity.
+type NotifyWatcher interface {
+	CoreWatcher
+	Changes() NotifyChan
+}
 
 // NotifyHandler defines the operation of a NotifyWorker.
 type NotifyHandler interface {
@@ -74,23 +84,17 @@ type NotifyWorker struct {
 
 func (nw *NotifyWorker) loop() (err error) {
 	changes := nw.setUp()
-	logger.Debugf("changes %v", changes)
 	defer nw.tearDown(err)
 	for {
-		logger.Debugf("waiting %p", nw)
 		select {
 		case <-nw.catacomb.Dying():
-			logger.Debugf("dying %p", nw)
 			return nw.catacomb.ErrDying()
 		case _, ok := <-changes:
-			logger.Debugf("handling")
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			logger.Debugf("handling ...")
 			abort := nw.catacomb.Dying()
 			err = nw.config.Handler.Handle(abort)
-			logger.Debugf("handled ...  %v", err)
 			if err != nil {
 				return err
 			}
@@ -104,17 +108,13 @@ func (nw *NotifyWorker) loop() (err error) {
 func (nw *NotifyWorker) setUp() NotifyChan {
 	watcher, err := nw.config.Handler.SetUp()
 	if err != nil {
-		logger.Debugf("can't create watcher: %v", err)
 		nw.catacomb.Kill(err)
 	}
 	if watcher == nil {
-		logger.Debugf("no watcher")
 		nw.catacomb.Kill(errors.New("handler returned nil watcher"))
 	} else if err := nw.catacomb.Add(watcher); err != nil {
-		logger.Debugf("can't add watcher: %v", err)
 		nw.catacomb.Kill(err)
 	} else {
-		logger.Debugf("yay got watcher")
 		return watcher.Changes()
 	}
 	return nil

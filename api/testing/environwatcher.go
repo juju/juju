@@ -7,11 +7,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher"
 )
 
 const (
@@ -72,7 +72,7 @@ func (s *EnvironWatcherTests) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	w, err := s.facade.WatchForEnvironConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
+	defer statetesting.AssertKillAndWait(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
 
 	// Initial event.
@@ -101,6 +101,6 @@ func (s *EnvironWatcherTests) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	statetesting.AssertStop(c, w)
+	statetesting.AssertKillAndWait(c, w)
 	wc.AssertClosed()
 }

@@ -468,26 +468,45 @@ type StringsWatchResults struct {
 	Results []StringsWatchResult
 }
 
-// EntityWatchResult holds a EntityWatcher id, changes and an error
+// EntitiesWatchResult holds a EntitiesWatcher id, changes and an error
 // (if any).
-type EntityWatchResult struct {
-	EntityWatcherId string   `json:"EntityWatcherId"`
-	Changes         []string `json:"Changes"`
-	Error           *Error   `json:"Error"`
+type EntitiesWatchResult struct {
+	// Note legacy serialization tag.
+	EntitiesWatcherId string   `json:"EntityWatcherId"`
+	Changes           []string `json:"Changes"`
+	Error             *Error   `json:"Error"`
 }
 
-// EntityWatchResults holds the results for any API call which ends up
-// returning a list of EntityWatchers.
-type EntityWatchResults struct {
-	Results []EntityWatchResult
+// EntitiesWatchResults holds the results for any API call which ends up
+// returning a list of EntitiesWatchers.
+type EntitiesWatchResults struct {
+	Results []EntitiesWatchResult `json:"Results"`
 }
 
-// RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
-// and an error (if any).
+// UnitSettings specifies the version of some unit's settings in some relation.
+type UnitSettings struct {
+	Version int64 `json:"Version"`
+}
+
+// RelationUnitsChange describes the membership and settings of; or changes to;
+// some relation scope.
+type RelationUnitsChange struct {
+
+	// Changed holds a set of units that are known to be in scope, and the
+	// latest known settings version for each.
+	Changed map[string]UnitSettings `json:"Changed"`
+
+	// Departed holds a set of units that have previously been reported to
+	// be in scope, but which no longer are.
+	Departed []string `json:"Departed"`
+}
+
+// RelationUnitsWatchResult holds a RelationUnitsWatcher id, baseline state
+// (in the Changes field), and an error (if any).
 type RelationUnitsWatchResult struct {
-	RelationUnitsWatcherId string
-	Changes                multiwatcher.RelationUnitsChange
-	Error                  *Error
+	RelationUnitsWatcherId string              `json:"RelationUnitsWatchResult"`
+	Changes                RelationUnitsChange `json:"Changes"`
+	Error                  *Error              `json:"Error"`
 }
 
 // RelationUnitsWatchResults holds the results for any API call which ends up

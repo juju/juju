@@ -10,12 +10,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -38,7 +37,7 @@ type CertificateUpdater struct {
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
 // which can be used to watch for machine address changes.
 type AddressWatcher interface {
-	WatchAddresses() state.NotifyWatcher
+	WatchAddresses() watcher.NotifyWatcher
 	Addresses() (addresses []network.Address)
 }
 
@@ -69,14 +68,20 @@ type APIHostPortsGetter interface {
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
 	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
-) worker.Worker {
-	return worker.NewNotifyWorker(&CertificateUpdater{
-		addressWatcher:  addressWatcher,
-		configGetter:    configGetter,
-		hostPortsGetter: hostPortsGetter,
-		getter:          getter,
-		setter:          setter,
+) (worker.Worker, error) {
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: &CertificateUpdater{
+			addressWatcher:  addressWatcher,
+			configGetter:    configGetter,
+			hostPortsGetter: hostPortsGetter,
+			getter:          getter,
+			setter:          setter,
+		},
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
