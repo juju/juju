@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type serviceDirectoryMockSuite struct {
+type serviceDirectorySuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&serviceDirectoryMockSuite{})
+var _ = gc.Suite(&serviceDirectorySuite{})
 
 func serviceForURLCaller(c *gc.C, offers []params.ServiceOffer, err string) basetesting.APICallerFunc {
 	return basetesting.APICallerFunc(
@@ -59,7 +59,7 @@ func serviceForURLCaller(c *gc.C, offers []params.ServiceOffer, err string) base
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
-func (s *serviceDirectoryMockSuite) TestServiceForURL(c *gc.C) {
+func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{
 		{
 			Name:      "db",
@@ -84,7 +84,14 @@ func (s *serviceDirectoryMockSuite) TestServiceForURL(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expectedOffer)
 }
 
-func (s *serviceDirectoryMockSuite) TestServiceForURLError(c *gc.C) {
+func (s *serviceDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
+	apiCaller := serviceForURLCaller(c, []params.ServiceOffer{}, "")
+	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCaller)}
+	_, err := client.ServiceForURL("local:/u/user/name", "foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *serviceDirectorySuite) TestServiceForURLError(c *gc.C) {
 	apiCaller := serviceForURLCaller(c, nil, "error")
 	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCaller)}
 	_, err := client.ServiceForURL("local:/u/user/name", "foo")
@@ -121,7 +128,7 @@ func listOffersCaller(c *gc.C, offers []params.ServiceOffer, err string) basetes
 		})
 }
 
-func (s *serviceDirectoryMockSuite) TestListOffers(c *gc.C) {
+func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{
 		{
 			Name:      "db",
@@ -154,7 +161,7 @@ func (s *serviceDirectoryMockSuite) TestListOffers(c *gc.C) {
 	c.Assert(result[0], jc.DeepEquals, expectedOffer)
 }
 
-func (s *serviceDirectoryMockSuite) TestListOffersError(c *gc.C) {
+func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
 	apiCaller := listOffersCaller(c, nil, "error")
 	client := crossmodel.NewServiceDirectory(apiCaller)
 	filter := jujucrossmodel.ServiceOfferFilter{
@@ -193,7 +200,7 @@ func addOffersCaller(c *gc.C, expectedOffers []params.AddServiceOffer, err strin
 		})
 }
 
-func (s *serviceDirectoryMockSuite) TestAddOffers(c *gc.C) {
+func (s *serviceDirectorySuite) TestAddOffers(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{
 		{
 			Name:      "db",
@@ -220,7 +227,7 @@ func (s *serviceDirectoryMockSuite) TestAddOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceDirectoryMockSuite) TestAddOffersError(c *gc.C) {
+func (s *serviceDirectorySuite) TestAddOffersError(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{
 		{
 			Name:      "db",
@@ -262,19 +269,19 @@ func apiCallerWithError(c *gc.C, apiName string) basetesting.APICallerFunc {
 		})
 }
 
-func (s *serviceDirectoryMockSuite) TestServiceForURLFacadeCallError(c *gc.C) {
+func (s *serviceDirectorySuite) TestServiceForURLFacadeCallError(c *gc.C) {
 	client := jujucrossmodel.ServiceDirectoryWrapper{crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))}
 	_, err := client.ServiceForURL("local:/u/user/name", "user")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 
-func (s *serviceDirectoryMockSuite) TestListOffersFacadeCallError(c *gc.C) {
+func (s *serviceDirectorySuite) TestListOffersFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))
 	_, err := client.ListOffers(jujucrossmodel.ServiceOfferFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 
-func (s *serviceDirectoryMockSuite) TestAddOfferFacadeCallError(c *gc.C) {
+func (s *serviceDirectorySuite) TestAddOfferFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "AddOffers"))
 	err := client.AddOffer(jujucrossmodel.ServiceOffer{}, nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")

@@ -23,8 +23,8 @@ type serviceDirectoryAPI struct {
 	facade base.FacadeCaller
 }
 
-// A ServiceDirectory holds service offerings from external environments.
-type ServiceDirectory interface {
+// A ServiceDirectoryAPI provides access to service offerings from external environments.
+type ServiceDirectoryAPI interface {
 
 	// AddOffer adds a new service offering to the directory.
 	AddOffer(offer crossmodel.ServiceOffer, users []string) error
@@ -34,12 +34,12 @@ type ServiceDirectory interface {
 }
 
 // NewServiceDirectory creates a new client for accessing a controller service directory API.
-func NewServiceDirectory(st base.APICallCloser) ServiceDirectory {
+func NewServiceDirectory(st base.APICallCloser) ServiceDirectoryAPI {
 	frontend, backend := base.NewClientFacade(st, "ServiceDirectory")
 	return &serviceDirectoryAPI{ClientFacade: frontend, facade: backend}
 }
 
-// TODO(wallyworld) - add Delete() and Update()
+// TODO(wallyworld) - add Remove() and Update()
 
 // AddOffer adds a new service offering to the directory, able to be consumed by
 // the specified users.

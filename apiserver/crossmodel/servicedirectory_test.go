@@ -5,9 +5,11 @@ package crossmodel_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apicrossmodel "github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
@@ -70,19 +72,23 @@ func (s *serviceDirectorySuite) assertCalls(c *gc.C, expectedCalls []string) {
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
+var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
 func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 	offers := params.AddServiceOffers{
 		Offers: []params.AddServiceOffer{
 			{
 				ServiceOffer: params.ServiceOffer{
-					ServiceURL:  "local:/u/user/name",
-					ServiceName: "service",
+					ServiceURL:       "local:/u/user/name",
+					ServiceName:      "service",
+					SourceEnvironTag: names.NewEnvironTag(fakeUUID).String(),
 				},
 			},
 			{
 				ServiceOffer: params.ServiceOffer{
-					ServiceURL:  "local:/u/user/anothername",
-					ServiceName: "service",
+					ServiceURL:       "local:/u/user/anothername",
+					ServiceName:      "service",
+					SourceEnvironTag: names.NewEnvironTag(fakeUUID).String(),
 				},
 			},
 		},
@@ -92,8 +98,12 @@ func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	s.assertCalls(c, []string{"addoffer", "addoffer"})
-	c.Assert(s.offers["local:/u/user/name"], jc.DeepEquals, offers.Offers[0].ServiceOffer)
-	c.Assert(s.offers["local:/u/user/anothername"], jc.DeepEquals, offers.Offers[1].ServiceOffer)
+	offer0, err := apicrossmodel.MakeOfferFromParams(offers.Offers[0].ServiceOffer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.offers["local:/u/user/name"], jc.DeepEquals, offer0)
+	offer1, err := apicrossmodel.MakeOfferFromParams(offers.Offers[1].ServiceOffer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.offers["local:/u/user/anothername"], jc.DeepEquals, offer1)
 }
 
 func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
@@ -105,8 +115,9 @@ func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
 		Offers: []params.AddServiceOffer{
 			{
 				ServiceOffer: params.ServiceOffer{
-					ServiceURL:  "local:/u/user/name",
-					ServiceName: "service",
+					ServiceURL:       "local:/u/user/name",
+					ServiceName:      "service",
+					SourceEnvironTag: names.NewEnvironTag(fakeUUID).String(),
 				},
 			},
 		},
@@ -120,10 +131,14 @@ func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
 
 func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	s.offers["local:/u/user/name"] = jujucrossmodel.ServiceOffer{
-		ServiceName: "service",
+		ServiceURL:    "local:/u/user/name",
+		ServiceName:   "service",
+		SourceEnvUUID: fakeUUID,
 	}
 	s.offers["local:/u/user/anothername"] = jujucrossmodel.ServiceOffer{
-		ServiceName: "anotherservice",
+		ServiceURL:    "local:/u/user/anothername",
+		ServiceName:   "anotherservice",
+		SourceEnvUUID: fakeUUID,
 	}
 	results, err := s.api.ListOffers(params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -135,8 +150,11 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	s.assertCalls(c, []string{"listoffers"})
-	c.Assert(results[0], jc.DeepEquals, s.offers["local:/u/user/name"])
+	offer, err := apicrossmodel.MakeOfferFromParams(results[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/name"])
 	c.Assert(results[0].ServiceURL, gc.Equals, "local:/u/user/name")
+	c.Assert(results[0].SourceEnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID).String())
 }
 
 func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {

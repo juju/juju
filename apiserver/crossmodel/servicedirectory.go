@@ -49,6 +49,8 @@ func newServiceDirectoryAPI(
 	return createServiceDirectoryAPI(NewEmbeddedServiceDirectory(st), resources, authorizer)
 }
 
+// TODO(wallyworld) - add Remove() and Update()
+
 // ListOffers returns offers matching the filter from a service directory.
 func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) ([]params.ServiceOffer, error) {
 	offerFilters, err := makeOfferFilterFromParams(filters.Filters)
@@ -69,18 +71,20 @@ func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) ([]param
 func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.ServiceOfferFilter, error) {
 	offerFilters := make([]crossmodel.ServiceOfferFilter, len(filters))
 	for i, filter := range filters {
-		envTag, err := names.ParseEnvironTag(filter.SourceEnvUUIDTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		offerFilters[i] = crossmodel.ServiceOfferFilter{
 			ServiceOffer: crossmodel.ServiceOffer{
 				ServiceURL:         filter.ServiceURL,
 				ServiceName:        filter.ServiceName,
 				ServiceDescription: filter.ServiceDescription,
 				SourceLabel:        filter.SourceLabel,
-				SourceEnvUUID:      envTag.Id(),
 			},
+		}
+		if filter.SourceEnvUUIDTag != "" {
+			envTag, err := names.ParseEnvironTag(filter.SourceEnvUUIDTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			offerFilters[i].SourceEnvUUID = envTag.Id()
 		}
 	}
 	return offerFilters, nil
