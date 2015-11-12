@@ -244,7 +244,11 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	return false, errors.NotSupportedf("spaces")
+	caps, err := env.getCapabilities()
+	if err != nil {
+		return false, errors.Annotatef(err, "getCapabilities failed")
+	}
+	return caps.Contains(capNetworkDeploymentUbuntu), nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -534,9 +538,10 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement = "networks-management"
-	capStaticIPAddresses  = "static-ipaddresses"
-	capDevices            = "devices-management"
+	capNetworksManagement      = "networks-management"
+	capStaticIPAddresses       = "static-ipaddresses"
+	capDevices                 = "devices-management"
+	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
 )
 
 func (env *maasEnviron) supportsDevices() (bool, error) {
