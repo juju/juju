@@ -48,12 +48,8 @@ func (c *Client) Show(url string) (params.RemoteServiceInfo, error) {
 	}
 
 	result := found.Results
-	if len(result) > 1 {
+	if len(result) != 1 {
 		return params.RemoteServiceInfo{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
-	}
-
-	if len(result) == 0 {
-		return params.RemoteServiceInfo{}, errors.NotFoundf("remote service with url %q", url)
 	}
 
 	theOne := result[0]
