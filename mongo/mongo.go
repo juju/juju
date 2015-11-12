@@ -79,14 +79,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // mongo replica set peer address by selecting it from the given addresses. If
 // no addresses are available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	addr, _ := network.SelectInternalAddress(addrs, false)
+	addr, _ := network.SelectInternalAddress(addrs, true)
 	return addr.Value
 }
 
 // SelectPeerHostPort returns the HostPort to use as the
 // mongo replica set peer by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	return network.SelectInternalHostPort(hostPorts, false)
+	return network.SelectInternalHostPort(hostPorts, true)
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)

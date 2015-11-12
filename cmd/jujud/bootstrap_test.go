@@ -215,8 +215,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, expectInfo.StatePort)
-	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, memberHost)
+	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, expectDialAddrs[0])
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
