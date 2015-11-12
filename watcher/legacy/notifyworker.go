@@ -6,6 +6,7 @@ package legacy
 import (
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -23,12 +24,6 @@ type notifyWorker struct {
 	handler NotifyWatchHandler
 }
 
-type NotifyWatcher interface {
-	Changes() <-chan struct{}
-	Stop() error
-	Err() error
-}
-
 // NotifyWatchHandler implements the business logic that is triggered
 // as part of watching a NotifyWatcher.
 type NotifyWatchHandler interface {
@@ -36,7 +31,7 @@ type NotifyWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and the notify Worker will make sure
 	// to stop the watcher.
-	SetUp() (NotifyWatcher, error)
+	SetUp() (state.NotifyWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error

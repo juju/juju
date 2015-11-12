@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 
-	"github.com/juju/juju/worker/legacy"
+	"github.com/juju/juju/watcher/legacy"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
@@ -27,7 +27,7 @@ func NewMinUnitsWorker(st *state.State) worker.Worker {
 	return legacy.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (legacy.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 
