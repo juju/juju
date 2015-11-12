@@ -75,14 +75,14 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 	return params.ErrorResults{Results: offers}, nil
 }
 
-// ListOffers gets details about remote services that match given filter.
-func (api *API) ListOffers(filter params.EndpointsSearchFilter) (params.RemoteServiceInfos, error) {
-	found, err := api.exporter.Search(filter)
+// Show gets details about remote services that match given URLs.
+func (api *API) Show(urls []string) (params.RemoteServiceInfos, error) {
+	found, err := api.exporter.Search(urls)
 	if err != nil {
 		return params.RemoteServiceInfos{}, errors.Trace(err)
 	}
 	if len(found) == 0 {
-		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with urls %v", strings.Join(filter.URLs, ","))
+		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with urls %v", strings.Join(urls, ","))
 	}
 
 	results := make([]params.RemoteServiceInfo, len(found))

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/crossmodel"
 	coretesting "github.com/juju/juju/testing"
@@ -51,7 +50,7 @@ func (s *baseCrossmodelSuite) initialiseExporter() {
 		s.calls = append(s.calls, exportOfferCall)
 		return nil
 	}
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return nil, nil
 	}
@@ -69,13 +68,13 @@ type mockExporter struct {
 
 	// Search looks through offered services and returns the ones
 	// that match specified filter.
-	search func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error)
+	search func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error)
 }
 
 func (m *mockExporter) ExportOffer(offer crossmodel.Offer) error {
 	return m.exportOffer(offer)
 }
 
-func (m *mockExporter) Search(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
-	return m.search(filter)
+func (m *mockExporter) Search(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
+	return m.search(urls)
 }

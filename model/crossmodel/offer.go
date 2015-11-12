@@ -7,8 +7,6 @@ package crossmodel
 
 import (
 	"github.com/juju/names"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 // RemoteService has information about remote service.
@@ -66,9 +64,11 @@ type RemoteServiceEndpoints struct {
 //////////////////////TEMP PLACEHOLDER REMOVE WHEN REAL THING IS PLUGGED IN???????????
 type ExporterStub struct{}
 
-func (e ExporterStub) ExportOffer(offer Offer) error { return nil }
+func (e ExporterStub) ExportOffer(offer Offer) error {
+	return nil
+}
 
-func (e ExporterStub) Search(filter params.EndpointsSearchFilter) ([]RemoteServiceEndpoints, error) {
+func (e ExporterStub) Search(urls []string) ([]RemoteServiceEndpoints, error) {
 	return nil, nil
 }
 

@@ -70,14 +70,14 @@ func (s *crossmodelSuite) TestListOffers(c *gc.C) {
 	url := "local:/u/fred/prod/hosted-db2"
 	anOffer := crossmodel.RemoteService{Service: tag, URL: url}
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return []crossmodel.RemoteServiceEndpoints{
 			crossmodel.RemoteServiceEndpoints{anOffer, nil},
 		}, nil
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: []string{url}})
+	found, err := s.api.Show([]string{url})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
 		params.RemoteServiceInfos{[]params.RemoteServiceInfo{
@@ -90,12 +90,12 @@ func (s *crossmodelSuite) TestListOffersError(c *gc.C) {
 	url := "local:/u/fred/prod/hosted-db2"
 	msg := "fail"
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return nil, errors.New(msg)
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: []string{url}})
+	found, err := s.api.Show([]string{url})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
@@ -104,12 +104,12 @@ func (s *crossmodelSuite) TestListOffersError(c *gc.C) {
 func (s *crossmodelSuite) TestListOffersNotFound(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/hosted-db2"}
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return nil, nil
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: urls})
+	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
@@ -118,12 +118,12 @@ func (s *crossmodelSuite) TestListOffersNotFound(c *gc.C) {
 func (s *crossmodelSuite) TestListOffersErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/hosted-db2", "remote:/u/fred/hosted-db2"}
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return nil, nil
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: urls})
+	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
@@ -132,12 +132,12 @@ func (s *crossmodelSuite) TestListOffersErrorMsgMultipleURLs(c *gc.C) {
 func (s *crossmodelSuite) TestListOffersNotFoundEmpty(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/hosted-db2"}
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return []crossmodel.RemoteServiceEndpoints{}, nil
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: urls})
+	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
@@ -151,7 +151,7 @@ func (s *crossmodelSuite) TestListOffersFoundMultiple(c *gc.C) {
 	tag2 := names.NewServiceTag("testAgain")
 	anOffer2 := crossmodel.RemoteService{Service: tag2, URL: url}
 
-	s.exporter.search = func(filter params.EndpointsSearchFilter) ([]crossmodel.RemoteServiceEndpoints, error) {
+	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
 		s.calls = append(s.calls, searchCall)
 		return []crossmodel.RemoteServiceEndpoints{
 			crossmodel.RemoteServiceEndpoints{anOffer, nil},
@@ -159,7 +159,7 @@ func (s *crossmodelSuite) TestListOffersFoundMultiple(c *gc.C) {
 		}, nil
 	}
 
-	found, err := s.api.ListOffers(params.EndpointsSearchFilter{URLs: []string{url}})
+	found, err := s.api.Show([]string{url})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfos{
 		[]params.RemoteServiceInfo{
