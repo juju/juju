@@ -9,7 +9,7 @@ import (
 
 type ServiceOfficeLister interface {
 	// List offers returns the offers satisfying the specified filter.
-	ListOffers(filter ...OfferFilter) ([]ServiceOffer, error)
+	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 }
 
 // A ServiceDirectoryWrapper holds service offerings from external environments
@@ -25,9 +25,9 @@ func (s ServiceDirectoryWrapper) ServiceForURL(url string, user string) (Service
 		return ServiceOffer{}, err
 	}
 	results, err := s.ListOffers(
-		OfferFilter{
+		ServiceOfferFilter{
 			ServiceOffer: ServiceOffer{
-				ServiceURL:      url,
+				ServiceURL: url,
 			},
 			AllowedUsers: []string{user},
 		},

@@ -30,7 +30,7 @@ type ServiceDirectory interface {
 	AddOffer(offer crossmodel.ServiceOffer, users []string) error
 
 	// List offers returns the offers satisfying the specified filter.
-	ListOffers(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error)
+	ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
 }
 
 // NewServiceDirectory creates a new client for accessing a controller service directory API.
@@ -90,10 +90,10 @@ func MakeParamsFromOffer(offer crossmodel.ServiceOffer) params.ServiceOffer {
 }
 
 // List offers returns the offers satisfying the specified filter.
-func (s *serviceDirectoryAPI) ListOffers(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (s *serviceDirectoryAPI) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	var filterParams params.OfferFilters
 	filterParams.Filters = make([]params.OfferFilter, len(filters))
-	// TODO(wallyworld) - support or remove params.OfferFilter.ServiceUser
+	// TODO(wallyworld) - support or remove params.ServiceOfferFilter.ServiceUser
 	for i, filter := range filters {
 		eps := make([]params.EndpointFilterAttributes, len(filter.Endpoints))
 		for j, ep := range filter.Endpoints {
@@ -111,7 +111,7 @@ func (s *serviceDirectoryAPI) ListOffers(filters ...crossmodel.OfferFilter) ([]c
 			ServiceName:        filter.ServiceName,
 			ServiceDescription: filter.ServiceDescription,
 			SourceLabel:        filter.SourceLabel,
-			SourceEnvUUIDTag:      names.NewEnvironTag(filter.SourceEnvUUID).String(),
+			SourceEnvUUIDTag:   names.NewEnvironTag(filter.SourceEnvUUID).String(),
 			Endpoints:          eps,
 			AllowedUserTags:    users,
 		}

@@ -139,7 +139,7 @@ func (s *serviceDirectoryMockSuite) TestListOffers(c *gc.C) {
 	}
 	apiCaller := listOffersCaller(c, offers, "")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	filter := jujucrossmodel.OfferFilter{
+	filter := jujucrossmodel.ServiceOfferFilter{
 		ServiceOffer: jujucrossmodel.ServiceOffer{
 			ServiceName:        "service",
 			ServiceDescription: "description",
@@ -157,7 +157,7 @@ func (s *serviceDirectoryMockSuite) TestListOffers(c *gc.C) {
 func (s *serviceDirectoryMockSuite) TestListOffersError(c *gc.C) {
 	apiCaller := listOffersCaller(c, nil, "error")
 	client := crossmodel.NewServiceDirectory(apiCaller)
-	filter := jujucrossmodel.OfferFilter{
+	filter := jujucrossmodel.ServiceOfferFilter{
 		ServiceOffer: jujucrossmodel.ServiceOffer{
 			ServiceName:        "service",
 			ServiceDescription: "description",
@@ -270,7 +270,7 @@ func (s *serviceDirectoryMockSuite) TestServiceForURLFacadeCallError(c *gc.C) {
 
 func (s *serviceDirectoryMockSuite) TestListOffersFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceDirectory(apiCallerWithError(c, "ListOffers"))
-	_, err := client.ListOffers(jujucrossmodel.OfferFilter{})
+	_, err := client.ListOffers(jujucrossmodel.ServiceOfferFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 

@@ -37,7 +37,7 @@ func (s *serviceDirectorySuite) constructServiceDirectory() *mockServiceDirector
 			s.offers[offer.ServiceURL] = offer
 			return nil
 		},
-		listOffers: func(filters ...jujucrossmodel.OfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
+		listOffers: func(filters ...jujucrossmodel.ServiceOfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
 			s.calls = append(s.calls, "listoffers")
 			var result []jujucrossmodel.ServiceOffer
 			for _, filter := range filters {
@@ -140,7 +140,7 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 }
 
 func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
-	s.serviceDirectory.listOffers = func(filters ...jujucrossmodel.OfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(filters ...jujucrossmodel.ServiceOfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
 		s.calls = append(s.calls, "listoffers")
 		return nil, errors.New("error")
 	}

@@ -66,14 +66,14 @@ func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) ([]param
 	return result, nil
 }
 
-func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.OfferFilter, error) {
-	offerFilters := make([]crossmodel.OfferFilter, len(filters))
+func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.ServiceOfferFilter, error) {
+	offerFilters := make([]crossmodel.ServiceOfferFilter, len(filters))
 	for i, filter := range filters {
 		envTag, err := names.ParseEnvironTag(filter.SourceEnvUUIDTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		offerFilters[i] = crossmodel.OfferFilter{
+		offerFilters[i] = crossmodel.ServiceOfferFilter{
 			ServiceOffer: crossmodel.ServiceOffer{
 				ServiceURL:         filter.ServiceURL,
 				ServiceName:        filter.ServiceName,
@@ -129,7 +129,7 @@ func (s *controllerServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) 
 	return errors.NewNotImplemented(nil, "update offer")
 }
 
-func (s *controllerServiceDirectory) ListOffers(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (s *controllerServiceDirectory) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	// TODO(wallyworld) - implement
 	return nil, errors.NewNotImplemented(nil, "list offers")
 }

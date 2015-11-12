@@ -85,7 +85,7 @@ func (s *serviceDirectory) offerAtURL(url string) (*serviceOfferDoc, error) {
 // Remove deletes the service offer at url immediately.
 func (s *serviceDirectory) Remove(url string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete service offer %q", url)
-	err = s.st.runTransaction(s.destroyOps(url))
+	err = s.st.runTransaction(s.removeOps(url))
 	if err == txn.ErrAborted {
 		// Already deleted.
 		return nil
@@ -93,8 +93,8 @@ func (s *serviceDirectory) Remove(url string) (err error) {
 	return err
 }
 
-// destroyOps returns the operations required to destroy the record at url.
-func (s *serviceDirectory) destroyOps(url string) []txn.Op {
+// removeOps returns the operations required to remove the record at url.
+func (s *serviceDirectory) removeOps(url string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      serviceOffersC,
@@ -228,7 +228,7 @@ func (s *serviceDirectory) makeServiceOfferDoc(offer crossmodel.ServiceOffer) se
 	return doc
 }
 
-func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.OfferFilter) bson.D {
+func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.ServiceOfferFilter) bson.D {
 	var filter bson.D
 	if filterTerm.ServiceName != "" {
 		filter = append(filter, bson.DocElem{"servicename", filterTerm.ServiceName})
@@ -253,7 +253,7 @@ func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.OfferFilter) bso
 }
 
 // ListOffers returns the service offers matching any one of the filter terms.
-func (s *serviceDirectory) ListOffers(filter ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (s *serviceDirectory) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	serviceOffersCollection, closer := s.st.getCollection(serviceOffersC)
 	defer closer()
 

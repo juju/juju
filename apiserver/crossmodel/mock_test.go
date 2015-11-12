@@ -9,14 +9,14 @@ import (
 
 type mockServiceDirectory struct {
 	addOffer   func(offer crossmodel.ServiceOffer) error
-	listOffers func(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error)
+	listOffers func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
 }
 
 func (m *mockServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
 	return m.addOffer(offer)
 }
 
-func (m *mockServiceDirectory) ListOffers(filters ...crossmodel.OfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (m *mockServiceDirectory) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	return m.listOffers(filters...)
 }
 

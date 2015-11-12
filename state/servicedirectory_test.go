@@ -157,7 +157,7 @@ func (s *serviceDirectorySuite) TestListOffersOneFilter(c *gc.C) {
 	offer := s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
 	s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
 	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
-	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+	offers, err := sd.ListOffers(crossmodel.ServiceOfferFilter{
 		ServiceOffer: crossmodel.ServiceOffer{
 			ServiceURL:    "local:/u/me/offer1",
 			ServiceName:   "offer1",
@@ -176,14 +176,14 @@ func (s *serviceDirectorySuite) TestListOffersManyFilters(c *gc.C) {
 	offer2 := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
 	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
 	offers, err := sd.ListOffers(
-		crossmodel.OfferFilter{
+		crossmodel.ServiceOfferFilter{
 			ServiceOffer: crossmodel.ServiceOffer{
 				ServiceURL:    "local:/u/me/offer1",
 				ServiceName:   "offer1",
 				SourceEnvUUID: "uuid-1",
 				SourceLabel:   "label",
 			}},
-		crossmodel.OfferFilter{
+		crossmodel.ServiceOfferFilter{
 			ServiceOffer: crossmodel.ServiceOffer{
 				ServiceURL:         "local:/u/me/offer2",
 				ServiceDescription: "offer2",
@@ -200,7 +200,7 @@ func (s *serviceDirectorySuite) TestListOffersFilterDescriptionRegexp(c *gc.C) {
 	s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
 	offer := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
 	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
-	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+	offers, err := sd.ListOffers(crossmodel.ServiceOfferFilter{
 		ServiceOffer: crossmodel.ServiceOffer{
 			ServiceDescription: "for offer2",
 		},
@@ -215,7 +215,7 @@ func (s *serviceDirectorySuite) TestListOffersFilterServiceURLRegexp(c *gc.C) {
 	s.createOffer(c, "offer1", "description for offer1", "uuid-1", "label")
 	offer := s.createOffer(c, "offer2", "description for offer2", "uuid-2", "label")
 	s.createOffer(c, "offer3", "description for offer3", "uuid-3", "label")
-	offers, err := sd.ListOffers(crossmodel.OfferFilter{
+	offers, err := sd.ListOffers(crossmodel.ServiceOfferFilter{
 		ServiceOffer: crossmodel.ServiceOffer{
 			ServiceURL: "me/offer2",
 		},
@@ -268,8 +268,7 @@ func (s *remoteServiceSuite) TestAddServiceOfferDuplicateAddedAfterInitial(c *gc
 		ServiceName:   "mysql",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service offer "mysql" at "local:/u/me/service": service offer already exists`)
 }
 
 func (s *serviceDirectorySuite) TestUpdateServiceOfferUUIDRequired(c *gc.C) {
@@ -311,6 +310,5 @@ func (s *remoteServiceSuite) TestUpdateServiceOfferRemovedAfterInitial(c *gc.C) 
 		ServiceName:   "mysql",
 		SourceEnvUUID: "uuid",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot add service offer "another": service offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot update service offer "mysql": service offer "local:/u/me/service" not found`)
 }
