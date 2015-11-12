@@ -76,20 +76,22 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 }
 
 // Show gets details about remote services that match given URLs.
-func (api *API) Show(urls []string) (params.RemoteServiceInfos, error) {
+func (api *API) Show(urls []string) (params.RemoteServiceInfoResults, error) {
 	found, err := api.exporter.Search(urls)
 	if err != nil {
-		return params.RemoteServiceInfos{}, errors.Trace(err)
+		return params.RemoteServiceInfoResults{}, errors.Trace(err)
 	}
 	if len(found) == 0 {
-		return params.RemoteServiceInfos{}, errors.NotFoundf("endpoints with urls %v", strings.Join(urls, ","))
+		return params.RemoteServiceInfoResults{}, errors.NotFoundf("endpoints with urls %v", strings.Join(urls, ","))
 	}
 
-	results := make([]params.RemoteServiceInfo, len(found))
+	results := make([]params.RemoteServiceInfoResult, len(found))
 	for i, one := range found {
-		results[i] = convertRemoteServiceDetails(one)
+		results[i].RemoteService = convertRemoteServiceDetails(one)
+		// TODO (anastasiamac 2015-11-12) once back-end is done in separate branch,
+		// fix values for results[i].URL and results[i].Error
 	}
-	return params.RemoteServiceInfos{results}, nil
+	return params.RemoteServiceInfoResults{results}, nil
 }
 
 // parseOffer is a helper function that translates from params

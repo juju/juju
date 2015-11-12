@@ -40,21 +40,25 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 
 // Show returns offered remote service details for a given URL.
 func (c *Client) Show(url string) (params.RemoteServiceInfo, error) {
-	found := params.RemoteServiceInfos{}
+	found := params.RemoteServiceInfoResults{}
 
 	err := c.facade.FacadeCall("Show", []string{url}, &found)
 	if err != nil {
 		return params.RemoteServiceInfo{}, errors.Trace(err)
 	}
 
-	result := found.Result
+	result := found.Results
 	if len(result) > 1 {
 		return params.RemoteServiceInfo{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
 	}
 
 	if len(result) == 0 {
 		return params.RemoteServiceInfo{}, errors.NotFoundf("remote service with url %q", url)
-
 	}
-	return result[0], nil
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return params.RemoteServiceInfo{}, errors.Trace(theOne.Error)
+	}
+	return theOne.RemoteService, nil
 }

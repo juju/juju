@@ -80,8 +80,8 @@ func (s *crossmodelSuite) TestListOffers(c *gc.C) {
 	found, err := s.api.Show([]string{url})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
-		params.RemoteServiceInfos{[]params.RemoteServiceInfo{
-			params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}},
+		params.RemoteServiceInfoResults{[]params.RemoteServiceInfoResult{
+			{RemoteService: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
 		}})
 	s.assertCalls(c, searchCall)
 }
@@ -97,7 +97,7 @@ func (s *crossmodelSuite) TestListOffersError(c *gc.C) {
 
 	found, err := s.api.Show([]string{url})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
 }
 
@@ -111,7 +111,7 @@ func (s *crossmodelSuite) TestListOffersNotFound(c *gc.C) {
 
 	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
 }
 
@@ -125,7 +125,7 @@ func (s *crossmodelSuite) TestListOffersErrorMsgMultipleURLs(c *gc.C) {
 
 	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
 }
 
@@ -139,7 +139,7 @@ func (s *crossmodelSuite) TestListOffersNotFoundEmpty(c *gc.C) {
 
 	found, err := s.api.Show(urls)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`endpoints with urls %v not found`, strings.Join(urls, ",")))
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 0)
 	s.assertCalls(c, searchCall)
 }
 
@@ -161,10 +161,10 @@ func (s *crossmodelSuite) TestListOffersFoundMultiple(c *gc.C) {
 
 	found, err := s.api.Show([]string{url})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfos{
-		[]params.RemoteServiceInfo{
-			params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}},
-			params.RemoteServiceInfo{Service: tag2.String(), Endpoints: []params.RemoteEndpoint{}},
+	c.Assert(found, gc.DeepEquals, params.RemoteServiceInfoResults{
+		[]params.RemoteServiceInfoResult{
+			{RemoteService: params.RemoteServiceInfo{Service: tag.String(), Endpoints: []params.RemoteEndpoint{}}},
+			{RemoteService: params.RemoteServiceInfo{Service: tag2.String(), Endpoints: []params.RemoteEndpoint{}}},
 		}})
 	s.assertCalls(c, searchCall)
 }
