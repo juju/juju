@@ -1788,7 +1788,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 		}
 
 		subnets[i] = network.SubnetInfo{
-			ProviderId: name,
+			ProviderId: network.Id(name),
 			VLANTag:    vlanTag,
 			CIDR:       cidr,
 			SpaceName:  spaceName,
