@@ -44,7 +44,7 @@ func formatOfferedEndpointsTabular(all []RemoteService) ([]byte, error) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	print("SERVICE", "DESCRIPTION", "RELATION", "INTERFACE", "ROLE")
+	print("SERVICE", "DESCRIPTION", "ENDPOINT", "INTERFACE", "ROLE")
 
 	for _, one := range all {
 		serviceName := one.Service

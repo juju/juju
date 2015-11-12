@@ -71,7 +71,7 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                       RELATION  INTERFACE  ROLE
+SERVICE     DESCRIPTION                                                       ENDPOINT  INTERFACE  ROLE
 hosted-db2  IBM DB2 Express Server Edition is an entry level database system  db2       hhtp       role
                                                                               log       http       role
 
@@ -85,7 +85,7 @@ func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+SERVICE     DESCRIPTION                                                                                           ENDPOINT  INTERFACE  ROLE
 hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is an  db2       hhtp       role
                                                                                                                   log       http       role
 
@@ -99,7 +99,7 @@ func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                                                                           RELATION  INTERFACE  ROLE
+SERVICE     DESCRIPTION                                                                                           ENDPOINT  INTERFACE  ROLE
 hosted-db2  IBM DB2 Express Server Edition is an entry level database systemIBM DB2 Express Server Edition is...  db2       hhtp       role
                                                                                                                   log       http       role
 
