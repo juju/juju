@@ -299,10 +299,13 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	checkPrincipals := func() []string {
 		docID := state.DocID(s.State, machine.Id())
 		doc := make(map[string][]string)
-		s.machines.FindId(docID).One(&doc)
+		err := s.machines.FindId(docID).One(&doc)
+		if err != nil {
+			c.Errorf("failed to find machine %v: %v", docID, err)
+		}
 		principals, ok := doc["principals"]
 		if !ok {
-			c.Errorf(`machine document does not have a "principals" field`)
+			c.Errorf(`machine document does not have a "principals" field: %#v`, doc)
 		}
 		return principals
 	}
