@@ -3,9 +3,13 @@ from ConfigParser import NoOptionError
 import errno
 import os
 from StringIO import StringIO
+import sys
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
-from unittest import TestCase
+from unittest import (
+    skipIf,
+    TestCase
+    )
 
 from boto.s3.bucket import Bucket
 from boto.s3.key import Key as S3Key
@@ -125,6 +129,8 @@ def get_key_filename(key):
     return key.name.split('/')[-1]
 
 
+@skipIf(sys.platform in ('win32', 'darwin'),
+        'Not supported on Windows and OS X')
 class TestFindPackageKey(StrictTestCase):
 
     def setUp(self):
@@ -160,6 +166,8 @@ class TestFindPackageKey(StrictTestCase):
             find_package_key(bucket, 390)
 
 
+@skipIf(sys.platform in ('win32', 'darwin'),
+        'Not supported on Windows and OS X')
 class TestFetchJujuBinary(StrictTestCase):
 
     def setUp(self):
