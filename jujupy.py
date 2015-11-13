@@ -652,9 +652,6 @@ class EnvJujuClient26(EnvJujuClient):
     def __init__(self, *args, **kwargs):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
-        # JES is automatically enabled if it supports the 'controller' command.
-        self._use_jes = (
-            self.is_jes_enabled() and self.get_jes_command() == 'controller')
 
     def enable_jes(self):
         """Enable JES if JES is optional.
