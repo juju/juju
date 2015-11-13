@@ -38,6 +38,12 @@ func (u *ServiceURL) String() string {
 	return fmt.Sprintf("%s:/%s", u.Scheme, u.path())
 }
 
+var supportedURLSchemes = []string{
+	// TODO(wallyworld): just support local for now.
+	"local",       // for services hosted by a local service directory
+	"vendor-test", // for testing
+}
+
 // ParseServiceURL parses the specified URL string into a ServiceURL.
 // The URL string is of one of the forms:
 //  local:/u/<user>/<servicename>
@@ -57,8 +63,14 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	if url.Scheme != "" {
 		result.Scheme = url.Scheme
-		// TODO(wallyworld): just support local for now.
-		if result.Scheme != "local" {
+		supported := false
+		for _, s := range supportedURLSchemes {
+			supported = s == result.Scheme
+			if supported {
+				break
+			}
+		}
+		if !supported {
 			return nil, errors.Errorf("service URL has invalid scheme: %q", urlStr)
 		}
 	}

@@ -46,7 +46,7 @@ func newServiceDirectoryAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*ServiceDirectoryAPI, error) {
-	return createServiceDirectoryAPI(NewEmbeddedServiceDirectory(st), resources, authorizer)
+	return createServiceDirectoryAPI(state.NewServiceDirectory(st), resources, authorizer)
 }
 
 // TODO(wallyworld) - add Remove() and Update()
@@ -114,33 +114,4 @@ func (api *ServiceDirectoryAPI) AddOffers(offers params.AddServiceOffers) (param
 	}
 	// TODO(wallyworld) - write ACLs with supplied users once we support that
 	return result, nil
-}
-
-// NewEmbeddedServiceDirectory creates a service directory used by a Juju controller.
-func NewEmbeddedServiceDirectory(st *state.State) crossmodel.ServiceDirectory {
-	return &controllerServiceDirectory{st}
-}
-
-type controllerServiceDirectory struct {
-	st *state.State
-}
-
-func (s *controllerServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
-	// TODO(wallyworld) - implement
-	return errors.NewNotImplemented(nil, "add offer")
-}
-
-func (s *controllerServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error {
-	// TODO(wallyworld) - implement
-	return errors.NewNotImplemented(nil, "update offer")
-}
-
-func (s *controllerServiceDirectory) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	// TODO(wallyworld) - implement
-	return nil, errors.NewNotImplemented(nil, "list offers")
-}
-
-func (s *controllerServiceDirectory) Remove(url string) error {
-	// TODO(wallyworld) - implement
-	return errors.NewNotImplemented(nil, "delete offer")
 }

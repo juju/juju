@@ -12,9 +12,9 @@ type ServiceOfferLister interface {
 	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 }
 
-// ServiceForURL returns a service offer for the specified URL
+// ServiceOfferForURL returns a service offer for the specified URL
 // so long as the specified user has been granted access to use that offer.
-func ServiceForURL(offers ServiceOfferLister, url string, user string) (ServiceOffer, error) {
+func ServiceOfferForURL(offers ServiceOfferLister, url string, user string) (ServiceOffer, error) {
 	if _, err := ParseServiceURL(url); err != nil {
 		return ServiceOffer{}, err
 	}
