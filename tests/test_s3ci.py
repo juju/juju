@@ -27,6 +27,7 @@ from jujuconfig import get_juju_home
 from s3ci import (
     fetch_files,
     fetch_juju_binary,
+    find_file_keys,
     find_package_key,
     get_job_path,
     get_s3_credentials,
@@ -189,20 +190,20 @@ class TestFindPackageKey(StrictTestCase):
     def test_selects_latest(self):
         new_key = mock_package_key(390, build=27)
         old_key = mock_package_key(390, build=9)
-        bucket = mock_bucket([old_key, new_key, old_key])
+        bucket = FakeBucket([old_key, new_key, old_key])
         found_key = find_package_key(bucket, 390)[0]
         self.assertIs(new_key, found_key)
 
     def test_wrong_version(self):
         key = mock_package_key(390, distro_release='01.01')
-        bucket = mock_bucket([key])
+        bucket = FakeBucket([key])
         with self.assertRaises(PackageNotFound):
             find_package_key(bucket, 390)
 
     def test_wrong_file(self):
         key = mock_package_key(390)
         key.name = key.name.replace('juju-core', 'juju-dore')
-        bucket = mock_bucket([key])
+        bucket = FakeBucket([key])
         with self.assertRaises(PackageNotFound):
             find_package_key(bucket, 390)
 
@@ -218,7 +219,7 @@ class TestFetchJujuBinary(StrictTestCase):
     def test_fetch_juju_binary(self):
         key = mock_package_key(275)
         filename = get_key_filename(key)
-        bucket = mock_bucket([key])
+        bucket = FakeBucket([key])
 
         def extract(package, out_dir):
             os.mkdir(out_dir)
@@ -243,7 +244,7 @@ class TestFetchFiles(StrictTestCase):
 
     def test_fetch_files(self):
         key = mock_key(275, 'job-foo', 27, 'file-pattern')
-        bucket = mock_bucket([key])
+        bucket = FakeBucket([key])
         with temp_dir() as workspace:
             downloaded = fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
                                      workspace)
@@ -252,51 +253,70 @@ class TestFetchFiles(StrictTestCase):
         key_copy = os.path.join(workspace, local_file)
         self.assertEqual([key_copy], downloaded)
 
+
+class FakeKey:
+
+    def __init__(self, revision_build, job, build, file_path):
+        job_path = get_job_path(revision_build, job)
+        self.name = '{}/build-{}/{}'.format(job_path, build, file_path)
+
+
+class FakeBucket:
+
+    def __init__(self, keys):
+        self.keys = keys
+
+    def list(self, prefix):
+        return [key for key in self.keys if key.name.startswith(prefix)]
+
+
+class TestFindFileKeys(StrictTestCase):
+
+    def setUp(self):
+        use_context(self, patch('utility.get_deb_arch', return_value='amd65',
+                                autospec=True))
+
+    def test_find_file_keys(self):
+        key = FakeKey(275, 'job-foo', 27, 'file-pattern')
+        bucket = FakeBucket([key])
+        filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
+        self.assertEqual([key], filtered)
+
     def test_matches_pattern(self):
-        match_key = mock_key(275, 'job-foo', 27, 'file-pattern')
-        wrong_name = mock_key(275, 'job-foo', 27, 'file-pat+ern')
-        wrong_job = mock_key(275, 'job.foo', 27, 'file-pattern')
-        wrong_rb = mock_key(276, 'job-foo', 27, 'file-pattern')
+        match_key = FakeKey(275, 'job-foo', 27, 'file-pattern')
+        wrong_name = FakeKey(275, 'job-foo', 27, 'file-pat+ern')
+        wrong_job = FakeKey(275, 'job.foo', 27, 'file-pattern')
+        wrong_rb = FakeKey(276, 'job-foo', 27, 'file-pattern')
         keys = [match_key, wrong_name, wrong_job, wrong_rb]
-        bucket = mock_bucket(keys)
-        with temp_dir() as workspace:
-            fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
-                        workspace)
-        local_file = os.path.join(workspace, 'file-pattern')
-        match_key.get_contents_to_filename.assert_called_once_with(local_file)
-        self.assertEqual(0, wrong_name.get_contents_to_filename.call_count)
-        self.assertEqual(0, wrong_job.get_contents_to_filename.call_count)
-        self.assertEqual(0, wrong_rb.get_contents_to_filename.call_count)
+        bucket = FakeBucket(keys)
+        filtered = find_file_keys(
+            bucket, 275, 'job-foo', 'file-pat+ern')
+        self.assertEqual([match_key], filtered)
 
     def test_uses_latest_build(self):
         def do_fetch(artifacts):
             keys = [
-                mock_key(275, 'job-foo', build, filename) for
+                FakeKey(275, 'job-foo', build, filename) for
                 build, filename in artifacts]
-            bucket = mock_bucket(keys)
-            fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
-                        workspace)
-            return [key.get_contents_to_filename.call_count for key in keys]
-        with temp_dir() as workspace:
-            self.assertEqual([1], do_fetch([(1, 'file-pattern')]))
-            self.assertEqual([0, 0], do_fetch([
-                (1, 'file-pattern'),
-                (2, 'non-match'),
-                ]))
-            self.assertEqual([0, 0, 1], do_fetch([
-                (1, 'file-pattern'),
-                (2, 'non-match'),
-                (2, 'file-pattern'),
-                ]))
+            bucket = FakeBucket(keys)
+            filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
+            return [key in filtered for key in keys]
+        self.assertEqual([True], do_fetch([(1, 'file-pattern')]))
+        self.assertEqual([False, False], do_fetch([
+            (1, 'file-pattern'),
+            (2, 'non-match'),
+            ]))
+        self.assertEqual([False, False, True], do_fetch([
+            (1, 'file-pattern'),
+            (2, 'non-match'),
+            (2, 'file-pattern'),
+            ]))
 
     def test_pattern_is_path(self):
-        match_key = mock_key(275, 'job-foo', 27, 'dir/file')
-        bucket = mock_bucket([match_key])
-        with temp_dir() as workspace:
-            fetch_files(bucket, 275, 'job-foo', 'dir/file',
-                        workspace)
-        local_file = os.path.join(workspace, 'file')
-        match_key.get_contents_to_filename.assert_called_once_with(local_file)
+        match_key = FakeKey(275, 'job-foo', 27, 'dir/file')
+        bucket = FakeBucket([match_key])
+        filtered = find_file_keys(bucket, 275, 'job-foo', 'dir/file')
+        self.assertEqual([match_key], filtered)
 
 
 class TestMain(StrictTestCase):
