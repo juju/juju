@@ -415,6 +415,10 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		case engine.started <- startedTicket{name, worker, resourceGetter.accessLog}:
 			logger.Tracef("registered %q manifold worker", name)
 		}
+		if worker == engine {
+			<-engine.tomb.Dying()
+			return tomb.ErrDying
+		}
 		return worker.Wait()
 	}
 
