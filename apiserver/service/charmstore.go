@@ -192,19 +192,18 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 	return results, nil
 }
 
-func resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, error) {
+func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
-	refWithSeries, _, err := repo.Resolve(ref)
+	resolved, _, err := repo.Resolve(ref)
 	if err != nil {
 		return nil, err
 	}
-	curl, err := refWithSeries.URL("")
-	if err != nil {
-		return nil, err
+	if resolved.Series == "" {
+		return nil, errors.Errorf("no series found in charm URL %q", resolved)
 	}
-	return curl.WithRevision(ref.Revision), nil
+	return resolved.WithRevision(ref.Revision), nil
 }
