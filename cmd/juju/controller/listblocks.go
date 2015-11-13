@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-func newListBlocksCommand() cmd.Command {
+// NewListBlocksCommand returns a command to list the blocks in a controller.
+func NewListBlocksCommand() cmd.Command {
 	return envcmd.WrapController(&listBlocksCommand{})
 }
 
@@ -36,7 +37,7 @@ type listBlocksAPI interface {
 // Info implements Command.Info.
 func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-blocks",
+		Name:    "list-all-blocks",
 		Purpose: "list all blocks within the controller",
 		Doc:     listBlocksDoc,
 	}

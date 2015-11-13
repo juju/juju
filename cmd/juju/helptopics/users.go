@@ -30,6 +30,6 @@ they are using to access an environment to a file that they can use elsewhere
 to login to the same Juju System.
 
 See Also:
-    juju help system
+    juju help controllers
     juju help user
 `

@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-func newRemoveBlocksCommand() cmd.Command {
+// NewRemoveBlocksCommand returns a command that allows a controller admin
+// to remove blocks from the controller.
+func NewRemoveBlocksCommand() cmd.Command {
 	return envcmd.WrapController(&removeBlocksCommand{})
 }
 
@@ -38,7 +40,7 @@ See Also:
 // Info implements Command.Info
 func (c *removeBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove-blocks",
+		Name:    "remove-all-blocks",
 		Purpose: "remove all blocks in the Juju controller",
 		Doc:     removeBlocksDoc,
 	}

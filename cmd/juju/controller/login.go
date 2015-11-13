@@ -22,7 +22,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
-func newLoginCommand() cmd.Command {
+// NewLoginCommand returns a command to allow the user to login to a controller.
+func NewLoginCommand() cmd.Command {
 	return envcmd.WrapBase(&loginCommand{})
 }
 
@@ -58,7 +59,7 @@ If you have been sent one of these server files, you can login by doing the
 following:
 
     # if you have saved the server file as ~/erica.server
-    juju controller login --server=~/erica.server test-controller
+    juju login --server=~/erica.server test-controller
 
 A new strong random password is generated to replace the password defined in
 the server file. The 'test-controller' will also become the current controller that
@@ -70,9 +71,9 @@ mean that you will still be able to connect to the api server from the
 computer where you ran api-info.
 
 See Also:
-    juju help controller environments
-    juju help controller use-environment
-    juju help controller create-environment
+    juju help list-environments
+    juju help use-environment
+    juju help create-environment
     juju help user add
     juju help switch
 `

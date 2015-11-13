@@ -207,14 +207,15 @@ var commandNames = []string{
 	"block",
 	"bootstrap",
 	"cached-images",
-	"controller",
-	"create-env",
 	"create-environment",
+	"create-model", // alias for create-environment
 	"debug-hooks",
 	"debug-log",
 	"deploy",
+	"destroy-controller",
 	"destroy-environment",
 	"destroy-machine",
+	"destroy-model", // alias for destroy-environment
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
@@ -230,11 +231,15 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"init",
+	"kill-controller",
+	"list-all-blocks",
 	"list-controllers",
 	"list-environments",
+	"list-models", // alias for list-environments
 	"login",
 	"machine",
 	"publish",
+	"remove-all-blocks",
 	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
@@ -258,6 +263,8 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
+	"use-environment",
+	"use-model", // alias for use-environment
 	"unblock",
 	"unexpose",
 	"unset",
@@ -290,23 +297,31 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
 	// Use sorted values here so we can better see what is wrong.
-	c.Assert(getHelpCommandNames(c), jc.DeepEquals, cmdSet.SortedValues())
+	registered := getHelpCommandNames(c)
+	unknown := registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing := cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
 	setFeatureFlags(strings.Join(devFeatures, ","))
-	c.Assert(getHelpCommandNames(c), jc.SameContents, commandNames)
+	registered = getHelpCommandNames(c)
+	unknown = registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing = cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 }
 
-func getHelpCommandNames(c *gc.C) []string {
+func getHelpCommandNames(c *gc.C) set.Strings {
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
-	var names []string
+	names := set.NewStrings()
 	for _, line := range lines {
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		names = append(names, f[0])
+		names.Add(f[0])
 	}
 	return names
 }
@@ -323,12 +338,12 @@ var topicNames = []string{
 	"basics",
 	"commands",
 	"constraints",
+	"controllers",
 	"ec2-provider",
 	"global-options",
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"juju-controllers",
 	"local-provider",
 	"logging",
 	"maas-provider",

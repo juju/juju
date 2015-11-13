@@ -24,7 +24,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newDestroyCommand() cmd.Command {
+// NewDestroyCommand returns a command to destroy a controller.
+func NewDestroyCommand() cmd.Command {
 	return envcmd.WrapBase(&destroyCommand{})
 }
 
@@ -61,9 +62,9 @@ type destroyClientAPI interface {
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy",
+		Name:    "destroy-controller",
 		Args:    "<controller name>",
-		Purpose: "terminate all machines and other associated resources for juju controller",
+		Purpose: "terminate all machines and other associated resources for the juju controller",
 		Doc:     destroyDoc,
 	}
 }

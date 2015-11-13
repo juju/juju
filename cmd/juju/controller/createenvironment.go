@@ -23,7 +23,8 @@ import (
 	localProvider "github.com/juju/juju/provider/local"
 )
 
-func newCreateEnvironmentCommand() cmd.Command {
+// NewCreateEnvironmentCommand returns a command to create an environment.
+func NewCreateEnvironmentCommand() cmd.Command {
 	return envcmd.WrapController(&createEnvironmentCommand{})
 }
 
@@ -51,9 +52,9 @@ the --config option, the command line args take priority.
 
 Examples:
 
-    juju controller create-environment new-env
+    juju create-environment new-env
 
-    juju controller create-environment new-env --config=aws-creds.yaml
+    juju create-environment new-env --config=aws-creds.yaml
 
 See Also:
     juju help environment share
@@ -65,7 +66,7 @@ func (c *createEnvironmentCommand) Info() *cmd.Info {
 		Args:    "<name> [key=[value] ...]",
 		Purpose: "create an environment within the Juju Environment Server",
 		Doc:     strings.TrimSpace(createEnvHelpDoc),
-		Aliases: []string{"create-env"},
+		Aliases: []string{"create-model"},
 	}
 }
 

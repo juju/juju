@@ -97,7 +97,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
 	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("juju-controllers", "About Juju Controllers", helptopics.JujuControllers)
+	jcmd.AddHelpTopic("controllers", "About Juju Controllers", helptopics.JujuControllers)
 	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
@@ -213,14 +213,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(subnet.NewSuperCommand())
 
 	// Manage controllers
-	r.Register(controller.NewSuperCommand())
-	r.RegisterSuperAlias("list-controllers", "controller", "list", nil)
-
-	// Add top level aliases of the same name as the subcommands.
-	r.RegisterSuperAlias("list-environments", "controller", "environments", nil)
-	r.RegisterSuperAlias("login", "controller", "login", nil)
-	r.RegisterSuperAlias("create-environment", "controller", "create-environment", nil)
-	r.RegisterSuperAlias("create-env", "controller", "create-env", nil)
+	r.Register(controller.NewCreateEnvironmentCommand())
+	r.Register(controller.NewDestroyCommand())
+	r.Register(controller.NewEnvironmentsCommand())
+	r.Register(controller.NewKillCommand())
+	r.Register(controller.NewListCommand())
+	r.Register(controller.NewListBlocksCommand())
+	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRemoveBlocksCommand())
+	r.Register(controller.NewUseEnvironmentCommand())
 }
 
 func main() {

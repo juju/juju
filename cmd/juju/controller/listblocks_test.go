@@ -62,7 +62,7 @@ func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListBlocksSuite) runListBlocksCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := controller.NewListBlocksCommand(s.api, s.apierror)
+	cmd := controller.NewListBlocksCommandForTest(s.api, s.apierror)
 	args = append(args, []string{"-c", "dummysys"}...)
 	return testing.RunCommand(c, cmd, args...)
 }

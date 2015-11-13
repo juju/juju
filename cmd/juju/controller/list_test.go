@@ -76,18 +76,18 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) TestControllerList(c *gc.C) {
-	context, err := testing.RunCommand(c, controller.NewListCommand(s.store))
+	context, err := testing.RunCommand(c, controller.NewListCommandForTest(s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "test1\ntest3\n")
 }
 
 func (s *ListSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, controller.NewListCommand(s.store), "whoops")
+	_, err := testing.RunCommand(c, controller.NewListCommandForTest(s.store), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *ListSuite) TestListSystemsError(c *gc.C) {
 	s.store = errorStore{err: errors.New("cannot read info")}
-	_, err := testing.RunCommand(c, controller.NewListCommand(s.store))
+	_, err := testing.RunCommand(c, controller.NewListCommandForTest(s.store))
 	c.Assert(err, gc.ErrorMatches, "failed to list controllers in config store: cannot read info")
 }

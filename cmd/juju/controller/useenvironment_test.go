@@ -74,7 +74,7 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UseEnvironmentSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	wrappedCommand, _ := controller.NewUseEnvironmentCommand(s.api, &s.creds, &s.endpoint)
+	wrappedCommand, _ := controller.NewUseEnvironmentCommandForTest(s.api, &s.creds, &s.endpoint)
 	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
@@ -122,7 +122,7 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		envUUID: env1UUID,
 	}} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewUseEnvironmentCommand(nil, nil, nil)
+		wrappedCommand, command := controller.NewUseEnvironmentCommandForTest(nil, nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)

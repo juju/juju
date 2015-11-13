@@ -58,12 +58,12 @@ the --keep-password flag.
 Bob can then list all the environments within that controller that he has
 access to:
 
-    $ juju controller environments
+    $ juju list-environments
     NAME  OWNER  LAST CONNECTION
 
 The list could well be empty. Bob can create an environment to use:
 
-    $ juju controller create-environment test
+    $ juju create-environment test
     created environment "test"
     staging (controller) -> test
 
@@ -93,13 +93,13 @@ environment with Mary.
 When Mary has used her credentials to connect to the juju controller, she can see
 Bob's environment.
 
-    $ juju controller environments
+    $ juju list-environments
     NAME  OWNER      LAST CONNECTION
     test  bob@local  never connected
 
 Mary can use this environment.
 
-    $ juju controller use-environment test
+    $ juju use-environment test
     mary-server (controller) -> bob-test
 
 The local name for the environment is by default 'owner-name', so since this

@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newEnvironmentsCommand() cmd.Command {
+// NewEnvironmentsCommand returns a command to list environments.
+func NewEnvironmentsCommand() cmd.Command {
 	return envcmd.WrapController(&environmentsCommand{})
 }
 
@@ -44,7 +45,6 @@ The environments listed here are either environments you have created
 yourself, or environments which have been shared with you.
 
 See Also:
-    juju help juju-controllers
     juju help controllers
     juju help environment users
     juju help environment share
@@ -68,9 +68,10 @@ type EnvironmentsSysAPI interface {
 // Info implements Command.Info
 func (c *environmentsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "environments",
+		Name:    "list-environments",
 		Purpose: "list all environments the user can access on the current controller",
 		Doc:     envsDoc,
+		Aliases: []string{"list-models"},
 	}
 }
 
