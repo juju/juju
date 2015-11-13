@@ -271,10 +271,6 @@ class FakeBucket:
 
 class TestFindFileKeys(StrictTestCase):
 
-    def setUp(self):
-        use_context(self, patch('utility.get_deb_arch', return_value='amd65',
-                                autospec=True))
-
     def test_find_file_keys(self):
         key = FakeKey(275, 'job-foo', 27, 'file-pattern')
         bucket = FakeBucket([key])
