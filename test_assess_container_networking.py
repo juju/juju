@@ -13,8 +13,10 @@ import assess_container_networking as jcnet
 from copy import deepcopy
 from contextlib import contextmanager
 
+__metaclass__ = type
 
-class JujuMock(object):
+
+class JujuMock:
     """A mock of the parts of the Juju command that the tests hit."""
 
     def __init__(self):
@@ -119,7 +121,6 @@ class JujuMock(object):
     def juju_async(self, cmd, args):
         self.juju(cmd, args)
         yield
-        pass
 
     def _call_number(self):
         call_number = self._call_n
@@ -144,7 +145,6 @@ class TestContainerNetworking(TestCase):
         self.client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
 
-        nil_func = lambda *args, **kw: None
         self.juju_mock = JujuMock()
         self.ssh_mock = Mock()
 
@@ -152,7 +152,7 @@ class TestContainerNetworking(TestCase):
             patch.object(self.client, 'juju', self.juju_mock.juju),
             patch.object(self.client, 'get_status', self.juju_mock.get_status),
             patch.object(self.client, 'juju_async', self.juju_mock.juju_async),
-            patch.object(self.client, 'wait_for', nil_func),
+            patch.object(self.client, 'wait_for', lambda *args, **kw: None),
             patch.object(self.client, 'wait_for_started',
                          self.juju_mock.get_status),
             patch.object(self.client, 'get_juju_output', self.juju_mock.juju),
