@@ -18,11 +18,11 @@ type serviceDirectorySuite struct {
 
 var _ = gc.Suite(&serviceDirectorySuite{})
 
-type mockServiceOfficeLister struct {
+type mockServiceOfferLister struct {
 	results []crossmodel.ServiceOffer
 }
 
-func (m *mockServiceOfficeLister) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (m *mockServiceOfferLister) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	return m.results, nil
 }
 
@@ -33,16 +33,14 @@ func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 			ServiceName: "service",
 		},
 	}
-	offerLister := &mockServiceOfficeLister{offers}
-	wrapper := crossmodel.ServiceDirectoryWrapper{offerLister}
-	result, err := wrapper.ServiceForURL("local:/u/user/name", "foo")
+	offerLister := &mockServiceOfferLister{offers}
+	result, err := crossmodel.ServiceForURL(offerLister, "local:/u/user/name", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, offers[0])
 }
 
 func (s *serviceDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
-	offerLister := &mockServiceOfficeLister{[]crossmodel.ServiceOffer{}}
-	wrapper := crossmodel.ServiceDirectoryWrapper{offerLister}
-	_, err := wrapper.ServiceForURL("local:/u/user/name", "foo")
+	offerLister := &mockServiceOfferLister{[]crossmodel.ServiceOffer{}}
+	_, err := crossmodel.ServiceForURL(offerLister, "local:/u/user/name", "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

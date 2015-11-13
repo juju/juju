@@ -7,24 +7,18 @@ import (
 	"github.com/juju/errors"
 )
 
-type ServiceOfficeLister interface {
+type ServiceOfferLister interface {
 	// List offers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 }
 
-// A ServiceDirectoryWrapper holds service offerings from external environments
-// and provides helper methods to access the offerings.
-type ServiceDirectoryWrapper struct {
-	ServiceOfficeLister
-}
-
 // ServiceForURL returns a service offer for the specified URL
 // so long as the specified user has been granted access to use that offer.
-func (s ServiceDirectoryWrapper) ServiceForURL(url string, user string) (ServiceOffer, error) {
+func ServiceForURL(offers ServiceOfferLister, url string, user string) (ServiceOffer, error) {
 	if _, err := ParseServiceURL(url); err != nil {
 		return ServiceOffer{}, err
 	}
-	results, err := s.ListOffers(
+	results, err := offers.ListOffers(
 		ServiceOfferFilter{
 			ServiceOffer: ServiceOffer{
 				ServiceURL: url,

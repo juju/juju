@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/model/crossmodel"
 )
 
-// PublicUser is the default user used to indicate
-// public access to a shared service.
-var PublicUser = names.NewUserTag("public")
-
 // serviceDirectory allows access to a locally hosted service directory.
 type serviceDirectoryAPI struct {
 	base.ClientFacade
@@ -49,6 +45,9 @@ func (s *serviceDirectoryAPI) AddOffer(offer crossmodel.ServiceOffer, users []st
 	}
 	addOffer.UserTags = make([]string, len(users))
 	for i, user := range users {
+		if !names.IsValidUserName(user) {
+			return errors.NotValidf("user name %q", user)
+		}
 		addOffer.UserTags[i] = names.NewUserTag(user).String()
 	}
 	offers := []params.AddServiceOffer{addOffer}
