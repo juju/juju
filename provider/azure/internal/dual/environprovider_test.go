@@ -122,6 +122,22 @@ func (s *environProviderSuite) testValidate(c *gc.C, active *mockEnvironProvider
 	s.checkActiveCall(c, active, "Validate", s.cfg, s.cfg)
 }
 
+func (s *environProviderSuite) TestValidateIsPrimaryMismatch(c *gc.C) {
+	cfg2 := coretesting.EnvironConfig(c)
+	s.isPrimaryFunc = func(cfg *config.Config) bool {
+		return cfg == s.cfg
+	}
+	_, err := s.dual.Validate(s.cfg, cfg2)
+	c.Assert(err, gc.ErrorMatches, "mixing primary and secondary configurations not valid")
+	s.isPrimaryFunc = func(cfg *config.Config) bool {
+		return cfg == cfg2
+	}
+	_, err = s.dual.Validate(s.cfg, cfg2)
+	c.Assert(err, gc.ErrorMatches, "mixing primary and secondary configurations not valid")
+	s.p1.CheckCalls(c, nil) // no calls
+	s.p2.CheckCalls(c, nil) // no calls
+}
+
 func (s *environProviderSuite) TestSecretAttrs(c *gc.C) {
 	s.testSecretAttrs(c, &s.p1)
 }
