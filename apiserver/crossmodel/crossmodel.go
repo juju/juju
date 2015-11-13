@@ -6,10 +6,9 @@
 package crossmodel
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -25,12 +24,14 @@ func init() {
 // implementation of the api end point.
 type API struct {
 	authorizer common.Authorizer
-	exporter   crossmodel.Exporter
+	directory  crossmodel.ServiceDirectory
+	access     stateAccess
 }
 
 // createAPI returns a new cross model API facade.
 func createAPI(
-	exporter crossmodel.Exporter,
+	directory crossmodel.ServiceDirectory,
+	access stateAccess,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -40,7 +41,8 @@ func createAPI(
 
 	return &API{
 		authorizer: authorizer,
-		exporter:   exporter,
+		directory:  directory,
+		access:     access,
 	}, nil
 }
 
@@ -50,25 +52,32 @@ func NewAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return createAPI(exporter(st), resources, authorizer)
+	return createAPI(serviceDirectory(st), getStateAccess(st), resources, authorizer)
 }
 
-func exporter(st *state.State) crossmodel.Exporter {
-	return crossmodel.ExporterStub{}
+func serviceDirectory(st *state.State) crossmodel.ServiceDirectory {
+	return state.NewServiceDirectory(st)
 }
 
 // Offer makes service endpoints available for consumption.
 func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) {
-	// export service offers
+	cfg, err := api.access.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
 	offers := make([]params.ErrorResult, len(all.Offers))
 	for i, one := range all.Offers {
-		offer, err := parseOffer(one)
+		offer, err := api.parseOffer(one)
 		if err != nil {
 			offers[i].Error = common.ServerError(err)
 			continue
 		}
 
-		if err := api.exporter.ExportOffer(offer); err != nil {
+		offer.SourceLabel = cfg.Name()
+		offer.SourceEnvUUID = api.access.EnvironUUID()
+
+		if err := api.directory.AddOffer(offer); err != nil {
 			offers[i].Error = common.ServerError(err)
 		}
 	}
@@ -77,62 +86,97 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 
 // Show gets details about remote services that match given URLs.
 func (api *API) Show(urls []string) (params.RemoteServiceInfoResults, error) {
-	found, err := api.exporter.Search(urls)
+	filters := make([]crossmodel.ServiceOfferFilter, len(urls))
+	for i, one := range urls {
+		filters[i].ServiceURL = one
+	}
+
+	found, err := api.directory.ListOffers(filters...)
 	if err != nil {
 		return params.RemoteServiceInfoResults{}, errors.Trace(err)
 	}
-	if len(found) == 0 {
-		return params.RemoteServiceInfoResults{}, errors.NotFoundf("endpoints with urls %v", strings.Join(urls, ","))
+
+	tpMap := make(map[string]crossmodel.ServiceOffer, len(found))
+	for _, offer := range found {
+		tpMap[offer.ServiceURL] = offer
 	}
 
-	results := make([]params.RemoteServiceInfoResult, len(found))
-	for i, one := range found {
-		results[i].Result = convertRemoteServiceDetails(one)
-		// TODO (anastasiamac 2015-11-12) once back-end is done in separate branch,
-		// fix values for results[i].Error
+	results := make([]params.RemoteServiceInfoResult, len(urls))
+	for i, one := range urls {
+		foundOffer, ok := tpMap[one]
+		if !ok {
+			results[i].Error = common.ServerError(errors.NotFoundf("offer for remote service url %v", one))
+			continue
+		}
+		results[i].Result = convertServiceOffer(foundOffer)
 	}
 	return params.RemoteServiceInfoResults{results}, nil
 }
 
 // parseOffer is a helper function that translates from params
 // structure into internal service layer one.
-func parseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
-	offer := crossmodel.Offer{}
-
-	serviceTag, err := names.ParseServiceTag(p.Service)
+func (api *API) parseOffer(p params.CrossModelOffer) (crossmodel.ServiceOffer, error) {
+	service, err := api.access.Service(p.Service)
 	if err != nil {
-		return offer, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
+		if errors.IsNotFound(err) {
+			return crossmodel.ServiceOffer{}, common.ErrPerm
+		}
+		return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.Service)
 	}
 
-	users := make([]names.UserTag, len(p.Users))
-	for i, user := range p.Users {
-		users[i], err = names.ParseUserTag(user)
-		if err != nil {
-			return offer, errors.Annotatef(err, "cannot parse user tag %q", user)
-		}
+	endpoints, err := getEndpointsOnOffer(service, set.NewStrings(p.Endpoints...))
+	if err != nil {
+		return crossmodel.ServiceOffer{}, errors.Trace(err)
 	}
-	offer.Service = serviceTag
-	offer.URL = p.URL
-	offer.Users = users
-	offer.Endpoints = p.Endpoints
-	return offer, nil
+
+	ch, _, err := service.Charm()
+	if err != nil {
+		return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.Service)
+	}
+
+	return crossmodel.ServiceOffer{
+		ServiceURL:         p.URL,
+		ServiceName:        service.Name(),
+		Endpoints:          endpoints,
+		ServiceDescription: ch.Meta().Description,
+	}, nil
 }
 
-// convertRemoteServiceDetails is a helper function that translates from internal service layer
+func getEndpointsOnOffer(service *state.Service, points set.Strings) ([]charm.Relation, error) {
+	rs, err := service.Relations()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting relations for service %v", service.Name())
+	}
+	result := []charm.Relation{}
+	for _, r := range rs {
+		endpoint, err := r.Endpoint(service.Name())
+		if err != nil {
+			// TODO (anastasiamac 2015-11-13) I am not convinced that we care about this error here
+			// as it might be related to an endpoint that we are not exporting anyway...
+			return nil, errors.Annotatef(err, "getting relation endpoint for relation %v and service %v", r, service.Name())
+		}
+		if points.Contains(endpoint.Name) {
+			result = append(result, endpoint.Relation)
+		}
+	}
+	return result, nil
+}
+
+// convertServiceOffer is a helper function that translates from internal service layer
 // structure into params one.
-func convertRemoteServiceDetails(c crossmodel.RemoteServiceEndpoints) params.RemoteServiceInfo {
+func convertServiceOffer(c crossmodel.ServiceOffer) params.RemoteServiceInfo {
 	endpoints := make([]params.RemoteEndpoint, len(c.Endpoints))
 
 	for i, endpoint := range c.Endpoints {
 		endpoints[i] = params.RemoteEndpoint{
 			Name:      endpoint.Name,
 			Interface: endpoint.Interface,
-			Role:      endpoint.Role,
+			Role:      string(endpoint.Role),
 		}
 	}
 	return params.RemoteServiceInfo{
-		Service:     c.Service.String(),
+		Service:     c.ServiceName,
 		Endpoints:   endpoints,
-		Description: c.Description,
+		Description: c.ServiceDescription,
 	}
 }

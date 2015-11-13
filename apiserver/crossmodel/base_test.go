@@ -4,77 +4,144 @@
 package crossmodel_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 const (
-	exportOfferCall = "exportOfferCall"
-	searchCall      = "searchCall"
+	addOfferCall    = "addOfferCall"
+	updateOfferCall = "updateOfferCall"
+	listOffersCall  = "listOffersCall"
+	removeOfferCall = "removeOfferCall"
+
+	serviceCall       = "serviceCall"
+	environConfigCall = "environConfigCall"
+	environUUIDCall   = "environUUIDCall"
 )
 
 type baseCrossmodelSuite struct {
-	coretesting.BaseSuite
+	// TODO(anastasiamac) mock to remove JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
 	api *apicrossmodel.API
 
-	exporter *mockExporter
-	calls    []string
+	serviceDirectory *mockServiceDirectory
+	stateAccess      *mockStateAccess
 }
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
-	s.calls = []string{}
+	s.serviceDirectory = &mockServiceDirectory{}
+	s.stateAccess = &mockStateAccess{}
+
 	var err error
-	s.initialiseExporter()
-	s.api, err = apicrossmodel.CreateAPI(s.exporter, s.resources, s.authorizer)
+	s.api, err = apicrossmodel.CreateAPI(s.serviceDirectory, s.stateAccess, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *baseCrossmodelSuite) initialiseExporter() {
-	s.exporter = &mockExporter{}
-	s.exporter.exportOffer = func(offer crossmodel.Offer) error {
-		s.calls = append(s.calls, exportOfferCall)
-		return nil
+type mockServiceDirectory struct {
+	jtesting.Stub
+
+	addOffer   func(offer crossmodel.ServiceOffer) error
+	listOffers func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+}
+
+func (s *mockServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
+	s.AddCall(addOfferCall)
+	return s.addOffer(offer)
+}
+
+func (s *mockServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error {
+	s.AddCall(updateOfferCall)
+	panic("not implemented for testing yet")
+}
+
+func (s *mockServiceDirectory) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.AddCall(listOffersCall)
+	return s.listOffers(filter...)
+}
+
+func (s *mockServiceDirectory) Remove(url string) error {
+	s.AddCall(removeOfferCall)
+	panic("not implemented for testing yet")
+}
+
+type mockStateAccess struct {
+	jtesting.Stub
+
+	services map[string]*state.Service
+}
+
+func (s *mockStateAccess) addService(c *gc.C, factory jujutesting.JujuConnSuite, name string) crossmodel.ServiceOffer {
+	ch := factory.AddTestingCharm(c, "wordpress")
+
+	if s.services == nil {
+		s.services = make(map[string]*state.Service)
 	}
-	s.exporter.search = func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
-		s.calls = append(s.calls, searchCall)
-		return nil, nil
+	s.services[name] = factory.AddTestingService(c, name, ch)
+
+	cfg, _ := mockEnvironConfig()
+	uuid, _ := cfg.UUID()
+	return crossmodel.ServiceOffer{
+		ServiceName:        name,
+		ServiceDescription: ch.Meta().Description,
+		SourceLabel:        cfg.Name(),
+		SourceEnvUUID:      uuid,
+		Endpoints:          []charm.Relation{},
 	}
 }
 
-func (s *baseCrossmodelSuite) assertCalls(c *gc.C, expectedCalls ...string) {
-	c.Assert(s.calls, jc.SameContents, expectedCalls)
+func (s *mockStateAccess) Service(name string) (*state.Service, error) {
+	s.AddCall(serviceCall)
+
+	service, ok := s.services[name]
+	if !ok {
+		return nil, errors.Errorf("cannot get service %q", name)
+	}
+	return service, nil
 }
 
-type mockExporter struct {
-	// ExportOffer prepares service endpoints for consumption.
-	// An actual implementation will coordinate the work:
-	// validate entities exist, access the service directory, write to state etc.
-	exportOffer func(offer crossmodel.Offer) error
-
-	// Search looks through offered services and returns the ones
-	// that match specified filter.
-	search func(urls []string) ([]crossmodel.RemoteServiceEndpoints, error)
+func (s *mockStateAccess) EnvironConfig() (*config.Config, error) {
+	s.AddCall(environConfigCall)
+	return mockEnvironConfig()
 }
 
-func (m *mockExporter) ExportOffer(offer crossmodel.Offer) error {
-	return m.exportOffer(offer)
+func (s *mockStateAccess) EnvironUUID() string {
+	s.AddCall(environUUIDCall)
+
+	cfg, err := mockEnvironConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	uuid, _ := cfg.UUID()
+	return uuid
 }
 
-func (m *mockExporter) Search(urls []string) ([]crossmodel.RemoteServiceEndpoints, error) {
-	return m.search(urls)
+func mockEnvironConfig() (*config.Config, error) {
+	mockCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "mock",
+	})
+
+	return config.New(config.NoDefaults, mockCfg)
 }
