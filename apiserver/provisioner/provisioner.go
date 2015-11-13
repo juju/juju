@@ -1051,6 +1051,10 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 						InterfaceName: "eth0",
 						ConfigType:    string(network.ConfigDHCP),
 						MACAddress:    macAddress,
+						// The following should not be needed anymore, but the
+						// worker still validates them on SetProvisioned.
+						NetworkName: network.DefaultPrivate,
+						ProviderId:  network.DefaultPrivate,
 					}},
 				}
 				continue
