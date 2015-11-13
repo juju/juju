@@ -50,7 +50,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 
 func (s *instanceTest) TestAddresses(c *gc.C) {
 	jsonValue := `{
-			"hostname": "testing.invalid",
+			"hostname": "-testing.invalid",
 			"system_id": "system_id",
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
@@ -72,7 +72,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 	// Older MAAS versions do not have ip_addresses returned, for these
 	// just the DNS name should be returned without error.
 	jsonValue := `{
-		"hostname": "testing.invalid",
+		"hostname": "-testing.invalid",
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -85,7 +85,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 	jsonValue := `{
-		"hostname": "testing.invalid",
+		"hostname": "-testing.invalid",
 		"system_id": "system_id",
 		"ip_addresses": "incompatible"
 		}`
@@ -98,7 +98,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 
 func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 	jsonValue := `{
-		"hostname": "testing.invalid",
+		"hostname": "-testing.invalid",
 		"system_id": "system_id",
 		"ip_addresses": [42]
 		}`
