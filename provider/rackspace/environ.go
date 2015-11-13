@@ -40,7 +40,8 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if os == jujuos.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
+	fwmode := e.Config().FirewallMode()
+	if os == jujuos.Windows && fwmode != config.FwNone {
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
@@ -49,7 +50,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		return nil, errors.Trace(err)
 	}
 	r.Instance = environInstance{Instance: r.Instance}
-	if args.InstanceConfig.Config.FirewallMode() != config.FwNone {
+	if fwmode != config.FwNone {
 		err = e.connectToSsh(args, r.Instance)
 	}
 	return r, errors.Trace(err)
