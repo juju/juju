@@ -15,8 +15,8 @@ import (
 // ServiceURL represents the location of an offered service and its
 // associated exported endpoints.
 type ServiceURL struct {
-	// Schema represents where the offer is hosted.
-	Schema string // "local" or "<vendor>"
+	// Scheme represents where the offer is hosted.
+	Scheme string // "local" or "<vendor>"
 
 	// User is the user whose namespace in which the offer is made.
 	User string
@@ -35,7 +35,7 @@ func (u *ServiceURL) path() string {
 }
 
 func (u *ServiceURL) String() string {
-	return fmt.Sprintf("%s:/%s", u.Schema, u.path())
+	return fmt.Sprintf("%s:/%s", u.Scheme, u.path())
 }
 
 // ParseServiceURL parses the specified URL string into a ServiceURL.
@@ -56,10 +56,10 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 		url.Scheme = "local"
 	}
 	if url.Scheme != "" {
-		result.Schema = url.Scheme
+		result.Scheme = url.Scheme
 		// TODO(wallyworld): just support local for now.
-		if result.Schema != "local" {
-			return nil, errors.Errorf("service URL has invalid schema: %q", urlStr)
+		if result.Scheme != "local" {
+			return nil, errors.Errorf("service URL has invalid scheme: %q", urlStr)
 		}
 	}
 	urlPath := strings.Trim(url.Path, "/")
