@@ -901,7 +901,7 @@ class TestBootContext(FakeHomeTestCase):
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
+            'foo', {'type': 'paas'}), '1.26', 'path')
         with self.bc_context(client, 'log_dir', jes='controller'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
@@ -911,7 +911,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir', jes='controller'):
+        with self.bc_context(client, 'log_dir'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
