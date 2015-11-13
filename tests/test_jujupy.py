@@ -117,7 +117,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             SimpleEnvironment('baz', {}),
             '1.26-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
-                   return_value=FakePopen('system', '', 0)) as po_mock:
+                   return_value=FakePopen('controller', '', 0)) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
