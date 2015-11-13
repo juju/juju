@@ -9,7 +9,6 @@ import time
 import re
 import tempfile
 import os
-import socket
 import subprocess
 from textwrap import dedent
 from argparse import ArgumentParser
