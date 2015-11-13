@@ -11,10 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	// juju dependends on the handing of empty elements
-	// provided by yaml.v1. Changing the version of yaml
-	// that this package uses will break juju.
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // WriteYaml marshals obj as yaml to a temporary file in the same directory

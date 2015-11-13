@@ -76,7 +76,8 @@ func (s *stateSuite) TestReadAllStateFilesOneBadApple(c *gc.C) {
 	dir := c.MkDir()
 	writeFile(c, filepath.Join(dir, "data-0"), "rubbish")
 	_, err := storage.ReadAllStateFiles(dir)
-	c.Assert(err, gc.ErrorMatches, `cannot load storage state from ".*": cannot load storage "data/0" state from ".*": invalid storage state file ".*": missing 'attached'`)
+	c.Assert(err, gc.ErrorMatches, `cannot load storage state from ".*": cannot load storage "data/0" state from ".*": invalid storage state file ".*": yaml: unmarshal errors:
+`+"  line 1: cannot unmarshal !!str `rubbish` into storage.diskInfo")
 }
 
 func (s *stateSuite) TestReadAllStateFilesDirNotExist(c *gc.C) {
@@ -133,7 +134,7 @@ func (s *stateSuite) TestReadStateFileBadFormat(c *gc.C) {
 	dir := c.MkDir()
 	writeFile(c, filepath.Join(dir, "data-0"), "!@#")
 	_, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
-	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": YAML error: did not find expected whitespace or line break`)
+	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": yaml: did not find expected whitespace or line break`)
 
 	writeFile(c, filepath.Join(dir, "data-0"), "icantbelieveitsnotattached: true\n")
 	_, err = storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
