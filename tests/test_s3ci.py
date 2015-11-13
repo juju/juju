@@ -1,5 +1,6 @@
 from argparse import Namespace
 from ConfigParser import NoOptionError
+from contextlib import contextmanager
 import errno
 import os
 from StringIO import StringIO
@@ -18,9 +19,13 @@ from mock import (
     patch,
     )
 
-from jujuci import PackageNamer
+from jujuci import (
+    JobNamer,
+    PackageNamer,
+    )
 from jujuconfig import get_juju_home
 from s3ci import (
+    fetch_files,
     fetch_juju_binary,
     find_package_key,
     get_job_path,
@@ -61,6 +66,30 @@ class TestParseArgs(TestCase):
         args = parse_args(['get-juju-bin', '3275', '-v'])
         self.assertEqual(1, args.verbose)
         args = parse_args(['get-juju-bin', '3275', '-vv'])
+        self.assertEqual(2, args.verbose)
+
+    def test_get_defaults(self):
+        default_config = os.path.join(get_juju_home(), 'juju-qa.s3cfg')
+        args = parse_args(['get', '3275', 'job-foo', 'files-bar'])
+        self.assertEqual(Namespace(
+            command='get', config=default_config, revision_build=3275,
+            job='job-foo', file_pattern='files-bar', workspace='.', verbose=0),
+            args)
+
+    def test_get_workspace(self):
+        args = parse_args(['get', '3275', 'job-foo', 'files-bar',
+                           'myworkspace'])
+        self.assertEqual('myworkspace', args.workspace)
+
+    def test_get_too_few(self):
+        with parse_error(self) as stderr:
+            parse_args(['get', '3275', 'job-foo'])
+        self.assertRegexpMatches(stderr.getvalue(), 'too few arguments$')
+
+    def test_get_verbosity(self):
+        args = parse_args(['get', '3275', 'job-foo', 'files-bar', '-v'])
+        self.assertEqual(1, args.verbose)
+        args = parse_args(['get', '3275', 'job-foo', 'files-bar', '-vv'])
         self.assertEqual(2, args.verbose)
 
 
@@ -108,20 +137,30 @@ class TestGetS3Credentials(TestCase):
         self.assertEqual(exc.exception.errno, errno.ENOENT)
 
 
-def mock_package_key(revision_build, build=27, distro_release=None):
+def mock_key(revision_build, job, build, file_path):
     key = create_autospec(S3Key, instance=True)
+    key.name = '{}/build-{}/{}'.format(
+        get_job_path(revision_build, job), build, file_path)
+    return key
+
+
+def mock_package_key(revision_build, build=27, distro_release=None):
     namer = PackageNamer.factory()
     if distro_release is not None:
         namer.distro_release = distro_release
     package = namer.get_release_package('109.6')
-    key.name = '{}/build-{}/{}'.format(
-        get_job_path(revision_build), build, package)
-    return key
+    namer = JobNamer.factory()
+    job = namer.get_build_binary_job()
+    return mock_key(revision_build, job, build, package)
 
 
 def mock_bucket(keys):
     bucket = create_autospec(Bucket, instance=True)
-    bucket.list.return_value = keys
+
+    def list_bucket(prefix):
+        return [key for key in keys if key.name.startswith(prefix)]
+
+    bucket.list.side_effect = list_bucket
     return bucket
 
 
@@ -140,8 +179,10 @@ class TestFindPackageKey(StrictTestCase):
     def test_find_package_key(self):
         key = mock_package_key(390)
         bucket = mock_bucket([key])
+        namer = JobNamer.factory()
+        job = namer.get_build_binary_job()
         found_key, filename = find_package_key(bucket, 390)
-        bucket.list.assert_called_once_with(get_job_path(390))
+        bucket.list.assert_called_once_with(get_job_path(390, job))
         self.assertIs(key, found_key)
         self.assertEqual(filename, get_key_filename(key))
 
@@ -194,13 +235,74 @@ class TestFetchJujuBinary(StrictTestCase):
         self.assertEqual(os.path.join(eb_dir, 'juju'), extracted)
 
 
-class TestMain(StrictTestCase):
+class TestFetchFiles(StrictTestCase):
 
     def setUp(self):
-        use_context(self, stdout_guard())
+        use_context(self, patch('utility.get_deb_arch', return_value='amd65',
+                                autospec=True))
 
-    def test_main_args(self):
-        stdout = StringIO()
+    def test_fetch_files(self):
+        key = mock_key(275, 'job-foo', 27, 'file-pattern')
+        bucket = mock_bucket([key])
+        with temp_dir() as workspace:
+            downloaded = fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
+                                     workspace)
+        local_file = os.path.join(workspace, 'file-pattern')
+        key.get_contents_to_filename.assert_called_once_with(local_file)
+        key_copy = os.path.join(workspace, local_file)
+        self.assertEqual([key_copy], downloaded)
+
+    def test_matches_pattern(self):
+        match_key = mock_key(275, 'job-foo', 27, 'file-pattern')
+        wrong_name = mock_key(275, 'job-foo', 27, 'file-pat+ern')
+        wrong_job = mock_key(275, 'job.foo', 27, 'file-pattern')
+        wrong_rb = mock_key(276, 'job-foo', 27, 'file-pattern')
+        keys = [match_key, wrong_name, wrong_job, wrong_rb]
+        bucket = mock_bucket(keys)
+        with temp_dir() as workspace:
+            fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
+                        workspace)
+        local_file = os.path.join(workspace, 'file-pattern')
+        match_key.get_contents_to_filename.assert_called_once_with(local_file)
+        self.assertEqual(0, wrong_name.get_contents_to_filename.call_count)
+        self.assertEqual(0, wrong_job.get_contents_to_filename.call_count)
+        self.assertEqual(0, wrong_rb.get_contents_to_filename.call_count)
+
+    def test_uses_latest_build(self):
+        def do_fetch(artifacts):
+            keys = [
+                mock_key(275, 'job-foo', build, filename) for
+                build, filename in artifacts]
+            bucket = mock_bucket(keys)
+            fetch_files(bucket, 275, 'job-foo', 'file-pat+ern',
+                        workspace)
+            return [key.get_contents_to_filename.call_count for key in keys]
+        with temp_dir() as workspace:
+            self.assertEqual([1], do_fetch([(1, 'file-pattern')]))
+            self.assertEqual([0, 0], do_fetch([
+                (1, 'file-pattern'),
+                (2, 'non-match'),
+                ]))
+            self.assertEqual([0, 0, 1], do_fetch([
+                (1, 'file-pattern'),
+                (2, 'non-match'),
+                (2, 'file-pattern'),
+                ]))
+
+    def test_pattern_is_path(self):
+        match_key = mock_key(275, 'job-foo', 27, 'dir/file')
+        bucket = mock_bucket([match_key])
+        with temp_dir() as workspace:
+            fetch_files(bucket, 275, 'job-foo', 'dir/file',
+                        workspace)
+        local_file = os.path.join(workspace, 'file')
+        match_key.get_contents_to_filename.assert_called_once_with(local_file)
+
+
+class TestMain(StrictTestCase):
+
+    @contextmanager
+    def temp_credentials(self):
         with NamedTemporaryFile() as temp_file:
             temp_file.write(dedent("""\
                 [default]
@@ -208,9 +310,17 @@ class TestMain(StrictTestCase):
                 secret_key = fake_pass
                 """))
             temp_file.flush()
+            yield temp_file.name
+
+    def setUp(self):
+        use_context(self, stdout_guard())
+
+    def test_main_args_get_juju_bin(self):
+        stdout = StringIO()
+        with self.temp_credentials() as config_file:
             with patch('sys.argv', [
                     'foo', 'get-juju-bin', '28', 'bar-workspace',
-                    '--config', temp_file.name]):
+                    '--config', config_file]):
                 with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
                     with patch('s3ci.fetch_juju_binary', autospec=True,
                                return_value='gjb') as gbj_mock:
@@ -222,3 +332,21 @@ class TestMain(StrictTestCase):
         gbj_mock.assert_called_once_with(gb_mock.return_value, 28,
                                          'bar-workspace')
         self.assertEqual('gjb\n', stdout.getvalue())
+
+    def test_main_args_get(self):
+        stdout = StringIO()
+        with self.temp_credentials() as config_file:
+            with patch('sys.argv', [
+                    'foo', 'get', '28', 'foo-job', 'bar-file', 'bar-workspace',
+                    '--config', config_file]):
+                with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
+                    with patch('s3ci.fetch_files', autospec=True,
+                               return_value='ff') as ff_mock:
+                        with patch('sys.stdout', stdout):
+                            main()
+        s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
+        gb_mock = s3c_mock.return_value.get_bucket
+        gb_mock.assert_called_once_with('juju-qa-data')
+        ff_mock.assert_called_once_with(gb_mock.return_value, 28,
+                                        'foo-job', 'bar-file', 'bar-workspace')
+        self.assertEqual('ff\n', stdout.getvalue())
