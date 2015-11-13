@@ -148,13 +148,14 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.Offers, gc.HasLen, 1)
 	s.assertCalls(c, []string{"listoffers"})
-	offer, err := apicrossmodel.MakeOfferFromParams(results[0])
+	offer, err := apicrossmodel.MakeOfferFromParams(results.Offers[0])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/name"])
-	c.Assert(results[0].ServiceURL, gc.Equals, "local:/u/user/name")
-	c.Assert(results[0].SourceEnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID).String())
+	c.Assert(results.Offers[0].ServiceURL, gc.Equals, "local:/u/user/name")
+	c.Assert(results.Offers[0].SourceEnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID).String())
 }
 
 func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
@@ -162,7 +163,8 @@ func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
 		s.calls = append(s.calls, "listoffers")
 		return nil, errors.New("error")
 	}
-	_, err := s.api.ListOffers(params.OfferFilters{})
-	c.Assert(err, gc.ErrorMatches, "error")
+	result, err := s.api.ListOffers(params.OfferFilters{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "error")
 	s.assertCalls(c, []string{"listoffers"})
 }

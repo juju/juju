@@ -52,18 +52,20 @@ func newServiceDirectoryAPI(
 // TODO(wallyworld) - add Remove() and Update()
 
 // ListOffers returns offers matching the filter from a service directory.
-func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) ([]params.ServiceOffer, error) {
+func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error) {
+	var result params.ServiceOfferResults
 	offerFilters, err := makeOfferFilterFromParams(filters.Filters)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	offers, err := api.serviceDirectory.ListOffers(offerFilters...)
 	if err != nil {
-		return nil, err
+		result.Error = common.ServerError(err)
+		return result, nil
 	}
-	result := make([]params.ServiceOffer, len(offers))
+	result.Offers = make([]params.ServiceOffer, len(offers))
 	for i, offer := range offers {
-		result[i] = crossmodelapi.MakeParamsFromOffer(offer)
+		result.Offers[i] = crossmodelapi.MakeParamsFromOffer(offer)
 	}
 	return result, nil
 }
