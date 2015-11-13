@@ -184,10 +184,14 @@ func (s *RemoteService) removeOps(asserts bson.D) []txn.Op {
 
 // Endpoints returns the service's currently available relation endpoints.
 func (s *RemoteService) Endpoints() ([]Endpoint, error) {
-	eps := make([]Endpoint, len(s.doc.Endpoints))
-	for i, ep := range s.doc.Endpoints {
+	return remoteEndpointDocsToEndpoints(s.Name(), s.doc.Endpoints), nil
+}
+
+func remoteEndpointDocsToEndpoints(serviceName string, docs []remoteEndpointDoc) []Endpoint {
+	eps := make([]Endpoint, len(docs))
+	for i, ep := range docs {
 		eps[i] = Endpoint{
-			ServiceName: s.Name(),
+			ServiceName: serviceName,
 			Relation: charm.Relation{
 				Name:      ep.Name,
 				Role:      ep.Role,
@@ -197,7 +201,7 @@ func (s *RemoteService) Endpoints() ([]Endpoint, error) {
 			}}
 	}
 	sort.Sort(epSlice(eps))
-	return eps, nil
+	return eps
 }
 
 // Endpoint returns the relation endpoint with the supplied name, if it exists.
