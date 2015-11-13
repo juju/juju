@@ -4,8 +4,6 @@
 package apiserver
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/net/websocket"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -27,7 +26,7 @@ import (
 // variants. The supplied handle func allows for varied handling of
 // requests.
 type debugLogHandler struct {
-	httpHandler
+	ctxt   httpContext
 	stop   <-chan struct{}
 	handle debugLogHandlerFunc
 }
@@ -40,14 +39,14 @@ type debugLogHandlerFunc func(
 ) error
 
 func newDebugLogHandler(
-	statePool *state.StatePool,
+	ctxt httpContext,
 	stop <-chan struct{},
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		httpHandler: httpHandler{statePool: statePool},
-		stop:        stop,
-		handle:      handle,
+		ctxt:   ctxt,
+		stop:   stop,
+		handle: handle,
 	}
 }
 
@@ -79,30 +78,26 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			stateWrapper, err := h.validateEnvironUUID(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
-			if err := stateWrapper.authenticateUser(req); err != nil {
-				socket.sendError(fmt.Errorf("auth failed: %v", err))
-				return
-			}
-
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
 
-			if err := h.handle(stateWrapper.state, params, socket, h.stop); err != nil {
+			if err := h.handle(st, params, socket, h.stop); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("debug-log handler stopped (client disconnected)")
 				} else {
 					logger.Errorf("debug-log handler error: %v", err)
 				}
 			}
-		}}
+		},
+	}
 	server.ServeHTTP(w, req)
 }
 
@@ -120,10 +115,10 @@ type debugLogSocket interface {
 	io.Writer
 
 	// sendOk sends a nil error response, indicating there were no errors.
-	sendOk() error
+	sendOk()
 
 	// sendError sends a JSON-encoded error response.
-	sendError(err error) error
+	sendError(err error)
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -133,26 +128,16 @@ type debugLogSocketImpl struct {
 	*websocket.Conn
 }
 
-// sendOK implements debugLogSocket.
-func (s *debugLogSocketImpl) sendOk() error {
-	return s.sendError(nil)
+// sendOk implements debugLogSocket.
+func (s *debugLogSocketImpl) sendOk() {
+	s.sendError(nil)
 }
 
-// sendErr implements debugLogSocket.
-func (s *debugLogSocketImpl) sendError(err error) error {
-	response := &params.ErrorResult{}
-	if err != nil {
-		response.Error = &params.Error{Message: fmt.Sprint(err)}
-	}
-	message, err := json.Marshal(response)
-	if err != nil {
-		// If we are having trouble marshalling the error, we are in big trouble.
-		logger.Errorf("failure to marshal SimpleError: %v", err)
-		return err
-	}
-	message = append(message, []byte("\n")...)
-	_, err = s.Conn.Write(message)
-	return err
+// sendError implements debugLogSocket.
+func (s *debugLogSocketImpl) sendError(err error) {
+	sendJSON(s.Conn, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.

@@ -54,7 +54,7 @@ func addMeta(c *gc.C, branch *bzr.Branch, meta string) {
 }
 
 func (s *PublishSuite) runPublish(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommandInDir(c, envcmd.Wrap(&PublishCommand{}), args, s.dir)
+	return testing.RunCommandInDir(c, newPublishCommand(), args, s.dir)
 }
 
 const pollDelay = testing.ShortWait
@@ -96,7 +96,7 @@ func (s *PublishSuite) TearDownTest(c *gc.C) {
 
 func (s *PublishSuite) TestNoBranch(c *gc.C) {
 	dir := c.MkDir()
-	_, err := testing.RunCommandInDir(c, envcmd.Wrap(&PublishCommand{}), []string{"cs:precise/wordpress"}, dir)
+	_, err := testing.RunCommandInDir(c, newPublishCommand(), []string{"cs:precise/wordpress"}, dir)
 	// We need to do this here because \U is outputed on windows
 	// and it's an invalid regex escape sequence
 	c.Assert(err.Error(), gc.Equals, fmt.Sprintf("not a charm branch: %s", dir))
@@ -108,13 +108,13 @@ func (s *PublishSuite) TestEmpty(c *gc.C) {
 }
 
 func (s *PublishSuite) TestFrom(c *gc.C) {
-	_, err := testing.RunCommandInDir(c, envcmd.Wrap(&PublishCommand{}), []string{"--from", s.dir, "cs:precise/wordpress"}, c.MkDir())
+	_, err := testing.RunCommandInDir(c, newPublishCommand(), []string{"--from", s.dir, "cs:precise/wordpress"}, c.MkDir())
 	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
 }
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer charm or bundle URL for "cs:wordpress": charm or bundle url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {
@@ -143,10 +143,10 @@ func (s *PublishSuite) TestWrongRepository(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "charm URL must reference the juju charm store")
 }
 
-func (s *PublishSuite) TestInferURL(c *gc.C) {
+func (s *PublishSuite) TestParseReference(c *gc.C) {
 	addMeta(c, s.branch, "")
 
-	cmd := &PublishCommand{}
+	cmd := &publishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
 		c.Assert(location, gc.Equals, "lp:charms/precise/wordpress")
 		c.SucceedNow()
@@ -243,7 +243,7 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	err = pushBranch.Init()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := &PublishCommand{}
+	cmd := &publishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
 		c.Assert(location, gc.Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
@@ -301,7 +301,7 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	err = pushBranch.Init()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := &PublishCommand{}
+	cmd := &publishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
 		c.Assert(location, gc.Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
@@ -357,7 +357,7 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 	err = pushBranch.Init()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := &PublishCommand{}
+	cmd := &publishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
 		c.Assert(location, gc.Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()

@@ -11,6 +11,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +30,11 @@ var _ = gc.Suite(&ToolsSuite{})
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Current)
+	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	})
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = symlink.New(s.toolsDir, tools.ToolsDir(s.dataDir, "unit-u-123"))

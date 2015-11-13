@@ -7,7 +7,6 @@ package context
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -15,9 +14,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -43,16 +44,51 @@ type Paths interface {
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
 	GetMetricsSpoolDir() string
+
+	// ComponentDir returns the filesystem path to the directory
+	// containing all data files for a component.
+	ComponentDir(name string) string
 }
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
+// ComponentConfig holds all the information related to a hook context
+// needed by components.
+type ComponentConfig struct {
+	// UnitName is the name of the unit.
+	UnitName string
+	// DataDir is the component's data directory.
+	DataDir string
+	// APICaller is the API caller the component may use.
+	APICaller base.APICaller
+}
+
+// ComponentFunc is a factory function for Context components.
+type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
+
+var registeredComponentFuncs = map[string]ComponentFunc{}
+
+// Add the named component factory func to the registry.
+func RegisterComponentFunc(name string, f ComponentFunc) error {
+	if _, ok := registeredComponentFuncs[name]; ok {
+		return errors.AlreadyExistsf("%s", name)
+	}
+	registeredComponentFuncs[name] = f
+	return nil
+}
+
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
 	code string
 	info string
+}
+
+// HookProcess is an interface representing a process running a hook.
+type HookProcess interface {
+	Pid() int
+	Kill() error
 }
 
 // HookContext is the implementation of jujuc.Context.
@@ -140,7 +176,7 @@ type HookContext struct {
 
 	// process is the process of the command that is being run in the local context,
 	// like a juju-run command or a hook
-	process *os.Process
+	process HookProcess
 
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
 	// the hook will be killed and requeued
@@ -164,9 +200,40 @@ type HookContext struct {
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
 	storageAddConstraints map[string][]params.StorageConstraints
+
+	// clock is used for any time operations.
+	clock clock.Clock
+
+	componentDir   func(string) string
+	componentFuncs map[string]ComponentFunc
+}
+
+// Component implements jujuc.Context.
+func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
+	compCtxFunc, ok := ctx.componentFuncs[name]
+	if !ok {
+		return nil, errors.NotFoundf("context component %q", name)
+	}
+
+	facade := ctx.state.Facade()
+	config := ComponentConfig{
+		UnitName:  ctx.unit.Name(),
+		DataDir:   ctx.componentDir(name),
+		APICaller: facade.RawAPICaller(),
+	}
+	compCtx, err := compCtxFunc(config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return compCtx, nil
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+	// Must set reboot priority first, because killing the hook
+	// process will trigger the completion of the hook. If killing
+	// the hook fails, then we can reset the priority.
+	ctx.SetRebootPriority(priority)
+
 	var err error
 	if priority == jujuc.RebootNow {
 		// At this point, the hook should be running
@@ -176,7 +243,8 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	switch err {
 	case nil, ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
-		ctx.SetRebootPriority(priority)
+	default:
+		ctx.SetRebootPriority(jujuc.RebootSkip)
 	}
 	return err
 }
@@ -193,13 +261,13 @@ func (ctx *HookContext) SetRebootPriority(priority jujuc.RebootPriority) {
 	ctx.rebootPriority = priority
 }
 
-func (ctx *HookContext) GetProcess() *os.Process {
+func (ctx *HookContext) GetProcess() HookProcess {
 	mutex.Lock()
 	defer mutex.Unlock()
 	return ctx.process
 }
 
-func (ctx *HookContext) SetProcess(process *os.Process) {
+func (ctx *HookContext) SetProcess(process HookProcess) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	ctx.process = process
@@ -275,7 +343,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 // SetUnitStatus will set the given status for this unit.
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
@@ -286,7 +354,7 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 // SetServiceStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
 func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
-	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -533,7 +601,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 }
 
 func (ctx *HookContext) handleReboot(err *error) {
-	logger.Infof("handling reboot")
+	logger.Tracef("checking for reboot request")
 	rebootPriority := ctx.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
@@ -692,10 +760,10 @@ func (ctx *HookContext) killCharmHook() error {
 		// nothing to kill
 		return ErrNoProcess
 	}
-	logger.Infof("trying to kill context process %d", proc.Pid)
+	logger.Infof("trying to kill context process %v", proc.Pid())
 
-	tick := time.After(0)
-	timeout := time.After(30 * time.Second)
+	tick := ctx.clock.After(0)
+	timeout := ctx.clock.After(30 * time.Second)
 	for {
 		// We repeatedly try to kill the process until we fail; this is
 		// because we don't control the *Process, and our clients expect
@@ -711,9 +779,9 @@ func (ctx *HookContext) killCharmHook() error {
 				return nil
 			}
 		case <-timeout:
-			return errors.Errorf("failed to kill context process %d", proc.Pid)
+			return errors.Errorf("failed to kill context process %v", proc.Pid())
 		}
-		logger.Infof("waiting for context process %d to die", proc.Pid)
-		tick = time.After(100 * time.Millisecond)
+		logger.Infof("waiting for context process %v to die", proc.Pid())
+		tick = ctx.clock.After(100 * time.Millisecond)
 	}
 }

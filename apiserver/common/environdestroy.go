@@ -65,7 +65,7 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 
 	// If this is not the state server environment, remove all documents from
 	// state associated with the environment.
-	if env.EnvironTag() != env.ServerTag() {
+	if env.EnvironTag() != env.ControllerTag() {
 		return errors.Trace(st.RemoveAllEnvironDocs())
 	}
 

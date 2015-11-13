@@ -101,13 +101,13 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage network spaces",
 	})
-	spaceCmd.Register(envcmd.Wrap(&CreateCommand{}))
-	spaceCmd.Register(envcmd.Wrap(&ListCommand{}))
+	spaceCmd.Register(newCreateCommand())
+	spaceCmd.Register(newListCommand())
 	if featureflag.Enabled(feature.PostNetCLIMVP) {
 		// The following commands are not part of the MVP.
-		spaceCmd.Register(envcmd.Wrap(&RemoveCommand{}))
-		spaceCmd.Register(envcmd.Wrap(&UpdateCommand{}))
-		spaceCmd.Register(envcmd.Wrap(&RenameCommand{}))
+		spaceCmd.Register(newRemoveCommand())
+		spaceCmd.Register(newUpdateCommand())
+		spaceCmd.Register(newRenameCommand())
 	}
 
 	return spaceCmd
@@ -137,7 +137,7 @@ func ParseNameAndCIDRs(args []string, cidrsOptional bool) (
 	}
 
 	CIDRs, err = CheckCIDRs(args[1:], cidrsOptional)
-	return name, CIDRs, err
+	return name, CIDRs, errors.Trace(err)
 }
 
 // CheckName checks whether name is a valid space name.

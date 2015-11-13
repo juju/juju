@@ -31,13 +31,13 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     userCommandPurpose,
 	})
-	usercmd.Register(envcmd.WrapSystem(&AddCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&ChangePasswordCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&CredentialsCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&InfoCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&DisableCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&EnableCommand{}))
-	usercmd.Register(envcmd.WrapSystem(&ListCommand{}))
+	usercmd.Register(newAddCommand())
+	usercmd.Register(newChangePasswordCommand())
+	usercmd.Register(newCredentialsCommand())
+	usercmd.Register(newInfoCommand())
+	usercmd.Register(newDisableCommand())
+	usercmd.Register(newEnableCommand())
+	usercmd.Register(newListCommand())
 	return usercmd
 }
 

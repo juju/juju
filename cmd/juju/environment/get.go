@@ -13,9 +13,13 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// GetCommand is able to output either the entire environment or
+func newGetCommand() cmd.Command {
+	return envcmd.Wrap(&getCommand{})
+}
+
+// getCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
-type GetCommand struct {
+type getCommand struct {
 	envcmd.EnvCommandBase
 	api GetEnvironmentAPI
 	key string
@@ -34,7 +38,7 @@ Example:
   juju environment get default-series  (returns the default series for the environment)
 `
 
-func (c *GetCommand) Info() *cmd.Info {
+func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get",
 		Args:    "[<environment key>]",
@@ -43,11 +47,11 @@ func (c *GetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
-func (c *GetCommand) Init(args []string) (err error) {
+func (c *getCommand) Init(args []string) (err error) {
 	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
 }
@@ -57,14 +61,14 @@ type GetEnvironmentAPI interface {
 	EnvironmentGet() (map[string]interface{}, error)
 }
 
-func (c *GetCommand) getAPI() (GetEnvironmentAPI, error) {
+func (c *getCommand) getAPI() (GetEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *GetCommand) Run(ctx *cmd.Context) error {
+func (c *getCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

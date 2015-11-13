@@ -20,6 +20,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -59,7 +60,7 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 
 	// It's important that this be v1.8.x to match the test data.
-	s.PatchValue(&version.Current.Number, version.MustParse("1.8.3"))
+	s.PatchValue(&version.Current, version.MustParse("1.8.3"))
 
 	// Create a source storage.
 	baseDir := c.MkDir()
@@ -151,7 +152,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				test.ctx.Source = s.localStorage
 			}
 			if test.version != version.Zero {
-				version.Current.Number = test.version
+				version.Current = test.version
 			}
 			if test.major > 0 {
 				test.ctx.MajorVersion = test.major
@@ -226,6 +227,10 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 }
 
+func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
+	c.Assert(v, gc.Equals, version.Binary{Number: version.Current, Arch: arch.HostArch(), Series: series.HostSeries()})
+}
+
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
@@ -234,7 +239,7 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 func (s *uploadSuite) TestUpload(c *gc.C) {
 	t, err := sync.Upload(s.targetStorage, "released", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, version.Current)
+	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 	s.assertUploadedTools(c, t, []string{series.HostSeries()}, "released")
 }
@@ -256,9 +261,9 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	t, err := sync.Upload(s.targetStorage, "released", &vers.Number)
+	t, err := sync.Upload(s.targetStorage, "released", &vers)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, vers)
+	c.Assert(t.Version, gc.Equals, version.Binary{Number: vers, Arch: arch.HostArch(), Series: series.HostSeries()})
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
@@ -266,7 +271,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, version.Current)
+	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
@@ -290,15 +295,15 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	builtTools, err := sync.BuildToolsTarball(&vers.Number, "released")
+	builtTools, err := sync.BuildToolsTarball(&vers, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, vers)
+	c.Assert(t.Version, gc.Equals, version.Binary{Number: vers, Arch: arch.HostArch(), Series: series.HostSeries()})
 }
 
 func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectSeries []string, stream string) {
-	c.Assert(t.Version, gc.Equals, version.Current)
+	s.assertEqualsCurrentVersion(c, t.Version)
 	expectRaw := downloadToolsRaw(c, t)
 
 	list, err := envtools.ReadList(s.targetStorage, stream, version.Current.Major, version.Current.Minor)
@@ -308,7 +313,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectSer
 	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
 		c.Logf("checking %s", t.URL)
-		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
+		c.Assert(t.Version.Number, gc.Equals, version.Current)
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
@@ -335,7 +340,7 @@ func bundleTools(c *gc.C) (version.Binary, string, error) {
 	defer f.Close()
 	defer os.Remove(f.Name())
 
-	return envtools.BundleTools(f, &version.Current.Number)
+	return envtools.BundleTools(f, &version.Current)
 }
 
 type badBuildSuite struct {
@@ -387,6 +392,15 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 	s.CleanupSuite.TearDownTest(c)
 }
 
+func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	c.Assert(v, gc.Equals, current)
+}
+
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	// Test that original bundleTools Func fails as expected
 	vers, sha256Hash, err := bundleTools(c)
@@ -400,7 +414,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	// mocked out
 	vers, sha256Hash, err = bundleTools(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers.Number, gc.Equals, version.Current.Number)
+	c.Assert(vers.Number, gc.Equals, version.Current)
 	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 }
 
@@ -417,7 +431,7 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	t, err = sync.Upload(stor, "released", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Version, gc.Equals, version.Current)
+	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 }
 
@@ -431,7 +445,7 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	// mocked out
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	builtTools, err = sync.BuildToolsTarball(nil, "released")
-	c.Assert(builtTools.Version, gc.Equals, version.Current)
+	s.assertEqualsCurrentVersion(c, builtTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -452,15 +466,18 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 		return
 	})
 
-	_, err := sync.BuildToolsTarball(&version.Current.Number, "released")
+	_, err := sync.BuildToolsTarball(&version.Current, "released")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*forceVersion, gc.Equals, version.Current.Number)
+	c.Assert(*forceVersion, gc.Equals, version.Current)
 	c.Assert(writer, gc.NotNil)
 	c.Assert(n, gc.Equals, len(p.Bytes()))
 }
 
 func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
-	s.PatchValue(&version.Current, version.MustParseBinary("1.9.1-trusty-amd64"))
+	current := version.MustParseBinary("1.9.1-trusty-amd64")
+	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,7 +486,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 
 	expectedBuiltTools := &sync.BuiltTools{
 		StorageName: "name",
-		Version:     version.Current,
+		Version:     current,
 		Size:        127,
 		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
 	}
@@ -511,9 +528,13 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 		"released",
 		"released",
 		&coretools.Tools{
-			Version: version.Current,
-			Size:    7,
-			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+			Version: version.Binary{
+				Number: version.Current,
+				Arch:   arch.HostArch(),
+				Series: series.HostSeries(),
+			},
+			Size:   7,
+			SHA256: "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
 		}, []byte("content"))
 	c.Assert(err, jc.ErrorIsNil)
 

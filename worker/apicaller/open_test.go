@@ -49,7 +49,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 	for i, test := range errReplacePairs {
 		c.Logf("test %d", i)
 		apiError = test.openErr
-		_, _, err := OpenAPIState(fakeAgent{})
+		_, err := OpenAPIState(fakeAgent{})
 		if test.replaceErr == nil {
 			c.Check(err, gc.Equals, test.openErr)
 		} else {
@@ -68,7 +68,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
 		}
 		return nil, &params.Error{Code: params.CodeNotProvisioned}
 	})
-	_, _, err := OpenAPIState(fakeAgent{})
+	_, err := OpenAPIState(fakeAgent{})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min-1)
 }
@@ -80,7 +80,7 @@ func (s *OpenAPIStateSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
 		called++
 		return nil, &params.Error{Code: params.CodeNotProvisioned}
 	})
-	_, _, err := OpenAPIState(fakeAgent{})
+	_, err := OpenAPIState(fakeAgent{})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 	// +1 because we always attempt at least once outside the attempt strategy
 	// (twice if the API server initially returns CodeUnauthorized.)
@@ -99,6 +99,6 @@ type fakeAPIOpenConfig struct {
 	agent.Config
 }
 
-func (fakeAPIOpenConfig) APIInfo() *api.Info              { return &api.Info{} }
+func (fakeAPIOpenConfig) APIInfo() (*api.Info, bool)      { return &api.Info{}, true }
 func (fakeAPIOpenConfig) OldPassword() string             { return "old" }
 func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob { return []multiwatcher.MachineJob{} }

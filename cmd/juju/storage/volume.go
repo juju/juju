@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
@@ -21,16 +20,16 @@ const volumeCmdDoc = `
 
 const volumeCmdPurpose = "manage storage volumes"
 
-// NewVolumeSuperCommand creates the storage volume super subcommand and
+// newVolumeSuperCommand creates the storage volume super subcommand and
 // registers the subcommands that it supports.
-func NewVolumeSuperCommand() cmd.Command {
+func newVolumeSuperCommand() cmd.Command {
 	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
 		Name:        "volume",
 		Doc:         volumeCmdDoc,
 		UsagePrefix: "juju storage",
 		Purpose:     volumeCmdPurpose,
 	})
-	supercmd.Register(envcmd.Wrap(&VolumeListCommand{}))
+	supercmd.Register(newVolumeListCommand())
 	return supercmd
 }
 

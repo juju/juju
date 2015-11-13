@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -181,28 +181,31 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, false)
+	s.testUserData(c, "quantal", false)
 }
 
 func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
-	s.testUserData(c, true)
+	s.testUserData(c, "quantal", true)
 }
 
-func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
+func (s *CloudInitSuite) TestStateServerUserDataPrecise(c *gc.C) {
+	s.testUserData(c, "precise", true)
+}
+
+func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	// Use actual series paths instead of local defaults
-	logDir := must(paths.LogDir("quantal"))
-	metricsSpoolDir := must(paths.MetricsSpoolDir("quantal"))
-	dataDir := must(paths.DataDir("quantal"))
+	logDir := must(paths.LogDir(series))
+	metricsSpoolDir := must(paths.MetricsSpoolDir(series))
+	dataDir := must(paths.DataDir(series))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/released/juju1.2.3-quantal-amd64.tgz",
-		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+		URL:     "http://tools.testing/tools/released/juju.tgz",
+		Version: version.Binary{version.MustParse("1.2.3"), "quantal", "amd64"},
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
-	series := "quantal"
 	allJobs := []multiwatcher.MachineJob{
 		multiwatcher.JobManageEnviron,
 		multiwatcher.JobHostUnits,
@@ -279,7 +282,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		// for MAAS. MAAS needs to configure and then bounce the
 		// network interfaces, which would sever the SSH connection
 		// in the synchronous bootstrap phase.
-		c.Check(config, jc.DeepEquals, map[interface{}]interface{}{
+		expected := map[interface{}]interface{}{
 			"output": map[interface{}]interface{}{
 				"all": "| tee -a /var/log/cloud-init-output.log",
 			},
@@ -291,8 +294,29 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
 			},
-			"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
-		})
+		}
+		// Series with old cloudinit versions don't support adding
+		// users so need the old way to set SSH authorized keys.
+		if series == "precise" {
+			expected["ssh_authorized_keys"] = []interface{}{
+				"wheredidileavemykeys",
+			}
+		} else {
+			expected["users"] = []interface{}{
+				map[interface{}]interface{}{
+					"name":        "ubuntu",
+					"lock_passwd": true,
+					"groups": []interface{}{"adm", "audio",
+						"cdrom", "dialout", "dip",
+						"floppy", "netdev", "plugdev",
+						"sudo", "video"},
+					"shell":               "/bin/bash",
+					"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
+				},
+			}
+		}
+		c.Check(config, jc.DeepEquals, expected)
 	} else {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional

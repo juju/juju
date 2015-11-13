@@ -91,7 +91,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		agent.AgentConfigParams{
 			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewMachineTag("1"),
-			UpgradedToVersion: version.Current.Number,
+			UpgradedToVersion: version.Current,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},

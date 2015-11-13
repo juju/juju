@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
@@ -69,11 +70,6 @@ const (
 
 	instanceStateShuttingDown = "shutting-down"
 	instanceStateTerminated   = "terminated"
-)
-
-const (
-	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
-	minRootDiskSizeMiB uint64 = 8 * 1024
 )
 
 // Limits for volume parameters. See:
@@ -836,24 +832,27 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 	}
 }
 
+func minRootDiskSizeMiB(ser string) uint64 {
+	return gibToMib(common.MinRootDiskSizeGiB(ser))
+}
+
 // getBlockDeviceMappings translates constraints into BlockDeviceMappings.
 //
 // The first entry is always the root disk mapping, followed by instance
 // stores (ephemeral disks).
-func getBlockDeviceMappings(cons constraints.Value) ([]ec2.BlockDeviceMapping, error) {
-	rootDiskSizeMiB := minRootDiskSizeMiB
+func getBlockDeviceMappings(cons constraints.Value, ser string) []ec2.BlockDeviceMapping {
+	rootDiskSizeMiB := minRootDiskSizeMiB(ser)
 	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minRootDiskSizeMiB {
+		if *cons.RootDisk >= minRootDiskSizeMiB(ser) {
 			rootDiskSizeMiB = *cons.RootDisk
 		} else {
 			logger.Infof(
 				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
 				*cons.RootDisk,
-				minRootDiskSizeMiB,
+				minRootDiskSizeMiB(ser),
 			)
 		}
 	}
-
 	// The first block device is for the root disk.
 	blockDeviceMappings := []ec2.BlockDeviceMapping{{
 		DeviceName: "/dev/sda1",
@@ -877,7 +876,7 @@ func getBlockDeviceMappings(cons constraints.Value) ([]ec2.BlockDeviceMapping, e
 		DeviceName:  "/dev/sde",
 	}}...)
 
-	return blockDeviceMappings, nil
+	return blockDeviceMappings
 }
 
 // mibToGib converts mebibytes to gibibytes.

@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -193,18 +194,18 @@ func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
 }
 
 var getDisksTests = []struct {
-	OS       jujuos.OSType
+	Series   string
 	basePath string
 	error    error
 }{
-	{jujuos.Ubuntu, gce.UbuntuImageBasePath, nil},
-	{jujuos.Windows, gce.WindowsImageBasePath, nil},
-	{jujuos.Arch, "", errors.New("os Arch is not supported on the gce provider")},
+	{"trusty", gce.UbuntuImageBasePath, nil},
+	{"win2012r2", gce.WindowsImageBasePath, nil},
+	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.OS)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
@@ -213,7 +214,16 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 
 			diskSpec := diskSpecs[0]
 
-			c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
+			os, err := series.GetOSFromSeries(test.Series)
+			c.Assert(err, jc.ErrorIsNil)
+			switch os {
+			case jujuos.Ubuntu:
+				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
+			case jujuos.Windows:
+				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(40))
+			default:
+				c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
+			}
 			c.Check(diskSpec.ImageURL, gc.Equals, test.basePath+s.spec.Image.Id)
 		}
 	}

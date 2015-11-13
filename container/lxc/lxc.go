@@ -268,10 +268,10 @@ func (manager *containerManager) CreateContainer(
 
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
-			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
+			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("lxc container cloning failed"))
 		}
 	} else {
-		// Note here that the lxcObjectFacotry only returns a valid container
+		// Note here that the lxcObjectFactory only returns a valid container
 		// object, and doesn't actually construct the underlying lxc container on
 		// disk.
 		lxcContainer = LxcObjectFactory.New(name)
@@ -422,7 +422,7 @@ func createContainer(
 	logger.Debugf("creating lxc container %q", lxcContainer.Name())
 	logger.Debugf("lxc-create template params: %v", templateParams)
 	if err := lxcContainer.Create(configPath, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
-		return errors.Annotatef(err, "lxc container creation failed")
+		return errors.Wrap(err, instance.NewRetryableCreationError("lxc container creation failed: "+lxcContainer.Name()))
 	}
 	return nil
 }

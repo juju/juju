@@ -20,5 +20,5 @@ func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) 
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return f(info, opts)
 	}
-	return newAPIFromStore(envName, store, apiOpen)
+	return newAPIFromStore(envName, store, apiOpen, nil)
 }

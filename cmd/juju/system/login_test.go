@@ -28,6 +28,7 @@ type LoginSuite struct {
 	openError     error
 	store         configstore.Storage
 	username      string
+	password      string
 }
 
 var _ = gc.Suite(&LoginSuite{})
@@ -40,10 +41,11 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 	})
 	s.openError = nil
 	s.apiConnection = &mockAPIConnection{
-		serverTag: testing.EnvironmentTag,
-		addr:      "192.168.2.1:1234",
+		controllerTag: testing.EnvironmentTag,
+		addr:          "192.168.2.1:1234",
 	}
 	s.username = "valid-user"
+	s.password = "sekrit"
 }
 
 func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -51,6 +53,7 @@ func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection,
 		return nil, s.openError
 	}
 	s.apiConnection.info = info
+	s.apiConnection.opts = opts
 	return s.apiConnection, nil
 }
 
@@ -69,7 +72,7 @@ func (s *LoginSuite) runServerFile(c *gc.C, args ...string) (*cmd.Context, error
 addresses: ["192.168.2.1:1234", "192.168.2.2:1234"]
 ca-cert: a-cert
 username: ` + s.username + `
-password: sekrit
+password: ` + s.password + `
 `
 	err := ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +112,7 @@ func (s *LoginSuite) TestBadServerFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "foo", "--server", serverFilePath)
-	c.Assert(err, gc.ErrorMatches, "YAML error: did not find expected alphabetic or numeric character")
+	c.Assert(err, gc.ErrorMatches, "yaml: did not find expected alphabetic or numeric character")
 }
 
 func (s *LoginSuite) TestBadUser(c *gc.C) {
@@ -131,7 +134,7 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 }
 
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
-	s.apiConnection.serverTag = names.EnvironTag{}
+	s.apiConnection.controllerTag = names.EnvironTag{}
 	_, err := s.runServerFile(c)
 	c.Assert(err, gc.ErrorMatches, `juju system too old to support login`)
 }
@@ -206,12 +209,13 @@ func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
 
 type mockAPIConnection struct {
 	api.Connection
-	info         *api.Info
-	addr         string
-	apiHostPorts [][]network.HostPort
-	serverTag    names.EnvironTag
-	username     string
-	password     string
+	info          *api.Info
+	opts          api.DialOpts
+	addr          string
+	apiHostPorts  [][]network.HostPort
+	controllerTag names.EnvironTag
+	username      string
+	password      string
 }
 
 func (*mockAPIConnection) Close() error {
@@ -226,11 +230,11 @@ func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	return m.apiHostPorts
 }
 
-func (m *mockAPIConnection) ServerTag() (names.EnvironTag, error) {
-	if m.serverTag.Id() == "" {
-		return m.serverTag, errors.New("no server tag")
+func (m *mockAPIConnection) ControllerTag() (names.EnvironTag, error) {
+	if m.controllerTag.Id() == "" {
+		return m.controllerTag, errors.New("no server tag")
 	}
-	return m.serverTag, nil
+	return m.controllerTag, nil
 }
 
 func (m *mockAPIConnection) SetPassword(username, password string) error {

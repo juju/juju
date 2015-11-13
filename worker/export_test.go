@@ -26,3 +26,7 @@ func SetEnsureErr(f func(watcher.Errer) error) {
 func EnsureErr() func(watcher.Errer) error {
 	return ensureErr
 }
+
+func ExtractWorkers(workers Workers) ([]string, map[string]func() (Worker, error)) {
+	return workers.ids, workers.funcs
+}

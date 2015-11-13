@@ -5,15 +5,20 @@ package envcmd_test
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -75,6 +80,11 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
 	testEnsureEnvName(c, "explicit", "-e", "explicit")
+}
+
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicitLongForm(c *gc.C) {
+	// Take environment name from command line arg.
+	testEnsureEnvName(c, "explicit", "--environment", "explicit")
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
@@ -146,6 +156,13 @@ func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+}
+
+func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := envcmd.Wrap(cmd, envcmd.EnvSkipFlags)
+	err := cmdtesting.InitCommand(wrapped, []string{"-e", "testenv"})
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -e")
 }
 
 type testCommand struct {
@@ -423,4 +440,83 @@ func (s *EnvConfigSuite) TestConfigEnvDoesntExist(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(s.client.getCalled, jc.IsFalse)
 	c.Check(s.client.closeCalled, jc.IsFalse)
+}
+
+var _ = gc.Suite(&macaroonLoginSuite{})
+
+type macaroonLoginSuite struct {
+	apitesting.MacaroonSuite
+	serverFilePath string
+	envName        string
+}
+
+const testUser = "testuser@somewhere"
+
+func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+	s.MacaroonSuite.SetUpTest(c)
+
+	environTag := names.NewEnvironTag(s.State.EnvironUUID())
+	s.envName = environTag.Id()
+
+	s.MacaroonSuite.AddEnvUser(c, testUser)
+
+	apiInfo := s.APIInfo(c)
+	var serverDetails envcmd.ServerFile
+	serverDetails.Addresses = apiInfo.Addrs
+	serverDetails.CACert = apiInfo.CACert
+	content, err := goyaml.Marshal(serverDetails)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.serverFilePath = filepath.Join(c.MkDir(), "server.yaml")
+
+	err = ioutil.WriteFile(s.serverFilePath, content, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := store.CreateInfo(s.envName)
+	cfg.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses:   apiInfo.Addrs,
+		Hostnames:   []string{"0.1.2.3"},
+		CACert:      apiInfo.CACert,
+		EnvironUUID: s.envName,
+	})
+	err = cfg.Write()
+	cfg.SetAPICredentials(configstore.APICredentials{
+		User:     "",
+		Password: "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
+	s.DischargerLogin = func() string {
+		return testUser
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
+	s.DischargerLogin = func() string {
+		return ""
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	// TODO(rog) is this really the right error here?
+	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
+}
+
+func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
+	s.DischargerLogin = func() string {
+		return "testUnknown@nowhere"
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	// TODO(rog) is this really the right error here?
+	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
 }

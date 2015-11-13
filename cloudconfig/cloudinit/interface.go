@@ -34,7 +34,7 @@ type CloudConfig interface {
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
-	UserConfig
+	UsersConfig
 	SystemUpdateConfig
 	SystemUpgradeConfig
 	PackageProxyConfig
@@ -48,26 +48,11 @@ type CloudConfig interface {
 	LocaleConfig
 	DeviceMountConfig
 	OutputConfig
-	SSHKeysConfig
+	SSHAuthorizedKeysConfig
 	RootUserConfig
 	WrittenFilesConfig
 	RenderConfig
 	AdvancedPackagingConfig
-}
-
-// UserConfig is the interface for managing all user-related settings.
-type UserConfig interface {
-	// SetUser sets the username to be written in the config.
-	// NOTE: the user must exist beforehand, as no steps are taken to create it.
-	// NOTE: if not set, cloud-init defaults to using "ubuntu"
-	SetUser(string)
-
-	// UnsetUser unsets the "user" cloudinit config attribute set with SetUser.
-	// If the attribute has not been previously set, no error occurs.
-	UnsetUser()
-
-	// User returns the value set with SetUser or an empty string.
-	User() string
 }
 
 // SystemUpdateConfig is the interface for managing all system update options.
@@ -278,17 +263,11 @@ type OutputConfig interface {
 	Output(OutputKind) (string, string)
 }
 
-// SSHKeysConfig is the interface for all ssh key-related settings.
-type SSHKeysConfig interface {
-	// AddSSHKey adds a pre-generated ssh key to the server keyring.
-	// Valid SSHKeyType options are: rsa_{public,private}, dsa_{public,private}
-	// Added keys will be written to /etc/ssh.
-	// As a result, new random keys are prevented from being generated.
-	AddSSHKey(SSHKeyType, string)
-
-	// AddSSHAuthorizedKeys adds a set of keys in ssh authorized_keys format
-	// that will be added to ~/.ssh/authorized_keys for the configured user (see SetUser).
-	AddSSHAuthorizedKeys(string)
+// SSHAuthorizedKeysConfig is the interface for adding ssh authorized keys.
+type SSHAuthorizedKeysConfig interface {
+	// SetSSHAuthorizedKeys puts a set of authorized keys for the default
+	// user in the ~/.ssh/authorized_keys file.
+	SetSSHAuthorizedKeys(string)
 }
 
 // RootUserConfig is the interface for all root user-related settings.
@@ -375,6 +354,33 @@ type AdvancedPackagingConfig interface {
 	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
 	// archive if it is required (eg: LTS'es).
 	AddCloudArchiveCloudTools()
+}
+
+type User struct {
+	// Login name for the user.
+	Name string
+
+	// Additional groups to add the user to.
+	Groups []string
+
+	// Path to shell to use by default.
+	Shell string
+
+	// SSH keys to add to the authorized keys file.
+	SSHAuthorizedKeys string
+
+	// Sudo directives to add.
+	Sudo []string
+}
+
+// UsersConfig is the interface for managing user additions
+type UsersConfig interface {
+	// AddUser sets a new user to be created with the given configuration.
+	AddUser(*User)
+
+	// UnsetUsers unsets any users set in the config, meaning the default
+	// user specified in the image cloud config will be used.
+	UnsetUsers()
 }
 
 // New returns a new Config with no options set.

@@ -4,6 +4,10 @@
 package testing
 
 import (
+	"net/url"
+
+	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +17,8 @@ import (
 )
 
 // APICallerFunc is a function type that implements APICaller.
+// The only method that actually does anything is APICall itself
+// which calls the function. The other methods are just stubs.
 type APICallerFunc func(objType string, version int, id, request string, params, response interface{}) error
 
 func (f APICallerFunc) APICall(objType string, version int, id, request string, params, response interface{}) error {
@@ -29,6 +35,14 @@ func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
 
 func (APICallerFunc) Close() error {
 	return nil
+}
+
+func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
+	return nil, errors.New("no HTTP client available in this test")
+}
+
+func (APICallerFunc) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	return nil, errors.New("stream connection unimplemented")
 }
 
 // CheckArgs holds the possible arguments to CheckingAPICaller(). Any

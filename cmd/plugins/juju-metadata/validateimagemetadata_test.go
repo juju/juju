@@ -11,7 +11,6 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -26,7 +25,7 @@ type ValidateImageMetadataSuite struct {
 var _ = gc.Suite(&ValidateImageMetadataSuite{})
 
 func runValidateImageMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ValidateImageMetadataCommand{}), args...)
+	_, err := coretesting.RunCommand(c, newValidateImageMetadataCommand(), args...)
 	return err
 }
 
@@ -49,7 +48,7 @@ var validateInitImageErrorTests = []struct {
 func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
 	for i, t := range validateInitImageErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(envcmd.Wrap(&ValidateImageMetadataCommand{}), t.args)
+		err := coretesting.InitCommand(newValidateImageMetadataCommand(), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -129,7 +128,7 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
+		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -153,7 +152,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{"-e", "ec2", "-d", s.metadataDir},
+		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
@@ -165,7 +164,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 	s.setupEc2LocalMetadata(c, "us-west-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "ec2", "-s", "precise", "-r", "us-west-1",
 			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir},
 	)
@@ -181,13 +180,13 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "ec2", "-s", "raring", "-r", "us-west-1",
 			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	code = cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "ec2", "-s", "precise", "-r", "region",
 			"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir},
 	)
@@ -201,7 +200,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
@@ -217,7 +216,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "openstack", "-s", "precise", "-r", "region-2",
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
@@ -226,7 +225,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 	code = cmd.Main(
-		envcmd.Wrap(&ValidateImageMetadataCommand{}), ctx, []string{
+		newValidateImageMetadataCommand(), ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-3",
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)

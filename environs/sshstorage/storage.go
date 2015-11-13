@@ -18,8 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.environs.sshstorage")

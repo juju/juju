@@ -21,15 +21,6 @@ func init() {
 	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)
 }
 
-// UserManager defines the methods on the usermanager API end point.
-type UserManager interface {
-	AddUser(args params.AddUsers) (params.AddUserResults, error)
-	DisableUser(args params.Entities) (params.ErrorResults, error)
-	EnableUser(args params.Entities) (params.ErrorResults, error)
-	SetPassword(args params.EntityPasswords) (params.ErrorResults, error)
-	UserInfo(args params.UserInfoRequest) (params.UserInfoResults, error)
-}
-
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
@@ -37,8 +28,6 @@ type UserManagerAPI struct {
 	authorizer common.Authorizer
 	check      *common.BlockChecker
 }
-
-var _ UserManager = (*UserManagerAPI)(nil)
 
 func NewUserManagerAPI(
 	st *state.State,

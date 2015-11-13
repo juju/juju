@@ -31,8 +31,7 @@ func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *removeBlocksSuite) newCommand() cmd.Command {
-	command := system.NewRemoveBlocksCommand(s.api)
-	return envcmd.WrapSystem(command)
+	return system.NewRemoveBlocksCommand(s.api)
 }
 
 func (s *removeBlocksSuite) TestRemove(c *gc.C) {

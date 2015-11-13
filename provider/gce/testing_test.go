@@ -212,6 +212,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
+		Series:     "trusty",
 		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,

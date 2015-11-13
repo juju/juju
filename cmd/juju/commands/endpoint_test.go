@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -243,8 +242,8 @@ func (s *EndpointSuite) TestAllFormats(c *gc.C) {
 // runCommand runs the api-endpoints command with the given arguments
 // and returns the output and any error.
 func (s *EndpointSuite) runCommand(c *gc.C, args ...string) (string, string, error) {
-	command := &EndpointCommand{}
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(command), args...)
+	command := newEndpointCommand()
+	ctx, err := coretesting.RunCommand(c, command, args...)
 	if err != nil {
 		return "", "", err
 	}

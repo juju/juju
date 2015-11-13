@@ -103,7 +103,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 				return errors.Trace(err)
 			}
 		} else {
-			upgradesLogger.Infof("user '%s' already added to environment", uTag.Username())
+			upgradesLogger.Infof("user '%s' already added to environment", uTag.Canonical())
 		}
 
 	}
@@ -813,7 +813,7 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
 			{"server-uuid", env.UUID()},
-			{"owner", owner.Username()},
+			{"owner", owner.Canonical()},
 		}}},
 	}}
 	return st.runRawTransaction(ops)

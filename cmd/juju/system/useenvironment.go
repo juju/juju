@@ -11,18 +11,20 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
-// UseEnvironmentCommand returns the list of all the environments the
+func newUseEnvironmentCommand() cmd.Command {
+	return envcmd.WrapSystem(&useEnvironmentCommand{})
+}
+
+// useEnvironmentCommand returns the list of all the environments the
 // current user can access on the current system.
-type UseEnvironmentCommand struct {
+type useEnvironmentCommand struct {
 	envcmd.SysCommandBase
 
-	apiOpen   api.OpenFunc
 	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint
@@ -88,7 +90,7 @@ See Also:
 `
 
 // Info implements Command.Info
-func (c *UseEnvironmentCommand) Info() *cmd.Info {
+func (c *useEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "use-environment",
 		Purpose: "use an environment that you have access to on this machine",
@@ -97,21 +99,21 @@ func (c *UseEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UseEnvironmentCommand) getAPI() (UseEnvironmentAPI, error) {
+func (c *useEnvironmentCommand) getAPI() (UseEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewEnvironmentManagerAPIClient()
 }
 
-func (c *UseEnvironmentCommand) getConnectionCredentials() (configstore.APICredentials, error) {
+func (c *useEnvironmentCommand) getConnectionCredentials() (configstore.APICredentials, error) {
 	if c.userCreds != nil {
 		return *c.userCreds, nil
 	}
 	return c.ConnectionCredentials()
 }
 
-func (c *UseEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint, error) {
+func (c *useEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint, error) {
 	if c.endpoint != nil {
 		return *c.endpoint, nil
 	}
@@ -119,15 +121,12 @@ func (c *UseEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *UseEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *useEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.LocalName, "name", "", "the local name for this environment")
 }
 
 // SetFlags implements Command.Init.
-func (c *UseEnvironmentCommand) Init(args []string) error {
-	if c.apiOpen == nil {
-		c.apiOpen = apiOpen
-	}
+func (c *useEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
 		return errors.New("no environment supplied")
 	}
@@ -162,7 +161,7 @@ func (c *UseEnvironmentCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run
-func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -178,7 +177,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	username := names.NewUserTag(creds.User).Username()
+	username := names.NewUserTag(creds.User).Canonical()
 
 	env, err := c.findMatchingEnvironment(ctx, client, creds)
 	if err != nil {
@@ -209,7 +208,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 		existingCreds := existing.APICredentials()
 		// Need to make sure we check the username of the credentials,
 		// not just matching tags.
-		existingUsername := names.NewUserTag(existingCreds.User).Username()
+		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
 		if endpoint.EnvironUUID == env.UUID && existingUsername == username {
 			ctx.Infof("You already have environment details for %q cached locally.", c.LocalName)
 			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
@@ -226,7 +225,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 }
 
-func (c *UseEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, envUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
+func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, envUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
 	info.SetAPICredentials(creds)
 	// Specify the environment UUID. The server UUID will be the same as the
 	// endpoint that we have just connected to, as will be the CACert, addresses
@@ -236,7 +235,7 @@ func (c *UseEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, e
 	return errors.Trace(info.Write())
 }
 
-func (c *UseEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserEnvironment, error) {
+func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserEnvironment, error) {
 
 	var empty base.UserEnvironment
 
@@ -248,7 +247,7 @@ func (c *UseEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 	var owner string
 	if c.Owner != "" {
 		// The username always contains the provider aspect of the user.
-		owner = names.NewUserTag(c.Owner).Username()
+		owner = names.NewUserTag(c.Owner).Canonical()
 	}
 
 	// If we have a UUID, we warn if the owner is different, but accept it.

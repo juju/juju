@@ -33,6 +33,27 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 	for sourceName, filesystemParams := range paramsBySource {
 		logger.Debugf("creating filesystems: %v", filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
+		validFilesystemParams, validationErrors := validateFilesystemParams(
+			filesystemSource, filesystemParams,
+		)
+		for i, err := range validationErrors {
+			if err == nil {
+				continue
+			}
+			statuses = append(statuses, params.EntityStatusArgs{
+				Tag:    filesystemParams[i].Tag.String(),
+				Status: params.StatusError,
+				Info:   err.Error(),
+			})
+			logger.Debugf(
+				"failed to validate parameters for %s: %v",
+				names.ReadableString(filesystemParams[i].Tag), err,
+			)
+		}
+		filesystemParams = validFilesystemParams
+		if len(filesystemParams) == 0 {
+			continue
+		}
 		results, err := filesystemSource.CreateFilesystems(filesystemParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating filesystems from source %q", sourceName)
@@ -183,6 +204,25 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 	for sourceName, filesystemParams := range paramsBySource {
 		logger.Debugf("destroying filesystems from %q: %v", sourceName, filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
+		validFilesystemParams, validationErrors := validateFilesystemParams(filesystemSource, filesystemParams)
+		for i, err := range validationErrors {
+			if err == nil {
+				continue
+			}
+			statuses = append(statuses, params.EntityStatusArgs{
+				Tag:    filesystemParams[i].Tag.String(),
+				Status: params.StatusError,
+				Info:   err.Error(),
+			})
+			logger.Debugf(
+				"failed to validate parameters for %s: %v",
+				names.ReadableString(filesystemParams[i].Tag), err,
+			)
+		}
+		filesystemParams = validFilesystemParams
+		if len(filesystemParams) == 0 {
+			continue
+		}
 		filesystemIds := make([]string, len(filesystemParams))
 		for i, filesystemParams := range filesystemParams {
 			filesystem, ok := ctx.filesystems[filesystemParams.Tag]
@@ -324,15 +364,26 @@ func filesystemParamsBySource(
 			// filesystem should be created by the machine-provisioner.
 			continue
 		}
-		err := filesystemSource.ValidateFilesystemParams(params)
-		switch errors.Cause(err) {
-		case nil:
-			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
-		default:
-			return nil, nil, errors.Annotatef(err, "invalid parameters for filesystem %s", params.Tag.Id())
-		}
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 	}
 	return paramsBySource, filesystemSources, nil
+}
+
+// validateFilesystemParams validates a collection of filesystem parameters.
+func validateFilesystemParams(
+	filesystemSource storage.FilesystemSource,
+	filesystemParams []storage.FilesystemParams,
+) ([]storage.FilesystemParams, []error) {
+	valid := make([]storage.FilesystemParams, 0, len(filesystemParams))
+	results := make([]error, len(filesystemParams))
+	for i, params := range filesystemParams {
+		err := filesystemSource.ValidateFilesystemParams(params)
+		if err == nil {
+			valid = append(valid, params)
+		}
+		results[i] = err
+	}
+	return valid, results
 }
 
 // filesystemAttachmentParamsBySource separates the filesystem attachment parameters by filesystem source.

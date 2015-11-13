@@ -88,9 +88,13 @@ See Also:
    juju help placement
 `
 
-// BootstrapCommand is responsible for launching the first machine in a juju
+func newBootstrapCommand() cmd.Command {
+	return envcmd.Wrap(&bootstrapCommand{})
+}
+
+// bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
-type BootstrapCommand struct {
+type bootstrapCommand struct {
 	envcmd.EnvCommandBase
 	Constraints           constraints.Value
 	UploadTools           bool
@@ -104,7 +108,7 @@ type BootstrapCommand struct {
 	AgentVersion          *version.Number
 }
 
-func (c *BootstrapCommand) Info() *cmd.Info {
+func (c *bootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
@@ -112,7 +116,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
@@ -124,7 +128,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
 }
 
-func (c *BootstrapCommand) Init(args []string) (err error) {
+func (c *bootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--upload-series requires --upload-tools")
 	}
@@ -151,7 +155,7 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.NoAutoUpgrade {
-		vers := version.Current.Number
+		vers := version.Current
 		c.AgentVersion = &vers
 	} else if c.AgentVersionParam != "" {
 		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
@@ -213,14 +217,14 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var getEnvName = func(c *BootstrapCommand) string {
+var getEnvName = func(c *bootstrapCommand) string {
 	return c.ConnectionName()
 }
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	if len(c.seriesOld) > 0 {
@@ -341,7 +345,7 @@ func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 // waitForAgentInitialisation polls the bootstrapped state server with a read-only
 // command which will fail until the state server is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
@@ -431,7 +435,7 @@ var prepareEndpointsForCaching = juju.PrepareEndpointsForCaching
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
 // in the environment - the bootstrap instance.
-func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ) error {
+func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)

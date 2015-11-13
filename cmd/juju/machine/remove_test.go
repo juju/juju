@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
 )
@@ -29,8 +28,8 @@ func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	remove := machine.NewRemoveCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(remove), args...)
+	remove, _ := machine.NewRemoveCommand(s.fake)
+	return testing.RunCommand(c, remove, args...)
 }
 
 func (s *RemoveMachineSuite) TestInit(c *gc.C) {
@@ -65,8 +64,8 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		removeCmd := &machine.RemoveCommand{}
-		err := testing.InitCommand(removeCmd, test.args)
+		wrappedCommand, removeCmd := machine.NewRemoveCommand(s.fake)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(removeCmd.Force, gc.Equals, test.force)
@@ -92,7 +91,7 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.removeError = common.ErrOperationBlocked("TestBlockedError")
+	s.fake.removeError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsFalse)
@@ -102,7 +101,7 @@ func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
-	s.fake.removeError = common.ErrOperationBlocked("TestForceBlockedError")
+	s.fake.removeError = common.OperationBlockedError("TestForceBlockedError")
 	_, err := s.run(c, "--force", "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsTrue)

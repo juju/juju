@@ -9,21 +9,29 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -47,14 +55,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -101,14 +102,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	port := srv.Addr().Port
@@ -197,6 +191,27 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
+func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
+	mongoInfo := s.MongoInfo(c)
+
+	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
+	mongoInfo.Addrs = []string{proxy.Addr()}
+
+	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	// Now close the proxy so that any attempts to use the
+	// state server will fail.
+	proxy.Close()
+
+	// Creating the server should succeed because it doesn't
+	// access the state (note that newServer does not log in,
+	// which *would* access the state).
+	srv := newServer(c, st)
+	srv.Stop()
+}
+
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// This is the same steps as OpenAPIAsNewMachine but we need to assert
 	// the agent is not alive before we actually open the API.
@@ -272,14 +287,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -302,6 +310,111 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	c.Assert(conn, gc.IsNil)
 }
 
+func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
+	srv := newServer(c, s.State)
+	defer srv.Stop()
+	// By default, when there is no identity location, no
+	// bakery service or macaroon is created.
+	_, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
+	_, err = apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
+}
+
+type macaroonServerSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+}
+
+var _ = gc.Suite(&macaroonServerSuite{})
+
+func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
+	s.discharger = bakerytest.NewDischarger(nil, noCheck)
+	s.ConfigAttrs = map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
+	srv := newServer(c, s.State)
+	defer srv.Stop()
+	m, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.IsNil)
+	bsvc, err := apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.IsNil)
+
+	// Check that we can add a third party caveat addressed to the
+	// discharger, which indirectly ensures that the discharger's public
+	// key has been added to the bakery service's locator.
+	m = m.Clone()
+	err = bsvc.AddCaveat(m, checkers.Caveat{
+		Location:  s.discharger.Location(),
+		Condition: "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we can discharge the macaroon and check it with
+	// the service.
+	client := httpbakery.NewClient()
+	ms, err := client.DischargeAll(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bsvc.Check(ms, checkers.New())
+	c.Assert(err, gc.IsNil)
+}
+
+type macaroonServerWrongPublicKeySuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+}
+
+var _ = gc.Suite(&macaroonServerWrongPublicKeySuite{})
+
+func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
+	s.discharger = bakerytest.NewDischarger(nil, noCheck)
+	wrongKey, err := bakery.GenerateKey()
+	c.Assert(err, gc.IsNil)
+	s.ConfigAttrs = map[string]interface{}{
+		config.IdentityURL:       s.discharger.Location(),
+		config.IdentityPublicKey: wrongKey.Public.String(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
+	srv := newServer(c, s.State)
+	defer srv.Stop()
+	m, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.IsNil)
+	m = m.Clone()
+	bsvc, err := apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.IsNil)
+	err = bsvc.AddCaveat(m, checkers.Caveat{
+		Location:  s.discharger.Location(),
+		Condition: "true",
+	})
+	c.Assert(err, gc.IsNil)
+	client := httpbakery.NewClient()
+
+	_, err = client.DischargeAll(m)
+	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
+}
+
+func noCheck(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+	return nil, nil
+}
+
 type fakeResource struct {
 	stopped bool
 }
@@ -309,4 +422,37 @@ type fakeResource struct {
 func (r *fakeResource) Stop() error {
 	r.stopped = true
 	return nil
+}
+
+func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
+	s.checkApiHandlerTeardown(c, s.State, s.State)
+}
+
+func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
+	s.checkApiHandlerTeardown(c, s.State, otherState)
+}
+
+func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
+	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
+	resource := new(fakeResource)
+	resources.Register(resource)
+
+	c.Assert(resource.stopped, jc.IsFalse)
+	handler.Kill()
+	c.Assert(resource.stopped, jc.IsTrue)
+}
+
+// newServer returns a new running API server.
+func newServer(c *gc.C, st *state.State) *apiserver.Server {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return srv
 }

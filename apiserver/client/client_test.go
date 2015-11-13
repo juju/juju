@@ -281,8 +281,8 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
 	lastConn, err := envUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn, gc.Equals, time.Time{})
@@ -304,8 +304,8 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
+	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
 	lastConn, err := envUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -331,7 +331,7 @@ func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
 
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
 }
 
 func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
@@ -3416,7 +3416,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
-	s.PatchValue(&version.Current.Number, current)
+	s.PatchValue(&version.Current, current)
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)

@@ -13,6 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -115,7 +116,9 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,8 +180,12 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	environ, err := local.Provider.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	availableTools := coretools.List{&coretools.Tools{
-		Version: version.Current,
-		URL:     "http://testing.invalid/tools.tar.gz",
+		Version: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		URL: "http://testing.invalid/tools.tar.gz",
 	}}
 	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		AvailableTools: availableTools,

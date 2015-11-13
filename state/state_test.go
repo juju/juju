@@ -19,6 +19,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -2791,7 +2793,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	indexColl, closer := state.GetCollection(st, "userenvname")
 	defer closer()
-	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	id := state.UserEnvNameIndex(env.Owner().Canonical(), env.Name())
 	n, err := indexColl.FindId(id).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
@@ -2873,7 +2875,7 @@ func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	cur := version.Current.Number
+	cur := version.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForEnvironConfigChanges()
@@ -3234,8 +3236,8 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
-				expected := test.tag.(names.UserTag).Username()
-				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
+				expected := test.tag.(names.UserTag).Canonical()
+				c.Assert(e.Tag().(names.UserTag).Canonical(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}
@@ -3672,29 +3674,32 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
+	current := version.MustParseBinary("1.24.7-trusty-amd64")
+	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 
-	higher := version.Current
-	higher.Patch++
-	lower := version.Current
-	lower.Patch--
+	higher := version.MustParseBinary("1.25.0-trusty-amd64")
+	lower := version.MustParseBinary("1.24.6-trusty-amd64")
 
-	// Set other environ version to < server envrion version
+	// Set other environ version to < server environ version
 	err := otherSt.SetEnvironAgentVersion(lower.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
-	// Set other environ version == server envrion version
-	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
+	// Set other environ version == server environ version
+	err = otherSt.SetEnvironAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.Number.String())
+	assertAgentVersion(c, otherSt, version.Current.String())
 
-	// Set other environ version to > server envrion version
+	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
-		higher.Number.String(),
-		version.Current.Number.String(),
+		higher.Number,
+		version.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }

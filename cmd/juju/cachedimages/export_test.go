@@ -6,4 +6,7 @@ package cachedimages
 var (
 	GetListImagesAPI  = &getListImagesAPI
 	GetDeleteImageAPI = &getDeleteImageAPI
+
+	NewDeleteCommand = newDeleteCommand
+	NewListCommand   = newListCommand
 )

@@ -89,7 +89,7 @@ func (c *Client) ListEnvironments(user string) ([]base.UserEnvironment, error) {
 		result[i] = base.UserEnvironment{
 			Name:           env.Name,
 			UUID:           env.UUID,
-			Owner:          owner.Username(),
+			Owner:          owner.Canonical(),
 			LastConnection: env.LastConnection,
 		}
 	}

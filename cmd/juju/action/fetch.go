@@ -12,10 +12,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// FetchCommand fetches the results of an action by ID.
-type FetchCommand struct {
+func newFetchCommand() cmd.Command {
+	return envcmd.Wrap(&fetchCommand{})
+}
+
+// fetchCommand fetches the results of an action by ID.
+type fetchCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
@@ -35,12 +40,12 @@ displayed.  This is also the behavior when any negative time is given.
 `
 
 // Set up the output.
-func (c *FetchCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *fetchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.wait, "wait", "-1s", "wait for results")
 }
 
-func (c *FetchCommand) Info() *cmd.Info {
+func (c *fetchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "fetch",
 		Args:    "<action ID>",
@@ -50,7 +55,7 @@ func (c *FetchCommand) Info() *cmd.Info {
 }
 
 // Init validates the action ID and any other options.
-func (c *FetchCommand) Init(args []string) error {
+func (c *fetchCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no action ID specified")
@@ -63,7 +68,7 @@ func (c *FetchCommand) Init(args []string) error {
 }
 
 // Run issues the API call to get Actions by ID.
-func (c *FetchCommand) Run(ctx *cmd.Context) error {
+func (c *fetchCommand) Run(ctx *cmd.Context) error {
 	// Check whether units were left off our time string.
 	r := regexp.MustCompile("[a-zA-Z]")
 	matches := r.FindStringSubmatch(c.wait[len(c.wait)-1:])

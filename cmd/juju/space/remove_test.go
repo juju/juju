@@ -22,7 +22,7 @@ var _ = gc.Suite(&RemoveSuite{})
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command = space.NewRemoveCommand(s.api)
+	s.command, _ = space.NewRemoveCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -53,15 +53,15 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := space.NewRemoveCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := space.NewRemoveCommand(s.api)
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(command.Name, gc.Equals, test.expectName)
+		c.Check(command.Name(), gc.Equals, test.expectName)
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}
@@ -88,14 +88,4 @@ func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "RemoveSpace", "Close")
 	s.api.CheckCall(c, 0, "RemoveSpace", "myspace")
-}
-
-func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {
-	s.command = space.NewRemoveCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"myname", // Drop the args once RunWitnAPI is called internally.
-	)
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

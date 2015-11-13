@@ -4,27 +4,31 @@
 package peergrouper_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
 type workerJujuConnSuite struct {
-	testing.JujuConnSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&workerJujuConnSuite{})
 
 func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
-	w, err := peergrouper.New(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	err = worker.Stop(w)
+	st := peergrouper.NewFakeState()
+	publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+		return nil
+	}
+	w := peergrouper.NewWorker(st, peergrouper.PublisherFunc(publish))
+	err := worker.Stop(w)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -33,18 +37,10 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 		st := peergrouper.NewFakeState()
 		peergrouper.InitState(c, st, 3, ipVersion)
 
-		watcher := s.State.WatchAPIHostPorts()
-		cwatch := statetesting.NewNotifyWatcherC(c, s.State, watcher)
-		cwatch.AssertOneChange()
-
-		statePublish := peergrouper.NewPublisher(s.State, false)
-
-		// Wrap the publisher so that we can call StartSync immediately
-		// after the publishAPIServers method is called.
+		publishedAPIServers := make(chan [][]network.HostPort, 1)
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
-			err := statePublish.PublishAPIServers(apiServers, instanceIds)
-			s.State.StartSync()
-			return err
+			publishedAPIServers <- apiServers
+			return nil
 		}
 
 		w := peergrouper.NewWorker(st, peergrouper.PublisherFunc(publish))
@@ -52,19 +48,18 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
 
-		cwatch.AssertOneChange()
-		hps, err := s.State.APIHostPorts()
-		c.Assert(err, jc.ErrorIsNil)
-		peergrouper.AssertAPIHostPorts(c, hps, peergrouper.ExpectedAPIHostPorts(3, ipVersion))
-	})
-}
+		select {
+		case hps := <-publishedAPIServers:
+			peergrouper.AssertAPIHostPorts(c, hps, peergrouper.ExpectedAPIHostPorts(3, ipVersion))
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for API server host-ports to be published")
+		}
 
-func (s *workerJujuConnSuite) TestPublisherRejectsNoServers(c *gc.C) {
-	peergrouper.DoTestForIPv4AndIPv6(func(ipVersion peergrouper.TestIPVersion) {
-		st := peergrouper.NewFakeState()
-		peergrouper.InitState(c, st, 3, ipVersion)
-		statePublish := peergrouper.NewPublisher(s.State, false)
-		err := statePublish.PublishAPIServers(nil, nil)
-		c.Assert(err, gc.ErrorMatches, "no api servers specified")
+		// There should be only one publication.
+		select {
+		case <-publishedAPIServers:
+			c.Fatalf("unexpected API server host-ports publication")
+		case <-time.After(testing.ShortWait):
+		}
 	})
 }

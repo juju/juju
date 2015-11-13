@@ -147,24 +147,31 @@ func (s *HostPortSuite) TestResolveOrDropHostnames(c *gc.C) {
 func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
 	// The order is preserved, but machine- and link-local addresses
 	// are dropped.
-	expected := network.NewHostPorts(1234,
-		"localhost",
-		"example.com",
-		"example.org",
-		"2001:db8::2",
-		"example.net",
-		"invalid host",
-		"fd00::22",
-		"2001:db8::1",
-		"0.1.2.0",
-		"2001:db8::1",
-		"localhost",
-		"10.0.0.1",
-		"fc00::1",
-		"172.16.0.1",
-		"8.8.8.8",
-		"7.8.8.8",
+	expected := append(
+		network.NewHostPorts(1234,
+			"localhost",
+			"example.com",
+			"example.org",
+			"2001:db8::2",
+			"example.net",
+			"invalid host",
+			"fd00::22",
+			"2001:db8::1",
+			"0.1.2.0",
+			"2001:db8::1",
+			"localhost",
+			"10.0.0.1",
+			"fc00::1",
+			"172.16.0.1",
+			"8.8.8.8",
+			"7.8.8.8",
+		),
+		network.NewHostPorts(9999,
+			"10.0.0.1",
+			"2001:db8::1", // public
+		)...,
 	)
+
 	result := network.FilterUnusableHostPorts(s.makeHostPorts())
 	c.Assert(result, gc.HasLen, len(expected))
 	c.Assert(result, jc.DeepEquals, expected)
@@ -299,85 +306,99 @@ func (*HostPortSuite) TestAddressesWithPortAndHostsWithoutPort(c *gc.C) {
 	c.Assert(network.HostsWithoutPort(hps), jc.DeepEquals, addrs)
 }
 
+func (s *HostPortSuite) assertHostPorts(c *gc.C, actual []network.HostPort, expected ...string) {
+	parsed, err := network.ParseHostPorts(expected...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, parsed)
+}
+
 func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 	hps := s.makeHostPorts()
 	// Simulate prefer-ipv6: false first.
 	network.SortHostPorts(hps, false)
-	c.Assert(hps, jc.DeepEquals, network.NewHostPorts(1234,
+	s.assertHostPorts(c, hps,
 		// Public IPv4 addresses on top.
-		"0.1.2.0",
-		"7.8.8.8",
-		"8.8.8.8",
+		"0.1.2.0:1234",
+		"7.8.8.8:1234",
+		"8.8.8.8:1234",
 		// After that public IPv6 addresses.
-		"2001:db8::1",
-		"2001:db8::1",
-		"2001:db8::2",
+		"[2001:db8::1]:1234",
+		"[2001:db8::1]:1234",
+		"[2001:db8::1]:9999",
+		"[2001:db8::2]:1234",
 		// Then hostnames.
-		"example.com",
-		"example.net",
-		"example.org",
-		"invalid host",
-		"localhost",
-		"localhost",
+		"example.com:1234",
+		"example.net:1234",
+		"example.org:1234",
+		"invalid host:1234",
+		"localhost:1234",
+		"localhost:1234",
 		// Then IPv4 cloud-local addresses.
-		"10.0.0.1",
-		"172.16.0.1",
+		"10.0.0.1:1234",
+		"10.0.0.1:9999",
+		"172.16.0.1:1234",
 		// Then IPv6 cloud-local addresses.
-		"fc00::1",
-		"fd00::22",
+		"[fc00::1]:1234",
+		"[fd00::22]:1234",
 		// Then machine-local IPv4 addresses.
-		"127.0.0.1",
-		"127.0.0.1",
-		"127.0.1.1",
+		"127.0.0.1:1234",
+		"127.0.0.1:1234",
+		"127.0.0.1:9999",
+		"127.0.1.1:1234",
 		// Then machine-local IPv6 addresses.
-		"::1",
-		"::1",
+		"[::1]:1234",
+		"[::1]:1234",
 		// Then link-local IPv4 addresses.
-		"169.254.1.1",
-		"169.254.1.2",
+		"169.254.1.1:1234",
+		"169.254.1.2:1234",
 		// Finally, link-local IPv6 addresses.
-		"fe80::2",
-		"ff01::22",
-	))
+		"[fe80::2]:1234",
+		"[fe80::2]:9999",
+		"[ff01::22]:1234",
+	)
 
 	// Now, simulate prefer-ipv6: true.
 	network.SortHostPorts(hps, true)
-	c.Assert(hps, jc.DeepEquals, network.NewHostPorts(1234,
+	s.assertHostPorts(c, hps,
 		// Public IPv6 addresses on top.
-		"2001:db8::1",
-		"2001:db8::1",
-		"2001:db8::2",
+		"[2001:db8::1]:1234",
+		"[2001:db8::1]:1234",
+		"[2001:db8::1]:9999",
+		"[2001:db8::2]:1234",
 		// After that public IPv4 addresses.
-		"0.1.2.0",
-		"7.8.8.8",
-		"8.8.8.8",
+		"0.1.2.0:1234",
+		"7.8.8.8:1234",
+		"8.8.8.8:1234",
 		// Then hostnames.
-		"example.com",
-		"example.net",
-		"example.org",
-		"invalid host",
-		"localhost",
-		"localhost",
+		"example.com:1234",
+		"example.net:1234",
+		"example.org:1234",
+		"invalid host:1234",
+		"localhost:1234",
+		"localhost:1234",
 		// Then IPv6 cloud-local addresses.
-		"fc00::1",
-		"fd00::22",
+		"[fc00::1]:1234",
+		"[fd00::22]:1234",
 		// Then IPv4 cloud-local addresses.
-		"10.0.0.1",
-		"172.16.0.1",
+		"10.0.0.1:1234",
+		"10.0.0.1:9999",
+		"172.16.0.1:1234",
 		// Then machine-local IPv6 addresses.
-		"::1",
-		"::1",
+		"[::1]:1234",
+		"[::1]:1234",
 		// Then machine-local IPv4 addresses.
-		"127.0.0.1",
-		"127.0.0.1",
-		"127.0.1.1",
-		// Then link-local IPv6 addresses.
-		"fe80::2",
-		"ff01::22",
-		// Finally, link-local IPv4 addresses.
-		"169.254.1.1",
-		"169.254.1.2",
-	))
+		"127.0.0.1:1234",
+		"127.0.0.1:1234",
+		"127.0.0.1:9999",
+		"127.0.1.1:1234",
+		// Finally, link-local IPv6 addresses.
+		"[fe80::2]:1234",
+		"[fe80::2]:9999",
+		"[ff01::22]:1234",
+		// Then link-local IPv4 addresses.
+		"169.254.1.1:1234",
+		"169.254.1.2:1234",
+	)
 }
 
 var netAddrTests = []struct {
@@ -443,28 +464,36 @@ func (s *HostPortSuite) TestDropDuplicatedHostPorts(c *gc.C) {
 	hps := s.makeHostPorts()
 	noDups := network.DropDuplicatedHostPorts(hps)
 	c.Assert(noDups, gc.Not(gc.HasLen), len(hps))
-	c.Assert(noDups, jc.DeepEquals, network.NewHostPorts(1234,
-		"127.0.0.1",
-		"localhost",
-		"example.com",
-		"127.0.1.1",
-		"example.org",
-		"2001:db8::2",
-		"169.254.1.1",
-		"example.net",
-		"invalid host",
-		"fd00::22",
-		"2001:db8::1",
-		"169.254.1.2",
-		"ff01::22",
-		"0.1.2.0",
-		"10.0.0.1",
-		"::1",
-		"fc00::1",
-		"fe80::2",
-		"172.16.0.1",
-		"8.8.8.8",
-		"7.8.8.8",
+	c.Assert(noDups, jc.DeepEquals, append(
+		network.NewHostPorts(1234,
+			"127.0.0.1",
+			"localhost",
+			"example.com",
+			"127.0.1.1",
+			"example.org",
+			"2001:db8::2",
+			"169.254.1.1",
+			"example.net",
+			"invalid host",
+			"fd00::22",
+			"2001:db8::1",
+			"169.254.1.2",
+			"ff01::22",
+			"0.1.2.0",
+			"10.0.0.1",
+			"::1",
+			"fc00::1",
+			"fe80::2",
+			"172.16.0.1",
+			"8.8.8.8",
+			"7.8.8.8",
+		),
+		network.NewHostPorts(9999,
+			"127.0.0.1",   // machine-local
+			"10.0.0.1",    // cloud-local
+			"2001:db8::1", // public
+			"fe80::2",     // link-local
+		)...,
 	))
 }
 
@@ -498,35 +527,47 @@ func (s *HostPortSuite) TestHostPortsToStrings(c *gc.C) {
 		"[::1]:1234",
 		"8.8.8.8:1234",
 		"7.8.8.8:1234",
+		"127.0.0.1:9999",
+		"10.0.0.1:9999",
+		"[2001:db8::1]:9999",
+		"[fe80::2]:9999",
 	})
 }
 
 func (*HostPortSuite) makeHostPorts() []network.HostPort {
-	return network.NewHostPorts(1234,
-		"127.0.0.1",    // machine-local
-		"localhost",    // hostname
-		"example.com",  // hostname
-		"127.0.1.1",    // machine-local
-		"example.org",  // hostname
-		"2001:db8::2",  // public
-		"169.254.1.1",  // link-local
-		"example.net",  // hostname
-		"invalid host", // hostname
-		"fd00::22",     // cloud-local
-		"127.0.0.1",    // machine-local
-		"2001:db8::1",  // public
-		"169.254.1.2",  // link-local
-		"ff01::22",     // link-local
-		"0.1.2.0",      // public
-		"2001:db8::1",  // public
-		"localhost",    // hostname
-		"10.0.0.1",     // cloud-local
-		"::1",          // machine-local
-		"fc00::1",      // cloud-local
-		"fe80::2",      // link-local
-		"172.16.0.1",   // cloud-local
-		"::1",          // machine-local
-		"8.8.8.8",      // public
-		"7.8.8.8",      // public
+	return append(
+		network.NewHostPorts(1234,
+			"127.0.0.1",    // machine-local
+			"localhost",    // hostname
+			"example.com",  // hostname
+			"127.0.1.1",    // machine-local
+			"example.org",  // hostname
+			"2001:db8::2",  // public
+			"169.254.1.1",  // link-local
+			"example.net",  // hostname
+			"invalid host", // hostname
+			"fd00::22",     // cloud-local
+			"127.0.0.1",    // machine-local
+			"2001:db8::1",  // public
+			"169.254.1.2",  // link-local
+			"ff01::22",     // link-local
+			"0.1.2.0",      // public
+			"2001:db8::1",  // public
+			"localhost",    // hostname
+			"10.0.0.1",     // cloud-local
+			"::1",          // machine-local
+			"fc00::1",      // cloud-local
+			"fe80::2",      // link-local
+			"172.16.0.1",   // cloud-local
+			"::1",          // machine-local
+			"8.8.8.8",      // public
+			"7.8.8.8",      // public
+		),
+		network.NewHostPorts(9999,
+			"127.0.0.1",   // machine-local
+			"10.0.0.1",    // cloud-local
+			"2001:db8::1", // public
+			"fe80::2",     // link-local
+		)...,
 	)
 }

@@ -12,14 +12,18 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-// InitCommand is used to write out a boilerplate environments.yaml file.
-type InitCommand struct {
+func newInitCommand() cmd.Command {
+	return &initCommand{}
+}
+
+// initCommand is used to write out a boilerplate environments.yaml file.
+type initCommand struct {
 	cmd.CommandBase
 	WriteFile bool
 	Show      bool
 }
 
-func (c *InitCommand) Info() *cmd.Info {
+func (c *initCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "init",
 		Purpose: "generate boilerplate configuration for juju environments",
@@ -27,7 +31,7 @@ func (c *InitCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "f", false, "force overwriting environments.yaml file even if it exists (ignored if --show flag specified)")
 	f.BoolVar(&c.Show, "show", false, "print the generated configuration data to stdout instead of writing it to a file")
 }
@@ -39,7 +43,7 @@ Use -f to overwrite the existing environments.yaml.
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,
 // a boilerplate version is created so that the user can edit it to get started.
-func (c *InitCommand) Run(context *cmd.Context) error {
+func (c *initCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 	config := environs.BoilerplateConfig()
 	if c.Show {

@@ -10,10 +10,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// StatusCommand shows the status of an Action by ID.
-type StatusCommand struct {
+func newStatusCommand() cmd.Command {
+	return envcmd.Wrap(&statusCommand{})
+}
+
+// statusCommand shows the status of an Action by ID.
+type statusCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
@@ -24,11 +29,11 @@ Show the status of Actions matching given ID, partial ID prefix, or all Actions 
 `
 
 // Set up the output.
-func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
-func (c *StatusCommand) Info() *cmd.Info {
+func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
 		Args:    "[<action ID>|<action ID prefix>]",
@@ -37,7 +42,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *StatusCommand) Init(args []string) error {
+func (c *statusCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		c.requestedId = ""
@@ -50,7 +55,7 @@ func (c *StatusCommand) Init(args []string) error {
 	}
 }
 
-func (c *StatusCommand) Run(ctx *cmd.Context) error {
+func (c *statusCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err
