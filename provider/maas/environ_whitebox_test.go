@@ -1108,6 +1108,22 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) TestNotSupportsSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+}
+
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
