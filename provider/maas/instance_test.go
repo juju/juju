@@ -16,6 +16,13 @@ type instanceTest struct {
 	providerSuite
 }
 
+// These unit tests have a hostname of '-testing.invalid'. We forcibly
+// want an invalid hostname so that good and bad resolvers fail to
+// resolve this name. Bad resolvers positively resolve
+// "testing.invalid" but adding a leading "-" ensures name resolution
+// failure. Note: name resolution takes place in Addresses() and for
+// the tests the name should always fail to resolve.
+
 var _ = gc.Suite(&instanceTest{})
 
 func (s *instanceTest) TestId(c *gc.C) {
