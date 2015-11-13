@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/legacy"
@@ -70,7 +71,7 @@ type notifyHandler struct {
 	setupDone     chan struct{}
 }
 
-func (nh *notifyHandler) SetUp() (legacy.NotifyWatcher, error) {
+func (nh *notifyHandler) SetUp() (state.NotifyWatcher, error) {
 	defer func() { nh.setupDone <- struct{}{} }()
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
@@ -127,6 +128,7 @@ func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
 }
 
 type testNotifyWatcher struct {
+	state.NotifyWatcher
 	mu        sync.Mutex
 	changes   chan struct{}
 	stopped   bool

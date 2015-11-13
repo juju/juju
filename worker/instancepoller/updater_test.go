@@ -6,7 +6,6 @@ package instancepoller
 
 import (
 	"errors"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -15,11 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&updaterSuite{})
 
@@ -47,7 +43,6 @@ func (*updaterSuite) TestStopsWatcher(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
@@ -116,7 +111,6 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
@@ -172,7 +166,6 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 type testUpdaterContext struct {
@@ -189,25 +182,29 @@ func (context *testUpdaterContext) getMachine(tag names.MachineTag) (machine, er
 	return context.getMachineFunc(tag)
 }
 
+func (context *testUpdaterContext) kill(_ error) {
+}
+
 func (context *testUpdaterContext) dying() <-chan struct{} {
 	return context.dyingc
 }
 
+func (context *testUpdaterContext) errDying() error {
+	return nil
+}
+
 type testMachinesWatcher struct {
-	stopped bool
 	changes chan []string
 	err     error
 }
 
-func (w *testMachinesWatcher) Changes() <-chan []string {
+func (w *testMachinesWatcher) Changes() watcher.StringsChan {
 	return w.changes
 }
 
-func (w *testMachinesWatcher) Stop() error {
-	w.stopped = true
-	return w.err
+func (w *testMachinesWatcher) Kill() {
 }
 
-func (w *testMachinesWatcher) Err() error {
+func (w *testMachinesWatcher) Wait() error {
 	return w.err
 }
