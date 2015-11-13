@@ -51,7 +51,9 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		"type":            "some-type",
 		"authorized-keys": "key",
 	})
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	err = s.environ.SetConfig(config)
+	c.Assert(err, gc.IsNil)
 	_, err = s.environ.StartInstance(environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{
 			Config: config,
@@ -73,6 +75,7 @@ type methodCall struct {
 }
 
 type fakeEnviron struct {
+	config      *config.Config
 	methodCalls []methodCall
 }
 
@@ -119,8 +122,7 @@ func (e *fakeEnviron) MaintainInstance(args environs.StartInstanceParams) error 
 }
 
 func (e *fakeEnviron) Config() *config.Config {
-	e.Push("Config")
-	return nil
+	return e.config
 }
 
 func (e *fakeEnviron) SupportedArchitectures() ([]string, error) {
@@ -139,7 +141,7 @@ func (e *fakeEnviron) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
-	e.Push("SetConfig", cfg)
+	e.config = cfg
 	return nil
 }
 
