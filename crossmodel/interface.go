@@ -3,16 +3,19 @@
 
 package crossmodel
 
-import "github.com/juju/juju/apiserver/params"
+import "github.com/juju/names"
 
-// Exporter provides methods to export and inspect services endpoints.
-type Exporter interface {
-	// ExportOffer prepares service endpoints for consumption.
-	// An actual implementation will coordinate the work:
-	// validate entities exist, access the service directory, write to state etc.
-	ExportOffer(offer Offer) error
+// Offer holds information about service's offer.
+type Offer struct {
+	// Service has service's tag.
+	Service names.ServiceTag
 
-	// Search looks through offered services and returns the ones
-	// that match specified filter.
-	Search(filter params.EndpointsSearchFilter) ([]RemoteServiceEndpoints, error)
+	// Endpoints list of service's endpoints that are being offered.
+	Endpoints []string
+
+	// URL is the location where these endpoitns will be accessible from.
+	URL string
+
+	// Users is the list of user tags that are given permission to these endpoints.
+	Users []names.UserTag
 }
