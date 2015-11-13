@@ -663,7 +663,7 @@ class EnvJujuClient26(EnvJujuClient):
         """
         if self._use_jes:
             return
-        if self.is_jes_enabled() and self.get_jes_command() == 'controller':
+        if self.is_jes_enabled():
             raise JESByDefault()
         self._use_jes = True
         if not self.is_jes_enabled():

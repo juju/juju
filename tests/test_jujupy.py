@@ -122,8 +122,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
-            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            call_index=1)
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'))
 
     def test_enable_jes_unsupported(self):
         client = self.client_class(
