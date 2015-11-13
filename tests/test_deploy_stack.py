@@ -616,9 +616,11 @@ class TestDeployJob(FakeHomeTestCase):
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
-                _deploy_job('foo', None, None, '', None, None, None,
-                            'log', None, None, None, None, None, None,
-                            1, False, False, None)
+                with patch('subprocess.Popen', autospec=True,
+                           return_value=FakePopen('', '', 0)):
+                    _deploy_job('foo', None, None, '', None, None, None,
+                                'log', None, None, None, None, None, None,
+                                1, False, False, None)
         self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
@@ -629,20 +631,25 @@ class TestDeployJob(FakeHomeTestCase):
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
-                _deploy_job('foo', None, None, '', None, None, None, None,
-                            None, None, None, None, None, None, 0, False,
-                            False, None)
+                with patch('subprocess.Popen', autospec=True,
+                           return_value=FakePopen('', '', 0)):
+                    _deploy_job('foo', None, None, '', None, None, None, None,
+                                None, None, None, None, None, None, 0, False,
+                                False, None)
         self.assertEqual(bc_mock.call_count, 0)
 
     def test_region(self):
         with self.ds_cxt() as client:
             bc_mock = deploy_stack.boot_context
-            _deploy_job('foo', None, None, '', None, None, None, None,
-                        None, None, None, None, None, None, 0, False,
-                        False, 'region-foo')
+            with patch('subprocess.Popen', autospec=True,
+                       return_value=FakePopen('', '', 0)):
+                _deploy_job('foo', None, None, '', None, None, None, None,
+                            None, None, None, None, None, None, 0, False,
+                            False, 'region-foo')
+                permanent = client.is_jes_enabled()
         bc_mock.assert_called_once_with(
             'foo', client, None, None, None, None, None, None, None, None,
-            permanent=False, region='region-foo')
+            permanent=permanent, region='region-foo')
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
@@ -760,20 +767,22 @@ class TestBootContext(FakeHomeTestCase):
         return use_context(self, cxt)
 
     @contextmanager
-    def bc_context(self, client, log_dir=None, jes=False, keep_env=False):
+    def bc_context(self, client, log_dir=None, jes=None, keep_env=False):
         dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True))
         if jes:
-            output = 'system'
+            output = jes
+            help_index = 1
         else:
             output = ''
+            help_index = None
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
         assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'))
+            'juju', '--show-log', 'help', 'commands'), call_index=help_index)
         if jes:
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'cache.yaml')
@@ -788,7 +797,7 @@ class TestBootContext(FakeHomeTestCase):
             if jes:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
-                        'juju', '--show-log', 'system', 'kill', 'bar', '-y'))
+                        'juju', '--show-log', jes, 'kill', 'bar', '-y'))
             else:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
@@ -892,8 +901,8 @@ class TestBootContext(FakeHomeTestCase):
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
-            'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir', jes=True):
+            'foo', {'type': 'paas'}), '1.26', 'path')
+        with self.bc_context(client, 'log_dir', jes='controller'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
@@ -902,7 +911,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
-        with self.bc_context(client, 'log_dir', jes=True):
+        with self.bc_context(client, 'log_dir'):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
