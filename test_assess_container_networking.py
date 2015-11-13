@@ -9,8 +9,6 @@ from jujupy import (
     Status,
 )
 
-import sys
-from StringIO import StringIO
 import assess_container_networking as jcnet
 from copy import deepcopy
 from contextlib import contextmanager

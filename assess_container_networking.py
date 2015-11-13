@@ -9,7 +9,6 @@ import time
 import re
 import tempfile
 import os
-import socket
 import subprocess
 from textwrap import dedent
 from argparse import ArgumentParser
@@ -419,8 +418,7 @@ def main():
             dump_env_logs(client, bootstrap_host, args.logs)
 
         if args.clean_environment:
-            #clean_environment(client)
-            pass
+            clean_environment(client)
         else:
             client.destroy_environment()
         if not success:
