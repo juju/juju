@@ -127,7 +127,7 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
-    def is_jes_enabled(self, cache=True):
+    def is_jes_enabled(self):
         """Does the state-server support multiple environments."""
         try:
             self.get_jes_command()
