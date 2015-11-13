@@ -76,8 +76,8 @@ func (s *offerSuite) TestOfferValid(c *gc.C) {
 }
 
 func (s *offerSuite) TestOfferWithURL(c *gc.C) {
-	s.args = []string{"tst:db", "valid url"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "valid url", nil)
+	s.args = []string{"tst:db", "/u/user/offer"}
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "/u/user/offer", nil)
 }
 
 func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
@@ -101,8 +101,8 @@ func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
 }
 
 func (s *offerSuite) TestOfferAllArgs(c *gc.C) {
-	s.args = []string{"tst:db", "valid url", "--to", "blah"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "valid url", []string{"user-blah"})
+	s.args = []string{"tst:db", "/u/user/offer", "--to", "blah"}
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "/u/user/offer", []string{"user-blah"})
 }
 
 func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService string, endpoints []string, url string, users []string) {

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
-// TODO(wallyworld) - remove this ASAP and use ServiceOffer
+// TODO(wallyworld) - remove this and use ServiceOffer
 // Offer holds information about service's offer.
 type Offer struct {
 	// Service has service's tag.
@@ -19,7 +19,7 @@ type Offer struct {
 	// Endpoints list of service's endpoints that are being offered.
 	Endpoints []string
 
-	// URL is the location where these endpoints will be accessible from.
+	// URL is the location where these endpoitns will be accessible from.
 	URL string
 
 	// Users is the list of user tags that are given permission to these endpoints.

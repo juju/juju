@@ -94,7 +94,7 @@ func (c *offerCommand) Init(args []string) error {
 
 	if len(args) == 2 {
 		hostedURL := args[1]
-		if !crossmodel.IsValidURL(hostedURL) {
+		if _, err := crossmodel.ParseServiceURL(hostedURL); err != nil {
 			return errors.Errorf(`hosted url %q is not valid" `, hostedURL)
 		}
 		c.URL = hostedURL
