@@ -154,8 +154,9 @@ def cmd_get(args):
     credentials = get_s3_credentials(args.config)
     conn = S3Connection(*credentials)
     bucket = conn.get_bucket('juju-qa-data')
-    print(fetch_files(bucket, args.revision_build, args.job,
-                      args.file_pattern, args.workspace))
+    for path in fetch_files(bucket, args.revision_build, args.job,
+                            args.file_pattern, args.workspace):
+        print(path)
 
 
 if __name__ == '__main__':

@@ -341,7 +341,7 @@ class TestMain(StrictTestCase):
                     '--config', config_file]):
                 with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
                     with patch('s3ci.fetch_files', autospec=True,
-                               return_value='ff') as ff_mock:
+                               return_value=['ff', 'gg']) as ff_mock:
                         with patch('sys.stdout', stdout):
                             main()
         s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
@@ -349,4 +349,4 @@ class TestMain(StrictTestCase):
         gb_mock.assert_called_once_with('juju-qa-data')
         ff_mock.assert_called_once_with(gb_mock.return_value, 28,
                                         'foo-job', 'bar-file', 'bar-workspace')
-        self.assertEqual('ff\n', stdout.getvalue())
+        self.assertEqual('ff\ngg\n', stdout.getvalue())
