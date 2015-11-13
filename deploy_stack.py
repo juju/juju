@@ -530,7 +530,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         client.enable_jes()
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools, permanent=use_jes, region=region):
+                      upload_tools, permanent=permanent, region=region):
         if machines is not None:
             client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
