@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 )
@@ -18,27 +19,8 @@ import (
 // See https://github.com/lxc/lxd/blob/master/client.go
 // and https://github.com/lxc/lxd/blob/master/specs/rest-api.md.
 
-// TODO(ericsnow) Move these to a test suite.
-var (
-	_ rawClientWrapper     = (*lxd.Client)(nil)
-	_ rawClientWrapperFull = (*lxd.Client)(nil)
-)
-
-// rawClientWrapper exposes the methods of lxd.Client required for this
-// high-level client package.
-type rawClientWrapper interface {
-	// server methods
-	WaitForSuccess(waitURL string) error
-
-	// container methods
-	ListContainers() ([]shared.ContainerInfo, error)
-	ContainerStatus(name string) (*shared.ContainerState, error)
-	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
-	SetContainerConfig(container, key, value string) error
-	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
-	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
-	Delete(name string) (*lxd.Response, error)
-}
+// TODO(ericsnow) Move this to a test suite.
+var _ rawClientWrapperFull = (*lxd.Client)(nil)
 
 // rawClientWrapperFull exposes all methods of lxd.Client.
 type rawClientWrapperFull interface {
@@ -106,14 +88,14 @@ type rawContainerMethods interface {
 	ContainerStatus(name string) (*shared.ContainerState, error)
 
 	// container data (create, actions, destroy)
-	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
 	MigrateFrom(name string, operation string, secrets map[string]string, config map[string]string, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
 	// exec
-	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
+	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 
 	// files
 	PushFile(container string, p string, gid int, uid int, mode os.FileMode, buf io.ReadSeeker) error

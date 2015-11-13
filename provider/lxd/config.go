@@ -12,9 +12,9 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 // TODO(ericsnow) Support providing cert/key file.
@@ -45,6 +45,26 @@ lxd:
     # remote-url is the URL to the LXD API server to use for managing
     # containers, if any. If not specified then the locally running LXD
     # server is used.
+    #
+    # Note: Juju does not set up remotes for you. Run the following
+    # commands on an LXD remote's host to install LXD:
+    #
+    #   add-apt-repository ppa:ubuntu-lxc/lxd-stable
+    #   apt-get update
+    #   apt-get install lxd
+    #
+    # Before using a locally running LXD (the default for this provider)
+    # after installing it, either through Juju or the LXD CLI ("lxc"),
+    # you must either log out and back in or run this command:
+    #
+    #   newgrp lxd
+    #
+    # You will also need to prepare the "ubuntu" image that Juju uses:
+    #
+    #   lxc remote add images images.linuxcontainers.org
+    #   lxd-images import ubuntu --alias ubuntu
+    #
+    # See: https://linuxcontainers.org/lxd/getting-started-cli/
     #
     # remote-url:
 

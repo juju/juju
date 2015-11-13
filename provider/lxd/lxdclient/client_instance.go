@@ -7,21 +7,36 @@ package lxdclient
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
+	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 )
-
-// TODO(ericsnow) Put these methods in their own struct
-// (a la clientServerMethods).
 
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
 
-func (client *Client) addInstance(spec InstanceSpec) error {
+type rawInstanceClient interface {
+	ListContainers() ([]shared.ContainerInfo, error)
+	ContainerStatus(name string) (*shared.ContainerState, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
+	Delete(name string) (*lxd.Response, error)
+
+	WaitForSuccess(waitURL string) error
+}
+
+type instanceClient struct {
+	raw    rawInstanceClient
+	remote string
+}
+
+func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	// TODO(ericsnow) Default to spec.ImageRemote (once it gets added).
 	imageRemote := ""
 	if imageRemote == "" {
@@ -36,7 +51,8 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, spec.Ephemeral)
+	config := spec.config()
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -50,24 +66,6 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	if err := client.initInstanceConfig(spec); err != nil {
-		if err := client.removeInstance(spec.Name); err != nil {
-			logger.Errorf("could not remove container %q after configuring it failed", spec.Name)
-		}
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (client *Client) initInstanceConfig(spec InstanceSpec) error {
-	config := spec.config()
-	for key, value := range config {
-		err := client.raw.SetContainerConfig(spec.Name, key, value)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 
@@ -82,27 +80,21 @@ func (err execFailure) Error() string {
 	return fmt.Sprintf("got non-zero code from %q: (%d) %s", err.cmd, err.code, err.stderr)
 }
 
-func (client *Client) exec(spec InstanceSpec, cmd []string) error {
+func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 	var env map[string]string
-
-	stdin, stdout, stderr, err := ioFiles()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	cmdStr := strings.Join(cmd, " ")
 	fmt.Println("running", cmdStr)
 
-	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr)
+	var input, output closingBuffer
+	stdin, stdout, stderr := &input, &output, &output
+	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr, nil)
 	if err != nil {
 		return errors.Trace(err)
 	} else if rc != 0 {
-		msg := "<reason unknown>"
-		if _, err := stdout.Seek(0, 0); err == nil {
-			data, err := ioutil.ReadAll(stdout)
-			if err == nil {
-				msg = string(data)
-			}
+		msg := output.String()
+		if msg == "" {
+			msg = "<reason unknown>"
 		}
 		err := &execFailure{
 			cmd:    cmdStr,
@@ -115,23 +107,7 @@ func (client *Client) exec(spec InstanceSpec, cmd []string) error {
 	return nil
 }
 
-// TODO(ericsnow) We *should* be able to use bytes.Buffer instead...
-func ioFiles() (*os.File, *os.File, *os.File, error) {
-	infile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	outfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	// We combine stdout and stderr...
-	return infile, outfile, outfile, nil
-}
-
-func (client *Client) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
+func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
 	cmd := []string{
 		"/bin/chmod",
 		fmt.Sprintf("%s", mode),
@@ -144,7 +120,7 @@ func (client *Client) chmod(spec InstanceSpec, filename string, mode os.FileMode
 	return nil
 }
 
-func (client *Client) startInstance(spec InstanceSpec) error {
+func (client *instanceClient) startInstance(spec InstanceSpec) error {
 	timeout := -1
 	force := false
 	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force)
@@ -163,7 +139,7 @@ func (client *Client) startInstance(spec InstanceSpec) error {
 
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the client.
-func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
+func (client *instanceClient) AddInstance(spec InstanceSpec) (*Instance, error) {
 	if err := client.addInstance(spec); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,7 +162,7 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 
 // Instance gets the up-to-date info about the given instance
 // and returns it.
-func (client *Client) Instance(name string) (*Instance, error) {
+func (client *instanceClient) Instance(name string) (*Instance, error) {
 	info, err := client.raw.ContainerStatus(name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,7 +176,7 @@ func (client *Client) Instance(name string) (*Instance, error) {
 // (in the Client's namespace) for which the name starts with the
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
-func (client *Client) Instances(prefix string, statuses ...string) ([]Instance, error) {
+func (client *instanceClient) Instances(prefix string, statuses ...string) ([]Instance, error) {
 	infos, err := client.raw.ListContainers()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -235,7 +211,7 @@ func checkStatus(info shared.ContainerInfo, statuses []string) bool {
 // removeInstance sends a request to the API to remove the instance
 // with the provided ID. The call blocks until the instance is removed
 // (or the request fails).
-func (client *Client) removeInstance(name string) error {
+func (client *instanceClient) removeInstance(name string) error {
 	info, err := client.raw.ContainerStatus(name)
 	if err != nil {
 		return errors.Trace(err)
@@ -276,7 +252,7 @@ func (client *Client) removeInstance(name string) error {
 // provided IDs. If a prefix is provided, only IDs that start with the
 // prefix will be considered. The call blocks until all the instances
 // are removed or the request fails.
-func (client *Client) RemoveInstances(prefix string, names ...string) error {
+func (client *instanceClient) RemoveInstances(prefix string, names ...string) error {
 	if len(names) == 0 {
 		return nil
 	}

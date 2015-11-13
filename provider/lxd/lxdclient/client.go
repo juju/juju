@@ -7,19 +7,18 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 )
+
+var logger = loggo.GetLogger("juju.container.lxd.lxdclient")
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
 	*serverConfigClient
 	*certClient
 	*profileClient
-
-	raw       rawClientWrapper
-	namespace string
-	remote    string
-	isLocal   bool
+	*instanceClient
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -28,7 +27,9 @@ func Connect(cfg Config) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// TODO(ericsnow) Call cfg.Write here if necessary?
+
 	remote := cfg.Remote.ID()
 
 	raw, err := newRawClient(remote, cfg.Dirname)
@@ -40,11 +41,7 @@ func Connect(cfg Config) (*Client, error) {
 		serverConfigClient: &serverConfigClient{raw},
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
-
-		raw:       raw,
-		namespace: cfg.Namespace,
-		remote:    remote,
-		isLocal:   cfg.Remote.isLocal(),
+		instanceClient:     &instanceClient{raw, remote},
 	}
 	return conn, nil
 }

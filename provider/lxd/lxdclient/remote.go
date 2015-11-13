@@ -15,10 +15,8 @@ import (
 const (
 	// remoteLocalName is a specific remote name in the default LXD config.
 	// See https://github.com/lxc/lxd/blob/master/config.go:defaultRemote.
-	remoteLocalName = "local"
-
-	// TODO(ericsnow) This may be changing to "local"
-	remoteIDForLocal = ""
+	remoteLocalName  = "local"
+	remoteIDForLocal = remoteLocalName
 )
 
 // Local is LXD's default "remote". Essentially it is an unencrypted,
@@ -48,9 +46,6 @@ type Remote struct {
 // isLocal determines if the remote is the implicit "local" remote,
 // an unencrypted, unauthenticated unix socket to a locally running LXD.
 func (r Remote) isLocal() bool {
-	if Local.Host != "" {
-		logger.Errorf("%#v", Local)
-	}
 	return r.Host == Local.Host
 }
 

@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 var (
@@ -48,7 +48,6 @@ func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
 		Remote:    s.remote,
 	}
 	updated, err := cfg.WithDefaults()
@@ -61,7 +60,6 @@ func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "",
-		Filename:  "config.yaml",
 		Remote:    s.remote,
 	}
 	updated, err := cfg.WithDefaults()
@@ -71,27 +69,8 @@ func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 		Namespace: "my-ns",
 		// TODO(ericsnow)  This will change on Windows once the LXD
 		// code is cross-platform.
-		Dirname:  "/.config/lxc", // IsolationSuite sets $HOME to "".
-		Filename: "config.yaml",
-		Remote:   s.remote,
-	})
-}
-
-func (s *configSuite) TestWithDefaultsFilename(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Dirname:   "some-dir",
-		Filename:  "",
-		Remote:    s.remote,
-	}
-	updated, err := cfg.WithDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace: "my-ns",
-		Dirname:   "some-dir",
-		Filename:  "config.yml",
-		Remote:    s.remote,
+		Dirname: "/.config/lxc", // IsolationSuite sets $HOME to "".
+		Remote:  s.remote,
 	})
 }
 
@@ -99,7 +78,6 @@ func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,7 +85,6 @@ func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
 		Remote:    lxdclient.Local,
 	})
 }
@@ -116,7 +93,6 @@ func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
 		Remote:    s.remote,
 	}
 	err := cfg.Validate()
@@ -128,7 +104,6 @@ func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "",
 		Dirname:   "",
-		Filename:  "",
 		Remote:    s.remote,
 	}
 	err := cfg.Validate()
@@ -140,7 +115,6 @@ func (s *configSuite) TestValidateMissingRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
 	}
 	err := cfg.Validate()
 
@@ -179,7 +153,6 @@ func (s *configSuite) TestUsingTCPRemoteNoop(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yml",
 		Remote:    s.remote,
 	}
 	nonlocal, err := cfg.UsingTCPRemote()
@@ -228,7 +201,6 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   dirname,
-		Filename:  "config.yml",
 		Remote:    s.remote,
 	}
 	err := cfg.Write()
@@ -245,7 +217,6 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yml",
 		Remote:    lxdclient.Local,
 	}
 	nonlocal, err := cfg.UsingTCPRemote()
@@ -255,7 +226,6 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yml",
 		Remote: lxdclient.Remote{
 			Name: lxdclient.Local.Name,
 			Host: nonlocal.Remote.Host,
@@ -274,7 +244,6 @@ func newLocalClient(c *gc.C) *lxdclient.Client {
 	client, err := lxdclient.Connect(lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   c.MkDir(),
-		Filename:  "config.yml",
 		Remote:    lxdclient.Local,
 	})
 	if err != nil {
@@ -301,25 +270,24 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(keyPEM), gc.Equals, string(certificate.KeyPEM))
 
-	filename = filepath.Join(cfg.Dirname, cfg.Filename)
+	filename = filepath.Join(cfg.Dirname, "config.yml")
 	c.Logf("reading config from %q", filename)
 	configData, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	var config lxd.Config
 	err = goyaml.Unmarshal(configData, &config)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config.Aliases, gc.HasLen, 0)
+	config.Aliases = nil
 	c.Check(config, jc.DeepEquals, lxd.Config{
 		DefaultRemote: "local",
 		Remotes: map[string]lxd.RemoteConfig{
-			// TODO(ericsnow) Use the following once we switch to a newer LXD.
-			//"local": lxd.LocalRemote,
-			"local": config.Remotes["local"],
+			"local": lxd.LocalRemote,
 			cfg.Remote.Name: lxd.RemoteConfig{
 				Addr:   "https://" + cfg.Remote.Host + ":8443",
 				Public: false,
 			},
 		},
-		// TODO(ericsnow) Use the following once we switch to a newer LXD.
-		//Aliases: nil,
+		Aliases: nil,
 	})
 }

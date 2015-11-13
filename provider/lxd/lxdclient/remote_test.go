@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxd/lxdclient"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 var (
@@ -236,7 +236,7 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	}
 	id := remote.ID()
 
-	c.Check(id, gc.Equals, "")
+	c.Check(id, gc.Equals, "local")
 }
 
 func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {

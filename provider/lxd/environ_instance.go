@@ -8,10 +8,10 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 // instStatus is the list of statuses to accept when filtering

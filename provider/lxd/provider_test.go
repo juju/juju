@@ -83,6 +83,26 @@ lxd:
     # containers, if any. If not specified then the locally running LXD
     # server is used.
     #
+    # Note: Juju does not set up remotes for you. Run the following
+    # commands on an LXD remote's host to install LXD:
+    #
+    #   add-apt-repository ppa:ubuntu-lxc/lxd-stable
+    #   apt-get update
+    #   apt-get install lxd
+    #
+    # Before using a locally running LXD (the default for this provider)
+    # after installing it, either through Juju or the LXD CLI ("lxc"),
+    # you must either log out and back in or run this command:
+    #
+    #   newgrp lxd
+    #
+    # You will also need to prepare the "ubuntu" image that Juju uses:
+    #
+    #   lxc remote add images images.linuxcontainers.org
+    #   lxd-images import ubuntu --alias ubuntu
+    #
+    # See: https://linuxcontainers.org/lxd/getting-started-cli/
+    #
     # remote-url:
 
     # The cert and key the client should use to connect to the remote

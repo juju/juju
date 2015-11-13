@@ -8,8 +8,8 @@ package lxd
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 // The metadata keys used when creating new instances.

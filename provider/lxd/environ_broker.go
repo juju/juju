@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
