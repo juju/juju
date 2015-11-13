@@ -67,7 +67,8 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
-	s.volumeSource(c)
+	vs := s.volumeSource(c)
+	c.Assert(vs, gc.NotNil)
 }
 
 func (s *storageSuite) TestFilesystemSource(c *gc.C) {

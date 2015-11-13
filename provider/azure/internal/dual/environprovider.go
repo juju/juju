@@ -6,6 +6,7 @@ package dual
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -57,6 +58,13 @@ func (p *EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // Validate is part of the environs.EnvironProvider interface.
 func (p *EnvironProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, error) {
+	if oldCfg != nil {
+		oldPrimary := p.isPrimary(oldCfg)
+		newPrimary := p.isPrimary(newCfg)
+		if oldPrimary != newPrimary {
+			return nil, errors.NotValidf("mixing primary and secondary configurations")
+		}
+	}
 	return p.ensureActive(newCfg).Validate(newCfg, oldCfg)
 }
 
