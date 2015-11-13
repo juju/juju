@@ -150,8 +150,7 @@ def mock_package_key(revision_build, build=27, distro_release=None):
     if distro_release is not None:
         namer.distro_release = distro_release
     package = namer.get_release_package('109.6')
-    namer = JobNamer.factory()
-    job = namer.get_build_binary_job()
+    job = JobNamer.factory().get_build_binary_job()
     return mock_key(revision_build, job, build, package)
 
 
@@ -294,23 +293,17 @@ class TestFindFileKeys(StrictTestCase):
         self.assertEqual([match_key], filtered)
 
     def test_uses_latest_build(self):
-        def do_fetch(artifacts):
-            keys = [
-                FakeKey(275, 'job-foo', build, filename) for
-                build, filename in artifacts]
-            bucket = FakeBucket(keys)
-            filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
-            return [key in filtered for key in keys]
-        self.assertEqual([True], do_fetch([(1, 'file-pattern')]))
-        self.assertEqual([False, False], do_fetch([
-            (1, 'file-pattern'),
-            (2, 'non-match'),
-            ]))
-        self.assertEqual([False, False, True], do_fetch([
-            (1, 'file-pattern'),
-            (2, 'non-match'),
-            (2, 'file-pattern'),
-            ]))
+        bucket = FakeBucket([FakeKey(275, 'job-foo', 1, 'file-pattern')])
+        filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
+        self.assertEqual([bucket.keys[0]], filtered)
+
+        bucket.keys.append(FakeKey(275, 'job-foo', 2, 'non-match'))
+        filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
+        self.assertEqual([], filtered)
+
+        bucket.keys.append(FakeKey(275, 'job-foo', 2, 'file-pattern'))
+        filtered = find_file_keys(bucket, 275, 'job-foo', 'file-pat+ern')
+        self.assertEqual([bucket.keys[2]], filtered)
 
     def test_pattern_is_path(self):
         match_key = FakeKey(275, 'job-foo', 27, 'dir/file')
