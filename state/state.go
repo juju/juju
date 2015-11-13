@@ -1139,7 +1139,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	if err := validateCharmVersion(ch); err != nil {
+
+	if err := validateCharmVersion(args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -164,7 +164,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 // configuration and the current tools.
 func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
