@@ -523,7 +523,6 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             SimpleEnvironment(temp_env_name, {}), juju_path, debug)
         if use_jes:
             client.enable_jes()
-        # XXX This will never be called by clients that use default JES.
         if client.is_jes_enabled():
             client.juju_home = jes_home_path(client.juju_home, temp_env_name)
         client.destroy_environment()
@@ -531,7 +530,6 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     if use_jes:
         client.enable_jes()
-    # XXX A default JES version will implicitly have _use_jes on init.
     permanent = client.is_jes_enabled()
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,

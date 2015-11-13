@@ -115,7 +115,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
     def test_enable_jes_already_supported(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
-            '1.25-foobar', 'path')
+            '1.26-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen('controller', '', 0)) as po_mock:
             with self.assertRaises(JESByDefault):
@@ -128,7 +128,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
     def test_enable_jes_unsupported(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
-            '1.25-foobar', 'path')
+            '1.24-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen('', '', 0)) as po_mock:
             with self.assertRaises(JESNotSupported):
