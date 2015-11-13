@@ -16,8 +16,6 @@ landscape-scalable:
                 monitoring_allowed_cidr: "0.0.0.0/0"
                 monitoring_password: "haproxy"
                 default_timeouts: "queue 60000, connect 5000, client 120000, server 120000"
-                # Don't deploy default haproxy service on port 80
-                services: ""
         apache2:
             charm: cs:trusty/apache2-4
             expose: True
