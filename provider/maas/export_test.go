@@ -19,6 +19,7 @@ var (
 	ShortAttempt            = &shortAttempt
 	APIVersion              = apiVersion
 	MaasStorageProviderType = maasStorageProviderType
+	SetupJujuNetworking     = setupJujuNetworking
 )
 
 func MAASAgentName(env environs.Environ) string {
@@ -32,8 +33,6 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (cloudinit.CloudConfig, error) {
 	return env.(*maasEnviron).newCloudinitConfig(hostname, iface, series)
 }
-
-var RenderEtcNetworkInterfacesScript = renderEtcNetworkInterfacesScript
 
 var indexData = `
 {

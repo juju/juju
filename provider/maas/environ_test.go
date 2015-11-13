@@ -4,10 +4,6 @@
 package maas_test
 
 import (
-	"io/ioutil"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -214,133 +210,7 @@ var expectedCloudinitConfigWithBridgeScriptPreamble = "\n# In case we already cr
 
 var expectedCloudinitConfigWithBridgeScriptPostamble = "\n# Log the contents of /etc/network/interfaces after modifying\necho \"Contents of /etc/network/interfaces after changes\"\ncat /etc/network/interfaces\n\nifup -v juju-br0\n"
 
-var networkStaticInitial = `auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet static
-    address 1.2.3.4
-    netmask 255.255.255.0
-    gateway 4.3.2.1`
-
-var networkStaticFinal = `auto lo
-iface lo inet loopback
-
-auto juju-br0
-iface juju-br0 inet static
-    bridge_ports eth0
-    address 1.2.3.4
-    netmask 255.255.255.0
-    gateway 4.3.2.1
-# Primary interface (defining the default route)
-iface eth0 inet manual
-`
-
-var networkDHCPInitial = `auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet dhcp`
-
-var networkDHCPFinal = `auto lo
-iface lo inet loopback
-
-
-
-# Primary interface (defining the default route)
-iface eth0 inet manual
-
-# Bridge to use for LXC/KVM containers
-auto juju-br0
-iface juju-br0 inet dhcp
-    bridge_ports eth0
-`
-
-var networkMultipleInitial = networkStaticInitial + `
-auto eth1
-iface eth1 inet static
-    address 1.2.3.5
-    netmask 255.255.255.0
-    gateway 4.3.2.1`
-
-var networkMultipleFinal = `auto lo
-iface lo inet loopback
-
-auto juju-br0
-iface juju-br0 inet static
-    bridge_ports eth0
-    address 1.2.3.4
-    netmask 255.255.255.0
-    gateway 4.3.2.1
-auto eth1
-iface eth1 inet static
-    address 1.2.3.5
-    netmask 255.255.255.0
-    gateway 4.3.2.1
-# Primary interface (defining the default route)
-iface eth0 inet manual
-`
-
-var networkWithAliasInitial = networkStaticInitial + `
-auto eth0:1
-iface eth0:1 inet static
-    address 1.2.3.5`
-
-var networkWithAliasFinal = `auto lo
-iface lo inet loopback
-
-auto juju-br0
-iface juju-br0 inet static
-    bridge_ports eth0
-    address 1.2.3.4
-    netmask 255.255.255.0
-    gateway 4.3.2.1
-auto eth0:1
-iface eth0:1 inet static
-    address 1.2.3.5
-# Primary interface (defining the default route)
-iface eth0 inet manual
-`
-var networkDHCPWithAliasInitial = `auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet static
-    gateway 10.14.0.1
-    address 10.14.0.102/24
-
-auto eth0:1
-iface eth0:1 inet static
-    address 10.14.0.103/24
-
-auto eth0:2
-iface eth0:2 inet static
-    address 10.14.0.100/24
-
-dns-nameserver 192.168.1.142`
-
-var networkDHCPWithAliasFinal = `auto lo
-iface lo inet loopback
-
-auto juju-br0
-iface juju-br0 inet static
-    bridge_ports eth0
-    gateway 10.14.0.1
-    address 10.14.0.102/24
-
-auto eth0:1
-iface eth0:1 inet static
-    address 10.14.0.103/24
-
-auto eth0:2
-iface eth0:2 inet static
-    address 10.14.0.100/24
-
-dns-nameserver 192.168.1.142
-# Primary interface (defining the default route)
-iface eth0 inet manual
-`
-
+/*
 func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	tempDir := c.MkDir()
 	initialScriptPath := filepath.Join(tempDir, "foobar")
@@ -432,3 +302,4 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
+*/
