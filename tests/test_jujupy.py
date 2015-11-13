@@ -115,9 +115,9 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
     def test_enable_jes_already_supported(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
-            '1.25-foobar', 'path')
+            '1.26-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
-                   return_value=FakePopen('system', '', 0)) as po_mock:
+                   return_value=FakePopen('controller', '', 0)) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
@@ -127,7 +127,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
     def test_enable_jes_unsupported(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
-            '1.25-foobar', 'path')
+            '1.24-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen('', '', 0)) as po_mock:
             with self.assertRaises(JESNotSupported):
@@ -145,6 +145,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
+        # The help output will change when the jes feature flag is set.
         with patch('subprocess.Popen', autospec=True, side_effect=[
                 FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
             client.enable_jes()
@@ -1205,10 +1206,43 @@ class TestEnvJujuClient(ClientTest):
             self.assertFalse(client.is_jes_enabled())
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
+        # Juju 1.25 uses the system command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen('system', None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
+        # Juju 1.26 uses the controller command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen('controller', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertTrue(client.is_jes_enabled())
+
+    def test_get_jes_command(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        # Juju 1.24 and older do not have a JES command. It is an error
+        # to call get_jes_command when is_jes_enabled is False
+        fake_popen = FakePopen(' system', None, 0)
+        with patch('subprocess.Popen',
+                   return_value=fake_popen) as po_mock:
+            with self.assertRaises(JESNotSupported):
+                client.get_jes_command()
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'))
+        # Juju 1.26 uses the controller command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen('controller', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual('controller', client.get_jes_command())
+        # Juju 1.25 uses the system command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen('system', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual('system', client.get_jes_command())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')

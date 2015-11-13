@@ -10,7 +10,9 @@ TESTING=$4
 AGENT_JOBS=$5
 
 WS_JSON=$WORKSPACE/ws-json
-WS_AGENTS=$WORKSPACE/agent/revision-build-$revision_build
+AGENT_DIRNAME=revision-build-$revision_build
+WS_AGENTS=$WORKSPACE/agent/$AGENT_DIRNAME
+TESTING_AGENTS=$TESTING/agent/$AGENT_DIRNAME
 VERSION=$(jujuci.py get-build-vars $revision_build --version)
 mkdir $WS_JSON
 mkdir -p $WS_AGENTS
@@ -20,7 +22,8 @@ for job in $AGENT_JOBS; do
 done
 set_stream.py $AGENT_JSON/release.json \
   $WS_JSON/release-$revision_build.json $revision_build
-cp -r $(dirname $WS_AGENTS) $TESTING/agent/
+mkdir -p $TESTING_AGENTS
+cp $WS_AGENTS/* $TESTING_AGENTS
 cp $WS_JSON/*.json $AGENT_JSON/
 json2streams --juju-format $AGENT_JSON/* $TESTING
 sstream-query $TESTING/streams/v1/index2.json \
