@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/legacy"
@@ -69,7 +70,7 @@ type stringsHandler struct {
 	setupDone     chan struct{}
 }
 
-func (sh *stringsHandler) SetUp() (legacy.StringsWatcher, error) {
+func (sh *stringsHandler) SetUp() (state.StringsWatcher, error) {
 	defer func() { sh.setupDone <- struct{}{} }()
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
@@ -126,6 +127,7 @@ func (s *stringsWorkerSuite) stopWorker(c *gc.C) {
 }
 
 type testStringsWatcher struct {
+	state.StringsWatcher
 	mu        sync.Mutex
 	changes   chan []string
 	stopped   bool
