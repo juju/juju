@@ -128,7 +128,7 @@ func (ctx *context) setExpectedError(err string) {
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
+			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
@@ -485,7 +485,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
 	}
-	ctx.uniter = uniter.NewUniter(&uniterParams)
+	ctx.uniter, err = uniter.NewUniter(&uniterParams)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitUniterDead struct {
@@ -552,7 +553,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 		return
 	}
 	ctx.uniter = nil
-	err := u.Stop()
+	err := worker.Stop(u)
 	if s.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
