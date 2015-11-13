@@ -226,11 +226,12 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 			ServiceName: "bob",
 			Charm:       s.charm,
 			Constraints: serviceCons,
-			NumUnits:    3,
+			NumUnits:    4,
 			Placement: []*instance.Placement{
 				{Scope: s.State.EnvironUUID(), Directive: "valid"},
 				{Scope: "#", Directive: "0"},
 				{Scope: "lxc", Directive: "1"},
+				{Scope: "lxc", Directive: ""},
 			},
 			ToMachineSpec: "will be ignored",
 		})
@@ -238,12 +239,13 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 	s.assertConstraints(c, service, serviceCons)
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 3)
+	c.Assert(units, gc.HasLen, 4)
 
 	// Check each of the newly added units.
 	s.assertAssignedUnit(c, units[0], "1", constraints.MustParse("mem=2G cpu-cores=2"))
 	s.assertAssignedUnit(c, units[1], "0", constraints.Value{})
 	s.assertAssignedUnit(c, units[2], "1/lxc/0", constraints.MustParse("mem=2G cpu-cores=2"))
+	s.assertAssignedUnit(c, units[3], "2/lxc/0", constraints.MustParse("mem=2G cpu-cores=2"))
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {

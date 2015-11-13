@@ -132,8 +132,8 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 
 // netEnvReleaseAddress is used for testability.
 var netEnvReleaseAddress = func(env environs.NetworkingEnviron,
-	instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
-	return env.ReleaseAddress(instId, subnetId, addr, macAddress)
+	instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
+	return env.ReleaseAddress(instId, subnetId, addr, macAddress, hostname)
 }
 
 // releaseIPAddress releases one IP address.
@@ -146,7 +146,7 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 	}
 	// Now release the IP address.
 	subnetId := network.Id(ipAddress.SubnetId())
-	err = netEnvReleaseAddress(netEnv, ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress())
+	err = netEnvReleaseAddress(netEnv, ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress(), "")
 	if err != nil {
 		return errors.Trace(err)
 	}
