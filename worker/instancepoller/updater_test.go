@@ -5,7 +5,6 @@
 package instancepoller
 
 import (
-	"errors"
 	"time"
 
 	"github.com/juju/names"
@@ -21,28 +20,6 @@ var _ = gc.Suite(&updaterSuite{})
 
 type updaterSuite struct {
 	coretesting.BaseSuite
-}
-
-func (*updaterSuite) TestStopsWatcher(c *gc.C) {
-	context := &testUpdaterContext{
-		dyingc: make(chan struct{}),
-	}
-	expectErr := errors.New("some error")
-	watcher := &testMachinesWatcher{
-		changes: make(chan []string),
-		err:     expectErr,
-	}
-	done := make(chan error)
-	go func() {
-		done <- watchMachinesLoop(context, watcher)
-	}()
-	close(context.dyingc)
-	select {
-	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, ".*"+expectErr.Error())
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
-	}
 }
 
 func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
@@ -169,6 +146,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 }
 
 type testUpdaterContext struct {
+	updaterContext
 	newMachineContextFunc func() machineContext
 	getMachineFunc        func(tag names.MachineTag) (machine, error)
 	dyingc                chan struct{}
@@ -182,9 +160,6 @@ func (context *testUpdaterContext) getMachine(tag names.MachineTag) (machine, er
 	return context.getMachineFunc(tag)
 }
 
-func (context *testUpdaterContext) kill(_ error) {
-}
-
 func (context *testUpdaterContext) dying() <-chan struct{} {
 	return context.dyingc
 }
@@ -194,15 +169,13 @@ func (context *testUpdaterContext) errDying() error {
 }
 
 type testMachinesWatcher struct {
+	watcher.StringsWatcher
 	changes chan []string
 	err     error
 }
 
 func (w *testMachinesWatcher) Changes() watcher.StringsChan {
 	return w.changes
-}
-
-func (w *testMachinesWatcher) Kill() {
 }
 
 func (w *testMachinesWatcher) Wait() error {
