@@ -38,7 +38,6 @@ var (
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
 	worker.Worker
-	Stop() error
 	getMachineWatcher() (watcher.StringsWatcher, error)
 	getRetryWatcher() (watcher.NotifyWatcher, error)
 }
