@@ -29,6 +29,7 @@ type metricRegistrationPost struct {
 type RegisterMeteredCharm struct {
 	Plan        string
 	RegisterURL string
+	QueryURL    string
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
@@ -52,7 +53,16 @@ func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, de
 	}
 
 	bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
-	credentials, err := r.registerMetrics(r.RegisterURL, deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+
+	if r.Plan == "" {
+		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
+		if err != nil {
+			logger.Errorf("could not determine default plan")
+			return err
+		}
+	}
+
+	credentials, err := r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
 		logger.Infof("failed to obtain plan authorization: %v", err)
 		return err
@@ -79,11 +89,50 @@ func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, de
 	return nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
-	if registrationURL == "" {
+func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) (string, error) {
+	if r.QueryURL == "" {
+		return "", errors.Errorf("no plan query url specified")
+	}
+	qURL, err := url.Parse(r.RegisterURL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	query := qURL.Query()
+	query.Set("charm", cURL)
+	qURL.RawQuery = query.Encode()
+
+	req, err := http.NewRequest("GET", qURL.String(), nil)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return "", errors.Errorf("failed to query default plan: http response is %d", response.StatusCode)
+	}
+
+	var planInfo struct {
+		URL string `json:"url"`
+	}
+	dec := json.NewDecoder(response.Body)
+	err = dec.Decode(&planInfo)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return planInfo.URL, nil
+}
+
+func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
+	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
-	registerURL, err := url.Parse(registrationURL)
+	registerURL, err := url.Parse(r.RegisterURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

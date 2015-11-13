@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,6 +70,61 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	}})
 }
 
+func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			EnvironmentUUID: "environment uuid",
+			CharmURL:        "local:quantal/metered-1",
+			ServiceName:     "service name",
+			PlanURL:         "thisplan",
+		}},
+	}, {
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
+			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
+				ServiceName:       "service name",
+				MetricCredentials: authorization,
+			}},
+		}},
+	}})
+}
+
+func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
+	s.stub.SetErrors(nil, errors.NotFoundf("default charm"))
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}})
+}
+
 func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
@@ -114,27 +170,43 @@ type testMetricsRegistrationHandler struct {
 
 // ServeHTTP implements http.Handler.
 func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
+	if req.Method == "POST" {
+		var registrationPost metricRegistrationPost
+		decoder := json.NewDecoder(req.Body)
+		err := decoder.Decode(&registrationPost)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		c.AddCall("Authorize", registrationPost)
+		rErr := c.NextErr()
+		if rErr != nil {
+			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = json.NewEncoder(w).Encode([]byte("hello registration"))
+		if err != nil {
+			panic(err)
+		}
+	} else if req.Method == "GET" {
+		cURL := req.URL.Query().Get("charm")
+		c.AddCall("DefaultPlan", cURL)
+		rErr := c.NextErr()
+		if rErr != nil {
+			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		result := struct {
+			URL string `json:"url"`
+		}{"thisplan"}
+		err := json.NewEncoder(w).Encode(result)
+		if err != nil {
+			panic(err)
+		}
+
+	} else {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
-	}
-
-	var registrationPost metricRegistrationPost
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&registrationPost)
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	c.AddCall("Authorize", registrationPost)
-	rErr := c.NextErr()
-	if rErr != nil {
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	err = json.NewEncoder(w).Encode([]byte("hello registration"))
-	if err != nil {
-		panic(err)
 	}
 }
 
