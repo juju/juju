@@ -740,15 +740,6 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				Changes: []params.MachineStorageId{{
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-0-0",
-				}, {
-					MachineTag:    "machine-0",
-					AttachmentTag: "volume-1",
-				}, {
-					MachineTag:    "machine-0",
-					AttachmentTag: "volume-2",
-				}, {
-					MachineTag:    "machine-0",
-					AttachmentTag: "volume-3",
 				}},
 			},
 			{
@@ -855,12 +846,6 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 				Changes: []params.MachineStorageId{{
 					MachineTag:    "machine-0",
 					AttachmentTag: "filesystem-0-0",
-				}, {
-					MachineTag:    "machine-0",
-					AttachmentTag: "filesystem-1",
-				}, {
-					MachineTag:    "machine-0",
-					AttachmentTag: "filesystem-2",
 				}},
 			},
 			{

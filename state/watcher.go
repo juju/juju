@@ -260,22 +260,22 @@ func (st *State) watchEnvironMachineStorageAttachments(collection string) String
 
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
-// machine.
+// machine, for volumes scoped to the machine.
 func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
 	return st.watchMachineStorageAttachments(m, volumeAttachmentsC)
 }
 
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
-// machine.
+// machine, for filesystems scoped to the machine.
 func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
 	return st.watchMachineStorageAttachments(m, filesystemAttachmentsC)
 }
 
 func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
-	pattern := fmt.Sprintf("^%s:.*", st.docID(m.Id()))
+	pattern := fmt.Sprintf("^%s:%s/.*", st.docID(m.Id()), m.Id())
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
-	prefix := m.Id() + ":"
+	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
 	filter := func(id interface{}) bool {
 		k, err := st.strictLocalID(id.(string))
 		if err != nil {
