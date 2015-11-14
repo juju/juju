@@ -405,7 +405,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 		// Change one of the servers' API addresses and check that it's published.
 		var newMachine10APIHostPorts []network.HostPort
-		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHostPort)
+		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHost)
 		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
 		select {
 		case servers := <-publishCh:
