@@ -94,9 +94,9 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		}
 		return errors.Trace(err)
 	}
-	minver := downloadedCharm.Meta().MinJujuVersion
-	if minver != nil && minver.Compare(jujuversion.Current) > 0 {
-		return minVersionError(*minver, jujuversion.Current)
+
+	if err := checkMinVersion(downloadedCharm); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Open it and calculate the SHA256 hash.
@@ -126,6 +126,14 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		size,
 		bundleSHA256,
 	)
+}
+
+func checkMinVersion(ch charm.Charm) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != nil && minver.Compare(jujuversion.Current) > 0 {
+		return minVersionError(*minver, jujuversion.Current)
+	}
+	return nil
 }
 
 type minJujuVersionErr struct {
