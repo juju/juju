@@ -428,16 +428,17 @@ func (s *CatacombSuite) TestPlanBadSite(c *gc.C) {
 		Init: []worker.Worker{w},
 	}
 	checkInvalid(c, plan, "nil Site not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadWork(c *gc.C) {
 	w := s.fix.startErrorWorker(c, nil)
 	plan := catacomb.Plan{
 		Site: &catacomb.Catacomb{},
+		Init: []worker.Worker{w},
 	}
 	checkInvalid(c, plan, "nil Work not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
@@ -448,7 +449,7 @@ func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
 		Init: []worker.Worker{w, nil},
 	}
 	checkInvalid(c, plan, "nil Init item 1 not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func checkInvalid(c *gc.C, plan catacomb.Plan, match string) {
