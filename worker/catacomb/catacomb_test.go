@@ -414,11 +414,14 @@ func (s *CatacombSuite) TestReusedCatacomb(c *gc.C) {
 	err = site.Wait()
 	c.Check(err, jc.ErrorIsNil)
 
+	w := s.fix.startErrorWorker(c, nil)
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &site,
 		Work: func() error { return nil },
+		Init: []worker.Worker{w},
 	})
 	c.Check(err, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ has already been used")
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadSite(c *gc.C) {
