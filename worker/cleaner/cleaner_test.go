@@ -130,7 +130,7 @@ func (m *mockNotifyWatcher) Change() {
 // cleanerMock is used to check the
 // calls of Cleanup() and WatchCleanups()
 type cleanerMock struct {
-	cleaner.Cleaner
+	cleaner.StateCleaner
 	watcher *mockNotifyWatcher
 	calls   chan string
 	err     []error

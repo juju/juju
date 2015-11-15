@@ -126,7 +126,8 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	// TODO(axw) move this logic.
 	defer func() {
-		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		cause := errors.Cause(err)
+		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
 			err = worker.ErrTerminateAgent
 		}
 	}()

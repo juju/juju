@@ -69,12 +69,19 @@ func NewProvisionerTask(
 	secureServerConnection bool,
 	retryStartInstanceStrategy RetryStrategy,
 ) (ProvisionerTask, error) {
+	machineChanges := machineWatcher.Changes()
+	workers := []worker.Worker{machineWatcher}
+	var retryChanges watcher.NotifyChan
+	if retryWatcher != nil {
+		retryChanges = retryWatcher.Changes()
+		workers = append(workers, retryWatcher)
+	}
 	task := &provisionerTask{
 		machineTag:                 machineTag,
 		machineGetter:              machineGetter,
 		toolsFinder:                toolsFinder,
-		machineWatcher:             machineWatcher,
-		retryWatcher:               retryWatcher,
+		machineChanges:             machineChanges,
+		retryChanges:               retryChanges,
 		broker:                     broker,
 		auth:                       auth,
 		harvestMode:                harvestMode,
@@ -87,6 +94,7 @@ func NewProvisionerTask(
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &task.catacomb,
 		Work: task.loop,
+		Init: workers,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,8 +106,8 @@ type provisionerTask struct {
 	machineTag                 names.MachineTag
 	machineGetter              MachineGetter
 	toolsFinder                ToolsFinder
-	machineWatcher             watcher.StringsWatcher
-	retryWatcher               watcher.NotifyWatcher
+	machineChanges             watcher.StringsChan
+	retryChanges               watcher.NotifyChan
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
@@ -124,44 +132,7 @@ func (task *provisionerTask) Wait() error {
 	return task.catacomb.Wait()
 }
 
-// setUp ensures we've taken responsibility for both watchers, and returns (1)
-// any retry channel we should watch and (2) the first error we can't be sure
-// has been seen by the catacomb.
-func (task *provisionerTask) setUp() (watcher.NotifyChan, error) {
-	logger.Infof("Starting up provisioner task %s", task.machineTag)
-	err1 := task.catacomb.Add(task.machineWatcher)
-	var err2 error
-	var retryChan watcher.NotifyChan
-	if task.retryWatcher != nil {
-		err2 = task.catacomb.Add(task.retryWatcher)
-		retryChan = task.retryWatcher.Changes()
-	}
-
-	// Sorry for this dance, but I think it's necessary to take responsibility
-	// for both watchers, if they're there, and still track all possible error
-	// scenarios correctly: when we get an error back from Add, it might be
-	// from the Wait of a watcher that was not accepted because the catacomb
-	// was already dying. In the common case we could probably just ignore
-	// those errors entirely, but that's even less nice than this.
-	if err1 != nil {
-		if err2 != nil {
-			logger.Errorf("while stopping retry watcher")
-		}
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
-	}
-	return retryChan, nil
-}
-
 func (task *provisionerTask) loop() error {
-
-	// Not all tasks have a retry channel set up.
-	retryChan, err := task.setUp()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Don't allow the harvesting mode to change until we have read at
 	// least one set of changes, which will populate the task.machines
@@ -177,7 +148,7 @@ func (task *provisionerTask) loop() error {
 		case <-task.catacomb.Dying():
 			logger.Infof("Shutting down provisioner task %s", task.machineTag)
 			return task.catacomb.ErrDying()
-		case ids, ok := <-task.machineWatcher.Changes():
+		case ids, ok := <-task.machineChanges:
 			if !ok {
 				return errors.New("machine watcher closed channel")
 			}
@@ -200,7 +171,7 @@ func (task *provisionerTask) loop() error {
 					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
 			}
-		case <-retryChan:
+		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
 			}

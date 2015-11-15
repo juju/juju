@@ -21,7 +21,7 @@ type StorageAccessor interface {
 
 // newStorageAttachmentsWatcher creates a new worker that wakes on input from
 // the supplied watcher's Changes chan, finds out more about them, and delivers
-// them on the supplied changes chan.
+// them on the supplied out chan.
 //
 // The caller releases responsibility for stopping the supplied watcher and
 // waiting for errors, *whether or not this method succeeds*.
@@ -30,18 +30,19 @@ func newStorageAttachmentWatcher(
 	watcher watcher.NotifyWatcher,
 	unitTag names.UnitTag,
 	storageTag names.StorageTag,
-	changes chan<- storageAttachmentChange,
+	out chan<- storageAttachmentChange,
 ) (*storageAttachmentWatcher, error) {
 	s := &storageAttachmentWatcher{
 		st:         st,
-		watcher:    watcher,
-		changes:    changes,
+		changes:    watcher.Changes(),
+		out:        out,
 		storageTag: storageTag,
 		unitTag:    unitTag,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &s.catacomb,
 		Work: s.loop,
+		Init: []worker.Worker{watcher},
 	})
 	if err != nil {
 		if stopErr := worker.Stop(watcher); stopErr != nil {
@@ -59,10 +60,10 @@ type storageAttachmentWatcher struct {
 	catacomb catacomb.Catacomb
 
 	st         StorageAccessor
-	watcher    watcher.NotifyWatcher
+	changes    watcher.NotifyChan
 	storageTag names.StorageTag
 	unitTag    names.UnitTag
-	changes    chan<- storageAttachmentChange
+	out        chan<- storageAttachmentChange
 }
 
 type storageAttachmentChange struct {
@@ -89,14 +90,11 @@ func getStorageSnapshot(
 }
 
 func (s *storageAttachmentWatcher) loop() error {
-	if err := s.catacomb.Add(s.watcher); err != nil {
-		return errors.Trace(err)
-	}
 	for {
 		select {
 		case <-s.catacomb.Dying():
 			return s.catacomb.ErrDying()
-		case _, ok := <-s.watcher.Changes():
+		case _, ok := <-s.changes:
 			if !ok {
 				return errors.New("storage attachment watcher closed")
 			}
@@ -121,7 +119,7 @@ func (s *storageAttachmentWatcher) loop() error {
 			select {
 			case <-s.catacomb.Dying():
 				return s.catacomb.ErrDying()
-			case s.changes <- change:
+			case s.out <- change:
 			}
 		}
 	}
