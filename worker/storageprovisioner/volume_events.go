@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/watcher"
 )
 
 // volumesChanged is called when the lifecycle states of the volumes
@@ -55,7 +56,8 @@ func volumesChanged(ctx *context, changes []string) error {
 
 // volumeAttachmentsChanged is called when the lifecycle states of the volume
 // attachments with the provided IDs have been seen to have changed.
-func volumeAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error {
+func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := attachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)

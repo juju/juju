@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -184,8 +184,8 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -200,7 +200,4 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

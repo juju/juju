@@ -97,8 +97,8 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
-		return newDummyWorker()
+	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) (worker.Worker, error) {
+		return newDummyWorker(), nil
 	})
 
 	// Tests should not try to use internet. Ensure base url is empty.

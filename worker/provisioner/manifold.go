@@ -39,7 +39,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			api := apiprovisioner.NewState(apiCaller)
 			config := agent.CurrentConfig()
-			return NewEnvironProvisioner(api, config), nil
+			w, err := NewEnvironProvisioner(api, config)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return w, nil
 		},
 	}
 }

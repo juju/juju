@@ -1,13 +1,14 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker
+package legacy
 
 import (
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/worker"
 )
 
 // ensureErr is defined as a variable to allow the test suite
@@ -30,7 +31,7 @@ type NotifyWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and the notify Worker will make sure
 	// to stop the watcher.
-	SetUp() (apiWatcher.NotifyWatcher, error)
+	SetUp() (state.NotifyWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -46,7 +47,7 @@ type NotifyWatchHandler interface {
 // NewNotifyWorker starts a new worker running the business logic from
 // the handler. The worker loop is started in another goroutine as a
 // side effect of calling this.
-func NewNotifyWorker(handler NotifyWatchHandler) Worker {
+func NewNotifyWorker(handler NotifyWatchHandler) worker.Worker {
 	nw := &notifyWorker{
 		handler: handler,
 	}

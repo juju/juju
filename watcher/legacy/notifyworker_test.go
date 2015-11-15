@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker_test
+package legacy_test
 
 import (
 	"fmt"
@@ -12,9 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
@@ -38,7 +39,7 @@ func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError err
 		},
 		setupDone: make(chan struct{}),
 	}
-	w := worker.NewNotifyWorker(nh)
+	w := legacy.NewNotifyWorker(nh)
 	select {
 	case <-nh.setupDone:
 	case <-time.After(coretesting.ShortWait):
@@ -53,7 +54,7 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
-	worker.SetEnsureErr(nil)
+	legacy.SetEnsureErr(nil)
 	s.stopWorker(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -70,9 +71,7 @@ type notifyHandler struct {
 	setupDone     chan struct{}
 }
 
-var _ worker.NotifyWatchHandler = (*notifyHandler)(nil)
-
-func (nh *notifyHandler) SetUp() (apiWatcher.NotifyWatcher, error) {
+func (nh *notifyHandler) SetUp() (state.NotifyWatcher, error) {
 	defer func() { nh.setupDone <- struct{}{} }()
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
@@ -129,13 +128,12 @@ func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
 }
 
 type testNotifyWatcher struct {
+	state.NotifyWatcher
 	mu        sync.Mutex
 	changes   chan struct{}
 	stopped   bool
 	stopError error
 }
-
-var _ apiWatcher.NotifyWatcher = (*testNotifyWatcher)(nil)
 
 func (tnw *testNotifyWatcher) Changes() <-chan struct{} {
 	return tnw.changes
@@ -316,7 +314,7 @@ func (c CannedErrer) Err() error {
 func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
 	// Roundabout check for function equality.
 	// Is this test really worth it?
-	c.Assert(fmt.Sprintf("%p", worker.EnsureErr()), gc.Equals, fmt.Sprintf("%p", watcher.EnsureErr))
+	c.Assert(fmt.Sprintf("%p", legacy.EnsureErr()), gc.Equals, fmt.Sprintf("%p", watcher.EnsureErr))
 }
 
 func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
@@ -325,7 +323,7 @@ func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetEnsureErr(triggeredHandler)
+	legacy.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
@@ -345,7 +343,7 @@ func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetEnsureErr(triggeredHandler)
+	legacy.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

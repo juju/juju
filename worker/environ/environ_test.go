@@ -1,32 +1,27 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker_test
+package environ_test
 
 import (
 	"errors"
 	"strings"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/environ"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type environSuite struct {
 	coretesting.BaseSuite
@@ -60,23 +55,23 @@ func (s *environSuite) TestStop(c *gc.C) {
 	close(stop) // close immediately so the loop exits.
 	done := make(chan error)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.st, stop)
+		env, err := environ.WaitForEnviron(w, s.st, stop)
 		c.Check(env, gc.IsNil)
 		done <- err
 	}()
 	select {
-	case <-worker.LoadedInvalid:
+	case <-environ.LoadedInvalid:
 		c.Errorf("expected changes watcher to be closed")
 	case err := <-done:
-		c.Assert(err, gc.Equals, tomb.ErrDying)
+		c.Assert(err, gc.Equals, environ.ErrWaitAborted)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for the WaitForEnviron to stop")
 	}
 	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges", "Changes")
 }
 
-func stopWatcher(c *gc.C, w apiwatcher.NotifyWatcher) {
-	err := w.Stop()
+func stopWatcher(c *gc.C, w watcher.NotifyWatcher) {
+	err := worker.Stop(w)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -90,11 +85,11 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.st, nil)
+		env, err := environ.WaitForEnviron(w, s.st, nil)
 		c.Check(err, jc.ErrorIsNil)
 		done <- env
 	}()
-	<-worker.LoadedInvalid
+	<-environ.LoadedInvalid
 	s.st.CheckCallNames(c,
 		"WatchForEnvironConfigChanges",
 		"Changes",
@@ -108,7 +103,7 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 		"type": "unknown",
 	})
 
-	obs, err := worker.NewEnvironObserver(s.st)
+	obs, err := environ.NewEnvironObserver(s.st)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot create an environment: no registered provider for "unknown"`,
 	)
@@ -123,7 +118,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("testing")
 
-	obs, err := worker.NewEnvironObserver(s.st)
+	obs, err := environ.NewEnvironObserver(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := obs.Environ()
@@ -179,7 +174,7 @@ func (logc logChan) Write(level loggo.Level, name, filename string, line int, ti
 
 type fakeState struct {
 	*testing.Stub
-	apiwatcher.NotifyWatcher
+	watcher.NotifyWatcher
 
 	mu sync.Mutex
 
@@ -187,10 +182,8 @@ type fakeState struct {
 	config  map[string]interface{}
 }
 
-var _ worker.EnvironConfigObserver = (*fakeState)(nil)
-
 // WatchForEnvironConfigChanges implements EnvironConfigObserver.
-func (s *fakeState) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
+func (s *fakeState) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 	s.MethodCall(s, "WatchForEnvironConfigChanges")
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -229,20 +222,19 @@ func (s *fakeState) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	s.changes <- struct{}{}
 }
 
-// Err implements apiwatcher.NotifyWatcher.
-func (s *fakeState) Err() error {
-	s.MethodCall(s, "Err")
+// Kill implements watcher.NotifyWatcher.
+func (s *fakeState) Kill() {
+	s.MethodCall(s, "Kill")
+}
+
+// Wait implements watcher.NotifyWatcher.
+func (s *fakeState) Wait() error {
+	s.MethodCall(s, "Wait")
 	return s.NextErr()
 }
 
-// Stop implements apiwatcher.NotifyWatcher.
-func (s *fakeState) Stop() error {
-	s.MethodCall(s, "Stop")
-	return s.NextErr()
-}
-
-// Changes implements apiwatcher.NotifyWatcher.
-func (s *fakeState) Changes() <-chan struct{} {
+// Changes implements watcher.NotifyWatcher.
+func (s *fakeState) Changes() watcher.NotifyChan {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
