@@ -29,10 +29,12 @@ type Catacomb struct {
 	dirty int32
 }
 
-// Plan holds a task to be run on a new goroutine, and a catacomb to manage it.
+// Plan holds a task to be run on a new goroutine, and a catacomb to manage it;
+// any workers supplied in Init will be added to the catacomb automatically.
 type Plan struct {
-	Work func() error
 	Site *Catacomb
+	Work func() error
+	Init []worker.Worker
 }
 
 // Validate returns an error if the plan cannot be used. It doesn't check for
@@ -44,6 +46,11 @@ func (plan Plan) Validate() error {
 	}
 	if plan.Work == nil {
 		return errors.NotValidf("nil Work")
+	}
+	for i, w := range plan.Init {
+		if w == nil {
+			return errors.NotValidf("nil Init item %d", i)
+		}
 	}
 	return nil
 }
@@ -68,6 +75,9 @@ func Invoke(plan Plan) error {
 	catacomb.wg.Add(1)
 	go func() {
 		defer catacomb.wg.Done()
+		for _, w := range plan.Init {
+			catacomb.add(w)
+		}
 		for {
 			select {
 			case <-catacomb.tomb.Dying():
