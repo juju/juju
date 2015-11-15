@@ -435,18 +435,6 @@ func (u *Uniter) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *Uniter) Dead() <-chan struct{} {
-	// TODO(fwereade): do we really need this? tests that use it could
-	// probably just use a:
-	//
-	//     go func() {
-	//         done <- u.Wait()
-	//     }()
-	//
-	// ...construction or similar.
-	return u.catacomb.Dead()
-}
-
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
 	service, err := u.st.Service(u.unit.ServiceTag())
