@@ -45,9 +45,6 @@ func newStorageAttachmentWatcher(
 		Init: []worker.Worker{watcher},
 	})
 	if err != nil {
-		if stopErr := worker.Stop(watcher); stopErr != nil {
-			logger.Errorf("while stopping storage attachment watcher: %v", stopErr)
-		}
 		return nil, errors.Trace(err)
 	}
 	return s, nil
