@@ -414,11 +414,14 @@ func (s *CatacombSuite) TestReusedCatacomb(c *gc.C) {
 	err = site.Wait()
 	c.Check(err, jc.ErrorIsNil)
 
+	w := s.fix.startErrorWorker(c, nil)
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &site,
 		Work: func() error { return nil },
+		Init: []worker.Worker{w},
 	})
 	c.Check(err, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ has already been used")
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadSite(c *gc.C) {
@@ -428,16 +431,17 @@ func (s *CatacombSuite) TestPlanBadSite(c *gc.C) {
 		Init: []worker.Worker{w},
 	}
 	checkInvalid(c, plan, "nil Site not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadWork(c *gc.C) {
 	w := s.fix.startErrorWorker(c, nil)
 	plan := catacomb.Plan{
 		Site: &catacomb.Catacomb{},
+		Init: []worker.Worker{w},
 	}
 	checkInvalid(c, plan, "nil Work not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
@@ -448,7 +452,7 @@ func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
 		Init: []worker.Worker{w, nil},
 	}
 	checkInvalid(c, plan, "nil Init item 1 not valid")
-	w.waitStillAlive(c)
+	w.assertDead(c)
 }
 
 func checkInvalid(c *gc.C, plan catacomb.Plan, match string) {

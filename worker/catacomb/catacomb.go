@@ -31,9 +31,17 @@ type Catacomb struct {
 
 // Plan holds a task to be run on a new goroutine, and a catacomb to manage it;
 // any workers supplied in Init will be added to the catacomb automatically.
+
+// Plan defines the strategy for an Invoke.
 type Plan struct {
+
+	// Site must point to an unused Catacomb.
 	Site *Catacomb
+
+	// Work will be run on a new goroutine, and tracked by Site.
 	Work func() error
+
+	// Init contains additional workers for which Site must be responisble.
 	Init []worker.Worker
 }
 
@@ -59,7 +67,17 @@ func (plan Plan) Validate() error {
 // error if the plan is not valid, or if the catacomb has already been used.
 // If Invoke returns no error, the catacomb is now controlling the work func,
 // and its exported methods can be called safely.
-func Invoke(plan Plan) error {
+//
+// Invoke takes responsibility for all workers in plan.Init, *whether or not
+// it succeeds*.
+func Invoke(plan Plan) (err error) {
+
+	defer func() {
+		if err != nil {
+			stopWorkers(plan.Init)
+		}
+	}()
+
 	if err := plan.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -97,6 +115,18 @@ func Invoke(plan Plan) error {
 		catacomb.Kill(plan.Work())
 	}()
 	return nil
+}
+
+// stopWorkers stops all non-nil workers in the supplied slice, and swallows
+// all errors. This is consistent, for now, because Catacomb swallows all
+// errors but the first; as we come to rank or log errors, this must change
+// to accommodate better practices.
+func stopWorkers(workers []worker.Worker) {
+	for _, w := range workers {
+		if w != nil {
+			worker.Stop(w)
+		}
+	}
 }
 
 // Add causes the supplied worker's lifetime to be bound to the catacomb's,
