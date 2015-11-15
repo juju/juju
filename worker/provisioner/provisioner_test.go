@@ -45,6 +45,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -198,14 +199,9 @@ func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
 	return st.UpdateEnvironConfig(attrs, nil, nil)
 }
 
-// stopper is stoppable.
-type stopper interface {
-	Stop() error
-}
-
-// stop stops a stopper.
-func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), jc.ErrorIsNil)
+// stop stops a worker.
+func stop(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
@@ -485,7 +481,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), jc.ErrorIsNil)
+	stop(c, p)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -1001,7 +997,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add the spaces used in constraints.
 	_, err := s.State.AddSpace("space1", nil, false)
@@ -1100,7 +1096,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add and provision a machine with volumes specified.
 	requestedVolumes := []state.MachineVolumeParams{{
@@ -1330,7 +1326,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		&mockToolsFinder{},
 	)
 	defer func() {
-		err := task.Stop()
+		err := worker.Stop(task)
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
 	}()
 	s.checkNoOperations(c)
@@ -1359,7 +1355,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
-	return provisioner.NewProvisionerTask(
+	w, err := provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
@@ -1372,6 +1368,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		true,
 		retryStrategy,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {

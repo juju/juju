@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -63,7 +64,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 

@@ -14,13 +14,12 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/fslock"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -76,7 +75,7 @@ func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFu
 }
 
 type activeStatusWorker struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	status      meterstatus.MeterStatusClient
 	stateFile   *StateFile
@@ -105,19 +104,24 @@ func newActiveStatusWorker(agent agent.Agent, apiCaller base.APICaller, machineL
 		machineLock: machineLock,
 		tag:         unitTag,
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return w, nil
 }
 
+// Kill is part of the worker.Worker interface.
 func (w *activeStatusWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (w *activeStatusWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 // acquireExecutionLock acquires the machine-level execution lock and returns a function to be used
@@ -127,8 +131,8 @@ func (w *activeStatusWorker) acquireExecutionLock() (func() error, error) {
 	logger.Tracef("lock: %v", message)
 	checkTomb := func() error {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		default:
 			return nil
 		}
@@ -166,7 +170,9 @@ func (w *activeStatusWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Stop(watch, &w.tomb)
+	if err := w.catacomb.Add(watch); err != nil {
+		return errors.Trace(err)
+	}
 
 	// This function is used in tests to signal entering the worker loop.
 	if w.init != nil {
@@ -174,11 +180,13 @@ func (w *activeStatusWorker) loop() error {
 	}
 	for {
 		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		case _, ok := <-watch.Changes():
-			logger.Debugf("got meter status change")
 			if !ok {
-				return watcher.EnsureErr(watch)
+				return errors.New("meter status watcher closed")
 			}
+			logger.Debugf("got meter status change")
 			currentCode, currentInfo, err := w.status.MeterStatus()
 			if err != nil {
 				return errors.Trace(err)
@@ -191,8 +199,6 @@ func (w *activeStatusWorker) loop() error {
 				return errors.Trace(err)
 			}
 			code, info = currentCode, currentInfo
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
 		}
 	}
 }

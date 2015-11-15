@@ -21,8 +21,18 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+
+	// This gets an import block of its own because it's such staggeringly bad
+	// practice. It's here because (1) it always has been, just not quite so
+	// explicitly and (2) even if we had the state watchers implemented as
+	// juju/watcher~s rather than juju/state/watcher~s -- which we don't, so
+	// it's misleading to use those *Chan types etc -- we don't yet have any
+	// ability to transform watcher output in the apiserver layer, so we're
+	// kinda stuck producing what we always have.
+	//
+	// See RelationUnitsWatcher below.
+	"github.com/juju/juju/apiserver/params"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")
@@ -62,7 +72,13 @@ type StringsWatcher interface {
 // units known to have entered.
 type RelationUnitsWatcher interface {
 	Watcher
-	Changes() <-chan multiwatcher.RelationUnitsChange
+
+	// Note that it's not very nice exposing a params type directly here. This
+	// is a continuation of existing bad behaviour and not good practice; do
+	// not use this as a model. (FWIW, it used to be in multiwatcher; which is
+	// also api-ey; and the multiwatcher type was used directly in params
+	// anyway.)
+	Changes() <-chan params.RelationUnitsChange
 }
 
 // commonWatcher is part of all client watchers.
@@ -861,11 +877,8 @@ type relationUnitsWatcher struct {
 	sw       *RelationScopeWatcher
 	watching set.Strings
 	updates  chan watcher.Change
-	out      chan multiwatcher.RelationUnitsChange
+	out      chan params.RelationUnitsChange
 }
-
-// TODO(dfc) this belongs in a test
-var _ Watcher = (*relationUnitsWatcher)(nil)
 
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
@@ -879,7 +892,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 		sw:            ru.WatchScope(),
 		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
-		out:           make(chan multiwatcher.RelationUnitsChange),
+		out:           make(chan params.RelationUnitsChange),
 	}
 	go func() {
 		defer w.finish()
@@ -892,19 +905,19 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
 // Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 	return w.out
 }
 
-func emptyRelationUnitsChanges(changes *multiwatcher.RelationUnitsChange) bool {
+func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, version int64) {
+func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, version int64) {
 	name := unitNameFromScopeKey(key)
-	settings := multiwatcher.UnitSettings{Version: version}
+	settings := params.UnitSettings{Version: version}
 	if changes.Changed == nil {
-		changes.Changed = map[string]multiwatcher.UnitSettings{}
+		changes.Changed = map[string]params.UnitSettings{}
 	}
 	changes.Changed[name] = settings
 }
@@ -912,7 +925,7 @@ func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key
 // mergeSettings reads the relation settings node for the unit with the
 // supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
@@ -927,7 +940,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnits
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
-func (w *relationUnitsWatcher) mergeScope(changes *multiwatcher.RelationUnitsChange, c *RelationScopeChange) error {
+func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
 		docID := w.st.docID(key)
@@ -976,8 +989,8 @@ func (w *relationUnitsWatcher) finish() {
 func (w *relationUnitsWatcher) loop() (err error) {
 	var (
 		sentInitial bool
-		changes     multiwatcher.RelationUnitsChange
-		out         chan<- multiwatcher.RelationUnitsChange
+		changes     params.RelationUnitsChange
+		out         chan<- params.RelationUnitsChange
 	)
 	for {
 		select {
@@ -1008,7 +1021,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			out = w.out
 		case out <- changes:
 			sentInitial = true
-			changes = multiwatcher.RelationUnitsChange{}
+			changes = params.RelationUnitsChange{}
 			out = nil
 		}
 	}

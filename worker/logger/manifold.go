@@ -26,5 +26,5 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	loggerFacade := logger.NewState(apiCaller)
-	return NewLogger(loggerFacade, currentConfig), nil
+	return NewLogger(loggerFacade, currentConfig)
 }

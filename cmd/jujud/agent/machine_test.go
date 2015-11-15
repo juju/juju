@@ -631,7 +631,7 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 	started := make(chan struct{})
-	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) worker.Worker {
+	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) (worker.Worker, error) {
 		close(started)
 		return instancepoller.NewWorker(st)
 	})
@@ -1369,7 +1369,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 
 	// Patch out the actual worker func.
 	started := make(chan struct{})
-	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) worker.Worker {
+	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) (worker.Worker, error) {
 		// Direct check of the behaviour flag.
 		c.Check(writeSystemFiles, gc.Equals, expectWriteSystemFiles)
 		// Indirect check that we get a functional API.
@@ -1381,7 +1381,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
 			close(started)
 			return nil
-		})
+		}), nil
 	}
 	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
