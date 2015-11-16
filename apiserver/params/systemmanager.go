@@ -32,3 +32,17 @@ type EnvironmentBlockInfoList struct {
 type RemoveBlocksArgs struct {
 	All bool `json:"all"`
 }
+
+// EnvironmentStatus holds information about the status of a juju environment.
+type EnvironmentStatus struct {
+	EnvironTag         string `json:"environ-tag"`
+	Life               Life   `json:"life"`
+	HostedMachineCount int    `json:"hosted-machine-count"`
+	ServiceCount       int    `json:"service-count"`
+	OwnerTag           string `json:"owner-tag"`
+}
+
+// EnvironmentStatusResult holds status information about a group of environments.
+type EnvironmentStatusResults struct {
+	Results []EnvironmentStatus `json:"environments"`
+}
