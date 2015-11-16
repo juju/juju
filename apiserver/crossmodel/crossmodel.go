@@ -156,7 +156,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 	return offer, nil
 }
 
-func getEndpointsOnOffer(service *state.Service, points set.Strings) ([]charm.Relation, error) {
+func getEndpointsOnOffer(service *state.Service, endpointNames set.Strings) ([]charm.Relation, error) {
 	rs, err := service.Relations()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting relations for service %v", service.Name())
@@ -169,7 +169,7 @@ func getEndpointsOnOffer(service *state.Service, points set.Strings) ([]charm.Re
 			// as it might be related to an endpoint that we are not exporting anyway...
 			return nil, errors.Annotatef(err, "getting relation endpoint for relation %v and service %v", r, service.Name())
 		}
-		if points.Contains(endpoint.Name) {
+		if endpointNames.Contains(endpoint.Name) {
 			result = append(result, endpoint.Relation)
 		}
 	}
