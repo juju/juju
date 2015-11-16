@@ -114,16 +114,18 @@ func addMachineForUnit(st *state.State, unit *state.Unit, placement *instance.Pl
 		return nil, err
 	}
 	var containerType instance.ContainerType
-	var mid, placementDirective string
+	var hostMachineID, placementDirective string
 	// Extract container type and parent from container placement directives.
 	if containerType, err = instance.ParseContainerType(placement.Scope); err == nil {
-		mid = placement.Directive
+		// Use a new container on an existing host machine.
+		hostMachineID = placement.Directive
 	} else {
+		// Use a new or existing machine (not a container).
 		switch placement.Scope {
 		case st.EnvironUUID():
 			placementDirective = placement.Directive
 		case instance.MachineScope:
-			mid = placement.Directive
+			hostMachineID = placement.Directive
 		default:
 			return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
 		}
@@ -131,33 +133,40 @@ func addMachineForUnit(st *state.State, unit *state.Unit, placement *instance.Pl
 
 	// Create any new machine marked as dirty so that
 	// nothing else will grab it before we assign the unit to it.
+	hostTemplate := state.MachineTemplate{
+		Series:            unit.Series(),
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Dirty:             true,
+		Constraints:       *unitCons,
+		RequestedNetworks: networks,
+		Placement:         placementDirective,
+	}
 
 	// If a container is to be used, create it.
 	if containerType != "" {
-		template := state.MachineTemplate{
+		containerTemplate := state.MachineTemplate{
 			Series:            unit.Series(),
 			Jobs:              []state.MachineJob{state.JobHostUnits},
 			Dirty:             true,
 			Constraints:       *unitCons,
 			RequestedNetworks: networks,
 		}
-		return st.AddMachineInsideMachine(template, mid, containerType)
+		if hostMachineID != "" {
+			// Create a new container on an existing parent machine.
+			return st.AddMachineInsideMachine(containerTemplate, hostMachineID, containerType)
+		}
+		// Create a new parent machine, and a new container inside it.
+		return st.AddMachineInsideNewMachine(containerTemplate, hostTemplate, containerType)
 	}
+
 	// If a placement directive is to be used, do that here.
 	if placementDirective != "" {
-		template := state.MachineTemplate{
-			Series:            unit.Series(),
-			Jobs:              []state.MachineJob{state.JobHostUnits},
-			Dirty:             true,
-			Constraints:       *unitCons,
-			RequestedNetworks: networks,
-			Placement:         placementDirective,
-		}
-		return st.AddOneMachine(template)
+		// Create a new host machine.
+		return st.AddOneMachine(hostTemplate)
 	}
 
 	// Otherwise use an existing machine.
-	return st.Machine(mid)
+	return st.Machine(hostMachineID)
 }
 
 // AddUnits starts n units of the given service and allocates machines

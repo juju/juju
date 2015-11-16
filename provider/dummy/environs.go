@@ -165,8 +165,8 @@ type OpAllocateAddress struct {
 	InstanceId instance.Id
 	SubnetId   network.Id
 	Address    network.Address
-	HostName   string
 	MACAddress string
+	HostName   string
 }
 
 type OpReleaseAddress struct {
@@ -175,6 +175,7 @@ type OpReleaseAddress struct {
 	SubnetId   network.Id
 	Address    network.Address
 	MACAddress string
+	HostName   string
 }
 
 type OpNetworkInterfaces struct {
@@ -1130,7 +1131,7 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1151,6 +1152,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr
 		SubnetId:   subnetId,
 		Address:    addr,
 		MACAddress: macAddress,
+		HostName:   hostname,
 	}
 	return nil
 }

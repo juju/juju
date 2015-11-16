@@ -852,7 +852,8 @@ const singleNICTemplate = `
 lxc.network.type = {{.Type}}
 lxc.network.link = {{.Link}}
 lxc.network.flags = up{{if .MTU}}
-lxc.network.mtu = {{.MTU}}{{end}}
+lxc.network.mtu = {{.MTU}}{{end}}{{if .MACAddress}}
+lxc.network.hwaddr = {{.MACAddress}}{{end}}
 
 `
 
@@ -862,8 +863,8 @@ const multipleNICsTemplate = `
 lxc.network.type = {{$nic.Type}}{{if $nic.VLANTag}}
 lxc.network.vlan.id = {{$nic.VLANTag}}{{end}}
 lxc.network.link = {{$nic.Link}}{{if not $nic.NoAutoStart}}
-lxc.network.flags = up{{end}}
-lxc.network.name = {{$nic.Name}}{{if $nic.MACAddress}}
+lxc.network.flags = up{{end}}{{if $nic.Name}}
+lxc.network.name = {{$nic.Name}}{{end}}{{if $nic.MACAddress}}
 lxc.network.hwaddr = {{$nic.MACAddress}}{{end}}{{if $nic.IPv4Address}}
 lxc.network.ipv4 = {{$nic.IPv4Address}}{{end}}{{if $nic.IPv4Gateway}}
 lxc.network.ipv4.gateway = {{$nic.IPv4Gateway}}{{end}}{{if $mtu}}
@@ -886,8 +887,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 	type configData struct {
 		Type       string
 		Link       string
-		MTU        int
 		Interfaces []nicData
+		// The following are used only with a single NIC config.
+		MTU        int
+		MACAddress string
 	}
 	data := configData{
 		Link: config.Device,
