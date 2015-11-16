@@ -15,8 +15,8 @@ import (
 // ServiceURL represents the location of an offered service and its
 // associated exported endpoints.
 type ServiceURL struct {
-	// Scheme represents where the offer is hosted.
-	Scheme string // "local" or "<vendor>"
+	// Directory represents where the offer is hosted.
+	Directory string // "local" or "<vendor>"
 
 	// User is the user whose namespace in which the offer is made.
 	User string
@@ -35,7 +35,12 @@ func (u *ServiceURL) path() string {
 }
 
 func (u *ServiceURL) String() string {
-	return fmt.Sprintf("%s:/%s", u.Scheme, u.path())
+	return fmt.Sprintf("%s:/%s", u.Directory, u.path())
+}
+
+var supportedURLDirectories = []string{
+	// TODO(wallyworld): just support local for now.
+	"local", // for services hosted by a local service directory
 }
 
 // ParseServiceURL parses the specified URL string into a ServiceURL.
@@ -56,10 +61,16 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 		url.Scheme = "local"
 	}
 	if url.Scheme != "" {
-		result.Scheme = url.Scheme
-		// TODO(wallyworld): just support local for now.
-		if result.Scheme != "local" {
-			return nil, errors.Errorf("service URL has invalid scheme: %q", urlStr)
+		result.Directory = url.Scheme
+		supported := false
+		for _, s := range supportedURLDirectories {
+			supported = s == result.Directory
+			if supported {
+				break
+			}
+		}
+		if !supported {
+			return nil, errors.Errorf("service URL has invalid directory: %q", urlStr)
 		}
 	}
 	urlPath := strings.Trim(url.Path, "/")
@@ -86,4 +97,14 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	result.ServiceName = parts[2]
 	return &result, nil
+}
+
+// ServiceDirectoryForURL returns a service directory name, used to look up services,
+// based on the specified URL.
+func ServiceDirectoryForURL(urlStr string) (string, error) {
+	url, err := ParseServiceURL(urlStr)
+	if err != nil {
+		return "", err
+	}
+	return url.Directory, nil
 }

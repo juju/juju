@@ -4,5 +4,6 @@
 package crossmodel
 
 var (
-	CreateServiceDirectoryAPI = createServiceDirectoryAPI
+	CreateServiceOffersAPI = createServiceOffersAPI
+	NewServiceAPIFactory   = newServiceAPIFactory
 )

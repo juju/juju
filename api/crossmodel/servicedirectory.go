@@ -13,33 +13,37 @@ import (
 	"github.com/juju/juju/model/crossmodel"
 )
 
-// serviceDirectory allows access to a locally hosted service directory.
-type serviceDirectoryAPI struct {
+// serviceOffersAPI allows access to a locally hosted service directory.
+type serviceOffersAPI struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // A ServiceDirectoryAPI provides access to service offerings from external environments.
-type ServiceDirectoryAPI interface {
+type ServiceOffersAPI interface {
 
-	// AddOffer adds a new service offering to the directory.
+	// AddOffer adds a new service offering to a service directory.
+	// The offer's service URL scheme determines the directory to
+	// which the offer is added.
 	AddOffer(offer crossmodel.ServiceOffer, users []string) error
 
-	// List offers returns the offers satisfying the specified filter.
-	ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+	// List offers returns the offers contained in the specified directory,
+	// satisfying the specified filter. The directory is the same as the service
+	// URL scheme and is used to determine which backend to query.
+	ListOffers(directory string, filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
 }
 
-// NewServiceDirectory creates a new client for accessing a controller service directory API.
-func NewServiceDirectory(st base.APICallCloser) ServiceDirectoryAPI {
-	frontend, backend := base.NewClientFacade(st, "ServiceDirectory")
-	return &serviceDirectoryAPI{ClientFacade: frontend, facade: backend}
+// NewServiceOffers creates a new client for accessing a controller service directory API.
+func NewServiceOffers(st base.APICallCloser) ServiceOffersAPI {
+	frontend, backend := base.NewClientFacade(st, "ServiceOffers")
+	return &serviceOffersAPI{ClientFacade: frontend, facade: backend}
 }
 
 // TODO(wallyworld) - add Remove() and Update()
 
 // AddOffer adds a new service offering to the directory, able to be consumed by
 // the specified users.
-func (s *serviceDirectoryAPI) AddOffer(offer crossmodel.ServiceOffer, users []string) error {
+func (s *serviceOffersAPI) AddOffer(offer crossmodel.ServiceOffer, users []string) error {
 	addOffer := params.AddServiceOffer{
 		ServiceOffer: MakeParamsFromOffer(offer),
 	}
@@ -88,9 +92,13 @@ func MakeParamsFromOffer(offer crossmodel.ServiceOffer) params.ServiceOffer {
 	}
 }
 
-// List offers returns the offers satisfying the specified filter.
-func (s *serviceDirectoryAPI) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+// List offers returns the offers satisfying the specified filter for the specified directory.
+func (s *serviceOffersAPI) ListOffers(directory string, filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	if directory == "" {
+		return nil, errors.New("service directory must be specified")
+	}
 	var filterParams params.OfferFilters
+	filterParams.Directory = directory
 	filterParams.Filters = make([]params.OfferFilter, len(filters))
 	// TODO(wallyworld) - support or remove params.ServiceOfferFilter.ServiceUser
 	for i, filter := range filters {

@@ -22,7 +22,7 @@ type mockServiceOfferLister struct {
 	results []crossmodel.ServiceOffer
 }
 
-func (m *mockServiceOfferLister) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (m *mockServiceOfferLister) ListOffers(directory string, filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	return m.results, nil
 }
 
@@ -34,13 +34,13 @@ func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 		},
 	}
 	offerLister := &mockServiceOfferLister{offers}
-	result, err := crossmodel.ServiceForURL(offerLister, "local:/u/user/name", "foo")
+	result, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/name", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, offers[0])
 }
 
 func (s *serviceDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
 	offerLister := &mockServiceOfferLister{[]crossmodel.ServiceOffer{}}
-	_, err := crossmodel.ServiceForURL(offerLister, "local:/u/user/name", "foo")
+	_, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/name", "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
