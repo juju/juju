@@ -6,9 +6,7 @@
 package crossmodel
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/params"
