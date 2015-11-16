@@ -1089,6 +1089,19 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	_, err = s.State.AddSpace("space2", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add 1 subnet into space1, and 2 into space2.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
+	})
+
 	// Add and provision a machine with spaces specified.
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=space2,^space1",
@@ -1113,11 +1126,20 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
-	cons := constraints.MustParse(
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownOrEmptySpaces(c *gc.C) {
+	consMissingSpace := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
 	)
-	m, err := s.addMachineWithConstraints(cons)
+	machineEmptySpace, err := s.addMachineWithConstraints(consMissingSpace)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSpace("empty", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consEmptySpace := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=empty",
+	)
+	machineMissingSpace, err := s.addMachineWithConstraints(consEmptySpace)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the PA.
@@ -1130,15 +1152,29 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	// Ensure machine error status was set.
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
+		// And check both machines' status is set to error.
+		statusInfoMissingSpace, err := machineMissingSpace.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfoMissingSpace.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Equals, `cannot match subnets to zones: space "missing" not found`)
+		c.Assert(statusInfoMissingSpace.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfoMissingSpace.Message, gc.Equals,
+			`cannot match subnets to zones: space "missing" not found`,
+		)
+
+		statusInfoEmptySpace, err := machineEmptySpace.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		if statusInfoEmptySpace.Status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(statusInfoEmptySpace.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfoEmptySpace.Message, gc.Equals,
+			`cannot match subnets to zones: `+
+				`cannot use space "empty" as deployment targer: no subnets`,
+		)
 		break
 	}
 
