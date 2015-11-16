@@ -70,7 +70,8 @@ def jes_setup(args):
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), args.juju_bin, args.debug,
     )
-    client.enable_jes()
+    if not client.is_jes_enabled():
+        client.enable_jes()
     with boot_context(
             args.temp_env_name,
             client,
