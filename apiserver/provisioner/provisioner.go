@@ -1466,6 +1466,9 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if len(subnets) == 0 {
+		return nil, errors.Errorf("cannot use space %q as deployment target: no subnets", spaceName)
+	}
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
 		warningPrefix := fmt.Sprintf(
