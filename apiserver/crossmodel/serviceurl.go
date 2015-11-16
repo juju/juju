@@ -10,40 +10,40 @@ import (
 )
 
 // ServiceAPIFactory instances create ServiceDirectory instance.
-type ServiceAPIFactory interface {
+type ServiceOffersAPIFactory interface {
 
-	// ServiceDirectoryForURL returns a service directory used to look up services
+	// ServiceOffersForURL returns a service directory used to look up services
 	// based on the specified URL.
-	ServiceDirectoryForURL(url string) (ServiceOffersAPI, error)
+	ServiceOffersForURL(url string) (ServiceOffersAPI, error)
 
-	// ServiceDirectory returns a service directory used to look up services
+	// ServiceOffers returns a service directory used to look up services
 	// based on the specified directory name.
-	ServiceDirectory(directory string) (ServiceOffersAPI, error)
+	ServiceOffers(directory string) (ServiceOffersAPI, error)
 }
 
 type createServiceDirectoryFunc func() crossmodel.ServiceDirectory
 
-type serviceAPIFactory struct {
+type serviceOffersAPIFactory struct {
 	createLocalServiceDirectory createServiceDirectoryFunc
 }
 
-func newServiceAPIFactory(createFunc createServiceDirectoryFunc) (ServiceAPIFactory, error) {
-	return &serviceAPIFactory{createFunc}, nil
+func newServiceAPIFactory(createFunc createServiceDirectoryFunc) (ServiceOffersAPIFactory, error) {
+	return &serviceOffersAPIFactory{createFunc}, nil
 }
 
-// ServiceDirectoryForURL returns a service directory used to look up services
+// ServiceOffersForURL returns a service directory used to look up services
 // based on the specified URL.
-func (s *serviceAPIFactory) ServiceDirectoryForURL(urlStr string) (ServiceOffersAPI, error) {
+func (s *serviceOffersAPIFactory) ServiceOffersForURL(urlStr string) (ServiceOffersAPI, error) {
 	url, err := crossmodel.ParseServiceURL(urlStr)
 	if err != nil {
 		return nil, err
 	}
-	return s.ServiceDirectory(url.Scheme)
+	return s.ServiceOffers(url.Scheme)
 }
 
-// ServiceDirectory returns a service directory used to look up services
+// ServiceOffers returns a service directory used to look up services
 // based on the specified directory name.
-func (s *serviceAPIFactory) ServiceDirectory(directory string) (ServiceOffersAPI, error) {
+func (s *serviceOffersAPIFactory) ServiceOffers(directory string) (ServiceOffersAPI, error) {
 	switch directory {
 	case "local":
 		return &localServiceOffers{s.createLocalServiceDirectory()}, nil

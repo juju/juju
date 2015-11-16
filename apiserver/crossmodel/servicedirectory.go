@@ -30,14 +30,14 @@ type ServiceOffersAPI interface {
 }
 
 type serviceOffersAPI struct {
-	authorizer        common.Authorizer
-	serviceAPIFactory ServiceAPIFactory
+	authorizer              common.Authorizer
+	serviceOffersAPIFactory ServiceOffersAPIFactory
 	// TODO(wallyworld) - add component to handle permissions.
 }
 
 // createServiceDirectoryAPI returns a new cross model API facade.
 func createServiceOffersAPI(
-	serviceAPIFactory ServiceAPIFactory,
+	serviceAPIFactory ServiceOffersAPIFactory,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
@@ -46,8 +46,8 @@ func createServiceOffersAPI(
 	}
 
 	return &serviceOffersAPI{
-		authorizer:        authorizer,
-		serviceAPIFactory: serviceAPIFactory,
+		authorizer:              authorizer,
+		serviceOffersAPIFactory: serviceAPIFactory,
 	}, nil
 }
 
@@ -72,11 +72,11 @@ func (api *serviceOffersAPI) ListOffers(filters params.OfferFilters) (params.Ser
 	if filters.Directory == "" {
 		return params.ServiceOfferResults{}, errors.New("service directory must be specified")
 	}
-	serviceDirectory, err := api.serviceAPIFactory.ServiceDirectory(filters.Directory)
+	serviceOffers, err := api.serviceOffersAPIFactory.ServiceOffers(filters.Directory)
 	if err != nil {
 		return params.ServiceOfferResults{}, err
 	}
-	return serviceDirectory.ListOffers(filters)
+	return serviceOffers.ListOffers(filters)
 }
 
 // AddOffers adds new service offerings to a directory, able to be consumed by
@@ -88,11 +88,11 @@ func (api *serviceOffersAPI) AddOffers(offers params.AddServiceOffers) (params.E
 
 	// TODO(wallyworld) - we assume for now that all offers are to the
 	// same backend ie all local or all to the same remote service directory.
-	serviceDirectory, err := api.serviceAPIFactory.ServiceDirectoryForURL(offers.Offers[0].ServiceURL)
+	serviceOffers, err := api.serviceOffersAPIFactory.ServiceOffersForURL(offers.Offers[0].ServiceURL)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	return serviceDirectory.AddOffers(offers)
+	return serviceOffers.AddOffers(offers)
 }
 
 // localServiceOffers provides access to service offers hosted within
