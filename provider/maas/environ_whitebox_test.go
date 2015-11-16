@@ -1366,7 +1366,7 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
-	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo")
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray = suite.getDeviceArray(c)
@@ -1422,12 +1422,13 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	macAddress := "foobar"
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	hostname := "myhostname"
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// by releasing again we can test that the first release worked, *and*
 	// the error handling of ReleaseError
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -1457,7 +1458,8 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	// ReleaseAddress must fail with 5 retries.
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	macAddress := "foobar"
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	hostname := "myhostname"
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q: ouch", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
 	c.Assert(retries, gc.Equals, 5)
@@ -1465,7 +1467,7 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	// Now let it succeed after 3 retries.
 	retries = 0
 	enoughRetries = 3
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retries, gc.Equals, 3)
 }
