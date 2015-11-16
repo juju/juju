@@ -29,6 +29,8 @@ type containerSuite struct {
 	provAPI *provisioner.ProvisionerAPI
 }
 
+const regexpMACAddress = "([a-f0-9]{2}:){5}[a-f0-9]{2}"
+
 func (s *containerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 	// Reset any "broken" dummy provider methods.
@@ -424,7 +426,7 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine, mac string) error {
 		c.Logf("allocateAddrTo called for address %q, machine %q, mac %q", ip.String(), m, mac)
 		c.Assert(m.Id(), gc.Equals, container.Id())
-		c.Assert(mac, gc.Matches, "([a-f0-9]{2}:){5}[a-f0-9]{2}")
+		c.Assert(mac, gc.Matches, regexpMACAddress)
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
 
 		// Succeed on every other call to give a chance to call
@@ -527,7 +529,7 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -609,7 +611,7 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
-		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -646,7 +648,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		VLANTag:          1,
-		MACAddress:       "regex:([a-f0-9]{2}:){5}[a-f0-9]{2}",
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
