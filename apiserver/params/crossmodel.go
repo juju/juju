@@ -108,3 +108,7 @@ type RemoteServiceResult struct {
 type RemoteServiceResults struct {
 	Results []RemoteServiceResult `json:"results,omitempty"`
 }
+
+type ShowFilter struct {
+	URLs []string `json:"urls,omitempty"`
+}

@@ -86,7 +86,8 @@ func (api *API) Offer(all params.RemoteServiceOffers) (params.ErrorResults, erro
 }
 
 // Show gets details about remote services that match given URLs.
-func (api *API) Show(urls []string) (params.RemoteServiceResults, error) {
+func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, error) {
+	urls := filter.URLs
 	results := make([]params.RemoteServiceResult, len(urls))
 
 	filters := make([]crossmodel.ServiceOfferFilter, len(urls))

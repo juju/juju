@@ -71,13 +71,15 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 func (s *crossmodelSuite) TestShow(c *gc.C) {
 	serviceName := "test"
 	url := "local:/u/fred/hosted-db2"
+
+	filter := params.ShowFilter{[]string{url}}
 	anOffer := crossmodel.ServiceOffer{ServiceName: serviceName, ServiceURL: url}
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{anOffer}, nil
 	}
 
-	found, err := s.api.Show([]string{url})
+	found, err := s.api.Show(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
 		params.RemoteServiceResults{[]params.RemoteServiceResult{
@@ -92,13 +94,14 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 
 func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	url := "local:/u/fred/hosted-db2"
+	filter := params.ShowFilter{[]string{url}}
 	msg := "fail"
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, errors.New(msg)
 	}
 
-	found, err := s.api.Show([]string{url})
+	found, err := s.api.Show(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	c.Assert(found.Results, gc.HasLen, 0)
 	s.serviceDirectory.CheckCallNames(c, listOffersCall)
@@ -106,12 +109,13 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 
 func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
+	filter := params.ShowFilter{urls}
 
 	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, nil
 	}
 
-	found, err := s.api.Show(urls)
+	found, err := s.api.Show(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
@@ -120,12 +124,13 @@ func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 
 func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/hosted-db2", "local:/u/fred/hosted-db2"}
+	filter := params.ShowFilter{urls}
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, nil
 	}
 
-	found, err := s.api.Show(urls)
+	found, err := s.api.Show(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`service URL has invalid form: %q`, urls[0]))
@@ -135,12 +140,13 @@ func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 
 func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
+	filter := params.ShowFilter{urls}
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{}, nil
 	}
 
-	found, err := s.api.Show(urls)
+	found, err := s.api.Show(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
@@ -156,11 +162,13 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	url2 := "local:/u/mary/hosted-db2"
 	anOffer2 := crossmodel.ServiceOffer{ServiceName: name2, ServiceURL: url2}
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	filter := params.ShowFilter{[]string{url, url2}}
+
+	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{anOffer, anOffer2}, nil
 	}
 
-	found, err := s.api.Show([]string{url, url2})
+	found, err := s.api.Show(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals, params.RemoteServiceResults{
 		[]params.RemoteServiceResult{
