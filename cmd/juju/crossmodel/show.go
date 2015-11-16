@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/crossmodel"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 const showCommandDoc = `
@@ -51,8 +51,8 @@ func (c *showCommand) Init(args []string) (err error) {
 	}
 
 	url := args[0]
-	if !crossmodel.IsValidURL(url) {
-		return errors.NotValidf("endpoint url %q", url)
+	if _, err := crossmodel.ParseServiceURL(url); err != nil {
+		return err
 	}
 	c.url = url
 	return nil
@@ -103,7 +103,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	Show(url string) (params.RemoteServiceInfo, error)
+	Show(url string) (params.ServiceOffer, error)
 }
 
 var getShowAPI = (*showCommand).getShowAPI

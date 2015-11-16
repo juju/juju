@@ -128,7 +128,8 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 		userTags[i] = names.NewUserTag(user).String()
 	}
 
-	results, err := c.api.Offer(c.Service, c.Endpoints, c.URL, userTags)
+	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
+	results, err := c.api.Offer(c.Service, c.Endpoints, c.URL, userTags, "")
 	if err != nil {
 		return err
 	}
@@ -138,7 +139,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error)
+	Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
 }
 
 var getOfferAPI = (*offerCommand).getOfferAPI

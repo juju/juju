@@ -118,6 +118,7 @@ type mockOfferAPI struct {
 	offers           map[string][]string
 	users            map[string][]string
 	urls             map[string]string
+	descs            map[string]string
 }
 
 func NewMockOfferAPI() *mockOfferAPI {
@@ -125,6 +126,7 @@ func NewMockOfferAPI() *mockOfferAPI {
 	mock.offers = make(map[string][]string)
 	mock.users = make(map[string][]string)
 	mock.urls = make(map[string]string)
+	mock.descs = make(map[string]string)
 	return mock
 }
 
@@ -132,7 +134,7 @@ func (s mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error) {
+func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
@@ -144,5 +146,6 @@ func (s mockOfferAPI) Offer(service string, endpoints []string, url string, user
 	s.offers[service] = endpoints
 	s.urls[service] = url
 	s.users[service] = users
+	s.descs[service] = desc
 	return result, nil
 }

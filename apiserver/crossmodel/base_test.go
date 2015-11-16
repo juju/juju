@@ -23,11 +23,6 @@ import (
 )
 
 const (
-	addOfferCall    = "addOfferCall"
-	updateOfferCall = "updateOfferCall"
-	listOffersCall  = "listOffersCall"
-	removeOfferCall = "removeOfferCall"
-
 	serviceCall       = "serviceCall"
 	environConfigCall = "environConfigCall"
 	environUUIDCall   = "environUUIDCall"
@@ -57,33 +52,6 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = apicrossmodel.CreateAPI(s.serviceDirectory, s.stateAccess, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type mockServiceDirectory struct {
-	jtesting.Stub
-
-	addOffer   func(offer crossmodel.ServiceOffer) error
-	listOffers func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
-}
-
-func (s *mockServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
-	s.AddCall(addOfferCall)
-	return s.addOffer(offer)
-}
-
-func (s *mockServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error {
-	s.AddCall(updateOfferCall)
-	panic("not implemented for testing yet")
-}
-
-func (s *mockServiceDirectory) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	s.AddCall(listOffersCall)
-	return s.listOffers(filter...)
-}
-
-func (s *mockServiceDirectory) Remove(url string) error {
-	s.AddCall(removeOfferCall)
-	panic("not implemented for testing yet")
 }
 
 type mockStateAccess struct {

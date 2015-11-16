@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
@@ -25,7 +26,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{
-		serviceTag: "service-hosted-db2",
+		serviceTag: "hosted-db2",
 		desc:       "IBM DB2 Express Server Edition is an entry level database system",
 	}
 }
@@ -40,27 +41,27 @@ func (s *showSuite) TestShowNoUrl(c *gc.C) {
 
 func (s *showSuite) TestShowApiError(c *gc.C) {
 	s.mockAPI.msg = "fail"
-	s.assertShowError(c, []string{"local:/u/fred/prod/db2"}, ".*fail.*")
+	s.assertShowError(c, []string{"local:/u/fred/db2"}, ".*fail.*")
 }
 
-func (s *showSuite) TestShowConversionError(c *gc.C) {
+func (s *showSuite) TestShowURLError(c *gc.C) {
 	s.mockAPI.serviceTag = "invalid_tag"
-	s.assertShowError(c, []string{"local:/u/fred/prod/db2"}, ".*could not parse service tag.*")
+	s.assertShowError(c, []string{"local:/u/fred/prod/db2"}, ".*invalid.*")
 }
 
 func (s *showSuite) TestShowYaml(c *gc.C) {
 	s.assertShow(
 		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "yaml"},
+		[]string{"local:/u/fred/db2", "--format", "yaml"},
 		`
 hosted-db2:
   endpoints:
     db2:
       interface: hhtp
-      role: role
+      role: requirer
     log:
       interface: http
-      role: role
+      role: provider
   description: IBM DB2 Express Server Edition is an entry level database system
 `[1:],
 	)
@@ -69,11 +70,11 @@ hosted-db2:
 func (s *showSuite) TestShowTabular(c *gc.C) {
 	s.assertShow(
 		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
 SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
-            an entry level database system  log       http       role
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       requirer
+            an entry level database system  log       http       provider
                                                                  
 
 `[1:],
@@ -84,11 +85,11 @@ func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc[:36]
 	s.assertShow(
 		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
 SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
-            an entry level database         log       http       role
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       requirer
+            an entry level database         log       http       provider
             DB2 Express Server Edition is                        
                                                                  
 
@@ -100,43 +101,11 @@ func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
 	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc
 	s.assertShow(
 		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
+		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
 SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
-            an entry level database         log       http       role
-            DB2 Express Server Edition                           
-                                                                 
-
-`[1:],
-	)
-}
-
-func (s *showSuite) TestShowTabularExactly100Desc(c *gc.C) {
-	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc[:36]
-	s.assertShow(
-		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
-		`
-SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
-            an entry level database         log       http       role
-            DB2 Express Server Edition is                        
-                                                                 
-
-`[1:],
-	)
-}
-
-func (s *showSuite) TestShowTabularMoreThan100Desc(c *gc.C) {
-	s.mockAPI.desc = s.mockAPI.desc + s.mockAPI.desc
-	s.assertShow(
-		c,
-		[]string{"local:/u/fred/prod/db2", "--format", "tabular"},
-		`
-SERVICE     DESCRIPTION                     ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       role
-            an entry level database         log       http       role
+hosted-db2  IBM DB2 Express Server Edition  db2       hhtp       requirer
+            an entry level database         log       http       provider
             DB2 Express Server Edition                           
                                                                  
 
@@ -193,17 +162,17 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(url string) (params.RemoteServiceInfo, error) {
+func (s mockShowAPI) Show(url string) (params.ServiceOffer, error) {
 	if s.msg != "" {
-		return params.RemoteServiceInfo{}, errors.New(s.msg)
+		return params.ServiceOffer{}, errors.New(s.msg)
 	}
 
-	return params.RemoteServiceInfo{
-		Service:     s.serviceTag,
-		Description: s.desc,
+	return params.ServiceOffer{
+		ServiceName:        s.serviceTag,
+		ServiceDescription: s.desc,
 		Endpoints: []params.RemoteEndpoint{
-			params.RemoteEndpoint{"log", "http", "role"},
-			params.RemoteEndpoint{"db2", "hhtp", "role"},
+			params.RemoteEndpoint{Name: "log", Interface: "http", Role: charm.RoleProvider},
+			params.RemoteEndpoint{Name: "db2", Interface: "hhtp", Role: charm.RoleRequirer},
 		},
 	}, nil
 }

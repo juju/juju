@@ -52,21 +52,17 @@ type RemoteService struct {
 
 // convertRemoteServices takes any number of api-formatted remote services and
 // creates a collection of ui-formatted services.
-func convertRemoteServices(services ...params.RemoteServiceInfo) (map[string]RemoteService, error) {
+func convertRemoteServices(services ...params.ServiceOffer) (map[string]RemoteService, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]RemoteService, len(services))
 	for _, one := range services {
-		serviceName, err := getServiceNameFromTag(one.Service)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		service := RemoteService{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		if one.Description != "" {
-			service.Description = one.Description
+		if one.ServiceDescription != "" {
+			service.Description = one.ServiceDescription
 		}
-		output[serviceName] = service
+		output[one.ServiceName] = service
 	}
 	return output, nil
 }
@@ -79,7 +75,7 @@ func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]Re
 	}
 	output := make(map[string]RemoteEndpoint, len(apiEndpoints))
 	for _, one := range apiEndpoints {
-		output[one.Name] = RemoteEndpoint{one.Interface, one.Role}
+		output[one.Name] = RemoteEndpoint{one.Interface, string(one.Role)}
 	}
 	return output
 }
