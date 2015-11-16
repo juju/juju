@@ -442,6 +442,8 @@ func (w *RemoteStateWatcher) updateStatusChanged() error {
 func (w *RemoteStateWatcher) commandsChanged(id string) error {
 	w.mu.Lock()
 	w.current.Commands = append(w.current.Commands, id)
+	w.mu.Unlock()
+	return nil
 }
 
 // retryHookTimerTriggered is called when the retry hook timer expires.

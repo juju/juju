@@ -35,7 +35,10 @@ type uniterResolver struct {
 
 // NewUniterResolver returns a new resolver.Resolver for the uniter.
 func NewUniterResolver(cfg ResolverConfig) resolver.Resolver {
-	return &uniterResolver{cfg}
+	return &uniterResolver{
+		config:                cfg,
+		retryHookTimerStarted: false,
+	}
 }
 
 func (s *uniterResolver) NextOp(
@@ -185,20 +188,20 @@ func (s *uniterResolver) nextOpHookError(
 			// now. If we retry and fail, retryHookTimerStarted is
 			// cleared so that we'll still start it again.
 			s.config.StartRetryHookTimer()
-			s.config.RetryHookTimerStarted = true
+			s.retryHookTimerStarted = true
 		}
 		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
 		s.config.StopRetryHookTimer()
-		s.config.RetryHookTimerStarted = false
-		if err := s.config.clearResolved(); err != nil {
+		s.retryHookTimerStarted = false
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
 		s.config.StopRetryHookTimer()
-		s.config.RetryHookTimerStarted = false
-		if err := s.config.clearResolved(); err != nil {
+		s.retryHookTimerStarted = false
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewSkipHook(*localState.Hook)
