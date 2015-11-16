@@ -79,11 +79,3 @@ func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]Re
 	}
 	return output
 }
-
-func getServiceNameFromTag(serviceTag string) (string, error) {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		return "", errors.Annotatef(err, "could not parse service tag %q", serviceTag)
-	}
-	return tag.Name, nil
-}
