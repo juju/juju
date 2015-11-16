@@ -40,6 +40,7 @@ type destroyEnvironmentCommand struct {
 	cmd.CommandBase
 	assumeYes bool
 	force     bool
+	apierr    error
 }
 
 func (c *destroyEnvironmentCommand) Info() *cmd.Info {
@@ -80,6 +81,14 @@ func (c *destroyEnvironmentCommand) Init(args []string) error {
 	}
 }
 
+func (c *destroyEnvironmentCommand) getAPIClient() (*api.Client, error) {
+	if c.apierr != nil {
+		return nil, c.apierr
+	}
+
+	return c.NewAPIClient()
+}
+
 func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	store, err := configstore.Default()
 	if err != nil {
@@ -113,14 +122,14 @@ func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 	}
 
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPIClient()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Warningf("environment not found, removing config file")
 			ctx.Infof("environment not found, removing config file")
 			return environs.DestroyInfo(c.EnvName(), store)
 		}
-		return errors.Annotate(err, "cannot connect to API")
+		return c.ensureUserFriendlyErrorLog(err)
 	}
 	defer apiclient.Close()
 	info, err := apiclient.EnvironmentInfo()
