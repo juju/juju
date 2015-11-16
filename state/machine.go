@@ -161,6 +161,11 @@ func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
+// Principals returns the principals for the machine.
+func (m *Machine) Principals() []string {
+	return m.doc.Principals
+}
+
 // Series returns the operating system series running on the machine.
 func (m *Machine) Series() string {
 	return m.doc.Series
