@@ -21,6 +21,18 @@ func (st *State) ProcessDyingEnviron() (err error) {
 			return nil, errors.New("environment is not dying")
 		}
 
+		if st.IsStateServer() {
+			envs, err := st.AllEnvironments()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, env := range envs {
+				if env.UUID() != st.EnvironUUID() && env.Life() != Dead {
+					return nil, errors.Errorf("one or more hosted environments are not yet dead")
+				}
+			}
+		}
+
 		machines, err := st.AllMachines()
 		if err != nil {
 			return nil, errors.Trace(err)

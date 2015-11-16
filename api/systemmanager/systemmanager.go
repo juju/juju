@@ -66,10 +66,9 @@ func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 // and removes all non-manager machine instances. Underlying DestroyEnvironment
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroySystem(destroyEnvs bool, ignoreBlocks bool) error {
+func (c *Client) DestroySystem(destroyEnvs bool) error {
 	args := params.DestroySystemArgs{
 		DestroyEnvironments: destroyEnvs,
-		IgnoreBlocks:        ignoreBlocks,
 	}
 	return c.facade.FacadeCall("DestroySystem", args, nil)
 }

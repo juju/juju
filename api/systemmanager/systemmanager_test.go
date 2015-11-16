@@ -78,7 +78,7 @@ func (s *systemManagerSuite) TestDestroySystem(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
-	err := sysManager.DestroySystem(false, false)
+	err := sysManager.DestroySystem(false)
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 }
 

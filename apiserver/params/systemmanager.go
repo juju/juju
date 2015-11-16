@@ -9,10 +9,6 @@ type DestroySystemArgs struct {
 	// should be destroyed as well. If this is not specified, and there are
 	// other hosted environments, the destruction of the system will fail.
 	DestroyEnvironments bool `json:"destroy-environments"`
-
-	// IgnoreBlocks specifies whether or not to ignore blocks
-	// on hosted environments.
-	IgnoreBlocks bool `json:"ignore-blocks"`
 }
 
 // EnvironmentBlockInfo holds information about an environment and its

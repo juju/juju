@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -442,4 +443,12 @@ func WriteLogWithOplog(
 
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
+}
+
+func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
+	return m.forceDestroyOps()
+}
+
+func IsManagerMachineError(err error) bool {
+	return errors.Cause(err) == managerMachineError
 }

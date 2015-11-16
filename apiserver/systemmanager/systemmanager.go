@@ -176,62 +176,6 @@ func (s *SystemManagerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInf
 	return results, nil
 }
 
-// DestroySystem will attempt to destroy the system. If the args specify the
-// removal of blocks or the destruction of the environments, this method will
-// attempt to do so.
-func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
-	// Get list of all environments in the system.
-	allEnvs, err := s.state.AllEnvironments()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// If there are hosted environments and DestroyEnvironments was not
-	// specified, don't bother trying to destroy the system, as it will fail.
-	if len(allEnvs) > 1 && !args.DestroyEnvironments {
-		return errors.Errorf("state server environment cannot be destroyed before all other environments are destroyed")
-	}
-
-	// If there are blocks, and we aren't being told to ignore them, let the
-	// user know.
-	blocks, err := s.state.AllBlocksForSystem()
-	if err != nil {
-		logger.Debugf("Unable to get blocks for system: %s", err)
-		if !args.IgnoreBlocks {
-			return errors.Trace(err)
-		}
-	}
-	if len(blocks) > 0 {
-		if !args.IgnoreBlocks {
-			return common.OperationBlockedError("found blocks in system environments")
-		}
-
-		err := s.state.RemoveAllBlocksForSystem()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	systemEnv, err := s.state.StateServerEnvironment()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	systemTag := systemEnv.EnvironTag()
-
-	if args.DestroyEnvironments {
-		for _, env := range allEnvs {
-			environTag := env.EnvironTag()
-			if environTag != systemTag {
-				if err := common.DestroyEnvironment(s.state, environTag); err != nil {
-					logger.Errorf("unable to destroy environment %q: %s", env.UUID(), err)
-				}
-			}
-		}
-	}
-
-	return errors.Trace(common.DestroyEnvironment(s.state, systemTag))
-}
-
 // EnvironmentConfig returns the environment config for the system
 // environment.  For information on the current environment, use
 // client.EnvironmentGet

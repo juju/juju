@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -121,6 +122,21 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(info.TimeOfDeath.IsZero(), jc.IsFalse)
 }
 
+func (s *undertakerSuite) TestWatchEnvironResources(c *gc.C) {
+	undertakerClient, otherSt := s.hostedAPI(c)
+	defer otherSt.Close()
+
+	w, err := undertakerClient.WatchEnvironResources()
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
@@ -133,12 +149,9 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-	// TODO(waigani) see todo in state/state.go:123. This test will pass
-	// before landing in master.
-
 	// Aborts on dying environ.
-	// err = undertakerClient.RemoveEnviron()
-	// c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	err = undertakerClient.RemoveEnviron()
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
 
 	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
 
