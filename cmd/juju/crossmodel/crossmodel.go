@@ -31,6 +31,7 @@ func (c *CrossModelCommandBase) NewCrossModelAPI() (*crossmodel.Client, error) {
 }
 
 // RemoteEndpoint defines the serialization behaviour of remote endpoints.
+// This is used in map-style yaml output where remote endpoint name is the key.
 type RemoteEndpoint struct {
 	// Interface is relation interface.
 	Interface string `yaml:"interface" json:"interface"`
@@ -40,6 +41,7 @@ type RemoteEndpoint struct {
 }
 
 // RemoteService defines the serialization behaviour of remote service.
+// This is used in map-style yaml output where remote service name is the key.
 type RemoteService struct {
 	// Endpoints list of offered service endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
