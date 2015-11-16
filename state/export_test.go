@@ -371,7 +371,7 @@ var (
 )
 
 func AssertAddressConversion(c *gc.C, netAddr network.Address) {
-	addr := fromNetworkAddress(netAddr)
+	addr := fromNetworkAddress(netAddr, OriginUnknown)
 	newNetAddr := addr.networkAddress()
 	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
 
@@ -380,7 +380,7 @@ func AssertAddressConversion(c *gc.C, netAddr network.Address) {
 	for i := 0; i < size; i++ {
 		netAddrs[i] = netAddr
 	}
-	addrs := fromNetworkAddresses(netAddrs)
+	addrs := fromNetworkAddresses(netAddrs, OriginUnknown)
 	newNetAddrs := networkAddresses(addrs)
 	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
 }
