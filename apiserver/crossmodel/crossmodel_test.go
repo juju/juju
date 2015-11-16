@@ -33,7 +33,6 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	all := params.RemoteServiceOffers{[]params.RemoteServiceOffer{one}}
 
 	s.serviceBackend.addOffer = func(offer crossmodel.ServiceOffer) error {
-		//		stored = offer
 		c.Assert(offer, gc.DeepEquals, expectedOffer)
 		return nil
 	}

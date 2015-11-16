@@ -33,6 +33,7 @@ const (
 
 type baseCrossmodelSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
+	// This Suite is required at the moment as we cannot easily mock out a state.Service object.
 	jujutesting.JujuConnSuite
 
 	resources  *common.Resources

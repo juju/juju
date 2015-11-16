@@ -129,7 +129,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 		return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
 	}
 
-	endpoints, err := getEndpointsOnOffer(service, p.Endpoints)
+	endpoints, err := getServiceEndpoints(service, p.Endpoints)
 	if err != nil {
 		return crossmodel.ServiceOffer{}, errors.Trace(err)
 	}
@@ -151,7 +151,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 	return offer, nil
 }
 
-func getEndpointsOnOffer(service *state.Service, endpointNames []string) ([]charm.Relation, error) {
+func getServiceEndpoints(service *state.Service, endpointNames []string) ([]charm.Relation, error) {
 	result := make([]charm.Relation, len(endpointNames))
 	for i, endpointName := range endpointNames {
 		endpoint, err := service.Endpoint(endpointName)
