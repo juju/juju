@@ -33,15 +33,19 @@ Examples:
 type showCommand struct {
 	CrossModelCommandBase
 
-	url string
-	out cmd.Output
-	api ShowAPI
+	url        string
+	out        cmd.Output
+	newAPIFunc func() (ShowAPI, error)
 }
 
 // NewShowOfferedEndpointCommand constructs command that
 // allows to show details of offered service's endpoint.
 func NewShowOfferedEndpointCommand() cmd.Command {
-	return envcmd.Wrap(&showCommand{})
+	showCmd := &showCommand{}
+	showCmd.newAPIFunc = func() (ShowAPI, error) {
+		return showCmd.NewCrossModelAPI()
+	}
+	return envcmd.Wrap(showCmd)
 }
 
 // Init implements Command.Init.
@@ -79,16 +83,13 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	if c.api == nil {
-		api, err := getShowAPI(c)
-		if err != nil {
-			return err
-		}
-		defer api.Close()
-		c.api = api
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
-	found, err := c.api.Show(c.url)
+	found, err := api.Show(c.url)
 	if err != nil {
 		return err
 	}
@@ -104,10 +105,4 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 type ShowAPI interface {
 	Close() error
 	Show(url string) (params.ServiceOffer, error)
-}
-
-var getShowAPI = (*showCommand).getShowAPI
-
-func (c *showCommand) getShowAPI() (ShowAPI, error) {
-	return c.NewCrossModelAPI()
 }

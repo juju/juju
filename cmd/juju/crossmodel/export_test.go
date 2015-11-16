@@ -18,11 +18,15 @@ var (
 )
 
 func NewOfferCommandForTest(api OfferAPI) cmd.Command {
-	cmd := &offerCommand{api: api}
-	return envcmd.Wrap(cmd)
+	aCmd := &offerCommand{newAPIFunc: func() (OfferAPI, error) {
+		return api, nil
+	}}
+	return envcmd.Wrap(aCmd)
 }
 
 func NewShowEndpointsCommandForTest(api ShowAPI) cmd.Command {
-	cmd := &showCommand{api: api}
-	return envcmd.Wrap(cmd)
+	aCmd := &showCommand{newAPIFunc: func() (ShowAPI, error) {
+		return api, nil
+	}}
+	return envcmd.Wrap(aCmd)
 }
