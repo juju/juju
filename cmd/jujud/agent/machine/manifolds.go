@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/gate2"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
@@ -25,6 +26,9 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+
+	upgradesDoneManifold, upgradesDoneUnlocker := gate2.Manifold()
+
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -52,12 +56,40 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// caller to unblock this, indicating that any password dance has been
 		// completed and the log-sender can now connect without confusion.
 		apiInfoGateName: gate.Manifold(),
+
+		upgradesDoneName: upgradesDoneManifold,
+
+		// The gate unlocker gets passed directly to the manifold that unlocks it.
+		upgradeStepsName: upgradeSteps.Manifold(upgradeSteps.ManifoldConfig{
+			AgentName:            agentName,
+			APiCallerName:        apiCallerName,
+			UpgradesDoneUnlocker: upgradesDoneUnlocker,
+		},
+
+		// Some worker which needs to wait until upgrades are done
+		// gets told the name of the gate2 instance. In it's start
+		// func it would pull the gate2.Checker from the upgrades-done
+		// manifold and call IsUnlocked on it, exiting if it's not
+		// unlocked yet. It'll get restarted by the dependency engine
+		// once the gate is unlocked.
+		someWorker: someWorker.Manifold(someWorker.ManifoldConfig{
+			...,
+			UpgradesDoneName: upgradesDoneName,
+		},
 	}
 }
 
 const (
-	agentName       = "agent"
-	terminationName = "termination"
-	apiCallerName   = "api-caller"
-	apiInfoGateName = "api-info-gate"
+	agentName        = "agent"
+	terminationName  = "termination"
+	apiCallerName    = "api-caller"
+	apiInfoGateName  = "api-info-gate"
+	upgradesDoneName = "upgrades-done"
 )
+
+
+
+
+
+
+
