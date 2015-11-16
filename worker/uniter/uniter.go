@@ -197,7 +197,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	)
 
 	retryHookChan := make(chan struct{}, 1)
-	defer close(retryHookChan)
 
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
 		Min:    retryTimeMin,
@@ -208,6 +207,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			retryHookChan <- struct{}{}
 		},
 		Clock: clock.WallClock,
+	})
+	u.addCleanup(func() error {
+		// Stop any send that might be pending
+		// before closing the channel
+		retryHookTimer.Reset()
+		close(retryHookChan)
+		return nil
 	})
 
 	restartWatcher := func() error {

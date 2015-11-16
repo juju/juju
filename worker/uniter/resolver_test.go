@@ -48,9 +48,17 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), c.MkDir(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.clearResolved = func() error {
+		return errors.New("unexpected resolved")
+	}
+
+	s.reportHookError = func(hook.Info) error {
+		return errors.New("unexpected report hook error")
+	}
+
 	s.resolver = uniter.NewUniterResolver(uniter.ResolverConfig{
-		ClearResolved:       func() error { return errors.New("unexpected resolved") },
-		ReportHookError:     func(_ hook.Info) error { return errors.New("unexpected report hook error") },
+		ClearResolved:       func() error { return s.clearResolved() },
+		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
 		FixDeployer:         func() error { return nil },
 		StartRetryHookTimer: func() { s.stub.AddCall("startRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("stopRetryHookTimer") },
