@@ -69,12 +69,11 @@ func (s *mockStateAccess) addService(c *gc.C, factory jujutesting.JujuConnSuite,
 	s.services[name] = factory.AddTestingService(c, name, ch)
 
 	cfg, _ := mockEnvironConfig()
-	uuid, _ := cfg.UUID()
 	return crossmodel.ServiceOffer{
 		ServiceName:        name,
 		ServiceDescription: ch.Meta().Description,
 		SourceLabel:        cfg.Name(),
-		SourceEnvUUID:      uuid,
+		SourceEnvUUID:      s.EnvironUUID(),
 		Endpoints:          []charm.Relation{},
 	}
 }
