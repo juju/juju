@@ -859,6 +859,46 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
+func (s *withoutStateServerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(c *gc.C) {
+	// Add an empty space.
+	_, err := s.State.AddSpace("empty", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consEmptySpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=empty")
+	consMissingSpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=missing")
+	templates := []state.MachineTemplate{{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: consEmptySpace,
+		Placement:   "valid",
+	}, {
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: consMissingSpace,
+		Placement:   "valid",
+	}}
+	placementMachines, err := s.State.AddMachines(templates...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(placementMachines, gc.HasLen, 2)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachines[0].Tag().String()},
+		{Tag: placementMachines[1].Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedErrorEmptySpace := `cannot match subnets to zones: ` +
+		`cannot use space "empty" as deployment target: no subnets`
+	expectedErrorMissingSpace := `cannot match subnets to zones: ` +
+		`space "missing"` // " not found" will be appended by NotFoundError helper below.
+	expected := params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{
+		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
+		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
+	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
 	defer registry.RegisterProvider("dynamic", nil)
