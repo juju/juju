@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/model/crossmodel"
 )
 
-// serviceDirectory allows access to a locally hosted service directory.
+// serviceOffersAPI allows access to a locally hosted service directory.
 type serviceOffersAPI struct {
 	base.ClientFacade
 	facade base.FacadeCaller
@@ -35,7 +35,7 @@ type ServiceOffersAPI interface {
 
 // NewServiceOffers creates a new client for accessing a controller service directory API.
 func NewServiceOffers(st base.APICallCloser) ServiceOffersAPI {
-	frontend, backend := base.NewClientFacade(st, "ServiceDirectory")
+	frontend, backend := base.NewClientFacade(st, "ServiceOffers")
 	return &serviceOffersAPI{ClientFacade: frontend, facade: backend}
 }
 

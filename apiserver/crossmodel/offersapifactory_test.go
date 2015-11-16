@@ -23,7 +23,7 @@ var _ = gc.Suite(&serviceURLSuite{})
 func (s *serviceURLSuite) TestUnsupportedURL(c *gc.C) {
 	f, err := crossmodel.NewServiceAPIFactory(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = f.ServiceOffersForURL("vendor-test:/u/me/service")
+	_, err = f.ServiceOffers("unsupported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -33,7 +33,7 @@ func (s *serviceURLSuite) TestLocalURL(c *gc.C) {
 		func() jujucrossmodel.ServiceDirectory { return state.NewServiceDirectory(st) },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	api, err := f.ServiceOffersForURL("local:/u/me/service")
+	api, err := f.ServiceOffers("local")
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := api.(crossmodel.ServiceOffersAPI)
 	c.Assert(ok, jc.IsTrue)

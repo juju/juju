@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/model/crossmodel"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
 )
@@ -88,7 +89,11 @@ func (api *serviceOffersAPI) AddOffers(offers params.AddServiceOffers) (params.E
 
 	// TODO(wallyworld) - we assume for now that all offers are to the
 	// same backend ie all local or all to the same remote service directory.
-	serviceOffers, err := api.serviceOffersAPIFactory.ServiceOffersForURL(offers.Offers[0].ServiceURL)
+	directory, err := jujucrossmodel.ServiceDirectoryForURL(offers.Offers[0].ServiceURL)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	serviceOffers, err := api.serviceOffersAPIFactory.ServiceOffers(directory)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -154,10 +159,6 @@ func (so *localServiceOffers) AddOffers(offers params.AddServiceOffers) (params.
 
 	for i, offerParams := range offers.Offers {
 		offer, err := crossmodelapi.MakeOfferFromParams(offerParams.ServiceOffer)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

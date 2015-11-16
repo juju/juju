@@ -40,8 +40,7 @@ func (u *ServiceURL) String() string {
 
 var supportedURLSchemes = []string{
 	// TODO(wallyworld): just support local for now.
-	"local",       // for services hosted by a local service directory
-	"vendor-test", // for testing
+	"local", // for services hosted by a local service directory
 }
 
 // ParseServiceURL parses the specified URL string into a ServiceURL.
@@ -98,4 +97,14 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	result.ServiceName = parts[2]
 	return &result, nil
+}
+
+// ServiceDirectoryForURL returns a service directory name, used to look up services,
+// based on the specified URL.
+func ServiceDirectoryForURL(urlStr string) (string, error) {
+	url, err := ParseServiceURL(urlStr)
+	if err != nil {
+		return "", err
+	}
+	return url.Scheme, nil
 }

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/model/crossmodel"
@@ -84,4 +85,15 @@ func (s *ServiceURLSuite) TestParseURL(c *gc.C) {
 			c.Assert(url, gc.IsNil)
 		}
 	}
+}
+
+func (s *ServiceURLSuite) TestServiceDirectoryForURL(c *gc.C) {
+	dir, err := crossmodel.ServiceDirectoryForURL("local:/u/me/service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dir, gc.Equals, "local")
+}
+
+func (s *ServiceURLSuite) TestServiceDirectoryForURLError(c *gc.C) {
+	_, err := crossmodel.ServiceDirectoryForURL("error")
+	c.Assert(err, gc.ErrorMatches, "service URL has invalid form.*")
 }
