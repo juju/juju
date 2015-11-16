@@ -8,7 +8,6 @@ package crossmodel
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,13 +24,13 @@ func init() {
 // implementation of the api end point.
 type API struct {
 	authorizer common.Authorizer
-	directory  crossmodel.ServiceDirectory
+	backend    ServicesBackend
 	access     stateAccess
 }
 
 // createAPI returns a new cross model API facade.
 func createAPI(
-	directory crossmodel.ServiceDirectory,
+	backend ServicesBackend,
 	access stateAccess,
 	resources *common.Resources,
 	authorizer common.Authorizer,
@@ -42,7 +41,7 @@ func createAPI(
 
 	return &API{
 		authorizer: authorizer,
-		directory:  directory,
+		backend:    backend,
 		access:     access,
 	}, nil
 }
@@ -53,11 +52,7 @@ func NewAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return createAPI(serviceDirectory(st), getStateAccess(st), resources, authorizer)
-}
-
-func serviceDirectory(st *state.State) crossmodel.ServiceDirectory {
-	return state.NewServiceDirectory(st)
+	return createAPI(&servicesBackendStub{}, getStateAccess(st), resources, authorizer)
 }
 
 // Offer makes service endpoints available for consumption.
@@ -78,7 +73,7 @@ func (api *API) Offer(all params.RemoteServiceOffers) (params.ErrorResults, erro
 		offer.SourceLabel = cfg.Name()
 		offer.SourceEnvUUID = api.access.EnvironUUID()
 
-		if err := api.directory.AddOffer(offer); err != nil {
+		if err := api.backend.AddOffer(offer); err != nil {
 			offers[i].Error = common.ServerError(err)
 		}
 	}
@@ -98,7 +93,7 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 		filters[i].ServiceURL = one
 	}
 
-	found, err := api.directory.ListOffers(filters...)
+	found, err := api.backend.ListOffers(filters...)
 	if err != nil {
 		return params.RemoteServiceResults{}, errors.Trace(err)
 	}
@@ -134,7 +129,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 		return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
 	}
 
-	endpoints, err := getEndpointsOnOffer(service, set.NewStrings(p.Endpoints...))
+	endpoints, err := getEndpointsOnOffer(service, p.Endpoints)
 	if err != nil {
 		return crossmodel.ServiceOffer{}, errors.Trace(err)
 	}
@@ -156,22 +151,14 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 	return offer, nil
 }
 
-func getEndpointsOnOffer(service *state.Service, endpointNames set.Strings) ([]charm.Relation, error) {
-	rs, err := service.Relations()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting relations for service %v", service.Name())
-	}
-	result := []charm.Relation{}
-	for _, r := range rs {
-		endpoint, err := r.Endpoint(service.Name())
+func getEndpointsOnOffer(service *state.Service, endpointNames []string) ([]charm.Relation, error) {
+	result := make([]charm.Relation, len(endpointNames))
+	for i, endpointName := range endpointNames {
+		endpoint, err := service.Endpoint(endpointName)
 		if err != nil {
-			// TODO (anastasiamac 2015-11-13) I am not convinced that we care about this error here
-			// as it might be related to an endpoint that we are not exporting anyway...
-			return nil, errors.Annotatef(err, "getting relation endpoint for relation %v and service %v", r, service.Name())
+			return nil, errors.Annotatef(err, "getting relation endpoint for relation %v and service %v", endpointName, service.Name())
 		}
-		if endpointNames.Contains(endpoint.Name) {
-			result = append(result, endpoint.Relation)
-		}
+		result[i] = endpoint.Relation
 	}
 	return result, nil
 }
@@ -199,4 +186,26 @@ func convertServiceOffer(c crossmodel.ServiceOffer) params.ServiceOffer {
 		Endpoints:          endpoints,
 		ServiceDescription: c.ServiceDescription,
 	}
+}
+
+// A ServicesBackend holds interface that this api requires.
+// TODO (anastasiamac 2015-11-16) this may change as back-end actually materializes.
+type ServicesBackend interface {
+
+	// AddOffer adds a new service offer to the directory.
+	AddOffer(offer crossmodel.ServiceOffer) error
+
+	// List offers returns the offers satisfying the specified filter.
+	ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+}
+
+// TODO (anastasiamac 2015-11-16) Remove me when backend is done
+type servicesBackendStub struct{}
+
+func (e *servicesBackendStub) AddOffer(offer crossmodel.ServiceOffer) error {
+	return nil
+}
+
+func (e *servicesBackendStub) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	return nil, nil
 }

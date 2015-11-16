@@ -32,7 +32,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	}
 	all := params.RemoteServiceOffers{[]params.RemoteServiceOffer{one}}
 
-	s.serviceDirectory.addOffer = func(offer crossmodel.ServiceOffer) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.ServiceOffer) error {
 		//		stored = offer
 		c.Assert(offer, gc.DeepEquals, expectedOffer)
 		return nil
@@ -42,7 +42,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
-	s.serviceDirectory.CheckCallNames(c, addOfferCall)
+	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
 	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
@@ -56,7 +56,7 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 
 	msg := "fail"
 
-	s.serviceDirectory.addOffer = func(offer crossmodel.ServiceOffer) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.ServiceOffer) error {
 		return errors.New(msg)
 	}
 
@@ -64,7 +64,7 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	s.serviceDirectory.CheckCallNames(c, addOfferCall)
+	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
 	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
@@ -75,7 +75,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	filter := params.ShowFilter{[]string{url}}
 	anOffer := crossmodel.ServiceOffer{ServiceName: serviceName, ServiceURL: url}
 
-	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{anOffer}, nil
 	}
 
@@ -89,7 +89,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 				SourceEnvironTag: "environment-",
 				Endpoints:        []params.RemoteEndpoint{}}},
 		}})
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowError(c *gc.C) {
@@ -97,21 +97,21 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	filter := params.ShowFilter{[]string{url}}
 	msg := "fail"
 
-	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, errors.New(msg)
 	}
 
 	found, err := s.api.Show(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	c.Assert(found.Results, gc.HasLen, 0)
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
 	filter := params.ShowFilter{urls}
 
-	s.serviceDirectory.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, nil
 	}
 
@@ -119,14 +119,14 @@ func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/hosted-db2", "local:/u/fred/hosted-db2"}
 	filter := params.ShowFilter{urls}
 
-	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return nil, nil
 	}
 
@@ -135,14 +135,14 @@ func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`service URL has invalid form: %q`, urls[0]))
 	c.Assert(found.Results[1].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[1]))
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
 	filter := params.ShowFilter{urls}
 
-	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{}, nil
 	}
 
@@ -150,7 +150,7 @@ func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 
 	filter := params.ShowFilter{[]string{url, url2}}
 
-	s.serviceDirectory.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	s.serviceBackend.listOffers = func(f ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 		return []crossmodel.ServiceOffer{anOffer, anOffer2}, nil
 	}
 
@@ -183,5 +183,5 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 				SourceEnvironTag: "environment-",
 				Endpoints:        []params.RemoteEndpoint{}}},
 		}})
-	s.serviceDirectory.CheckCallNames(c, listOffersCall)
+	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }

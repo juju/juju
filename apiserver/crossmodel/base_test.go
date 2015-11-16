@@ -23,6 +23,9 @@ import (
 )
 
 const (
+	addOfferBackendCall   = "addOfferBackendCall"
+	listOffersBackendCall = "listOffersBackendCall"
+
 	serviceCall       = "serviceCall"
 	environConfigCall = "environConfigCall"
 	environUUIDCall   = "environUUIDCall"
@@ -37,8 +40,8 @@ type baseCrossmodelSuite struct {
 
 	api *apicrossmodel.API
 
-	serviceDirectory *mockServiceDirectory
-	stateAccess      *mockStateAccess
+	serviceBackend *mockServiceBackend
+	stateAccess    *mockStateAccess
 }
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
@@ -46,12 +49,29 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
-	s.serviceDirectory = &mockServiceDirectory{}
+	s.serviceBackend = &mockServiceBackend{}
 	s.stateAccess = &mockStateAccess{}
 
 	var err error
-	s.api, err = apicrossmodel.CreateAPI(s.serviceDirectory, s.stateAccess, s.resources, s.authorizer)
+	s.api, err = apicrossmodel.CreateAPI(s.serviceBackend, s.stateAccess, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type mockServiceBackend struct {
+	jtesting.Stub
+
+	addOffer   func(offer crossmodel.ServiceOffer) error
+	listOffers func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+}
+
+func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
+	m.AddCall(addOfferBackendCall)
+	return m.addOffer(offer)
+}
+
+func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	m.AddCall(listOffersBackendCall)
+	return m.listOffers(filters...)
 }
 
 type mockStateAccess struct {
