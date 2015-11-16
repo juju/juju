@@ -33,6 +33,7 @@ type uniterResolver struct {
 	retryHookTimerStarted bool
 }
 
+// NewUniterResolver returns a new resolver.Resolver for the uniter.
 func NewUniterResolver(cfg ResolverConfig) resolver.Resolver {
 	return &uniterResolver{cfg}
 }
