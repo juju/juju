@@ -43,6 +43,8 @@ import (
 const (
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
+	// The string from the api indicating the dynamic range.
+	dynamicRange = "dyanmic-range"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -1659,9 +1661,24 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	// XXX initialise to low and high bounds of CIDR
-	lowBound := uint32(0)
-	highBound := uint32(0)
+
+	// Initialize the low and high bounds of the allocatable range to the
+	// whole CIDR. Reduce the scope of this when we find the dynamic range.
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	lowBound, err := network.IPv4ToDecimal(ip)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	// Don't include the zero address in the allocatable bounds.
+	lowBound = lowBound + 1
+	ones, bits := ipnet.Mask.Size()
+	zeros := bits - ones
+	numIPs := uint32(1) << uint32(zeros)
+	highBound := lowBound + numIPs - 1
 	for _, jsonRange := range jsonRanges {
 		rangeMap, err := jsonRange.GetMap()
 		if err != nil {
@@ -1677,7 +1694,7 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 			if err != nil {
 				return "", "", errors.Trace(err)
 			}
-			if purpose == "dynamic-range" {
+			if purpose == dynamicRange {
 				found = true
 				break
 			}
@@ -1695,15 +1712,22 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		if err != nil {
 			return "", "", errors.Trace(err)
 		}
-		lowBound, err = network.IPv4ToDecimal(net.IP(start))
+		dynamicLow, err := network.IPv4ToDecimal(net.IP(start))
 		if err != nil {
 			return "", "", err
 		}
-		highBound, err = network.IPv4ToDecimal(net.IP(end))
+		dynamicHigh, err := network.IPv4ToDecimal(net.IP(end))
 		if err != nil {
 			return "", "", err
 		}
-
+		above := highBound - dynamicHigh
+		below := dynamicLow - lowBound
+		if above > below {
+			lowBound = dynamicHigh
+		} else {
+			highBound = dynamicLow
+		}
+		break
 	}
 	return network.DecimalToIPv4(lowBound).String(), network.DecimalToIPv4(highBound).String(), nil
 }
