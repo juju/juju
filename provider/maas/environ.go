@@ -1650,28 +1650,28 @@ func (environ *maasEnviron) nodeOnSubnet(nodeId string, subnetId string) (bool, 
 
 // Deduce the allocatable portion of the subnet by subtracting the dynamic
 // range from the full subnet range.
-func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId string) (string, string, error) {
+func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId string) (net.IP, net.IP, error) {
 	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
 
 	json, err := client.CallGet("unreserved_ranges", nil)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	jsonRanges, err := json.GetArray()
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Initialize the low and high bounds of the allocatable range to the
 	// whole CIDR. Reduce the scope of this when we find the dynamic range.
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	lowBound, err := network.IPv4ToDecimal(ip)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	// Don't include the zero address in the allocatable bounds.
 	lowBound = lowBound + 1
@@ -1682,17 +1682,17 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	for _, jsonRange := range jsonRanges {
 		rangeMap, err := jsonRange.GetMap()
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		purposeArray, err := rangeMap["purpose"].GetArray()
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		found := false
 		for _, jsonPurpose := range purposeArray {
 			purpose, err := jsonPurpose.GetString()
 			if err != nil {
-				return "", "", errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 			if purpose == dynamicRange {
 				found = true
@@ -1706,19 +1706,19 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 
 		start, err := rangeMap["start"].GetString()
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		end, err := rangeMap["end"].GetString()
 		if err != nil {
-			return "", "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		dynamicLow, err := network.IPv4ToDecimal(net.IP(start))
 		if err != nil {
-			return "", "", err
+			return nil, nil, err
 		}
 		dynamicHigh, err := network.IPv4ToDecimal(net.IP(end))
 		if err != nil {
-			return "", "", err
+			return nil, nil, err
 		}
 		above := highBound - dynamicHigh
 		below := dynamicLow - lowBound
@@ -1729,7 +1729,7 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		}
 		break
 	}
-	return network.DecimalToIPv4(lowBound).String(), network.DecimalToIPv4(highBound).String(), nil
+	return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
 }
 
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
@@ -1797,12 +1797,18 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 			}
 			vid = int(vidFloat)
 		}
+		allocatableLow, allocatableHigh, err := environ.allocatableRangeForSubnet(cidr, subnetId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		subnets[i] = network.SubnetInfo{
-			ProviderId: network.Id(subnetId),
-			VLANTag:    vid,
-			CIDR:       cidr,
-			SpaceName:  spaceName,
+			ProviderId:        network.Id(subnetId),
+			VLANTag:           vid,
+			CIDR:              cidr,
+			SpaceName:         spaceName,
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
 		}
 	}
 	logger.Debugf("instance %q has subnets %v", instId, subnets)
