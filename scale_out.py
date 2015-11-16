@@ -41,7 +41,7 @@ def scaleout_setup(args):
             client,
             args.bootstrap_host,
             args.machine,
-            args.series,
+            series,
             args.agent_url,
             args.agent_stream,
             args.logs, args.keep_env,
