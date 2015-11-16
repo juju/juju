@@ -43,7 +43,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	s.serviceDirectory.CheckCallNames(c, addOfferCall)
-	s.stateAccess.CheckCallNames(c, environConfigCall, serviceCall, environUUIDCall)
+	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
@@ -65,7 +65,7 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.serviceDirectory.CheckCallNames(c, addOfferCall)
-	s.stateAccess.CheckCallNames(c, environConfigCall, serviceCall, environUUIDCall)
+	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {

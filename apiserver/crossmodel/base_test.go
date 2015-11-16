@@ -95,20 +95,12 @@ func (s *mockStateAccess) EnvironConfig() (*config.Config, error) {
 
 func (s *mockStateAccess) EnvironUUID() string {
 	s.AddCall(environUUIDCall)
-
-	cfg, err := mockEnvironConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	uuid, _ := cfg.UUID()
-	return uuid
+	return "env_uuid"
 }
 
 func mockEnvironConfig() (*config.Config, error) {
 	mockCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"type": "mock",
 	})
-
 	return config.New(config.NoDefaults, mockCfg)
 }
