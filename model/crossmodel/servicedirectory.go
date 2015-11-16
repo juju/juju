@@ -20,7 +20,7 @@ func ServiceOfferForURL(offers ServiceOfferLister, urlStr string, user string) (
 		return ServiceOffer{}, err
 	}
 	results, err := offers.ListOffers(
-		url.Scheme,
+		url.Directory,
 		ServiceOfferFilter{
 			ServiceOffer: ServiceOffer{
 				ServiceURL: urlStr,
