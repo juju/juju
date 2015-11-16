@@ -1126,20 +1126,12 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownOrEmptySpaces(c *gc.C) {
-	consMissingSpace := constraints.MustParse(
-		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
-	)
-	machineEmptySpace, err := s.addMachineWithConstraints(consMissingSpace)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.AddSpace("empty", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	consEmptySpace := constraints.MustParse(
-		s.defaultConstraints.String(), "spaces=empty",
-	)
-	machineMissingSpace, err := s.addMachineWithConstraints(consEmptySpace)
+func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints(
+	c *gc.C,
+	cons constraints.Value,
+	expectedErrorStatus string,
+) {
+	machine, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the PA.
@@ -1152,29 +1144,14 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownOrEmptySpaces
 	// Ensure machine error status was set.
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
-		// And check both machines' status is set to error.
-		statusInfoMissingSpace, err := machineMissingSpace.Status()
+		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfoMissingSpace.Status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfoMissingSpace.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfoMissingSpace.Message, gc.Equals,
-			`cannot match subnets to zones: space "missing" not found`,
-		)
-
-		statusInfoEmptySpace, err := machineEmptySpace.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfoEmptySpace.Status == state.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfoEmptySpace.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfoEmptySpace.Message, gc.Equals,
-			`cannot match subnets to zones: `+
-				`cannot use space "empty" as deployment targer: no subnets`,
-		)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
 
@@ -1195,6 +1172,25 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownOrEmptySpaces
 	defer stop(c, p)
 
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: space "missing" not found`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C) {
+	_, err := s.State.AddSpace("empty", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=empty",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: ` +
+		`cannot use space "empty" as deployment target: no subnets`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
