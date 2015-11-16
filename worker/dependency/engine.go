@@ -411,11 +411,17 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		select {
 		case <-engine.tomb.Dying():
 			logger.Tracef("stopping %q manifold worker (shutting down)", name)
+			// Doesn't matter whether worker == engine: if we're already Dying
+			// then cleanly Kill()ing ourselves again won't hurt anything.
 			worker.Kill()
 		case engine.started <- startedTicket{name, worker, resourceGetter.accessLog}:
 			logger.Tracef("registered %q manifold worker", name)
 		}
 		if worker == engine {
+			// We mustn't Wait() for ourselves to complete here, or we'll
+			// deadlock. But we should wait until we're Dying, because we
+			// need this func to keep running to keep the self manifold
+			// accessible as a resource.
 			<-engine.tomb.Dying()
 			return tomb.ErrDying
 		}
