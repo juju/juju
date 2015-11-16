@@ -16,6 +16,7 @@ from deploy_stack import (
     deploy_dummy_stack,
     dump_env_logs,
     get_random_string,
+    safe_print_status,
     )
 from jujupy import (
     EnvJujuClient,
@@ -115,6 +116,7 @@ def hosted_environment(system_client, log_dir, suffix):
                 client.env.environment))
         sys.exit(1)
     finally:
+        safe_print_status(client)
         dump_env_logs(client, None, os.path.join(log_dir, suffix))
         client.destroy_environment(force=False)
 
