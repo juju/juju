@@ -4,7 +4,6 @@
 package crossmodel_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,12 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/model/crossmodel"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -42,7 +37,20 @@ type baseCrossmodelSuite struct {
 	api *apicrossmodel.API
 
 	serviceBackend *mockServiceBackend
-	stateAccess    *mockStateAccess
+}
+
+func (s *baseCrossmodelSuite) addService(c *gc.C, name string) crossmodel.ServiceOffer {
+	ch := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingService(c, name, ch)
+
+	cfg, _ := s.State.EnvironConfig()
+	return crossmodel.ServiceOffer{
+		ServiceName:        name,
+		ServiceDescription: ch.Meta().Description,
+		SourceLabel:        cfg.Name(),
+		SourceEnvUUID:      s.State.EnvironUUID(),
+		Endpoints:          []charm.Relation{},
+	}
 }
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
@@ -51,10 +59,9 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
 	s.serviceBackend = &mockServiceBackend{}
-	s.stateAccess = &mockStateAccess{}
 
 	var err error
-	s.api, err = apicrossmodel.CreateAPI(s.serviceBackend, s.stateAccess, s.resources, s.authorizer)
+	s.api, err = apicrossmodel.CreateAPI(s.serviceBackend, s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -73,55 +80,4 @@ func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
 func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	m.AddCall(listOffersBackendCall)
 	return m.listOffers(filters...)
-}
-
-type mockStateAccess struct {
-	jtesting.Stub
-
-	services map[string]*state.Service
-}
-
-func (s *mockStateAccess) addService(c *gc.C, factory jujutesting.JujuConnSuite, name string) crossmodel.ServiceOffer {
-	ch := factory.AddTestingCharm(c, "wordpress")
-
-	if s.services == nil {
-		s.services = make(map[string]*state.Service)
-	}
-	s.services[name] = factory.AddTestingService(c, name, ch)
-
-	cfg, _ := mockEnvironConfig()
-	return crossmodel.ServiceOffer{
-		ServiceName:        name,
-		ServiceDescription: ch.Meta().Description,
-		SourceLabel:        cfg.Name(),
-		SourceEnvUUID:      s.EnvironUUID(),
-		Endpoints:          []charm.Relation{},
-	}
-}
-
-func (s *mockStateAccess) Service(name string) (*state.Service, error) {
-	s.AddCall(serviceCall)
-
-	service, ok := s.services[name]
-	if !ok {
-		return nil, errors.Errorf("cannot get service %q", name)
-	}
-	return service, nil
-}
-
-func (s *mockStateAccess) EnvironConfig() (*config.Config, error) {
-	s.AddCall(environConfigCall)
-	return mockEnvironConfig()
-}
-
-func (s *mockStateAccess) EnvironUUID() string {
-	s.AddCall(environUUIDCall)
-	return "env_uuid"
-}
-
-func mockEnvironConfig() (*config.Config, error) {
-	mockCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
-		"type": "mock",
-	})
-	return config.New(config.NoDefaults, mockCfg)
 }

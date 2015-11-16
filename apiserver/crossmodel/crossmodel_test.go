@@ -26,7 +26,7 @@ func (s *crossmodelSuite) SetUpTest(c *gc.C) {
 
 func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	serviceName := "test"
-	expectedOffer := s.stateAccess.addService(c, s.JujuConnSuite, serviceName)
+	expectedOffer := s.addService(c, serviceName)
 	one := params.RemoteServiceOffer{
 		ServiceName: serviceName,
 	}
@@ -42,12 +42,11 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
-	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	serviceName := "test"
-	s.stateAccess.addService(c, s.JujuConnSuite, serviceName)
+	s.addService(c, serviceName)
 	one := params.RemoteServiceOffer{
 		ServiceName: serviceName,
 	}
@@ -64,7 +63,6 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
-	s.stateAccess.CheckCallNames(c, environUUIDCall, environConfigCall, serviceCall, environUUIDCall)
 }
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {
