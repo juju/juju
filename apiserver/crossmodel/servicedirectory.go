@@ -15,50 +15,100 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("ServiceDirectory", 1, newServiceDirectoryAPI)
+	common.RegisterStandardFacade("ServiceOffers", 1, newServiceOffersAPI)
 }
 
-// API implements the cross model interface and is the concrete
+// ServiceOffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
-type ServiceDirectoryAPI struct {
-	authorizer       common.Authorizer
-	serviceDirectory crossmodel.ServiceDirectory
+type ServiceOffersAPI interface {
+	// AddOffers adds new service offerings to a directory, able to be consumed by
+	// the specified users.
+	AddOffers(offers params.AddServiceOffers) (params.ErrorResults, error)
+
+	// ListOffers returns offers matching the filter from a service directory.
+	ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error)
+}
+
+type serviceOffersAPI struct {
+	authorizer        common.Authorizer
+	serviceAPIFactory ServiceAPIFactory
+	// TODO(wallyworld) - add component to handle permissions.
 }
 
 // createServiceDirectoryAPI returns a new cross model API facade.
-func createServiceDirectoryAPI(
-	serviceDirectory crossmodel.ServiceDirectory,
+func createServiceOffersAPI(
+	serviceAPIFactory ServiceAPIFactory,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*ServiceDirectoryAPI, error) {
+) (ServiceOffersAPI, error) {
 	if !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 
-	return &ServiceDirectoryAPI{
-		authorizer:       authorizer,
-		serviceDirectory: serviceDirectory,
+	return &serviceOffersAPI{
+		authorizer:        authorizer,
+		serviceAPIFactory: serviceAPIFactory,
 	}, nil
 }
 
-func newServiceDirectoryAPI(
+func newServiceOffersAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*ServiceDirectoryAPI, error) {
-	return createServiceDirectoryAPI(state.NewServiceDirectory(st), resources, authorizer)
+) (ServiceOffersAPI, error) {
+	apiFactory, err := newServiceAPIFactory(func() crossmodel.ServiceDirectory {
+		return state.NewServiceDirectory(st)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return createServiceOffersAPI(apiFactory, resources, authorizer)
 }
 
 // TODO(wallyworld) - add Remove() and Update()
 
 // ListOffers returns offers matching the filter from a service directory.
-func (api *ServiceDirectoryAPI) ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error) {
+func (api *serviceOffersAPI) ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error) {
+	if filters.Directory == "" {
+		return params.ServiceOfferResults{}, errors.New("service directory must be specified")
+	}
+	serviceDirectory, err := api.serviceAPIFactory.ServiceDirectory(filters.Directory)
+	if err != nil {
+		return params.ServiceOfferResults{}, err
+	}
+	return serviceDirectory.ListOffers(filters)
+}
+
+// AddOffers adds new service offerings to a directory, able to be consumed by
+// the specified users.
+func (api *serviceOffersAPI) AddOffers(offers params.AddServiceOffers) (params.ErrorResults, error) {
+	if len(offers.Offers) == 0 {
+		return params.ErrorResults{}, nil
+	}
+
+	// TODO(wallyworld) - we assume for now that all offers are to the
+	// same backend ie all local or all to the same remote service directory.
+	serviceDirectory, err := api.serviceAPIFactory.ServiceDirectoryForURL(offers.Offers[0].ServiceURL)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	return serviceDirectory.AddOffers(offers)
+}
+
+// localServiceOffers provides access to service offers hosted within
+// a local controller.
+type localServiceOffers struct {
+	serviceDirectory crossmodel.ServiceDirectory
+}
+
+// ListOffers returns offers matching the filter from a service directory.
+func (so *localServiceOffers) ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error) {
 	var result params.ServiceOfferResults
 	offerFilters, err := makeOfferFilterFromParams(filters.Filters)
 	if err != nil {
 		return result, err
 	}
-	offers, err := api.serviceDirectory.ListOffers(offerFilters...)
+	offers, err := so.serviceDirectory.ListOffers(offerFilters...)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -94,7 +144,7 @@ func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.Servi
 
 // AddOffers adds new service offerings to a directory, able to be consumed by
 // the specified users.
-func (api *ServiceDirectoryAPI) AddOffers(offers params.AddServiceOffers) (params.ErrorResults, error) {
+func (so *localServiceOffers) AddOffers(offers params.AddServiceOffers) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(offers.Offers)),
 	}
@@ -108,7 +158,11 @@ func (api *ServiceDirectoryAPI) AddOffers(offers params.AddServiceOffers) (param
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.serviceDirectory.AddOffer(offer); err != nil {
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := so.serviceDirectory.AddOffer(offer); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}

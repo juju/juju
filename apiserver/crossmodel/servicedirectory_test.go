@@ -26,7 +26,7 @@ type serviceDirectorySuite struct {
 	resources  *common.Resources
 	authoriser testing.FakeAuthorizer
 
-	api              *crossmodel.ServiceDirectoryAPI
+	api              crossmodel.ServiceOffersAPI
 	calls            []string
 	serviceDirectory *mockServiceDirectory
 	offers           map[string]jujucrossmodel.ServiceOffer
@@ -64,7 +64,11 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 	s.serviceDirectory = s.constructServiceDirectory()
 
 	var err error
-	s.api, err = crossmodel.CreateServiceDirectoryAPI(s.serviceDirectory, s.resources, s.authoriser)
+	serviceAPIFactory, err := crossmodel.NewServiceAPIFactory(
+		func() jujucrossmodel.ServiceDirectory { return s.serviceDirectory },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api, err = crossmodel.CreateServiceOffersAPI(serviceAPIFactory, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -141,6 +145,7 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 		SourceEnvUUID: fakeUUID,
 	}
 	results, err := s.api.ListOffers(params.OfferFilters{
+		Directory: "local",
 		Filters: []params.OfferFilter{
 			{
 				ServiceURL: "local:/u/user/name",
@@ -163,8 +168,13 @@ func (s *serviceDirectorySuite) TestListOffersError(c *gc.C) {
 		s.calls = append(s.calls, "listoffers")
 		return nil, errors.New("error")
 	}
-	result, err := s.api.ListOffers(params.OfferFilters{})
+	result, err := s.api.ListOffers(params.OfferFilters{Directory: "local"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.ErrorMatches, "error")
 	s.assertCalls(c, []string{"listoffers"})
+}
+
+func (s *serviceDirectorySuite) TestListOffersNoDirectory(c *gc.C) {
+	_, err := s.api.ListOffers(params.OfferFilters{})
+	c.Assert(err, gc.ErrorMatches, "service directory must be specified")
 }

@@ -22,7 +22,7 @@ type mockServiceOfferLister struct {
 	results []crossmodel.ServiceOffer
 }
 
-func (m *mockServiceOfferLister) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (m *mockServiceOfferLister) ListOffers(directory string, filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
 	return m.results, nil
 }
 

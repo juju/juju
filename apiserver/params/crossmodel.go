@@ -38,7 +38,8 @@ type EndpointFilterAttributes struct {
 // OfferFilters is used to query offers in a service directory.
 // Offers matching any of the filters are returned.
 type OfferFilters struct {
-	Filters []OfferFilter
+	Directory string
+	Filters   []OfferFilter
 }
 
 // OfferFilter is used to query offers in a service directory.

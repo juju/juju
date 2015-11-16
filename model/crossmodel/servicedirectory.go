@@ -8,20 +8,22 @@ import (
 )
 
 type ServiceOfferLister interface {
-	// List offers returns the offers satisfying the specified filter.
-	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
+	// List offers returns the offers from the specified directory satisfying the specified filter.
+	ListOffers(directory string, filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 }
 
 // ServiceOfferForURL returns a service offer for the specified URL
 // so long as the specified user has been granted access to use that offer.
-func ServiceOfferForURL(offers ServiceOfferLister, url string, user string) (ServiceOffer, error) {
-	if _, err := ParseServiceURL(url); err != nil {
+func ServiceOfferForURL(offers ServiceOfferLister, urlStr string, user string) (ServiceOffer, error) {
+	url, err := ParseServiceURL(urlStr)
+	if err != nil {
 		return ServiceOffer{}, err
 	}
 	results, err := offers.ListOffers(
+		url.Scheme,
 		ServiceOfferFilter{
 			ServiceOffer: ServiceOffer{
-				ServiceURL: url,
+				ServiceURL: urlStr,
 			},
 			AllowedUsers: []string{user},
 		},
