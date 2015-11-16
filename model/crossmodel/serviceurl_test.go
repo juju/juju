@@ -63,6 +63,9 @@ var urlTests = []struct {
 }, {
 	s:   ":foo",
 	err: `cannot parse service URL: $URL`,
+}, {
+	s:   "local:/u/fred/prod/db2",
+	err: `service URL has invalid form: $URL`,
 }}
 
 func (s *ServiceURLSuite) TestParseURL(c *gc.C) {

@@ -7,27 +7,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
-// TODO (wallyworld) - use the ServiceOffer struct below
-// CrossModelOffer holds information about service's offer.
-type CrossModelOffer struct {
-	// Service has service's tag.
-	Service string `json:"service"`
-
-	// Endpoints list of service's endpoints that are being offered.
-	Endpoints []string `json:"endpoints"`
-
-	// URL is the location where these endpoints will be accessible from.
-	URL string `json:"url"`
-
-	// Users is the list of user tags that are given permission to these endpoints.
-	Users []string `json:"users"`
-}
-
-// CrossModelOffers holds cross model relations offers..
-type CrossModelOffers struct {
-	Offers []CrossModelOffer `json:"offers"`
-}
-
 // EndpointFilterAttributes is used to filter offers matching the
 // specified endpoint criteria.
 type EndpointFilterAttributes struct {
@@ -89,4 +68,47 @@ type RemoteEndpoint struct {
 	Interface string              `json:"interface"`
 	Limit     int                 `json:"limit"`
 	Scope     charm.RelationScope `json:"scope"`
+}
+
+// RemoteServiceOffer is used to offer remote service.
+type RemoteServiceOffer struct {
+	// ServiceURL may contain user supplied service url.
+	ServiceURL string `json:"serviceurl,omitempty"`
+
+	// ServiceName contains name of service being offered.
+	ServiceName string `json:"servicename"`
+
+	// Description is description for the offered service.
+	// For now, this defaults to description provided in the charm or
+	// is supplied by the user.
+	ServiceDescription string `json:"servicedescription"`
+
+	// Endpoints contains offered service endpoints.
+	Endpoints []string `json:"endpoints"`
+
+	// AllowedUserTags contains tags of users that are allowed to use this offered service.
+	AllowedUserTags []string `json:"allowedusers"`
+}
+
+// RemoteServiceOffers contains a collection of offers to allow adding offers in bulk.
+type RemoteServiceOffers struct {
+	Offers []RemoteServiceOffer `json:"offers"`
+}
+
+// RemoteServiceResult is a result of listing a remote service offer.
+type RemoteServiceResult struct {
+	// Result contains service offer information.
+	Result ServiceOffer `json:"result,omitempty"`
+
+	// Error contains related error.
+	Error *Error `json:"error,omitempty"`
+}
+
+// RemoteServiceResults is a result of listing remote service offers.
+type RemoteServiceResults struct {
+	Results []RemoteServiceResult `json:"results,omitempty"`
+}
+
+type ShowFilter struct {
+	URLs []string `json:"urls,omitempty"`
 }

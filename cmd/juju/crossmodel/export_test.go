@@ -9,7 +9,24 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
+var (
+	Max          = max
+	DescAt       = descAt
+	BreakLines   = breakLines
+	ColumnWidth  = columnWidth
+	BreakOneWord = breakOneWord
+)
+
 func NewOfferCommandForTest(api OfferAPI) cmd.Command {
-	cmd := &offerCommand{api: api}
-	return envcmd.Wrap(cmd)
+	aCmd := &offerCommand{newAPIFunc: func() (OfferAPI, error) {
+		return api, nil
+	}}
+	return envcmd.Wrap(aCmd)
+}
+
+func NewShowEndpointsCommandForTest(api ShowAPI) cmd.Command {
+	aCmd := &showCommand{newAPIFunc: func() (ShowAPI, error) {
+		return api, nil
+	}}
+	return envcmd.Wrap(aCmd)
 }

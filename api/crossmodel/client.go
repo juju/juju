@@ -26,14 +26,40 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares service's endpoints for consumption.
-func (c *Client) Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error) {
-	offers := []params.CrossModelOffer{
-		params.CrossModelOffer{service, endpoints, url, users},
+func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
+	offers := []params.RemoteServiceOffer{
+		params.RemoteServiceOffer{
+			ServiceName:        service,
+			ServiceDescription: desc,
+			Endpoints:          endpoints,
+			ServiceURL:         url,
+			AllowedUserTags:    users,
+		},
 	}
-
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.CrossModelOffers{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall("Offer", params.RemoteServiceOffers{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
+}
+
+// Show returns offered remote service details for a given URL.
+func (c *Client) Show(url string) (params.ServiceOffer, error) {
+	found := params.RemoteServiceResults{}
+
+	err := c.facade.FacadeCall("Show", []string{url}, &found)
+	if err != nil {
+		return params.ServiceOffer{}, errors.Trace(err)
+	}
+
+	result := found.Results
+	if len(result) != 1 {
+		return params.ServiceOffer{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return params.ServiceOffer{}, errors.Trace(theOne.Error)
+	}
+	return theOne.Result, nil
 }

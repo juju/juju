@@ -49,12 +49,16 @@ endpoint-url    For local endpoints:
 
 // NewOfferCommand constructs commands that enables endpoints for export.
 func NewOfferCommand() cmd.Command {
-	return envcmd.Wrap(&offerCommand{})
+	offerCmd := &offerCommand{}
+	offerCmd.newAPIFunc = func() (OfferAPI, error) {
+		return offerCmd.NewCrossModelAPI()
+	}
+	return envcmd.Wrap(offerCmd)
 }
 
 type offerCommand struct {
 	CrossModelCommandBase
-	api OfferAPI
+	newAPIFunc func() (OfferAPI, error)
 
 	// Service stores service tag.
 	Service string
@@ -111,14 +115,11 @@ func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *offerCommand) Run(_ *cmd.Context) error {
-	if c.api == nil {
-		api, err := getOfferAPI(c)
-		if err != nil {
-			return err
-		}
-		defer api.Close()
-		c.api = api
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
 	userTags := make([]string, len(c.Users))
 	for i, user := range c.Users {
@@ -128,7 +129,8 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 		userTags[i] = names.NewUserTag(user).String()
 	}
 
-	results, err := c.api.Offer(c.Service, c.Endpoints, c.URL, userTags)
+	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
+	results, err := api.Offer(c.Service, c.Endpoints, c.URL, userTags, "")
 	if err != nil {
 		return err
 	}
@@ -138,13 +140,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error)
-}
-
-var getOfferAPI = (*offerCommand).getOfferAPI
-
-func (c *offerCommand) getOfferAPI() (OfferAPI, error) {
-	return c.NewCrossModelAPI()
+	Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
 }
 
 func (c *offerCommand) parseEndpoints(arg string) error {
