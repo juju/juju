@@ -544,6 +544,66 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
+func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	content := `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: true
+    `
+	expectedServices := map[string]serviceInfo{
+		"wordpress": {
+			charm:   "cs:trusty/wordpress-42",
+			exposed: true,
+		},
+	}
+
+	// First deploy the bundle.
+	output, err := s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+added wordpress/0 unit to new machine
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy the same bundle again: no error is produced when the service
+	// is exposed again.
+	output, err = s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy a bundle with the service unexposed, and check that the
+	// service is not unexposed.
+	output, err = s.deployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: false
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+}
+
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 

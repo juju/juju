@@ -10,6 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 type runSuite struct {

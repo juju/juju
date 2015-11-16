@@ -487,3 +487,24 @@ func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
 	}
 	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
+
+// ResolvableHostnames returns the set of all DNS resolvable names
+// from addrs. Note that 'localhost' is always considered resolvable
+// because it can be used both as an IPv4 or IPv6 endpoint (e.g., in
+// IPv6-only networks).
+func ResolvableHostnames(addrs []Address) []Address {
+	resolveableAddrs := make([]Address, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr.Value == "localhost" || net.ParseIP(addr.Value) != nil {
+			resolveableAddrs = append(resolveableAddrs, addr)
+			continue
+		}
+		_, err := netLookupIP(addr.Value)
+		if err != nil {
+			logger.Infof("removing unresolvable address %q: %v", addr.Value, err)
+			continue
+		}
+		resolveableAddrs = append(resolveableAddrs, addr)
+	}
+	return resolveableAddrs
+}

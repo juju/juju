@@ -605,6 +605,7 @@ type serviceInfo struct {
 	charm       string
 	config      charm.Settings
 	constraints constraints.Value
+	exposed     bool
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
@@ -625,6 +626,7 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 			charm:       charm.String(),
 			config:      config,
 			constraints: constraints,
+			exposed:     service.IsExposed(),
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)

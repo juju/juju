@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
