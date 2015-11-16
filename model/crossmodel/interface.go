@@ -79,3 +79,39 @@ type ServiceDirectory interface {
 	// Remove removes the service offer at the specified URL.
 	Remove(url string) error
 }
+
+// OfferedService holds the details of services offered
+// by this environment.
+type OfferedService struct {
+	// ServiceName is the service name.
+	ServiceName string
+
+	// ServiceURL is the URl where the service can be located.
+	ServiceURL string
+
+	// Endpoints are the endpoints to be offered.
+	Endpoints []string
+}
+
+// OfferedServiceFilter is used to query services offered
+// by this environment.
+type OfferedServiceFilter OfferedService
+
+// An OfferedService instance holds service offers from this environment.
+type OfferedServices interface {
+
+	// AddOffer adds a new service offer to the directory.
+	AddOffer(offer OfferedService) error
+
+	// ListOffers returns the offers satisfying the specified filter.
+	ListOffers(filter ...OfferedServiceFilter) ([]OfferedService, error)
+
+	// RegisterOffer marks a previously saved offer as registered.
+	RegisterOffer(name, url string) error
+
+	// UnregisteredOffers offers returns the offers not yet registered with a service directory.
+	UnregisteredOffers() ([]OfferedService, error)
+
+	// Remove removes the service offer at the specified URL.
+	RemoveOffer(name, url string) error
+}
