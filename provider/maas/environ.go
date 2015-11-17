@@ -1806,7 +1806,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 			return nil, errors.Trace(err)
 		}
 
-		subnets[i] = network.SubnetInfo{
+		subnetInfo := network.SubnetInfo{
 			ProviderId:        network.Id(subnetId),
 			VLANTag:           vid,
 			CIDR:              cidr,
@@ -1814,6 +1814,8 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
 		}
+		subnets[i] = subnetInfo
+		logger.Tracef("found subnet with info %#v", subnetInfo)
 	}
 	logger.Debugf("instance %q has subnets %v", instId, subnets)
 
