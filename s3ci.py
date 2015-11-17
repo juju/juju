@@ -109,6 +109,8 @@ def find_file_keys(bucket, revision_build, job, file_regex):
         match = re.search('^/build-(\d+)', key.name[len(prefix):])
         build = int(match.group(1))
         by_build.setdefault(build, []).append(key)
+    # We can't use last successful build, because we don't know what builds
+    # are successful, so use last build and require it to be successful.
     last_build = max(by_build.keys())
     build_keys = by_build[last_build]
     filtered = []
