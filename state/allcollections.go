@@ -133,7 +133,7 @@ func allCollections() collectionSchema {
 		// This collection holds information about services that have been
 		// offered (exported) for use in other models managed by the same
 		// host controller.
-		localServiceOffersC: {
+		localServiceDirectoryC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"url"},
@@ -383,7 +383,7 @@ const (
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"
 	servicesC              = "services"
-	localServiceOffersC    = "localserviceoffers"
+	localServiceDirectoryC = "localservicedirectory"
 	settingsC              = "settings"
 	settingsrefsC          = "settingsrefs"
 	stateServersC          = "stateServers"

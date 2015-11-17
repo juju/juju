@@ -102,25 +102,6 @@ func OfferedServicesCount(st *State, name, url string) (int, error) {
 	return settingsRefsCollection.FindId(fmt.Sprintf("%s-%s", name, url)).Count()
 }
 
-func AddRegisteredOffer(c *gc.C, st *State, name string) {
-	doc := offeredServiceDoc{
-		DocID:        fmt.Sprintf("%s-local:/u/me/%s", name, name),
-		URL:          "local:/u/me/" + name,
-		ServiceName:  name,
-		IsRegistered: true,
-	}
-	ops := []txn.Op{
-		{
-			C:      serviceOffersC,
-			Id:     doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
-	}
-	err := st.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 // SetPolicy updates the State's policy field to the
 // given Policy, and returns the old value.
 func SetPolicy(st *State, p Policy) Policy {

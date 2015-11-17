@@ -29,12 +29,10 @@ type offeredServiceDoc struct {
 	// Endpoints is the name of the endpoints offered.
 	Endpoints []string `bson:"endpoints"`
 
-	// IsRegistered is set to true when the service in this offer has
-	// been recorded in the service directory indicated by the URL.
-	IsRegistered bool `bson:"isregistered"`
+	// Registered is set to true when the service in this offer is
+	// to be recorded in the service directory indicated by the URL.
+	Registered bool `bson:"registered"`
 }
-
-var _ crossmodel.OfferedServices = (*offeredServices)(nil)
 
 type offeredServices struct {
 	st *State
@@ -127,6 +125,7 @@ func (s *offeredServices) makeOfferedServiceDoc(offer crossmodel.OfferedService)
 		DocID:       s.docId(offer.ServiceName, offer.ServiceURL),
 		URL:         offer.ServiceURL,
 		ServiceName: offer.ServiceName,
+		Registered:  true,
 	}
 	eps := make([]string, len(offer.Endpoints))
 	for i, ep := range offer.Endpoints {
@@ -140,6 +139,9 @@ func (s *offeredServices) makeFilterTerm(filterTerm crossmodel.OfferedServiceFil
 	var filter bson.D
 	if filterTerm.ServiceName != "" {
 		filter = append(filter, bson.DocElem{"servicename", filterTerm.ServiceName})
+	}
+	if filterTerm.Registered != nil {
+		filter = append(filter, bson.DocElem{"registered", *filterTerm.Registered})
 	}
 	// We match on partial URLs eg /u/user
 	if filterTerm.ServiceURL != "" {
@@ -183,6 +185,7 @@ func (s *offeredServices) makeServiceOffer(doc offeredServiceDoc) crossmodel.Off
 	offer := crossmodel.OfferedService{
 		ServiceURL:  doc.URL,
 		ServiceName: doc.ServiceName,
+		Registered:  doc.Registered,
 	}
 	offer.Endpoints = make([]string, len(doc.Endpoints))
 	for i, ep := range doc.Endpoints {
@@ -191,8 +194,8 @@ func (s *offeredServices) makeServiceOffer(doc offeredServiceDoc) crossmodel.Off
 	return offer
 }
 
-// RegisterOffer marks a previously saved offer as registered.
-func (s *offeredServices) RegisterOffer(name, url string) (err error) {
+// SetOfferRegistered marks a previously saved offer as registered or not.
+func (s *offeredServices) SetOfferRegistered(name, url string, registered bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot register service offer")
 
 	env, err := s.st.Environment()
@@ -217,7 +220,7 @@ func (s *offeredServices) RegisterOffer(name, url string) (err error) {
 				C:      serviceOffersC,
 				Id:     s.docId(name, url),
 				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"isregistered": true}},
+				Update: bson.M{"$set": bson.M{"registered": registered}},
 			},
 		}
 		return ops, nil
@@ -226,22 +229,12 @@ func (s *offeredServices) RegisterOffer(name, url string) (err error) {
 	return errors.Trace(err)
 }
 
-// UnregisteredOffers returns the service offers not yet registered with a service directory.
-func (s *offeredServices) UnregisteredOffers() ([]crossmodel.OfferedService, error) {
-	serviceOffersCollection, closer := s.st.getCollection(serviceOffersC)
-	defer closer()
-
-	var docs []offeredServiceDoc
-	err := serviceOffersCollection.Find(bson.D{{"isregistered", false}}).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot find unregistered service offers")
+// ListOffersByRegisteredState returns the service offers matching the supplied registered state.
+func (s *offeredServices) ListOffersByRegisteredState(isRegistered bool) ([]crossmodel.OfferedService, error) {
+	filter := crossmodel.OfferedServiceFilter{
+		Registered: &isRegistered,
 	}
-	sort.Sort(soSlice(docs))
-	offers := make([]crossmodel.OfferedService, len(docs))
-	for i, doc := range docs {
-		offers[i] = s.makeServiceOffer(doc)
-	}
-	return offers, nil
+	return s.ListOffers(filter)
 }
 
 type soSlice []offeredServiceDoc

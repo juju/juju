@@ -68,7 +68,7 @@ func ServiceOfferEndpoint(offer crossmodel.ServiceOffer, relationName string) (E
 }
 
 func (s *serviceDirectory) offerAtURL(url string) (*serviceOfferDoc, error) {
-	serviceOffersCollection, closer := s.st.getCollection(localServiceOffersC)
+	serviceOffersCollection, closer := s.st.getCollection(localServiceDirectoryC)
 	defer closer()
 
 	var doc serviceOfferDoc
@@ -97,7 +97,7 @@ func (s *serviceDirectory) Remove(url string) (err error) {
 func (s *serviceDirectory) removeOps(url string) []txn.Op {
 	return []txn.Op{
 		{
-			C:      localServiceOffersC,
+			C:      localServiceDirectoryC,
 			Id:     url,
 			Assert: txn.DocExists,
 			Remove: true,
@@ -149,7 +149,7 @@ func (s *serviceDirectory) AddOffer(offer crossmodel.ServiceOffer) (err error) {
 		ops := []txn.Op{
 			env.assertAliveOp(),
 			{
-				C:      localServiceOffersC,
+				C:      localServiceDirectoryC,
 				Id:     doc.DocID,
 				Assert: txn.DocMissing,
 				Insert: doc,
@@ -193,7 +193,7 @@ func (s *serviceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) (err error
 		ops := []txn.Op{
 			env.assertAliveOp(),
 			{
-				C:      localServiceOffersC,
+				C:      localServiceDirectoryC,
 				Id:     doc.DocID,
 				Assert: txn.DocExists,
 				Update: doc,
@@ -254,7 +254,7 @@ func (s *serviceDirectory) makeFilterTerm(filterTerm crossmodel.ServiceOfferFilt
 
 // ListOffers returns the service offers matching any one of the filter terms.
 func (s *serviceDirectory) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	serviceOffersCollection, closer := s.st.getCollection(localServiceOffersC)
+	serviceOffersCollection, closer := s.st.getCollection(localServiceDirectoryC)
 	defer closer()
 
 	var mgoTerms []bson.D

@@ -91,11 +91,25 @@ type OfferedService struct {
 
 	// Endpoints are the endpoints to be offered.
 	Endpoints []string
+
+	// Registered is true if this offer is to be registered with
+	// the relevant service directory.
+	Registered bool
 }
 
 // OfferedServiceFilter is used to query services offered
 // by this environment.
-type OfferedServiceFilter OfferedService
+type OfferedServiceFilter struct {
+	// ServiceName is the service name.
+	ServiceName string
+
+	// ServiceURL is the URl where the service can be located.
+	ServiceURL string
+
+	// Registered is true if this offer is to be registered with
+	// the relevant service directory.
+	Registered *bool
+}
 
 // An OfferedService instance holds service offers from this environment.
 type OfferedServices interface {
@@ -106,11 +120,11 @@ type OfferedServices interface {
 	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...OfferedServiceFilter) ([]OfferedService, error)
 
-	// RegisterOffer marks a previously saved offer as registered.
-	RegisterOffer(name, url string) error
+	// SetOfferRegistered marks a previously saved offer as registered or not.
+	SetOfferRegistered(name, url string, registered bool) error
 
-	// UnregisteredOffers offers returns the offers not yet registered with a service directory.
-	UnregisteredOffers() ([]OfferedService, error)
+	// ListOffersByRegisteredState returns the service offers matching the supplied registered state.
+	ListOffersByRegisteredState(isRegistered bool) ([]OfferedService, error)
 
 	// Remove removes the service offer at the specified URL.
 	RemoveOffer(name, url string) error

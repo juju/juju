@@ -24,6 +24,7 @@ func (s *offeredServicesSuite) createDefaultOffer(c *gc.C) crossmodel.OfferedSer
 		ServiceURL:  "local:/u/me/service",
 		ServiceName: "mysql",
 		Endpoints:   eps,
+		Registered:  true,
 	}
 	err := offered.AddOffer(offer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,6 +57,8 @@ func (s *offeredServicesSuite) TestAddServiceOffer(c *gc.C) {
 	offers, err := offered.ListOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offers, gc.HasLen, 1)
+	// offers are always created as registered.
+	offer.Registered = true
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
@@ -75,6 +78,8 @@ func (s *offeredServicesSuite) createOffedService(c *gc.C, name string) crossmod
 		Endpoints:   eps,
 	}
 	err := offers.AddOffer(offer)
+	// offers are always created as registered.
+	offer.Registered = true
 	c.Assert(err, jc.ErrorIsNil)
 	return offer
 }
@@ -134,28 +139,14 @@ func (s *offeredServicesSuite) TestListOffersFilterServiceURLRegexp(c *gc.C) {
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
-func (s *offeredServicesSuite) TestRegisterOffer(c *gc.C) {
+func (s *offeredServicesSuite) TestSetOfferRegistered(c *gc.C) {
 	offeredServices := state.NewOfferedServices(s.State)
 	offer := s.createOffedService(c, "offer1")
 	offer2 := s.createOffedService(c, "offer2")
 	s.createOffedService(c, "offer3")
-	err := offeredServices.RegisterOffer("offer3", "local:/u/me/offer3")
+	err := offeredServices.SetOfferRegistered("offer3", "local:/u/me/offer3", false)
 	c.Assert(err, jc.ErrorIsNil)
-	offers, err := offeredServices.UnregisteredOffers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 2)
-	c.Assert(offers, jc.DeepEquals, []crossmodel.OfferedService{offer, offer2})
-}
-
-func (s *offeredServicesSuite) TestUnregisteredOffers(c *gc.C) {
-	offeredServices := state.NewOfferedServices(s.State)
-	offer := s.createOffedService(c, "offer1")
-	offer2 := s.createOffedService(c, "offer2")
-	state.AddRegisteredOffer(c, s.State, "offer3")
-	offers, err := offeredServices.ListOffers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 3)
-	offers, err = offeredServices.UnregisteredOffers()
+	offers, err := offeredServices.ListOffersByRegisteredState(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 2)
 	c.Assert(offers, jc.DeepEquals, []crossmodel.OfferedService{offer, offer2})
@@ -201,6 +192,6 @@ func (s *offeredServicesSuite) TestRegisterOfferDeleteAfterInitial(c *gc.C) {
 		err := offeredServices.RemoveOffer(offer.ServiceName, offer.ServiceURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	err := offeredServices.RegisterOffer(offer.ServiceName, offer.ServiceURL)
+	err := offeredServices.SetOfferRegistered(offer.ServiceName, offer.ServiceURL, false)
 	c.Assert(err, gc.ErrorMatches, `.* service offer "offer1" at url "local:/u/me/offer1" not found`)
 }
