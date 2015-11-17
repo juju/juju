@@ -25,6 +25,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// Note that the charm payloads component has its own unit-based facade
+// that the payload-related hook context commands use. See
+// workload/api/internal and component/all/workloads.go.
+
 // uniterBaseAPI implements common methods used by all API versions,
 // and it's intended for embedding.
 type uniterBaseAPI struct {

@@ -20,14 +20,21 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
+	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/storage/looputil"
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+func init() {
+	utils.Must(components.RegisterForServer())
+}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
@@ -141,7 +148,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf, logCh, looputil.NewLoopDeviceManager(),
+		agentConf, logCh, looputil.NewLoopDeviceManager(), "",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
@@ -184,6 +191,8 @@ func Main(args []string) int {
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
+	} else if commandName == names.JujuDumpLogs {
+		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, ctx, args)
 	}

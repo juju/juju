@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")

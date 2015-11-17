@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -83,4 +85,9 @@ func (ctx *limitedContext) Id() string { return ctx.id }
 // Prepare implements runner.Context.
 func (ctx *limitedContext) Prepare() error {
 	return jujuc.ErrRestrictedContext
+}
+
+// Component implements runner.Context.
+func (ctx *limitedContext) Component(name string) (jujuc.ContextComponent, error) {
+	return nil, errors.NotFoundf("context component %q", name)
 }

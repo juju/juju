@@ -16,15 +16,19 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/ssh"
+	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -64,8 +68,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
-	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -96,12 +98,6 @@ var (
 func TestPackage(t *testing.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
-
-	// Change the path to "juju-run", so that the
-	// tests don't try to write to /usr/local/bin.
-	JujuRun = mktemp("juju-run", "")
-	defer os.Remove(JujuRun)
-
 	coretesting.MgoTestPackage(t)
 }
 
@@ -129,7 +125,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 
-	os.Remove(JujuRun) // ignore error; may not exist
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
 
@@ -216,7 +211,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, jc.ErrorIsNil)
-		agentConfig, tools = s.AgentSuite.PrimeStateAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
 		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
@@ -237,7 +232,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, logsCh, &mockLoopDeviceManager{},
+		&agentConf, logsCh, &mockLoopDeviceManager{}, c.MkDir(),
 	)
 	return machineAgentFactory(m.Id())
 }
@@ -247,9 +242,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(
-				&agentConf, nil, &mockLoopDeviceManager{},
-			),
+			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -317,23 +310,19 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-
+	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(
-			agentConf, nil, &mockLoopDeviceManager{},
-		),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
 	// little hack to set the data that Init expects to already be set
 	a.(*machineAgentCmd).machineId = "42"
 
-	err = a.Init(nil)
+	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
 
 	l, ok := ctx.Stderr.(*lumberjack.Logger)
@@ -345,17 +334,12 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-
+	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(
-			agentConf, nil,
-			&mockLoopDeviceManager{},
-		),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -365,7 +349,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	// set the value that normally gets set by the flag parsing
 	a.(*machineAgentCmd).logToStdErr = true
 
-	err = a.Init(nil)
+	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
@@ -1026,7 +1010,12 @@ func (s *MachineSuite) assertAgentOpensState(c *gc.C, reportOpened *func(io.Clos
 
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
+	agentAPI, done := s.waitForOpenState(c, reportOpened, a)
+	test(conf, agentAPI)
+	s.waitStopped(c, job, a, done)
+}
 
+func (s *MachineSuite) waitForOpenState(c *gc.C, reportOpened *func(io.Closer), a *MachineAgent) (interface{}, chan error) {
 	agentAPIs := make(chan io.Closer, 1)
 	s.AgentSuite.PatchValue(reportOpened, func(st io.Closer) {
 		select {
@@ -1043,12 +1032,11 @@ func (s *MachineSuite) assertAgentOpensState(c *gc.C, reportOpened *func(io.Clos
 	select {
 	case agentAPI := <-agentAPIs:
 		c.Assert(agentAPI, gc.NotNil)
-		test(conf, agentAPI)
+		return agentAPI, done
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
 	}
-
-	s.waitStopped(c, job, a, done)
+	panic("can't happen")
 }
 
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
@@ -1318,14 +1306,19 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 	assertPassword(newPassword, true)
 }
 
-func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
-	_, err := os.Stat(JujuRun)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
-		// juju-run should have been created
-		_, err := os.Stat(JujuRun)
-		c.Assert(err, jc.ErrorIsNil)
-	})
+func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
+	stm, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+
+	// Symlinks should have been created
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
+	}
+
+	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
@@ -1334,18 +1327,32 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 		// create a file point a symlink to it then remove it
 		c.Skip("Cannot test this on windows")
 	}
-	err := symlink.New("/nowhere/special", JujuRun)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = os.Stat(JujuRun)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
-		// juju-run should have been recreated
-		_, err := os.Stat(JujuRun)
+
+	stm, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	// Pre-create the symlinks, but pointing to the incorrect location.
+	links := []string{jujuRun, jujuDumpLogs}
+	a.rootDir = c.MkDir()
+	for _, link := range links {
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
+		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
+		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
+	}
+
+	// Start the agent and wait for it be running.
+	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+
+	// juju-run symlink should have been recreated.
+	for _, link := range links {
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
+		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
-		link, err := symlink.Read(JujuRun)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
-	})
+		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
+	}
+
+	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
 
 func (s *MachineSuite) TestProxyUpdater(c *gc.C) {
@@ -1410,9 +1417,14 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
-	// juju-run should have been removed on termination
-	_, err = os.Stat(JujuRun)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// juju-run and juju-dumplogs symlinks should have been removed on
+	// termination.
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
+	}
+
 	// data-dir should have been removed on termination
 	_, err = os.Stat(ac.DataDir())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
