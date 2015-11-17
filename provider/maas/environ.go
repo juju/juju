@@ -1623,7 +1623,7 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	return result, nil
 }
 
-func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
+func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]map[string]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("node").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
@@ -1637,9 +1637,13 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var subnets []gomaasapi.JSONObject
+	var subnets []map[string]gomaasapi.JSONObject
 	for _, iface := range interfacesArray {
-		linksArray, err := iface["links"].GetArray()
+		ifaceMap, err := iface.GetMap()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		linksArray, err := ifaceMap["links"].GetArray()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1648,7 +1652,7 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			subnet, err := link["subnet"].GetMap()
+			subnet, err := linkMap["subnet"].GetMap()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
