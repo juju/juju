@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.api.highavailability")
@@ -70,4 +71,17 @@ func (c *Client) EnsureAvailability(
 		return params.StateServersChanges{}, result.Error
 	}
 	return result.Result, nil
+}
+
+// MongoUpgradeMode will make all Slave members of the HA
+// to shut down their mongo server.
+func (c *Client) MongoUpgradeMode(v mongo.Version) (params.MongoUpgradeResults, error) {
+	arg := params.UpgradeMongoParams{
+		Target: v,
+	}
+	results := params.MongoUpgradeResults{}
+	if err := c.facade.FacadeCall("StopHAReplicationForUpgrade", arg, &results); err != nil {
+		return results, errors.Annotate(err, "cannnot enter mongo upgrade mode")
+	}
+	return results, nil
 }

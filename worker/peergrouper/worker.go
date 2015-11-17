@@ -272,7 +272,7 @@ type replicaSetError struct {
 func (w *pgWorker) updateReplicaset() error {
 	info, err := w.peerGroupInfo()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get peergrouper info")
 	}
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
@@ -316,7 +316,7 @@ func (w *pgWorker) updateReplicaset() error {
 		}
 	}
 	if err := setHasVote(added, true); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote added")
 	}
 	if members != nil {
 		if err := w.st.MongoSession().Set(members); err != nil {
@@ -330,7 +330,7 @@ func (w *pgWorker) updateReplicaset() error {
 		logger.Infof("successfully changed replica set to %#v", members)
 	}
 	if err := setHasVote(removed, false); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote removed")
 	}
 	return nil
 }

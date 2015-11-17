@@ -142,6 +142,10 @@ type machineDoc struct {
 	// Placement is the placement directive that should be used when provisioning
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
+
+	// StopMongoUntilVersion holds the version that must be checked to
+	// know if mongo must be stopped.
+	StopMongoUntilVersion string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -284,6 +288,29 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 	}
 	m.doc.HasVote = hasVote
 	return nil
+}
+
+// SetStopMongoUntilVersion sets a version that is to be checked against
+// the agent config before deciding if mongo must be started on a
+// state server.
+func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
+	}}
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
+	}
+	m.doc.StopMongoUntilVersion = v.String()
+	return nil
+}
+
+// StopMongoUntilVersion returns the current minimum version that
+// is required for this machine to have mongo running.
+func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
+	return mongo.NewVersion(m.doc.StopMongoUntilVersion)
 }
 
 // IsManager returns true if the machine has JobManageEnviron.

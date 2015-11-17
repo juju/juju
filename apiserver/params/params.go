@@ -16,6 +16,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -799,4 +801,17 @@ type BundleChangesChange struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
+}
+
+// UpgradeMongoParams holds the arguments required to
+// enter upgrade mongo mode.
+type UpgradeMongoParams struct {
+	Target mongo.Version
+}
+
+// MongoUpgradeResults holds the results of an attempt
+// to enter upgrade mongo mode.
+type MongoUpgradeResults struct {
+	Master  state.HAMember
+	Members []state.HAMember
 }

@@ -83,6 +83,10 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 // is useful for testing purposes and also when debugging cases of faulty replica sets
 var ErrReplicaSetAlreadyInitiated = errors.New("replicaset is already initiated")
 
+func isUnreachableError(err error) bool {
+	return err.Error() != "no reachable servers"
+}
+
 // attemptInitiateMongoServer attempts to initiate the replica set.
 func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
 	session, err := mgo.DialWithInfo(dialInfo)
@@ -91,15 +95,22 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
-	if !force { // we dont care about the current configuration otherwise.
-		cfg, err := replicaset.CurrentConfig(session)
+
+	bInfo, err := session.BuildInfo()
+	if err != nil && isUnreachableError(err) {
+		return errors.Annotate(err, "cannot determine mongo build information")
+	}
+	cfg := &replicaset.Config{}
+	if err != nil || !bInfo.VersionAtLeast(3) {
+		cfg, err = replicaset.CurrentConfig(session)
 		if err != nil && err != mgo.ErrNotFound {
 			return errors.Errorf("cannot get replica set configuration: %v", err)
 		}
-		if err == nil && len(cfg.Members) > 0 {
-			logger.Infof("replica set configuration found: %#v", cfg)
-			return ErrReplicaSetAlreadyInitiated
-		}
+	}
+
+	if !force && len(cfg.Members) > 0 {
+		logger.Infof("replica set configuration found: %#v", cfg)
+		return ErrReplicaSetAlreadyInitiated
 	}
 
 	return replicaset.Initiate(

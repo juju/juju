@@ -54,10 +54,11 @@ const (
 	MMAPIV2 StorageEngine = "mmapiv2"
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
+	// Upgrading is a special case where mongo is being upgraded.
+	Upgrading StorageEngine = "Upgrading"
 )
 
 // Version represents the major.minor version of the runnig mongo.
-// TODO (perrito666) Grow a storageConf
 type Version struct {
 	Major         int
 	Minor         int
@@ -65,10 +66,35 @@ type Version struct {
 	StorageEngine StorageEngine
 }
 
+// NewerThan will return 1 if the passed version is older than
+// v, 0 if they are equal (or ver is a special case such as
+// Upgrading and -1 if ver is newer.
+func (v Version) NewerThan(ver Version) int {
+	if v == MongoUpgrade || ver == MongoUpgrade {
+		return 0
+	}
+	if v.Major > ver.Major {
+		return 1
+	}
+	if v.Major < ver.Major {
+		return -1
+	}
+	if v.Minor > ver.Minor {
+		return 1
+	}
+	if v.Minor < ver.Minor {
+		return -1
+	}
+	return 0
+}
+
 // NewVersion returns a mongo Version parsing the passed version string
 // or error if not possible.
 func NewVersion(v string) (Version, error) {
 	version := Version{}
+	if v == "" {
+		return Mongo24, nil
+	}
 
 	parts := strings.SplitN(v, "/", 2)
 	if len(parts) == 0 {
@@ -140,6 +166,13 @@ var (
 		Minor:         0,
 		Patch:         "",
 		StorageEngine: WiredTiger,
+	}
+	// MongoUpgrade represents a sepacial case where an upgrade is in
+	// progress.
+	MongoUpgrade = Version{Major: 0,
+		Minor:         0,
+		Patch:         "Upgrading",
+		StorageEngine: Upgrading,
 	}
 )
 
@@ -231,7 +264,8 @@ func GenerateSharedSecret() (string, error) {
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
-	if version == Mongo24 {
+	noVersion := Version{}
+	if version == Mongo24 || version == noVersion {
 		if _, err := os.Stat(JujuMongodPath); err == nil {
 			return JujuMongodPath, nil
 		}
@@ -261,7 +295,8 @@ func Path(version Version) (string, error) {
 	}
 
 	logger.Infof("could not find a suitable binary for %q", version)
-	return "", errors.New("no suitable mongod executable")
+	errMsg := fmt.Sprintf("no suitable binary for %q", version)
+	return "", errors.New(errMsg)
 
 }
 
@@ -499,6 +534,17 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 	}
+	optionals := optionalPackagesForSeries(operatingsystem)
+	for i := range optionals {
+		// apply release targeting if needed.
+		if pacconfer.IsCloudArchivePackage(optionals[i]) {
+			optionals[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(optionals[i]), " ")
+		}
+
+		if err := pacman.Install(optionals[i]); err != nil {
+			logger.Errorf("could not install package %q: %v", optionals[i], err)
+		}
+	}
 
 	// Work around SELinux on centos7
 	if operatingsystem == "centos7" {
@@ -532,8 +578,12 @@ func packagesForSeries(series string) []string {
 		return []string{"mongodb-server"}
 	default:
 		// trusty and onwards
-		return []string{"juju-mongodb", "juju-mongodb2.6", "juju-mongodb3"}
+		return []string{"juju-mongodb"}
 	}
+}
+
+func optionalPackagesForSeries(series string) []string {
+	return []string{"juju-mongodb2.6", "juju-mongodb3"}
 }
 
 // DbDir returns the dir where mongo storage is.
@@ -575,4 +625,18 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 	cmd := exec.Command(mongoPath, args...)
 
 	return cmd, nil
+}
+
+// ReplicaSetInformation holds information about replicaset
+// components.
+type ReplicaSetInformation struct {
+	Master  replicaset.Member
+	Members []replicaset.Member
+	Config  replicaset.Config
+}
+
+// ReplicaSetInfo returns information describing the replicaset members
+// and configuration
+func ReplicaSetInfo(session *mgo.Session) (ReplicaSetInformation, error) {
+	return ReplicaSetInformation{}, nil
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/fs"
 	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -89,6 +90,7 @@ type UpgradeMongoCommand struct {
 	configFilePath string
 	agentConfig    agent.ConfigSetterWriter
 	tmpDir         string
+	backupPath     string
 
 	// utils used by this struct.
 	stat                 statFunc
@@ -136,7 +138,7 @@ func (u *UpgradeMongoCommand) Run(ctx *cmd.Context) error {
 	return u.run()
 }
 
-func (u *UpgradeMongoCommand) run() error {
+func (u *UpgradeMongoCommand) run() (err error) {
 	dataDir, err := paths.DataDir(u.series)
 	if u.configFilePath == "" {
 		machineTag, err := names.ParseMachineTag(u.machineTag)
@@ -151,7 +153,8 @@ func (u *UpgradeMongoCommand) run() error {
 	}
 
 	// If the version is not 2.4 we consider it already migrated.
-	if current := u.agentConfig.MongoVersion(); current != mongo.Mongo24 {
+	current := u.agentConfig.MongoVersion()
+	if current != mongo.Mongo24 && current != mongo.Mongo30wt {
 		return nil
 	}
 
@@ -161,15 +164,23 @@ func (u *UpgradeMongoCommand) run() error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		svc, err := u.discoverService(agentServiceName, common.Conf{})
-		if err != nil {
-			return errors.Annotate(err, "cannot determine juju service")
-		}
-		if err := svc.Stop(); err != nil {
-			return errors.Annotate(err, "cannot stop juju to begin migration")
-		}
-		defer svc.Start()
+		return errors.New("cannot determine juju service name")
 	}
+	svc, err := u.discoverService(agentServiceName, common.Conf{})
+	if err != nil {
+		return errors.Annotate(err, "cannot determine juju service")
+	}
+	if err := svc.Stop(); err != nil {
+		return errors.Annotate(err, "cannot stop juju to begin migration")
+	}
+	defer func() {
+		svcErr := svc.Start()
+		if err != nil {
+			err = errors.Annotatef(err, "failed upgrade and juju start after rollbacking upgrade: %v", svcErr)
+		} else {
+			err = errors.Annotate(svcErr, "could not start juju after upgrade")
+		}
+	}()
 
 	u.tmpDir, err = u.createTempDir()
 	if err != nil {
@@ -185,85 +196,31 @@ func (u *UpgradeMongoCommand) run() error {
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
-	if err := u.maybeUpgrade24to26(dataDir); err != nil {
-		defer func() {
-			if err := u.cleanup(); err != nil {
-				logger.Errorf("could not rollback the upgrade: %v", err)
-			}
-		}()
-		return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
+	if current == mongo.Mongo24 {
+		if err := u.maybeUpgrade24to26(dataDir); err != nil {
+			defer func() {
+				if u.backupPath != "" {
+					return
+				}
+				if err := u.rollbackAgentConfig(); err != nil {
+					logger.Errorf("could not rollback the upgrade: %v", err)
+				}
+			}()
+			return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
+		}
 	}
-
-	if err := u.maybeUpgrade26to31(dataDir); err != nil {
-		defer func() {
-			if err := u.cleanup(); err != nil {
-				logger.Errorf("could not rollback the upgrade: %v", err)
-			}
-		}()
-		return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
-	}
-	return nil
-}
-
-func (u *UpgradeMongoCommand) cleanup() error {
-	namespace := u.agentConfig.Value(agent.Namespace)
-
-	_, err := u.stat(path.Join(u.tmpDir, "migrateTo26dump"))
-	if err != nil {
-		return errors.Annotatef(err, "cannot stat backup dump, will not rollback")
-	}
-
-	if err := u.mongoStop(namespace); err != nil {
-		logger.Errorf("cannot stop the state server: %v", err)
-	}
-	if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
-		logger.Errorf("cannot clean the db directory to rollback: %v", err)
-	}
-
-	u.agentConfig.SetMongoVersion(mongo.Mongo24)
-	if err := u.agentConfig.Write(); err != nil {
-		return errors.Annotate(err, "could not update mongo version in agent.config to rollback")
-	}
-
-	if err := u.UpdateService(namespace, false); err != nil {
-		return errors.Annotate(err, "cannot update mongo service to rollback")
-	}
-
-	if err := u.mongoStart(namespace); err != nil {
-		return errors.Annotate(err, "cannot start mongo 2.4 to rollback")
-	}
-
-	info, ok := u.agentConfig.MongoInfo()
-	if !ok {
-		return errors.New("cannot get mongo info from agent config")
-	}
-	dialOpts := mongo.DialOpts{}
-	dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain dial info")
-	}
-
-	ssi, _ := u.agentConfig.StateServingInfo()
-	peerHostPort := net.JoinHostPort("localhost", fmt.Sprint(ssi.StatePort))
-	err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo:       dialInfo,
-		MemberHostPort: peerHostPort,
-	}, true)
-	if err != nil {
-		return errors.Annotate(err, "cannot initiate replicaset to rollback")
-	}
-	jujuMongoPath := path.Dir(mongo.JujuMongodPath)
-	err = u.mongoRestore(jujuMongoPath, "", "26", nil, ssi.StatePort, false, 0)
-	if err != nil {
-		return errors.Annotate(err, "cannot restore the old db")
-	}
-
-	if err := u.UpdateService(namespace, true); err != nil {
-		return errors.Annotate(err, "cannot update service script post wired tiger migration")
-	}
-
-	if err := u.mongoRestart(namespace); err != nil {
-		return errors.Annotate(err, "cannot restart mongo service after upgrade")
+	if current == mongo.Mongo26 || current == mongo.Mongo30 {
+		if err := u.maybeUpgrade26to31(dataDir); err != nil {
+			defer func() {
+				if u.backupPath != "" {
+					return
+				}
+				if err := u.rollbackAgentConfig(); err != nil {
+					logger.Errorf("could not rollback the upgrade: %v", err)
+				}
+			}()
+			return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
+		}
 	}
 	return nil
 }
@@ -299,13 +256,10 @@ func (u *UpgradeMongoCommand) UpdateService(namespace string, auth bool) error {
 
 func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 	namespace := u.agentConfig.Value(agent.Namespace)
-	jujuMongoPath := path.Dir(mongo.JujuMongodPath)
-	password := u.agentConfig.OldPassword()
-	ssi, _ := u.agentConfig.StateServingInfo()
-	port := ssi.StatePort
 
 	logger.Infof("backing up 2.4 MongoDB")
-	_, err := u.mongoDump(jujuMongoPath, password, "26", port)
+	var err error
+	u.backupPath, err = u.copyBackupMongo("24", dataDir)
 	if err != nil {
 		return errors.Annotate(err, "could not do pre migration backup")
 	}
@@ -368,97 +322,102 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 	password := u.agentConfig.OldPassword()
 	ssi, _ := u.agentConfig.StateServingInfo()
 	port := ssi.StatePort
+	current := u.agentConfig.MongoVersion()
 
 	logger.Infof("backing up 2.6 MongoDB")
-	// TODO(perrito666) dont ignore out if debug-log was used.
-	_, err := u.mongoDump(jujuMongoPath, password, "30", port)
-	if err != nil {
-		return errors.Annotate(err, "could not do pre migration backup")
-	}
-	if err := u.mongoStop(namespace); err != nil {
-		return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
+	if current == mongo.Mongo26 {
+		// TODO(perrito666) dont ignore out if debug-log was used.
+		_, err := u.mongoDump(jujuMongoPath, password, "30", port)
+		if err != nil {
+			return errors.Annotate(err, "could not do pre migration backup")
+		}
+		if err := u.mongoStop(namespace); err != nil {
+			return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
+		}
+
+		// Mongo 3, no wired tiger
+		u.agentConfig.SetMongoVersion(mongo.Mongo30)
+		if err := u.agentConfig.Write(); err != nil {
+			return errors.Annotate(err, "could not update mongo version in agent.config")
+		}
+
+		if err := u.UpdateService(namespace, true); err != nil {
+			return errors.Annotate(err, "cannot update service script")
+		}
+
+		if err := u.mongoStart(namespace); err != nil {
+			return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
+		}
+		current = mongo.Mongo30
 	}
 
-	// Mongo 3, no wired tiger
-	u.agentConfig.SetMongoVersion(mongo.Mongo30)
-	if err := u.agentConfig.Write(); err != nil {
-		return errors.Annotate(err, "could not update mongo version in agent.config")
-	}
+	if current == mongo.Mongo30 {
+		jujuMongoPath = path.Dir(mongo.JujuMongod30Path)
+		_, err := u.mongoDump(jujuMongoPath, password, "Tiger", port)
+		if err != nil {
+			return errors.Annotate(err, "could not do the tiger migration export")
+		}
 
-	if err := u.UpdateService(namespace, true); err != nil {
-		return errors.Annotate(err, "cannot update service script")
-	}
+		if err := u.mongoStop(namespace); err != nil {
+			return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
+		}
+		if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
+			return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
+		}
 
-	if err := u.mongoStart(namespace); err != nil {
-		return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
-	}
+		// Mongo 3, with wired tiger
+		u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
+		if err := u.agentConfig.Write(); err != nil {
+			return errors.Annotate(err, "could not update mongo version in agent.config")
+		}
 
-	jujuMongoPath = path.Dir(mongo.JujuMongod30Path)
-	_, err = u.mongoDump(jujuMongoPath, password, "Tiger", port)
-	if err != nil {
-		return errors.Annotate(err, "could not do the tiger migration export")
-	}
+		if err := u.UpdateService(namespace, false); err != nil {
+			return errors.Annotate(err, "cannot update service script to use wired tiger")
+		}
 
-	if err := u.mongoStop(namespace); err != nil {
-		return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
-	}
-	if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
-		return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
-	}
+		info, ok := u.agentConfig.MongoInfo()
+		if !ok {
+			return errors.New("cannot get mongo info from agent config")
+		}
 
-	// Mongo 3, with wired tiger
-	u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
-	if err := u.agentConfig.Write(); err != nil {
-		return errors.Annotate(err, "could not update mongo version in agent.config")
-	}
+		//TODO(perrito666) make this into its own function
+		dialOpts := mongo.DialOpts{}
+		dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
+		if err != nil {
+			return errors.Annotate(err, "cannot obtain dial info")
+		}
 
-	if err := u.UpdateService(namespace, false); err != nil {
-		return errors.Annotate(err, "cannot update service script to use wired tiger")
-	}
+		if err := u.mongoStart(namespace); err != nil {
+			return errors.Annotate(err, "cannot start mongo 3 to restart replicaset")
+		}
 
-	info, ok := u.agentConfig.MongoInfo()
-	if !ok {
-		return errors.New("cannot get mongo info from agent config")
-	}
+		// perhaps statehost port?
+		// we need localhost, since there is no admin user
+		peerHostPort := net.JoinHostPort("localhost", fmt.Sprint(ssi.StatePort))
+		err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
+			DialInfo:       dialInfo,
+			MemberHostPort: peerHostPort,
+		}, true)
+		if err != nil {
+			return errors.Annotate(err, "cannot initiate replicaset")
+		}
 
-	//TODO(perrito666) make this into its own function
-	dialOpts := mongo.DialOpts{}
-	dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain dial info")
-	}
+		// blobstorage might fail to restore in certain versions of
+		// mongorestore because of a bug in mongorestore
+		// that breaks gridfs restoration https://jira.mongodb.org/browse/TOOLS-939
+		err = u.mongoRestore(jujuMongoPath, "", "Tiger", nil, port, true, 100)
+		if err != nil {
+			return errors.Annotate(err, "cannot restore the db.")
+		}
 
-	if err := u.mongoStart(namespace); err != nil {
-		return errors.Annotate(err, "cannot start mongo 3 to restart replicaset")
-	}
+		if err := u.UpdateService(namespace, true); err != nil {
+			return errors.Annotate(err, "cannot update service script post wired tiger migration")
+		}
 
-	// perhaps statehost port?
-	// we need localhost, since there is no admin user
-	peerHostPort := net.JoinHostPort("localhost", fmt.Sprint(ssi.StatePort))
-	err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo:       dialInfo,
-		MemberHostPort: peerHostPort,
-	}, true)
-	if err != nil {
-		return errors.Annotate(err, "cannot initiate replicaset")
+		if err := u.mongoRestart(namespace); err != nil {
+			return errors.Annotate(err, "cannot restart mongo service after upgrade")
+		}
 	}
-
-	// blobstorage might fail to restore in certain versions of
-	// mongorestore because of a bug in mongorestore
-	// that breaks gridfs restoration https://jira.mongodb.org/browse/TOOLS-939
-	err = u.mongoRestore(jujuMongoPath, "", "Tiger", nil, port, true, 100)
-	if err != nil {
-		return errors.Annotate(err, "cannot restore the db.")
-	}
-
-	if err := u.UpdateService(namespace, true); err != nil {
-		return errors.Annotate(err, "cannot update service script post wired tiger migration")
-	}
-
-	if err := u.mongoRestart(namespace); err != nil {
-		return errors.Annotate(err, "cannot restart mongo service after upgrade")
-	}
-
 	return nil
 }
 
@@ -651,4 +610,70 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 
 func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int, invalidSSL bool, batchSize int) error {
 	return mongoRestoreCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs, statePort, invalidSSL, batchSize)
+}
+
+// copyBackupMongo will make a copy of mongo db by copying the db
+// directory, this is safer than a dump.
+func (u *UpgradeMongoCommand) copyBackupMongo(targetVersion, dataDir string) (string, error) {
+	tmpDir, err := u.createTempDir()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot create a working directory for backing up mongo")
+	}
+	namespace := u.agentConfig.Value(agent.Namespace)
+	if err := u.mongoStop(namespace); err != nil {
+		return "", errors.Annotate(err, "cannot stop mongo to backup")
+	}
+	defer u.mongoStart(namespace)
+
+	dbPath := path.Join(dataDir, "db")
+	fi, err := u.stat(dbPath)
+
+	target := path.Join(tmpDir, targetVersion)
+	if err := u.mkdir(target, fi.Mode()); err != nil {
+		return "", errors.Annotate(err, "cannot create target folder for backup")
+	}
+	targetDb := path.Join(target, "db")
+
+	if err := fs.Copy(dbPath, targetDb); err != nil {
+		// TODO, delete what was copied
+		return "", errors.Annotate(err, "cannot backup mongo database")
+	}
+	return target, nil
+}
+
+func (u *UpgradeMongoCommand) rollbackCopyBackup(dataDir, origin string) error {
+	namespace := u.agentConfig.Value(agent.Namespace)
+	if err := u.mongoStop(namespace); err != nil {
+		return errors.Annotate(err, "cannot stop mongo to rollback")
+	}
+	defer u.mongoStart(namespace)
+
+	dbDir := path.Join(dataDir, "db")
+	if err := u.remove(dbDir); err != nil {
+		return errors.Annotate(err, "could not remove the existing folder to rollback")
+	}
+
+	originDb := path.Join(origin, "db")
+	if err := fs.Copy(originDb, dbDir); err != nil {
+		return errors.Annotate(err, "cannot rollback mongo database")
+	}
+	if err := u.rollbackAgentConfig(); err != nil {
+		return errors.Annotate(err, "cannot roo back agent configuration")
+	}
+	return errors.Annotate(u.UpdateService(namespace, true), "cannot rollback service script")
+}
+
+func (u *UpgradeMongoCommand) recreateReplica() error {
+	return nil
+}
+
+// rollbackAgentconfig rolls back the config value for mongo version
+// to its original one and corrects the entry in stop mongo until.
+func (u *UpgradeMongoCommand) rollbackAgentConfig() error {
+	u.agentConfig.SetMongoVersion(mongo.Mongo24)
+	return errors.Annotate(u.agentConfig.Write(), "could not rollback mongo version in agent.config")
+}
+
+func enoughFreeSpace() bool {
+	return true
 }

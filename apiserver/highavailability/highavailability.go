@@ -126,3 +126,16 @@ func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (pa
 	}
 	return stateServersChanges(changes), nil
 }
+
+// StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
+// mongo mode.
+func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (params.MongoUpgradeResults, error) {
+	ha, err := api.state.SetUpgradeMongoMode(args.Target)
+	if err != nil {
+		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
+	}
+	return params.MongoUpgradeResults{
+		Master:  ha.Master,
+		Members: ha.Members,
+	}, nil
+}

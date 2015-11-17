@@ -509,6 +509,33 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return nil
 }
 
+func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
+	if !a.mongoInitialized {
+		return nil
+	}
+
+	conf := a.AgentConfigWriter.CurrentConfig()
+	v := conf.MongoVersion()
+
+	logger.Errorf("Got version change %v", ver)
+	if ver.NewerThan(v) > 0 {
+		err := a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+			config.SetMongoVersion(mongo.MongoUpgrade)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if !isMaster {
+			if err := mongo.StopService(conf.Value(agent.Namespace)); err != nil {
+				return errors.Annotate(err, "cannot stop mongo service")
+			}
+		}
+	}
+	return nil
+
+}
+
 // PrepareRestore will flag the agent to allow only a limited set
 // of commands defined in
 // "github.com/juju/juju/apiserver".allowedMethodsAboutToRestore
@@ -556,6 +583,16 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
+// newUpgradeMongoWatcherWorker returns a worker or err in case of failure.
+// this worker takes care of watching the state of machine's upgrade
+// mongo information and change agent conf accordingly.
+func (a *MachineAgent) newUpgradeMongoWatcherWorker(st *state.State) (worker.Worker, error) {
+	upgradeWorker := func(stopch <-chan struct{}) error {
+		return a.upgradeMongoWatcher(st, stopch)
+	}
+	return worker.NewSimpleWorker(upgradeWorker), nil
+}
+
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
@@ -587,6 +624,49 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 		case <-restoreWatch.Changes():
 			if err := a.restoreChanged(st); err != nil {
 				return err
+			}
+		case <-stopch:
+			return nil
+		}
+	}
+}
+
+func (a *MachineAgent) upgradeMongoWatcher(st *state.State, stopch <-chan struct{}) error {
+	m, err := st.Machine(a.machineId)
+	if err != nil {
+		return errors.Annotatef(err, "cannot start watcher for machine %q", a.machineId)
+	}
+	watch := m.Watch()
+	defer func() {
+		watch.Kill()
+		watch.Wait()
+	}()
+
+	for {
+		select {
+		case <-watch.Changes():
+			if err := m.Refresh(); err != nil {
+				return errors.Annotate(err, "cannot refresh machine information")
+			}
+			if !m.IsManager() {
+				continue
+			}
+			expectedVersion, err := m.StopMongoUntilVersion()
+			if err != nil {
+				return errors.Annotate(err, "cannot obtain minimum version of mongo")
+			}
+			if expectedVersion == mongo.Mongo24 {
+				continue
+			}
+			var isMaster bool
+			isMaster, err = mongo.IsMaster(st.MongoSession(), m)
+			if err != nil {
+				return errors.Annotatef(err, "cannot determine if machine %q is master", a.machineId)
+			}
+
+			err = a.maybeStopMongo(expectedVersion, isMaster)
+			if err != nil {
+				return errors.Annotate(err, "cannot determine if mongo must be stopped")
 			}
 		case <-stopch:
 			return nil
@@ -1086,6 +1166,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
+			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
+				return a.newUpgradeMongoWatcherWorker(st)
+			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1326,10 +1409,22 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 // limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
+	if err := a.limitLoginsDuringMongoUpgrade(req); err != nil {
+		return err
+	}
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
 	return a.limitLoginsDuringUpgrade(req)
+}
+
+func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+	cfg := a.AgentConfigWriter.CurrentConfig()
+	ver := cfg.MongoVersion()
+	if ver == mongo.MongoUpgrade {
+		return errors.New("Upgrading Mongo")
+	}
+	return nil
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
