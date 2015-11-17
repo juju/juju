@@ -633,113 +633,19 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
-// convertConstraints converts the given constraints into an url.Values
-// object suitable to pass to MAAS when acquiring a node.
-// CpuPower is ignored because it cannot translated into something
-// meaningful for MAAS right now.
-func convertConstraints(cons constraints.Value) url.Values {
-	params := url.Values{}
-	if cons.Arch != nil {
-		// Note: Juju and MAAS use the same architecture names.
-		// MAAS also accepts a subarchitecture (e.g. "highbank"
-		// for ARM), which defaults to "generic" if unspecified.
-		params.Add("arch", *cons.Arch)
-	}
-	if cons.CpuCores != nil {
-		params.Add("cpu_count", fmt.Sprintf("%d", *cons.CpuCores))
-	}
-	if cons.Mem != nil {
-		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
-	}
-	if cons.Tags != nil && len(*cons.Tags) > 0 {
-		tags, notTags := parseTags(*cons.Tags)
-		if len(tags) > 0 {
-			params.Add("tags", strings.Join(tags, ","))
-		}
-		if len(notTags) > 0 {
-			params.Add("not_tags", strings.Join(notTags, ","))
-		}
-	}
-	if cons.CpuPower != nil {
-		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
-	}
-	return params
-}
-
-// parseTags parses a tags constraints, splitting it into a positive
-// and negative tags to pass to MAAS. Positive tags have no prefix,
-// negative tags have a "^" prefix. All spaces inside the rawTags are
-// stripped before parsing.
-func parseTags(rawTags []string) (tags, notTags []string) {
-	for _, tag := range rawTags {
-		tag = strings.Replace(tag, " ", "", -1)
-		if len(tag) == 0 {
-			continue
-		}
-		if strings.HasPrefix(tag, "^") {
-			notTags = append(notTags, strings.TrimPrefix(tag, "^"))
-		} else {
-			tags = append(tags, tag)
-		}
-	}
-	return tags, notTags
-}
-
-// addNetworks converts networks include/exclude information into
-// url.Values object suitable to pass to MAAS when acquiring a node.
-func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
-	// Network Inclusion/Exclusion setup
-	if len(includeNetworks) > 0 {
-		for _, name := range includeNetworks {
-			params.Add("networks", name)
-		}
-	}
-	if len(excludeNetworks) > 0 {
-		for _, name := range excludeNetworks {
-			params.Add("not_networks", name)
-		}
-	}
-}
-
-// addVolumes converts volume information into
-// url.Values object suitable to pass to MAAS when acquiring a node.
-func addVolumes(params url.Values, volumes []volumeInfo) {
-	if len(volumes) == 0 {
-		return
-	}
-	// Requests for specific values are passed to the acquire URL
-	// as a storage URL parameter of the form:
-	// [volume-name:]sizeinGB[tag,...]
-	// See http://maas.ubuntu.com/docs/api.html#nodes
-
-	// eg storage=root:0(ssd),data:20(magnetic,5400rpm),45
-	makeVolumeParams := func(v volumeInfo) string {
-		var params string
-		if v.name != "" {
-			params = v.name + ":"
-		}
-		params += fmt.Sprintf("%d", v.sizeInGB)
-		if len(v.tags) > 0 {
-			params += fmt.Sprintf("(%s)", strings.Join(v.tags, ","))
-		}
-		return params
-	}
-	var volParms []string
-	for _, v := range volumes {
-		params := makeVolumeParams(v)
-		volParms = append(volParms, params)
-	}
-	params.Add("storage", strings.Join(volParms, ","))
-}
-
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
-	nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string, volumes []volumeInfo,
+	nodeName, zoneName string,
+	cons constraints.Value,
+	interfaces []interfaceBinding,
+	volumes []volumeInfo,
 ) (gomaasapi.MAASObject, error) {
 
 	acquireParams := convertConstraints(cons)
-	addNetworks(acquireParams, includeNetworks, excludeNetworks)
-	addVolumes(acquireParams, volumes)
+	if err := addInterfaces(acquireParams, interfaces); err != nil {
+		return gomaasapi.MAASObject{}, err
+	}
+	addStorage(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	if zoneName != "" {
 		acquireParams.Add("zone", zoneName)
@@ -797,23 +703,6 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 		_, err = node.CallPost("start", params)
 	}
 	return err
-}
-
-var unsupportedConstraints = []string{
-	constraints.CpuPower,
-	constraints.InstanceType,
-}
-
-// ConstraintsValidator is defined on the Environs interface.
-func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error) {
-	validator := constraints.NewValidator()
-	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := environ.SupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
-	return validator, nil
 }
 
 // setupNetworks prepares a []network.InterfaceInfo for the given
@@ -937,15 +826,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZones = []string{""}
 	}
 
-	// Networking.
-	//
-	// TODO(dimitern): Once we can get from spaces constraints to MAAS
-	// networks (or even directly to spaces), include them in the
-	// instance selection.
-	requestedNetworks := args.InstanceConfig.Networks
-	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
-	excludeNetworks := args.Constraints.ExcludeNetworks()
-
 	// Storage.
 	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
@@ -956,9 +836,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Constraints:       args.Constraints,
 		AvailabilityZones: availabilityZones,
 		NodeName:          nodeName,
-		IncludeNetworks:   includeNetworks,
-		ExcludeNetworks:   excludeNetworks,
-		Volumes:           volumes,
+		// TODO(dimitern): Once we have interface bindings for services in state
+		// and in StartInstanceParams, pass them here.
+		Interfaces: nil,
+		Volumes:    volumes,
 	}
 	node, err := environ.selectNode(snArgs)
 	if err != nil {
@@ -988,7 +869,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	args.InstanceConfig.Tools = selectedTools[0]
 
 	var networkInfo []network.InterfaceInfo
-	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
+	networkInfo, primaryIface, err := environ.setupNetworks(inst, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1125,8 +1006,7 @@ type selectNodeArgs struct {
 	AvailabilityZones []string
 	NodeName          string
 	Constraints       constraints.Value
-	IncludeNetworks   []string
-	ExcludeNetworks   []string
+	Interfaces        []interfaceBinding
 	Volumes           []volumeInfo
 }
 
@@ -1139,8 +1019,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.NodeName,
 			zoneName,
 			args.Constraints,
-			args.IncludeNetworks,
-			args.ExcludeNetworks,
+			args.Interfaces,
 			args.Volumes,
 		)
 
