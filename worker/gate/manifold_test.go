@@ -88,6 +88,24 @@ func (s *ManifoldSuite) TestAlreadyUnlockedIsUnlocked(c *gc.C) {
 	assertUnlocked(c, w)
 }
 
+func (s *ManifoldSuite) TestManifoldEx(c *gc.C) {
+	manifold, wu := gate.ManifoldEx()
+	var w1 gate.Waiter = wu
+	var u gate.Unlocker = wu
+
+	worker, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer checkStop(c, worker)
+	w2 := waiter(c, manifold, worker)
+
+	assertLocked(c, w1)
+	assertLocked(c, w2)
+
+	u.Unlock()
+	assertUnlocked(c, w1)
+	assertUnlocked(c, w2)
+}
+
 func unlocker(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Unlocker {
 	var unlocker gate.Unlocker
 	err := m.Output(w, &unlocker)

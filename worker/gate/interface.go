@@ -16,6 +16,12 @@ type Waiter interface {
 	Unlocked() <-chan struct{}
 }
 
+// WaiterUnlocker combines the Waiter and Unlocker interfaces.
+type WaiterUnlocker interface {
+	Waiter
+	Unlocker
+}
+
 // AlreadyUnlocked is a Waiter that always reports its gate to be unlocked.
 type AlreadyUnlocked struct{}
 
