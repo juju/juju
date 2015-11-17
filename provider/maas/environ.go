@@ -1841,12 +1841,16 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		if err != nil {
 			return nil, nil, err
 		}
+
+		// We pick the larger of the two portions of the subnet around
+		// the dynamic range. Either ending one below the start of the
+		// dynamic range or starting one after the end.
 		above := highBound - dynamicHigh
 		below := dynamicLow - lowBound
 		if above > below {
-			lowBound = dynamicHigh
+			lowBound = dynamicHigh + 1
 		} else {
-			highBound = dynamicLow
+			highBound = dynamicLow - 1
 		}
 		break
 	}
