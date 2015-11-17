@@ -1627,30 +1627,30 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	client := environ.getMAASClient().GetSubObject("node").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	nodeMap, err := json.GetMap()
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	interfacesArray, err := nodeMap["interfaces_set"].GetArray()
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	var subnets []gomaasapi.JSONObject
 	for _, iface := range interfacesArray {
 		linksArray, err := iface["links"].GetArray()
 		if err != nil {
-			return false, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		for _, link := range linksArray {
 			linkMap, err := link.GetMap()
 			if err != nil {
-				return false, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			subnet, err := link["subnet"].GetMap()
 			if err != nil {
-				return false, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			subnets = append(subnets, subnet)
 		}
