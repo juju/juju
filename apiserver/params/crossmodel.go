@@ -109,6 +109,7 @@ type RemoteServiceResults struct {
 	Results []RemoteServiceResult `json:"results,omitempty"`
 }
 
+// ShowFilter is a filter used to select remote services via show call.
 type ShowFilter struct {
 	URLs []string `json:"urls,omitempty"`
 }

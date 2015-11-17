@@ -14,16 +14,24 @@ import (
 )
 
 const (
+	// To wrap long lines within a column.
 	maxColumnLength = 100
 	truncatedSuffix = "..."
 	maxFieldLength  = maxColumnLength - len(truncatedSuffix)
 	columnWidth     = 30
+
+	// To format things into columns.
+	minwidth = 0
+	tabwidth = 1
+	padding  = 2
+	padchar  = ' '
+	flags    = 0
 )
 
-// formatTabular returns a tabular summary of remote services or
+// formatShowTabular returns a tabular summary of remote services or
 // errors out if parameter is not of expected type.
-func formatTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.(map[string]RemoteService)
+func formatShowTabular(value interface{}) ([]byte, error) {
+	endpoints, ok := value.(map[string]ShowRemoteService)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
@@ -31,16 +39,9 @@ func formatTabular(value interface{}) ([]byte, error) {
 }
 
 // formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
-func formatOfferedEndpointsTabular(all map[string]RemoteService) ([]byte, error) {
+func formatOfferedEndpointsTabular(all map[string]ShowRemoteService) ([]byte, error) {
 	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
+	const ()
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))

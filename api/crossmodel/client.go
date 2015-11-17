@@ -63,3 +63,8 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 	}
 	return theOne.Result, nil
 }
+
+func (c *Client) List(filters map[string][]string) (map[string][]params.ListEndpointsServiceItemResult, error) {
+	// TODO (anastasiamac 2015-11-18) do the dance
+	return nil, nil
+}

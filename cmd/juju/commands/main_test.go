@@ -193,6 +193,11 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"show-endpoints"},
 		code:    0,
 		out:     "error: must specify endpoint URL\n",
+	}, {
+		summary: "check list-endpoints command registered properly",
+		args:    []string{"list-endpoints"},
+		code:    0,
+		out:     "ERROR environment is not prepared\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -258,6 +263,7 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"init",
+	"list-endpoints",
 	"machine",
 	"publish",
 	"offer",

@@ -76,7 +76,7 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": formatTabular,
+		"tabular": formatShowTabular,
 	})
 }
 
@@ -104,4 +104,31 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 type ShowAPI interface {
 	Close() error
 	Show(url string) (params.ServiceOffer, error)
+}
+
+// ShowRemoteService defines the serialization behaviour of remote service.
+// This is used in map-style yaml output where remote service name is the key.
+type ShowRemoteService struct {
+	// Endpoints list of offered service endpoints.
+	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+
+	// Description is the user entered description.
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+// convertRemoteServices takes any number of api-formatted remote services and
+// creates a collection of ui-formatted services.
+func convertRemoteServices(services ...params.ServiceOffer) (map[string]ShowRemoteService, error) {
+	if len(services) == 0 {
+		return nil, nil
+	}
+	output := make(map[string]ShowRemoteService, len(services))
+	for _, one := range services {
+		service := ShowRemoteService{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		if one.ServiceDescription != "" {
+			service.Description = one.ServiceDescription
+		}
+		output[one.ServiceName] = service
+	}
+	return output, nil
 }
