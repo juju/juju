@@ -354,6 +354,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '-o', 'User ubuntu',
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
+                '-o', 'PasswordAuthentication no',
                 '10.10.0.1',
                 'sudo chmod -Rf go+r /var/log/cloud-init*.log'
                 ' /var/log/juju/*.log'
@@ -365,6 +366,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '-o', 'User ubuntu',
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
+                '-o', 'PasswordAuthentication no',
                 '10.10.0.1:/var/log/cloud-init*.log',
                 '10.10.0.1:/var/log/juju/*.log',
                 '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
