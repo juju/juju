@@ -8,11 +8,12 @@ s3_params="--config $HOME/cloud-city/juju-qa.s3cfg -P"
 
 export PATH=$HOME/juju-release-tools:$PATH
 content_id="com.ubuntu.juju:revision-build-$revision_build:tools"
-sstream-query --json $HOME/new-streams/testing/streams/v1/index2.json \
+TESTING=$HOME/new-streams/parallel
+sstream-query --json $TESTING/streams/v1/index2.json \
   "version~($OLD_VERSION|$NEW_VERSION)" content_id=$content_id \
   release='trusty' arch='amd64'\
   | sed "s/$content_id/com.ubuntu.juju:released:tools/" > released-streams.json
-sstream-query --json $HOME/new-streams/testing/streams/v1/index2.json \
+sstream-query --json $TESTING/streams/v1/index2.json \
   "version~($NEW_VERSION)" content_id=$content_id \
   release='trusty' arch='amd64'\
   | sed "s/$content_id/com.ubuntu.juju:devel:tools/" > devel-streams.json
@@ -25,7 +26,7 @@ for agent in $agents; do
   if [ $parent = 'agent' ]; then
     source=root
   else
-    source=testing
+    source=$(basename $TESTING)
   fi
   s3cmd sync $HOME/new-streams/$source/$agent $s3_url/$parent/ $s3_params
 done
