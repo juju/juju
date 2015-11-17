@@ -95,8 +95,9 @@ type SubnetInfo struct {
 }
 
 type SpaceInfo struct {
-	Name  string
-	CIDRs []string
+	Name       string
+	ProviderId Id
+	Subnets    []SubnetInfo
 }
 type BySpaceName []SpaceInfo
 
