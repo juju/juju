@@ -13,6 +13,7 @@ from unittest import (
 
 from mock import (
     call,
+    Mock,
     patch,
 )
 import yaml
@@ -21,6 +22,7 @@ import deploy_stack
 from deploy_stack import (
     archive_logs,
     assess_juju_run,
+    assess_upgrade,
     boot_context,
     copy_local_logs,
     copy_remote_logs,
@@ -33,8 +35,8 @@ from deploy_stack import (
     dump_juju_timings,
     iter_remote_machines,
     get_remote_machines,
+    get_machine_dns_name,
     GET_TOKEN_SCRIPT,
-    assess_upgrade,
     safe_print_status,
     retain_config,
     update_env,
@@ -51,6 +53,7 @@ from remote import (
     remote_from_address,
 )
 from tests import (
+    TestCase,
     FakeHomeTestCase,
     use_context,
 )
@@ -958,3 +961,70 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar', 'baz', 'qux', '--jes'])
         self.assertIs(args.jes, True)
+
+
+class TestGetMachineDNSName(TestCase):
+
+    log_level = logging.DEBUG
+
+    machine_0_no_addr = """\
+        machines:
+            "0":
+                instance-id: pending
+        """
+
+    machine_0_hostname = """\
+        machines:
+            "0":
+                dns-name: a-host
+        """
+
+    machine_0_ipv6 = """\
+        machines:
+            "0":
+                dns-name: 2001:db8::3
+        """
+
+    def test_gets_host(self):
+        status = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['get_status'])
+        fake_client.get_status.return_value = status
+        with patch("deploy_stack.until_timeout", autospec=True,
+                   return_value=[599]) as mock_ut:
+            host = get_machine_dns_name(fake_client, 0)
+        self.assertEqual(host, "a-host")
+        mock_ut.assert_called_once_with(600)
+        fake_client.get_status.assert_called_once_with(timeout=599)
+        self.assertEqual(self.log_stream.getvalue(), "")
+
+    def test_retries_till_timeout(self):
+        status_pending = Status.from_text(self.machine_0_no_addr)
+        status_with_host = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['get_status'])
+        fake_client.get_status.side_effect = [status_pending, status_with_host]
+        with patch("deploy_stack.until_timeout", autospec=True,
+                   return_value=[599, 576]) as mock_ut:
+            host = get_machine_dns_name(fake_client, 0)
+        self.assertEqual(host, "a-host")
+        mock_ut.assert_called_once_with(600)
+        self.assertEqual(fake_client.get_status.call_args_list, [
+            call(timeout=599),
+            call(timeout=576),
+        ])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n")
+
+    def test_gets_ipv6(self):
+        status = Status.from_text(self.machine_0_ipv6)
+        fake_client = Mock(spec=['get_status'])
+        fake_client.get_status.return_value = status
+        with patch("deploy_stack.until_timeout", autospec=True,
+                   return_value=[599]) as mock_ut:
+            host = get_machine_dns_name(fake_client, 0)
+        self.assertEqual(host, "[2001:db8::3]")
+        mock_ut.assert_called_once_with(600)
+        fake_client.get_status.assert_called_once_with(timeout=599)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "WARNING Selected IPv6 address for machine 0: '2001:db8::3'\n")

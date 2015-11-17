@@ -12,6 +12,7 @@ import logging
 import os
 import random
 import re
+import socket
 import string
 import subprocess
 import sys
@@ -471,7 +472,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                 if host is None:
                     host = get_machine_dns_name(client, 0)
                 if host is None:
-                    raise Exception('Could not get machine 0 host')
+                    raise ValueError('Could not get machine 0 host')
                 try:
                     yield
                 except BaseException as e:
@@ -566,14 +567,25 @@ def safe_print_status(client):
         logging.exception(e)
 
 
-def get_machine_dns_name(client, machine):
-    timeout = 600
+def get_machine_dns_name(client, machine, timeout=600):
+    """Wait for dns-name for a juju machine."""
     for remaining in until_timeout(timeout):
-        bootstrap = client.get_status(
-            timeout=timeout).status['machines'][str(machine)]
-        host = bootstrap.get('dns-name')
-        if host is not None and not host.startswith('172.'):
-            return host
+        status = client.get_status(timeout=remaining)
+        try:
+            return _dns_name_for_machine(status, machine)
+        except KeyError:
+            logging.debug("No dns-name yet for machine %s", machine)
+
+
+def _dns_name_for_machine(status, machine):
+    host = status.status['machines'][str(machine)]['dns-name']
+    try:
+        socket.inet_pton(socket.AF_INET6, host)
+    except socket.error:
+        # IPv4 or hostname
+        return host
+    logging.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    return host.join("[]")
 
 
 def wait_for_state_server_to_shutdown(host, client, instance_id):
