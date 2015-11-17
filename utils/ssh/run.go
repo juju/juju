@@ -5,12 +5,12 @@ package ssh
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
 )
 
@@ -22,62 +22,129 @@ type ExecParams struct {
 	Timeout      time.Duration
 }
 
-// ExecuteCommandOnMachine will execute the command passed through on
-// the host specified. This is done using ssh, and passing the commands
-// through /bin/bash.  If the command is not finished within the timeout
-// specified, an error is returned.  Any output captured during that time
-// is also returned in the remote response.
-func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, err error) {
+// StartCommandOnMachine executes the command on the given host. The
+// command is run in a Bash shell over an SSH connection. All output
+// is captured. A RunningCmd is returned that may be used to wait
+// for the command to finish running.
+func StartCommandOnMachine(params ExecParams) (*RunningCmd, error) {
 	// execute bash accepting commands on stdin
 	if params.Host == "" {
-		return result, fmt.Errorf("missing host address")
+		return nil, errors.Errorf("missing host address")
 	}
 	logger.Debugf("execute on %s", params.Host)
+
 	var options Options
 	if params.IdentityFile != "" {
 		options.SetIdentities(params.IdentityFile)
 	}
 	command := Command(params.Host, []string{"/bin/bash", "-s"}, &options)
-	// start a go routine to do the actual execution
-	var stdout, stderr bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = &stderr
-	command.Stdin = strings.NewReader(params.Command + "\n")
 
-	if err = command.Start(); err != nil {
-		return result, err
+	// Run the command.
+	running := &RunningCmd{
+		SSHCmd: command,
 	}
-	commandDone := make(chan error)
+	command.Stdout = &running.Stdout
+	command.Stderr = &running.Stderr
+	command.Stdin = strings.NewReader(params.Command + "\n")
+	if err := command.Start(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return running, nil
+}
+
+// RunningCmd represents a command that has been started.
+type RunningCmd struct {
+	// SSHCmd is the command the was started.
+	SSHCmd *Cmd
+
+	// Stdout and Stderr are the output streams the command is using.
+	Stdout bytes.Buffer
+	Stderr bytes.Buffer
+}
+
+// Wait waits for the command to complete and returns the result.
+func (cmd *RunningCmd) Wait() (result utilexec.ExecResponse, _ error) {
+	defer func() {
+		// Gather as much as we have from stdout and stderr.
+		result.Stdout = cmd.Stdout.Bytes()
+		result.Stderr = cmd.Stderr.Bytes()
+	}()
+
+	err := cmd.SSHCmd.Wait()
+	logger.Debugf("command.Wait finished (err: %v)", err)
+	code, err := getExitCode(err)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Code = code
+	return result, nil
+}
+
+// TimedOut is an error indicating that a command timed out.
+var TimedOut = errors.New("command timed out")
+
+// WaitWithTimeout waits for the command to complete and returns the
+// result. If it takes longer than the provided timeout then TimedOut
+// is returned.
+func (cmd *RunningCmd) WaitWithTimeout(timeout time.Duration) (utilexec.ExecResponse, error) {
+	var result utilexec.ExecResponse
+	var err error
+
+	var token struct{}
+	done := make(chan struct{}, 1)
 	go func() {
-		defer close(commandDone)
-		err := command.Wait()
-		logger.Debugf("command.Wait finished: %v", err)
-		commandDone <- err
+		defer close(done)
+		result, err = cmd.Wait()
+		done <- token
 	}()
 
 	select {
-	case err = <-commandDone:
-		logger.Debugf("select from commandDone channel: %v", err)
-		// command finished and returned us the results
-		if ee, ok := err.(*exec.ExitError); ok && err != nil {
-			status := ee.ProcessState.Sys().(syscall.WaitStatus)
-			if status.Exited() {
-				// A non-zero return code isn't considered an error here.
-				result.Code = status.ExitStatus()
-				err = nil
-			}
-		}
-
-	case <-time.After(params.Timeout):
+	case <-done:
+		return result, errors.Trace(err)
+	case <-time.After(timeout):
 		logger.Infof("killing the command due to timeout")
-		err = fmt.Errorf("command timed out")
-		command.Kill()
+		cmd.SSHCmd.Kill()
+
+		<-done            // Ensure that the original cmd.Wait() call completed.
+		cmd.SSHCmd.Wait() // Finalize cmd.SSHCmd, if necessary.
+		return result, TimedOut
+	}
+}
+
+func getExitCode(err error) (int, error) {
+	if err == nil {
+		return 0, nil
+	}
+	err = errors.Cause(err)
+	if ee, ok := err.(*exec.ExitError); ok {
+		status := ee.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			// A non-zero return code isn't considered an error here.
+			return status.ExitStatus(), nil
+		}
+	}
+	return -1, err
+}
+
+// ExecuteCommandOnMachine will execute the command passed through on
+// the host specified. This is done using ssh, and passing the commands
+// through /bin/bash.  If the command is not finished within the timeout
+// specified, an error is returned.  Any output captured during that time
+// is also returned in the remote response.
+func ExecuteCommandOnMachine(params ExecParams) (utilexec.ExecResponse, error) {
+	var result utilexec.ExecResponse
+
+	cmd, err := StartCommandOnMachine(params)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
 
-	// In either case, gather as much as we have from stdout and stderr
-	<-commandDone // command.Wait is not current, must wait for the other waiter to exit.
-	command.Wait()
-	result.Stderr = stderr.Bytes()
-	result.Stdout = stdout.Bytes()
-	return result, err
+	result, err = cmd.WaitWithTimeout(params.Timeout)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return result, nil
 }
