@@ -1217,41 +1217,26 @@ cat /etc/network/interfaces
 ifup -v {{.Bridge}}
 `
 
-// setupJujuNetworking returns a string representing the script to run
-// in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking() (string, error) {
-	modifyConfigScript, err := renderEtcNetworkInterfacesScript("/etc/network/interfaces", instancecfg.DefaultBridgeName)
-	if err != nil {
-		return "", err
-	}
+// renderEtcNetworkInterfacesScriptFull returns a string representing
+// the script to run in order to prepare the Juju-specific networking
+// config on a node.
+func renderEtcNetworkInterfacesScriptFull() (string, error) {
 	parsedTemplate := template.Must(
-		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+		template.New("BridgeConfig").Parse(bridgeScriptMain),
 	)
 	var buf bytes.Buffer
-	err = parsedTemplate.Execute(&buf, map[string]interface{}{
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"Config": "/etc/network/interfaces",
 		"Bridge": instancecfg.DefaultBridgeName,
-		"Script": modifyConfigScript,
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
 	}
-	return buf.String(), nil
+	return renderEtcNetworkInterfacesScriptBase() + buf.String(), nil
 }
 
-func renderEtcNetworkInterfacesScript(config, bridge string) (string, error) {
-	parsedTemplate := template.Must(
-		template.New("ModifyConfigScript").Parse(modifyEtcNetworkInterfaces),
-	)
-	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
-		"Config": config,
-		"Bridge": bridge,
-	})
-	if err != nil {
-		return "", errors.Annotate(err, "modify /etc/network/interfaces script template error")
-	}
-	return buf.String(), nil
+func renderEtcNetworkInterfacesScriptBase() string {
+	return bridgeScriptBase
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
@@ -1291,7 +1276,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 				)
 				break
 			}
-			bridgeScript, err := setupJujuNetworking()
+			bridgeScript, err := renderEtcNetworkInterfacesScriptFull()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
