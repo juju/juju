@@ -1033,6 +1033,12 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 
 }
 
+// Spaces is not implemented by the ec2 provider as we don't currently have
+// provider level spaces.
+func (e *environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("Spaces")
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements

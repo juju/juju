@@ -1990,6 +1990,12 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 	return inst, nil
 }
 
+// Spaces is not implemented by the ec2 provider as we don't currently have
+// provider level spaces.
+func (e *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("Spaces")
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
