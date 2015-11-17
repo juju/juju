@@ -95,13 +95,6 @@ func MakeServiceOfferDoc(sd crossmodel.ServiceDirectory, url string, offer cross
 	return sd.(*serviceDirectory).makeServiceOfferDoc(offer)
 }
 
-func OfferedServicesCount(st *State, name, url string) (int, error) {
-	settingsRefsCollection, closer := st.getCollection(serviceOffersC)
-	defer closer()
-
-	return settingsRefsCollection.FindId(fmt.Sprintf("%s-%s", name, url)).Count()
-}
-
 // SetPolicy updates the State's policy field to the
 // given Policy, and returns the old value.
 func SetPolicy(st *State, p Policy) Policy {

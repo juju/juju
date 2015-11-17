@@ -4,11 +4,13 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 )
 
 type offeredServicesSuite struct {
@@ -18,7 +20,7 @@ type offeredServicesSuite struct {
 var _ = gc.Suite(&offeredServicesSuite{})
 
 func (s *offeredServicesSuite) createDefaultOffer(c *gc.C) crossmodel.OfferedService {
-	eps := []string{"db", "db-admin"}
+	eps := map[string]string{"db": "db", "db-admin": "dbadmin"}
 	offered := state.NewOfferedServices(s.State)
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/service",
@@ -34,15 +36,22 @@ func (s *offeredServicesSuite) createDefaultOffer(c *gc.C) crossmodel.OfferedSer
 func (s *offeredServicesSuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	offered := state.NewOfferedServices(s.State)
-	err := offered.RemoveOffer(offer.ServiceName, offer.ServiceURL)
+	err := offered.RemoveOffer(offer.ServiceURL)
 	c.Assert(err, jc.ErrorIsNil)
-	n, err := state.OfferedServicesCount(s.State, offer.ServiceName, offer.ServiceURL)
+
+	envTag := names.NewEnvironTag(s.State.EnvironUUID())
+	anotherState, err := state.Open(envTag, testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
+	defer anotherState.Close()
+
+	offered = state.NewOfferedServices(anotherState)
+	offers, err := offered.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offers, gc.HasLen, 0)
 }
 
 func (s *offeredServicesSuite) TestAddServiceOffer(c *gc.C) {
-	eps := []string{"mysql", "mysql-root"}
+	eps := map[string]string{"mysql": "mysql", "mysql-admin": "admin"}
 	offered := state.NewOfferedServices(s.State)
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/service",
@@ -51,15 +60,56 @@ func (s *offeredServicesSuite) TestAddServiceOffer(c *gc.C) {
 	}
 	err := offered.AddOffer(offer)
 	c.Assert(err, jc.ErrorIsNil)
-	n, err := state.OfferedServicesCount(s.State, offer.ServiceName, offer.ServiceURL)
+
+	envTag := names.NewEnvironTag(s.State.EnvironUUID())
+	anotherState, err := state.Open(envTag, testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
+	defer anotherState.Close()
+
+	offered = state.NewOfferedServices(anotherState)
 	offers, err := offered.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	offers, err = offered.ListOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offers, gc.HasLen, 1)
 	// offers are always created as registered.
 	offer.Registered = true
 	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *offeredServicesSuite) TestUpdateServiceOffer(c *gc.C) {
+	eps := map[string]string{"db": "db"}
+	offered := state.NewOfferedServices(s.State)
+	offer := crossmodel.OfferedService{
+		ServiceURL:  "local:/u/me/service",
+		ServiceName: "mysql",
+		Endpoints:   eps,
+	}
+	err := offered.AddOffer(offer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = offered.UpdateOffer("local:/u/me/service", map[string]string{"db": "db", "db-admin": "admin"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	envTag := names.NewEnvironTag(s.State.EnvironUUID())
+	anotherState, err := state.Open(envTag, testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	offered = state.NewOfferedServices(anotherState)
+	offers, err := offered.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	offers, err = offered.ListOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offers, gc.HasLen, 1)
+
+	expectedOffer := crossmodel.OfferedService{
+		ServiceURL:  "local:/u/me/service",
+		ServiceName: "mysql",
+		Endpoints:   map[string]string{"db": "db", "db-admin": "admin"},
+		Registered:  true,
+	}
+	c.Assert(offers[0], jc.DeepEquals, expectedOffer)
 }
 
 func (s *offeredServicesSuite) TestListOffersNone(c *gc.C) {
@@ -70,7 +120,7 @@ func (s *offeredServicesSuite) TestListOffersNone(c *gc.C) {
 }
 
 func (s *offeredServicesSuite) createOffedService(c *gc.C, name string) crossmodel.OfferedService {
-	eps := []string{name + "-interface", name + "-interface2"}
+	eps := map[string]string{name + "-interface": "ep1", name + "-interface2": "ep2"}
 	offers := state.NewOfferedServices(s.State)
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/" + name,
@@ -144,12 +194,24 @@ func (s *offeredServicesSuite) TestSetOfferRegistered(c *gc.C) {
 	offer := s.createOffedService(c, "offer1")
 	offer2 := s.createOffedService(c, "offer2")
 	s.createOffedService(c, "offer3")
-	err := offeredServices.SetOfferRegistered("offer3", "local:/u/me/offer3", false)
+	err := offeredServices.SetOfferRegistered("local:/u/me/offer3", false)
 	c.Assert(err, jc.ErrorIsNil)
 	offers, err := offeredServices.ListOffersByRegisteredState(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 2)
 	c.Assert(offers, jc.DeepEquals, []crossmodel.OfferedService{offer, offer2})
+}
+
+func (s *offeredServicesSuite) TestUpdateServiceOfferNotFound(c *gc.C) {
+	offered := state.NewOfferedServices(s.State)
+	err := offered.UpdateOffer("local:/u/me/service", map[string]string{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, `.* service offer at "local:/u/me/service" not found`)
+}
+
+func (s *offeredServicesSuite) TestUpdateServiceOfferNoEndpoints(c *gc.C) {
+	offered := state.NewOfferedServices(s.State)
+	err := offered.UpdateOffer("local:/u/me/service", nil)
+	c.Assert(err, gc.ErrorMatches, ".* no endpoints specified")
 }
 
 func (s *offeredServicesSuite) TestAddServiceOfferDuplicate(c *gc.C) {
@@ -189,9 +251,20 @@ func (s *offeredServicesSuite) TestRegisterOfferDeleteAfterInitial(c *gc.C) {
 	offeredServices := state.NewOfferedServices(s.State)
 	offer := s.createOffedService(c, "offer1")
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := offeredServices.RemoveOffer(offer.ServiceName, offer.ServiceURL)
+		err := offeredServices.RemoveOffer(offer.ServiceURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	err := offeredServices.SetOfferRegistered(offer.ServiceName, offer.ServiceURL, false)
-	c.Assert(err, gc.ErrorMatches, `.* service offer "offer1" at url "local:/u/me/offer1" not found`)
+	err := offeredServices.SetOfferRegistered(offer.ServiceURL, false)
+	c.Assert(err, gc.ErrorMatches, `.* service offer at "local:/u/me/offer1" not found`)
+}
+
+func (s *offeredServicesSuite) TestUpdateOfferDeleteAfterInitial(c *gc.C) {
+	offeredServices := state.NewOfferedServices(s.State)
+	offer := s.createOffedService(c, "offer1")
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := offeredServices.RemoveOffer(offer.ServiceURL)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	err := offeredServices.UpdateOffer(offer.ServiceURL, map[string]string{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, `.* service offer at "local:/u/me/offer1" not found`)
 }

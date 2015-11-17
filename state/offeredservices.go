@@ -26,8 +26,9 @@ type offeredServiceDoc struct {
 	// ServiceName is the name of the service.
 	ServiceName string `bson:"servicename"`
 
-	// Endpoints is the name of the endpoints offered.
-	Endpoints []string `bson:"endpoints"`
+	// Endpoints is the collection of endpoint names offered (internal->published).
+	// The map allows for advertised endpoint names to be aliased.
+	Endpoints map[string]string `bson:"endpoints"`
 
 	// Registered is set to true when the service in this offer is
 	// to be recorded in the service directory indicated by the URL.
@@ -43,14 +44,10 @@ func NewOfferedServices(st *State) crossmodel.OfferedServices {
 	return &offeredServices{st: st}
 }
 
-func (s *offeredServices) docId(name, url string) string {
-	return fmt.Sprintf("%s-%s", name, url)
-}
-
 // Remove deletes the service offer at url immediately.
-func (s *offeredServices) RemoveOffer(name, url string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot delete service offer record %q", url)
-	err = s.st.runTransaction(s.removeOps(name, url))
+func (s *offeredServices) RemoveOffer(url string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot delete service offer at %q", url)
+	err = s.st.runTransaction(s.removeOps(url))
 	if err == txn.ErrAborted {
 		// Already deleted.
 		return nil
@@ -59,11 +56,11 @@ func (s *offeredServices) RemoveOffer(name, url string) (err error) {
 }
 
 // removeOps returns the operations required to remove the record at url.
-func (s *offeredServices) removeOps(name, url string) []txn.Op {
+func (s *offeredServices) removeOps(url string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      serviceOffersC,
-			Id:     s.docId(name, url),
+			Id:     url,
 			Assert: txn.DocExists,
 			Remove: true,
 		},
@@ -88,25 +85,19 @@ func (s *offeredServices) AddOffer(offer crossmodel.OfferedService) (err error) 
 	if err := s.validateOffer(offer); err != nil {
 		return err
 	}
-	env, err := s.st.Environment()
-	if err != nil {
-		return errors.Trace(err)
-	} else if env.Life() != Alive {
-		return errors.Errorf("environment is no longer alive")
-	}
 
 	doc := s.makeOfferedServiceDoc(offer)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// If we've tried once already and failed, check that
-		// environment may have been destroyed.
+		if err := checkEnvLife(s.st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If we've tried once already and failed, that means
+		// we have a duplicate.
 		if attempt > 0 {
-			if err := checkEnvLife(s.st); err != nil {
-				return nil, errors.Trace(err)
-			}
 			return nil, errDuplicateServiceOffer
 		}
 		ops := []txn.Op{
-			env.assertAliveOp(),
+			assertEnvAliveOp(s.st.EnvironUUID()),
 			{
 				C:      serviceOffersC,
 				Id:     doc.DocID,
@@ -120,16 +111,52 @@ func (s *offeredServices) AddOffer(offer crossmodel.OfferedService) (err error) 
 	return errors.Trace(err)
 }
 
+// UpdateOffer updates an existing service offering to state.
+func (s *offeredServices) UpdateOffer(url string, endpoints map[string]string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot update service offer")
+
+	if _, err := crossmodel.ParseServiceURL(url); err != nil {
+		return errors.NotValidf("service URL %q", url)
+	}
+	if len(endpoints) == 0 {
+		return errors.New("no endpoints specified")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if err := checkEnvLife(s.st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If we've tried once already and failed, that means
+		// the offer is deleted.
+		if attempt > 0 {
+			return nil, errors.NotFoundf("service offer at %q", url)
+		}
+		ops := []txn.Op{
+			assertEnvAliveOp(s.st.EnvironUUID()),
+			{
+				C:      serviceOffersC,
+				Id:     url,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"endpoints", endpoints}}},
+				},
+			},
+		}
+		return ops, nil
+	}
+	err = s.st.run(buildTxn)
+	return errors.Trace(err)
+}
+
 func (s *offeredServices) makeOfferedServiceDoc(offer crossmodel.OfferedService) offeredServiceDoc {
 	doc := offeredServiceDoc{
-		DocID:       s.docId(offer.ServiceName, offer.ServiceURL),
+		DocID:       offer.ServiceURL,
 		URL:         offer.ServiceURL,
 		ServiceName: offer.ServiceName,
 		Registered:  true,
 	}
-	eps := make([]string, len(offer.Endpoints))
-	for i, ep := range offer.Endpoints {
-		eps[i] = ep
+	eps := make(map[string]string, len(offer.Endpoints))
+	for internal, published := range offer.Endpoints {
+		eps[internal] = published
 	}
 	doc.Endpoints = eps
 	return doc
@@ -187,15 +214,15 @@ func (s *offeredServices) makeServiceOffer(doc offeredServiceDoc) crossmodel.Off
 		ServiceName: doc.ServiceName,
 		Registered:  doc.Registered,
 	}
-	offer.Endpoints = make([]string, len(doc.Endpoints))
-	for i, ep := range doc.Endpoints {
-		offer.Endpoints[i] = ep
+	offer.Endpoints = make(map[string]string, len(doc.Endpoints))
+	for internal, published := range doc.Endpoints {
+		offer.Endpoints[internal] = published
 	}
 	return offer
 }
 
 // SetOfferRegistered marks a previously saved offer as registered or not.
-func (s *offeredServices) SetOfferRegistered(name, url string, registered bool) (err error) {
+func (s *offeredServices) SetOfferRegistered(url string, registered bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot register service offer")
 
 	env, err := s.st.Environment()
@@ -212,13 +239,13 @@ func (s *offeredServices) SetOfferRegistered(name, url string, registered bool) 
 			if err := checkEnvLife(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return nil, errors.NotFoundf("service offer %q at url %q", name, url)
+			return nil, errors.NotFoundf("service offer at %q", url)
 		}
 		ops := []txn.Op{
 			env.assertAliveOp(),
 			{
 				C:      serviceOffersC,
-				Id:     s.docId(name, url),
+				Id:     url,
 				Assert: txn.DocExists,
 				Update: bson.M{"$set": bson.M{"registered": registered}},
 			},
