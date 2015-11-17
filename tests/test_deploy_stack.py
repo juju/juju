@@ -963,6 +963,15 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
         self.assertIs(args.jes, True)
 
 
+class Nearly(int):
+    """Nearly is an int type that compares equal to floats within 0.1"""
+
+    def __eq__(self, other):
+        if type(other) == float:
+            return float(self) == round(other, 1)
+        return int(self) == other
+
+
 class TestGetMachineDNSName(TestCase):
 
     log_level = logging.DEBUG
@@ -989,15 +998,12 @@ class TestGetMachineDNSName(TestCase):
         status = Status.from_text(self.machine_0_hostname)
         fake_client = Mock(spec=['get_status'])
         fake_client.get_status.return_value = status
-        with patch("deploy_stack.until_timeout", autospec=True,
-                   return_value=[599]) as mock_ut:
-            host = get_machine_dns_name(fake_client, 0)
+        host = get_machine_dns_name(fake_client, 0)
         self.assertEqual(host, "a-host")
-        mock_ut.assert_called_once_with(600)
-        fake_client.get_status.assert_called_once_with(timeout=599)
+        fake_client.get_status.assert_called_once_with(timeout=Nearly(600))
         self.assertEqual(self.log_stream.getvalue(), "")
 
-    def test_retries_till_timeout(self):
+    def test_retries_for_dns_name(self):
         status_pending = Status.from_text(self.machine_0_no_addr)
         status_with_host = Status.from_text(self.machine_0_hostname)
         fake_client = Mock(spec=['get_status'])
@@ -1015,16 +1021,31 @@ class TestGetMachineDNSName(TestCase):
             self.log_stream.getvalue(),
             "DEBUG No dns-name yet for machine 0\n")
 
+    def test_retries_gives_up(self):
+        status = Status.from_text(self.machine_0_no_addr)
+        fake_client = Mock(spec=['get_status'])
+        fake_client.get_status.return_value = status
+        with patch("deploy_stack.until_timeout", autospec=True,
+                   return_value=[9, 5, 1]) as mock_ut:
+            host = get_machine_dns_name(fake_client, 0, timeout=10)
+        self.assertEqual(host, None)
+        mock_ut.assert_called_once_with(10)
+        self.assertEqual(fake_client.get_status.call_args_list, [
+            call(timeout=9),
+            call(timeout=5),
+            call(timeout=1),
+        ])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n" * 3)
+
     def test_gets_ipv6(self):
         status = Status.from_text(self.machine_0_ipv6)
         fake_client = Mock(spec=['get_status'])
         fake_client.get_status.return_value = status
-        with patch("deploy_stack.until_timeout", autospec=True,
-                   return_value=[599]) as mock_ut:
-            host = get_machine_dns_name(fake_client, 0)
+        host = get_machine_dns_name(fake_client, 0)
         self.assertEqual(host, "[2001:db8::3]")
-        mock_ut.assert_called_once_with(600)
-        fake_client.get_status.assert_called_once_with(timeout=599)
+        fake_client.get_status.assert_called_once_with(timeout=Nearly(600))
         self.assertEqual(
             self.log_stream.getvalue(),
             "WARNING Selected IPv6 address for machine 0: '2001:db8::3'\n")
