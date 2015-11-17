@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/cinder"
+	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/tags"
@@ -497,4 +498,60 @@ func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAtta
 		return ma.listVolumeAttachments(serverId)
 	}
 	return nil, nil
+}
+
+type testEndpointResolver struct {
+	regionEndpoints map[string]identity.ServiceURLs
+}
+
+func (r testEndpointResolver) EndpointsForRegion(region string) identity.ServiceURLs {
+	return r.regionEndpoints[region]
+}
+
+var volumeEndpointTests = []struct {
+	summary    string
+	endpoints  map[string]string
+	url        string
+	errormatch string
+}{{
+	summary:   "finds volume endpoint",
+	endpoints: map[string]string{"volume": "http://cinder.testing/v1"},
+	url:       "http://cinder.testing/v1",
+}, {
+	summary:   "finds volumev2 endpoint",
+	endpoints: map[string]string{"volumev2": "http://cinder.testing/v2"},
+	url:       "http://cinder.testing/v2",
+}, {
+	summary: "prefers volumev2 endpoint",
+	endpoints: map[string]string{
+		"volume":   "http://cinder.testing/v1",
+		"volumev2": "http://cinder.testing/v2",
+	},
+	url: "http://cinder.testing/v2",
+}, {
+	summary:    "error on missing region",
+	errormatch: `volume endpoint not found for "west" region`,
+}, {
+	summary:    "error on bad url",
+	endpoints:  map[string]string{"volume": "%2 wha!"},
+	errormatch: `error parsing endpoint: .*`,
+}}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpoint(c *gc.C) {
+	for i, t := range volumeEndpointTests {
+		c.Logf("#%d. %s", i, t.summary)
+		client := testEndpointResolver{
+			regionEndpoints: map[string]identity.ServiceURLs{
+				"west": t.endpoints,
+			},
+		}
+		url, err := openstack.GetVolumeEndpointURL(client, "west")
+		if t.errormatch == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(url.String(), gc.Equals, t.url)
+		} else {
+			c.Check(err, gc.ErrorMatches, t.errormatch)
+			c.Check(url, gc.IsNil)
+		}
+	}
 }
