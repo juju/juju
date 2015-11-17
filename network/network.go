@@ -88,6 +88,10 @@ type SubnetInfo struct {
 	// SpaceName holds the juju network space associated with this
 	// subnet. Can be empty if not supported.
 	SpaceName string
+
+	// SpaceProviderId holds the provider Id of the space associated with
+	// this subnet. Can be empty if not supported.
+	SpaceProviderId string
 }
 
 type SpaceInfo struct {

@@ -57,6 +57,13 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// maasSpaceNameToJuju translates a space name from MAAS into the equivalent
+// Juju space name. This means lowercasing and replacing spaces with "-".
+func maasSpaceNameToJuju(space string) string {
+	noSpaces := strings.Replace(space, " ", "-", -1)
+	return strings.ToLower(noSpaces)
+}
+
 var (
 	ReleaseNodes             = releaseNodes
 	ReserveIPAddress         = reserveIPAddress
@@ -1745,6 +1752,16 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnets, err := environ.allSubnets(nodeId, subnetIds)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("instance %q has subnets %v", instId, subnets)
+
+	return subnets, nil
+}
+
+func (environ *maasEnviron) allSubnets(nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	client := environ.getMAASClient().GetSubObject("subnets")
 	json, err := client.CallGet("", nil)
 	if err != nil {
@@ -1769,18 +1786,27 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 		if err != nil {
 			return nil, errors.Errorf("cannot get subnet Id: %v", err)
 		}
-		_, ok := subnetIdSet[network.Id(subnetId)]
-		if !ok {
-			// This id is not what we're looking for.
-			continue
+
+		// If we're filtering by subnet id check if this subnet is one
+		// we're looking for.
+		if len(subnetIds) != 0 {
+			_, ok := subnetIdSet[network.Id(subnetId)]
+			if !ok {
+				// This id is not what we're looking for.
+				continue
+			}
+			subnetIdSet[network.Id(subnetId)] = true
 		}
-		match, err := environ.nodeOnSubnet(nodeId, subnetId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !match {
-			// The instance we're checking for isn't on this subnet.
-			continue
+		// Are we filtering by node?
+		if nodeId != "" {
+			match, err := environ.nodeOnSubnet(nodeId, subnetId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !match {
+				// The instance we're checking for isn't on this subnet.
+				continue
+			}
 		}
 
 		cidr, err := fields["cidr"].GetString()
@@ -1810,14 +1836,23 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 			ProviderId:        network.Id(subnetId),
 			VLANTag:           vid,
 			CIDR:              cidr,
-			SpaceName:         spaceName,
+			SpaceName:         maasSpaceNameToJuju(spaceName),
+			SpaceProviderId:   spaceName,
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
 		}
 		subnets[i] = subnetInfo
 		logger.Tracef("found subnet with info %#v", subnetInfo)
 	}
-	logger.Debugf("instance %q has subnets %v", instId, subnets)
+	notFound := []network.Id{}
+	for subnetId, found := range subnetIdSet {
+		if !found {
+			notFound = append(notFound, subnetId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
+	}
 
 	return subnets, nil
 }
