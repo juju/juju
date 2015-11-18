@@ -508,50 +508,48 @@ func (r testEndpointResolver) EndpointsForRegion(region string) identity.Service
 	return r.regionEndpoints[region]
 }
 
-var volumeEndpointTests = []struct {
-	summary    string
-	endpoints  map[string]string
-	url        string
-	errormatch string
-}{{
-	summary:   "finds volume endpoint",
-	endpoints: map[string]string{"volume": "http://cinder.testing/v1"},
-	url:       "http://cinder.testing/v1",
-}, {
-	summary:   "finds volumev2 endpoint",
-	endpoints: map[string]string{"volumev2": "http://cinder.testing/v2"},
-	url:       "http://cinder.testing/v2",
-}, {
-	summary: "prefers volumev2 endpoint",
-	endpoints: map[string]string{
-		"volume":   "http://cinder.testing/v1",
-		"volumev2": "http://cinder.testing/v2",
-	},
-	url: "http://cinder.testing/v2",
-}, {
-	summary:    "error on missing region",
-	errormatch: `endpoint "volume" not found for "west" region`,
-}, {
-	summary:    "error on bad url",
-	endpoints:  map[string]string{"volume": "%2 wha!"},
-	errormatch: `parse %2 wha!: .*`,
-}}
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"west": map[string]string{"volume": "http://cinder.testing/v1"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v1")
+}
 
-func (s *cinderVolumeSourceSuite) TestGetVolumeEndpoint(c *gc.C) {
-	for i, t := range volumeEndpointTests {
-		c.Logf("#%d. %s", i, t.summary)
-		client := testEndpointResolver{
-			regionEndpoints: map[string]identity.ServiceURLs{
-				"west": t.endpoints,
-			},
-		}
-		url, err := openstack.GetVolumeEndpointURL(client, "west")
-		if t.errormatch == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(url.String(), gc.Equals, t.url)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.errormatch)
-			c.Check(url, gc.IsNil)
-		}
-	}
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"west": map[string]string{"volumev2": "http://cinder.testing/v2"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV2(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"south": map[string]string{
+			"volume":   "http://cinder.testing/v1",
+			"volumev2": "http://cinder.testing/v2",
+		},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "south")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
+	client := testEndpointResolver{}
+	url, err := openstack.GetVolumeEndpointURL(client, "east")
+	c.Assert(err, gc.ErrorMatches, `endpoint "volume" not found for "east" region`)
+	c.Assert(url, gc.IsNil)
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"north": map[string]string{"volumev2": "some %4"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "north")
+	c.Assert(err, gc.ErrorMatches, `parse some %4: .*`)
+	c.Assert(url, gc.IsNil)
 }
