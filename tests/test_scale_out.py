@@ -13,6 +13,7 @@ from jujupy import (
 )
 from scale_out import (
     deploy_charms,
+    get_service_name,
     parse_args,
     scale_out,
     scaleout_setup,
@@ -167,7 +168,9 @@ class TestScaleOut(TestCase):
                                   'wait_for_started') as wfs_mock:
                     deploy_charms(client, ['ubuntu', 'mysql'])
         # Test client.deploy was called for each charm.
-        self.assertEqual(d_mock.mock_calls, [call('ubuntu'), call('mysql')])
+        expected = [call('ubuntu', service='ubuntu'),
+                    call('mysql', service='mysql')]
+        self.assertEqual(d_mock.mock_calls, expected)
         # Test client.wait_for_started was called.
         wfs_mock.assert_called_once_with()
 
@@ -181,3 +184,14 @@ class TestScaleOut(TestCase):
         j_mock.assert_called_once_with('add-unit', ('ubuntu', '-n', '5'))
         # Test client.wait_for_started was called.
         wfs_mock.assert_called_once_with()
+
+    def test_get_service_name(self):
+        charms = [('charm-name', 'charm-name'),
+                  ('charm-name-21', 'charm-name-21'),
+                  ('series/charm-name-13', 'charm-name-13'),
+                  ('local:charm-name', 'charm-name'),
+                  ('cs:~user/charm-name', 'charm-name'),
+                  ('lp:~user/some/path/to/charm-name', 'charm-name')]
+        for charm, expected in charms:
+            result = get_service_name(charm)
+            self.assertEqual(result, expected)

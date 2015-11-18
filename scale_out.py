@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 from contextlib import contextmanager
 import logging
+import re
 
 from deploy_stack import (
     boot_context,
@@ -54,18 +55,25 @@ def scaleout_setup(args):
         yield client
 
 
+def get_service_name(charm):
+    """Return a service name derived from a charm URL."""
+    return re.split('[:/]', charm).pop()
+
+
 def deploy_charms(client, charms):
     """Deploy each of the given charms."""
     for charm in charms:
         logger.info("Deploying %s.", charm)
-        client.deploy(charm)
+        service_name = get_service_name(charm)
+        client.deploy(charm, service=service_name)
     client.wait_for_started()
 
 
 def scale_out(client, charm, num_units=5):
     """Use Juju add-unit to scale out the given charm."""
-    logger.info("Adding %d units to %s.", num_units, charm)
-    client.juju('add-unit', (charm, '-n', str(num_units)))
+    service_name = get_service_name(charm)
+    logger.info("Adding %d units to %s.", num_units, service_name)
+    client.juju('add-unit', (service_name, '-n', str(num_units)))
     client.wait_for_started()
 
 

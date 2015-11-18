@@ -624,6 +624,14 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--to', '0'))
 
+    def test_deploy_service(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:mondogb', service='my-mondogb')
+        mock_juju.assert_called_with(
+            'deploy', ('local:mondogb', 'my-mondogb',))
+
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
