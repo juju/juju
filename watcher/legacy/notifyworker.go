@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package legacy
@@ -18,26 +18,24 @@ var ensureErr = watcher.EnsureErr
 // notifyWorker is the internal implementation of the Worker
 // interface, using a NotifyWatcher for handling changes.
 type notifyWorker struct {
-	tomb tomb.Tomb
-
-	// handler is what will handle when events are triggered
+	tomb    tomb.Tomb
 	handler NotifyWatchHandler
 }
 
 // NotifyWatchHandler implements the business logic that is triggered
 // as part of watching a NotifyWatcher.
 type NotifyWatchHandler interface {
-	// SetUp starts the handler, this should create the watcher we
-	// will be waiting on for more events. SetUp can return a Watcher
-	// even if there is an error, and the notify Worker will make sure
+	// SetUp will be called once, and should return the watcher that will
+	// be used to trigger subsequent Handle()s. SetUp can return a watcher
+	// even if there is an error, and the notify worker will make sure
 	// to stop the watcher.
 	SetUp() (state.NotifyWatcher, error)
 
-	// TearDown should cleanup any resources that are left around
+	// TearDown should cleanup any resources that are left around.
 	TearDown() error
 
-	// Handle is called when the Watcher has indicated there are changes, do
-	// whatever work is necessary to process it. The done channel is closed if
+	// Handle is called whenever the watcher returned from SetUp sends a value
+	// on its Changes() channel. The done channel will be closed if and when
 	// the worker is being interrupted to finish. Any worker should avoid any
 	// bare channel reads or writes, but instead use a select with the done
 	// channel.
@@ -59,12 +57,12 @@ func NewNotifyWorker(handler NotifyWatchHandler) worker.Worker {
 	return nw
 }
 
-// Kill the loop with no-error
+// Kill is part of the worker.Worker interface.
 func (nw *notifyWorker) Kill() {
 	nw.tomb.Kill(nil)
 }
 
-// Wait for the looping to finish
+// Wait is part of the worker.Worker interface.
 func (nw *notifyWorker) Wait() error {
 	return nw.tomb.Wait()
 }

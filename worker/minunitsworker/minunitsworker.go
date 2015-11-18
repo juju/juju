@@ -7,9 +7,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
-
 	"github.com/juju/juju/watcher/legacy"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")

@@ -19,13 +19,13 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-type notifyWorkerSuite struct {
+type NotifyWorkerSuite struct {
 	coretesting.BaseSuite
 	worker worker.Worker
 	actor  *notifyHandler
 }
 
-var _ = gc.Suite(&notifyWorkerSuite{})
+var _ = gc.Suite(&NotifyWorkerSuite{})
 
 func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError error) (*notifyHandler, worker.Worker) {
 	nh := &notifyHandler{
@@ -48,21 +48,20 @@ func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError err
 	return nh, w
 }
 
-func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
+func (s *NotifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.actor, s.worker = newNotifyHandlerWorker(c, nil, nil, nil)
 }
 
-func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
+func (s *NotifyWorkerSuite) TearDownTest(c *gc.C) {
 	legacy.SetEnsureErr(nil)
 	s.stopWorker(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 type notifyHandler struct {
-	actions []string
-	mu      sync.Mutex
-	// Signal handled when we get a handle() call
+	actions       []string
+	mu            sync.Mutex
 	handled       chan struct{}
 	setupError    error
 	teardownError error
@@ -113,7 +112,7 @@ func (nh *notifyHandler) CheckActions(c *gc.C, actions ...string) {
 
 // During teardown we try to stop the worker, but don't hang the test suite if
 // Stop never returns
-func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
+func (s *NotifyWorkerSuite) stopWorker(c *gc.C) {
 	if s.worker == nil {
 		return
 	}
@@ -193,13 +192,13 @@ func waitForHandledNotify(c *gc.C, handled chan struct{}) {
 	}
 }
 
-func (s *notifyWorkerSuite) TestKill(c *gc.C) {
+func (s *NotifyWorkerSuite) TestKill(c *gc.C) {
 	s.worker.Kill()
 	err := waitShort(c, s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *notifyWorkerSuite) TestStop(c *gc.C) {
+func (s *NotifyWorkerSuite) TestStop(c *gc.C) {
 	err := worker.Stop(s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 	// After stop, Wait should return right away
@@ -207,7 +206,7 @@ func (s *notifyWorkerSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *notifyWorkerSuite) TestWait(c *gc.C) {
+func (s *NotifyWorkerSuite) TestWait(c *gc.C) {
 	done := make(chan error)
 	go func() {
 		done <- s.worker.Wait()
@@ -223,7 +222,7 @@ func (s *notifyWorkerSuite) TestWait(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
+func (s *NotifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
 	// After calling NewNotifyWorker, we should have called setup
 	s.actor.CheckActions(c, "setup")
 	// If we kill the worker, it should notice, and call teardown
@@ -234,7 +233,7 @@ func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
 	c.Check(s.actor.watcher.stopped, jc.IsTrue)
 }
 
-func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
+func (s *NotifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 	s.actor.CheckActions(c, "setup")
 	s.actor.watcher.TriggerChange(c)
 	waitForHandledNotify(c, s.actor.handled)
@@ -248,7 +247,7 @@ func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 	s.actor.CheckActions(c, "setup", "handler", "handler", "handler", "teardown")
 }
 
-func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
+func (s *NotifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
 	actor, w := newNotifyHandlerWorker(c, fmt.Errorf("my special error"), nil, nil)
@@ -259,7 +258,7 @@ func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	c.Check(actor.watcher.stopped, jc.IsTrue)
 }
 
-func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
+func (s *NotifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 	s.actor.watcher.SetStopError(fmt.Errorf("error while stopping watcher"))
 	s.worker.Kill()
 	c.Assert(s.worker.Wait(), gc.ErrorMatches, "error while stopping watcher")
@@ -268,14 +267,14 @@ func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 	s.worker = nil
 }
 
-func (s *notifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
+func (s *NotifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
 	s.actor.teardownError = fmt.Errorf("failed to tear down watcher")
 	s.worker.Kill()
 	c.Assert(s.worker.Wait(), gc.ErrorMatches, "failed to tear down watcher")
 	s.worker = nil
 }
 
-func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
+func (s *NotifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
 	actor, w := newNotifyHandlerWorker(c, nil, fmt.Errorf("my handling error"), nil)
 	actor.watcher.TriggerChange(c)
@@ -286,7 +285,7 @@ func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	c.Check(actor.watcher.stopped, jc.IsTrue)
 }
 
-func (s *notifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
+func (s *NotifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	// The default closedHandler doesn't panic if you have a genuine error
 	// (because it assumes you want to propagate a real error and then
 	// restart
@@ -311,13 +310,13 @@ func (c CannedErrer) Err() error {
 	return c.err
 }
 
-func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
+func (s *NotifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
 	// Roundabout check for function equality.
 	// Is this test really worth it?
 	c.Assert(fmt.Sprintf("%p", legacy.EnsureErr()), gc.Equals, fmt.Sprintf("%p", watcher.EnsureErr))
 }
 
-func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
+func (s *NotifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 	foundErr := fmt.Errorf("did not get an error")
 	triggeredHandler := func(errer watcher.Errer) error {
 		foundErr = errer.Err()
@@ -337,7 +336,7 @@ func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 	s.worker = nil
 }
 
-func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
+func (s *NotifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 	foundErr := fmt.Errorf("did not get an error")
 	triggeredHandler := func(errer watcher.Errer) error {
 		foundErr = errer.Err()
