@@ -16,7 +16,7 @@ import (
 // formatListTabular returns a tabular summary of remote services or
 // errors out if parameter is not of expected type.
 func formatListTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.(map[string]map[string]ListServiceItem)
+	endpoints, ok := value.(map[string]directoryServices)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
@@ -24,7 +24,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 }
 
 // formatListEndpointsTabular returns a tabular summary of listed services' endpoints.
-func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]byte, error) {
+func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error) {
 	var out bytes.Buffer
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	print := func(values ...string) {
@@ -46,15 +46,15 @@ func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]by
 		print(headers...)
 
 		// Sort application names alphabetically.
-		items := all[directory]
+		services := all[directory]
 		applicationNames := []string{}
-		for name, _ := range items {
+		for name, _ := range services {
 			applicationNames = append(applicationNames, name)
 		}
 		sort.Strings(applicationNames)
 
 		for _, name := range applicationNames {
-			application := items[name]
+			application := services[name]
 
 			// Sort endpoints alphabetically.
 			endpoints := []string{}

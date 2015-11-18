@@ -158,10 +158,12 @@ type ListServiceItem struct {
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-func formatServiceItems(all map[string][]params.ListEndpointsServiceItem) map[string]map[string]ListServiceItem {
-	items := make(map[string]map[string]ListServiceItem)
+type directoryServices map[string]ListServiceItem
+
+func formatServiceItems(all map[string][]params.ListEndpointsServiceItem) map[string]directoryServices {
+	items := make(map[string]directoryServices)
 	for directory, services := range all {
-		servicesMap := make(map[string]ListServiceItem)
+		servicesMap := make(directoryServices)
 		for _, service := range services {
 			servicesMap[service.ApplicationName] = convertServiceToListItem(service)
 		}
