@@ -91,7 +91,7 @@ func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 		Offers: []params.AddServiceOffer{
 			{
 				ServiceOffer: params.ServiceOffer{
-					ServiceURL:       "local:/u/user/name",
+					ServiceURL:       "local:/u/user/servicename",
 					ServiceName:      "service",
 					SourceEnvironTag: names.NewEnvironTag(fakeUUID).String(),
 				},
@@ -112,7 +112,7 @@ func (s *serviceDirectorySuite) TestAddOffer(c *gc.C) {
 	s.assertCalls(c, []string{"addoffer", "addoffer"})
 	offer0, err := apicrossmodel.MakeOfferFromParams(offers.Offers[0].ServiceOffer)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.offers["local:/u/user/name"], jc.DeepEquals, offer0)
+	c.Assert(s.offers["local:/u/user/servicename"], jc.DeepEquals, offer0)
 	offer1, err := apicrossmodel.MakeOfferFromParams(offers.Offers[1].ServiceOffer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.offers["local:/u/user/anothername"], jc.DeepEquals, offer1)
@@ -127,7 +127,7 @@ func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
 		Offers: []params.AddServiceOffer{
 			{
 				ServiceOffer: params.ServiceOffer{
-					ServiceURL:       "local:/u/user/name",
+					ServiceURL:       "local:/u/user/servicename",
 					ServiceName:      "service",
 					SourceEnvironTag: names.NewEnvironTag(fakeUUID).String(),
 				},
@@ -142,8 +142,8 @@ func (s *serviceDirectorySuite) TestAddOfferError(c *gc.C) {
 }
 
 func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
-	s.offers["local:/u/user/name"] = jujucrossmodel.ServiceOffer{
-		ServiceURL:    "local:/u/user/name",
+	s.offers["local:/u/user/servicename"] = jujucrossmodel.ServiceOffer{
+		ServiceURL:    "local:/u/user/servicename",
 		ServiceName:   "service",
 		SourceEnvUUID: fakeUUID,
 	}
@@ -156,7 +156,7 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 		Directory: "local",
 		Filters: []params.OfferFilter{
 			{
-				ServiceURL: "local:/u/user/name",
+				ServiceURL: "local:/u/user/servicename",
 			},
 		},
 	})
@@ -166,8 +166,8 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	s.assertCalls(c, []string{"listoffers"})
 	offer, err := apicrossmodel.MakeOfferFromParams(results.Offers[0])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/name"])
-	c.Assert(results.Offers[0].ServiceURL, gc.Equals, "local:/u/user/name")
+	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/servicename"])
+	c.Assert(results.Offers[0].ServiceURL, gc.Equals, "local:/u/user/servicename")
 	c.Assert(results.Offers[0].SourceEnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID).String())
 }
 

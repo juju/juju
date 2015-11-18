@@ -17,10 +17,13 @@ func init() {
 	common.RegisterStandardFacade("OfferedServices", 1, newOfferedServiceAPI)
 }
 
+// OfferedServiceLister instances allow offered services to be queried.
 type OfferedServiceLister interface {
+	// ListOffers returns the offered services matching the filter.
 	ListOffers(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error)
 }
 
+// OfferedServiceAPI is a facade used to access offered services.
 type OfferedServiceAPI struct {
 	st              stateAccessor
 	offeredServices OfferedServiceLister
@@ -70,8 +73,8 @@ func (s *OfferedServiceAPI) WatchOfferedServices() (params.StringsWatchResult, e
 
 // OfferedServices returns the offered services matching the query parameters.
 func (s *OfferedServiceAPI) OfferedServices(filter params.OfferedServiceQueryParams) (params.OfferedServiceResults, error) {
-	offers := make([]params.OfferedServiceResult, len(filter.URLS))
-	for i, url := range filter.URLS {
+	offers := make([]params.OfferedServiceResult, len(filter.ServiceUrls))
+	for i, url := range filter.ServiceUrls {
 		offerResults, err := s.offeredServices.ListOffers(crossmodel.OfferedServiceFilter{
 			ServiceURL: url,
 		})

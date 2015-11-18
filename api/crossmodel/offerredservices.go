@@ -23,7 +23,7 @@ type OfferedServiceAPI interface {
 
 	// OfferedServices returns the offered services for the specified urls.
 	// The results are keyed by URL.
-	OfferedServices(urls ...string) (map[string]crossmodel.OfferedService, error)
+	OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, error)
 
 	// WatchOfferedServices starts a watcher for changes to the offered
 	// services from this environment.
@@ -37,21 +37,21 @@ func NewOfferedServices(st base.APICallCloser) OfferedServiceAPI {
 }
 
 // OfferedServices returns the offered services for the specified urls.
-func (s *offeredServicesAPI) OfferedServices(urls ...string) (map[string]crossmodel.OfferedService, error) {
-	if len(urls) == 0 {
+func (s *offeredServicesAPI) OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, error) {
+	if len(serviceUrls) == 0 {
 		return nil, nil
 	}
 	var queryParams params.OfferedServiceQueryParams
-	queryParams.URLS = make([]string, len(urls))
-	for i, url := range urls {
-		queryParams.URLS[i] = url
+	queryParams.ServiceUrls = make([]string, len(serviceUrls))
+	for i, url := range serviceUrls {
+		queryParams.ServiceUrls[i] = url
 	}
 	results := new(params.OfferedServiceResults)
 	if err := s.facade.FacadeCall("OfferedServices", queryParams, results); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(results.Results) != len(urls) {
-		return nil, errors.Errorf("expected %d results, got %d", len(urls), len(results.Results))
+	if len(results.Results) != len(serviceUrls) {
+		return nil, errors.Errorf("expected %d results, got %d", len(serviceUrls), len(results.Results))
 	}
 	offers := make(map[string]crossmodel.OfferedService)
 	for i, result := range results.Results {
@@ -59,7 +59,7 @@ func (s *offeredServicesAPI) OfferedServices(urls ...string) (map[string]crossmo
 			if result.Error.ErrorCode() == params.CodeNotFound {
 				continue
 			}
-			return nil, errors.Annotatef(result.Error, "error retrieving offer at %q", urls[i])
+			return nil, errors.Annotatef(result.Error, "error retrieving offer at %q", serviceUrls[i])
 		}
 		offers[result.Result.ServiceURL] = MakeOfferedServiceFromParams(result.Result)
 	}

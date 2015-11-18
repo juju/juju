@@ -103,8 +103,8 @@ func (s *offeredServicesSuite) constructOfferLister() *mockOfferLister {
 }
 
 func (s *offeredServicesSuite) TestListOffers(c *gc.C) {
-	s.offers["local:/u/user/name"] = jujucrossmodel.OfferedService{
-		ServiceURL:  "local:/u/user/name",
+	s.offers["local:/u/user/servicename"] = jujucrossmodel.OfferedService{
+		ServiceURL:  "local:/u/user/servicename",
 		ServiceName: "service",
 		Registered:  true,
 		Endpoints:   map[string]string{"foo": "bar"},
@@ -116,24 +116,24 @@ func (s *offeredServicesSuite) TestListOffers(c *gc.C) {
 		Endpoints:   map[string]string{"db": "db"},
 	}
 	results, err := s.api.OfferedServices(params.OfferedServiceQueryParams{
-		URLS: []string{"local:/u/user/name"},
+		ServiceUrls: []string{"local:/u/user/servicename"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	s.assertCalls(c, []string{"listoffers"})
 	offer := apicrossmodel.MakeOfferedServiceFromParams(results.Results[0].Result)
-	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/name"])
+	c.Assert(offer, jc.DeepEquals, s.offers["local:/u/user/servicename"])
 }
 
 func (s *offeredServicesSuite) TestListOffersNoneFound(c *gc.C) {
-	s.offers["local:/u/user/name"] = jujucrossmodel.OfferedService{
-		ServiceURL:  "local:/u/user/name",
+	s.offers["local:/u/user/servicename"] = jujucrossmodel.OfferedService{
+		ServiceURL:  "local:/u/user/servicename",
 		ServiceName: "service",
 		Registered:  true,
 		Endpoints:   map[string]string{"foo": "bar"},
 	}
 	results, err := s.api.OfferedServices(params.OfferedServiceQueryParams{
-		URLS: []string{"local:/u/user/bogus"},
+		ServiceUrls: []string{"local:/u/user/bogus"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

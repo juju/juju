@@ -137,5 +137,5 @@ type OfferedServiceResults struct {
 // OfferedServiceQueryParams is used to specify the URLs
 // for which we want to load offered service details.
 type OfferedServiceQueryParams struct {
-	URLS []string
+	ServiceUrls []string
 }

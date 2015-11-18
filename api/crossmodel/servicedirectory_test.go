@@ -39,7 +39,7 @@ func serviceForURLCaller(c *gc.C, offers []params.ServiceOffer, err string) base
 			c.Assert(args.Filters, gc.HasLen, 1)
 
 			filter := args.Filters[0]
-			c.Check(filter.ServiceURL, gc.DeepEquals, "local:/u/user/name")
+			c.Check(filter.ServiceURL, gc.DeepEquals, "local:/u/user/servicename")
 			c.Check(filter.AllowedUserTags, jc.SameContents, []string{"user-foo"})
 			c.Check(filter.Endpoints, gc.HasLen, 0)
 			c.Check(filter.ServiceName, gc.Equals, "")
@@ -69,7 +69,7 @@ func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 	}
 	offers := []params.ServiceOffer{
 		{
-			ServiceURL:       "local:/u/user/name",
+			ServiceURL:       "local:/u/user/servicename",
 			ServiceName:      "service",
 			SourceEnvironTag: "environment-" + fakeUUID,
 			Endpoints:        endpoints,
@@ -77,7 +77,7 @@ func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 	}
 	apiCaller := serviceForURLCaller(c, offers, "")
 	client := crossmodel.NewServiceOffers(apiCaller)
-	result, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/name", "foo")
+	result, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/servicename", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOffer, err := crossmodel.MakeOfferFromParams(offers[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,14 +87,14 @@ func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 func (s *serviceDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
 	apiCaller := serviceForURLCaller(c, []params.ServiceOffer{}, "")
 	client := crossmodel.NewServiceOffers(apiCaller)
-	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/name", "foo")
+	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/servicename", "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *serviceDirectorySuite) TestServiceForURLError(c *gc.C) {
 	apiCaller := serviceForURLCaller(c, nil, "error")
 	client := crossmodel.NewServiceOffers(apiCaller)
-	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/name", "foo")
+	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/servicename", "foo")
 	c.Assert(err, gc.ErrorMatches, "error")
 }
 
@@ -138,7 +138,7 @@ func (s *serviceDirectorySuite) TestListOffers(c *gc.C) {
 	}
 	offers := []params.ServiceOffer{
 		{
-			ServiceURL:       "local:/u/user/name",
+			ServiceURL:       "local:/u/user/servicename",
 			ServiceName:      "service",
 			SourceEnvironTag: "environment-" + fakeUUID,
 			Endpoints:        endpoints,
@@ -218,7 +218,7 @@ func (s *serviceDirectorySuite) TestAddOffers(c *gc.C) {
 	offers := []params.AddServiceOffer{
 		{
 			ServiceOffer: params.ServiceOffer{
-				ServiceURL:       "local:/u/user/name",
+				ServiceURL:       "local:/u/user/servicename",
 				ServiceName:      "service",
 				SourceEnvironTag: "environment-" + fakeUUID,
 				Endpoints:        endpoints,
@@ -245,7 +245,7 @@ func (s *serviceDirectorySuite) TestAddOffersError(c *gc.C) {
 	offers := []params.AddServiceOffer{
 		{
 			ServiceOffer: params.ServiceOffer{
-				ServiceURL:       "local:/u/user/name",
+				ServiceURL:       "local:/u/user/servicename",
 				ServiceName:      "service",
 				SourceEnvironTag: "environment-" + fakeUUID,
 				Endpoints:        endpoints,
@@ -285,7 +285,7 @@ func apiCallerWithError(c *gc.C, facadeName, apiName string) basetesting.APICall
 
 func (s *serviceDirectorySuite) TestServiceForURLFacadeCallError(c *gc.C) {
 	client := crossmodel.NewServiceOffers(apiCallerWithError(c, "ServiceOffers", "ListOffers"))
-	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/name", "user")
+	_, err := jujucrossmodel.ServiceOfferForURL(client, "local:/u/user/servicename", "user")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }
 
