@@ -94,8 +94,6 @@ class TestScaleOut(TestCase):
                 # in fake_client_cxt()
                 bv_mock = EnvJujuClient.by_version
                 pass
-
-        # Test that boot_context was called with expected args
         boot_context_func.assert_called_once_with(
             args.temp_env_name,
             client,
@@ -109,14 +107,8 @@ class TestScaleOut(TestCase):
             args.upload_tools,
             permanent=False,
             region=args.region)
-
-        # Test that the expected args were passed when creating the env.
         bv_mock.assert_called_once_with(fake_env, '/path/juju', False)
-
-        # Test that client.add_ssh_machines is called with expected args
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
-
-        # Test that the expected client type is yielded
         self.assertIs(client, fake_client)
 
     def test_scaleout_setup_sets_series(self):
@@ -145,8 +137,6 @@ class TestScaleOut(TestCase):
                            autospec=True):
                     with scaleout_setup(args) as client:
                         pass
-
-        # Test that boot_context was called with series given in args.
         bc_mock.assert_called_once_with(
             args.temp_env_name,
             client,
@@ -167,11 +157,9 @@ class TestScaleOut(TestCase):
                 with patch.object(EnvJujuClient,
                                   'wait_for_started') as wfs_mock:
                     deploy_charms(client, ['ubuntu', 'mysql'])
-        # Test client.deploy was called for each charm.
         expected = [call('ubuntu', service='ubuntu'),
                     call('mysql', service='mysql')]
         self.assertEqual(d_mock.mock_calls, expected)
-        # Test client.wait_for_started was called.
         wfs_mock.assert_called_once_with()
 
     def test_scale_out(self):
@@ -180,9 +168,7 @@ class TestScaleOut(TestCase):
                 with patch.object(EnvJujuClient,
                                   'wait_for_started') as wfs_mock:
                     scale_out(client, 'ubuntu')
-        # Test client.juju was called with expected args.
         j_mock.assert_called_once_with('add-unit', ('ubuntu', '-n', '5'))
-        # Test client.wait_for_started was called.
         wfs_mock.assert_called_once_with()
 
     def test_get_service_name(self):
