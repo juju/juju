@@ -81,6 +81,9 @@ func (c *Client) getDataDir() string {
 	return dataResource.String()
 }
 
+// pulled out of my butt
+const jujuRunParallelism = 5
+
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
@@ -119,7 +122,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}
-	return ParallelExecute(c.getDataDir(), params), nil
+	return ParallelExecute(c.getDataDir(), params, jujuRunParallelism), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
@@ -137,7 +140,7 @@ func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, erro
 	for _, machine := range machines {
 		params = append(params, remoteParamsForMachine(machine, command, run.Timeout))
 	}
-	return ParallelExecute(c.getDataDir(), params), nil
+	return ParallelExecute(c.getDataDir(), params, jujuRunParallelism), nil
 }
 
 // RemoteExec extends the standard ssh.ExecParams by providing the machine and
@@ -151,38 +154,74 @@ type RemoteExec struct {
 
 // ParallelExecute executes all of the requests defined in the params,
 // using the system identity stored in the dataDir.
-func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults {
+func ParallelExecute(dataDir string, runParams []*RemoteExec, numWorkers int) params.RunResults {
 	logger.Debugf("exec %#v", runParams)
-	var outstanding sync.WaitGroup
-	var lock sync.Mutex
-	var result []params.RunResult
-	identity := filepath.Join(dataDir, agent.SystemIdentity)
-	for _, param := range runParams {
-		outstanding.Add(1)
-		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
-		param.IdentityFile = identity
-		go func(param *RemoteExec) {
-			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
-			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
-			execResponse := params.RunResult{
-				ExecResponse: response,
-				MachineId:    param.MachineId,
-				UnitId:       param.UnitId,
-			}
-			if err != nil {
-				execResponse.Error = fmt.Sprint(err)
-			}
 
-			lock.Lock()
-			defer lock.Unlock()
-			result = append(result, execResponse)
-			outstanding.Done()
-		}(param)
+	var wg sync.WaitGroup
+	queue := make(chan *RemoteExec)
+	results := make(chan params.RunResult)
+
+	// Let's not spawn extra goroutines, eh?
+	if numWorkers > len(runParams) {
+		numWorkers = len(runParams)
 	}
 
-	outstanding.Wait()
+	// Limit the parallelization. Since this uses fork, which starts
+	// off by using a copy of juju's memory, and thus can easily cause OOM
+	// issues.
+	for x := 0; x < numWorkers; x++ {
+		wg.Add(1)
+		go execWorker(&wg, queue, results)
+	}
+
+	output := make(chan []params.RunResult)
+	go resultCollator(len(runParams), results, output)
+
+	identity := filepath.Join(dataDir, agent.SystemIdentity)
+	for _, param := range runParams {
+		param.IdentityFile = identity
+		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
+		queue <- param
+	}
+
+	close(queue)
+	wg.Wait()
+	close(results)
+	result := <-output
+
 	sort.Sort(MachineOrder(result))
 	return params.RunResults{result}
+}
+
+// execWorker is a worker that runs in a goroutine to execute commands from, the
+// queue and pass on the results.
+func execWorker(wg *sync.WaitGroup, queue <-chan *RemoteExec, results chan<- params.RunResult) {
+	for param := range queue {
+		// this function call has its own internal timeout, so we don't need one.
+		response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
+		logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
+		execResponse := params.RunResult{
+			ExecResponse: response,
+			MachineId:    param.MachineId,
+			UnitId:       param.UnitId,
+		}
+		if err != nil {
+			execResponse.Error = fmt.Sprint(err)
+		}
+
+		results <- execResponse
+	}
+	wg.Done()
+}
+
+// resultCollator collects the results into a slice and passes them on to output
+// when done.
+func resultCollator(count int, results <-chan params.RunResult, output chan<- []params.RunResult) {
+	result := make([]params.RunResult, 0, count)
+	for res := range results {
+		result = append(result, res)
+	}
+	output <- result
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine
