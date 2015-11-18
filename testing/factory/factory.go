@@ -100,10 +100,11 @@ type RelationParams struct {
 }
 
 type MetricParams struct {
-	Unit    *state.Unit
-	Time    *time.Time
-	Metrics []state.Metric
-	Sent    bool
+	Unit       *state.Unit
+	Time       *time.Time
+	Metrics    []state.Metric
+	Sent       bool
+	DeleteTime *time.Time
 }
 
 type EnvParams struct {
@@ -425,7 +426,11 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
-		err := metric.SetSent()
+		t := now
+		if params.DeleteTime != nil {
+			t = *params.DeleteTime
+		}
+		err := metric.SetSent(t)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return metric

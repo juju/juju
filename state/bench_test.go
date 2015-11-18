@@ -132,7 +132,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 				},
 			)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetSent()
+			err = m.SetSent(time.Now())
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		err := s.State.CleanupOldMetrics()
