@@ -182,6 +182,12 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 // command we run will require a separate fork. This can be a problem
 // for controllers with low resources or in environments with many
 // machines.
+//
+// Note that when the start operation completes, the memory of the
+// forked process will have already been replaced with that of the
+// exec'ed command. This is a relatively quick operation relative to
+// the wait operation. That is why start-serially-and-wait-in-parallel
+// is a viable approach.
 func startSerialWaitParallel(args []*RemoteExec, results *params.RunResults) {
 	var wg sync.WaitGroup
 	for i, arg := range args {
