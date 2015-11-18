@@ -214,13 +214,14 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 		{Scope: s.State.EnvironUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
 		{Scope: "lxc", Directive: "1"},
+		{Scope: "lxc", Directive: ""},
 	}
 	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName:   "bob",
 			Charm:         s.charm,
 			Constraints:   serviceCons,
-			NumUnits:      3,
+			NumUnits:      4,
 			Placement:     placement,
 			ToMachineSpec: "will be ignored",
 		})
@@ -229,7 +230,7 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
 	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 3)
+	c.Assert(f.args.NumUnits, gc.Equals, 4)
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
