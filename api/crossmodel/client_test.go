@@ -281,12 +281,12 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			args, ok := a.(params.ListEndpointsFilters)
 			c.Assert(ok, jc.IsTrue)
 			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
-			c.Assert(args, gc.HasLen, 0)
+			c.Assert(args.Filters, gc.HasLen, 0)
 
 			if results, ok := result.(*params.ListEndpointsServiceItemResults); ok {
 				all := map[string][]params.ListEndpointsServiceItemResult{
 					directoryName: []params.ListEndpointsServiceItemResult{
-						{Result: params.ListEndpointsServiceItem{
+						{Result: &params.ListEndpointsServiceItem{
 							ApplicationName: appName,
 							CharmName:       charmName,
 							UsersCount:      count,
@@ -308,10 +308,9 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	results, err := client.List(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals, map[string][]params.ListEndpointsServiceItemResult{
 		directoryName: []params.ListEndpointsServiceItemResult{
-			{Result: params.ListEndpointsServiceItem{
+			{Result: &params.ListEndpointsServiceItem{
 				ApplicationName: appName,
 				CharmName:       charmName,
 				UsersCount:      count,
