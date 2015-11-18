@@ -9,8 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/constraints"
 )
 
 var unsupportedConstraints = []string{
