@@ -65,6 +65,14 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 }
 
 func (c *Client) List(filters map[string][]string) (map[string][]params.ListEndpointsServiceItemResult, error) {
-	// TODO (anastasiamac 2015-11-18) do the dance
-	return nil, nil
+	// TODO (anastasiamac 2015-11-18) construct meaningful filters from input
+	in := params.ListEndpointsFilters{}
+	out := params.ListEndpointsServiceItemResults{}
+
+	err := c.facade.FacadeCall("List", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return out.Results, nil
 }
