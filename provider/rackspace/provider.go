@@ -15,7 +15,7 @@ type environProvider struct {
 	environs.EnvironProvider
 }
 
-var providerInstance environProvider
+var providerInstance *environProvider
 
 // BoilerplateConfig implements environs.EnvironProvider.
 func (p environProvider) BoilerplateConfig() string {

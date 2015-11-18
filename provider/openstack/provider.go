@@ -246,6 +246,7 @@ func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	e := new(Environ)
 
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
+	e.configurator = p.Configurator
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -373,6 +374,7 @@ type Environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
+	configurator           ProviderConfigurator
 }
 
 var _ environs.Environ = (*Environ)(nil)
@@ -1006,7 +1008,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
-	cloudcfg, err := providerInstance.Configurator.GetCloudConfig(args)
+	cloudcfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1065,7 +1067,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			AvailabilityZone:   availZone,
 			Metadata:           args.InstanceConfig.Tags,
 		}
-		providerInstance.Configurator.ModifyRunServerOptions(&opts)
+		e.configurator.ModifyRunServerOptions(&opts)
 		for a := shortAttempt.Start(); a.Next(); {
 			server, err = e.nova().RunServer(opts)
 			if err == nil || !gooseerrors.IsNotFound(err) {

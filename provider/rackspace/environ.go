@@ -4,10 +4,11 @@
 package rackspace
 
 import (
-	"github.com/juju/errors"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
@@ -72,12 +73,12 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 			return nil, errors.Trace(err)
 		}
 	}
-	return r, errors.Trace(err)
+	return r, nil
 }
 
 var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
 // Provider implements environs.Environ.
 func (e environ) Provider() environs.EnvironProvider {
-	return &providerInstance
+	return providerInstance
 }
