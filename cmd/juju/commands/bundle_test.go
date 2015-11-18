@@ -291,7 +291,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: trusty
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
@@ -309,11 +309,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
                 to: [django]
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
-}
-
-func (s *deployRepoCharmStoreSuite) TestDeployBundleDirectoryError(c *gc.C) {
-	_, err := runDeployCommand(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "deployment of bundle directories not yet supported")
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
@@ -542,6 +537,66 @@ deployment of bundle "local:bundle/example-0" completed`
 		"up/0":        "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	content := `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: true
+    `
+	expectedServices := map[string]serviceInfo{
+		"wordpress": {
+			charm:   "cs:trusty/wordpress-42",
+			exposed: true,
+		},
+	}
+
+	// First deploy the bundle.
+	output, err := s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+added wordpress/0 unit to new machine
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy the same bundle again: no error is produced when the service
+	// is exposed again.
+	output, err = s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy a bundle with the service unexposed, and check that the
+	// service is not unexposed.
+	output, err = s.deployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: false
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {

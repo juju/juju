@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1605,6 +1605,7 @@ var _ = gc.Suite(&clientRepoSuite{})
 func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.baseSuite.SetUpSuite(c)
+
 }
 
 func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
@@ -1616,6 +1617,8 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.CharmStoreSuite.Session = s.baseSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
+
+	c.Assert(s.APIState, gc.NotNil)
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {
@@ -1788,9 +1791,14 @@ func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("service-name/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machine.Id())
@@ -3215,7 +3223,7 @@ func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAdd
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
 		p.URL = s.Srv.URL
-		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
+		repo.CharmStore = charmrepo.NewCharmStore(p)
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
@@ -3279,7 +3287,7 @@ var resolveCharmTests = []struct {
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",
-	resolveErr: `cannot resolve URL "cs:no-such": entity not found`,
+	resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",

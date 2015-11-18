@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -741,23 +742,24 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 
 type mockClock struct {
 	gitjujutesting.Stub
-	now       time.Time
-	nowFunc   func() time.Time
-	afterFunc func(time.Duration) <-chan time.Time
+	now         time.Time
+	onNow       func() time.Time
+	onAfter     func(time.Duration) <-chan time.Time
+	onAfterFunc func(time.Duration, func()) clock.Timer
 }
 
 func (c *mockClock) Now() time.Time {
 	c.MethodCall(c, "Now")
-	if c.nowFunc != nil {
-		return c.nowFunc()
+	if c.onNow != nil {
+		return c.onNow()
 	}
 	return c.now
 }
 
 func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	c.MethodCall(c, "After", d)
-	if c.afterFunc != nil {
-		return c.afterFunc(d)
+	if c.onAfter != nil {
+		return c.onAfter(d)
 	}
 	if d > 0 {
 		c.now = c.now.Add(d)
@@ -765,6 +767,17 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	ch := make(chan time.Time, 1)
 	ch <- c.now
 	return ch
+}
+
+func (c *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	c.MethodCall(c, "AfterFunc", d, f)
+	if c.onAfterFunc != nil {
+		return c.onAfterFunc(d, f)
+	}
+	if d > 0 {
+		c.now = c.now.Add(d)
+	}
+	return time.AfterFunc(0, f)
 }
 
 type mockStatusSetter struct {

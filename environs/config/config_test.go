@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 

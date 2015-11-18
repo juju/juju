@@ -6,6 +6,7 @@ package environs
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -62,6 +63,10 @@ type StartInstanceParams struct {
 type StartInstanceResult struct {
 	// Instance is an interface representing a cloud instance.
 	Instance instance.Instance
+
+	// Config holds the environment config to be used for any further
+	// operations, if the instance is for a state server.
+	Config *config.Config
 
 	// HardwareCharacteristics represents the hardware characteristics
 	// of the newly created instance.

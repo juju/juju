@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
@@ -55,11 +54,6 @@ func mktemp(prefix string, content string) string {
 func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
-
-	// Change the path to "juju-run", so that the
-	// tests don't try to write to /usr/local/bin.
-	agentcmd.JujuRun = mktemp("juju-run", "")
-	defer os.Remove(agentcmd.JujuRun)
 
 	// Create a CA certificate available for all tests.
 	caCertFile = mktemp("juju-test-cert", coretesting.CACert)
