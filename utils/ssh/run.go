@@ -126,8 +126,11 @@ func getExitCode(err error) (int, error) {
 	}
 	err = errors.Cause(err)
 	if ee, ok := err.(*exec.ExitError); ok {
-		status := ee.ProcessState.Sys().(syscall.WaitStatus)
-		if status.Exited() {
+		raw := ee.ProcessState.Sys()
+		status, ok := raw.(syscall.WaitStatus)
+		if !ok {
+			logger.Errorf("unexpected type %T from ProcessState.Sys()", raw)
+		} else if status.Exited() {
 			// A non-zero return code isn't considered an error here.
 			return status.ExitStatus(), nil
 		}
