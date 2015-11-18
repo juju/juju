@@ -697,41 +697,41 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	return nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	series = config.PreferredSeries(e.Config())
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	series := config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
-	arch = availableTools.Arches()[0]
+	arch := availableTools.Arches()[0]
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	network.InitializeFromConfig(e.Config())
 	password := e.Config().AdminSecret()
 	if password == "" {
-		return "", "", nil, fmt.Errorf("admin-secret is required for bootstrap")
+		return nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return "", "", nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
-		return "", "", nil, fmt.Errorf("cannot make bootstrap config: %v", err)
+		return nil, fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
 	estate, err := e.state()
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return "", "", nil, fmt.Errorf("environment is already bootstrapped")
+		return nil, fmt.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
@@ -805,7 +805,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
-	return arch, series, finalize, nil
+
+	bsResult := &environs.BootstrapResult{
+		Arch:     arch,
+		Series:   series,
+		Finalize: finalize,
+	}
+	return bsResult, nil
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {

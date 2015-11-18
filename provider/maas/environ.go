@@ -154,7 +154,7 @@ Juju recommends upgrading MAAS to version 1.8.2 or later.
 `
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	if !environs.AddressAllocationEnabled() {
 		// When address allocation is not enabled, we should use the
 		// default bridge for both LXC and KVM containers. The bridge
@@ -179,7 +179,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 
 	// We want to destroy the started instance if it doesn't transition to Deployed.
@@ -192,9 +192,15 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	}()
 	// Wait for bootstrap instance to change to deployed state.
 	if err := env.waitForNodeDeployment(result.Instance.Id()); err != nil {
-		return "", "", nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+		return nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 	}
-	return *result.Hardware.Arch, series, finalizer, nil
+
+	bsResult := &environs.BootstrapResult{
+		Arch:     *result.Hardware.Arch,
+		Series:   series,
+		Finalize: finalizer,
+	}
+	return bsResult, nil
 }
 
 // StateServerInstances is specified in the Environ interface.
