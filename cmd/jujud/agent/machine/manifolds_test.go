@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 )
 
 type ManifoldsSuite struct {
@@ -19,7 +22,7 @@ type ManifoldsSuite struct {
 var _ = gc.Suite(&ManifoldsSuite{})
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds, _, _ := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
 	for name, manifold := range manifolds {
@@ -29,7 +32,7 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	manifolds, _, _ := machine.Manifolds(machine.ManifoldsConfig{})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -38,9 +41,40 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"agent",
 		"termination",
 		"api-caller",
-		"api-info-gate",
+		"upgrade-steps-gate",
+		"upgrade-check-gate",
 	}
 	c.Assert(expectedKeys, jc.SameContents, keys)
+}
+
+func (s *ManifoldsSuite) TestUpgradeGates(c *gc.C) {
+	manifolds, upgradeStepsGate, upgradeCheckGate := machine.Manifolds(machine.ManifoldsConfig{})
+	assertGate(c, manifolds["upgrade-steps-gate"], upgradeStepsGate)
+	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckGate)
+}
+
+func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
+	w, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
+	var waiter gate.Waiter
+	err = manifold.Output(w, &waiter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-waiter.Unlocked():
+		c.Fatalf("expected gate to be locked")
+	default:
+	}
+
+	unlocker.Unlock()
+
+	select {
+	case <-waiter.Unlocked():
+	default:
+		c.Fatalf("expected gate to be unlocked")
+	}
 }
 
 type fakeAgent struct {

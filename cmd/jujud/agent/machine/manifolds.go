@@ -24,8 +24,14 @@ type ManifoldsConfig struct {
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	return dependency.Manifolds{
+func Manifolds(config ManifoldsConfig) (
+	dependency.Manifolds, gate.WaiterUnlocker, gate.WaiterUnlocker,
+) {
+
+	upgradeStepsManifold, upgradeStepsGate := gate.ManifoldEx()
+	upgradeCheckManifold, upgradeCheckGate := gate.ManifoldEx()
+
+	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -46,18 +52,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIInfoGateName: apiInfoGateName,
 		}),
 
-		// This manifold is used to coordinate between the api caller and the
-		// log sender, which share the API credentials that the API caller may
-		// update. To avoid surprising races, the log sender waits for the api
-		// caller to unblock this, indicating that any password dance has been
-		// completed and the log-sender can now connect without confusion.
-		apiInfoGateName: gate.Manifold(),
+		// The upgrade steps gate is used to coordinate workers which
+		// shouldn't do anything until the upgrade-steps worker has
+		// finished running any required upgrade steps.
+		upgradeStepsGateName: upgradeStepsManifold,
+
+		// The upgrade check gate is used to coordinate workers which
+		// shouldn't do anything until the upgrader worker has
+		// completed it's first check for a new tools version to
+		// upgrade to.
+		upgradeCheckGateName: upgradeCheckManifold,
 	}
+
+	return manifolds, upgradeStepsGate, upgradeCheckGate
 }
 
 const (
-	agentName       = "agent"
-	terminationName = "termination"
-	apiCallerName   = "api-caller"
-	apiInfoGateName = "api-info-gate"
+	agentName            = "agent"
+	terminationName      = "termination"
+	apiCallerName        = "api-caller"
+	apiInfoGateName      = "api-info-gate"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeCheckGateName = "upgrade-check-gate"
 )
