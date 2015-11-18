@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
@@ -186,7 +187,8 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		wait := func(result *params.RunResult, timeout time.Duration) {
 			defer wg.Done()
 
-			response, err := cmd.WaitWithTimeout(timeout)
+			timeoutChan := clock.WallClock.After(timeout)
+			response, err := cmd.WaitWithTimeout(timeoutChan)
 			logger.Debugf("response from %s: %#v (err:%v)", result.MachineId, response, err)
 			result.ExecResponse = response
 			if err != nil {

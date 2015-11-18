@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 )
 
@@ -88,7 +89,7 @@ var TimedOut = errors.New("command timed out")
 // WaitWithTimeout waits for the command to complete and returns the
 // result. If it takes longer than the provided timeout then TimedOut
 // is returned.
-func (cmd *RunningCmd) WaitWithTimeout(timeout time.Duration) (utilexec.ExecResponse, error) {
+func (cmd *RunningCmd) WaitWithTimeout(timeout <-chan time.Time) (utilexec.ExecResponse, error) {
 	var result utilexec.ExecResponse
 	var err error
 
@@ -103,7 +104,7 @@ func (cmd *RunningCmd) WaitWithTimeout(timeout time.Duration) (utilexec.ExecResp
 	select {
 	case <-done:
 		return result, errors.Trace(err)
-	case <-time.After(timeout):
+	case <-timeout:
 		logger.Infof("killing the command due to timeout")
 		cmd.SSHCmd.Kill()
 
@@ -133,15 +134,16 @@ func getExitCode(err error) (int, error) {
 // through /bin/bash.  If the command is not finished within the timeout
 // specified, an error is returned.  Any output captured during that time
 // is also returned in the remote response.
-func ExecuteCommandOnMachine(params ExecParams) (utilexec.ExecResponse, error) {
+func ExecuteCommandOnMachine(args ExecParams) (utilexec.ExecResponse, error) {
 	var result utilexec.ExecResponse
 
-	cmd, err := StartCommandOnMachine(params)
+	cmd, err := StartCommandOnMachine(args)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result, err = cmd.WaitWithTimeout(params.Timeout)
+	timeout := clock.WallClock.After(args.Timeout)
+	result, err = cmd.WaitWithTimeout(timeout)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
