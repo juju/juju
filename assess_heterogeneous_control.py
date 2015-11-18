@@ -10,6 +10,7 @@ import sys
 from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
+    get_machine_dns_name,
     SimpleEnvironment,
     temp_bootstrap_env,
     until_timeout,
@@ -17,7 +18,6 @@ from jujupy import (
 from deploy_stack import (
     check_token,
     dump_env_logs,
-    get_machine_dns_name,
     get_random_string,
     update_env,
     )
@@ -36,8 +36,7 @@ def bootstrap_client(client, upload_tools):
     try:
         with temp_bootstrap_env(juju_home, client):
             client.bootstrap(upload_tools=upload_tools)
-        host = get_machine_dns_name(client, 0)
-        return host
+        return get_machine_dns_name(client, '0')
     except:
         client.destroy_environment()
         raise

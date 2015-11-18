@@ -21,6 +21,7 @@ import deploy_stack
 from deploy_stack import (
     archive_logs,
     assess_juju_run,
+    assess_upgrade,
     boot_context,
     copy_local_logs,
     copy_remote_logs,
@@ -34,7 +35,6 @@ from deploy_stack import (
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
-    assess_upgrade,
     safe_print_status,
     retain_config,
     update_env,

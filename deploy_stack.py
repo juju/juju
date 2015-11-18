@@ -29,6 +29,7 @@ from jujupy import (
     EnvJujuClient,
     get_cache_path,
     get_local_root,
+    get_machine_dns_name,
     jes_home_path,
     SimpleEnvironment,
     temp_bootstrap_env,
@@ -469,9 +470,9 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     raise
             try:
                 if host is None:
-                    host = get_machine_dns_name(client, 0)
+                    host = get_machine_dns_name(client, '0')
                 if host is None:
-                    raise Exception('Could not get machine 0 host')
+                    raise ValueError('Could not get machine 0 host')
                 try:
                     yield
                 except BaseException as e:
@@ -564,16 +565,6 @@ def safe_print_status(client):
         client.juju('status', ())
     except Exception as e:
         logging.exception(e)
-
-
-def get_machine_dns_name(client, machine):
-    timeout = 600
-    for remaining in until_timeout(timeout):
-        bootstrap = client.get_status(
-            timeout=timeout).status['machines'][str(machine)]
-        host = bootstrap.get('dns-name')
-        if host is not None and not host.startswith('172.'):
-            return host
 
 
 def wait_for_state_server_to_shutdown(host, client, instance_id):

@@ -9,13 +9,13 @@ import sys
 
 from deploy_stack import (
     dump_env_logs,
-    get_machine_dns_name,
     update_env,
 )
 from jujuconfig import (
     get_juju_home,
 )
 from jujupy import (
+    get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
@@ -214,8 +214,7 @@ def main():
     try:
         with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
-        bootstrap_host = get_machine_dns_name(client, 0)
-        client.get_status(60)
+        bootstrap_host = get_machine_dns_name(client, '0')
         client.juju("deploy", ('local:trusty/fill-logs',))
 
         if args.agent == "unit":
