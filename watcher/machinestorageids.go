@@ -15,8 +15,8 @@ type MachineStorageId struct {
 // MachineStorageIdsChannel is a change channel as described in the CoreWatcher
 // docs.
 //
-// Other than that, I don't know its exact semantics. axw, description? standard
-// add/remove? changes to referenced entities?
+// It reports additions and removals to a set of attachments; and lifecycle
+// changes within the active set.
 type MachineStorageIdsChannel <-chan []MachineStorageId
 
 // MachineStorageIdsWatcher conveniently ties a MachineStorageIdsChannel to the

@@ -85,15 +85,15 @@ type NotifyWorker struct {
 func (nw *NotifyWorker) loop() (err error) {
 	changes := nw.setUp()
 	defer nw.tearDown(err)
+	abort := nw.catacomb.Dying()
 	for {
 		select {
-		case <-nw.catacomb.Dying():
+		case <-abort:
 			return nw.catacomb.ErrDying()
 		case _, ok := <-changes:
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			abort := nw.catacomb.Dying()
 			err = nw.config.Handler.Handle(abort)
 			if err != nil {
 				return err

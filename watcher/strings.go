@@ -86,15 +86,15 @@ type StringsWorker struct {
 func (sw *StringsWorker) loop() (err error) {
 	changes := sw.setUp()
 	defer sw.tearDown(err)
+	abort := sw.catacomb.Dying()
 	for {
 		select {
-		case <-sw.catacomb.Dying():
+		case <-abort:
 			return sw.catacomb.ErrDying()
 		case strings, ok := <-changes:
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			abort := sw.catacomb.Dying()
 			err = sw.config.Handler.Handle(abort, strings)
 			if err != nil {
 				return err
