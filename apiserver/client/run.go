@@ -157,17 +157,36 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 	results.Results = make([]params.RunResult, len(args), len(args))
 
 	identity := filepath.Join(dataDir, agent.SystemIdentity)
-
-	var wg sync.WaitGroup
 	for i, arg := range args {
-		// TODO(ericsnow) Move the log entry to after setting the identity.
-		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
 		arg.ExecParams.IdentityFile = identity
 
 		results.Results[i] = params.RunResult{
 			MachineId: arg.MachineId,
 			UnitId:    arg.UnitId,
 		}
+	}
+
+	startSerialWaitParallel(args, &results)
+
+	// TODO(ericsnow) Why do we sort these? Shouldn't we keep them
+	// in the same order that they were requested?
+	sort.Sort(MachineOrder(results.Results))
+	return results
+}
+
+// startSerialWaitParallel start a command for each RemoteExec, one at
+// a time and then waits for all the results asynchronously.
+//
+// We do this because ssh.StartCommandOnMachine() relies on os/exec.Cmd,
+// which in turn relies on fork+exec. That means every copy of the
+// command we run will require a separate fork. This can be a problem
+// for controllers with low resources or in environments with many
+// machines.
+func startSerialWaitParallel(args []*RemoteExec, results *params.RunResults) {
+	var wg sync.WaitGroup
+	for i, arg := range args {
+		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
+
 		result := &results.Results[i]
 
 		// Start the commands serially...
@@ -178,12 +197,6 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		}
 
 		// ...but wait for them in parallel.
-		//
-		// We do this because ssh.StartCommandOnMachine() relies on
-		// os/exec.Cmd, which in turn relies on fork+exec. That means
-		// every copy of the command we run will require a separate
-		// fork. This can be a problem for controllers with low
-		// resources or in environments with many machines.
 		wait := func(result *params.RunResult, timeout time.Duration) {
 			defer wg.Done()
 
@@ -199,11 +212,6 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		go wait(result, arg.Timeout)
 	}
 	wg.Wait()
-
-	// TODO(ericsnow) Why do we sort these? Shouldn't we keep them
-	// in the same order that they were requested?
-	sort.Sort(MachineOrder(results.Results))
-	return results
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine
