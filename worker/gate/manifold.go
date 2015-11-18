@@ -94,6 +94,16 @@ func (l *lock) Unlocked() <-chan struct{} {
 	return l.ch
 }
 
+// IsUnlocked implements Waiter.
+func (l *lock) IsUnlocked() bool {
+	select {
+	case <-l.ch:
+		return true
+	default:
+		return false
+	}
+}
+
 // gate implements a degenerate worker that holds a lock.
 type gate struct {
 	tomb tomb.Tomb

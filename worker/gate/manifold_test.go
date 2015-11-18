@@ -123,6 +123,7 @@ func waiter(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Waiter {
 }
 
 func assertLocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsFalse)
 	select {
 	case <-waiter.Unlocked():
 		c.Fatalf("expected gate to be locked")
@@ -131,6 +132,7 @@ func assertLocked(c *gc.C, waiter gate.Waiter) {
 }
 
 func assertUnlocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsTrue)
 	select {
 	case <-waiter.Unlocked():
 	default:
