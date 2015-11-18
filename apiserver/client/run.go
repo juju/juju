@@ -168,7 +168,8 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 
 	startSerialWaitParallel(args, &results)
 
-	// TODO(ericsnow) Why do we sort these? Shouldn't we keep them
+	// TODO(ericsnow) lp:1517076
+	// Why do we sort these? Shouldn't we keep them
 	// in the same order that they were requested?
 	sort.Sort(MachineOrder(results.Results))
 	return results
