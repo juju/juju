@@ -870,7 +870,7 @@ def _dns_name_for_machine(status, machine):
     host = status.status['machines'][machine]['dns-name']
     try:
         socket.inet_pton(socket.AF_INET6, host)
-    except socket.error:
+    except (AttributeError, socket.error):
         # IPv4 or hostname
         return host
     log.warning("Selected IPv6 address for machine %s: %r", machine, host)
