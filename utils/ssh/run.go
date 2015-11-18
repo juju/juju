@@ -90,13 +90,13 @@ func (cmd *RunningCmd) Wait() (result utilexec.ExecResponse, _ error) {
 // It may make more sense, however, to have a helper function:
 //   Wait(cmd T, abortChans ...<-chan error) ...
 
-// TimedOut is an error indicating that a command timed out.
-var TimedOut = errors.New("command timed out")
+// Cancelled is an error indicating that a command timed out.
+var Cancelled = errors.New("command timed out")
 
-// WaitWithTimeout waits for the command to complete and returns the
-// result. If it takes longer than the provided timeout then TimedOut
-// is returned.
-func (cmd *RunningCmd) WaitWithTimeout(timeout <-chan time.Time) (utilexec.ExecResponse, error) {
+// WaitWithCancel waits for the command to complete and returns the result. If
+// cancel is closed before the result was returned, then it takes longer than
+// the provided timeout then Cancelled is returned.
+func (cmd *RunningCmd) WaitWithCancel(cancel <-chan struct{}) (utilexec.ExecResponse, error) {
 	var result utilexec.ExecResponse
 
 	done := make(chan error, 1)
@@ -110,13 +110,13 @@ func (cmd *RunningCmd) WaitWithTimeout(timeout <-chan time.Time) (utilexec.ExecR
 	select {
 	case err := <-done:
 		return result, errors.Trace(err)
-	case <-timeout:
-		logger.Infof("killing the command due to timeout")
+	case <-cancel:
+		logger.Infof("killing the command due to cancellation")
 		cmd.SSHCmd.Kill()
 
 		<-done            // Ensure that the original cmd.Wait() call completed.
 		cmd.SSHCmd.Wait() // Finalize cmd.SSHCmd, if necessary.
-		return result, TimedOut
+		return result, Cancelled
 	}
 }
 
@@ -151,8 +151,12 @@ func ExecuteCommandOnMachine(args ExecParams) (utilexec.ExecResponse, error) {
 		return result, errors.Trace(err)
 	}
 
-	timeout := clock.WallClock.After(args.Timeout)
-	result, err = cmd.WaitWithTimeout(timeout)
+	cancel := make(chan struct{})
+	go func() {
+		<-clock.WallClock.After(args.Timeout)
+		close(cancel)
+	}()
+	result, err = cmd.WaitWithCancel(cancel)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

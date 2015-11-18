@@ -166,7 +166,7 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		}
 	}
 
-	startSerialWaitParallel(args, &results)
+	startSerialWaitParallel(args, &results, ssh.StartCommandOnMachine, waitOnCommand)
 
 	// TODO(ericsnow) lp:1517076
 	// Why do we sort these? Shouldn't we keep them
@@ -174,6 +174,9 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 	sort.Sort(MachineOrder(results.Results))
 	return results
 }
+
+type startSSH func(params ssh.ExecParams) (*ssh.RunningCmd, error)
+type waitSSH func(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{})
 
 // startSerialWaitParallel start a command for each RemoteExec, one at
 // a time and then waits for all the results asynchronously.
@@ -189,36 +192,39 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 // exec'ed command. This is a relatively quick operation relative to
 // the wait operation. That is why start-serially-and-wait-in-parallel
 // is a viable approach.
-func startSerialWaitParallel(args []*RemoteExec, results *params.RunResults) {
+func startSerialWaitParallel(args []*RemoteExec, results *params.RunResults, start startSSH, wait waitSSH) {
 	var wg sync.WaitGroup
 	for i, arg := range args {
 		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
 
-		result := &results.Results[i]
+		cancel := make(chan struct{})
+		go func(d time.Duration) {
+			<-clock.WallClock.After(d)
+			close(cancel)
+		}(arg.Timeout)
 
 		// Start the commands serially...
-		cmd, err := ssh.StartCommandOnMachine(arg.ExecParams)
+		cmd, err := start(arg.ExecParams)
 		if err != nil {
-			result.Error = fmt.Sprint(err)
+			results.Results[i].Error = err.Error()
 			continue
 		}
 
-		// ...but wait for them in parallel.
-		wait := func(result *params.RunResult, timeout time.Duration) {
-			defer wg.Done()
-
-			timeoutChan := clock.WallClock.After(timeout)
-			response, err := cmd.WaitWithTimeout(timeoutChan)
-			logger.Debugf("response from %s: %#v (err:%v)", result.MachineId, response, err)
-			result.ExecResponse = response
-			if err != nil {
-				result.Error = fmt.Sprint(err)
-			}
-		}
 		wg.Add(1)
-		go wait(result, arg.Timeout)
+		// ...but wait for them in parallel.
+		go wait(&wg, cmd, &results.Results[i], cancel)
 	}
 	wg.Wait()
+}
+
+func waitOnCommand(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{}) {
+	defer wg.Done()
+	response, err := cmd.WaitWithCancel(cancel)
+	logger.Debugf("response from %s: %#v (err:%v)", result.MachineId, response, err)
+	result.ExecResponse = response
+	if err != nil {
+		result.Error = err.Error()
+	}
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine
