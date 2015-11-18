@@ -1257,6 +1257,81 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// connections are in place.
 }
 
+type WatchCounterpartEndpointUnitsSuite struct {
+	ConnSuite
+}
+
+var _ = gc.Suite(&WatchCounterpartEndpointUnitsSuite{})
+
+func (s *WatchCounterpartEndpointUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add some units to the services and set their private addresses.
+	addUnit := func(srv *state.Service) *state.RelationUnit {
+		unit, err := srv.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		ru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		return ru
+	}
+	mysql0 := addUnit(mysql)
+	wordpress0 := addUnit(wordpress)
+
+	wordpressWatcher, err := rel.WatchCounterpartEndpointUnits("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, wordpressWatcher)
+	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, wordpressWatcher)
+	wordpressWatcherC.AssertChange(nil, nil)
+	wordpressWatcherC.AssertNoChange()
+
+	// Join the mysql unit to the relation, change settings, and check
+	// that only the mysql relation units watcher triggers.
+	err = mysql0.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	changeSettings(c, mysql0)
+
+	mysqlWatcher, err := rel.WatchCounterpartEndpointUnits("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, mysqlWatcher)
+	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, mysqlWatcher)
+	mysqlWatcherC.AssertChange([]string{"mysql/0"}, nil)
+	mysqlWatcherC.AssertNoChange()
+	wordpressWatcherC.AssertNoChange()
+
+	// Now join the wordpress unit to the relation, and check that only
+	// the wordpress relation units watcher triggers.
+	err = wordpress0.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressWatcherC.AssertChange([]string{"wordpress/0"}, nil)
+	wordpressWatcherC.AssertNoChange()
+	mysqlWatcherC.AssertNoChange()
+}
+
+func (s *WatchCounterpartEndpointUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	loggingEP, err := logging.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(mysqlEP, loggingEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = rel.WatchCounterpartEndpointUnits("mysql")
+	c.Assert(err, gc.ErrorMatches, `"juju-info" endpoint is not globally scoped`)
+	_, err = rel.WatchCounterpartEndpointUnits("logging")
+	c.Assert(err, gc.ErrorMatches, `"info" endpoint is not globally scoped`)
+}
+
 func changeSettings(c *gc.C, ru *state.RelationUnit) {
 	node, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)

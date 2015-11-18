@@ -364,6 +364,14 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f.MakeService(c, nil)
 			},
 		}, {
+			about: "remote services",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchRemoteServices()
+			},
+			triggerEvent: func(st *state.State) {
+				st.AddRemoteService("db2", nil)
+			},
+		}, {
 			about: "relations",
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)

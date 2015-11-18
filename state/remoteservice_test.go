@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 )
 
 type remoteServiceSuite struct {
@@ -400,4 +401,56 @@ func (s *remoteServiceSuite) TestAddServiceEnvironDiesAfterInitial(c *gc.C) {
 	}).Check()
 	_, err := s.State.AddRemoteService("s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": environment is no longer alive`)
+}
+
+func (s *remoteServiceSuite) TestWatchRemoteServices(c *gc.C) {
+	w := s.State.WatchRemoteServices()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc.AssertNoChange()
+
+	db2, err := s.State.AddRemoteService("db2", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertNoChange()
+
+	err = db2.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = db2.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	wc.AssertChangeInSingleEvent("db2")
+	wc.AssertNoChange()
+}
+
+func (s *remoteServiceSuite) TestWatchRemoteServicesDying(c *gc.C) {
+	w := s.State.WatchRemoteServices()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("mysql") // initial
+	wc.AssertNoChange()
+
+	ch := s.AddTestingCharm(c, "wordpress")
+	wordpress := s.AddTestingService(c, "wordpress", ch)
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a unit to the relation so the remote service is not
+	// short-circuit removed.
+	unit, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.service.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.service.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChangeInSingleEvent("mysql")
+	wc.AssertNoChange()
 }

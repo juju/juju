@@ -7,7 +7,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -333,19 +332,25 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	if err != nil {
 		return nil, err
 	}
-	scope := []string{"r", strconv.Itoa(r.doc.Id)}
+	scope := r.globalScope()
 	if ep.Scope == charm.ScopeContainer {
 		container := u.doc.Principal
 		if container == "" {
 			container = u.doc.Name
 		}
-		scope = append(scope, container)
+		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
 	return &RelationUnit{
 		st:       r.st,
 		relation: r,
 		unit:     u,
 		endpoint: ep,
-		scope:    strings.Join(scope, "#"),
+		scope:    scope,
 	}, nil
+}
+
+// globalScope returns the scope prefix for relation scope document keys
+// in the global scope.
+func (r *Relation) globalScope() string {
+	return fmt.Sprintf("r#%d", r.doc.Id)
 }

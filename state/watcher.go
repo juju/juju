@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
@@ -290,6 +291,12 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() StringsWatcher {
 	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
+}
+
+// WatchRemoteServices returns a StringsWatcher that notifies of changes to
+// the lifecycles of the remote services in the environment.
+func (st *State) WatchRemoteServices() StringsWatcher {
+	return newLifecycleWatcher(st, remoteServicesC, nil, st.isForStateEnv, nil)
 }
 
 // WatchStorageAttachments returns a StringsWatcher that notifies of
@@ -870,13 +877,29 @@ var _ Watcher = (*relationUnitsWatcher)(nil)
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
-	return newRelationUnitsWatcher(ru)
+	return newRelationUnitsWatcher(ru.st, ru.WatchScope())
 }
 
-func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
+// WatchCounterpartEndpointUnits returns a watcher that notifies of changes to
+// the units of the specified service's counterpart endpoint in the relation.
+// This method will return an error if the endpoint is not globally scoped.
+func (r *Relation) WatchCounterpartEndpointUnits(serviceName string) (RelationUnitsWatcher, error) {
+	ep, err := r.Endpoint(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	if ep.Scope != charm.ScopeGlobal {
+		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
+	}
+	role := counterpartRole(ep.Role)
+	rsw := watchRelationScope(r.st, r.globalScope(), role, "")
+	return newRelationUnitsWatcher(r.st, rsw), nil
+}
+
+func newRelationUnitsWatcher(st *State, sw *RelationScopeWatcher) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
-		commonWatcher: commonWatcher{st: ru.st},
-		sw:            ru.WatchScope(),
+		commonWatcher: commonWatcher{st: st},
+		sw:            sw,
 		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
 		out:           make(chan multiwatcher.RelationUnitsChange),

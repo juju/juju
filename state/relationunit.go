@@ -387,8 +387,14 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 // entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	role := counterpartRole(ru.endpoint.Role)
-	scope := ru.scope + "#" + string(role)
-	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
+	return watchRelationScope(ru.st, ru.scope, role, ru.unit.Name())
+}
+
+func watchRelationScope(
+	st *State, scope string, role charm.RelationRole, ignore string,
+) *RelationScopeWatcher {
+	scope = scope + "#" + string(role)
+	return newRelationScopeWatcher(st, scope, ignore)
 }
 
 // Settings returns a Settings which allows access to the unit's settings
