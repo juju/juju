@@ -131,8 +131,9 @@ func allCollections() collectionSchema {
 		actionresultsC: {global: true},
 
 		// This collection holds information about services that have been
-		// offered (exported) for use in other models.
-		serviceOffersC: {
+		// offered (exported) for use in other models managed by the same
+		// host controller.
+		localServiceDirectoryC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"url"},
@@ -185,6 +186,9 @@ func allCollections() collectionSchema {
 		charmsC:         {},
 		remoteServicesC: {},
 		servicesC:       {},
+		serviceOffersC: {
+			indexes: []mgo.Index{{Key: []string{"env-uuid", "url"}}},
+		},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "service"},
@@ -370,6 +374,7 @@ const (
 	networkInterfacesC     = "networkinterfaces"
 	networksC              = "networks"
 	openedPortsC           = "openedPorts"
+	serviceOffersC         = "serviceoffers"
 	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"
@@ -378,7 +383,7 @@ const (
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"
 	servicesC              = "services"
-	serviceOffersC         = "serviceoffers"
+	localServiceDirectoryC = "localservicedirectory"
 	settingsC              = "settings"
 	settingsrefsC          = "settingsrefs"
 	stateServersC          = "stateServers"

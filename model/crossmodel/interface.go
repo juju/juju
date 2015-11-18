@@ -62,3 +62,61 @@ type ServiceDirectory interface {
 	// Remove removes the service offer at the specified URL.
 	Remove(url string) error
 }
+
+// OfferedService holds the details of services offered
+// by this environment.
+type OfferedService struct {
+	// ServiceName is the service name.
+	ServiceName string
+
+	// ServiceURL is the URL where the service can be located.
+	ServiceURL string
+
+	// Endpoints is the collection of endpoint names offered (internal->published).
+	// The map allows for advertised endpoint names to be aliased.
+	Endpoints map[string]string
+
+	// Registered is true if this offer is to be registered with
+	// the relevant service directory.
+	Registered bool
+}
+
+// OfferedServiceFilter is used to query services offered
+// by this environment.
+type OfferedServiceFilter struct {
+	// ServiceName is the service name.
+	ServiceName string
+
+	// ServiceURL is the URl where the service can be located.
+	ServiceURL string
+
+	// Registered, if non-nil, returns only the offered services
+	// that are registered or not.
+	Registered *bool
+}
+
+// RegisteredFilter is a helper function for creating an offered service filter.
+func RegisteredFilter(registered bool) OfferedServiceFilter {
+	var filter OfferedServiceFilter
+	filter.Registered = &registered
+	return filter
+}
+
+// An OfferedService instance holds service offers from this environment.
+type OfferedServices interface {
+
+	// AddOffer adds a new service offer.
+	AddOffer(offer OfferedService) error
+
+	// UpdateOffer updates an existing service offer.
+	UpdateOffer(url string, endpoints map[string]string) error
+
+	// ListOffers returns the offers satisfying the specified filter.
+	ListOffers(filter ...OfferedServiceFilter) ([]OfferedService, error)
+
+	// SetOfferRegistered marks a previously saved offer as registered or not.
+	SetOfferRegistered(url string, registered bool) error
+
+	// Remove removes the service offer at the specified URL.
+	RemoveOffer(url string) error
+}
