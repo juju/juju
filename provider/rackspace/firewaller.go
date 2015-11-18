@@ -40,19 +40,19 @@ func (c *rackspaceFirewaller) InitialNetworks() []nova.ServerNetworks {
 
 // OpenPorts is not supported.
 func (c *rackspaceFirewaller) OpenPorts(ports []network.PortRange) error {
-	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+	return errors.NotSupportedf("OpenPorts")
 }
 
 // ClosePorts is not supported.
 func (c *rackspaceFirewaller) ClosePorts(ports []network.PortRange) error {
-	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+	return errors.NotSupportedf("ClosePorts")
 }
 
 // Ports returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (c *rackspaceFirewaller) Ports() ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotSupportedf("Ports"))
+	return nil, errors.NotSupportedf("Ports")
 }
 
 // DeleteGlobalGroups implements OpenstackFirewaller interface.

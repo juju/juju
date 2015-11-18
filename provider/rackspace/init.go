@@ -22,7 +22,7 @@ const (
 
 func init() {
 	osProvider := openstack.EnvironProvider{&rackspaceConfigurator{}, &firewallerFactory{}}
-	providerInstance = environProvider{
+	providerInstance = &environProvider{
 		osProvider,
 	}
 <<<<<<< HEAD

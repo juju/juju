@@ -23,7 +23,7 @@ type environProvider struct {
 >>>>>>> review comments implemented
 }
 
-var providerInstance environProvider
+var providerInstance *environProvider
 
 <<<<<<< HEAD
 <<<<<<< HEAD

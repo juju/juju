@@ -4,15 +4,20 @@
 package rackspace
 
 import (
+<<<<<<< HEAD
 	"github.com/juju/errors"
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
+=======
+>>>>>>> review comments implemented
 	"io/ioutil"
 	"os"
 >>>>>>> Firewaller interface added, Waith ssh method reused
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 <<<<<<< HEAD
@@ -343,14 +348,19 @@ func (e environ) ClosePorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 =======
 	}
+<<<<<<< HEAD
 	return r, errors.Trace(err)
 >>>>>>> Firewaller interface added, Waith ssh method reused
+=======
+	return r, nil
+>>>>>>> review comments implemented
 }
 
 var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
 // Provider implements environs.Environ.
 func (e environ) Provider() environs.EnvironProvider {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 	return &providerInstance
@@ -364,5 +374,8 @@ func (e environ) PrecheckInstance(series string, cons constraints.Value, placeme
 >>>>>>> modifications to opestack provider applied
 =======
 	return &providerInstance
+>>>>>>> review comments implemented
+=======
+	return providerInstance
 >>>>>>> review comments implemented
 }
