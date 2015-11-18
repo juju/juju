@@ -1,19 +1,11 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker
+package legacy
 
 import (
 	"github.com/juju/juju/state/watcher"
 )
-
-var LoadedInvalid = make(chan struct{})
-
-func init() {
-	loadedInvalid = func() {
-		LoadedInvalid <- struct{}{}
-	}
-}
 
 func SetEnsureErr(f func(watcher.Errer) error) {
 	if f == nil {

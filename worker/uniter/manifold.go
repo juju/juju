@@ -74,7 +74,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
 			uniterFacade := uniter.NewState(apiCaller, unitTag)
-			return NewUniter(&UniterParams{
+			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
@@ -83,7 +83,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmDirLocker:       charmDirLocker,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
-			}), nil
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return uniter, nil
 		},
 	}
 }

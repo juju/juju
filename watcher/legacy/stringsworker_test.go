@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker_test
+package legacy_test
 
 import (
 	"fmt"
@@ -12,9 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
@@ -38,7 +39,7 @@ func newStringsHandlerWorker(c *gc.C, setupError, handlerError, teardownError er
 		},
 		setupDone: make(chan struct{}),
 	}
-	w := worker.NewStringsWorker(sh)
+	w := legacy.NewStringsWorker(sh)
 	select {
 	case <-sh.setupDone:
 	case <-time.After(coretesting.ShortWait):
@@ -69,9 +70,7 @@ type stringsHandler struct {
 	setupDone     chan struct{}
 }
 
-var _ worker.StringsWatchHandler = (*stringsHandler)(nil)
-
-func (sh *stringsHandler) SetUp() (apiWatcher.StringsWatcher, error) {
+func (sh *stringsHandler) SetUp() (state.StringsWatcher, error) {
 	defer func() { sh.setupDone <- struct{}{} }()
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
@@ -128,13 +127,12 @@ func (s *stringsWorkerSuite) stopWorker(c *gc.C) {
 }
 
 type testStringsWatcher struct {
+	state.StringsWatcher
 	mu        sync.Mutex
 	changes   chan []string
 	stopped   bool
 	stopError error
 }
-
-var _ apiWatcher.StringsWatcher = (*testStringsWatcher)(nil)
 
 func (tsw *testStringsWatcher) Changes() <-chan []string {
 	return tsw.changes
@@ -289,7 +287,7 @@ func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetEnsureErr(triggeredHandler)
+	legacy.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
@@ -309,7 +307,7 @@ func (s *stringsWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetEnsureErr(triggeredHandler)
+	legacy.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

@@ -1,45 +1,44 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker
+package legacy
 
 import (
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/worker"
 )
 
 // stringsWorker is the internal implementation of the Worker
 // interface, using a StringsWatcher for handling changes.
 type stringsWorker struct {
-	tomb tomb.Tomb
-
-	// handler is what will be called when events are triggered.
+	tomb    tomb.Tomb
 	handler StringsWatchHandler
 }
 
 // StringsWatchHandler implements the business logic triggered as part
 // of watching a StringsWatcher.
 type StringsWatchHandler interface {
-	// SetUp starts the handler, this should create the watcher we
-	// will be waiting on for more events. SetUp can return a Watcher
-	// even if there is an error, and strings Worker will make sure to
-	// stop the watcher.
-	SetUp() (apiWatcher.StringsWatcher, error)
+	// SetUp will be called once, and should return the watcher that will
+	// be used to trigger subsequent Handle()s. SetUp can return a watcher
+	// even if there is an error, and the notify worker will make sure
+	// to stop the watcher.
+	SetUp() (state.StringsWatcher, error)
 
-	// TearDown should cleanup any resources that are left around
+	// TearDown should cleanup any resources that are left around.
 	TearDown() error
 
-	// Handle is called when the Watcher has indicated there are
-	// changes, do whatever work is necessary to process it
+	// Handle is called whenever the watcher returned from SetUp sends a value
+	// on its Changes() channel.
 	Handle(changes []string) error
 }
 
 // NewStringsWorker starts a new worker running the business logic
 // from the handler. The worker loop is started in another goroutine
 // as a side effect of calling this.
-func NewStringsWorker(handler StringsWatchHandler) Worker {
+func NewStringsWorker(handler StringsWatchHandler) worker.Worker {
 	sw := &stringsWorker{
 		handler: handler,
 	}
@@ -50,12 +49,12 @@ func NewStringsWorker(handler StringsWatchHandler) Worker {
 	return sw
 }
 
-// Kill the loop with no-error
+// Kill is part of the worker.Worker interface.
 func (sw *stringsWorker) Kill() {
 	sw.tomb.Kill(nil)
 }
 
-// Wait for the looping to finish
+// Wait is part of the worker.Worker interface.
 func (sw *stringsWorker) Wait() error {
 	return sw.tomb.Wait()
 }
@@ -65,7 +64,7 @@ func (sw *stringsWorker) loop() error {
 	if err != nil {
 		if w != nil {
 			// We don't bother to propagate an error, because we
-			// already have an error
+			// already have an error.
 			w.Stop()
 		}
 		return err

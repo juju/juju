@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/upgrader"
@@ -27,7 +29,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	upgraderFacade := upgrader.NewState(apiCaller)
-	return NewAgentUpgrader(
+	w, err := NewAgentUpgrader(
 		upgraderFacade,
 		currentConfig,
 		// TODO(fwereade): surely we shouldn't need both currentConfig
@@ -37,5 +39,9 @@ var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, er
 		// unsuitable for use in a machine agent.
 		func() bool { return false },
 		make(chan struct{}),
-	), nil
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }

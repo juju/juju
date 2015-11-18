@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/watcher"
 )
 
 // filesystemsChanged is called when the lifecycle states of the filesystems
@@ -66,7 +67,8 @@ func filesystemsChanged(ctx *context, changes []string) error {
 
 // filesystemAttachmentsChanged is called when the lifecycle states of the filesystem
 // attachments with the provided IDs have been seen to have changed.
-func filesystemAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error {
+func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := attachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)

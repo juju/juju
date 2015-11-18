@@ -14,14 +14,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
-	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 // retryAfter returns a channel that receives a value
@@ -35,7 +34,7 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	tomb                   tomb.Tomb
+	catacomb               catacomb.Catacomb
 	st                     *upgrader.State
 	dataDir                string
 	tag                    names.Tag
@@ -56,7 +55,7 @@ func NewAgentUpgrader(
 	origAgentVersion version.Number,
 	areUpgradeStepsRunning func() bool,
 	agentUpgradeComplete chan struct{},
-) *Upgrader {
+) (*Upgrader, error) {
 	u := &Upgrader{
 		st:                     st,
 		dataDir:                agentConfig.DataDir(),
@@ -65,21 +64,24 @@ func NewAgentUpgrader(
 		areUpgradeStepsRunning: areUpgradeStepsRunning,
 		agentUpgradeComplete:   agentUpgradeComplete,
 	}
-	go func() {
-		defer u.tomb.Done()
-		u.tomb.Kill(u.loop())
-	}()
-	return u
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &u.catacomb,
+		Work: u.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return u, nil
 }
 
 // Kill implements worker.Worker.Kill.
 func (u *Upgrader) Kill() {
-	u.tomb.Kill(nil)
+	u.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
 func (u *Upgrader) Wait() error {
-	return u.tomb.Wait()
+	return u.catacomb.Wait()
 }
 
 // Stop stops the upgrader and returns any
@@ -126,39 +128,62 @@ func (u *Upgrader) loop() error {
 	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(version.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
-	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
-	if err != nil {
-		return err
-	}
-	changes := versionWatcher.Changes()
-	defer watcher.Stop(versionWatcher, &u.tomb)
-	var retry <-chan time.Time
 
 	// We don't read on the dying channel until we have received the
 	// initial event from the API version watcher, thus ensuring
 	// that we attempt an upgrade even if other workers are dying
-	// all around us.
-	var (
-		dying       <-chan struct{}
-		wantTools   *coretools.Tools
-		wantVersion version.Number
-	)
+	// all around us. Similarly, we don't want to bind the watcher
+	// to the catacomb's lifetime (yet!) lest we wait forever for a
+	// stopped watcher.
+	//
+	// However, that absolutely depends on versionWatcher's guaranteed
+	// initial event, and we should assume that it'll break its contract
+	// sometime. So we allow the watcher to wait patiently for the event
+	// for a full minute; but after that we proceed regardless.
+	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("abort check blocked until version event received")
+	mustProceed := time.After(time.Minute)
+	var dying <-chan struct{}
+	allowDying := func() {
+		if dying == nil {
+			logger.Infof("unblocking abort check")
+			mustProceed = nil
+			dying = u.catacomb.Dying()
+			if err := u.catacomb.Add(versionWatcher); err != nil {
+				u.catacomb.Kill(err)
+			}
+		}
+	}
+
+	var retry <-chan time.Time
 	for {
 		select {
-		case _, ok := <-changes:
-			if !ok {
-				return watcher.EnsureErr(versionWatcher)
-			}
-			wantVersion, err = u.st.DesiredVersion(u.tag.String())
-			if err != nil {
-				return err
-			}
-			logger.Infof("desired tool version: %v", wantVersion)
-			dying = u.tomb.Dying()
+		// NOTE: retry and dying both start out nil, so they can't be chosen
+		// first time round the loop. However...
 		case <-retry:
 		case <-dying:
-			return nil
+			return u.catacomb.ErrDying()
+		// ...*every* other case *must* allowDying(), before doing anything
+		// else, lest an error cause us to leak versionWatcher.
+		case <-mustProceed:
+			logger.Infof("version event not received after one minute")
+			allowDying()
+		case _, ok := <-versionWatcher.Changes():
+			allowDying()
+			if !ok {
+				return errors.New("version watcher closed")
+			}
 		}
+
+		wantVersion, err := u.st.DesiredVersion(u.tag.String())
+		if err != nil {
+			return err
+		}
+		logger.Infof("desired tool version: %v", wantVersion)
+
 		if wantVersion == version.Current {
 			closeChannel(u.agentUpgradeComplete)
 			continue
@@ -183,7 +208,7 @@ func (u *Upgrader) loop() error {
 		}
 
 		// Check if tools are available for download.
-		wantTools, err = u.st.Tools(u.tag.String())
+		wantTools, err := u.st.Tools(u.tag.String())
 		if err != nil {
 			// Not being able to lookup Tools is considered fatal
 			return err
@@ -193,7 +218,7 @@ func (u *Upgrader) loop() error {
 		// repeatedly (causing the agent to be stopped), as long
 		// as we have got as far as this, we will still be able to
 		// upgrade the agent.
-		err := u.ensureTools(wantTools)
+		err = u.ensureTools(wantTools)
 		if err == nil {
 			return u.newUpgradeReadyError(wantTools.Version)
 		}

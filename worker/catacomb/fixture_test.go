@@ -12,6 +12,7 @@ import (
 	"launchpad.net/tomb"
 
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -24,10 +25,11 @@ type fixture struct {
 	cleaner  cleaner
 }
 
-func (fix *fixture) run(c *gc.C, task func()) error {
+func (fix *fixture) run(c *gc.C, task func(), init ...worker.Worker) error {
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &fix.catacomb,
 		Work: func() error { task(); return nil },
+		Init: init,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

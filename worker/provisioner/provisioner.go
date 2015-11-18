@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/utils"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/environ"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")
@@ -38,9 +38,8 @@ var (
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
 	worker.Worker
-	Stop() error
-	getMachineWatcher() (apiwatcher.StringsWatcher, error)
-	getRetryWatcher() (apiwatcher.NotifyWatcher, error)
+	getMachineWatcher() (watcher.StringsWatcher, error)
+	getRetryWatcher() (watcher.NotifyWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -67,7 +66,7 @@ type provisioner struct {
 	agentConfig agent.Config
 	broker      environs.InstanceBroker
 	toolsFinder ToolsFinder
-	tomb        tomb.Tomb
+	catacomb    catacomb.Catacomb
 }
 
 // RetryStrategy defines the retry behavior when encountering a retryable
@@ -102,27 +101,14 @@ func (o *configObserver) notify(cfg *config.Config) {
 	o.Unlock()
 }
 
-// Err returns the reason why the provisioner has stopped or tomb.ErrStillAlive
-// when it is still alive.
-func (p *provisioner) Err() (reason error) {
-	return p.tomb.Err()
-}
-
 // Kill implements worker.Worker.Kill.
 func (p *provisioner) Kill() {
-	p.tomb.Kill(nil)
+	p.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
 func (p *provisioner) Wait() error {
-	return p.tomb.Wait()
-}
-
-// Stop stops the provisioner and returns any error encountered while
-// provisioning.
-func (p *provisioner) Stop() error {
-	p.tomb.Kill(nil)
-	return p.tomb.Wait()
+	return p.catacomb.Wait()
 }
 
 // getToolsFinder returns a ToolsFinder for the provided State.
@@ -162,7 +148,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if info, ok := p.agentConfig.StateServingInfo(); ok {
 		secureServerConnection = info.CAPrivateKey != ""
 	}
-	task := NewProvisionerTask(
+	task, err := NewProvisionerTask(
 		machineTag,
 		harvestMode,
 		p.st,
@@ -175,13 +161,16 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		secureServerConnection,
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return task, nil
 }
 
 // NewEnvironProvisioner returns a new Provisioner for an environment.
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
-func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) Provisioner {
+func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) (Provisioner, error) {
 	p := &environProvisioner{
 		provisioner: provisioner{
 			st:          st,
@@ -191,11 +180,15 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 	}
 	p.Provisioner = p
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
-	go func() {
-		defer p.tomb.Done()
-		p.tomb.Kill(errors.Cause(p.loop()))
-	}()
-	return p
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &p.catacomb,
+		Work: p.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p, nil
 }
 
 func (p *environProvisioner) loop() error {
@@ -204,11 +197,16 @@ func (p *environProvisioner) loop() error {
 	if err != nil {
 		return utils.LoggedErrorStack(errors.Trace(err))
 	}
+	if err := p.catacomb.Add(environWatcher); err != nil {
+		return errors.Trace(err)
+	}
 	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
 
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+	p.environ, err = environ.WaitForEnviron(environWatcher, p.st, p.catacomb.Dying())
 	if err != nil {
+		if err == environ.ErrWaitAborted {
+			return p.catacomb.ErrDying()
+		}
 		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
@@ -218,38 +216,35 @@ func (p *environProvisioner) loop() error {
 	if err != nil {
 		return utils.LoggedErrorStack(errors.Trace(err))
 	}
-	defer watcher.Stop(task, &p.tomb)
+	if err := p.catacomb.Add(task); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
-		case <-p.tomb.Dying():
-			return tomb.ErrDying
-		case <-task.Dying():
-			err := task.Err()
-			logger.Errorf("environ provisioner died: %v", err)
-			return err
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return errors.New("environment configuration watcher closed")
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
-				return err
+				return errors.Annotate(err, "cannot load environment configuration")
 			}
 			if err := p.setConfig(environConfig); err != nil {
-				logger.Errorf("loaded invalid environment configuration: %v", err)
+				return errors.Annotate(err, "loaded invalid environment configuration")
 			}
 			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
 		}
 	}
 }
 
-func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
+func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
 	return p.st.WatchEnvironMachines()
 }
 
-func (p *environProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return p.st.WatchMachineErrorRetry()
 }
 
@@ -272,7 +267,7 @@ func NewContainerProvisioner(
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
-) Provisioner {
+) (Provisioner, error) {
 
 	p := &containerProvisioner{
 		provisioner: provisioner{
@@ -285,21 +280,25 @@ func NewContainerProvisioner(
 	}
 	p.Provisioner = p
 	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
-	go func() {
-		defer p.tomb.Done()
-		p.tomb.Kill(p.loop())
-	}()
-	return p
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &p.catacomb,
+		Work: p.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p, nil
 }
 
 func (p *containerProvisioner) loop() error {
-	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	if err := p.catacomb.Add(environWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	config, err := p.st.EnvironConfig()
 	if err != nil {
@@ -311,24 +310,21 @@ func (p *containerProvisioner) loop() error {
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(task, &p.tomb)
+	if err := p.catacomb.Add(task); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
-		case <-p.tomb.Dying():
-			return tomb.ErrDying
-		case <-task.Dying():
-			err := task.Err()
-			logger.Errorf("%s provisioner died: %v", p.containerType, err)
-			return err
-		case _, ok := <-environConfigChanges:
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
+		case _, ok := <-environWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return errors.New("environment configuratioon watch closed")
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
-				return err
+				return errors.Annotate(err, "cannot load environment configuration")
 			}
 			p.configObserver.notify(environConfig)
 			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
@@ -352,7 +348,7 @@ func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	return p.machine, nil
 }
 
-func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
+func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err
@@ -360,6 +356,6 @@ func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, e
 	return machine.WatchContainers(p.containerType)
 }
 
-func (p *containerProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
 }

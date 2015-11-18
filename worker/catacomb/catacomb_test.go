@@ -12,7 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	_ "github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type CatacombSuite struct {
@@ -184,6 +185,16 @@ func (s *CatacombSuite) TestStopsAddedWorker(c *gc.C) {
 	w.assertDead(c)
 }
 
+func (s *CatacombSuite) TestStopsInitWorker(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+
+	err := s.fix.run(c, func() {
+		w.waitStillAlive(c)
+	}, w)
+	c.Check(err, jc.ErrorIsNil)
+	w.assertDead(c)
+}
+
 func (s *CatacombSuite) TestStoppedWorkerErrorOverwritesNil(c *gc.C) {
 	expect := errors.New("splot")
 	w := s.fix.startErrorWorker(c, expect)
@@ -279,6 +290,17 @@ func (s *CatacombSuite) TestAddFailedWorkerKills(c *gc.C) {
 	c.Check(err, gc.Equals, expect)
 }
 
+func (s *CatacombSuite) TestInitFailedWorkerKills(c *gc.C) {
+	expect := errors.New("blarft")
+	w := s.fix.startErrorWorker(c, expect)
+	w.stop()
+
+	err := s.fix.run(c, func() {
+		s.fix.waitDying(c)
+	}, w)
+	c.Check(err, gc.Equals, expect)
+}
+
 func (s *CatacombSuite) TestFinishAddedWorkerDoesNotKill(c *gc.C) {
 	w := s.fix.startErrorWorker(c, nil)
 
@@ -304,6 +326,17 @@ func (s *CatacombSuite) TestAddFinishedWorkerDoesNotKill(c *gc.C) {
 		w2 := s.fix.startErrorWorker(c, nil)
 		s.fix.assertAddAlive(c, w2)
 	})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *CatacombSuite) TestInitFinishedWorkerDoesNotKill(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	w.stop()
+
+	err := s.fix.run(c, func() {
+		w2 := s.fix.startErrorWorker(c, nil)
+		s.fix.assertAddAlive(c, w2)
+	}, w)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -369,4 +402,77 @@ func (s *CatacombSuite) TestStressAddKillRaces(c *gc.C) {
 	})
 	cause := errors.Cause(err)
 	c.Check(cause, gc.Equals, errFailed)
+}
+
+func (s *CatacombSuite) TestReusedCatacomb(c *gc.C) {
+	var site catacomb.Catacomb
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &site,
+		Work: func() error { return nil },
+	})
+	c.Check(err, jc.ErrorIsNil)
+	err = site.Wait()
+	c.Check(err, jc.ErrorIsNil)
+
+	w := s.fix.startErrorWorker(c, nil)
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &site,
+		Work: func() error { return nil },
+		Init: []worker.Worker{w},
+	})
+	c.Check(err, gc.ErrorMatches, "catacomb 0x[0-9a-f]+ has already been used")
+	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestPlanBadSite(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	plan := catacomb.Plan{
+		Work: func() error { panic("no") },
+		Init: []worker.Worker{w},
+	}
+	checkInvalid(c, plan, "nil Site not valid")
+	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestPlanBadWork(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	plan := catacomb.Plan{
+		Site: &catacomb.Catacomb{},
+		Init: []worker.Worker{w},
+	}
+	checkInvalid(c, plan, "nil Work not valid")
+	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	plan := catacomb.Plan{
+		Site: &catacomb.Catacomb{},
+		Work: func() error { panic("no") },
+		Init: []worker.Worker{w, nil},
+	}
+	checkInvalid(c, plan, "nil Init item 1 not valid")
+	w.assertDead(c)
+}
+
+func (s *CatacombSuite) TestPlanDataRace(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	plan := catacomb.Plan{
+		Site: &catacomb.Catacomb{},
+		Work: func() error { return nil },
+		Init: []worker.Worker{w},
+	}
+	err := catacomb.Invoke(plan)
+	c.Assert(err, jc.ErrorIsNil)
+
+	plan.Init[0] = nil
+}
+
+func checkInvalid(c *gc.C, plan catacomb.Plan, match string) {
+	check := func(err error) {
+		c.Check(err, gc.ErrorMatches, match)
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+	}
+	check(plan.Validate())
+	check(catacomb.Invoke(plan))
 }

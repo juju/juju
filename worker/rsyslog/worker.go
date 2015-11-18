@@ -24,9 +24,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/utils/syslog"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	jujuos "github.com/juju/utils/os"
 )
@@ -77,8 +77,6 @@ type certPair struct {
 	data string
 }
 
-var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
-
 func syslogUser() string {
 	switch jujuos.HostOS() {
 	case jujuos.CentOS:
@@ -100,10 +98,16 @@ func newRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Ta
 	}
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs, jujuConfigDir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("starting rsyslog worker mode %v for %q %q", mode, tag, namespace)
-	return worker.NewNotifyWorker(handler), nil
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: handler,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (*RsyslogConfigHandler, error) {

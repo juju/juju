@@ -97,13 +97,15 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 }
 
 func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
-	return upgrader.NewAgentUpgrader(
+	w, err := upgrader.NewAgentUpgrader(
 		s.state.Upgrader(),
 		agentConfig(s.machine.Tag(), s.DataDir()),
 		s.confVersion,
 		func() bool { return s.upgradeRunning },
 		s.agentUpgradeComplete,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {

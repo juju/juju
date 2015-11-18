@@ -77,7 +77,9 @@ func agentConfig(c *gc.C, tag names.Tag) *mockConfig {
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
 	config := agentConfig(c, s.machine.Tag())
-	return logger.NewLogger(s.loggerApi, config), config
+	w, err := logger.NewLogger(s.loggerApi, config)
+	c.Assert(err, jc.ErrorIsNil)
+	return w, config
 }
 
 func (s *LoggerSuite) TestRunStop(c *gc.C) {
