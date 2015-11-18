@@ -8,14 +8,15 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 )
 
 type permSuite struct {
@@ -446,7 +447,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetEnvironAgentVersion(version.Current)
+	err = st.Client().SetEnvironAgentVersion(jujuversion.Current)
 	if err != nil {
 		return func() {}, err
 	}

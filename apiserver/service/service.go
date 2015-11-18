@@ -106,7 +106,12 @@ func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.
 // DeployService fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new service facade.
-func DeployService(st *state.State, owner string, args params.ServiceDeploy) error {
+func DeployService(st *state.State, owner string, args params.ServiceDeploy) (errr error) {
+	defer func() {
+		if errr != nil {
+			logger.Debugf("Error deploying service: %v", errr)
+		}
+	}()
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return errors.Trace(err)
@@ -137,6 +142,10 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 		}
 	}
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkMinVersion(ch); err != nil {
 		return errors.Trace(err)
 	}
 

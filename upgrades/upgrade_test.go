@@ -12,17 +12,18 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -362,7 +363,7 @@ func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
 		if test.toVersion != "" {
 			toVersion = version.MustParse(test.toVersion)
 		}
-		s.PatchValue(&version.Current, toVersion)
+		s.PatchValue(&jujuversion.Current, toVersion)
 		result := upgrades.AreUpgradesDefined(fromVersion)
 		c.Check(result, gc.Equals, test.expected)
 	}
@@ -548,7 +549,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		if test.toVersion != "" {
 			toVersion = version.MustParse(test.toVersion)
 		}
-		s.PatchValue(&version.Current, toVersion)
+		s.PatchValue(&jujuversion.Current, toVersion)
 		err := upgrades.PerformUpgrade(fromVersion, test.targets, ctx)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)

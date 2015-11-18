@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/machinemanager"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/version"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".

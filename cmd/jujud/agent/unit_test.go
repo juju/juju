@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -25,11 +26,11 @@ import (
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/rsyslog"
@@ -194,7 +195,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -230,7 +231,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -356,7 +357,7 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -378,11 +379,11 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			agentTools, err := unit.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
-			if agentTools.Version.Minor != version.Current.Minor {
+			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
 			current := version.Binary{
-				Number: version.Current,
+				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
 				Series: series.HostSeries(),
 			}

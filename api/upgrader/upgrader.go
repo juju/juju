@@ -6,11 +6,12 @@ package upgrader
 import (
 	"fmt"
 
+	"github.com/juju/version"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // State provides access to an upgrader worker's view of the state.

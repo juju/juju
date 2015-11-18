@@ -5,11 +5,11 @@ package state
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/environschema.v1"
 
@@ -24,8 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
-	jujuos "github.com/juju/utils/os"
+	"github.com/juju/juju/jujuversion"
 )
 
 var logger = loggo.GetLogger("juju.provider.local")
@@ -113,7 +113,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		"proxy-ssh": false,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		attrs["agent-version"] = version.Current.String()
+		attrs["agent-version"] = jujuversion.Current.String()
 	}
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
 		username := os.Getenv("USER")

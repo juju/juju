@@ -15,8 +15,8 @@ import (
 	// "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -56,7 +56,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            coretesting.CACert,
 		Password:          "fake",

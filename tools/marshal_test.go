@@ -5,11 +5,11 @@ package tools_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&marshalSuite{})

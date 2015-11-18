@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type NewAPIStateSuite struct {
@@ -66,7 +66,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 }
 
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
-	cs.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	cs.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
@@ -185,7 +185,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
@@ -201,7 +201,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	envName := coretesting.SampleCertName + "-2"
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,7 +248,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Skip("not really possible now that there is no defined admin user")
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -520,7 +520,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -606,7 +606,7 @@ func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName s
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := configstore.NewMem()
@@ -677,7 +677,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -702,7 +702,7 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -723,7 +723,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// We want to make sure that the code is using the bootstrap
 	// config rather than information from environments.yaml,
 	// even when there is an entry in environments.yaml

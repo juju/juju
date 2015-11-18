@@ -10,10 +10,10 @@ import (
 	"strconv"
 
 	"github.com/juju/names"
+	"github.com/juju/version"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/version"
 )
 
 var format_1_16 = formatter_1_16{}

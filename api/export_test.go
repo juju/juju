@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
 )
@@ -87,4 +88,11 @@ func (f *resultCaller) BestAPIVersion() int {
 
 func (f *resultCaller) RawAPICaller() base.APICaller {
 	return nil
+}
+
+// IsMinVersionError returns true if the given error was caused by the charm
+// having a minjujuversion higher than the juju environment's version.
+func IsMinVersionError(err error) bool {
+	_, ok := errors.Cause(err).(minJujuVersionErr)
+	return ok
 }

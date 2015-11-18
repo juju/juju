@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type ToolsMetadataSuite struct {
@@ -55,9 +55,9 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
-	version.Current.String() + "-quantal-amd64",
-	version.Current.String() + "-quantal-armhf",
-	version.Current.String() + "-quantal-i386",
+	jujuversion.Current.String() + "-quantal-amd64",
+	jujuversion.Current.String() + "-quantal-armhf",
+	jujuversion.Current.String() + "-quantal-i386",
 }
 
 var versionStrings = append([]string{
@@ -302,7 +302,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
-	currentVersion := version.Current
+	currentVersion := jujuversion.Current
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",
