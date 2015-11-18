@@ -110,19 +110,21 @@ func (*environSuite) TestConvertTagsToParams(c *gc.C) {
 			"not_tags": {"bar,oof"},
 		},
 	}, {
-		tags: stringslicep("", "^bar", "  ", "^oof"),
+		tags: stringslicep("", "^bar", "^", "^oof"),
 		expected: url.Values{
 			"not_tags": {"bar,oof"},
 		},
 	}, {
 		tags: stringslicep("foo", "^", " b a z  ", "^^ ^"),
 		expected: url.Values{
-			"tags": {"foo,baz"},
+			"tags":     {"foo, b a z  "},
+			"not_tags": {"^ ^"},
 		},
 	}, {
 		tags: stringslicep("", "^bar", "  ", " ^ o of "),
 		expected: url.Values{
-			"not_tags": {"bar,oof"},
+			"tags":     {"  , ^ o of "},
+			"not_tags": {"bar"},
 		},
 	}, {
 		tags: stringslicep("foo", "foo", "^bar", "^bar"),
@@ -173,17 +175,20 @@ func (*environSuite) TestConvertSpacesToParams(c *gc.C) {
 	}, {
 		spaces: stringslicep("", "^bar", "  ", "^oof"),
 		expected: url.Values{
+			"networks":     {"space:  "},
 			"not_networks": {"space:bar,space:oof"},
 		},
 	}, {
 		spaces: stringslicep("foo", "^", " b a z  ", "^^ ^"),
 		expected: url.Values{
-			"networks": {"space:foo,space:baz"},
+			"networks":     {"space:foo,space: b a z  "},
+			"not_networks": {"space:^ ^"},
 		},
 	}, {
 		spaces: stringslicep("", "^bar", "  ", " ^ o of "),
 		expected: url.Values{
-			"not_networks": {"space:bar,space:oof"},
+			"networks":     {"space:  ,space: ^ o of "},
+			"not_networks": {"space:bar"},
 		},
 	}, {
 		spaces: stringslicep("foo", "foo", "^bar", "^bar"),
@@ -234,6 +239,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	}
 
 	_, err := env.selectNode(snArgs)
+	c.Assert(err, gc.NotNil)
 	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
 }
 
@@ -308,9 +314,9 @@ func (suite *environSuite) TestParseDelimitedValues(c *gc.C) {
 		negatives: []string{},
 	}, {
 		about:     "values list with embedded whitespace",
-		input:     []string{"   val1  ", " val2", " ^ not Val 3  ", "  ", " ", "", "", " ^notVal4   "},
-		positives: []string{"val1", "val2"},
-		negatives: []string{"notVal3", "notVal4"},
+		input:     []string{"   val1  ", " val2", " ^ not Val 3  ", "  ", " ", "^", "", "^ notVal4   "},
+		positives: []string{"   val1  ", " val2", " ^ not Val 3  ", "  ", " "},
+		negatives: []string{" notVal4   "},
 	}, {
 		about:     "only positives",
 		input:     []string{"val1", "val2", "val3"},
@@ -324,8 +330,8 @@ func (suite *environSuite) TestParseDelimitedValues(c *gc.C) {
 	}, {
 		about:     "multi-caret negatives",
 		input:     []string{"^foo^", "^v^a^l2", "  ^^ ^", "^v^al3", "^^", "^"},
-		positives: []string{},
-		negatives: []string{"foo", "val2", "val3"},
+		positives: []string{"  ^^ ^"},
+		negatives: []string{"foo^", "v^a^l2", "v^al3", "^"},
 	}, {
 		about:     "both positives and negatives",
 		input:     []string{"^val1", "val2", "^val3", "val4"},
@@ -469,7 +475,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError: "interface bindings cannot have empty names",
 	}, {
 		interfaces:    []interfaceBinding{{"foo", ""}},
-		expectedError: `invalid interface binding "foo": space name is required`,
+		expectedError: `invalid interface binding "foo": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"bar", ""},
@@ -477,7 +483,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"", "valid-but-ignored-space"},
 			{"", ""},
 		},
-		expectedError: `invalid interface binding "bar": space name is required`,
+		expectedError: `invalid interface binding "bar": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"dup-name", "space-1"},
