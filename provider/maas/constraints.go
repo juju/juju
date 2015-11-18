@@ -30,10 +30,9 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// convertConstraints converts the given constraints into an url.Values
-// object suitable to pass to MAAS when acquiring a node.
-// CpuPower is ignored because it cannot translated into something
-// meaningful for MAAS right now.
+// convertConstraints converts the given constraints into an url.Values object
+// suitable to pass to MAAS when acquiring a node. CpuPower is ignored because
+// it cannot be translated into something meaningful for MAAS right now.
 func convertConstraints(cons constraints.Value) url.Values {
 	params := url.Values{}
 	if cons.Arch != nil {
@@ -108,23 +107,19 @@ func convertSpacesToParams(params url.Values, spaces *[]string) {
 	}
 }
 
-// parseDelimitedValues parses a slice of raw values, which could be space or
-// tag names. The result is split into two slices - positives and negatives
-// (prefixed with "^"). All " " chars are stripped before parsing the value. Any
-// "^" are also stripped from negative values before adding them to the result.
-// Finally, if any value is empty after dropping " " and "^" (for negatives
-// only), it will be ignored.
+// parseDelimitedValues parses a slice of raw values coming from constraints
+// (Tags or Spaces). The result is split into two slices - positives and
+// negatives (prefixed with "^"). Empty values are ignored.
 func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 	for _, value := range rawValues {
-		value = strings.Replace(value, " ", "", -1)
-		if len(value) == 0 {
+		if value == "" || value == "^" {
+			// Neither of these cases should happen in practise, as constraints
+			// are validated before setting them and empty names for spaces or
+			// tags are not allowed.
 			continue
 		}
 		if strings.HasPrefix(value, "^") {
-			value = strings.Replace(value, "^", "", -1)
-			if value != "" {
-				negatives = append(negatives, value)
-			}
+			negatives = append(negatives, strings.TrimPrefix(value, "^"))
 		} else {
 			positives = append(positives, value)
 		}
@@ -138,10 +133,11 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 //
 // TODO(dimitern): Once the services have bindings defined in state, a version
 // of this should go to the network package (needs to be non-MAAS-specifc
-// first).
+// first). Also, we need to transform Juju space names from constraints into
+// MAAS space provider IDs.
 type interfaceBinding struct {
-	Name      string
-	SpaceName string
+	Name            string
+	SpaceProviderId string
 	// add more as needed.
 }
 
@@ -159,9 +155,9 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 		switch {
 		case binding.Name == "":
 			return errors.NewNotValid(nil, "interface bindings cannot have empty names")
-		case binding.SpaceName == "":
+		case binding.SpaceProviderId == "":
 			return errors.NewNotValid(nil, fmt.Sprintf(
-				"invalid interface binding %q: space name is required", binding.Name),
+				"invalid interface binding %q: space provider ID is required", binding.Name),
 			)
 		case namesSet.Contains(binding.Name):
 			return errors.NewNotValid(nil, fmt.Sprintf(
@@ -169,7 +165,7 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 			)
 		}
 		namesSet.Add(binding.Name)
-		items = append(items, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceName))
+		items = append(items, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
 	}
 	if len(items) > 0 {
 		params.Add("interfaces", strings.Join(items, ";"))
