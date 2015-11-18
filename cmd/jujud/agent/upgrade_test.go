@@ -530,10 +530,19 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
 
-	machineAPI := s.OpenAPIAsMachine(c, machine.Tag(), initialMachinePassword, agent.BootstrapNonce)
-	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(machineAPI.Upgrader(), machine0Conf))
-	// Wait for agent upgrade worker to determine that no
-	// agent upgrades are required.
+	// Start the machine agent dependency engine so that the upgrader
+	// worker runs.
+	// TODO(mjs) - this test will need to evolve somewhat (getting
+	// simpler) as more jobs start running inside the dependency engine.
+	createEngine := a.makeEngineCreator(
+		a.upgradeWorkerContext.UpgradeComplete,
+		a.initialUpgradeCheckComplete,
+		s.oldVersion.Number,
+	)
+	runner.StartWorker("engine", createEngine)
+
+	// Wait for upgrader worker to determine that no upgrades are
+	// required.
 	select {
 	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
