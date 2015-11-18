@@ -21,7 +21,7 @@ options:
    specify an output file
 --format (= tabular)
    specify output format (json|tabular|yaml)
-[[--<filter-scope> ]<filter-term>],...   
+[[--<filter-scope> ]<filter-term>],...
    <filter-term> is free text and will be matched against any of:
        - endpoint URL prefix
        - interface name
