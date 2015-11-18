@@ -18,20 +18,24 @@ type ManifoldsConfig struct {
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
+
+	// UpgradeStepsLock is passed to the upgrade steps gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-steps worker is done.
+	UpgradeStepsLock gate.WaiterUnlocker
+
+	// UpgradeCheckLock is passed to the upgrade check gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrader worker completes it's first check.
+	UpgradeCheckLock gate.WaiterUnlocker
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) (
-	dependency.Manifolds, gate.WaiterUnlocker, gate.WaiterUnlocker,
-) {
-
-	upgradeStepsManifold, upgradeStepsGate := gate.ManifoldEx()
-	upgradeCheckManifold, upgradeCheckGate := gate.ManifoldEx()
-
-	manifolds := dependency.Manifolds{
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -55,16 +59,14 @@ func Manifolds(config ManifoldsConfig) (
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
 		// finished running any required upgrade steps.
-		upgradeStepsGateName: upgradeStepsManifold,
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
 
 		// The upgrade check gate is used to coordinate workers which
 		// shouldn't do anything until the upgrader worker has
 		// completed it's first check for a new tools version to
 		// upgrade to.
-		upgradeCheckGateName: upgradeCheckManifold,
+		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
 	}
-
-	return manifolds, upgradeStepsGate, upgradeCheckGate
 }
 
 const (

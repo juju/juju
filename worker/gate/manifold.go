@@ -19,21 +19,18 @@ import (
 //
 // The output func accepts an out pointer to either an Unlocker or a Waiter.
 func Manifold() dependency.Manifold {
-	m, _ := ManifoldEx()
-	return m
+	return ManifoldEx(NewLock())
 }
 
-// ManifoldEx does the same thing as Manifold but provides access to
-// the WaiterUnlocker which can be used to wait on or unlock the
-// gate. This allows code running outside of a dependency engine
-// managed worker monitor or unlock the gate.
+// ManifoldEx does the same thing as Manifold but takes the
+// WaiterUnlocker which used to wait on or unlock the gate. This
+// allows code running outside of a dependency engine managed worker
+// to monitor or unlock the gate.
 //
 // TODO(mjs) - this can likely go away once all machine agent workers
 // are running under the dependency engine.
-func ManifoldEx() (dependency.Manifold, WaiterUnlocker) {
-	lock := newLock()
-
-	manifold := dependency.Manifold{
+func ManifoldEx(lock WaiterUnlocker) dependency.Manifold {
+	return dependency.Manifold{
 		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
 			w := &gate{lock: lock}
 			go func() {
@@ -58,10 +55,12 @@ func ManifoldEx() (dependency.Manifold, WaiterUnlocker) {
 			return nil
 		},
 	}
-	return manifold, lock
 }
 
-func newLock() *lock {
+// NewLock returns a new WaiterUnlocker for the gate manifold,
+// suitable for passing to ManifoldEx. It can be safely unlocked and
+// monitored by code runner under or outside of the dependency engine.
+func NewLock() WaiterUnlocker {
 	return &lock{
 		// mu and ch are shared across all workers started by the returned manifold.
 		// In normal operation, there will only be one such worker at a time; but if
@@ -72,7 +71,7 @@ func newLock() *lock {
 	}
 }
 
-// lock implements of Unlocker and Waiter
+// Lock implements of Unlocker and Waiter
 type lock struct {
 	mu *sync.Mutex
 	ch chan struct{}
@@ -104,10 +103,10 @@ func (l *lock) IsUnlocked() bool {
 	}
 }
 
-// gate implements a degenerate worker that holds a lock.
+// gate implements a degenerate worker that holds a WaiterUnlocker.
 type gate struct {
 	tomb tomb.Tomb
-	lock *lock
+	lock WaiterUnlocker
 }
 
 // Kill is part of the worker.Worker interface.

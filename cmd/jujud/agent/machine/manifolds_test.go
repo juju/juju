@@ -22,7 +22,7 @@ type ManifoldsSuite struct {
 var _ = gc.Suite(&ManifoldsSuite{})
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds, _, _ := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
 	for name, manifold := range manifolds {
@@ -32,7 +32,7 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
-	manifolds, _, _ := machine.Manifolds(machine.ManifoldsConfig{})
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -48,9 +48,14 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestUpgradeGates(c *gc.C) {
-	manifolds, upgradeStepsGate, upgradeCheckGate := machine.Manifolds(machine.ManifoldsConfig{})
-	assertGate(c, manifolds["upgrade-steps-gate"], upgradeStepsGate)
-	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckGate)
+	upgradeStepsLock := gate.NewLock()
+	upgradeCheckLock := gate.NewLock()
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		UpgradeStepsLock: upgradeStepsLock,
+		UpgradeCheckLock: upgradeCheckLock,
+	})
+	assertGate(c, manifolds["upgrade-steps-gate"], upgradeStepsLock)
+	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckLock)
 }
 
 func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {

@@ -483,7 +483,7 @@ func (a *MachineAgent) createEngine() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	manifolds, _, _ := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: agent.APIHostPortsSetter{a},
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
