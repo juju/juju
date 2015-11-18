@@ -11,11 +11,11 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 

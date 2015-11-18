@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -468,7 +468,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := st.AddService("dummy", owner.String(), sch, nil, nil)
+	svc, err := st.AddService(state.AddServiceArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(st, svc, 1, "")
 	c.Assert(err, jc.ErrorIsNil)

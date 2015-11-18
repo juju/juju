@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -28,4 +29,10 @@ type dummyStorageAccessor struct {
 
 func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.StorageAttachmentId, error) {
 	return nil, nil
+}
+
+type nopResolver struct{}
+
+func (nopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
+	return nil, resolver.ErrNoOperation
 }

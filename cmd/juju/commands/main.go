@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
@@ -36,6 +37,10 @@ import (
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
+
+// TODO(ericsnow) Move the following to cmd/juju/main.go:
+//  jujuDoc
+//  Main
 
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of cloud
@@ -110,6 +115,9 @@ type commandRegistry interface {
 	RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck)
 	RegisterDeprecated(subcmd cmd.Command, check cmd.DeprecationCheck)
 }
+
+// TODO(ericsnow) Factor out the commands and aliases into a static
+// registry that can be passed to the supercommand separately.
 
 // registerCommands registers commands in the specified registry.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
@@ -222,6 +230,16 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewLoginCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewUseEnvironmentCommand())
+
+	// Commands registered elsewhere.
+	for _, newCommand := range registeredCommands {
+		command := newCommand()
+		r.Register(command)
+	}
+	for _, newCommand := range registeredEnvCommands {
+		command := newCommand()
+		r.Register(envcmd.Wrap(command))
+	}
 }
 
 func main() {

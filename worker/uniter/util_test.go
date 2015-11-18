@@ -1437,15 +1437,19 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
-		c.Assert(err, jc.ErrorIsNil)
+		// Don't use asserts in go routines.
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
 		defer client.Close()
 
 		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, args, &result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result.Code, gc.Equals, 0)
-		c.Check(string(result.Stdout), gc.Equals, "")
-		c.Check(string(result.Stderr), gc.Equals, "")
+		if c.Check(err, jc.ErrorIsNil) {
+			c.Check(result.Code, gc.Equals, 0)
+			c.Check(string(result.Stdout), gc.Equals, "")
+			c.Check(string(result.Stderr), gc.Equals, "")
+		}
 	}()
 }
 

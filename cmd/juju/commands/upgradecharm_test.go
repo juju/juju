@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -109,6 +109,18 @@ func (s *UpgradeCharmErrorsSuite) TestSwitchAndRevisionFails(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
 	c.Assert(err, gc.ErrorMatches, "--switch and --revision are mutually exclusive")
+}
+
+func (s *UpgradeCharmErrorsSuite) TestPathAndRevisionFails(c *gc.C) {
+	s.deployService(c)
+	err := runUpgradeCharm(c, "riak", "--path=foo", "--revision=2")
+	c.Assert(err, gc.ErrorMatches, "--path and --revision are mutually exclusive")
+}
+
+func (s *UpgradeCharmErrorsSuite) TestSwitchAndPathFails(c *gc.C) {
+	s.deployService(c)
+	err := runUpgradeCharm(c, "riak", "--switch=riak", "--path=foo")
+	c.Assert(err, gc.ErrorMatches, "--switch and --path are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *gc.C) {
@@ -278,6 +290,35 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 	curl = s.assertUpgraded(c, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPath(c *gc.C) {
+	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+
+	// Change the revision to 42 and upgrade to it with explicit revision.
+	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, 42, false)
+	c.Assert(curl.String(), gc.Equals, "local:trusty/riak-42")
+	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
+	// Revision 7 is running to start with.
+	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+	s.assertLocalRevision(c, 7, myriakPath)
+	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, 8, false)
+	c.Assert(curl.String(), gc.Equals, "local:trusty/riak-8")
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPathDifferentNameFails(c *gc.C) {
+	myriakPath := testcharms.Repo.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
+	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade "riak" to "myriak"`)
 }
 
 type UpgradeCharmCharmStoreSuite struct {

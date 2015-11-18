@@ -61,8 +61,6 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.relations.CommitHook(hi)
 	case hi.Kind.IsStorage():
 		return opc.u.storage.CommitHook(hi)
-	case hi.Kind == hooks.ConfigChanged:
-		opc.u.ranConfigChanged = true
 	}
 	return nil
 }

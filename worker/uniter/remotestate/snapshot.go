@@ -55,6 +55,10 @@ type Snapshot struct {
 	// Actions is the list of pending actions to
 	// be peformed by this unit.
 	Actions []string
+
+	// Commands is the list of IDs of commands to be
+	// executed by this unit.
+	Commands []string
 }
 
 type RelationSnapshot struct {

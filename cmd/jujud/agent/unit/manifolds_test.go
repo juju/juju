@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 )
 
 type ManifoldsSuite struct {
@@ -28,15 +27,6 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		c.Logf("checking %q manifold", name)
 		c.Check(manifold.Start, gc.NotNil)
 	}
-}
-
-// TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.
-func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
-		Agent: fakeAgent{},
-	})
-	err := dependency.Validate(manifolds)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {

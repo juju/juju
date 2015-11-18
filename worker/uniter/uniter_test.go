@@ -1853,6 +1853,33 @@ func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"hook failed status should stay around after juju run",
+			createCharm{badHooks: []string{"config-changed"}},
+			serveCharm{},
+			createUniter{},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "config-changed"`,
+				data: map[string]interface{}{
+					"hook": "config-changed",
+				},
+			},
+			runCommands{"exit 0"},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "config-changed"`,
+				data: map[string]interface{}{
+					"hook": "config-changed",
+				},
+			},
+		)})
+}
+
 func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {

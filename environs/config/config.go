@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
