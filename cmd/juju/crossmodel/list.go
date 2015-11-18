@@ -60,6 +60,7 @@ type listCommand struct {
 	filters map[string][]string
 }
 
+// NewListEndpointsCommand constructs new list endpoint command.
 func NewListEndpointsCommand() cmd.Command {
 	listCmd := &listCommand{}
 	listCmd.newAPIFunc = func() (ListAPI, error) {
