@@ -45,7 +45,7 @@ Examples:
 
     JAAS
     APPLICATION             CHARM  INTERFACES   CONNECTED  STORE  URL
-    ibm/us-east/hosted-db2  db2    db2          3212       jaas   /u/ibm/hosted-db2
+    ibm/us-east/hosted-db2  db2    db2          3212       vendor   /u/ibm/hosted-db2
 
 `
 
