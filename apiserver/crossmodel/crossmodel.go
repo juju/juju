@@ -118,6 +118,53 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	return params.RemoteServiceResults{results}, nil
 }
 
+func (api *API) List(fs params.ListEndpointsFilters) (params.ListEndpointsServiceItemResults, error) {
+	filters := make([]crossmodel.RemoteServiceFilter, len(fs.Filters))
+	for i, filter := range fs.Filters {
+		filters[i] = constructRemoteServiceFilter(filter)
+	}
+	found, err := api.backend.ListRemoteServices(filters...)
+	if err != nil {
+		return params.ListEndpointsServiceItemResults{}, errors.Trace(err)
+	}
+
+	results := make(map[string][]params.ListEndpointsServiceItemResult)
+	for directory, services := range found {
+		results[directory] = make([]params.ListEndpointsServiceItemResult, len(services))
+		for i, service := range services {
+			results[directory][i] = api.getRemoteService(service)
+		}
+	}
+
+	return params.ListEndpointsServiceItemResults{results}, nil
+}
+
+func (api *API) getRemoteService(remote crossmodel.RemoteService) params.ListEndpointsServiceItemResult {
+	service, err := api.access.Service(remote.ServiceName)
+	if err != nil {
+		return params.ListEndpointsServiceItemResult{Error: common.ServerError(err)}
+	}
+
+	ch, _, err := service.Charm()
+	if err != nil {
+		return params.ListEndpointsServiceItemResult{Error: common.ServerError(err)}
+	}
+
+	result := params.ListEndpointsServiceItem{
+		Endpoints:  convertEndpoints(remote.Endpoints),
+		CharmName:  ch.Meta().Name,
+		UsersCount: len(remote.ConnectedUsers),
+	}
+
+	// TODO (anastasiamac 2016-11-18) where do I get application name, store and url suffix from?
+	return params.ListEndpointsServiceItemResult{Result: &result}
+}
+
+func constructRemoteServiceFilter(filter params.OfferFilter) crossmodel.RemoteServiceFilter {
+	// TODO (anastasiamac 2015-11-18)  populate filters
+	return crossmodel.RemoteServiceFilter{}
+}
+
 // parseOffer is a helper function that translates from params
 // structure into internal service layer one.
 func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer, error) {
@@ -166,10 +213,21 @@ func getServiceEndpoints(service *state.Service, endpointNames []string) ([]char
 // convertServiceOffer is a helper function that translates from internal service layer
 // structure into params one.
 func convertServiceOffer(c crossmodel.ServiceOffer) params.ServiceOffer {
-	endpoints := make([]params.RemoteEndpoint, len(c.Endpoints))
+	return params.ServiceOffer{
+		ServiceName:        c.ServiceName,
+		ServiceURL:         c.ServiceURL,
+		SourceEnvironTag:   names.NewEnvironTag(c.SourceEnvUUID).String(),
+		SourceLabel:        c.SourceLabel,
+		Endpoints:          convertEndpoints(c.Endpoints),
+		ServiceDescription: c.ServiceDescription,
+	}
+}
 
-	for i, endpoint := range c.Endpoints {
-		endpoints[i] = params.RemoteEndpoint{
+func convertEndpoints(endpoints []charm.Relation) []params.RemoteEndpoint {
+	remoteEndpoints := make([]params.RemoteEndpoint, len(endpoints))
+
+	for i, endpoint := range endpoints {
+		remoteEndpoints[i] = params.RemoteEndpoint{
 			Name:      endpoint.Name,
 			Interface: endpoint.Interface,
 			Role:      endpoint.Role,
@@ -177,15 +235,7 @@ func convertServiceOffer(c crossmodel.ServiceOffer) params.ServiceOffer {
 			Scope:     endpoint.Scope,
 		}
 	}
-
-	return params.ServiceOffer{
-		ServiceName:        c.ServiceName,
-		ServiceURL:         c.ServiceURL,
-		SourceEnvironTag:   names.NewEnvironTag(c.SourceEnvUUID).String(),
-		SourceLabel:        c.SourceLabel,
-		Endpoints:          endpoints,
-		ServiceDescription: c.ServiceDescription,
-	}
+	return remoteEndpoints
 }
 
 // A ServicesBackend holds interface that this api requires.
@@ -195,8 +245,11 @@ type ServicesBackend interface {
 	// AddOffer adds a new service offer to the directory.
 	AddOffer(offer crossmodel.ServiceOffer) error
 
-	// List offers returns the offers satisfying the specified filter.
+	// ListOffers returns offers satisfying the specified filter.
 	ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+
+	// ListRemoteServices returns remote services satisfying specified filters.
+	ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error)
 }
 
 // TODO (anastasiamac 2015-11-16) Remove me when backend is done
@@ -207,5 +260,9 @@ func (e *servicesBackendStub) AddOffer(offer crossmodel.ServiceOffer) error {
 }
 
 func (e *servicesBackendStub) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+	return nil, nil
+}
+
+func (e *servicesBackendStub) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
 	return nil, nil
 }

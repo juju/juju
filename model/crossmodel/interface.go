@@ -120,3 +120,23 @@ type OfferedServices interface {
 	// Remove removes the service offer at the specified URL.
 	RemoveOffer(url string) error
 }
+
+// RemoteServiceFilter represents a remote service filter.
+type RemoteServiceFilter struct {
+	// URL is a remote service URL prefix.
+	URL string
+
+	// EndpointName is a name of an endpoint on a remote service.
+	EndpointName string
+
+	// CharmName is a name of a charm for remote service.
+	CharmName string
+}
+
+// RemoteService represents a remote service.
+type RemoteService struct {
+	ServiceOffer
+
+	// ConnectedUsers are the users that are consuming the service.
+	ConnectedUsers []string
+}
