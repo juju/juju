@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/juju/cmd"
@@ -42,14 +43,14 @@ type DeployCommand struct {
 	Networks      string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision  bool   // Remove this once the 1.16 support is dropped.
 	RepoPath      string // defaults to JUJU_REPOSITORY
-	RegisterURL   string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
 	//
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
-	Storage map[string]storage.Constraints
+	Storage    map[string]storage.Constraints
+	AfterSteps []DeployStep
 }
 
 const deployDoc = `
@@ -154,6 +155,22 @@ See Also:
    juju help get-constraints
 `
 
+// DeployStep is an action that needs to be taken during charm deployment.
+type DeployStep interface {
+	// Set flags necessary for the deploy step.
+	SetFlags(*gnuflag.FlagSet)
+	// Run the deploy step.
+	Run(api.Connection, *http.Client, DeploymentInfo) error
+}
+
+// DeploymentInfo is used to maintain all deployment information for
+// deployment steps.
+type DeploymentInfo struct {
+	CharmURL    *charm.URL
+	ServiceName string
+	EnvUUID     string
+}
+
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
@@ -174,6 +191,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	for _, step := range c.AfterSteps {
+		step.SetFlags(f)
+	}
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -382,12 +402,18 @@ func (c *DeployCommand) deployCharm(curl *charm.URL, ctx *cmd.Context, client *a
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = registerMeteredCharm(c.RegisterURL, state, httpClient, curl.String(), serviceName, client.EnvironmentUUID())
-	if params.IsCodeNotImplemented(err) {
-		// The state server is too old to support metering.  Warn
-		// the user, but don't return an error.
-		logger.Warningf("current state server version does not support charm metering")
-		return nil
+
+	deployInfo := DeploymentInfo{
+		CharmURL:    curl,
+		ServiceName: serviceName,
+		EnvUUID:     client.EnvironmentUUID(),
+	}
+
+	for _, step := range c.AfterSteps {
+		err = step.Run(state, httpClient, deployInfo)
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }
