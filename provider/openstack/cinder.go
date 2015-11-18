@@ -406,17 +406,13 @@ func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, err
 	// The cinder openstack charm appends 'v2' to the type for the v2 api.
 	endpoint, ok := endpointMap["volumev2"]
 	if !ok {
-		logger.Debugf("volumev2 endpoint not found for %q region, trying volume instead", region)
+		logger.Debugf(`endpoint "volumev2" not found for %q region, trying "volume"`, region)
 		endpoint, ok = endpointMap["volume"]
 		if !ok {
-			return nil, errors.Errorf("volume endpoint not found for %q region", region)
+			return nil, errors.Errorf(`endpoint "volume" not found for %q region`, region)
 		}
 	}
-	endpointUrl, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, errors.Annotate(err, "error parsing endpoint")
-	}
-	return endpointUrl, nil
+	return url.Parse(endpoint)
 }
 
 func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage, error) {
@@ -431,7 +427,7 @@ func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage,
 
 	endpointUrl, err := getVolumeEndpointURL(client, ecfg.region())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting volume endpoint")
 	}
 
 	return &openstackStorageAdapter{

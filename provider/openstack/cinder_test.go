@@ -530,11 +530,11 @@ var volumeEndpointTests = []struct {
 	url: "http://cinder.testing/v2",
 }, {
 	summary:    "error on missing region",
-	errormatch: `volume endpoint not found for "west" region`,
+	errormatch: `endpoint "volume" not found for "west" region`,
 }, {
 	summary:    "error on bad url",
 	endpoints:  map[string]string{"volume": "%2 wha!"},
-	errormatch: `error parsing endpoint: .*`,
+	errormatch: `parse %2 wha!: .*`,
 }}
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpoint(c *gc.C) {
