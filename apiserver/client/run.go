@@ -162,7 +162,6 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		// TODO(ericsnow) Move the log entry to after setting the identity.
 		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
 		arg.ExecParams.IdentityFile = identity
-		timeout := arg.Timeout
 
 		results.Results[i] = params.RunResult{
 			MachineId: arg.MachineId,
@@ -184,8 +183,7 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 		// every copy of the command we run will require a separate
 		// fork. This can be a problem for controllers with low
 		// resources or in environments with many machines.
-		wg.Add(1)
-		go func() {
+		wait := func(result *params.RunResult, timeout time.Duration) {
 			defer wg.Done()
 
 			response, err := cmd.WaitWithTimeout(timeout)
@@ -194,7 +192,9 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 			if err != nil {
 				result.Error = fmt.Sprint(err)
 			}
-		}()
+		}
+		wg.Add(1)
+		go wait(result, arg.Timeout)
 	}
 	wg.Wait()
 
