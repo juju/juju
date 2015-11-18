@@ -6,6 +6,7 @@ from datetime import (
 )
 import logging
 import os
+import socket
 import StringIO
 import subprocess
 import sys
@@ -2349,3 +2350,13 @@ class TestGetMachineDNSName(TestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             "WARNING Selected IPv6 address for machine 0: '2001:db8::3'\n")
+
+    def test_gets_ipv6_unsupported(self):
+        status = Status.from_text(self.machine_0_ipv6)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        with patch('jujupy.socket', wraps=socket) as wrapped_socket:
+            del wrapped_socket.inet_pton
+            host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "2001:db8::3")
+        fake_client.status_until.assert_called_once_with(timeout=600)
