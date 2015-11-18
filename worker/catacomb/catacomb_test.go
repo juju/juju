@@ -455,6 +455,19 @@ func (s *CatacombSuite) TestPlanBadInit(c *gc.C) {
 	w.assertDead(c)
 }
 
+func (s *CatacombSuite) TestPlanDataRace(c *gc.C) {
+	w := s.fix.startErrorWorker(c, nil)
+	plan := catacomb.Plan{
+		Site: &catacomb.Catacomb{},
+		Work: func() error { return nil },
+		Init: []worker.Worker{w},
+	}
+	err := catacomb.Invoke(plan)
+	c.Assert(err, jc.ErrorIsNil)
+
+	plan.Init[0] = nil
+}
+
 func checkInvalid(c *gc.C, plan catacomb.Plan, match string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, match)

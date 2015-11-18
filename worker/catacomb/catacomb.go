@@ -29,9 +29,6 @@ type Catacomb struct {
 	dirty int32
 }
 
-// Plan holds a task to be run on a new goroutine, and a catacomb to manage it;
-// any workers supplied in Init will be added to the catacomb automatically.
-
 // Plan defines the strategy for an Invoke.
 type Plan struct {
 
@@ -41,7 +38,7 @@ type Plan struct {
 	// Work will be run on a new goroutine, and tracked by Site.
 	Work func() error
 
-	// Init contains additional workers for which Site must be responisble.
+	// Init contains additional workers for which Site must be responsible.
 	Init []worker.Worker
 }
 
@@ -87,15 +84,18 @@ func Invoke(plan Plan) (err error) {
 	}
 	catacomb.adds = make(chan worker.Worker)
 
+	// Add the Init workers right away, so the client can't induce data races
+	// by modifying the slice post-return.
+	for _, w := range plan.Init {
+		catacomb.add(w)
+	}
+
 	// This goroutine listens for added workers until the catacomb is Killed.
 	// We ensure the wg can't complete until we know no new workers will be
 	// added.
 	catacomb.wg.Add(1)
 	go func() {
 		defer catacomb.wg.Done()
-		for _, w := range plan.Init {
-			catacomb.add(w)
-		}
 		for {
 			select {
 			case <-catacomb.tomb.Dying():
