@@ -91,18 +91,17 @@ var TimedOut = errors.New("command timed out")
 // is returned.
 func (cmd *RunningCmd) WaitWithTimeout(timeout <-chan time.Time) (utilexec.ExecResponse, error) {
 	var result utilexec.ExecResponse
-	var err error
 
-	var token struct{}
-	done := make(chan struct{}, 1)
+	done := make(chan error, 1)
 	go func() {
 		defer close(done)
-		result, err = cmd.Wait()
-		done <- token
+		waitResult, err := cmd.Wait()
+		result = waitResult
+		done <- err
 	}()
 
 	select {
-	case <-done:
+	case err := <-done:
 		return result, errors.Trace(err)
 	case <-timeout:
 		logger.Infof("killing the command due to timeout")
