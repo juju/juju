@@ -33,6 +33,8 @@ func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]by
 
 	headers := []string{"APPLICATION", "CHARM", "CONNECTED", "STORE", "URL", "ENDPOINT", "INTERFACE", "ROLE"}
 
+	// Ensure directories are sorted alphabetically.
+	//	directories := sortMapKeys(all)
 	directories := []string{}
 	for name, _ := range all {
 		directories = append(directories, name)
@@ -43,6 +45,7 @@ func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]by
 		print(directory)
 		print(headers...)
 
+		// Sort application names alphabetically.
 		items := all[directory]
 		applicationNames := []string{}
 		for name, _ := range items {
@@ -53,6 +56,7 @@ func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]by
 		for _, name := range applicationNames {
 			application := items[name]
 
+			// Sort endpoints alphabetically.
 			endpoints := []string{}
 			for endpoint, _ := range application.Endpoints {
 				endpoints = append(endpoints, endpoint)
@@ -63,9 +67,14 @@ func formatListEndpointsTabular(all map[string]map[string]ListServiceItem) ([]by
 
 				endpoint := application.Endpoints[endpointName]
 				if i == 0 {
+					// As there is some information about service and its endpoints,
+					// only display service information once
+					// when the first endpoint is  displayed.
 					print(name, application.CharmName, fmt.Sprintf("%v", application.UsersCount), application.Store, application.Location, endpointName, endpoint.Interface, endpoint.Role)
 					continue
 				}
+				// Subsequent lines only need to display endpoint information.
+				// This will display less noise.
 				print("", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
 			}
 		}
