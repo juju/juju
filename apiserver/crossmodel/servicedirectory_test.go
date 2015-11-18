@@ -72,6 +72,14 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceDirectorySuite) TestUnauthorised(c *gc.C) {
+	s.authoriser = testing.FakeAuthorizer{
+		EnvironManager: false,
+	}
+	_, err := crossmodel.CreateServiceOffersAPI(nil, s.resources, s.authoriser)
+	c.Assert(err, gc.Equals, common.ErrPerm)
+}
+
 func (s *serviceDirectorySuite) assertCalls(c *gc.C, expectedCalls []string) {
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
