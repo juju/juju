@@ -580,14 +580,14 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.sender = s.initResourceGroupSenders()
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
-	arch, series, _, err := env.Bootstrap(
+	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
 			AvailableTools: makeToolsList("trusty"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arch, gc.Equals, "amd64")
-	c.Assert(series, gc.Equals, "trusty")
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Series, gc.Equals, "trusty")
 
 	c.Assert(len(s.requests), gc.Equals, 17)
 

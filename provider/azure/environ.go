@@ -92,25 +92,25 @@ func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnvir
 func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
 	args environs.BootstrapParams,
-) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+) (*environs.BootstrapResult, error) {
 
 	cfg, err := env.initResourceGroup()
 	if err != nil {
-		return "", "", nil, errors.Annotate(err, "creating controller resource group")
+		return nil, errors.Annotate(err, "creating controller resource group")
 	}
 	if err := env.SetConfig(cfg); err != nil {
-		return "", "", nil, errors.Annotate(err, "updating config")
+		return nil, errors.Annotate(err, "updating config")
 	}
 
-	arch, series, finalizer, err := common.Bootstrap(ctx, env, args)
+	result, err := common.Bootstrap(ctx, env, args)
 	if err != nil {
 		logger.Errorf("bootstrap failed, destroying environment: %v", err)
 		if err := env.Destroy(); err != nil {
 			logger.Errorf("failed to destroy environment: %v", err)
 		}
-		return "", "", nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return arch, series, finalizer, nil
+	return result, nil
 }
 
 // initResourceGroup creates and initialises a resource group for this
