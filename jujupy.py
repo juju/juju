@@ -863,7 +863,7 @@ def get_machine_dns_name(client, machine, timeout=600):
         try:
             return _dns_name_for_machine(status, machine)
         except KeyError:
-            logging.debug("No dns-name yet for machine %s", machine)
+            log.debug("No dns-name yet for machine %s", machine)
 
 
 def _dns_name_for_machine(status, machine):
@@ -873,7 +873,7 @@ def _dns_name_for_machine(status, machine):
     except socket.error:
         # IPv4 or hostname
         return host
-    logging.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    log.warning("Selected IPv6 address for machine %s: %r", machine, host)
     return host.join("[]")
 
 
