@@ -18,5 +18,6 @@ func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *
 		envName:         name,
 		envGetterClient: client,
 		envGetterErr:    getterErr,
+		opener:          NewPassthroughOpener(),
 	}
 }

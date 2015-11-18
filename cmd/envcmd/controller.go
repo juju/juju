@@ -34,6 +34,10 @@ type ControllerCommand interface {
 	// ControllerName returns the name of the controller or environment used to
 	// determine that API end point.
 	ControllerName() string
+
+	// SetAPIOpener allows the replacement of the default API opener,
+	// which ends up calling NewAPIRoot
+	SetAPIOpener(opener APIOpener)
 }
 
 // ControllerCommandBase is a convenience type for embedding in commands
@@ -42,6 +46,9 @@ type ControllerCommandBase struct {
 	JujuCommandBase
 
 	controllerName string
+
+	// opener is the strategy used to open the API connection.
+	opener APIOpener
 }
 
 // SetControllerName implements the ControllerCommand interface.
@@ -54,10 +61,16 @@ func (c *ControllerCommandBase) ControllerName() string {
 	return c.controllerName
 }
 
+// SetAPIOpener specifies the strategy used by the command to open
+// the API connection.
+func (c *ControllerCommandBase) SetAPIOpener(opener APIOpener) {
+	c.opener = opener
+}
+
 // NewEnvironmentManagerAPIClient returns an API client for the
 // EnvironmentManager on the current controller using the current credentials.
 func (c *ControllerCommandBase) NewEnvironmentManagerAPIClient() (*environmentmanager.Client, error) {
-	root, err := c.newAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -67,7 +80,7 @@ func (c *ControllerCommandBase) NewEnvironmentManagerAPIClient() (*environmentma
 // NewControllerAPIClient returns an API client for the Controller on
 // the current controller using the current credentials.
 func (c *ControllerCommandBase) NewControllerAPIClient() (*controller.Client, error) {
-	root, err := c.newAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,21 +90,21 @@ func (c *ControllerCommandBase) NewControllerAPIClient() (*controller.Client, er
 // NewUserManagerAPIClient returns an API client for the UserManager on the
 // current controller using the current credentials.
 func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, error) {
-	root, err := c.newAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return usermanager.NewClient(root), nil
 }
 
-// newAPIRoot returns a restricted API for the current controller using the current
+// NewAPIRoot returns a restricted API for the current controller using the current
 // credentials.  Only the UserManager and EnvironmentManager may be accessed
 // through this API connection.
-func (c *ControllerCommandBase) newAPIRoot() (api.Connection, error) {
+func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.controllerName == "" {
 		return nil, errors.Trace(ErrNoControllerSpecified)
 	}
-	return c.NewAPIRoot(c.controllerName)
+	return c.opener.Open(c.JujuCommandBase.NewAPIRoot, c.controllerName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -150,9 +163,20 @@ func ControllerSkipDefault(w *sysCommandWrapper) {
 	w.useDefaultControllerName = false
 }
 
+// ControllerAPIOpener instructs the underlying controller command to use a
+// different APIOpener strategy.
+func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
+	return func(w *sysCommandWrapper) {
+		w.ControllerCommand.SetAPIOpener(opener)
+	}
+}
+
 // WrapController wraps the specified ControllerCommand, returning a Command
 // that proxies to each of the ControllerCommand methods.
 func WrapController(c ControllerCommand, options ...WrapControllerOption) cmd.Command {
+	// First make sure that the ControllerCommand has the default
+	// APIOpener strategy.
+	c.SetAPIOpener(NewPassthroughOpener())
 	wrapper := &sysCommandWrapper{
 		ControllerCommand:        c,
 		setFlags:                 true,

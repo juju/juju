@@ -117,6 +117,7 @@ func initExpectations(com *DeployCommand) {
 		com.RepoPath = "/path/to/repo"
 	}
 	com.SetEnvName("peckham")
+	com.SetAPIOpener(envcmd.NewPassthroughOpener())
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
