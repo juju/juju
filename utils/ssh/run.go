@@ -83,6 +83,13 @@ func (cmd *RunningCmd) Wait() (result utilexec.ExecResponse, _ error) {
 	return result, nil
 }
 
+// TODO(ericsnow) Add RunningCmd.WaitAbortable(abortChan <-chan error) ...
+// based on WaitWithTimeout and update WaitWithTimeout to use it. We
+// could make it WaitAbortable(abortChans ...<-chan error), which would
+// require using reflect.Select(). Then that could simply replace Wait().
+// It may make more sense, however, to have a helper function:
+//   Wait(cmd T, abortChans ...<-chan error) ...
+
 // TimedOut is an error indicating that a command timed out.
 var TimedOut = errors.New("command timed out")
 
