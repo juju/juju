@@ -141,7 +141,7 @@ type testNotifyWatcher struct {
 	stopError error
 }
 
-func (tnw *testNotifyWatcher) Changes() watcher.NotifyChan {
+func (tnw *testNotifyWatcher) Changes() watcher.NotifyChannel {
 	return tnw.changes
 }
 

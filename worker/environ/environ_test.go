@@ -234,7 +234,7 @@ func (s *fakeState) Wait() error {
 }
 
 // Changes implements watcher.NotifyWatcher.
-func (s *fakeState) Changes() watcher.NotifyChan {
+func (s *fakeState) Changes() watcher.NotifyChannel {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

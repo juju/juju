@@ -312,7 +312,7 @@ func (s *stubMeterStatusClient) WatchMeterStatus() (watcher.NotifyWatcher, error
 	return s, nil
 }
 
-func (s *stubMeterStatusClient) Changes() watcher.NotifyChan {
+func (s *stubMeterStatusClient) Changes() watcher.NotifyChannel {
 	return s.changes
 }
 

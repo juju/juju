@@ -71,7 +71,7 @@ func NewProvisionerTask(
 ) (ProvisionerTask, error) {
 	machineChanges := machineWatcher.Changes()
 	workers := []worker.Worker{machineWatcher}
-	var retryChanges watcher.NotifyChan
+	var retryChanges watcher.NotifyChannel
 	if retryWatcher != nil {
 		retryChanges = retryWatcher.Changes()
 		workers = append(workers, retryWatcher)
@@ -106,8 +106,8 @@ type provisionerTask struct {
 	machineTag                 names.MachineTag
 	machineGetter              MachineGetter
 	toolsFinder                ToolsFinder
-	machineChanges             watcher.StringsChan
-	retryChanges               watcher.NotifyChan
+	machineChanges             watcher.StringsChannel
+	retryChanges               watcher.NotifyChannel
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider

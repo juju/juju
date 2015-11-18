@@ -178,7 +178,7 @@ func (w *notifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *notifyWatcher) Changes() watcher.NotifyChan {
+func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 	return w.out
 }
 
@@ -231,7 +231,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 
 // Changes returns a channel that receives a list of strings of watched
 // entites with changes.
-func (w *stringsWatcher) Changes() watcher.StringsChan {
+func (w *stringsWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
 
@@ -301,7 +301,7 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 // Changes returns a channel that will receive the changes to
 // counterpart units in a relation. The first event on the channel
 // holds the initial state of the relation in its Changed field.
-func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChan {
+func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.out
 }
 
@@ -380,7 +380,7 @@ func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.
 
 // Changes returns a channel that will receive the IDs of machine
 // storage entity attachments which have changed.
-func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChan {
+func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.out
 }
 
@@ -435,6 +435,6 @@ func (w *entitiesWatcher) loop(initialChanges []string) error {
 // Changes returns a channel that receives a list of changes
 // as tags (converted to strings) of the watched entities
 // with changes.
-func (w *entitiesWatcher) Changes() watcher.StringsChan {
+func (w *entitiesWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }

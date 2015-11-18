@@ -9,17 +9,17 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-// NotifyChan is a change channel as described in the CoreWatcher docs.
+// NotifyChannel is a change channel as described in the CoreWatcher docs.
 //
 // It sends a single value to indicate that the watch is active, and subsequent
 // values whenever the value(s) under observation change(s).
-type NotifyChan <-chan struct{}
+type NotifyChannel <-chan struct{}
 
-// NotifyWatcher conveniently ties a NotifyChan to the worker.Worker that
+// NotifyWatcher conveniently ties a NotifyChannel to the worker.Worker that
 // represents its validity.
 type NotifyWatcher interface {
 	CoreWatcher
-	Changes() NotifyChan
+	Changes() NotifyChannel
 }
 
 // NotifyHandler defines the operation of a NotifyWorker.
@@ -105,7 +105,7 @@ func (nw *NotifyWorker) loop() (err error) {
 // setUp calls the handler's SetUp method; registers any returned watcher with
 // the worker's catacomb; and returns the watcher's changes channel. Any errors
 // encountered kill the worker and cause a nil channel to be returned.
-func (nw *NotifyWorker) setUp() NotifyChan {
+func (nw *NotifyWorker) setUp() NotifyChannel {
 	watcher, err := nw.config.Handler.SetUp()
 	if err != nil {
 		nw.catacomb.Kill(err)

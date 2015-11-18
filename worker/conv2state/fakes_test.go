@@ -41,7 +41,7 @@ func (f fakeMachine) Watch() (watcher.NotifyWatcher, error) {
 
 type fakeWatcher struct{}
 
-func (fakeWatcher) Changes() watcher.NotifyChan {
+func (fakeWatcher) Changes() watcher.NotifyChannel {
 	return nil
 }
 

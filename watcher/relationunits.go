@@ -21,7 +21,7 @@ type RelationUnitsChange struct {
 	Departed []string
 }
 
-// RelationUnitsChan is a change channel as described in the CoreWatcher docs.
+// RelationUnitsChannel is a change channel as described in the CoreWatcher docs.
 //
 // It sends a single value representing the current membership of a relation
 // scope; and the versions of the settings documents for each; and subsequent
@@ -30,11 +30,11 @@ type RelationUnitsChange struct {
 //
 // It feeds the joined-changed-departed logic in worker/uniter, but these events
 // do not map 1:1 with hooks.
-type RelationUnitsChan <-chan RelationUnitsChange
+type RelationUnitsChannel <-chan RelationUnitsChange
 
-// RelationUnitsWatcher conveniently ties a RelationUnitsChan to the
+// RelationUnitsWatcher conveniently ties a RelationUnitsChannel to the
 // worker.Worker that represents its validity.
 type RelationUnitsWatcher interface {
 	CoreWatcher
-	Changes() RelationUnitsChan
+	Changes() RelationUnitsChannel
 }

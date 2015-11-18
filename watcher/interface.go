@@ -23,13 +23,26 @@ import (
 //      close their channels when the watcher stops; this is harmful because it
 //      mixes lifetime-handling into change-handling at the cost of clarity (and
 //      in some cases correctness). So long as a watcher implements Worker, it
-//      can be safely managed with the worker/catacomb package; client code ofc
-//      still needs to check for closed channels (never trust a contract...) but
-//      can treat that scenario as a simple error.
+//      can be safely managed with the worker/catacomb package; of course, all
+//      sensible clients will still check for closed channels (never trust a
+//      contract...) but can treat that scenario as a simple error.
 //
-// To convert a state/watcher.Watcher to a CoreWatcher, replace Stop() and Err()
-// with the boilerplate Kill() and Wait() implementations; and ensure that the
-// watcher no longer closes its Changes channel.
+// To convert a state/watcher.Watcher to a CoreWatcher, ensure that the watcher
+// no longer closes its Changes() channel; and replace Stop() and Err() with the
+// usual worker boilerplate. Namely:
+//
+//      // Kill is part of the worker.Worker interface.
+//      func (w *watcher) Kill() {
+//          w.tomb.Kill(nil)
+//      }
+//
+//      // Wait is part of the worker.Worker interface.
+//      func (w *watcher) Wait() error {
+//          return w.tomb.Wait()
+//      }
+//
+// Tests using state/testing/{$Kind}WatcherC should be converted to use the
+// equivalents in watcher/watchertest.
 type CoreWatcher interface {
 	worker.Worker
 }

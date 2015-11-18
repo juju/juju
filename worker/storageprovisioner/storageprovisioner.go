@@ -210,10 +210,10 @@ func (w *storageProvisioner) Wait() error {
 
 func (w *storageProvisioner) loop() error {
 	var (
-		volumesChanges               watcher.StringsChan
-		filesystemsChanges           watcher.StringsChan
-		volumeAttachmentsChanges     watcher.MachineStorageIdsChan
-		filesystemAttachmentsChanges watcher.MachineStorageIdsChan
+		volumesChanges               watcher.StringsChannel
+		filesystemsChanges           watcher.StringsChannel
+		volumeAttachmentsChanges     watcher.MachineStorageIdsChannel
+		filesystemAttachmentsChanges watcher.MachineStorageIdsChannel
 		machineBlockDevicesChanges   <-chan struct{}
 	)
 	machineChanges := make(chan names.MachineTag)

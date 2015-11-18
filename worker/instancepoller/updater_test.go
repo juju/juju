@@ -174,7 +174,7 @@ type testMachinesWatcher struct {
 	err     error
 }
 
-func (w *testMachinesWatcher) Changes() watcher.StringsChan {
+func (w *testMachinesWatcher) Changes() watcher.StringsChannel {
 	return w.changes
 }
 

@@ -56,7 +56,7 @@ type mockNotifyWatcher struct {
 	changes chan struct{}
 }
 
-func (w *mockNotifyWatcher) Changes() watcher.NotifyChan {
+func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
@@ -71,7 +71,7 @@ type mockStringsWatcher struct {
 	changes chan []string
 }
 
-func (w *mockStringsWatcher) Changes() watcher.StringsChan {
+func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
 }
 
@@ -86,7 +86,7 @@ type mockAttachmentsWatcher struct {
 	changes chan []watcher.MachineStorageId
 }
 
-func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChan {
+func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.changes
 }
 

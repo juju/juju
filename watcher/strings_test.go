@@ -141,7 +141,7 @@ type testStringsWatcher struct {
 	stopError error
 }
 
-func (tsw *testStringsWatcher) Changes() watcher.StringsChan {
+func (tsw *testStringsWatcher) Changes() watcher.StringsChannel {
 	return tsw.changes
 }
 

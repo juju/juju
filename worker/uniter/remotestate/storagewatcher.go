@@ -57,7 +57,7 @@ type storageAttachmentWatcher struct {
 	catacomb catacomb.Catacomb
 
 	st         StorageAccessor
-	changes    watcher.NotifyChan
+	changes    watcher.NotifyChannel
 	storageTag names.StorageTag
 	unitTag    names.UnitTag
 	out        chan<- storageAttachmentChange

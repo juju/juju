@@ -14,7 +14,7 @@ import (
 type relationUnitsWatcher struct {
 	catacomb   catacomb.Catacomb
 	relationId int
-	changes    watcher.RelationUnitsChan
+	changes    watcher.RelationUnitsChannel
 	out        chan<- relationUnitsChange
 }
 

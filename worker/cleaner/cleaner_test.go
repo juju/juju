@@ -119,7 +119,7 @@ func (m *mockNotifyWatcher) Wait() error {
 	return m.tomb.Wait()
 }
 
-func (m *mockNotifyWatcher) Changes() watcher.NotifyChan {
+func (m *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return m.changes
 }
 

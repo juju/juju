@@ -17,7 +17,7 @@ type mockWatcher struct {
 	changes chan struct{}
 }
 
-func (w *mockWatcher) Changes() watcher.NotifyChan {
+func (w *mockWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 

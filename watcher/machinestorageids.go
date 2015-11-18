@@ -12,16 +12,16 @@ type MachineStorageId struct {
 	AttachmentTag string
 }
 
-// MachineStorageIdsChan is a change channel as described in the CoreWatcher
+// MachineStorageIdsChannel is a change channel as described in the CoreWatcher
 // docs.
 //
 // Other than that, I don't know its exact semantics. axw, description? standard
 // add/remove? changes to referenced entities?
-type MachineStorageIdsChan <-chan []MachineStorageId
+type MachineStorageIdsChannel <-chan []MachineStorageId
 
-// MachineStorageIdsWatcher conveniently ties a MachineStorageIdsChan to the
+// MachineStorageIdsWatcher conveniently ties a MachineStorageIdsChannel to the
 // worker.Worker that represents its validity.
 type MachineStorageIdsWatcher interface {
 	CoreWatcher
-	Changes() MachineStorageIdsChan
+	Changes() MachineStorageIdsChannel
 }
