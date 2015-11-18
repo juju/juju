@@ -87,27 +87,22 @@ func (s *offeredServices) AddOffer(offer crossmodel.OfferedService) (err error) 
 	}
 
 	doc := s.makeOfferedServiceDoc(offer)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if err := checkEnvLife(s.st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		// If we've tried once already and failed, that means
-		// we have a duplicate.
-		if attempt > 0 {
-			return nil, errDuplicateServiceOffer
-		}
-		ops := []txn.Op{
-			assertEnvAliveOp(s.st.EnvironUUID()),
-			{
-				C:      serviceOffersC,
-				Id:     doc.DocID,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			},
-		}
-		return ops, nil
+	ops := []txn.Op{
+		assertEnvAliveOp(s.st.EnvironUUID()),
+		{
+			C:      serviceOffersC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		},
 	}
-	err = s.st.run(buildTxn)
+	err = s.st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		if err := checkEnvLife(s.st); err != nil {
+			return err
+		}
+		return errDuplicateServiceOffer
+	}
 	return errors.Trace(err)
 }
 
@@ -121,29 +116,24 @@ func (s *offeredServices) UpdateOffer(url string, endpoints map[string]string) (
 	if len(endpoints) == 0 {
 		return errors.New("no endpoints specified")
 	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if err := checkEnvLife(s.st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		// If we've tried once already and failed, that means
-		// the offer is deleted.
-		if attempt > 0 {
-			return nil, errors.NotFoundf("service offer at %q", url)
-		}
-		ops := []txn.Op{
-			assertEnvAliveOp(s.st.EnvironUUID()),
-			{
-				C:      serviceOffersC,
-				Id:     url,
-				Assert: txn.DocExists,
-				Update: bson.D{
-					{"$set", bson.D{{"endpoints", endpoints}}},
-				},
+	ops := []txn.Op{
+		assertEnvAliveOp(s.st.EnvironUUID()),
+		{
+			C:      serviceOffersC,
+			Id:     url,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"endpoints", endpoints}}},
 			},
-		}
-		return ops, nil
+		},
 	}
-	err = s.st.run(buildTxn)
+	err = s.st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		if err := checkEnvLife(s.st); err != nil {
+			return err
+		}
+		return errors.NotFoundf("service offer at %q", url)
+	}
 	return errors.Trace(err)
 }
 
@@ -254,14 +244,6 @@ func (s *offeredServices) SetOfferRegistered(url string, registered bool) (err e
 	}
 	err = s.st.run(buildTxn)
 	return errors.Trace(err)
-}
-
-// ListOffersByRegisteredState returns the service offers matching the supplied registered state.
-func (s *offeredServices) ListOffersByRegisteredState(isRegistered bool) ([]crossmodel.OfferedService, error) {
-	filter := crossmodel.OfferedServiceFilter{
-		Registered: &isRegistered,
-	}
-	return s.ListOffers(filter)
 }
 
 type soSlice []offeredServiceDoc

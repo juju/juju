@@ -196,7 +196,7 @@ func (s *offeredServicesSuite) TestSetOfferRegistered(c *gc.C) {
 	s.createOffedService(c, "offer3")
 	err := offeredServices.SetOfferRegistered("local:/u/me/offer3", false)
 	c.Assert(err, jc.ErrorIsNil)
-	offers, err := offeredServices.ListOffersByRegisteredState(true)
+	offers, err := offeredServices.ListOffers(crossmodel.RegisteredFilter(true))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 2)
 	c.Assert(offers, jc.DeepEquals, []crossmodel.OfferedService{offer, offer2})
