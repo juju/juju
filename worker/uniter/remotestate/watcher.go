@@ -618,6 +618,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			}
 		} else if params.IsCodeNotFound(result.Error) {
 			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
+				// already under catacomb management, any error tracked already
 				worker.Stop(watcher)
 				delete(w.storageAttachmentWatchers, tag)
 			}

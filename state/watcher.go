@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 
+	// TODO(fwereade): 2015-11-18 lp:1517428
+	//
 	// This gets an import block of its own because it's such staggeringly bad
 	// practice. It's here because (1) it always has been, just not quite so
 	// explicitly and (2) even if we had the state watchers implemented as

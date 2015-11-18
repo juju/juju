@@ -139,15 +139,17 @@ func (u *Upgrader) loop() error {
 	// However, that absolutely depends on versionWatcher's guaranteed
 	// initial event, and we should assume that it'll break its contract
 	// sometime. So we allow the watcher to wait patiently for the event
-	// for a full 5 minutes; but after that we proceed regardless.
+	// for a full minute; but after that we proceed regardless.
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	mustProceed := time.After(5 * time.Minute)
+	logger.Infof("abort check blocked until version event received")
+	mustProceed := time.After(time.Minute)
 	var dying <-chan struct{}
 	allowDying := func() {
 		if dying == nil {
+			logger.Infof("unblocking abort check")
 			mustProceed = nil
 			dying = u.catacomb.Dying()
 			if err := u.catacomb.Add(versionWatcher); err != nil {
@@ -167,6 +169,7 @@ func (u *Upgrader) loop() error {
 		// ...*every* other case *must* allowDying(), before doing anything
 		// else, lest an error cause us to leak versionWatcher.
 		case <-mustProceed:
+			logger.Infof("version event not received after one minute")
 			allowDying()
 		case _, ok := <-versionWatcher.Changes():
 			allowDying()

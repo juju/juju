@@ -13,7 +13,7 @@ import (
 )
 
 // ErrLoopAborted is used to signal that the loop is exiting because it
-// received a value on its congig's Abort chan.
+// received a value on its config's Abort chan.
 var ErrLoopAborted = errors.New("resolver loop aborted")
 
 // LoopConfig contains configuration parameters for the resolver loop.

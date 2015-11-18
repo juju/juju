@@ -754,7 +754,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
 		w, err := proxyupdater.New(st.Environment(), writeSystemFiles)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
 		}
 		return w, nil
 	})
@@ -784,7 +784,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return newMachiner(machiner.Config{
+		w, err := newMachiner(machiner.Config{
 			MachineAccessor: accessor,
 			Tag:             agentConfig.Tag().(names.MachineTag),
 			ClearMachineAddressesOnStart: ignoreMachineAddresses,
@@ -792,6 +792,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				return writeUninstallAgentFile(agentConfig.DataDir())
 			},
 		})
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start machiner worker")
+		}
+		return w, err
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -802,20 +806,24 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return rebootworker.NewReboot(reboot, agentConfig, lock)
+		w, err := rebootworker.NewReboot(reboot, agentConfig, lock)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start reboot worker")
+		}
+		return w, nil
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
 		w, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start api address updater worker")
 		}
 		return w, nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		w, err := workerlogger.NewLogger(st.Logger(), agentConfig)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start logging config updater worker")
 		}
 		return w, nil
 	})
@@ -827,7 +835,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 
 		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+			w, err := cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
+			}
+			return w, nil
 		})
 	}
 
@@ -839,7 +851,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				Handler: handler,
 			})
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotate(err, "cannot start state server promoter worker")
 			}
 			return w, nil
 		})
@@ -859,7 +871,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			return nil, errors.Trace(err)
 		}
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(storageprovisioner.Config{
+		w, err := newStorageWorker(storageprovisioner.Config{
 			Scope:       scope,
 			StorageDir:  storageDir,
 			Volumes:     api,
@@ -870,6 +882,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			Status:      api,
 			Clock:       clock.WallClock,
 		})
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start machine-local storage provisioner worker")
+		}
+		return w, nil
 	})
 
 	if isEnvironManager {
@@ -895,7 +911,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 	intrusiveMode = intrusiveMode && !disableNetworkManagement
 	runner.StartWorker("networker", func() (worker.Worker, error) {
-		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+		w, err := newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start networker worker")
+		}
+		return w, nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to
@@ -905,7 +925,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
 			w, err := authenticationworker.NewWorker(st.KeyUpdater(), agentConfig)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 			}
 			return w, nil
 		})
@@ -927,7 +947,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				context := newDeployContext(apiDeployer, agentConfig)
 				w, err := deployer.NewDeployer(apiDeployer, context)
 				if err != nil {
-					return nil, errors.Trace(err)
+					return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
 				}
 				return w, nil
 			})
@@ -1096,7 +1116,7 @@ func (a *MachineAgent) updateSupportedContainers(
 			Handler: handler,
 		})
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "cannot start %s worker", watcherName)
 		}
 		return w, nil
 	})
@@ -1148,10 +1168,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-				return peergrouperNew(st)
+				w, err := peergrouperNew(st)
+				if err != nil {
+					return nil, errors.Annotate(err, "cannot start peergrouper worker")
+				}
+				return w, nil
 			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
-				return a.newRestoreStateWatcherWorker(st)
+				w, err := a.newRestoreStateWatcherWorker(st)
+				if err != nil {
+					return nil, errors.Annotate(err, "cannot start backup-restorer worker")
+				}
+				return w, nil
 			})
 
 			// certChangedChan is shared by multiple workers it's up
@@ -1275,7 +1303,7 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		w, err := provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start environment compute provisioner worker")
 		}
 		return w, nil
 	})
@@ -1285,7 +1313,7 @@ func (a *MachineAgent) startEnvWorkers(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return newStorageWorker(storageprovisioner.Config{
+		w, err := newStorageWorker(storageprovisioner.Config{
 			Scope:       scope,
 			Volumes:     api,
 			Filesystems: api,
@@ -1295,33 +1323,49 @@ func (a *MachineAgent) startEnvWorkers(
 			Status:      api,
 			Clock:       clock.WallClock,
 		})
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start environment storage provisioner worker")
+		}
+		return w, nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
-		return charmrevision.NewWorker(charmrevision.Config{
+		w, err := charmrevision.NewWorker(charmrevision.Config{
 			RevisionUpdater: apiSt.CharmRevisionUpdater(),
 			Clock:           clock.WallClock,
 			Period:          24 * time.Hour,
 		})
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start charm revision updater worker")
+		}
+		return w, nil
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
-		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+		w, err := metricworker.NewMetricsManager(getMetricAPI(apiSt))
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start metrics manager worker")
+		}
+		return w, nil
 	})
 	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
 		w, err := newInstancePoller(apiSt.InstancePoller())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start instance poller worker")
 		}
 		return w, nil
 	})
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		w, err := newCleaner(apiSt.Cleaner())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "cannot start state cleaner worker")
 		}
 		return w, nil
 	})
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return newAddresser(apiSt.Addresser())
+		w, err := newAddresser(apiSt.Addresser())
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start addresser worker")
+		}
+		return w, nil
 	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
@@ -1334,7 +1378,11 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 	if fwMode != config.FwNone {
 		singularRunner.StartWorker("firewaller", func() (worker.Worker, error) {
-			return newFirewaller(apiSt.Firewaller())
+			w, err := newFirewaller(apiSt.Firewaller())
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot start firewaller worker")
+			}
+			return w, nil
 		})
 	} else {
 		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
@@ -1350,7 +1398,7 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		w, err := statushistorypruner.New(conf)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot start \"statushistorypruner\"")
+			return nil, errors.Annotate(err, "cannot start status history pruner worker")
 		}
 		return w, nil
 	})
@@ -1404,7 +1452,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	if err != nil {
 		return nil, err
 	}
-	return apiserver.NewServer(st, listener, apiserver.ServerConfig{
+	w, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
 		Tag:         tag,
@@ -1413,6 +1461,10 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
 	})
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot start api server worker")
+	}
+	return w, nil
 }
 
 // limitLogins is called by the API server for each login attempt.

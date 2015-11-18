@@ -175,6 +175,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	registry.RegisterProvider(
 		"envscoped",
