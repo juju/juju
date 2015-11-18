@@ -19,11 +19,13 @@ type factorySuite struct {
 
 var _ = gc.Suite(&factorySuite{})
 
+type containerTest struct {
+	containerType instance.ContainerType
+	valid         bool
+}
+
 func (*factorySuite) TestNewContainerManager(c *gc.C) {
-	for _, test := range []struct {
-		containerType instance.ContainerType
-		valid         bool
-	}{{
+	for _, test := range []containerTest{{
 		containerType: instance.LXC,
 		valid:         true,
 	}, {
@@ -36,14 +38,18 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.ContainerType("other"),
 		valid:         false,
 	}} {
-		conf := container.ManagerConfig{container.ConfigName: "test"}
-		manager, err := factory.NewContainerManager(test.containerType, conf, nil)
-		if test.valid {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(manager, gc.NotNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, `unknown container type: ".*"`)
-			c.Assert(manager, gc.IsNil)
-		}
+		testContainerManager(c, test)
+	}
+}
+
+func testContainerManager(c *gc.C, test containerTest) {
+	conf := container.ManagerConfig{container.ConfigName: "test"}
+	manager, err := factory.NewContainerManager(test.containerType, conf, nil)
+	if test.valid {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(manager, gc.NotNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, `unknown container type: ".*"`)
+		c.Assert(manager, gc.IsNil)
 	}
 }
