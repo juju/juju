@@ -535,7 +535,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// Wait for agent upgrade worker to determine that no
 	// agent upgrades are required.
 	select {
-	case <-a.initialAgentUpgradeCheckComplete:
+	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for upgrade check")
 	}

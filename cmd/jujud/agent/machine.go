@@ -302,8 +302,8 @@ func NewMachineAgent(
 		upgradeWorkerContext: upgradeWorkerContext,
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
-		initialAgentUpgradeCheckComplete: make(chan struct{}),
-		loopDeviceManager:                loopDeviceManager,
+		initialUpgradeCheckComplete: gate.NewLock(),
+		loopDeviceManager:           loopDeviceManager,
 	}
 }
 
@@ -328,8 +328,7 @@ type MachineAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
-	// Channel used as a selectable bool (closed means true).
-	initialAgentUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete gate.WaiterUnlocker
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -350,12 +349,7 @@ func (a *MachineAgent) IsRestoreRunning() bool {
 }
 
 func (a *MachineAgent) isAgentUpgradePending() bool {
-	select {
-	case <-a.initialAgentUpgradeCheckComplete:
-		return false
-	default:
-		return true
-	}
+	return !a.initialUpgradeCheckComplete.IsUnlocked()
 }
 
 // Wait waits for the machine agent to finish.
@@ -1012,7 +1006,7 @@ func (a *MachineAgent) agentUpgraderWorkerStarter(
 			agentConfig,
 			a.previousAgentVersion,
 			a.upgradeWorkerContext.IsUpgradeRunning,
-			a.initialAgentUpgradeCheckComplete,
+			a.initialUpgradeCheckComplete,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1821,7 +1815,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []<-chan struct{}{
 			a.upgradeWorkerContext.UpgradeComplete.Unlocked(),
-			a.initialAgentUpgradeCheckComplete,
+			a.initialUpgradeCheckComplete.Unlocked(),
 		} {
 			select {
 			case <-stop:

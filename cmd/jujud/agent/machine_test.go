@@ -948,7 +948,7 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	done := make(chan error)
 	go func() { done <- a.Run(nil) }()
 	select {
-	case <-a.initialAgentUpgradeCheckComplete:
+	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for upgrade check")
 	}
