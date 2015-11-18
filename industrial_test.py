@@ -14,12 +14,12 @@ from textwrap import dedent
 import yaml
 
 from deploy_stack import (
-    get_machine_dns_name,
     wait_for_state_server_to_shutdown,
     )
 from jujupy import (
     AgentsNotStarted,
     EnvJujuClient,
+    get_machine_dns_name,
     SimpleEnvironment,
     temp_bootstrap_env,
     uniquify_local,
@@ -727,7 +727,7 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         try:
             status = client.get_status()
             instance_id = status.get_instance_id('0')
-            host = get_machine_dns_name(client, 0)
+            host = get_machine_dns_name(client, '0')
             terminate_instances(client.env, [instance_id])
             yield results
             wait_for_state_server_to_shutdown(host, client, instance_id)

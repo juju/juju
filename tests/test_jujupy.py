@@ -4,6 +4,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import logging
 import os
 import StringIO
 import subprocess
@@ -33,6 +34,7 @@ from jujupy import (
     GroupReporter,
     get_cache_path,
     get_local_root,
+    get_machine_dns_name,
     get_timeout_path,
     jes_home_path,
     JESByDefault,
@@ -2281,3 +2283,69 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
     def test_parse_new_state_server_from_error_no_output(self):
         address = parse_new_state_server_from_error(Exception())
         self.assertIs(None, address)
+
+
+class TestGetMachineDNSName(TestCase):
+
+    log_level = logging.DEBUG
+
+    machine_0_no_addr = """\
+        machines:
+            "0":
+                instance-id: pending
+        """
+
+    machine_0_hostname = """\
+        machines:
+            "0":
+                dns-name: a-host
+        """
+
+    machine_0_ipv6 = """\
+        machines:
+            "0":
+                dns-name: 2001:db8::3
+        """
+
+    def test_gets_host(self):
+        status = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "a-host")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(self.log_stream.getvalue(), "")
+
+    def test_retries_for_dns_name(self):
+        status_pending = Status.from_text(self.machine_0_no_addr)
+        status_host = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status_pending, status_host]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "a-host")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n")
+
+    def test_retries_gives_up(self):
+        status = Status.from_text(self.machine_0_no_addr)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status] * 3
+        host = get_machine_dns_name(fake_client, '0', timeout=10)
+        self.assertEqual(host, None)
+        fake_client.status_until.assert_called_once_with(timeout=10)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n" * 3)
+
+    def test_gets_ipv6(self):
+        status = Status.from_text(self.machine_0_ipv6)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "[2001:db8::3]")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "WARNING Selected IPv6 address for machine 0: '2001:db8::3'\n")

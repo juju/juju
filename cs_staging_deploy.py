@@ -5,7 +5,6 @@ import subprocess
 
 from deploy_stack import (
     dump_env_logs,
-    get_machine_dns_name,
     safe_print_status,
     update_env,
 )
@@ -13,6 +12,7 @@ from jujuconfig import get_juju_home
 from jujupy import (
     bootstrap_from_env,
     EnvJujuClient,
+    get_machine_dns_name,
     SimpleEnvironment,
 )
 from utility import (
@@ -49,7 +49,7 @@ class CSStagingTest:
     def bootstrap(self):
         juju_home = get_juju_home()
         bootstrap_from_env(juju_home, self.client)
-        self.bootstrap_host = get_machine_dns_name(self.client, 0)
+        self.bootstrap_host = get_machine_dns_name(self.client, '0')
         if self.bootstrap_host is None:
             raise Exception('Could not get machine 0 host')
 

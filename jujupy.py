@@ -13,6 +13,7 @@ import logging
 import os
 import re
 from shutil import rmtree
+import socket
 import subprocess
 import sys
 import time
@@ -854,6 +855,26 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                         if e.errno != errno.ENOENT:
                             raise
                 client.juju_home = old_juju_home
+
+
+def get_machine_dns_name(client, machine, timeout=600):
+    """Wait for dns-name on a juju machine."""
+    for status in client.status_until(timeout=timeout):
+        try:
+            return _dns_name_for_machine(status, machine)
+        except KeyError:
+            logging.debug("No dns-name yet for machine %s", machine)
+
+
+def _dns_name_for_machine(status, machine):
+    host = status.status['machines'][machine]['dns-name']
+    try:
+        socket.inet_pton(socket.AF_INET6, host)
+    except socket.error:
+        # IPv4 or hostname
+        return host
+    logging.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    return host.join("[]")
 
 
 class Status:

@@ -5,7 +5,6 @@ import sys
 
 from deploy_stack import (
     dump_env_logs,
-    get_machine_dns_name,
     safe_print_status,
     temp_bootstrap_env,
     update_env,
@@ -15,6 +14,7 @@ from jujuconfig import (
 )
 from jujupy import (
     EnvJujuClient,
+    get_machine_dns_name,
     SimpleEnvironment,
 )
 from utility import (
@@ -72,7 +72,7 @@ class QuickstartTest:
             self.client.quickstart(self.bundle_path)
         yield step
         # Get the hostname for machine 0
-        step['bootstrap_host'] = get_machine_dns_name(self.client, 0)
+        step['bootstrap_host'] = get_machine_dns_name(self.client, '0')
         yield step
         # Wait for deploy to start
         self.client.wait_for_deploy_started(self.service_count)

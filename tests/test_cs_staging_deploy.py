@@ -181,4 +181,4 @@ class TestCSStagingDeploy(FakeHomeTestCase):
                     csstaging.bootstrap()
         gjh_mock.assert_called_once_with()
         bfe_mock.assert_called_once_with('foo', client)
-        dns_mock.assert_called_once_with(client, 0)
+        dns_mock.assert_called_once_with(client, '0')
