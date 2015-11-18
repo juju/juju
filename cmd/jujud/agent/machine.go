@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -437,6 +438,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
+	createEngine := a.makeEngineCreator(
+		a.upgradeWorkerContext.UpgradeComplete,
+		gate.NewLock(),
+	)
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
@@ -450,7 +455,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
-	a.runner.StartWorker("engine", a.createEngine)
+	a.runner.StartWorker("engine", createEngine)
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 
@@ -472,27 +477,31 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) createEngine() (worker.Worker, error) {
-	config := dependency.EngineConfig{
-		IsFatal:     cmdutil.IsFatal,
-		WorstError:  cmdutil.MoreImportantError,
-		ErrorDelay:  3 * time.Second,
-		BounceDelay: 10 * time.Millisecond,
-	}
-	engine, err := dependency.NewEngine(config)
-	if err != nil {
-		return nil, err
-	}
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
-		Agent: agent.APIHostPortsSetter{a},
-	})
-	if err := dependency.Install(engine, manifolds); err != nil {
-		if err := worker.Stop(engine); err != nil {
-			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+func (a *MachineAgent) makeEngineCreator(upgradeStepsLock, upgradeCheckLock gate.WaiterUnlocker) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		config := dependency.EngineConfig{
+			IsFatal:     cmdutil.IsFatal,
+			WorstError:  cmdutil.MoreImportantError,
+			ErrorDelay:  3 * time.Second,
+			BounceDelay: 10 * time.Millisecond,
 		}
-		return nil, err
+		engine, err := dependency.NewEngine(config)
+		if err != nil {
+			return nil, err
+		}
+		manifolds := machine.Manifolds(machine.ManifoldsConfig{
+			Agent:            agent.APIHostPortsSetter{a},
+			UpgradeStepsLock: upgradeStepsLock,
+			UpgradeCheckLock: upgradeCheckLock,
+		})
+		if err := dependency.Install(engine, manifolds); err != nil {
+			if err := worker.Stop(engine); err != nil {
+				logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			}
+			return nil, err
+		}
+		return engine, nil
 	}
-	return engine, nil
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
@@ -1810,8 +1819,8 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
-		for _, ch := range []chan struct{}{
-			a.upgradeWorkerContext.UpgradeComplete,
+		for _, ch := range []<-chan struct{}{
+			a.upgradeWorkerContext.UpgradeComplete.Unlocked(),
 			a.initialAgentUpgradeCheckComplete,
 		} {
 			select {

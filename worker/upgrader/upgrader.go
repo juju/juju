@@ -96,10 +96,10 @@ func (u *Upgrader) Stop() error {
 func allowedTargetVersion(
 	origAgentVersion version.Number,
 	curVersion version.Number,
-	upgradeRunning bool,
+	upgradeStepsRunning bool,
 	targetVersion version.Number,
 ) bool {
-	if upgradeRunning && targetVersion == origAgentVersion {
+	if upgradeStepsRunning && targetVersion == origAgentVersion {
 		return true
 	}
 	if targetVersion.Major < curVersion.Major {

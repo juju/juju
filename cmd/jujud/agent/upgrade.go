@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
 )
 
@@ -54,12 +55,12 @@ var (
 
 func NewUpgradeWorkerContext() *upgradeWorkerContext {
 	return &upgradeWorkerContext{
-		UpgradeComplete: make(chan struct{}),
+		UpgradeComplete: gate.NewLock(),
 	}
 }
 
 type upgradeWorkerContext struct {
-	UpgradeComplete chan struct{}
+	UpgradeComplete gate.WaiterUnlocker
 	fromVersion     version.Number
 	toVersion       version.Number
 	agent           upgradingMachineAgent
@@ -85,7 +86,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
 				"have already been run.", version.Current)
-			close(c.UpgradeComplete)
+			c.UpgradeComplete.Unlock()
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
@@ -107,12 +108,7 @@ func (c *upgradeWorkerContext) Worker(
 }
 
 func (c *upgradeWorkerContext) IsUpgradeRunning() bool {
-	select {
-	case <-c.UpgradeComplete:
-		return false
-	default:
-		return true
-	}
+	return !c.UpgradeComplete.IsUnlocked()
 }
 
 type apiLostDuringUpgrade struct {
@@ -133,12 +129,10 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		return nil // Make the worker stop
 	}
 
-	select {
-	case <-c.UpgradeComplete:
+	if c.UpgradeComplete.IsUnlocked() {
 		// Our work is already done (we're probably being restarted
 		// because the API connection has gone down), so do nothing.
 		return nil
-	default:
 	}
 
 	c.agentConfig = c.agent.CurrentConfig()
@@ -147,7 +141,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	c.toVersion = version.Current
 	if c.fromVersion == c.toVersion {
 		logger.Infof("upgrade to %v already completed.", c.toVersion)
-		close(c.UpgradeComplete)
+		c.UpgradeComplete.Unlock()
 		return nil
 	}
 
@@ -202,7 +196,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", c.toVersion)
 		c.agent.setMachineStatus(c.apiState, params.StatusStarted, "")
-		close(c.UpgradeComplete)
+		c.UpgradeComplete.Unlock()
 	}
 	return nil
 }
