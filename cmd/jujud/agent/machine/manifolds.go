@@ -22,12 +22,12 @@ type ManifoldsConfig struct {
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-steps worker is done.
-	UpgradeStepsLock gate.WaiterUnlocker
+	UpgradeStepsLock gate.Lock
 
 	// UpgradeCheckLock is passed to the upgrade check gate to
 	// coordinate workers that shouldn't do anything until the
 	// upgrader worker completes it's first check.
-	UpgradeCheckLock gate.WaiterUnlocker
+	UpgradeCheckLock gate.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the

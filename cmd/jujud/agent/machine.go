@@ -328,7 +328,7 @@ type MachineAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
-	initialUpgradeCheckComplete gate.WaiterUnlocker
+	initialUpgradeCheckComplete gate.Lock
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -471,7 +471,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) makeEngineCreator(upgradeStepsLock, upgradeCheckLock gate.WaiterUnlocker) func() (worker.Worker, error) {
+func (a *MachineAgent) makeEngineCreator(upgradeStepsLock, upgradeCheckLock gate.Lock) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		config := dependency.EngineConfig{
 			IsFatal:     cmdutil.IsFatal,

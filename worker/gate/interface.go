@@ -17,8 +17,8 @@ type Waiter interface {
 	IsUnlocked() bool
 }
 
-// WaiterUnlocker combines the Waiter and Unlocker interfaces.
-type WaiterUnlocker interface {
+// Lock combines the Waiter and Unlocker interfaces.
+type Lock interface {
 	Waiter
 	Unlocker
 }

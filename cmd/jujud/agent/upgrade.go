@@ -60,7 +60,7 @@ func NewUpgradeWorkerContext() *upgradeWorkerContext {
 }
 
 type upgradeWorkerContext struct {
-	UpgradeComplete gate.WaiterUnlocker
+	UpgradeComplete gate.Lock
 	fromVersion     version.Number
 	toVersion       version.Number
 	agent           upgradingMachineAgent
