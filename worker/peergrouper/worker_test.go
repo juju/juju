@@ -66,7 +66,6 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	resetErrors()
 }
 
 // InitState initializes the fake state with a single
@@ -203,7 +202,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 
 		// Make the worker fail to set HasVote to false
 		// after changing the replica set membership.
-		setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
+		st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
 
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
@@ -230,7 +229,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 
 		// Start the worker again - although the membership should
 		// not change, the HasVote status should be updated correctly.
-		resetErrors()
+		st.errors.resetErrors()
 		w = newWorker(st, noPublisher{})
 
 		// Watch all the machines for changes, so we can check
@@ -298,7 +297,6 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = ipVersion.extraHostPort
 		assertMembers(c, memberWatcher.Value(), expectMembers)
-		resetErrors()
 	})
 }
 
@@ -331,11 +329,10 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
-			resetErrors()
 			st := NewFakeState()
 			st.session.InstantlyReady = true
 			InitState(c, st, 3, ipVersion)
-			setErrorFor(testCase.errPattern, errors.New("sample"))
+			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
 			w := newWorker(st, noPublisher{})
 			done := make(chan error)
 			go func() {
@@ -359,7 +356,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		var setCount voyeur.Value
-		setErrorFuncFor("Session.Set", func() error {
+		st.errors.setErrorFuncFor("Session.Set", func() error {
 			setCount.Set(true)
 			return errors.New("sample")
 		})
@@ -376,8 +373,6 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		mustNext(c, setCountW)
 		mustNext(c, setCountW)
 		mustNext(c, setCountW)
-
-		resetErrors()
 	})
 }
 
@@ -410,7 +405,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 		// Change one of the servers' API addresses and check that it's published.
 		var newMachine10APIHostPorts []network.HostPort
-		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHostPort)
+		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHost)
 		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
 		select {
 		case servers := <-publishCh:
