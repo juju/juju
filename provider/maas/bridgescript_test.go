@@ -54,7 +54,7 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	c.Check(string(data), gc.Equals, expectedConfig)
 }
 
-func (s *bridgeConfigSuite) XXXTestBridgeScriptWithInvalidParams(c *gc.C) {
+func (s *bridgeConfigSuite) TestBridgeScriptWithInvalidParams(c *gc.C) {
 	var tests = []struct {
 		about  string
 		params []string
