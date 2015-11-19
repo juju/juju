@@ -58,19 +58,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			upgraderFacade := upgrader.NewState(apiCaller)
 
-			var areUpgradeStepsRunning func() bool
+			var upgradeStepsWaiter gate.Waiter
 			if config.UpgradeStepsGateName == "" {
-				areUpgradeStepsRunning = func() bool { return false }
+				upgradeStepsWaiter = gate.NewLock()
 			} else {
 				if config.PreviousAgentVersion == version.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
-
-				var waiter gate.Waiter
-				if err := getResource(config.UpgradeStepsGateName, &waiter); err != nil {
+				if err := getResource(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
 					return nil, err
 				}
-				areUpgradeStepsRunning = func() bool { return !waiter.IsUnlocked() }
 			}
 
 			var initialCheckUnlocker gate.Unlocker
@@ -86,7 +83,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				upgraderFacade,
 				currentConfig,
 				config.PreviousAgentVersion,
-				areUpgradeStepsRunning,
+				upgradeStepsWaiter,
 				initialCheckUnlocker,
 			)
 		},
