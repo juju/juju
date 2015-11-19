@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	_ "github.com/juju/juju/provider/dummy"
@@ -33,9 +32,9 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 	return testing.RunCommand(c, s.newKillCommand(), args...)
 }
 
-func (s *KillSuite) newKillCommand(options ...envcmd.WrapEnvOption) cmd.Command {
+func (s *KillSuite) newKillCommand() cmd.Command {
 	return controller.NewKillCommandForTest(
-		s.api, s.clientapi, s.apierror, &mockClock{}, options...)
+		s.api, s.clientapi, s.apierror, &mockClock{}, nil)
 }
 
 func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
@@ -150,9 +149,7 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(sysName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(
-		nil, nil, nil, clock.WallClock,
-		envcmd.EnvOpenerFunc(testDialer))
+	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock.WallClock, testDialer)
 	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
@@ -168,9 +165,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(
-		nil, nil, nil, clock, envcmd.EnvOpenerFunc(testDialer))
-
+	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock, testDialer)
 	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")

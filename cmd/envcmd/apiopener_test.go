@@ -29,8 +29,8 @@ func (*APIOpenerSuite) TestPassthrough(c *gc.C) {
 		// and an error to check they both come through.
 		return &mockConnection{}, errors.New("boom")
 	}
-	opener := envcmd.NewPassthroughOpener()
-	conn, err := opener.Open(open, "a-name")
+	opener := envcmd.NewPassthroughOpener(open)
+	conn, err := opener.Open("a-name")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(conn, gc.NotNil)
 	c.Assert(name, gc.Equals, "a-name")
@@ -43,8 +43,8 @@ func (*APIOpenerSuite) TestTimoutSuccess(c *gc.C) {
 		return &mockConnection{}, nil
 	}
 	clock := &mockClock{wait: time.Second}
-	opener := envcmd.NewTimeoutOpener(clock, time.Second)
-	conn, err := opener.Open(open, "a-name")
+	opener := envcmd.NewTimeoutOpener(open, clock, time.Second)
+	conn, err := opener.Open("a-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
 	c.Assert(name, gc.Equals, "a-name")
@@ -57,8 +57,8 @@ func (*APIOpenerSuite) TestTimoutErrors(c *gc.C) {
 		return nil, errors.New("boom")
 	}
 	clock := &mockClock{wait: time.Second}
-	opener := envcmd.NewTimeoutOpener(clock, time.Second)
-	conn, err := opener.Open(open, "a-name")
+	opener := envcmd.NewTimeoutOpener(open, clock, time.Second)
+	conn, err := opener.Open("a-name")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(conn, gc.IsNil)
 	c.Assert(name, gc.Equals, "a-name")
@@ -76,8 +76,8 @@ func (*APIOpenerSuite) TestTimoutClosesAPIOnTimeout(c *gc.C) {
 	// have the mock clock only wait a microsecond
 	clock := &mockClock{wait: time.Microsecond}
 	// but tell it to wait five seconds
-	opener := envcmd.NewTimeoutOpener(clock, 5*time.Second)
-	conn, err := opener.Open(open, "a-name")
+	opener := envcmd.NewTimeoutOpener(open, clock, 5*time.Second)
+	conn, err := opener.Open("a-name")
 	c.Assert(errors.Cause(err), gc.Equals, envcmd.ErrConnTimedOut)
 	c.Assert(conn, gc.IsNil)
 	// check it was told to wait for 5 seconds

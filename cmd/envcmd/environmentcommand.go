@@ -74,11 +74,7 @@ type EnvironCommand interface {
 
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
-	SetAPIOpener(opener APIOpener)
-
-	// SetOpenerFunc allows generally only tests to override the function
-	// used to return an APIConnection.
-	SetOpenerFunc(func(string) (api.Connection, error))
+	SetAPIOpener(opener Opener)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
@@ -96,10 +92,7 @@ type EnvCommandBase struct {
 	compatVerson *int
 
 	// opener is the strategy used to open the API connection.
-	opener APIOpener
-
-	// openerFunc can be overridden for testing purposes.
-	openerFunc func(string) (api.Connection, error)
+	opener Opener
 
 	envGetterClient EnvironmentGetter
 	envGetterErr    error
@@ -117,14 +110,8 @@ func (c *EnvCommandBase) EnvName() string {
 
 // SetAPIOpener specifies the strategy used by the command to open
 // the API connection.
-func (c *EnvCommandBase) SetAPIOpener(opener APIOpener) {
+func (c *EnvCommandBase) SetAPIOpener(opener Opener) {
 	c.opener = opener
-}
-
-// SetOpenerFunc allows the overriding of the function used to return the api
-// connection.
-func (c *EnvCommandBase) SetOpenerFunc(openerFunc func(string) (api.Connection, error)) {
-	c.openerFunc = openerFunc
 }
 
 func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
@@ -157,10 +144,11 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	if c.openerFunc == nil {
-		c.openerFunc = c.JujuCommandBase.NewAPIRoot
+	opener := c.opener
+	if opener == nil {
+		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
 	}
-	return c.opener.Open(c.openerFunc, c.envName)
+	return opener.Open(c.envName)
 }
 
 // Config returns the configuration for the environment; obtaining bootstrap
@@ -339,18 +327,10 @@ func EnvSkipDefault(w *environCommandWrapper) {
 }
 
 // EnvAPIOpener instructs the underlying environment command to use a
-// different APIOpener strategy.
-func EnvAPIOpener(opener APIOpener) WrapEnvOption {
+// different Opener strategy.
+func EnvAPIOpener(opener Opener) WrapEnvOption {
 	return func(w *environCommandWrapper) {
 		w.EnvironCommand.SetAPIOpener(opener)
-	}
-}
-
-// EnvOpenerFunc instructs the underlying environment command to use a
-// different function to return the api connection.
-func EnvOpenerFunc(openerFunc func(string) (api.Connection, error)) WrapEnvOption {
-	return func(w *environCommandWrapper) {
-		w.EnvironCommand.SetOpenerFunc(openerFunc)
 	}
 }
 
@@ -366,9 +346,6 @@ func EnvAllowEmpty(w *environCommandWrapper) {
 // Any provided options are applied to the wrapped command
 // before it is returned.
 func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
-	// First make sure that the EnvironCommand has the default
-	// APIOpener strategy.
-	c.SetAPIOpener(NewPassthroughOpener())
 	wrapper := &environCommandWrapper{
 		EnvironCommand:        c,
 		skipFlags:             false,

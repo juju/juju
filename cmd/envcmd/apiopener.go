@@ -14,31 +14,28 @@ import (
 
 var ErrConnTimedOut = errors.New("open connection timed out")
 
-// APIOpener provides a way to open a connection to the Juju
+// Opener provides a way to open a connection to the Juju
 // API Server through the named connection.
-type APIOpener interface {
-	Open(
-		openerFunc func(string) (api.Connection, error),
-		connectionName string,
-	) (api.Connection, error)
+type Opener interface {
+	Open(connectionName string) (api.Connection, error)
 }
 
-type passthroughOpener struct{}
+type passthroughOpener struct {
+	fn func(string) (api.Connection, error)
+}
 
 // NewPassthroughOpener returns an instance that will just call the opener
 // function when Open is called.
-func NewPassthroughOpener() APIOpener {
-	return &passthroughOpener{}
+func NewPassthroughOpener(opener func(string) (api.Connection, error)) Opener {
+	return &passthroughOpener{fn: opener}
 }
 
-func (p *passthroughOpener) Open(
-	openerFunc func(string) (api.Connection, error),
-	connectionName string,
-) (api.Connection, error) {
-	return openerFunc(connectionName)
+func (p *passthroughOpener) Open(name string) (api.Connection, error) {
+	return p.fn(name)
 }
 
 type timeoutOpener struct {
+	fn      func(string) (api.Connection, error)
 	clock   clock.Clock
 	timeout time.Duration
 }
@@ -47,23 +44,24 @@ type timeoutOpener struct {
 // the function does not return by the specified timeout, ErrConnTimeOut is
 // returned.
 func NewTimeoutOpener(
+	opener func(string) (api.Connection, error),
 	clock clock.Clock,
-	timeout time.Duration) APIOpener {
+	timeout time.Duration) Opener {
 	return &timeoutOpener{
+		fn:      opener,
 		clock:   clock,
 		timeout: timeout,
 	}
 }
 
-func (t *timeoutOpener) Open(
-	openerFunc func(string) (api.Connection, error),
-	connectionName string,
-) (api.Connection, error) {
-	apic := make(chan api.Connection)
-	errc := make(chan error)
+func (t *timeoutOpener) Open(name string) (api.Connection, error) {
+	// Make the cannels buffered so the created go routine is guaranteed
+	// not go get blocked trying to send down the channel.
+	apic := make(chan api.Connection, 1)
+	errc := make(chan error, 1)
 	timedOut := make(chan struct{})
 	go func() {
-		api, dialErr := openerFunc(connectionName)
+		api, dialErr := t.fn(name)
 
 		// Check to see if we have timed out before we block forever.
 		// Well, we take a certain block forever on timeout, to a very

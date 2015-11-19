@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/clock"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -38,20 +39,22 @@ func NewKillCommand() cmd.Command {
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
-	return wrapKillCommand(&killCommand{}, clock.WallClock)
+	return wrapKillCommand(&killCommand{}, nil, clock.WallClock)
 }
 
 // wrapKillCommand provides the common wrapping used by tests and
 // the default NewKillCommand above.
-func wrapKillCommand(kill *killCommand, clock clock.Clock, testOptions ...envcmd.WrapEnvOption) cmd.Command {
-	openStrategy := envcmd.NewTimeoutOpener(clock, 10*time.Second)
-	options := []envcmd.WrapEnvOption{
+func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error), clock clock.Clock) cmd.Command {
+	if fn == nil {
+		fn = kill.JujuCommandBase.NewAPIRoot
+	}
+	openStrategy := envcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
+	return envcmd.Wrap(
+		kill,
 		envcmd.EnvSkipFlags,
 		envcmd.EnvSkipDefault,
 		envcmd.EnvAPIOpener(openStrategy),
-	}
-	options = append(options, testOptions...)
-	return envcmd.Wrap(kill, options...)
+	)
 }
 
 // killCommand kills the specified controller.

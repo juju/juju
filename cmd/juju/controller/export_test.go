@@ -104,7 +104,8 @@ func NewKillCommandForTest(
 	clientapi destroyClientAPI,
 	apierr error,
 	clock clock.Clock,
-	options ...envcmd.WrapEnvOption) cmd.Command {
+	apiOpenFunc func(string) (api.Connection, error),
+) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
@@ -112,7 +113,7 @@ func NewKillCommandForTest(
 			apierr:    apierr,
 		},
 	}
-	return wrapKillCommand(kill, clock, options...)
+	return wrapKillCommand(kill, apiOpenFunc, clock)
 }
 
 // NewListBlocksCommandForTest returns a ListBlocksCommand with the controller
