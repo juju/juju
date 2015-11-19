@@ -30,6 +30,10 @@ const (
 	DefaultProviderId = "juju-unknown"
 )
 
+// DefaultSpace is the name used for the default space for an environment.
+// TODO(dimitern): Make this configurable per environment.
+const DefaultSpace = "default"
+
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
 	errors.Err
