@@ -337,10 +337,20 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
-	prefix := s.doc.Name + ":"
+	return watchServiceRelations(s.st, s.doc.Name)
+}
+
+// WatchRelations returns a StringsWatcher that notifies of changes to the
+// lifecycles of relations involving s.
+func (s *RemoteService) WatchRelations() StringsWatcher {
+	return watchServiceRelations(s.st, s.doc.Name)
+}
+
+func watchServiceRelations(st *State, serviceName string) StringsWatcher {
+	prefix := serviceName + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
-		k, err := s.st.strictLocalID(id.(string))
+		k, err := st.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -348,8 +358,8 @@ func (s *Service) WatchRelations() StringsWatcher {
 		return out
 	}
 
-	members := bson.D{{"endpoints.servicename", s.doc.Name}}
-	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
+	members := bson.D{{"endpoints.servicename", serviceName}}
+	return newLifecycleWatcher(st, relationsC, members, filter, nil)
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
