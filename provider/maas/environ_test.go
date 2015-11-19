@@ -226,7 +226,7 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 
 	// Now test with the flag off.
 	s.SetFeatureFlags() // clear the flags.
-	modifyNetworkScript, err := maas.RenderEtcNetworkInterfacesScriptFull()
+	modifyNetworkScript, err := maas.RenderEtcNetworkInterfacesScript()
 	c.Assert(err, jc.ErrorIsNil)
 	script := expectedCloudinitConfig
 	script = append(script, modifyNetworkScript)

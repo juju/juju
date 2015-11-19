@@ -1217,10 +1217,9 @@ cat /etc/network/interfaces
 ifup -v {{.Bridge}}
 `
 
-// renderEtcNetworkInterfacesScriptFull returns a string representing
-// the script to run in order to prepare the Juju-specific networking
-// config on a node.
-func renderEtcNetworkInterfacesScriptFull() (string, error) {
+// setupJujuNetworking returns a string representing the script to run
+// in order to prepare the Juju-specific networking config on a node.
+func setupJujuNetworking() (string, error) {
 	parsedTemplate := template.Must(
 		template.New("BridgeConfig").Parse(bridgeScriptMain),
 	)
@@ -1232,11 +1231,11 @@ func renderEtcNetworkInterfacesScriptFull() (string, error) {
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
 	}
-	return renderEtcNetworkInterfacesScriptBase() + buf.String(), nil
+	return bridgeScriptBase + buf.String(), nil
 }
 
-func renderEtcNetworkInterfacesScriptBase() string {
-	return bridgeScriptBase
+func renderEtcNetworkInterfacesScript() (string, error) {
+	return setupJujuNetworking()
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
@@ -1276,7 +1275,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 				)
 				break
 			}
-			bridgeScript, err := renderEtcNetworkInterfacesScriptFull()
+			bridgeScript, err := setupJujuNetworking()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
