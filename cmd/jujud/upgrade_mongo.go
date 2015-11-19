@@ -29,6 +29,8 @@ import (
 	"launchpad.net/gnuflag"
 )
 
+const KeyUpgradeBackup = "mongo-upgrade-backup"
+
 func createTempDir() (string, error) {
 	return ioutil.TempDir("", "")
 }
@@ -91,6 +93,7 @@ type UpgradeMongoCommand struct {
 	agentConfig    agent.ConfigSetterWriter
 	tmpDir         string
 	backupPath     string
+	rollback       bool
 
 	// utils used by this struct.
 	stat                 statFunc
@@ -125,7 +128,7 @@ func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&u.series, "series", "", "series for the machine")
 	f.StringVar(&u.configFilePath, "configfile", "", "path to the config file")
 	f.StringVar(&u.namespace, "namespace", "", "namespace, this should be blank unless the provider is local")
-
+	f.BoolVar(&u.rollback, "rollback", false, "rollback a previous attempt at upgrading that was cut in the process")
 }
 
 // Init initializes the command for running.
@@ -140,6 +143,9 @@ func (u *UpgradeMongoCommand) Run(ctx *cmd.Context) error {
 
 func (u *UpgradeMongoCommand) run() (err error) {
 	dataDir, err := paths.DataDir(u.series)
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine data dir for %q", u.series)
+	}
 	if u.configFilePath == "" {
 		machineTag, err := names.ParseMachineTag(u.machineTag)
 		if err != nil {
@@ -152,18 +158,14 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		return errors.Annotatef(err, "cannot read config file in %q", u.configFilePath)
 	}
 
-	// If the version is not 2.4 we consider it already migrated.
 	current := u.agentConfig.MongoVersion()
-	if current != mongo.Mongo24 && current != mongo.Mongo30wt {
-		return nil
-	}
 
 	agentServiceName := u.agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
-	if agentServiceName != "" {
+	if agentServiceName == "" {
 		return errors.New("cannot determine juju service name")
 	}
 	svc, err := u.discoverService(agentServiceName, common.Conf{})
@@ -182,6 +184,14 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		}
 	}()
 
+	if u.rollback {
+		origin := u.agentConfig.Value(KeyUpgradeBackup)
+		if origin == "" {
+			return errors.New("no available backup")
+		}
+		return u.rollbackCopyBackup(dataDir, origin)
+	}
+
 	u.tmpDir, err = u.createTempDir()
 	if err != nil {
 		return errors.Annotate(err, "could not create a temporary directory for the migration")
@@ -189,33 +199,32 @@ func (u *UpgradeMongoCommand) run() (err error) {
 
 	logger.Infof("begin migration to mongo 3")
 
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine data dir for %q", u.series)
-	}
-
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
-	if current == mongo.Mongo24 {
+	if current == mongo.Mongo24 || current == mongo.MongoUpgrade {
 		if err := u.maybeUpgrade24to26(dataDir); err != nil {
 			defer func() {
-				if u.backupPath != "" {
+				if u.backupPath == "" {
 					return
 				}
-				if err := u.rollbackAgentConfig(); err != nil {
+				fmt.Println("will roll back after failed 2.6 upgrade")
+				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
 			return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
 		}
+		current = mongo.Mongo26
 	}
 	if current == mongo.Mongo26 || current == mongo.Mongo30 {
 		if err := u.maybeUpgrade26to31(dataDir); err != nil {
 			defer func() {
-				if u.backupPath != "" {
+				if u.backupPath == "" {
 					return
 				}
-				if err := u.rollbackAgentConfig(); err != nil {
+				fmt.Println("will roll back after failed 3.0 upgrade")
+				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
@@ -293,11 +302,20 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 		return errors.New("cannot get mongo info from agent config")
 	}
 
-	session, db, err := u.dialAndLogin(info)
-	defer session.Close()
-	if err != nil {
-		return errors.Annotate(err, "error dialing mongo to uprade auth schema")
+	var session mgoSession
+	var db mgoDb
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, db, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to upgrade auth schema: %v", err)
 	}
+	if err != nil {
+		return errors.Annotate(err, "error dialing mongo to upgrade auth schema")
+	}
+	defer session.Close()
 
 	var res bson.M
 	res = make(bson.M)
@@ -331,23 +349,28 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "could not do pre migration backup")
 		}
+		fmt.Println("pre 3.x migration dump ready.")
 		if err := u.mongoStop(namespace); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
 		}
+		fmt.Println("mongo stopped")
 
 		// Mongo 3, no wired tiger
 		u.agentConfig.SetMongoVersion(mongo.Mongo30)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
+		fmt.Println(fmt.Sprintf("new mongo version set-up to %q", mongo.Mongo30.String()))
 
 		if err := u.UpdateService(namespace, true); err != nil {
 			return errors.Annotate(err, "cannot update service script")
 		}
+		fmt.Println("service startup scripts up to date")
 
 		if err := u.mongoStart(namespace); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
 		}
+		fmt.Println("started mongo")
 		current = mongo.Mongo30
 	}
 
@@ -357,29 +380,35 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "could not do the tiger migration export")
 		}
+		fmt.Println("dumped to change storage")
 
 		if err := u.mongoStop(namespace); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
 		}
+		fmt.Println("mongo stopped before storage migration")
 		if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
 			return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
 		}
+		fmt.Println("old db files removed")
 
 		// Mongo 3, with wired tiger
 		u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
+		fmt.Println("wired tiger set in agent.config")
 
 		if err := u.UpdateService(namespace, false); err != nil {
 			return errors.Annotate(err, "cannot update service script to use wired tiger")
 		}
+		fmt.Println("service startup script up to date")
 
 		info, ok := u.agentConfig.MongoInfo()
 		if !ok {
 			return errors.New("cannot get mongo info from agent config")
 		}
 
+		fmt.Println("will create dialinfo for new mongo")
 		//TODO(perrito666) make this into its own function
 		dialOpts := mongo.DialOpts{}
 		dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
@@ -390,6 +419,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err := u.mongoStart(namespace); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to restart replicaset")
 		}
+		fmt.Println("mongo started")
 
 		// perhaps statehost port?
 		// we need localhost, since there is no admin user
@@ -401,6 +431,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot initiate replicaset")
 		}
+		fmt.Println("mongo initiated")
 
 		// blobstorage might fail to restore in certain versions of
 		// mongorestore because of a bug in mongorestore
@@ -409,14 +440,17 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot restore the db.")
 		}
+		fmt.Println("mongo restored into the new storage")
 
 		if err := u.UpdateService(namespace, true); err != nil {
 			return errors.Annotate(err, "cannot update service script post wired tiger migration")
 		}
+		fmt.Println("service scripts up to date")
 
 		if err := u.mongoRestart(namespace); err != nil {
 			return errors.Annotate(err, "cannot restart mongo service after upgrade")
 		}
+		fmt.Println("mongo restarted")
 	}
 	return nil
 }
@@ -634,11 +668,16 @@ func (u *UpgradeMongoCommand) copyBackupMongo(targetVersion, dataDir string) (st
 	}
 	targetDb := path.Join(target, "db")
 
+	u.agentConfig.SetValue(KeyUpgradeBackup, targetDb)
+	if err := u.agentConfig.Write(); err != nil {
+		return "", errors.Annotate(err, "cannot write agent config backup information")
+	}
+
 	if err := fs.Copy(dbPath, targetDb); err != nil {
 		// TODO, delete what was copied
 		return "", errors.Annotate(err, "cannot backup mongo database")
 	}
-	return target, nil
+	return targetDb, nil
 }
 
 func (u *UpgradeMongoCommand) rollbackCopyBackup(dataDir, origin string) error {
@@ -653,8 +692,7 @@ func (u *UpgradeMongoCommand) rollbackCopyBackup(dataDir, origin string) error {
 		return errors.Annotate(err, "could not remove the existing folder to rollback")
 	}
 
-	originDb := path.Join(origin, "db")
-	if err := fs.Copy(originDb, dbDir); err != nil {
+	if err := fs.Copy(origin, dbDir); err != nil {
 		return errors.Annotate(err, "cannot rollback mongo database")
 	}
 	if err := u.rollbackAgentConfig(); err != nil {

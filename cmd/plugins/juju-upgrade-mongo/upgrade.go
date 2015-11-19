@@ -88,7 +88,8 @@ func mustParseTemplate(templ string) *template.Template {
 
 // runViaJujuSSH will run arbitrary code in the remote machine.
 func runViaJujuSSH(machine, script string, stdout, stderr *bytes.Buffer) error {
-	cmd := exec.Command("juju", []string{"ssh", machine, "sudo -n bash -c " + utils.ShQuote(script)}...)
+	cmd := exec.Command("ssh", []string{fmt.Sprintf("ubuntu@%s", machine), "sudo -n bash -c " + utils.ShQuote(script)}...)
+	fmt.Println(script)
 	cmd.Stderr = stderr
 	cmd.Stdout = stdout
 	err := cmd.Run()
@@ -154,7 +155,7 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	}
 	err = tmpl.Execute(&buf, upgradeParams)
 
-	if err := runViaJujuSSH(migratables.master.machine.Id(), buf.String(), &stdout, &stderr); err != nil {
+	if err := runViaJujuSSH(migratables.master.ip.Value, buf.String(), &stdout, &stderr); err != nil {
 		return errors.Annotate(err, "migration to mongo 3 unsuccesful")
 	}
 	return nil
@@ -202,13 +203,13 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 
 	result.master = migratable{
 		ip:      results.Master.PublicAddress,
-		machine: results.Master.Tag,
+		machine: names.NewMachineTag(results.Master.Tag),
 		series:  results.Master.Series,
 	}
 	for _, member := range results.Members {
 		migratableMember := migratable{
 			ip:      member.PublicAddress,
-			machine: member.Tag,
+			machine: names.NewMachineTag(member.Tag),
 			series:  member.Series,
 		}
 		result.machines = append(result.machines, migratableMember)

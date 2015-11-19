@@ -297,7 +297,6 @@ func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {

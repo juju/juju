@@ -106,6 +106,8 @@ func NewVersion(v string) (Version, error) {
 			version.StorageEngine = MMAPIV2
 		case WiredTiger:
 			version.StorageEngine = WiredTiger
+		case Upgrading:
+			version.StorageEngine = Upgrading
 		}
 	}
 	vParts := strings.SplitN(parts[0], ".", 3)
@@ -612,7 +614,7 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 		"--port", fmt.Sprint(port),
 		"--syslog",
 		"--journal",
-		"--quiet",
+		//	"--quiet",
 	}
 	if version == Mongo30wt {
 		args = append(args, "--storageEngine", "wiredTiger")

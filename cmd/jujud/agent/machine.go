@@ -509,9 +509,9 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
+func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) (bool, error) {
 	if !a.mongoInitialized {
-		return nil
+		return false, nil
 	}
 
 	conf := a.AgentConfigWriter.CurrentConfig()
@@ -524,15 +524,16 @@ func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
 			return nil
 		})
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !isMaster {
 			if err := mongo.StopService(conf.Value(agent.Namespace)); err != nil {
-				return errors.Annotate(err, "cannot stop mongo service")
+				return false, errors.Annotate(err, "cannot stop mongo service")
 			}
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 
 }
 
@@ -664,9 +665,22 @@ func (a *MachineAgent) upgradeMongoWatcher(st *state.State, stopch <-chan struct
 				return errors.Annotatef(err, "cannot determine if machine %q is master", a.machineId)
 			}
 
-			err = a.maybeStopMongo(expectedVersion, isMaster)
+			stop, err := a.maybeStopMongo(expectedVersion, isMaster)
 			if err != nil {
 				return errors.Annotate(err, "cannot determine if mongo must be stopped")
+			}
+			if stop {
+				addrs := make([]string, len(m.Addresses()))
+				ssi, err := st.StateServingInfo()
+				if err != nil {
+					return errors.Annotate(err, "cannot obtain state serving info to stop mongo")
+				}
+				for i, addr := range m.Addresses() {
+					addrs[i] = net.JoinHostPort(addr.Value, strconv.Itoa(ssi.StatePort))
+				}
+				if err := replicaset.Remove(st.MongoSession(), addrs...); err != nil {
+					return errors.Annotatef(err, "cannot remove %q from replicaset", m.Id())
+				}
 			}
 		case <-stopch:
 			return nil

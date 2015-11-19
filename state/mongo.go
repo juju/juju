@@ -33,7 +33,7 @@ func (m *environMongo) RunTransaction(buildTxn jujutxn.TransactionSource) error 
 // HAMember holds information that identifies one member
 // of HA.
 type HAMember struct {
-	Tag           names.MachineTag
+	Tag           string
 	PublicAddress network.Address
 	Series        string
 }
@@ -70,7 +70,7 @@ func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error
 		tag := m.Tag()
 		mtag := tag.(names.MachineTag)
 		member := HAMember{
-			Tag:           mtag,
+			Tag:           mtag.Id(),
 			PublicAddress: paddr,
 			Series:        m.Series(),
 		}

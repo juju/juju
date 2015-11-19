@@ -158,7 +158,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 
 		" --replSet " + ReplicaSetName +
 		" --ipv6" +
-		" --quiet" +
+		//		" --quiet" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
 
 	if auth {
