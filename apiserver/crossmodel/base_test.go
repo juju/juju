@@ -18,13 +18,9 @@ import (
 )
 
 const (
-	addOfferBackendCall    = "addOfferBackendCall"
-	listOffersBackendCall  = "listOffersBackendCall"
-	listRemoteServicesCall = "listRemoteServicesCall"
-
-	serviceCall       = "serviceCall"
-	environConfigCall = "environConfigCall"
-	environUUIDCall   = "environUUIDCall"
+	addOfferBackendCall           = "AddOffer"
+	listOffersBackendCall         = "ListOffers"
+	listRemoteServicesBackendCall = "ListRemoteServices"
 )
 
 type baseCrossmodelSuite struct {
@@ -75,16 +71,16 @@ type mockServiceBackend struct {
 }
 
 func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
-	m.AddCall(addOfferBackendCall)
+	m.MethodCall(m, addOfferBackendCall, offer)
 	return m.addOffer(offer)
 }
 
 func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	m.AddCall(listOffersBackendCall)
+	m.MethodCall(m, listOffersBackendCall, filters)
 	return m.listOffers(filters...)
 }
 
 func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
-	m.AddCall(listRemoteServicesCall)
+	m.MethodCall(m, listRemoteServicesBackendCall, filters)
 	return m.listRemoteServices(filters...)
 }

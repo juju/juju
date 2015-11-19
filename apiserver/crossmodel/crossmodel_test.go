@@ -199,7 +199,7 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 
 	found, err := s.api.List(params.ListEndpointsFilters{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.serviceBackend.CheckCallNames(c, listRemoteServicesCall)
+	s.serviceBackend.CheckCallNames(c, listRemoteServicesBackendCall)
 
 	c.Assert(found, gc.DeepEquals,
 		params.ListEndpointsServiceItemResults{map[string][]params.ListEndpointsServiceItemResult{
@@ -221,6 +221,6 @@ func (s *crossmodelSuite) TestListError(c *gc.C) {
 
 	found, err := s.api.List(params.ListEndpointsFilters{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%v", msg))
-	s.serviceBackend.CheckCallNames(c, listRemoteServicesCall)
+	s.serviceBackend.CheckCallNames(c, listRemoteServicesBackendCall)
 	c.Assert(found, gc.DeepEquals, params.ListEndpointsServiceItemResults{Results: map[string][]params.ListEndpointsServiceItemResult(nil)})
 }
