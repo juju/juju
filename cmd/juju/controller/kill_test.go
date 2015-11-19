@@ -175,6 +175,8 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
 	checkControllerRemovedFromStore(c, "test1", s.store)
+	// Check that we were actually told to wait for 10s.
+	c.Assert(clock.wait, gc.Equals, 10*time.Second)
 }
 
 // mockClock will panic if anything but After is called
