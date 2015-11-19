@@ -14,10 +14,11 @@ type Unlocker interface {
 // Waiter is used to wait for a shared gate to be unlocked.
 type Waiter interface {
 	Unlocked() <-chan struct{}
+	IsUnlocked() bool
 }
 
-// WaiterUnlocker combines the Waiter and Unlocker interfaces.
-type WaiterUnlocker interface {
+// Lock combines the Waiter and Unlocker interfaces.
+type Lock interface {
 	Waiter
 	Unlocker
 }
@@ -30,4 +31,9 @@ func (AlreadyUnlocked) Unlocked() <-chan struct{} {
 	ch := make(chan struct{})
 	close(ch)
 	return ch
+}
+
+// IsUnlocked is part of the Waiter interface.
+func (AlreadyUnlocked) IsUnlocked() bool {
+	return true
 }

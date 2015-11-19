@@ -21,6 +21,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/gate"
 )
 
 // retryAfter returns a channel that receives a value
@@ -34,13 +35,13 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	catacomb               catacomb.Catacomb
-	st                     *upgrader.State
-	dataDir                string
-	tag                    names.Tag
-	origAgentVersion       version.Number
-	areUpgradeStepsRunning func() bool
-	agentUpgradeComplete   chan struct{}
+	catacomb                    catacomb.Catacomb
+	st                          *upgrader.State
+	dataDir                     string
+	tag                         names.Tag
+	origAgentVersion            version.Number
+	areUpgradeStepsRunning      func() bool
+	initialUpgradeCheckComplete gate.Unlocker
 }
 
 // NewAgentUpgrader returns a new upgrader worker. It watches changes to the
@@ -54,15 +55,15 @@ func NewAgentUpgrader(
 	agentConfig agent.Config,
 	origAgentVersion version.Number,
 	areUpgradeStepsRunning func() bool,
-	agentUpgradeComplete chan struct{},
+	initialUpgradeCheckComplete gate.Unlocker,
 ) (*Upgrader, error) {
 	u := &Upgrader{
-		st:                     st,
-		dataDir:                agentConfig.DataDir(),
-		tag:                    agentConfig.Tag(),
-		origAgentVersion:       origAgentVersion,
-		areUpgradeStepsRunning: areUpgradeStepsRunning,
-		agentUpgradeComplete:   agentUpgradeComplete,
+		st:                          st,
+		dataDir:                     agentConfig.DataDir(),
+		tag:                         agentConfig.Tag(),
+		origAgentVersion:            origAgentVersion,
+		areUpgradeStepsRunning:      areUpgradeStepsRunning,
+		initialUpgradeCheckComplete: initialUpgradeCheckComplete,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -96,10 +97,10 @@ func (u *Upgrader) Stop() error {
 func allowedTargetVersion(
 	origAgentVersion version.Number,
 	curVersion version.Number,
-	upgradeRunning bool,
+	upgradeStepsRunning bool,
 	targetVersion version.Number,
 ) bool {
-	if upgradeRunning && targetVersion == origAgentVersion {
+	if upgradeStepsRunning && targetVersion == origAgentVersion {
 		return true
 	}
 	if targetVersion.Major < curVersion.Major {
@@ -109,17 +110,6 @@ func allowedTargetVersion(
 		return false
 	}
 	return true
-}
-
-// closeChannel can be called multiple times to
-// close the channel without panicing.
-func closeChannel(ch chan struct{}) {
-	select {
-	case <-ch:
-		return
-	default:
-		close(ch)
-	}
 }
 
 func (u *Upgrader) loop() error {
@@ -185,7 +175,7 @@ func (u *Upgrader) loop() error {
 		logger.Infof("desired tool version: %v", wantVersion)
 
 		if wantVersion == version.Current {
-			closeChannel(u.agentUpgradeComplete)
+			u.initialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !allowedTargetVersion(u.origAgentVersion, version.Current,
 			u.areUpgradeStepsRunning(), wantVersion) {
@@ -196,7 +186,7 @@ func (u *Upgrader) loop() error {
 			// finished upgrading.
 			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
 				wantVersion, version.Current)
-			closeChannel(u.agentUpgradeComplete)
+			u.initialUpgradeCheckComplete.Unlock()
 			continue
 		}
 		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)

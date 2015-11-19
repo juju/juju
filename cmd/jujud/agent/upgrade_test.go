@@ -159,12 +159,8 @@ func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
 
-	select {
-	case <-context.UpgradeComplete:
-		// Success
-	default:
-		c.Fatal("UpgradeComplete channel should be closed because no upgrade is required")
-	}
+	c.Assert(context.UpgradeComplete.IsUnlocked(), jc.IsTrue)
+
 	// The agent's version should have been updated.
 	c.Assert(config.Version, gc.Equals, version.Current)
 
@@ -179,12 +175,8 @@ func (s *UpgradeSuite) TestContextInitializeWhenUpgradeRequired(c *gc.C) {
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
 
-	select {
-	case <-context.UpgradeComplete:
-		c.Fatal("UpgradeComplete channel shouldn't be closed because upgrade is required")
-	default:
-		// Success
-	}
+	c.Assert(context.UpgradeComplete.IsUnlocked(), jc.IsFalse)
+
 	// The agent's version should NOT have been updated.
 	c.Assert(config.Version, gc.Equals, initialVersion)
 }
@@ -199,7 +191,7 @@ func (s *UpgradeSuite) TestIsUpgradeRunning(c *gc.C) {
 	context := NewUpgradeWorkerContext()
 	c.Assert(context.IsUpgradeRunning(), jc.IsTrue)
 
-	close(context.UpgradeComplete)
+	context.UpgradeComplete.Unlock()
 	c.Assert(context.IsUpgradeRunning(), jc.IsFalse)
 }
 
@@ -543,7 +535,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// Wait for agent upgrade worker to determine that no
 	// agent upgrades are required.
 	select {
-	case <-a.initialAgentUpgradeCheckComplete:
+	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for upgrade check")
 	}
@@ -955,19 +947,11 @@ var upgradeTestDialOpts = api.DialOpts{
 }
 
 func assertUpgradeComplete(c *gc.C, context *upgradeWorkerContext) {
-	select {
-	case <-context.UpgradeComplete:
-	default:
-		c.Error("UpgradeComplete channel is open but shouldn't be")
-	}
+	c.Assert(context.UpgradeComplete.IsUnlocked(), jc.IsTrue)
 }
 
 func assertUpgradeNotComplete(c *gc.C, context *upgradeWorkerContext) {
-	select {
-	case <-context.UpgradeComplete:
-		c.Error("UpgradeComplete channel is closed but shouldn't be")
-	default:
-	}
+	c.Assert(context.UpgradeComplete.IsUnlocked(), jc.IsFalse)
 }
 
 // NewFakeConfigSetter returns a fakeConfigSetter which implements

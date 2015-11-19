@@ -31,6 +31,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -46,7 +47,7 @@ type UpgraderSuite struct {
 	oldRetryAfter        func() <-chan time.Time
 	confVersion          version.Number
 	upgradeRunning       bool
-	agentUpgradeComplete chan struct{}
+	agentUpgradeComplete gate.Lock
 }
 
 type AllowedTargetVersionSuite struct{}
@@ -65,7 +66,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		*upgrader.RetryAfter = oldRetryAfter
 	})
-	s.agentUpgradeComplete = make(chan struct{})
+	s.agentUpgradeComplete = gate.NewLock()
 }
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
@@ -121,7 +122,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	statetesting.AssertStop(c, u)
-	s.expectUpgradeChannelClosed(c)
+	s.expectInitialUpgradeCheckDone(c)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,27 +143,19 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	statetesting.AssertStop(c, u)
-	s.expectUpgradeChannelClosed(c)
+	s.expectInitialUpgradeCheckDone(c)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: vers})
 }
 
-func (s *UpgraderSuite) expectUpgradeChannelClosed(c *gc.C) {
-	select {
-	case <-s.agentUpgradeComplete:
-	default:
-		c.Fail()
-	}
+func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *gc.C) {
+	c.Assert(s.agentUpgradeComplete.IsUnlocked(), jc.IsTrue)
 }
 
-func (s *UpgraderSuite) expectUpgradeChannelNotClosed(c *gc.C) {
-	select {
-	case <-s.agentUpgradeComplete:
-		c.Fail()
-	default:
-	}
+func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *gc.C) {
+	c.Assert(s.agentUpgradeComplete.IsUnlocked(), jc.IsFalse)
 }
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
@@ -181,7 +174,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelNotClosed(c)
+	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  oldTools.Version,
@@ -213,7 +206,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	u := s.makeUpgrader(c)
 	defer u.Stop()
-	s.expectUpgradeChannelNotClosed(c)
+	s.expectInitialUpgradeCheckNotDone(c)
 
 	for i := 0; i < 3; i++ {
 		select {
@@ -289,7 +282,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelNotClosed(c)
+	s.expectInitialUpgradeCheckNotDone(c)
 
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -310,7 +303,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelClosed(c)
+	s.expectInitialUpgradeCheckDone(c)
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
 	c.Check(err, jc.ErrorIsNil)
@@ -334,7 +327,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelNotClosed(c)
+	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
@@ -366,7 +359,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelNotClosed(c)
+	s.expectInitialUpgradeCheckNotDone(c)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
@@ -397,7 +390,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
-	s.expectUpgradeChannelClosed(c)
+	s.expectInitialUpgradeCheckDone(c)
 
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/util"
 )
 
@@ -38,7 +39,7 @@ var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, er
 		// TODO(fwereade): these are unit-agent-specific, and very much
 		// unsuitable for use in a machine agent.
 		func() bool { return false },
-		make(chan struct{}),
+		gate.NewLock(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

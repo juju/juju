@@ -47,7 +47,7 @@ type UnitAgent struct {
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
 	// Channel used as a selectable bool (closed means true).
-	initialAgentUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
@@ -55,8 +55,8 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAge
 	return &UnitAgent{
 		AgentConf: NewAgentConf(""),
 		ctx:       ctx,
-		initialAgentUpgradeCheckComplete: make(chan struct{}),
-		bufferedLogs:                     bufferedLogs,
+		initialUpgradeCheckComplete: make(chan struct{}),
+		bufferedLogs:                bufferedLogs,
 	}
 }
 

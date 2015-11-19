@@ -89,21 +89,23 @@ func (s *ManifoldSuite) TestAlreadyUnlockedIsUnlocked(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestManifoldEx(c *gc.C) {
-	manifold, wu := gate.ManifoldEx()
-	var w1 gate.Waiter = wu
-	var u gate.Unlocker = wu
+	lock := gate.NewLock()
+
+	manifold := gate.ManifoldEx(lock)
+	var waiter1 gate.Waiter = lock
+	var unlocker1 gate.Unlocker = lock
 
 	worker, err := manifold.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, worker)
-	w2 := waiter(c, manifold, worker)
+	waiter2 := waiter(c, manifold, worker)
 
-	assertLocked(c, w1)
-	assertLocked(c, w2)
+	assertLocked(c, waiter1)
+	assertLocked(c, waiter2)
 
-	u.Unlock()
-	assertUnlocked(c, w1)
-	assertUnlocked(c, w2)
+	unlocker1.Unlock()
+	assertUnlocked(c, waiter1)
+	assertUnlocked(c, waiter2)
 }
 
 func unlocker(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Unlocker {
@@ -123,6 +125,7 @@ func waiter(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Waiter {
 }
 
 func assertLocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsFalse)
 	select {
 	case <-waiter.Unlocked():
 		c.Fatalf("expected gate to be locked")
@@ -131,6 +134,7 @@ func assertLocked(c *gc.C, waiter gate.Waiter) {
 }
 
 func assertUnlocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsTrue)
 	select {
 	case <-waiter.Unlocked():
 	default:
