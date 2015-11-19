@@ -226,7 +226,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Id:     settingsDocID,
 			Remove: true,
 		},
-		removeRequestedNetworksOp(s.st, s.globalKey()),
+		removeEndpointBindingsOp(s.st, s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
@@ -1186,10 +1186,48 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 // networks specified with constraints, these networks are required to
 // be present on machines hosting this service's units.
 //
-// TODO(dimitern): Convert this to use spaces from constraints or drop
-// it entirely.
+// TODO(dimitern): Drop this in a follow-up, as now we use endpoint bindings for
+// this.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
+}
+
+// EndpointBindings returns the mapping between endpoint names and space names
+// the endpoint is bound to. For backwards-compatibility, if the corresponding
+// endpointBindingsDoc is missing, it will be created and populated with the
+// defaults (all endpoints bound to network.DefaultSpace).
+func (s *Service) EndpointBindings() (map[string]string, error) {
+	bindings, err := readEndpointBindings(s.st, s.globalKey())
+	switch {
+	case err == nil:
+		return bindings, nil
+	case errors.IsNotFound(err):
+		// Create using defaults.
+		defer errors.DeferredAnnotatef(&err, "setting default endpoint bindings")
+
+		if s.doc.Life != Alive {
+			return nil, errNotAlive
+		}
+		ch, _, err := s.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		bindings = make(map[string]string)
+		if err := addDefaultEndpointBindings(s.st, bindings, ch.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops := []txn.Op{{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: isAliveDoc,
+		}}
+		ops = append(ops, createEndpointBindingsOp(s.st, s.globalKey(), bindings))
+		if err := onAbort(s.st.runTransaction(ops), errNotAlive); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return nil, errors.Trace(err)
 }
 
 // MetricCredentials returns any metric credentials associated with this service.

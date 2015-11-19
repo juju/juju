@@ -5,8 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // endpointBindingsDoc represents how a service endpoints are bound to spaces.
@@ -24,9 +28,7 @@ func createEndpointBindingsOp(st *State, key string, bindings map[string]string)
 		C:      endpointBindingsC,
 		Id:     st.docID(key),
 		Assert: txn.DocMissing,
-		Insert: &endpointBindingsDoc{
-			Bindings: bindings,
-		},
+		Insert: &endpointBindingsDoc{Bindings: bindings},
 	}
 }
 
@@ -51,4 +53,42 @@ func readEndpointBindings(st *State, key string) (map[string]string, error) {
 		return doc.Bindings, nil
 	}
 	return nil, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
+}
+
+// addDefaultEndpointBindings fills in the default space for all unspecified
+// endpoint bindings, based on the given charm metadata. Any invalid bindings
+// yield an error satisfying errors.IsNotValid.
+func addDefaultEndpointBindings(st *State, givenBindings map[string]string, charmMeta *charm.Meta) error {
+	if givenBindings == nil {
+		return errors.NotValidf("nil bindings")
+	}
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spacesNamesSet := set.NewStrings()
+	for _, space := range spaces {
+		spacesNamesSet.Add(space.Name())
+	}
+
+	processRelations := func(relations map[string]charm.Relation) error {
+		for name, _ := range relations {
+			if space, isSet := givenBindings[name]; !isSet || space == "" {
+				givenBindings[name] = network.DefaultSpace
+			} else if isSet && space != "" && !spacesNamesSet.Contains(space) {
+				return errors.NotValidf("endpoint %q bound to unknown space %q", name, space)
+			}
+		}
+		return nil
+	}
+	if err := processRelations(charmMeta.Provides); err != nil {
+		return errors.Trace(err)
+	}
+	if err := processRelations(charmMeta.Requires); err != nil {
+		return errors.Trace(err)
+	}
+	if err := processRelations(charmMeta.Peers); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
