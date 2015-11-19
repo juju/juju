@@ -517,7 +517,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot retrieve charm "cs:~bob/trusty/wordpress6-47": cannot get archive: unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",

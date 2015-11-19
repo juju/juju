@@ -112,11 +112,6 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
 }
 
-func (s *PublishSuite) TestMissingSeries(c *gc.C) {
-	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `charm or bundle url series is not resolved`)
-}
-
 func (s *PublishSuite) TestNotClean(c *gc.C) {
 	touch(c, s.branch.Join("file"))
 	_, err := s.runPublish(c, "cs:precise/wordpress")

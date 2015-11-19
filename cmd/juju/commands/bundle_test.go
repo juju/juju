@@ -208,7 +208,7 @@ var deployBundleErrorsTests = []struct {
                 charm: trusty/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot add charm "trusty/rails-42": cannot retrieve "cs:trusty/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "trusty/rails-42": cannot resolve URL "cs:trusty/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
