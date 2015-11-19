@@ -384,7 +384,6 @@ func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
 type environCommandWrapper struct {
 	EnvironCommand
 
-	apiOpener             APIOpener
 	skipFlags             bool
 	useDefaultEnvironment bool
 	allowEmptyEnv         bool
