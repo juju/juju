@@ -112,3 +112,30 @@ type RemoteServiceResults struct {
 type ShowFilter struct {
 	URLs []string `json:"urls,omitempty"`
 }
+
+// OfferedService represents attributes for an offered service.
+// TODO(wallyworld) - consolidate this with the CLI when possible.
+type OfferedService struct {
+	ServiceURL  string            `json:"serviceurl"`
+	ServiceName string            `json:"servicename"`
+	Registered  bool              `json:"registered"`
+	Endpoints   map[string]string `json:"endpoints"`
+}
+
+// OfferedServiceResult holds the result of loading an
+// offerred service at a URL.
+type OfferedServiceResult struct {
+	Result OfferedService `json:"result,omitempty"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+// OfferedServiceResults represents the result of a ListOfferedServices call.
+type OfferedServiceResults struct {
+	Results []OfferedServiceResult
+}
+
+// OfferedServiceQueryParams is used to specify the URLs
+// for which we want to load offered service details.
+type OfferedServiceQueryParams struct {
+	ServiceUrls []string
+}

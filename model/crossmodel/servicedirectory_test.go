@@ -29,18 +29,18 @@ func (m *mockServiceOfferLister) ListOffers(directory string, filter ...crossmod
 func (s *serviceDirectorySuite) TestServiceForURL(c *gc.C) {
 	offers := []crossmodel.ServiceOffer{
 		{
-			ServiceURL:  "local:/u/user/name",
+			ServiceURL:  "local:/u/user/servicename",
 			ServiceName: "service",
 		},
 	}
 	offerLister := &mockServiceOfferLister{offers}
-	result, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/name", "foo")
+	result, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/servicename", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, offers[0])
 }
 
 func (s *serviceDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
 	offerLister := &mockServiceOfferLister{[]crossmodel.ServiceOffer{}}
-	_, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/name", "foo")
+	_, err := crossmodel.ServiceOfferForURL(offerLister, "local:/u/user/servicename", "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

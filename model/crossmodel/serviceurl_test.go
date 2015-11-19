@@ -23,19 +23,19 @@ var urlTests = []struct {
 	exact  string
 	url    *crossmodel.ServiceURL
 }{{
-	s:   "local:/u/user/name",
-	url: &crossmodel.ServiceURL{"local", "user", "name"},
+	s:   "local:/u/user/servicename",
+	url: &crossmodel.ServiceURL{"local", "user", "servicename"},
 }, {
-	s:   "nonlocal:/u/user/name",
+	s:   "nonlocal:/u/user/servicename",
 	err: "service URL has invalid directory: $URL",
 }, {
-	s:     "/u/user/name",
-	url:   &crossmodel.ServiceURL{"local", "user", "name"},
-	exact: "local:/u/user/name",
+	s:     "/u/user/servicename",
+	url:   &crossmodel.ServiceURL{"local", "user", "servicename"},
+	exact: "local:/u/user/servicename",
 }, {
-	s:     "u/user/name",
-	url:   &crossmodel.ServiceURL{"local", "user", "name"},
-	exact: "local:/u/user/name",
+	s:     "u/user/servicename",
+	url:   &crossmodel.ServiceURL{"local", "user", "servicename"},
+	exact: "local:/u/user/servicename",
 }, {
 	s:   "local:service",
 	err: `service URL has invalid form, missing "/u/<user>": $URL`,

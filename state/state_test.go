@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -579,6 +580,24 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				wordpress, err := st.Service("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				err = wordpress.SetMinUnits(2)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "offered services",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchOfferedServices()
+			},
+			setUpState: func(st *state.State) bool {
+				offeredServices := state.NewOfferedServices(st)
+				offeredServices.AddOffer(crossmodel.OfferedService{
+					ServiceName: "mysql",
+					ServiceURL:  "local:/u/me/mysql",
+				})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				offeredServices := state.NewOfferedServices(st)
+				err := offeredServices.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -3542,6 +3561,66 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
+		<-w.Changes()
+		return w
+	})
+}
+
+func (s *StateSuite) TestWatchOfferedServices(c *gc.C) {
+	// Check initial event.
+	w := s.State.WatchOfferedServices()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Add a new offered service; a single change should occur.
+	offers := state.NewOfferedServices(s.State)
+	offer := crossmodel.OfferedService{
+		ServiceName: "service",
+		ServiceURL:  "local:/u/me/service",
+		Registered:  true,
+	}
+	err := offers.AddOffer(offer)
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Set the registered value; expect one change.
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	c.Assert(err, jc.ErrorIsNil)
+	offer.Registered = false
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Insert a new offer2 and set registered value; expect 2 changes.
+	offer2 := crossmodel.OfferedService{
+		ServiceName: "service2",
+		ServiceURL:  "local:/u/me/service2",
+		Registered:  true,
+	}
+	err = offers.AddOffer(offer2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", true)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Update endpoints and registered value; expect 2 changes.
+	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchOfferedServicesDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchOfferedServices()
 		<-w.Changes()
 		return w
 	})

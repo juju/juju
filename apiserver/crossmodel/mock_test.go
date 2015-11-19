@@ -7,6 +7,7 @@ import (
 	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/state"
 )
 
 const (
@@ -41,4 +42,33 @@ func (m *mockServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error 
 func (m *mockServiceDirectory) Remove(url string) error {
 	m.AddCall(removeOfferCall)
 	panic("not implemented")
+}
+
+type mockState struct {
+	watchOfferedServices func() state.StringsWatcher
+}
+
+func (m *mockState) WatchOfferedServices() state.StringsWatcher {
+	return m.watchOfferedServices()
+}
+
+type mockStringsWatcher struct {
+	state.StringsWatcher
+	changes chan []string
+}
+
+func (m *mockStringsWatcher) Changes() <-chan []string {
+	return m.changes
+}
+
+func (m *mockStringsWatcher) Stop() error {
+	return nil
+}
+
+type mockOfferLister struct {
+	listOffers func(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error)
+}
+
+func (m *mockOfferLister) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
+	return m.listOffers(filters...)
 }

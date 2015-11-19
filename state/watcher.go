@@ -2696,3 +2696,106 @@ func (w *blockDevicesWatcher) loop() error {
 		}
 	}
 }
+
+// OfferedServiceWatcher notifies about values in the collection
+// of offered services. The first event returned by the watcher
+// is a slice of all current offer urls.
+// Subsequent events are generated when a service offer has it's
+// registered value changed.
+type offeredServicesWatcher struct {
+	commonWatcher
+	known map[string]int64
+	out   chan []string
+}
+
+func newOfferedServicesWatcher(st *State) StringsWatcher {
+	w := &offeredServicesWatcher{
+		commonWatcher: commonWatcher{st: st},
+		known:         make(map[string]int64),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// WatchOfferedServices returns a OfferedServicesWatcher.
+func (st *State) WatchOfferedServices() StringsWatcher {
+	return newOfferedServicesWatcher(st)
+}
+
+func (w *offeredServicesWatcher) initial() (set.Strings, error) {
+	offered := set.NewStrings()
+	var revnoDoc struct {
+		ServiceURL string `bson:"serviceurl"`
+		TxnRevno   int64  `bson:"txn-revno"`
+	}
+	offeredCollection, closer := w.st.getCollection(serviceOffersC)
+	defer closer()
+
+	iter := offeredCollection.Find(nil).Iter()
+	for iter.Next(&revnoDoc) {
+		w.known[revnoDoc.ServiceURL] = revnoDoc.TxnRevno
+		offered.Add(revnoDoc.ServiceURL)
+	}
+	return offered, iter.Close()
+}
+
+func (w *offeredServicesWatcher) merge(serviceurls set.Strings, change watcher.Change) error {
+	serviceURL := w.st.localID(change.Id.(string))
+	if change.Revno == -1 {
+		delete(w.known, serviceURL)
+		serviceurls.Remove(serviceURL)
+		return nil
+	}
+	var revnoDoc struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}
+	offeredCollection, closer := w.st.getCollection(serviceOffersC)
+	defer closer()
+	if err := offeredCollection.FindId(change.Id).One(&revnoDoc); err != nil {
+		return err
+	}
+	revno, known := w.known[serviceURL]
+	w.known[serviceURL] = revnoDoc.TxnRevno
+	if !known || revnoDoc.TxnRevno > revno {
+		serviceurls.Add(serviceURL)
+	}
+	return nil
+}
+
+func (w *offeredServicesWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollectionWithFilter(serviceOffersC, ch, w.st.isForStateEnv)
+	defer w.st.watcher.UnwatchCollection(serviceOffersC, ch)
+	offers, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case change := <-ch:
+			if err = w.merge(offers, change); err != nil {
+				return err
+			}
+			if len(offers) > 0 {
+				out = w.out
+			}
+		case out <- offers.Values():
+			out = nil
+			offers = set.NewStrings()
+		}
+	}
+}
+
+func (w *offeredServicesWatcher) Changes() <-chan []string {
+	return w.out
+}
