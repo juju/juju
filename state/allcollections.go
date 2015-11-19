@@ -287,6 +287,7 @@ func allCollections() collectionSchema {
 				Sparse: true,
 			}},
 		},
+		endpointBindingsC: {},
 
 		// -----
 
@@ -381,6 +382,7 @@ const (
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"
 	servicesC              = "services"
+	endpointBindingsC      = "endpointbindings"
 	settingsC              = "settings"
 	settingsrefsC          = "settingsrefs"
 	stateServersC          = "stateServers"
