@@ -203,12 +203,14 @@ var commandNames = []string{
 	"add-unit",
 	"api-endpoints",
 	"api-info",
+	"add-user",        // alias for "user add"
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
 	"cached-images",
+	"change-password", // alias for "user change-password"
 	"create-environment",
 	"create-model", // alias for create-environment
 	"debug-hooks",
@@ -221,6 +223,8 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"disable-user", // alias for "user disable"
+	"enable-user",  // alias for "user enable"
 	"ensure-availability",
 	"env", // alias for switch
 	"environment",
@@ -228,7 +232,8 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
-	"get-env", // alias for get-environment
+	"get-credentials", // alias for "user credentials"
+	"get-env",         // alias for get-environment
 	"get-environment",
 	"help",
 	"help-tool",
@@ -238,6 +243,7 @@ var commandNames = []string{
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
+	"list-users",  // alias for "user list"
 	"login",
 	"machine",
 	"publish",
@@ -255,6 +261,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"show-user", // alias for "user info"
 	"space",
 	"ssh",
 	"stat", // alias for status
