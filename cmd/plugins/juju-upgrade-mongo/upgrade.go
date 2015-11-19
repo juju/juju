@@ -12,7 +12,6 @@ import (
 	"text/template"
 	"time"
 
-	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 )
 
@@ -61,6 +61,7 @@ var logger = loggo.GetLogger("juju.plugins.upgrademongo")
 type MongoUpgradeClient interface {
 	Close() error
 	MongoUpgradeMode(mongo.Version) (params.MongoUpgradeResults, error)
+	ResumeHAReplicationAfterUpgrade([]replicaset.Member) error
 }
 
 type upgradeMongoCommand struct {
@@ -120,9 +121,14 @@ func bufferPrinter(stdout *bytes.Buffer, closer chan int, verbose bool) {
 
 // We try to stop/start juju with both systems, safer than
 // try a convoluted discovery in bash.
-const jujuUpgradeScript = `
+const (
+	jujuUpgradeScript = `
 /var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}}'
 `
+	jujuSlaveUpgradeScript = `
+/var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}} --slave'
+`
+)
 
 type upgradeScriptParams struct {
 	MachineNumber string
@@ -158,6 +164,18 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	if err := runViaJujuSSH(migratables.master.ip.Value, buf.String(), &stdout, &stderr); err != nil {
 		return errors.Annotate(err, "migration to mongo 3 unsuccesful")
 	}
+	for _, slave := range migratables.machines {
+		var buf bytes.Buffer
+		upgradeParams = upgradeScriptParams{
+			slave.machine.Id(),
+			slave.series,
+		}
+		err = tmpl.Execute(&buf, upgradeParams)
+		if err := runViaJujuSSH(slave.ip.Value, buf.String(), &stdout, &stderr); err != nil {
+			return errors.Annotate(err, "migration to mongo 3 in slave unsuccesful")
+		}
+	}
+	c.resumeReplication(migratables.rsMembers)
 	return nil
 }
 
@@ -169,8 +187,9 @@ type migratable struct {
 }
 
 type upgradeMongoParams struct {
-	master   migratable
-	machines []migratable
+	master    migratable
+	machines  []migratable
+	rsMembers []replicaset.Member
 }
 
 func (c *upgradeMongoCommand) getHAClient() (MongoUpgradeClient, error) {
@@ -185,6 +204,16 @@ func (c *upgradeMongoCommand) getHAClient() (MongoUpgradeClient, error) {
 
 	// NewClient does not return an error, so we'll return nil
 	return highavailability.NewClient(root), nil
+}
+
+func (c *upgradeMongoCommand) resumeReplication(members []replicaset.Member) error {
+	haClient, err := c.getHAClient()
+	if err != nil {
+		return errors.Annotate(err, "cannot connect to juju")
+	}
+
+	defer haClient.Close()
+	return haClient.ResumeHAReplicationAfterUpgrade(members)
 }
 
 func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
@@ -206,54 +235,21 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 		machine: names.NewMachineTag(results.Master.Tag),
 		series:  results.Master.Series,
 	}
-	for _, member := range results.Members {
-		migratableMember := migratable{
+	result.machines = make([]migratable, len(results.Members))
+	for i, member := range results.Members {
+		result.machines[i] = migratable{
 			ip:      member.PublicAddress,
 			machine: names.NewMachineTag(member.Tag),
 			series:  member.Series,
 		}
-		result.machines = append(result.machines, migratableMember)
+	}
+	result.rsMembers = make([]replicaset.Member, len(results.RsMembers))
+	for i, rsMember := range results.RsMembers {
+		result.rsMembers[i] = rsMember
 	}
 
 	return result, nil
 
-}
-
-func migratableMachinesFromStatus() (*upgradeMongoParams, error) {
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("juju", "status", "--format", "yaml")
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-	err := cmd.Run()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine juju state servers")
-	}
-	var status map[string]interface{}
-	err = goyaml.Unmarshal(stdout.Bytes(), &status)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshall status")
-	}
-	upgradeParams := &upgradeMongoParams{}
-	machines := status["machines"].(map[interface{}]interface{})
-	for id, machine := range machines {
-		m := machine.(map[interface{}]interface{})
-		hasVote, isState := m["state-server-member-status"]
-		series := m["series"]
-		if !isState {
-			continue
-		}
-		tag := names.NewMachineTag(id.(string))
-		mi := migratable{
-			machine: tag,
-			series:  series.(string),
-		}
-		if hasVote.(string) == "has-vote" {
-			upgradeParams.master = mi
-		} else {
-			upgradeParams.machines = append(upgradeParams.machines, mi)
-		}
-	}
-	return upgradeParams, nil
 }
 
 // waitForNotified will wait for all ha members to be notified

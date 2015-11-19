@@ -94,6 +94,7 @@ type UpgradeMongoCommand struct {
 	tmpDir         string
 	backupPath     string
 	rollback       bool
+	slave          bool
 
 	// utils used by this struct.
 	stat                 statFunc
@@ -129,6 +130,7 @@ func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&u.configFilePath, "configfile", "", "path to the config file")
 	f.StringVar(&u.namespace, "namespace", "", "namespace, this should be blank unless the provider is local")
 	f.BoolVar(&u.rollback, "rollback", false, "rollback a previous attempt at upgrading that was cut in the process")
+	f.BoolVar(&u.slave, "slave", false, "this is a slave machine in a replicaset")
 }
 
 // Init initializes the command for running.
@@ -203,6 +205,9 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
 	if current == mongo.Mongo24 || current == mongo.MongoUpgrade {
+		if u.slave {
+			return u.upgradeSlave(dataDir)
+		}
 		if err := u.maybeUpgrade24to26(dataDir); err != nil {
 			defer func() {
 				if u.backupPath == "" {
@@ -701,10 +706,6 @@ func (u *UpgradeMongoCommand) rollbackCopyBackup(dataDir, origin string) error {
 	return errors.Annotate(u.UpdateService(namespace, true), "cannot rollback service script")
 }
 
-func (u *UpgradeMongoCommand) recreateReplica() error {
-	return nil
-}
-
 // rollbackAgentconfig rolls back the config value for mongo version
 // to its original one and corrects the entry in stop mongo until.
 func (u *UpgradeMongoCommand) rollbackAgentConfig() error {
@@ -714,4 +715,25 @@ func (u *UpgradeMongoCommand) rollbackAgentConfig() error {
 
 func enoughFreeSpace() bool {
 	return true
+}
+
+func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
+	if err := u.satisfyPrerequisites(u.series); err != nil {
+		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
+	}
+	if err := u.removeOldDb(dataDir); err != nil {
+		return errors.Annotate(err, "cannot remove existing slave db")
+	}
+	// Mongo 3, with wired tiger
+	u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
+	if err := u.agentConfig.Write(); err != nil {
+		return errors.Annotate(err, "could not update mongo version in agent.config")
+	}
+	fmt.Println("wired tiger set in agent.config")
+	namespace := u.agentConfig.Value(agent.Namespace)
+	if err := u.UpdateService(namespace, false); err != nil {
+		return errors.Annotate(err, "cannot update service script to use wired tiger")
+	}
+	fmt.Println("service startup script up to date")
+	return nil
 }

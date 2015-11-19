@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 
 	"github.com/juju/juju/mongo"
@@ -41,6 +42,8 @@ type HAMember struct {
 // UpgradeMongoParams holds information that identifies
 // the machines part of HA.
 type UpgradeMongoParams struct {
+	RsMembers []replicaset.Member
+
 	Master  HAMember
 	Members []HAMember
 }
@@ -81,10 +84,20 @@ func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error
 		}
 		machines = append(machines, m)
 	}
+	rsMembers, err := replicaset.CurrentMembers(st.session)
+	if err != nil {
+		return UpgradeMongoParams{}, errors.Annotate(err, "cannot obtain current replicaset members")
+	}
+	result.RsMembers = rsMembers
 	for _, m := range machines {
 		if err := m.SetStopMongoUntilVersion(v); err != nil {
 			return UpgradeMongoParams{}, errors.Annotate(err, "cannot trigger replica shutdown")
 		}
 	}
 	return result, nil
+}
+
+// ResumeReplication will add all passed members to replicaset.
+func (st *State) ResumeReplication(members []replicaset.Member) error {
+	return replicaset.Add(st.session, members...)
 }

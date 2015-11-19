@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -84,4 +85,15 @@ func (c *Client) MongoUpgradeMode(v mongo.Version) (params.MongoUpgradeResults, 
 		return results, errors.Annotate(err, "cannnot enter mongo upgrade mode")
 	}
 	return results, nil
+}
+
+// ResumeHAReplicationAfterUpgrade makes all members part of HA again.
+func (c *Client) ResumeHAReplicationAfterUpgrade(members []replicaset.Member) error {
+	arg := params.ResumeReplicationParams{
+		Members: members,
+	}
+	if err := c.facade.FacadeCall("ResumeHAReplicationAfterUpgrad", arg, nil); err != nil {
+		return errors.Annotate(err, "cannnot resume ha")
+	}
+	return nil
 }

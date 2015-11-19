@@ -135,7 +135,14 @@ func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeM
 		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
 	}
 	return params.MongoUpgradeResults{
-		Master:  ha.Master,
-		Members: ha.Members,
+		Master:    ha.Master,
+		Members:   ha.Members,
+		RsMembers: ha.RsMembers,
 	}, nil
+}
+
+// ResumeHAReplicationAfterUpgrade will add the upgraded members of HA
+// cluster to the upgraded master.
+func (api *HighAvailabilityAPI) ResumeHAReplicationAfterUpgrade(args params.ResumeReplicationParams) error {
+	return api.state.ResumeReplication(args.Members)
 }
