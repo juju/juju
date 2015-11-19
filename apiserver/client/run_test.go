@@ -353,7 +353,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 
 func (s *runSuite) TestStartSerialWaitParallel(c *gc.C) {
 	st := starter{serialChecker{c: c, block: make(chan struct{})}}
-	w := waiter{concurrentChecker{c: c}}
+	w := waiter{concurrentChecker{c: c, block: make(chan struct{})}}
 	count := 4
 	w.started.Add(count)
 	st.finished.Add(count)
