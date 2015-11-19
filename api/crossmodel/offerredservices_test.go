@@ -50,7 +50,7 @@ func offeredServicesCaller(c *gc.C, offers []params.OfferedService, err string) 
 						continue
 					}
 					if offer, ok := offersByURL[url]; ok {
-						results.Results[i] = params.OfferedServiceResult{Result: offer}
+						results.Results[i].Result = offer
 					} else {
 						results.Results[i].Error = common.ServerError(errors.NotFoundf("offfer at url %q", url))
 					}
@@ -71,9 +71,10 @@ func (s *offeredServicesSuite) TestOfferedServices(c *gc.C) {
 	}
 	apiCaller := offeredServicesCaller(c, offers, "")
 	client := crossmodel.NewOfferedServices(apiCaller)
-	result, err := client.OfferedServices("local:/u/user/servicename")
+	result, offerErrors, err := client.OfferedServices("local:/u/user/servicename")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
+	c.Assert(offerErrors, gc.HasLen, 0)
 	expectedOffer := crossmodel.MakeOfferedServiceFromParams(offers[0])
 	c.Assert(result["local:/u/user/servicename"], jc.DeepEquals, expectedOffer)
 }
@@ -81,16 +82,20 @@ func (s *offeredServicesSuite) TestOfferedServices(c *gc.C) {
 func (s *offeredServicesSuite) TestOfferedServicesNotFound(c *gc.C) {
 	apiCaller := offeredServicesCaller(c, nil, "")
 	client := crossmodel.NewOfferedServices(apiCaller)
-	result, err := client.OfferedServices("local:/u/user/servicename")
+	result, offerErrors, err := client.OfferedServices("local:/u/user/servicename")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 0)
+	c.Assert(offerErrors, gc.HasLen, 1)
+	c.Assert(offerErrors["local:/u/user/servicename"], jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *offeredServicesSuite) TestOfferedServicesError(c *gc.C) {
 	apiCaller := offeredServicesCaller(c, nil, "error")
 	client := crossmodel.NewOfferedServices(apiCaller)
-	_, err := client.OfferedServices("local:/u/user/servicename")
-	c.Assert(err, gc.ErrorMatches, `error retrieving offer at "local:/u/user/servicename": error`)
+	_, offerErrors, err := client.OfferedServices("local:/u/user/servicename")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offerErrors, gc.HasLen, 1)
+	c.Assert(offerErrors["local:/u/user/servicename"], gc.ErrorMatches, `error retrieving offer at "local:/u/user/servicename": error`)
 }
 
 func watchOfferedServicesCaller(c *gc.C, err string) basetesting.APICallerFunc {
@@ -127,6 +132,6 @@ func (s *offeredServicesSuite) TestWatchOfferedServicesFacadeCallError(c *gc.C) 
 
 func (s *offeredServicesSuite) TestOfferedServicesFacadeCallError(c *gc.C) {
 	client := crossmodel.NewOfferedServices(apiCallerWithError(c, "OfferedServices", "OfferedServices"))
-	_, err := client.OfferedServices("url")
+	_, _, err := client.OfferedServices("url")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "facade failure")
 }

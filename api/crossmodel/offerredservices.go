@@ -22,8 +22,8 @@ type offeredServicesAPI struct {
 type OfferedServiceAPI interface {
 
 	// OfferedServices returns the offered services for the specified urls.
-	// The results are keyed by URL.
-	OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, error)
+	// The results and any errors are keyed by URL.
+	OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, map[string]error, error)
 
 	// WatchOfferedServices starts a watcher for changes to the offered
 	// services from this environment.
@@ -37,9 +37,10 @@ func NewOfferedServices(st base.APICallCloser) OfferedServiceAPI {
 }
 
 // OfferedServices returns the offered services for the specified urls.
-func (s *offeredServicesAPI) OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, error) {
+// The results and any errors are keyed by URL.
+func (s *offeredServicesAPI) OfferedServices(serviceUrls ...string) (map[string]crossmodel.OfferedService, map[string]error, error) {
 	if len(serviceUrls) == 0 {
-		return nil, nil
+		return nil, nil, errors.New("no service urls specified")
 	}
 	var queryParams params.OfferedServiceQueryParams
 	queryParams.ServiceUrls = make([]string, len(serviceUrls))
@@ -48,22 +49,26 @@ func (s *offeredServicesAPI) OfferedServices(serviceUrls ...string) (map[string]
 	}
 	results := new(params.OfferedServiceResults)
 	if err := s.facade.FacadeCall("OfferedServices", queryParams, results); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(serviceUrls) {
-		return nil, errors.Errorf("expected %d results, got %d", len(serviceUrls), len(results.Results))
+		return nil, nil, errors.Errorf("expected %d results, got %d", len(serviceUrls), len(results.Results))
 	}
 	offers := make(map[string]crossmodel.OfferedService)
+	offerErrors := make(map[string]error)
 	for i, result := range results.Results {
+		serviceUrl := serviceUrls[i]
 		if result.Error != nil {
 			if result.Error.ErrorCode() == params.CodeNotFound {
-				continue
+				offerErrors[serviceUrl] = errors.NotFoundf("offered service at %q", serviceUrls[i])
+			} else {
+				offerErrors[serviceUrl] = errors.Annotatef(result.Error, "error retrieving offer at %q", serviceUrls[i])
 			}
-			return nil, errors.Annotatef(result.Error, "error retrieving offer at %q", serviceUrls[i])
+			continue
 		}
 		offers[result.Result.ServiceURL] = MakeOfferedServiceFromParams(result.Result)
 	}
-	return offers, nil
+	return offers, offerErrors, nil
 }
 
 // MakeOfferedServiceFromParams creates an OfferedService from api parameters.
