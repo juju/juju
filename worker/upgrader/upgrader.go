@@ -40,7 +40,7 @@ type Upgrader struct {
 	dataDir                     string
 	tag                         names.Tag
 	origAgentVersion            version.Number
-	areUpgradeStepsRunning      func() bool
+	upgradeStepsWaiter          gate.Waiter
 	initialUpgradeCheckComplete gate.Unlocker
 }
 
@@ -54,7 +54,7 @@ func NewAgentUpgrader(
 	st *upgrader.State,
 	agentConfig agent.Config,
 	origAgentVersion version.Number,
-	areUpgradeStepsRunning func() bool,
+	upgradeStepsWaiter gate.Waiter,
 	initialUpgradeCheckComplete gate.Unlocker,
 ) (*Upgrader, error) {
 	u := &Upgrader{
@@ -62,7 +62,7 @@ func NewAgentUpgrader(
 		dataDir:                     agentConfig.DataDir(),
 		tag:                         agentConfig.Tag(),
 		origAgentVersion:            origAgentVersion,
-		areUpgradeStepsRunning:      areUpgradeStepsRunning,
+		upgradeStepsWaiter:          upgradeStepsWaiter,
 		initialUpgradeCheckComplete: initialUpgradeCheckComplete,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -177,8 +177,12 @@ func (u *Upgrader) loop() error {
 		if wantVersion == version.Current {
 			u.initialUpgradeCheckComplete.Unlock()
 			continue
-		} else if !allowedTargetVersion(u.origAgentVersion, version.Current,
-			u.areUpgradeStepsRunning(), wantVersion) {
+		} else if !allowedTargetVersion(
+			u.origAgentVersion,
+			version.Current,
+			!u.upgradeStepsWaiter.IsUnlocked(),
+			wantVersion,
+		) {
 			// See also bug #1299802 where when upgrading from
 			// 1.16 to 1.18 there is a race condition that can
 			// cause the unit agent to upgrade, and then want to

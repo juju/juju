@@ -41,10 +41,12 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"agent",
 		"termination",
 		"api-caller",
+		"api-info-gate",
 		"upgrade-steps-gate",
 		"upgrade-check-gate",
+		"upgrader",
 	}
-	c.Assert(expectedKeys, jc.SameContents, keys)
+	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
 func (s *ManifoldsSuite) TestUpgradeGates(c *gc.C) {

@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
-	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -104,7 +103,6 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 const bootstrapMachineId = "0"
@@ -314,7 +312,6 @@ type MachineAgent struct {
 
 	tomb                 tomb.Tomb
 	machineId            string
-	previousAgentVersion version.Number
 	runner               worker.Runner
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
@@ -432,17 +429,18 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
+	agentConfig := a.CurrentConfig()
+
 	createEngine := a.makeEngineCreator(
 		a.upgradeWorkerContext.UpgradeComplete,
-		gate.NewLock(),
+		a.initialUpgradeCheckComplete,
+		agentConfig.UpgradedToVersion(),
 	)
-	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
 	}
 	a.configChangedVal.Set(struct{}{})
-	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 
 	network.InitializeFromConfig(agentConfig)
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
@@ -471,7 +469,11 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) makeEngineCreator(upgradeStepsLock, upgradeCheckLock gate.Lock) func() (worker.Worker, error) {
+func (a *MachineAgent) makeEngineCreator(
+	upgradeStepsLock gate.Lock,
+	upgradeCheckLock gate.Lock,
+	previousAgentVersion version.Number,
+) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		config := dependency.EngineConfig{
 			IsFatal:     cmdutil.IsFatal,
@@ -484,9 +486,10 @@ func (a *MachineAgent) makeEngineCreator(upgradeStepsLock, upgradeCheckLock gate
 			return nil, err
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
-			Agent:            agent.APIHostPortsSetter{a},
-			UpgradeStepsLock: upgradeStepsLock,
-			UpgradeCheckLock: upgradeCheckLock,
+			PreviousAgentVersion: previousAgentVersion,
+			Agent:                agent.APIHostPortsSetter{a},
+			UpgradeStepsLock:     upgradeStepsLock,
+			UpgradeCheckLock:     upgradeCheckLock,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -720,9 +723,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
-	// Run the agent upgrader and the upgrade-steps worker without waiting for
-	// the upgrade steps to complete.
-	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
@@ -993,25 +993,6 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
-	}
-}
-
-func (a *MachineAgent) agentUpgraderWorkerStarter(
-	st *apiupgrader.State,
-	agentConfig agent.Config,
-) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
-		w, err := upgrader.NewAgentUpgrader(
-			st,
-			agentConfig,
-			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
-			a.initialUpgradeCheckComplete,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return w, nil
 	}
 }
 

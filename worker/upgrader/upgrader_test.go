@@ -46,8 +46,8 @@ type UpgraderSuite struct {
 	state                api.Connection
 	oldRetryAfter        func() <-chan time.Time
 	confVersion          version.Number
-	upgradeRunning       bool
-	agentUpgradeComplete gate.Lock
+	upgradeStepsComplete gate.Lock
+	initialCheckComplete gate.Lock
 }
 
 type AllowedTargetVersionSuite struct{}
@@ -66,7 +66,8 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		*upgrader.RetryAfter = oldRetryAfter
 	})
-	s.agentUpgradeComplete = gate.NewLock()
+	s.upgradeStepsComplete = gate.NewLock()
+	s.initialCheckComplete = gate.NewLock()
 }
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
@@ -102,8 +103,8 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 		s.state.Upgrader(),
 		agentConfig(s.machine.Tag(), s.DataDir()),
 		s.confVersion,
-		func() bool { return s.upgradeRunning },
-		s.agentUpgradeComplete,
+		s.upgradeStepsComplete,
+		s.initialCheckComplete,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -151,11 +152,11 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckDone(c *gc.C) {
-	c.Assert(s.agentUpgradeComplete.IsUnlocked(), jc.IsTrue)
+	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
 func (s *UpgraderSuite) expectInitialUpgradeCheckNotDone(c *gc.C) {
-	c.Assert(s.agentUpgradeComplete.IsUnlocked(), jc.IsFalse)
+	c.Assert(s.initialCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
@@ -345,7 +346,6 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	// note: otherwise illegal version jump
 	downgradeVersion := version.MustParseBinary("5.3.0-precise-amd64")
 	s.confVersion = downgradeVersion.Number
-	s.upgradeRunning = true
 
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
@@ -376,7 +376,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInProgress(c *gc.C) {
 	downgradeVersion := version.MustParseBinary("5.3.0-precise-amd64")
 	s.confVersion = downgradeVersion.Number
-	s.upgradeRunning = false
+	s.upgradeStepsComplete.Unlock()
 
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))

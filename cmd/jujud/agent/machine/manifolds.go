@@ -5,19 +5,24 @@ package machine
 
 import (
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
+
+	// PreviousAgentVersion passes through the version the machine
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -56,6 +61,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIInfoGateName: apiInfoGateName,
 		}),
 
+		apiInfoGateName: gate.Manifold(),
+
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
 		// finished running any required upgrade steps.
@@ -66,6 +73,21 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// completed it's first check for a new tools version to
 		// upgrade to.
 		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
+
+		// The upgrader is a leaf worker that returns a specific error
+		// type recognised by the machine agent, causing other workers
+		// to be stopped and the agent to be restarted running the new
+		// tools. We should only need one of these in a consolidated
+		// agent, but we'll need to be careful about behavioural
+		// differences, and interactions with the upgrade-steps
+		// worker.
+		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			UpgradeCheckGateName: upgradeCheckGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
 	}
 }
 
@@ -76,4 +98,5 @@ const (
 	apiInfoGateName      = "api-info-gate"
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeCheckGateName = "upgrade-check-gate"
+	upgraderName         = "upgrader"
 )
