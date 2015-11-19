@@ -12,12 +12,12 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.keymanager")

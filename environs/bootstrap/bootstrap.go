@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -131,7 +131,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Starting new instance for initial state server")
-	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
@@ -141,8 +141,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   arch,
-		Series: series,
+		Arch:   result.Arch,
+		Series: result.Series,
 	})
 	if err != nil {
 		return err
@@ -168,13 +168,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, instanceConfig); err != nil {
+	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")

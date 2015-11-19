@@ -283,9 +283,9 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 	return result, nil
 }
 
-// IsSystemAdministrator returns true if the user specified has access to the
+// IsControllerAdministrator returns true if the user specified has access to the
 // state server environment (the system environment).
-func (st *State) IsSystemAdministrator(user names.UserTag) (bool, error) {
+func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	ssinfo, err := st.StateServerInfo()
 	if err != nil {
 		return false, errors.Annotate(err, "could not get state server info")

@@ -4,8 +4,6 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
@@ -695,8 +692,8 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Maca
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.Reference{*ref}}
+func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.URL{*ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -712,64 +709,35 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
-	// Prepare the upload request.
-	query := fmt.Sprintf("binaryVersion=%s&series=%s",
-		vers,
-		strings.Join(additionalSeries, ","),
-	)
+func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
+	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
 
-	endpoint, err := c.st.apiEndpoint("/tools", query)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	req, err := http.NewRequest("POST", endpoint.String(), r)
+	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
-	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
 
-	// Send the request.
-
-	// BUG(dimitern) 2013-12-17 bug #1261780
-	// Due to issues with go 1.1.2, fixed later, we cannot use a
-	// regular TLS client with the CACert here, because we get "x509:
-	// cannot validate certificate for 127.0.0.1 because it doesn't
-	// contain any IP SANs". Once we use a later go version, this
-	// should be changed to connect to the API server with a regular
-	// HTTP+TLS enabled client, using the CACert (possily cached, like
-	// the tag and password) passed in api.Open()'s info argument.
-	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	httpClient, err := c.st.HTTPClient()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload tools")
+		return nil, errors.Trace(err)
 	}
-	defer resp.Body.Close()
-
-	// Now parse the response & return.
-	body, err := ioutil.ReadAll(resp.Body)
+	var resp params.ToolsResult
+	err = httpClient.Do(req, r, &resp)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read tools upload response")
-	}
-	if resp.StatusCode != http.StatusOK {
-		// TODO (2015/09/15, bug #1499277) parse as JSON not as text.
-		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
-		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, params.CodeOperationBlocked) {
-			// Operation Blocked errors must contain correct error code and message.
-			return nil, &params.Error{Code: params.CodeOperationBlocked, Message: message}
+		msg := err.Error()
+		if params.ErrCode(err) == "" && strings.Contains(msg, params.CodeOperationBlocked) {
+			// We're probably talking to an old version of the API server
+			// that doesn't provide error codes.
+			// See https://bugs.launchpad.net/juju-core/+bug/1499277
+			err = &params.Error{
+				Code:    params.CodeOperationBlocked,
+				Message: msg,
+			}
 		}
-		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, message)
+		return nil, errors.Trace(err)
 	}
-
-	var jsonResponse params.ToolsResult
-	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshal upload response")
-	}
-	if err := jsonResponse.Error; err != nil {
-		return nil, errors.Annotate(err, "error uploading tools")
-	}
-	return jsonResponse.Tools, nil
+	return resp.Tools, nil
 }
 
 // APIHostPorts returns a slice of network.HostPort for each API server.

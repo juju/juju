@@ -229,7 +229,7 @@ func isUnauthorized(err error) bool {
 }
 
 // newState creates an incomplete *State, with a configured watcher but no
-// pwatcher, leadershipManager, or serverTag. You must start() the returned
+// pwatcher, leadershipManager, or controllerTag. You must start() the returned
 // *State before it will function correctly.
 func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	// Set up database.

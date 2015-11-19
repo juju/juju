@@ -8,12 +8,12 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/api/keymanager"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/utils/ssh"
 )
 
 func ensureSystemSSHKey(context Context) error {

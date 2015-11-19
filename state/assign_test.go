@@ -283,6 +283,23 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 	testWhenDying(c, machine, expect, expect, assignTest)
 }
 
+func (s *AssignSuite) TestPrincipals(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	principals := machine.Principals()
+	c.Assert(principals, jc.DeepEquals, []string{})
+
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	principals = machine.Principals()
+	c.Assert(principals, jc.DeepEquals, []string{"wordpress/0"})
+}
+
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,14 +314,9 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	subUnit := s.addSubordinate(c, unit)
 
 	checkPrincipals := func() []string {
-		docID := state.DocID(s.State, machine.Id())
-		doc := make(map[string][]string)
-		s.machines.FindId(docID).One(&doc)
-		principals, ok := doc["principals"]
-		if !ok {
-			c.Errorf(`machine document does not have a "principals" field`)
-		}
-		return principals
+		err := machine.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		return machine.Principals()
 	}
 	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
 

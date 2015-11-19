@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -59,12 +60,12 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	environTag names.EnvironTag
-	serverTag  names.EnvironTag
-	mongoInfo  *mongo.MongoInfo
-	session    *mgo.Session
-	database   Database
-	policy     Policy
+	environTag    names.EnvironTag
+	controllerTag names.EnvironTag
+	mongoInfo     *mongo.MongoInfo
+	session       *mgo.Session
+	database      Database
+	policy        Policy
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
@@ -99,7 +100,7 @@ type StateServingInfo struct {
 // IsStateServer returns true if this state instance has the bootstrap
 // environment UUID.
 func (st *State) IsStateServer() bool {
-	return st.environTag == st.serverTag
+	return st.environTag == st.controllerTag
 }
 
 // RemoveAllEnvironDocs removes all documents from multi-environment
@@ -162,16 +163,16 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newState.start(st.serverTag); err != nil {
+	if err := newState.start(st.controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newState, nil
 }
 
 // start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the serverTag field with the supplied value.
-func (st *State) start(serverTag names.EnvironTag) error {
-	st.serverTag = serverTag
+// and fills in the controllerTag field with the supplied value.
+func (st *State) start(controllerTag names.EnvironTag) error {
+	st.controllerTag = controllerTag
 
 	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
@@ -1096,22 +1097,32 @@ var (
 	errLocalServiceExists          = errors.Errorf("service already exists")
 )
 
+type AddServiceArgs struct {
+	Name        string
+	Owner       string
+	Charm       *Charm
+	Networks    []string
+	Storage     map[string]StorageConstraints
+	Settings    charm.Settings
+	NumUnits    int
+	Placement   []*instance.Placement
+	Constraints constraints.Value
+}
+
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints,
-) (service *Service, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
-	ownerTag, err := names.ParseUserTag(owner)
+func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add service %q", args.Name)
+	ownerTag, err := names.ParseUserTag(args.Owner)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
+		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
 	}
 	// Sanity checks.
-	if !names.IsValidService(name) {
+	if !names.IsValidService(args.Name) {
 		return nil, errors.Errorf("invalid name")
 	}
-	if ch == nil {
+	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
 	env, err := st.Environment()
@@ -1123,28 +1134,44 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if storage == nil {
-		storage = make(map[string]StorageConstraints)
+	if args.Storage == nil {
+		args.Storage = make(map[string]StorageConstraints)
 	}
-	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+
+	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
+	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceID := st.docID(name)
+
+	series := args.Charm.URL().Series
+
+	for _, placement := range args.Placement {
+		data, err := st.parsePlacement(placement)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if data.placementType() == directivePlacement {
+			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+	}
+
+	serviceID := st.docID(args.Name)
 	// Create the service addition operations.
-	peers := ch.Meta().Peers
+	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
-		Name:          name,
+		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        ch.URL().Series,
-		Subordinate:   ch.Meta().Subordinate,
-		CharmURL:      ch.URL(),
+		Series:        series,
+		Subordinate:   args.Charm.Meta().Subordinate,
+		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      owner,
+		OwnerTag:      args.Owner,
 	}
 	svc := newService(st, svcDoc)
 
@@ -1170,13 +1197,13 @@ func (st *State) AddService(
 				return nil, errors.Trace(err)
 			}
 			// Ensure a local service with the same name doesn't exist.
-			if exists, err := isNotDead(st, servicesC, name); err != nil {
+			if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if exists {
 				return nil, errLocalServiceExists
 			}
 			// Ensure a remote service with the same name doesn't exist.
-			if remoteExists, err := isNotDead(st, remoteServicesC, name); err != nil {
+			if remoteExists, err := isNotDead(st, remoteServicesC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if remoteExists {
 				return nil, errSameNameRemoteServiceExists
@@ -1189,8 +1216,8 @@ func (st *State) AddService(
 			// Once we can add networks independently of machine
 			// provisioning, we should check the given networks are valid
 			// and known before setting them.
-			createRequestedNetworksOp(st, svc.globalKey(), networks),
-			createStorageConstraintsOp(svc.globalKey(), storage),
+			createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
+			createStorageConstraintsOp(svc.globalKey(), args.Storage),
 			createSettingsOp(svc.settingsKey(), nil),
 			addLeadershipSettingsOp(svc.Tag().Id()),
 			createStatusOp(st, svc.globalKey(), statusDoc),
@@ -1213,7 +1240,7 @@ func (st *State) AddService(
 			},
 		}
 		// Collect peer relation addition operations.
-		peerOps, err := st.addPeerRelationsOps(name, peers)
+		peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1231,6 +1258,199 @@ func (st *State) AddService(
 		return svc, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// assignUnitOps returns the db ops to save unit assignment for use by the
+// UnitAssigner worker.
+func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
+	udoc := assignUnitDoc{
+		DocId:     unit,
+		Scope:     placement.Scope,
+		Directive: placement.Directive,
+	}
+	return []txn.Op{{
+		C:      assignUnitC,
+		Id:     udoc.DocId,
+		Assert: txn.DocMissing,
+		Insert: udoc,
+	}}
+}
+
+// AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
+// assignments.
+func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
+	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
+	unitAssignments, err := st.unitAssignments(query)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting staged unit assignments")
+	}
+	results := make([]UnitAssignmentResult, len(unitAssignments))
+	for i, a := range unitAssignments {
+		err := st.assignStagedUnit(a)
+		results[i].Unit = a.Unit
+		results[i].Error = err
+	}
+	return results, nil
+}
+
+// UnitAssignments returns all staged unit assignments in the environment.
+func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
+	return st.unitAssignments(nil)
+}
+
+func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
+	col, close := st.getCollection(assignUnitC)
+	defer close()
+
+	var docs []assignUnitDoc
+	if err := col.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get unit assignment docs")
+	}
+	results := make([]UnitAssignment, len(docs))
+	for i, doc := range docs {
+		results[i] = UnitAssignment{
+			st.localID(doc.DocId),
+			doc.Scope,
+			doc.Directive,
+		}
+	}
+	return results, nil
+}
+
+func removeStagedAssignmentOp(id string) txn.Op {
+	return txn.Op{
+		C:      assignUnitC,
+		Id:     id,
+		Remove: true,
+	}
+}
+
+func (st *State) assignStagedUnit(a UnitAssignment) error {
+	u, err := st.Unit(a.Unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	svc, err := u.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	networks, err := svc.Networks()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if a.Scope == "" && a.Directive == "" {
+		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
+	}
+
+	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
+
+	// units always have the same networks as their service.
+	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
+}
+
+// AssignUnitWithPlacement chooses a machine using the given placement directive
+// and then assigns the unit to it.
+func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string) error {
+	// TODO(natefinch) this should be done as a single transaction, not two.
+	// Mark https://launchpad.net/bugs/1506994 fixed when done.
+
+	m, err := st.addMachineWithPlacement(unit, placement, networks)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return unit.AssignToMachine(m)
+}
+
+// placementData is a helper type that encodes some of the logic behind how an
+// instance.Placement gets translated into a placement directive the providers
+// understand.
+type placementData struct {
+	machineId     string
+	directive     string
+	containerType instance.ContainerType
+}
+
+type placementType int
+
+const (
+	containerPlacement placementType = iota
+	directivePlacement
+	machinePlacement
+)
+
+// placementType returns the type of placement that this data represents.
+func (p placementData) placementType() placementType {
+	if p.containerType != "" {
+		return containerPlacement
+	}
+	if p.directive != "" {
+		return directivePlacement
+	}
+	return machinePlacement
+}
+
+func (st *State) parsePlacement(placement *instance.Placement) (*placementData, error) {
+	// Extract container type and parent from container placement directives.
+	if container, err := instance.ParseContainerType(placement.Scope); err == nil {
+		return &placementData{
+			containerType: container,
+			machineId:     placement.Directive,
+		}, nil
+	}
+	switch placement.Scope {
+	case st.EnvironUUID():
+		return &placementData{directive: placement.Directive}, nil
+	case instance.MachineScope:
+		return &placementData{machineId: placement.Directive}, nil
+	default:
+		return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+	}
+}
+
+// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
+	unitCons, err := unit.Constraints()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := st.parsePlacement(placement)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Create any new machine marked as dirty so that
+	// nothing else will grab it before we assign the unit to it.
+	// TODO(natefinch) fix this when we put assignment in the same
+	// transaction as adding a machine.  See bug
+	// https://launchpad.net/bugs/1506994
+
+	switch data.placementType() {
+	case containerPlacement:
+		// If a container is to be used, create it.
+		template := MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []MachineJob{JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+		}
+		return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+	case directivePlacement:
+		// If a placement directive is to be used, do that here.
+		template := MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []MachineJob{JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+			Placement:         data.directive,
+		}
+		return st.AddOneMachine(template)
+	default:
+		// Otherwise use an existing machine.
+		return st.Machine(data.machineId)
+	}
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an

@@ -17,8 +17,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
@@ -713,12 +715,12 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	if err := authenticateClient(e); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
 }
@@ -1625,27 +1627,27 @@ func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
 // has it around internally. To attempt to catch this timing issue, deletion
 // of the groups is tried multiple times.
 func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
-	attempts := utils.AttemptStrategy{
-		Total: 30 * time.Second,
-		Delay: time.Second,
-	}
 	logger.Debugf("deleting security group %q", name)
-	i := 0
-	for attempt := attempts.Start(); attempt.Next(); {
-		err := novaclient.DeleteSecurityGroup(id)
-		if err == nil {
-			return
-		}
-		i++
-		if i%4 == 0 {
-			message := fmt.Sprintf("waiting to delete security group %q", name)
-			if i != 4 {
-				message = "still " + message
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			return novaclient.DeleteSecurityGroup(id)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			if attempt%4 == 0 {
+				message := fmt.Sprintf("waiting to delete security group %q", name)
+				if attempt != 4 {
+					message = "still " + message
+				}
+				logger.Debugf(message)
 			}
-			logger.Debugf(message)
-		}
+		},
+		Attempts: 30,
+		Delay:    time.Second,
+		Clock:    clock.WallClock,
+	})
+	if err != nil {
+		logger.Warningf("cannot delete security group %q. Used by another environment?", name)
 	}
-	logger.Warningf("cannot delete security group %q. Used by another environment?", name)
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {

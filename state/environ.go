@@ -190,9 +190,9 @@ func (e *Environment) EnvironTag() names.EnvironTag {
 	return names.NewEnvironTag(e.doc.UUID)
 }
 
-// ServerTag is the environ tag for the server that the environment is running
-// within.
-func (e *Environment) ServerTag() names.EnvironTag {
+// ControllerTag is the environ tag for the controller that the environment is
+// running within.
+func (e *Environment) ControllerTag() names.EnvironTag {
 	return names.NewEnvironTag(e.doc.ServerUUID)
 }
 

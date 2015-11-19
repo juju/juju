@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
-	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -120,7 +120,7 @@ func environFromNameProductionFunc(
 // resolveCharmStoreEntityURL also returns the charm repository holding
 // the charm or bundle.
 func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
-	ref, err := charm.ParseReference(urlStr)
+	ref, err := charm.ParseURL(urlStr)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -136,31 +136,27 @@ func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreP
 	}
 	if ref.Schema == "local" && ref.Series == "" {
 		possibleURL := *ref
-		possibleURL.Series = "trusty"
+		possibleURL.Series = config.LatestLtsSeries()
 		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
-	if ref.Series != "" && ref.Revision != -1 {
-		// The URL is already fully resolved; do not
-		// bother with an unnecessary round-trip to the
-		// charm store.
-		curl, err := ref.URL("")
-		if err != nil {
-			panic(err)
-		}
-		return curl, repo, nil
-	}
-	curl, err := repo.Resolve(ref)
+	// TODO(wallyworld) - charm store does not yet support returning the
+	// supported series for a charm.
+	ref, _, err = repo.Resolve(ref)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return curl, repo, nil
+	if ref.Series == "" {
+		return nil, nil, errors.New("resolved charm URL has no series")
+	}
+	return ref, repo, nil
 }
 
-// addCharmViaAPI calls the appropriate client API calls to add the
+// addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
-func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
+// The resulting charm URL of the added charm is displayed on stdout.
+func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)

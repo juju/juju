@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"path/filepath"
 	"time"
 
@@ -138,7 +137,7 @@ func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, ow
 
 func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(name, owner.String(), ch, networks, storage)
+	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -256,8 +255,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, changeset, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+	return mergeIds(st, changeset, updates, idconv)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -380,7 +379,7 @@ var (
 )
 
 func AssertAddressConversion(c *gc.C, netAddr network.Address) {
-	addr := fromNetworkAddress(netAddr)
+	addr := fromNetworkAddress(netAddr, OriginUnknown)
 	newNetAddr := addr.networkAddress()
 	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
 
@@ -389,7 +388,7 @@ func AssertAddressConversion(c *gc.C, netAddr network.Address) {
 	for i := 0; i < size; i++ {
 		netAddrs[i] = netAddr
 	}
-	addrs := fromNetworkAddresses(netAddrs)
+	addrs := fromNetworkAddresses(netAddrs, OriginUnknown)
 	newNetAddrs := networkAddresses(addrs)
 	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
 }
@@ -412,10 +411,8 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
 }
 
-// WriteLogWithOplog writes out a log record to the a (probably fake)
-// oplog collection and the logs collection.
-func WriteLogWithOplog(
-	oplog *mgo.Collection,
+// MakeLogDoc creates a database document for a single log message.
+func MakeLogDoc(
 	envUUID string,
 	entity names.Tag,
 	t time.Time,
@@ -423,8 +420,8 @@ func WriteLogWithOplog(
 	location string,
 	level loggo.Level,
 	msg string,
-) error {
-	doc := &logDoc{
+) *logDoc {
+	return &logDoc{
 		Id:       bson.NewObjectId(),
 		Time:     t,
 		EnvUUID:  envUUID,
@@ -434,22 +431,10 @@ func WriteLogWithOplog(
 		Level:    level,
 		Message:  msg,
 	}
-	err := oplog.Insert(bson.D{
-		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                  // again, a suitable fake
-		{"op", "i"},                                          // this will always be an insert
-		{"ns", "logs.logs"},
-		{"o", doc},
-	})
-	if err != nil {
-		return err
-	}
-
-	session := oplog.Database.Session
-	logs := session.DB("logs").C("logs")
-	return logs.Insert(doc)
 }
 
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
+
+var ActionNotificationIdToActionId = actionNotificationIdToActionId

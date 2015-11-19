@@ -138,7 +138,7 @@ func formatTools(tools coretools.List) string {
 type upgradeJujuAPI interface {
 	EnvironmentGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
-	UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
+	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
 	AbortCurrentUpgrade() error
 	SetEnvironAgentVersion(version version.Number) error
 	Close() error

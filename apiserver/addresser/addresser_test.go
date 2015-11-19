@@ -153,13 +153,19 @@ func (s *AddresserSuite) TestReleaseAddress(c *gc.C) {
 
 	// Prepare tests.
 	called := 0
-	s.PatchValue(addresser.NetEnvReleaseAddress, func(env environs.NetworkingEnviron,
-		instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+	s.PatchValue(addresser.NetEnvReleaseAddress, func(
+		env environs.NetworkingEnviron,
+		instId instance.Id,
+		subnetId network.Id,
+		addr network.Address,
+		macAddress, hostname string,
+	) error {
 		called++
 		c.Assert(instId, gc.Equals, instance.Id("a3"))
 		c.Assert(subnetId, gc.Equals, network.Id("a"))
 		c.Assert(addr, gc.Equals, network.NewAddress("0.1.2.3"))
 		c.Assert(macAddress, gc.Equals, "fff3")
+		c.Assert(hostname, gc.Equals, "")
 		return nil
 	})
 

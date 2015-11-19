@@ -34,6 +34,7 @@ type RemoteStateWatcher struct {
 	storageAttachmentChanges  chan storageAttachmentChange
 	leadershipTracker         leadership.Tracker
 	updateStatusChannel       func() <-chan time.Time
+	commandChannel            <-chan string
 
 	tomb tomb.Tomb
 
@@ -48,6 +49,7 @@ type WatcherConfig struct {
 	State               State
 	LeadershipTracker   leadership.Tracker
 	UpdateStatusChannel func() <-chan time.Time
+	CommandChannel      <-chan string
 	UnitTag             names.UnitTag
 }
 
@@ -62,6 +64,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
 		leadershipTracker:         config.LeadershipTracker,
 		updateStatusChannel:       config.UpdateStatusChannel,
+		commandChannel:            config.CommandChannel,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -126,9 +129,9 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 		snapshot.Storage[tag] = storageSnapshot
 	}
 	snapshot.Actions = make([]string, len(w.current.Actions))
-	for i, action := range w.current.Actions {
-		snapshot.Actions[i] = action
-	}
+	copy(snapshot.Actions, w.current.Actions)
+	snapshot.Commands = make([]string, len(w.current.Commands))
+	copy(snapshot.Commands, w.current.Commands)
 	return snapshot
 }
 
@@ -136,6 +139,21 @@ func (w *RemoteStateWatcher) ClearResolvedMode() {
 	w.mu.Lock()
 	w.current.ResolvedMode = params.ResolvedNone
 	w.mu.Unlock()
+}
+
+func (w *RemoteStateWatcher) CommandCompleted(completed string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, id := range w.current.Commands {
+		if id != completed {
+			continue
+		}
+		w.current.Commands = append(
+			w.current.Commands[:i],
+			w.current.Commands[i+1:]...,
+		)
+		break
+	}
 }
 
 func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
@@ -390,6 +408,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.updateStatusChanged(); err != nil {
 				return err
 			}
+
+		case id := <-w.commandChannel:
+			logger.Debugf("command enqueued: %v", id)
+			if err := w.commandsChanged(id); err != nil {
+				return err
+			}
 		}
 
 		// Something changed.
@@ -401,6 +425,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 func (w *RemoteStateWatcher) updateStatusChanged() error {
 	w.mu.Lock()
 	w.current.UpdateStatusVersion++
+	w.mu.Unlock()
+	return nil
+}
+
+// commandsChanged is called when a command is enqueued.
+func (w *RemoteStateWatcher) commandsChanged(id string) error {
+	w.mu.Lock()
+	w.current.Commands = append(w.current.Commands, id)
 	w.mu.Unlock()
 	return nil
 }

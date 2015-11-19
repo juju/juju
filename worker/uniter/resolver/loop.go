@@ -8,20 +8,20 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/worker/charmdir"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
-	Resolver       Resolver
-	Watcher        remotestate.Watcher
-	Executor       operation.Executor
-	Factory        operation.Factory
-	Dying          <-chan struct{}
-	OnIdle         func() error
-	CharmDirLocker charmdir.Locker
+	Resolver      Resolver
+	Watcher       remotestate.Watcher
+	Executor      operation.Executor
+	Factory       operation.Factory
+	Abort         <-chan struct{}
+	OnIdle        func() error
+	CharmDirGuard fortress.Guard
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -47,7 +47,10 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
-	updateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
+	err := updateCharmDir(cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		rf.RemoteState = cfg.Watcher.Snapshot()
@@ -63,10 +66,14 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			// changed between operations.
 			rf.RemoteState = cfg.Watcher.Snapshot()
 			rf.LocalState.State = cfg.Executor.State()
+
+			err = updateCharmDir(rf.LocalState.State, cfg.CharmDirGuard, cfg.Abort)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
 			op, err = cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
 		}
-
-		updateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
 
 		switch errors.Cause(err) {
 		case nil:
@@ -84,7 +91,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 		}
 
 		select {
-		case <-cfg.Dying:
+		case <-cfg.Abort:
 			return tomb.ErrDying
 		case <-cfg.Watcher.RemoteStateChanged():
 		}
@@ -93,7 +100,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 // updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func updateCharmDir(opState operation.State, locker charmdir.Locker) {
+func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortress.Abort) error {
 	var changing bool
 
 	// Determine if the charm content is changing.
@@ -106,5 +113,9 @@ func updateCharmDir(opState operation.State, locker charmdir.Locker) {
 	available := opState.Started && !opState.Stopped && !changing
 	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v changing=%v",
 		available, opState.Started, opState.Stopped, changing)
-	locker.SetAvailable(available)
+	if available {
+		return guard.Unlock()
+	} else {
+		return guard.Lockdown(abort)
+	}
 }

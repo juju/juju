@@ -6,6 +6,7 @@ package runner_test
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -15,6 +16,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -165,6 +167,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
+		testing.NewClock(time.Time{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(

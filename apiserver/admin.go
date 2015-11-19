@@ -165,7 +165,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		EnvironTag:    environ.Tag().String(),
-		ServerTag:     environ.ServerTag().String(),
+		ControllerTag: environ.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
 		ServerVersion: version.Current.String(),
