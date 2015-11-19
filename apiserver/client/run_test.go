@@ -253,7 +253,10 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 			})
 	}
 
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Check(results, jc.DeepEquals, expectedResults)
+	c.Check(string(results[0].Stdout), gc.Equals, expectedCommand[0])
+	c.Check(string(results[1].Stdout), gc.Equals, expectedCommand[0])
+	c.Check(string(results[2].Stdout), gc.Equals, expectedCommand[0])
 }
 
 func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
