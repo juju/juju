@@ -21,3 +21,5 @@ var (
 )
 
 type MachineAndContainers machineAndContainers
+
+var StartSerialWaitParallel = startSerialWaitParallel
