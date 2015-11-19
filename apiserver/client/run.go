@@ -175,9 +175,6 @@ func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
 	return results
 }
 
-type startSSH func(params ssh.ExecParams) (*ssh.RunningCmd, error)
-type waitSSH func(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{})
-
 // startSerialWaitParallel start a command for each RemoteExec, one at
 // a time and then waits for all the results asynchronously.
 //
@@ -192,7 +189,12 @@ type waitSSH func(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunRes
 // exec'ed command. This is a relatively quick operation relative to
 // the wait operation. That is why start-serially-and-wait-in-parallel
 // is a viable approach.
-func startSerialWaitParallel(args []*RemoteExec, results *params.RunResults, start startSSH, wait waitSSH) {
+func startSerialWaitParallel(
+	args []*RemoteExec,
+	results *params.RunResults,
+	start func(params ssh.ExecParams) (*ssh.RunningCmd, error),
+	wait func(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{}),
+) {
 	var wg sync.WaitGroup
 	for i, arg := range args {
 		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
