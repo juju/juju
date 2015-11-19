@@ -10,14 +10,15 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -28,22 +29,13 @@ type KillSuite struct {
 
 var _ = gc.Suite(&KillSuite{})
 
-func (s *KillSuite) SetUpTest(c *gc.C) {
-	s.DestroySuite.SetUpTest(c)
-}
-
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, s.newKillCommand(), args...)
 }
 
-func (s *KillSuite) newKillCommand() cmd.Command {
+func (s *KillSuite) newKillCommand(options ...envcmd.WrapEnvOption) cmd.Command {
 	return controller.NewKillCommandForTest(
-		s.api,
-		s.clientapi,
-		s.apierror,
-		func(name string) (api.Connection, error) {
-			return juju.NewAPIFromName(name, nil)
-		})
+		s.api, s.clientapi, s.apierror, &mockClock{}, options...)
 }
 
 func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
@@ -158,15 +150,17 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(sysName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, testDialer)
+	cmd := controller.NewKillCommandForTest(
+		nil, nil, nil, clock.WallClock,
+		envcmd.EnvOpenerFunc(testDialer))
 	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
+	clock := &mockClock{}
+
 	stop := make(chan struct{})
 	defer close(stop)
 	testDialer := func(sysName string) (api.Connection, error) {
@@ -174,20 +168,22 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		cmd := controller.NewKillCommandForTest(nil, nil, nil, testDialer)
-		ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection to controller timed out")
-		c.Check(s.api.ignoreBlocks, jc.IsFalse)
-		c.Check(s.api.destroyAll, jc.IsFalse)
-		checkControllerRemovedFromStore(c, "test1", s.store)
-	}()
-	select {
-	case <-done:
-	case <-time.After(1 * time.Minute):
-		c.Fatalf("Kill command waited too long to open the API")
-	}
+	cmd := controller.NewKillCommandForTest(
+		nil, nil, nil, clock, envcmd.EnvOpenerFunc(testDialer))
+
+	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
+	checkControllerRemovedFromStore(c, "test1", s.store)
+}
+
+// mockClock will panic if anything but After is called
+type mockClock struct {
+	clock.Clock
+	wait time.Duration
+}
+
+func (m *mockClock) After(duration time.Duration) <-chan time.Time {
+	m.wait = duration
+	return time.After(time.Millisecond)
 }

@@ -75,6 +75,10 @@ type EnvironCommand interface {
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
 	SetAPIOpener(opener APIOpener)
+
+	// SetOpenerFunc allows generally only tests to override the function
+	// used to return an APIConnection.
+	SetOpenerFunc(func(string) (api.Connection, error))
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
@@ -94,6 +98,9 @@ type EnvCommandBase struct {
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
 
+	// openerFunc can be overridden for testing purposes.
+	openerFunc func(string) (api.Connection, error)
+
 	envGetterClient EnvironmentGetter
 	envGetterErr    error
 }
@@ -112,6 +119,12 @@ func (c *EnvCommandBase) EnvName() string {
 // the API connection.
 func (c *EnvCommandBase) SetAPIOpener(opener APIOpener) {
 	c.opener = opener
+}
+
+// SetOpenerFunc allows the overriding of the function used to return the api
+// connection.
+func (c *EnvCommandBase) SetOpenerFunc(openerFunc func(string) (api.Connection, error)) {
+	c.openerFunc = openerFunc
 }
 
 func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
@@ -144,7 +157,10 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	return c.opener.Open(c.JujuCommandBase.NewAPIRoot, c.envName)
+	if c.openerFunc == nil {
+		c.openerFunc = c.JujuCommandBase.NewAPIRoot
+	}
+	return c.opener.Open(c.openerFunc, c.envName)
 }
 
 // Config returns the configuration for the environment; obtaining bootstrap
@@ -327,6 +343,14 @@ func EnvSkipDefault(w *environCommandWrapper) {
 func EnvAPIOpener(opener APIOpener) WrapEnvOption {
 	return func(w *environCommandWrapper) {
 		w.EnvironCommand.SetAPIOpener(opener)
+	}
+}
+
+// EnvOpenerFunc instructs the underlying environment command to use a
+// different function to return the api connection.
+func EnvOpenerFunc(openerFunc func(string) (api.Connection, error)) WrapEnvOption {
+	return func(w *environCommandWrapper) {
+		w.EnvironCommand.SetOpenerFunc(openerFunc)
 	}
 }
 

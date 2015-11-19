@@ -38,6 +38,10 @@ type ControllerCommand interface {
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
 	SetAPIOpener(opener APIOpener)
+
+	// SetOpenerFunc allows generally only tests to override the function
+	// used to return an APIConnection.
+	SetOpenerFunc(func(string) (api.Connection, error))
 }
 
 // ControllerCommandBase is a convenience type for embedding in commands
@@ -49,6 +53,9 @@ type ControllerCommandBase struct {
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
+
+	// openerFunc can be overridden for testing purposes.
+	openerFunc func(string) (api.Connection, error)
 }
 
 // SetControllerName implements the ControllerCommand interface.
@@ -65,6 +72,12 @@ func (c *ControllerCommandBase) ControllerName() string {
 // the API connection.
 func (c *ControllerCommandBase) SetAPIOpener(opener APIOpener) {
 	c.opener = opener
+}
+
+// SetOpenerFunc allows the overriding of the function used to return the api
+// connection.
+func (c *ControllerCommandBase) SetOpenerFunc(openerFunc func(string) (api.Connection, error)) {
+	c.openerFunc = openerFunc
 }
 
 // NewEnvironmentManagerAPIClient returns an API client for the
@@ -104,7 +117,10 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.controllerName == "" {
 		return nil, errors.Trace(ErrNoControllerSpecified)
 	}
-	return c.opener.Open(c.JujuCommandBase.NewAPIRoot, c.controllerName)
+	if c.openerFunc == nil {
+		c.openerFunc = c.JujuCommandBase.NewAPIRoot
+	}
+	return c.opener.Open(c.openerFunc, c.controllerName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -151,7 +167,7 @@ func (c *ControllerCommandBase) ConnectionInfo() (configstore.EnvironInfo, error
 // ControllerCommand wrapper.
 type WrapControllerOption func(*sysCommandWrapper)
 
-// ControllerSkipFlags instructs the wrapper to skip --s
+// ControllerSkipFlags instructs the wrapper to skip -c
 // and --controller flag definition.
 func ControllerSkipFlags(w *sysCommandWrapper) {
 	w.setFlags = false
@@ -168,6 +184,14 @@ func ControllerSkipDefault(w *sysCommandWrapper) {
 func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
 	return func(w *sysCommandWrapper) {
 		w.ControllerCommand.SetAPIOpener(opener)
+	}
+}
+
+// ControllerOpenerFunc instructs the underlying controller command to use a
+// different function to return the api connection.
+func ControllerOpenerFunc(openerFunc func(string) (api.Connection, error)) WrapControllerOption {
+	return func(w *sysCommandWrapper) {
+		w.ControllerCommand.SetOpenerFunc(openerFunc)
 	}
 }
 

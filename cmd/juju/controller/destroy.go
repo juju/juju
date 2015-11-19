@@ -26,7 +26,16 @@ import (
 
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
-	return envcmd.WrapBase(&destroyCommand{})
+	// Even though this command is all about destroying a controller we end up
+	// needing environment endpoints so we can fall back to the client destroy
+	// environment method. This shouldn't really matter in practice as the
+	// user trying to take down the controller will need to have access to the
+	// controller environment anyway.
+	return envcmd.Wrap(
+		&destroyCommand{},
+		envcmd.EnvSkipFlags,
+		envcmd.EnvSkipDefault,
+	)
 }
 
 // destroyCommand destroys the specified controller.
@@ -75,18 +84,6 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 }
 
-func (c *destroyCommand) getControllerAPI() (destroyControllerAPI, error) {
-	if c.api != nil {
-		return c.api, c.apierr
-	}
-	root, err := c.NewAPIRoot(c.controllerName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return controller.NewClient(root), nil
-}
-
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store, err := configstore.Default()
@@ -94,7 +91,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.controllerName)
+	cfgInfo, err := store.ReadInfo(c.EnvName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -102,11 +99,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.controllerName)
+		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.controllerName); err != nil {
+		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
 			return err
 		}
 	}
@@ -184,7 +181,7 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.controllerName)
+	logger.Errorf(stdFailureMsg, c.EnvName())
 	return destroyErr
 }
 
@@ -237,9 +234,8 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
-	envcmd.JujuCommandBase
-	controllerName string
-	assumeYes      bool
+	envcmd.EnvCommandBase
+	assumeYes bool
 
 	// The following fields are for mocking out
 	// api behavior for testing.
@@ -248,11 +244,22 @@ type destroyCommandBase struct {
 	clientapi destroyClientAPI
 }
 
+func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
+	if c.api != nil {
+		return c.api, c.apierr
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controller.NewClient(root), nil
+}
+
 func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
 	if c.clientapi != nil {
 		return c.clientapi, nil
 	}
-	root, err := c.NewAPIRoot(c.controllerName)
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -271,7 +278,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		c.controllerName = args[0]
+		c.SetEnvName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
