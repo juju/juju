@@ -1098,6 +1098,7 @@ type AddServiceArgs struct {
 	Charm       *Charm
 	Networks    []string
 	Storage     map[string]StorageConstraints
+	Bindings    map[string]string
 	Settings    charm.Settings
 	NumUnits    int
 	Placement   []*instance.Placement
@@ -1137,11 +1138,16 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.Bindings == nil {
+		args.Bindings = make(map[string]string)
+	}
+	if err := addDefaultEndpointBindings(st, args.Bindings, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1193,11 +1199,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
 		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
+		createEndpointBindingsOp(st, svc.globalKey(), args.Bindings),
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1218,6 +1223,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	// Collect peer relation addition operations.
+	//
+	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+	// follow-up.
 	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 	if err != nil {
 		return nil, errors.Trace(err)
