@@ -216,7 +216,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			// No port was found
 			host = j
 		}
-		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
+		target := net.JoinHostPort(host, strconv.Itoa(h.syslogConfig.Port))
 		namespace := h.syslogConfig.Namespace
 		if namespace != "" {
 			namespace = "-" + namespace
