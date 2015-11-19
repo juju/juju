@@ -553,6 +553,13 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	}
 	ops = append(ops, relOps...)
 
+	// Update endpoint bindings.
+	updateBindingsOps, err := updateEndpointBindingsForNewCharmOps(s.st, s.globalKey(), ch.Meta())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, updateBindingsOps...)
+
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
 	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
@@ -1192,42 +1199,12 @@ func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
 }
 
-// EndpointBindings returns the mapping between endpoint names and space names
-// the endpoint is bound to. For backwards-compatibility, if the corresponding
-// endpointBindingsDoc is missing, it will be created and populated with the
-// defaults (all endpoints bound to network.DefaultSpace).
-func (s *Service) EndpointBindings() (map[string]string, error) {
-	bindings, err := readEndpointBindings(s.st, s.globalKey())
-	switch {
-	case err == nil:
-		return bindings, nil
-	case errors.IsNotFound(err):
-		// Create using defaults.
-		defer errors.DeferredAnnotatef(&err, "setting default endpoint bindings")
-
-		if s.doc.Life != Alive {
-			return nil, errNotAlive
-		}
-		ch, _, err := s.Charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		bindings = make(map[string]string)
-		if err := addDefaultEndpointBindings(s.st, bindings, ch.Meta()); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		ops := []txn.Op{{
-			C:      servicesC,
-			Id:     s.doc.DocID,
-			Assert: isAliveDoc,
-		}}
-		ops = append(ops, createEndpointBindingsOp(s.st, s.globalKey(), bindings))
-		if err := onAbort(s.st.runTransaction(ops), errNotAlive); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return nil, errors.Trace(err)
+// EndpointBindings returns the mapping for each endpoint name and the space
+// name it is bound to.
+func (s *Service) EndpointBindings() (bindings map[string]string, err error) {
+	bindings, _, err = readEndpointBindings(s.st, s.globalKey())
+	// We don't need the TxnRevno here.
+	return bindings, err
 }
 
 // MetricCredentials returns any metric credentials associated with this service.

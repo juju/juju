@@ -4,12 +4,12 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -50,7 +50,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *compatSuite) TestGetServiceWithoutEndpointBindingsReturnsDefaults(c *gc.C) {
+func (s *compatSuite) TestGetServiceWithoutEndpointBindingsReturnsNotFound(c *gc.C) {
 	charm := addCharm(c, s.state, "quantal", testcharms.Repo.CharmDir("mysql"))
 	owner := s.env.Owner()
 	service, err := s.state.AddService(AddServiceArgs{Name: "mysql", Owner: owner.String(), Charm: charm})
@@ -61,13 +61,10 @@ func (s *compatSuite) TestGetServiceWithoutEndpointBindingsReturnsDefaults(c *gc
 	err = s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Now check the trying to fetch service's bindings is OK,
-	// because we'll get the default bindings.
 	bindings, err := service.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, map[string]string{
-		"server": network.DefaultSpace,
-	})
+	c.Assert(err, gc.ErrorMatches, `endpoint bindings for "s#mysql" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(bindings, gc.IsNil)
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
