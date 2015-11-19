@@ -85,16 +85,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
 	c.Assert(results.Results, jc.DeepEquals, []params.ServiceRelationsWatchResult{{
 		ServiceRelationsWatcherId: "1",
 		Changes: &params.ServiceRelationsChange{
-			ChangedRelations: map[int]params.RelationChange{
-				123: {
-					Life: params.Alive,
-					ChangedUnits: map[string]params.RelationUnitChange{
-						"django/0": {
-							Settings: djangoRelationUnit.settings,
-						},
+			ChangedRelations: []params.RelationChange{{
+				RelationId: 123,
+				Life:       params.Alive,
+				ChangedUnits: map[string]params.RelationUnitChange{
+					"django/0": {
+						Settings: djangoRelationUnit.settings,
 					},
 				},
-			},
+			}},
 		},
 	}, {
 		Error: &params.Error{
@@ -138,9 +137,10 @@ func (s *remoteRelationsSuite) TestWatchRemoteServiceRelationRemoved(c *gc.C) {
 		Changes: &params.ServiceRelationsChange{
 			// The relation is not found, but it was never reported
 			// to us, so it should not be reported in "Removed".
-			ChangedRelations: map[int]params.RelationChange{
-				123: {Life: params.Alive},
-			},
+			ChangedRelations: []params.RelationChange{{
+				RelationId: 123,
+				Life:       params.Alive,
+			}},
 		},
 	}})
 
@@ -205,16 +205,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteServiceRelationUnitRemoved(c *gc.C
 	c.Assert(results.Results, jc.DeepEquals, []params.ServiceRelationsWatchResult{{
 		ServiceRelationsWatcherId: "1",
 		Changes: &params.ServiceRelationsChange{
-			ChangedRelations: map[int]params.RelationChange{
-				123: {
-					Life: params.Alive,
-					ChangedUnits: map[string]params.RelationUnitChange{
-						"django/0": {
-							Settings: djangoRelationUnit.settings,
-						},
+			ChangedRelations: []params.RelationChange{{
+				RelationId: 123,
+				Life:       params.Alive,
+				ChangedUnits: map[string]params.RelationUnitChange{
+					"django/0": {
+						Settings: djangoRelationUnit.settings,
 					},
 				},
-			},
+			}},
 		},
 	}})
 
@@ -224,12 +223,11 @@ func (s *remoteRelationsSuite) TestWatchRemoteServiceRelationUnitRemoved(c *gc.C
 	w := s.resources.Get("1").(apiserver.ServiceRelationsWatcher)
 	change := <-w.Changes()
 	c.Assert(change, jc.DeepEquals, params.ServiceRelationsChange{
-		ChangedRelations: map[int]params.RelationChange{
-			123: {
-				Life:          params.Alive,
-				DepartedUnits: []string{"django/0"},
-			},
-		},
+		ChangedRelations: []params.RelationChange{{
+			RelationId:    123,
+			Life:          params.Alive,
+			DepartedUnits: []string{"django/0"},
+		}},
 	})
 
 	db2Relation.CheckCalls(c, []testing.StubCall{
@@ -257,9 +255,10 @@ func (s *remoteRelationsSuite) TestWatchRemoteServiceRelationUnitRemovedRace(c *
 	c.Assert(results.Results, jc.DeepEquals, []params.ServiceRelationsWatchResult{{
 		ServiceRelationsWatcherId: "1",
 		Changes: &params.ServiceRelationsChange{
-			ChangedRelations: map[int]params.RelationChange{
-				123: {Life: params.Alive},
-			},
+			ChangedRelations: []params.RelationChange{{
+				RelationId: 123,
+				Life:       params.Alive,
+			}},
 		},
 	}})
 }

@@ -48,3 +48,11 @@ type MachineStorageIdsWatcher interface {
 	Stop() error
 	Err() error
 }
+
+// ServiceRelationsWatcher is a watcher that reports on changes to relations
+// and relation units related to those relations for a specified service.
+type ServiceRelationsWatcher interface {
+	Changes() <-chan params.ServiceRelationsChange
+	Err() error
+	Stop() error
+}

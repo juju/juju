@@ -52,7 +52,7 @@ func NewRemoteRelationsAPI(
 	}, nil
 }
 
-// WatchRemoteService starts a strings watcher that notifies of the addition,
+// WatchRemoteServices starts a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote services in the environment; and
 // returns the watcher ID and initial IDs of remote services, or an error if
 // watching failed.
@@ -134,6 +134,8 @@ func newServiceRelationsWatcher(
 	}
 	go func() {
 		defer w.tomb.Done()
+		defer close(w.out)
+		defer close(w.relationUnitsChanges)
 		defer watcher.Stop(rw, &w.tomb)
 		defer func() {
 			for _, ruw := range w.relationUnitsWatchers {
@@ -188,13 +190,9 @@ func (w *serviceRelationsWatcher) loop() error {
 				}
 
 				relationId := relation.Id()
-				if value.ChangedRelations == nil {
-					value.ChangedRelations = map[int]params.RelationChange{}
-				}
-				relationChange := value.ChangedRelations[relationId]
+				relationChange, _ := getRelationChange(&value, relationId)
 				relationChange.Life = params.Life(relation.Life().String())
 				w.relations[relationKey] = relationInfo{relationId, relationChange.Life}
-				value.ChangedRelations[relationId] = relationChange
 				if _, ok := w.relationUnitsWatchers[relationKey]; !ok {
 					// Start a relation units watcher, wait for the initial
 					// value before informing the client of the relation.
@@ -242,27 +240,44 @@ func (w *serviceRelationsWatcher) loop() error {
 }
 
 func (w *serviceRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.ServiceRelationsChange) {
-	if value.ChangedRelations == nil {
-		value.ChangedRelations = map[int]params.RelationChange{}
-	}
 	relationInfo, ok := w.relations[change.relationKey]
-	ru, ok := value.ChangedRelations[relationInfo.relationId]
+	r, ok := getRelationChange(value, relationInfo.relationId)
 	if !ok {
-		ru.Life = relationInfo.life
+		r.Life = relationInfo.life
 	}
-	if ru.ChangedUnits == nil && len(change.changedUnits) > 0 {
-		ru.ChangedUnits = make(map[string]params.RelationUnitChange)
+	if r.ChangedUnits == nil && len(change.changedUnits) > 0 {
+		r.ChangedUnits = make(map[string]params.RelationUnitChange)
 	}
 	for unitId, unitChange := range change.changedUnits {
-		ru.ChangedUnits[unitId] = unitChange
+		r.ChangedUnits[unitId] = unitChange
 	}
-	if ru.ChangedUnits != nil {
+	if r.ChangedUnits != nil {
 		for _, unitId := range change.departedUnits {
-			delete(ru.ChangedUnits, unitId)
+			delete(r.ChangedUnits, unitId)
 		}
 	}
-	ru.DepartedUnits = append(ru.DepartedUnits, change.departedUnits...)
-	value.ChangedRelations[relationInfo.relationId] = ru
+	r.DepartedUnits = append(r.DepartedUnits, change.departedUnits...)
+}
+
+func getRelationChange(value *params.ServiceRelationsChange, relationId int) (*params.RelationChange, bool) {
+	for i, r := range value.ChangedRelations {
+		if r.RelationId == relationId {
+			return &value.ChangedRelations[i], true
+		}
+	}
+	value.ChangedRelations = append(
+		value.ChangedRelations, params.RelationChange{RelationId: relationId},
+	)
+	return &value.ChangedRelations[len(value.ChangedRelations)-1], false
+}
+
+func (w *serviceRelationsWatcher) updateRelation(change params.RelationChange, value *params.ServiceRelationsChange) {
+	for i, r := range value.ChangedRelations {
+		if r.RelationId == change.RelationId {
+			value.ChangedRelations[i] = change
+			return
+		}
+	}
 }
 
 func (w *serviceRelationsWatcher) Changes() <-chan params.ServiceRelationsChange {
