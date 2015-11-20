@@ -188,6 +188,7 @@ class TestScaleOut(TestCase):
                   ('series/charm-name-13', 'charm-name-13'),
                   ('local:charm-name', 'charm-name'),
                   ('cs:~user/charm-name', 'charm-name'),
+                  ('cs:charm-name-2-1', 'charm-name-2-1'),
                   ('lp:~user/some/path/to/charm-name', 'charm-name')]
         for charm, expected in charms:
             result = get_service_name(charm)
