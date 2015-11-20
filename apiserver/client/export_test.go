@@ -24,7 +24,8 @@ var (
 
 type MachineAndContainers machineAndContainers
 
-// Status history exports
+var StartSerialWaitParallel = startSerialWaitParallel
+
 type StateInterface stateInterface
 
 type Patcher interface {
