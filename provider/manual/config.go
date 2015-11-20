@@ -5,6 +5,8 @@ package manual
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/juju/schema"
 
@@ -77,11 +79,11 @@ func (c *environConfig) storageAuthKey() string {
 // storageAddr returns an address for connecting to the
 // bootstrap machine's localstorage.
 func (c *environConfig) storageAddr() string {
-	return fmt.Sprintf("%s:%d", c.bootstrapHost(), c.storagePort())
+	return net.JoinHostPort(c.bootstrapHost(), strconv.Itoa(c.storagePort()))
 }
 
 // storageListenAddr returns an address for the bootstrap
 // machine to listen on for its localstorage.
 func (c *environConfig) storageListenAddr() string {
-	return fmt.Sprintf("%s:%d", c.storageListenIPAddress(), c.storagePort())
+	return net.JoinHostPort(c.storageListenIPAddress(), strconv.Itoa(c.storagePort()))
 }
