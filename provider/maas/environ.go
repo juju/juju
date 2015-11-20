@@ -1662,38 +1662,6 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	return subnets, nil
 }
 
-func (environ *maasEnviron) nodeOnSubnet(nodeId string, subnetId string) (bool, error) {
-	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
-
-	params := url.Values{"with_node_summary": {"true"}}
-	json, err := client.CallGet("ip_addresses", params)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	jsonAddresses, err := json.GetArray()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, jsonAddr := range jsonAddresses {
-		addrMap, err := jsonAddr.GetMap()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		node, err := addrMap["node_summary"].GetMap()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		thisNodeId, err := node["system_id"].GetString()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if thisNodeId == nodeId {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // Deduce the allocatable portion of the subnet by subtracting the dynamic
 // range from the full subnet range.
 func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId string) (net.IP, net.IP, error) {
@@ -1791,7 +1759,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnets, err := environ.allSubnets(nodeId, subnetIds)
+	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1800,13 +1768,53 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	return subnets, nil
 }
 
-func (environ *maasEnviron) allSubnets(nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	client := environ.getMAASClient().GetSubObject("subnets")
-	json, err := client.CallGet("", nil)
+func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network.SubnetInfo, error) {
+	var subnetInfo network.SubnetInfo
+	fields, err := subnet.GetMap()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return subnetInfo, errors.Trace(err)
 	}
-	jsonNets, err := json.GetArray()
+	subnetId, err := fields["id"].GetString()
+	if err != nil {
+		return subnetInfo, errors.Annotatef(err, "cannot get subnet Id")
+	}
+	cidr, err := fields["cidr"].GetString()
+	if err != nil {
+		return subnetInfo, errors.Errorf("cannot get cidr: %v", err)
+	}
+	spaceName, err := fields["space"].GetString()
+	if err != nil {
+		return subnetInfo, errors.Errorf("cannot get space name: %v", err)
+	}
+	vid := 0
+	vidField, ok := fields["vid"]
+	if ok && !vidField.IsNil() {
+		// vid is optional, so assume it's 0 when missing or nil.
+		vidFloat, err := vidField.GetFloat64()
+		if err != nil {
+			return subnetInfo, errors.Errorf("cannot get vlan tag: %v", err)
+		}
+		vid = int(vidFloat)
+	}
+	allocatableLow, allocatableHigh, err := environ.allocatableRangeForSubnet(cidr, subnetId)
+	if err != nil {
+		return subnetInfo, errors.Trace(err)
+	}
+
+	subnetInfo = network.SubnetInfo{
+		ProviderId:        network.Id(subnetId),
+		VLANTag:           vid,
+		CIDR:              cidr,
+		SpaceName:         maasSpaceNameToJuju(spaceName),
+		SpaceProviderId:   spaceName,
+		AllocatableIPLow:  allocatableLow,
+		AllocatableIPHigh: allocatableHigh,
+	}
+	return subnetInfo, nil
+}
+
+func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	jsonNets, err := environ.subnetsFromNode(nodeId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1836,49 +1844,9 @@ func (environ *maasEnviron) allSubnets(nodeId string, subnetIds []network.Id) ([
 			}
 			subnetIdSet[network.Id(subnetId)] = true
 		}
-		// Are we filtering by node?
-		if nodeId != "" {
-			match, err := environ.nodeOnSubnet(nodeId, subnetId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if !match {
-				// The instance we're checking for isn't on this subnet.
-				continue
-			}
-		}
-
-		cidr, err := fields["cidr"].GetString()
-		if err != nil {
-			return nil, errors.Errorf("cannot get cidr: %v", err)
-		}
-		spaceName, err := fields["space"].GetString()
-		if err != nil {
-			return nil, errors.Errorf("cannot get space name: %v", err)
-		}
-		vid := 0
-		vidField, ok := fields["vid"]
-		if ok && !vidField.IsNil() {
-			// vid is optional, so assume it's 0 when missing or nil.
-			vidFloat, err := vidField.GetFloat64()
-			if err != nil {
-				return nil, errors.Errorf("cannot get vlan tag: %v", err)
-			}
-			vid = int(vidFloat)
-		}
-		allocatableLow, allocatableHigh, err := environ.allocatableRangeForSubnet(cidr, subnetId)
+		subnetInfo, err := environ.subnetFromJson(jsonNet)
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		subnetInfo := network.SubnetInfo{
-			ProviderId:        network.Id(subnetId),
-			VLANTag:           vid,
-			CIDR:              cidr,
-			SpaceName:         maasSpaceNameToJuju(spaceName),
-			SpaceProviderId:   spaceName,
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
 		}
 		subnets[i] = subnetInfo
 		logger.Tracef("found subnet with info %#v", subnetInfo)
