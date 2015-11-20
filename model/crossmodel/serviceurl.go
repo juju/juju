@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 )
 
 // ServiceURL represents the location of an offered service and its
@@ -62,14 +63,7 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	if url.Scheme != "" {
 		result.Directory = url.Scheme
-		supported := false
-		for _, s := range supportedURLDirectories {
-			supported = s == result.Directory
-			if supported {
-				break
-			}
-		}
-		if !supported {
+		if supported := IsSupportedURLDirectory(result.Directory); !supported {
 			return nil, errors.Errorf("service URL has invalid directory: %q", urlStr)
 		}
 	}
@@ -107,4 +101,10 @@ func ServiceDirectoryForURL(urlStr string) (string, error) {
 		return "", err
 	}
 	return url.Directory, nil
+}
+
+// IsSupportedURLDirectory determines if supplied URL directory name is supported.
+var IsSupportedURLDirectory = func(dir string) bool {
+	supportedSet := set.NewStrings(supportedURLDirectories...)
+	return supportedSet.Contains(dir)
 }

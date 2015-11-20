@@ -100,3 +100,13 @@ func (s *ServiceURLSuite) TestServiceDirectoryForURLError(c *gc.C) {
 	_, err := crossmodel.ServiceDirectoryForURL("error")
 	c.Assert(err, gc.ErrorMatches, "service URL has invalid form.*")
 }
+
+func (s *ServiceURLSuite) TestIsSupportedURLDirectory(c *gc.C) {
+	supported := crossmodel.IsSupportedURLDirectory("local")
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (s *ServiceURLSuite) TestIsNotSupportedURLDirectory(c *gc.C) {
+	supported := crossmodel.IsSupportedURLDirectory("")
+	c.Assert(supported, jc.IsFalse)
+}
