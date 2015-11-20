@@ -692,6 +692,7 @@ type serviceInfo struct {
 	config      charm.Settings
 	constraints constraints.Value
 	exposed     bool
+	storage     map[string]state.StorageConstraints
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
@@ -708,11 +709,17 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 		}
 		constraints, err := service.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
+		storage, err := service.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(storage) == 0 {
+			storage = nil
+		}
 		deployed[service.Name()] = serviceInfo{
 			charm:       charm.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     service.IsExposed(),
+			storage:     storage,
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)

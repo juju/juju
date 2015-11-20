@@ -35,7 +35,11 @@ type deploymentLogger interface {
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
-func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger) error {
+func deployBundle(
+	data *charm.BundleData, client *api.Client, serviceDeployer *serviceDeployer,
+	csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger,
+	bundleStorage map[string]map[string]storage.Constraints,
+) error {
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -76,6 +80,8 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 		changes:         changes,
 		results:         make(map[string]string, numChanges),
 		client:          client,
+		serviceDeployer: serviceDeployer,
+		bundleStorage:   bundleStorage,
 		csclient:        csclient,
 		repoPath:        repoPath,
 		conf:            conf,
@@ -132,6 +138,13 @@ type bundleHandler struct {
 	results map[string]string
 	// client is used to interact with the environment.
 	client *api.Client
+	// serviceDeployer is used to deploy services.
+	serviceDeployer *serviceDeployer
+	// bundleStorage contains a mapping of service-specific storage
+	// constraints. For each service, the storage constraints in the
+	// map will replace or augment the storage constraints specified
+	// in the bundle itself.
+	bundleStorage map[string]map[string]storage.Constraints
 	// csclient is used to retrieve charms from the charm store.
 	csclient *csClient
 	// repoPath is used to retrieve charms from a local repository.
@@ -195,9 +208,32 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for service")
 	}
+	storageConstraints := h.bundleStorage[p.Service]
+	if len(p.Storage) > 0 {
+		if storageConstraints == nil {
+			storageConstraints = make(map[string]storage.Constraints)
+		}
+		for k, v := range p.Storage {
+			if _, ok := storageConstraints[k]; ok {
+				// Storage constraints overridden
+				// on the command line.
+				continue
+			}
+			cons, err := storage.ParseConstraints(v)
+			if err != nil {
+				return errors.Annotate(err, "invalid storage constraints")
+			}
+			storageConstraints[k] = cons
+		}
+	}
 	// Deploy the service.
-	numUnits, toMachineSpec := 0, ""
-	if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err == nil {
+	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
+		charmURL:    ch,
+		serviceName: p.Service,
+		configYAML:  configYAML,
+		constraints: cons,
+		storage:     storageConstraints,
+	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
 		return nil
 	} else if !isErrServiceExists(err) {
