@@ -91,7 +91,7 @@ type SubnetInfo struct {
 
 	// SpaceProviderId holds the provider Id of the space associated with
 	// this subnet. Can be empty if not supported.
-	SpaceProviderId string
+	SpaceProviderId Id
 }
 
 type SpaceInfo struct {

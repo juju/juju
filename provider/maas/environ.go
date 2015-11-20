@@ -1927,7 +1927,7 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 		VLANTag:           vid,
 		CIDR:              cidr,
 		SpaceName:         maasSpaceNameToJuju(spaceName),
-		SpaceProviderId:   spaceName,
+		SpaceProviderId:   network.Id(spaceName),
 		AllocatableIPLow:  allocatableLow,
 		AllocatableIPHigh: allocatableHigh,
 	}
@@ -2027,7 +2027,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 		if !ok {
 			space = network.SpaceInfo{
 				Name:       subnetInfo.SpaceName,
-				ProviderId: network.Id(subnetInfo.SpaceProviderId),
+				ProviderId: subnetInfo.SpaceProviderId,
 			}
 		}
 		spaces = append(spaces, space)
