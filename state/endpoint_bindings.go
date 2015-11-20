@@ -17,9 +17,9 @@ import (
 // bindingsMap is the underlying type stored in mongo for bindings.
 type bindingsMap map[string]string
 
-// SetBSON ensures any special characters ($ or .) are unescaped in keys before
+// SetBSON ensures any special characters ($ or .) are unescaped in keys after
 // unmarshalling the raw BSON coming from the stored document.
-func (b *bindingsMap) SetBSON(raw bson.Raw) error {
+func (bp *bindingsMap) SetBSON(raw bson.Raw) error {
 	rawMap := make(map[string]string)
 	if err := raw.Unmarshal(rawMap); err != nil {
 		return err
@@ -28,22 +28,26 @@ func (b *bindingsMap) SetBSON(raw bson.Raw) error {
 		newKey := unescapeReplacer.Replace(key)
 		if newKey != key {
 			delete(rawMap, key)
-			rawMap[newKey] = value
 		}
+		rawMap[newKey] = value
 	}
-	*b = bindingsMap(rawMap)
+	*bp = bindingsMap(rawMap)
 	return nil
 }
 
 // GetBSON ensures any special characters ($ or .) are escaped in keys before
 // marshalling the map into BSON and storing in mongo.
-func (b *bindingsMap) GetBSON() (interface{}, error) {
+func (b bindingsMap) GetBSON() (interface{}, error) {
 	if b == nil {
 		return nil, nil
 	}
-	rawMap := make(map[string]string)
-	for key, value := range *b {
-		rawMap[escapeReplacer.Replace(key)] = value
+	rawMap := make(map[string]string, len(b))
+	for key, value := range b {
+		newKey := escapeReplacer.Replace(key)
+		if newKey != key {
+			delete(rawMap, key)
+		}
+		rawMap[newKey] = value
 	}
 	return rawMap, nil
 }
@@ -59,67 +63,101 @@ type endpointBindingsDoc struct {
 	// Bindings maps a service endpoint name to the space name it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
 
-	// TxnRevno is used to assert the contents of the collection hasn't changed
-	// since the document was retrieved.
+	// TxnRevno is used to assert the contents of the collection have not
+	// changed since the document was retrieved.
 	TxnRevno int64 `bson:"txn-revno"`
 }
 
-// createEndpointBindingsOp returns an op inserting the given bindings for the
-// given key, asserting it does not exist yet.
-func createEndpointBindingsOp(st *State, key string, bindings map[string]string) txn.Op {
-	return txn.Op{
-		C:      endpointBindingsC,
-		Id:     st.docID(key),
-		Assert: txn.DocMissing,
-		Insert: &endpointBindingsDoc{
-			Bindings: bindingsMap(bindings),
-		},
+// replaceEndpointBindingsOp returns an op that sets and/or unsets existing
+// endpoint bindings as needed, so the effective stored bindings match
+// newBindings for the given key. If no bindings exist yet, they will be created
+// from newBindings.
+func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]string) (txn.Op, error) {
+	existingMap, txnRevno, err := readEndpointBindings(st, key)
+	if errors.IsNotFound(err) {
+		// No bindings yet, just create them.
+		return txn.Op{
+			C:      endpointBindingsC,
+			Id:     key,
+			Assert: txn.DocMissing,
+			Insert: &endpointBindingsDoc{Bindings: newBindings},
+		}, nil
 	}
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	updates := make(bson.M)
+	deletes := make(bson.M)
+	for key, value := range existingMap {
+		newKey := escapeReplacer.Replace(key)
+		newValue, found := newBindings[key]
+		if !found {
+			deletes[newKey] = 1
+		} else if newValue != value {
+			updates[newKey] = newValue
+		}
+	}
+	op := txn.Op{
+		C:      endpointBindingsC,
+		Id:     key,
+		Assert: bson.D{{"txn-revno", txnRevno}},
+	}
+	var update bson.D
+	if len(updates) > 0 {
+		update = append(update, bson.DocElem{"$set", updates})
+	}
+	if len(deletes) > 0 {
+		update = append(update, bson.DocElem{"$unset", deletes})
+	}
+	op.Update = update
+	return op, nil
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
-// key, asserting they exist.
-func removeEndpointBindingsOp(st *State, key string) txn.Op {
+// key, asserting the document exists.
+func removeEndpointBindingsOp(key string) txn.Op {
 	return txn.Op{
 		C:      endpointBindingsC,
-		Id:     st.docID(key),
-		Assert: txn.DocExists,
+		Id:     key,
 		Remove: true,
 	}
 }
 
-// assertEndpointBindingsUnchangedOp returns an op asserting the bindings for
-// the given key still have the same txnRevno and are therefore unchanged.
-func assertEndpointBindingsUnchangedOp(st *State, key string, txnRevno int64) txn.Op {
-	return txn.Op{
-		C:      endpointBindingsC,
-		Id:     st.docID(key),
-		Assert: bson.D{{"txn-revno", txnRevno}},
-	}
-}
-
-// readEndpointBindings returns the binings map and TxnRevno for the given
-// service global key if they exist.
+// readEndpointBindings returns the stored bindings and TxnRevno for the given
+// service global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
 	endpointBindings, closer := st.getCollection(endpointBindingsC)
 	defer closer()
 
-	doc := endpointBindingsDoc{}
+	var doc endpointBindingsDoc
 	err := endpointBindings.FindId(key).One(&doc)
-	switch err {
-	case mgo.ErrNotFound:
+	if err == mgo.ErrNotFound {
 		return nil, 0, errors.NotFoundf("endpoint bindings for %q", key)
-	case nil:
-		return doc.Bindings, doc.TxnRevno, nil
 	}
-	return nil, 0, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
+	if err != nil {
+		return nil, 0, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
+	}
+	return doc.Bindings, doc.TxnRevno, nil
 }
 
-// addDefaultEndpointBindings fills in the default space for all unspecified
-// endpoint bindings, based on the given charm metadata. Any invalid bindings
-// yield an error satisfying errors.IsNotValid.
-func addDefaultEndpointBindings(st *State, givenBindings map[string]string, charmMeta *charm.Meta) error {
-	if givenBindings == nil {
+// defaultEndpointBindingsForCharm populates a bindings map containing each
+// endpoint of the given charm metadata bound to the default space.
+func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
+	if charmMeta == nil {
+		return nil, errors.Errorf("nil charm metadata")
+	}
+	bindings := make(map[string]string)
+	for name := range combinedCharmRelations(charmMeta) {
+		bindings[name] = network.DefaultSpace
+	}
+	return bindings, nil
+}
+
+// validateEndpointBindingsForCharm returns no error all endpoints in the given
+// bindings for the given charm metadata are explicitly bound to an existing
+// space, otherwise it returns an error satisfying errors.IsNotValid().
+func validateEndpointBindingsForCharm(st *State, bindings map[string]string, charmMeta *charm.Meta) error {
+	if bindings == nil {
 		return errors.NotValidf("nil bindings")
 	}
 	if charmMeta == nil {
@@ -133,30 +171,24 @@ func addDefaultEndpointBindings(st *State, givenBindings map[string]string, char
 	for _, space := range spaces {
 		spacesNamesSet.Add(space.Name())
 	}
+	// TODO(dimitern): Do not treat the default space specially here, this is
+	// temporary only to reduce the fallout across state tests and will be fixed
+	// in a follow-up.
+	if !spacesNamesSet.Contains(network.DefaultSpace) {
+		spacesNamesSet.Add(network.DefaultSpace)
+	}
 	endpointsNamesSet := set.NewStrings()
 
-	processRelations := func(relations map[string]charm.Relation) error {
-		for name, _ := range relations {
-			endpointsNamesSet.Add(name)
-			if space, isSet := givenBindings[name]; !isSet || space == "" {
-				givenBindings[name] = network.DefaultSpace
-			} else if isSet && space != "" && !spacesNamesSet.Contains(space) {
-				return errors.NotValidf("endpoint %q bound to unknown space %q", name, space)
-			}
+	for name := range combinedCharmRelations(charmMeta) {
+		endpointsNamesSet.Add(name)
+		if space, isSet := bindings[name]; !isSet || space == "" {
+			return errors.NotValidf("endpoint %q not bound to a space", name)
+		} else if isSet && space != "" && !spacesNamesSet.Contains(space) {
+			return errors.NotValidf("endpoint %q bound to unknown space %q", name, space)
 		}
-		return nil
-	}
-	if err := processRelations(charmMeta.Provides); err != nil {
-		return errors.Trace(err)
-	}
-	if err := processRelations(charmMeta.Requires); err != nil {
-		return errors.Trace(err)
-	}
-	if err := processRelations(charmMeta.Peers); err != nil {
-		return errors.Trace(err)
 	}
 	// Ensure no extra, unknown endpoints are given.
-	for endpoint, space := range givenBindings {
+	for endpoint, space := range bindings {
 		if !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q binding to space %q", endpoint, space)
 		}
@@ -167,30 +199,58 @@ func addDefaultEndpointBindings(st *State, givenBindings map[string]string, char
 	return nil
 }
 
-// updateEndpointBindingsForNewCharmOps returns the ops needed to update the
-// existing endpoint bindings for a service when its charm is changed, ensuring
-// endpoints not present in the new charm are removed, while new ones are added
-// and bound to the default space.
-func updateEndpointBindingsForNewCharmOps(st *State, key string, newCharmMeta *charm.Meta) ([]txn.Op, error) {
-	existingMap, txnRevno, err := readEndpointBindings(st, key)
+// endpointBindingsForCharmOp returns the op needed to create new or update
+// existing endpoint bindings for the specified charm metadata. If givenMap is
+// not empty, any specified bindings there will override the defaults.
+func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+	if meta == nil {
+		return txn.Op{}, errors.Errorf("nil charm metadata")
+	}
+
+	// Prepare the effective new bindings map.
+	defaults, err := defaultEndpointBindingsForCharm(meta)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return txn.Op{}, errors.Trace(err)
 	}
 	newMap := make(map[string]string)
-	if err := addDefaultEndpointBindings(st, newMap, newCharmMeta); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Ensure existing endpoint bindings are preserved.
-	for newEndpoint, _ := range newMap {
-		if oldSpace, doesExist := existingMap[newEndpoint]; doesExist {
-			newMap[newEndpoint] = oldSpace
+	if len(givenMap) > 0 {
+		// Combine the given bindings with defaults.
+		for key, defaultValue := range defaults {
+			if givenValue, found := givenMap[key]; !found {
+				newMap[key] = defaultValue
+			} else {
+				newMap[key] = givenValue
+			}
 		}
+	} else {
+		// No bindings given, just use the defaults.
+		newMap = defaults
 	}
-	// Before changing anything assert the existing endpoints haven't changed
-	// yet before replacing them with the new ones.
-	return []txn.Op{
-		assertEndpointBindingsUnchangedOp(st, key, txnRevno),
-		removeEndpointBindingsOp(st, key),
-		createEndpointBindingsOp(st, key, newMap),
-	}, nil
+	// Validate the bindings before updating.
+	if err := validateEndpointBindingsForCharm(st, newMap, meta); err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+
+	return replaceEndpointBindingsOp(st, key, newMap)
+}
+
+// combinedCharmRelations returns the relations defined in the given charm
+// metadata (from Provides, Requires, and Peers) in a single map. This works
+// because charm relation names must be unique regarless of their kind. This
+// helper is only used internally, and it will panic if charmMeta is nil.
+func combinedCharmRelations(charmMeta *charm.Meta) map[string]charm.Relation {
+	if charmMeta == nil {
+		panic("nil charm metadata")
+	}
+	combined := make(map[string]charm.Relation)
+	for name, relation := range charmMeta.Provides {
+		combined[name] = relation
+	}
+	for name, relation := range charmMeta.Requires {
+		combined[name] = relation
+	}
+	for name, relation := range charmMeta.Peers {
+		combined[name] = relation
+	}
+	return combined
 }
