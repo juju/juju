@@ -256,6 +256,8 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfo)
 	s.assertFilesystemAttachmentUnprovisioned(c, machineTag, filesystemTag)
 
+	// Explicitly set both MountPoint and ReadOnly to work around
+	// bug #1517611
 	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{MountPoint: "/srv", ReadOnly: false}
 	err = s.State.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
