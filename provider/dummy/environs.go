@@ -1082,6 +1082,11 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// Spaces is specified on environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	return []network.SpaceInfo{}, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
