@@ -149,7 +149,7 @@ class TestQuickstartTest(TestCase):
                    return_value='mocked_name') as dns_mock:
             # Test second yield
             step = steps.next()
-        dns_mock.assert_called_once_with(client, 0)
+        dns_mock.assert_called_once_with(client, '0')
         self.assertEqual('mocked_name', step['bootstrap_host'])
         with patch.object(client, 'wait_for_deploy_started') as wds_mock:
             # Test third yield
