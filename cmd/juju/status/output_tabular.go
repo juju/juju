@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/instance"
 )
 
 // FormatTabular returns a tabular summary of machines, services, and
@@ -101,10 +102,19 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	tw.Flush()
 
 	p("\n[Machines]")
-	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
+	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")
 	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
 		m := fs.Machines[name]
-		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
+		// We want to display availability zone so extract from hardware info".
+		hw, err := instance.ParseHardware(m.Hardware)
+		if err != nil {
+			logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
+		}
+		az := ""
+		if hw.AvailabilityZone != nil {
+			az = *hw.AvailabilityZone
+		}
+		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
 	}
 	tw.Flush()
 

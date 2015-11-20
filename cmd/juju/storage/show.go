@@ -14,7 +14,11 @@ import (
 )
 
 func newShowCommand() cmd.Command {
-	return envcmd.Wrap(&showCommand{})
+	cmd := &showCommand{}
+	cmd.newAPIFunc = func() (StorageShowAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 const showCommandDoc = `
@@ -36,9 +40,9 @@ options:
 // showCommand attempts to release storage instance.
 type showCommand struct {
 	StorageCommandBase
-	ids []string
-	out cmd.Output
-	api StorageShowAPI
+	ids        []string
+	out        cmd.Output
+	newAPIFunc func() (StorageShowAPI, error)
 }
 
 // Init implements Command.Init.
@@ -67,14 +71,11 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	api := c.api
-	if api == nil {
-		api, err = c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
 	tags, err := c.getStorageTags()
 	if err != nil {

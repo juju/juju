@@ -1022,6 +1022,26 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
+func (u *Unit) charm() (*Charm, error) {
+	if u.doc.CharmURL == nil {
+		s, err := u.Service()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+		}
+		ch, _, err := s.Charm()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+		}
+		return ch, nil
+	}
+
+	ch, err := u.st.Charm(u.doc.CharmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ch, nil
+}
+
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalAgentKey())
@@ -1220,7 +1240,9 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		Id:     m.doc.DocID,
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
-	}}
+	},
+		removeStagedAssignmentOp(u.doc.DocID),
+	}
 	ops = append(ops, storageOps...)
 	return ops, nil
 }
@@ -1374,7 +1396,9 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		Id:     u.doc.DocID,
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"machineid", mdoc.Id}}}},
-	})
+	},
+		removeStagedAssignmentOp(u.doc.DocID),
+	)
 
 	err = u.st.runTransaction(ops)
 	if err == nil {

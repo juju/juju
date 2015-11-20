@@ -17,12 +17,19 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
+type fops interface {
+	// MkDir provides the functionality of gc.C.MkDir().
+	MkDir() string
+}
+
 // RealPaths implements Paths for tests that do touch the filesystem.
 type RealPaths struct {
-	tools        string
-	charm        string
-	socket       string
-	metricsspool string
+	tools         string
+	charm         string
+	socket        string
+	metricsspool  string
+	componentDirs map[string]string
+	fops          fops
 }
 
 func osDependentSockPath(c *gc.C) string {
@@ -35,10 +42,12 @@ func osDependentSockPath(c *gc.C) string {
 
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
-		tools:        c.MkDir(),
-		charm:        c.MkDir(),
-		socket:       osDependentSockPath(c),
-		metricsspool: c.MkDir(),
+		tools:         c.MkDir(),
+		charm:         c.MkDir(),
+		socket:        osDependentSockPath(c),
+		metricsspool:  c.MkDir(),
+		componentDirs: make(map[string]string),
+		fops:          c,
 	}
 }
 
@@ -56,6 +65,14 @@ func (p RealPaths) GetCharmDir() string {
 
 func (p RealPaths) GetJujucSocket() string {
 	return p.socket
+}
+
+func (p RealPaths) ComponentDir(name string) string {
+	if dirname, ok := p.componentDirs[name]; ok {
+		return dirname
+	}
+	p.componentDirs[name] = filepath.Join(p.fops.MkDir(), name)
+	return p.componentDirs[name]
 }
 
 type StorageContextAccessor struct {

@@ -1431,6 +1431,12 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
 }
 
+// WatchForUnitAssignment watches for new services that request units to be
+// assigned to machines.
+func (st *State) WatchForUnitAssignment() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{col: assignUnitC})
+}
+
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
@@ -2053,29 +2059,48 @@ func statusInCollectionOp(statusSet ...ActionStatus) bson.D {
 	return inCollectionOp("status", ids...)
 }
 
-// idPrefixWatcher is a StringsWatcher that watches for changes on the
-// specified collection that match common prefixes
-type idPrefixWatcher struct {
+// collectionWatcher is a StringsWatcher that watches for changes on the
+// specified collection that match a filter on the id.
+type collectionWatcher struct {
 	commonWatcher
-	source   chan watcher.Change
-	sink     chan []string
-	filterFn func(interface{}) bool
-	targetC  string
+	colWCfg
+	source chan watcher.Change
+	sink   chan []string
 }
 
-// ensure idPrefixWatcher is a StringsWatcher
+// ensure collectionWatcher is a StringsWatcher
 // TODO(dfc) this needs to move to a test
-var _ StringsWatcher = (*idPrefixWatcher)(nil)
+var _ StringsWatcher = (*collectionWatcher)(nil)
 
-// newIdPrefixWatcher starts and returns a new StringsWatcher configured
+// colWCfg contains the parameters for watching a collection.
+type colWCfg struct {
+	col    string
+	filter func(interface{}) bool
+	idconv func(string) string
+}
+
+// newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
-func newIdPrefixWatcher(st *State, collectionName string, filter func(interface{}) bool) StringsWatcher {
-	w := &idPrefixWatcher{
+func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
+	// Always ensure that there is at least filtering on the
+	// environment in place.
+	if cfg.filter == nil {
+		cfg.filter = st.isForStateEnv
+	} else {
+		innerFilter := cfg.filter
+		cfg.filter = func(id interface{}) bool {
+			if !st.isForStateEnv(id) {
+				return false
+			}
+			return innerFilter(id)
+		}
+	}
+
+	w := &collectionWatcher{
+		colWCfg:       cfg,
 		commonWatcher: commonWatcher{st: st},
 		source:        make(chan watcher.Change),
 		sink:          make(chan []string),
-		filterFn:      filter,
-		targetC:       collectionName,
 	}
 
 	go func() {
@@ -2089,21 +2114,21 @@ func newIdPrefixWatcher(st *State, collectionName string, filter func(interface{
 }
 
 // Changes returns the event channel for this watcher
-func (w *idPrefixWatcher) Changes() <-chan []string {
+func (w *collectionWatcher) Changes() <-chan []string {
 	return w.sink
 }
 
 // loop performs the main event loop cycle, polling for changes and
 // responding to Changes requests
-func (w *idPrefixWatcher) loop() error {
+func (w *collectionWatcher) loop() error {
 	var (
 		changes []string
 		in      = (<-chan watcher.Change)(w.source)
 		out     = (chan<- []string)(w.sink)
 	)
 
-	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
-	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
+	w.st.watcher.WatchCollectionWithFilter(w.col, w.source, w.filter)
+	defer w.st.watcher.UnwatchCollection(w.col, w.source)
 
 	changes, err := w.initial()
 	if err != nil {
@@ -2121,7 +2146,7 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(w.st, &changes, updates); err != nil {
+			if err := w.mergeIds(w.st, &changes, updates); err != nil {
 				return err
 			}
 			if len(changes) > 0 {
@@ -2164,18 +2189,21 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 
 // initial pre-loads the id's that have already been added to the
 // collection that would otherwise not normally trigger the watcher
-func (w *idPrefixWatcher) initial() ([]string, error) {
+func (w *collectionWatcher) initial() ([]string, error) {
 	var ids []string
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
-	coll, closer := w.st.getCollection(w.targetC)
+	coll, closer := w.st.getCollection(w.col)
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			actionId := actionNotificationIdToActionId(w.st.localID(doc.DocId))
-			ids = append(ids, actionId)
+		if w.filter == nil || w.filter(doc.DocId) {
+			id := w.st.localID(doc.DocId)
+			if w.idconv != nil {
+				id = w.idconv(id)
+			}
+			ids = append(ids, id)
 		}
 	}
 	return ids, iter.Close()
@@ -2189,25 +2217,38 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 // watcher.
 // Additionally, mergeIds strips the environment UUID prefix from the id
 // before emitting it through the watcher.
-func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
-	for id, idExists := range updates {
-		switch id := id.(type) {
-		case string:
-			localId := st.localID(id)
-			actionId := actionNotificationIdToActionId(localId)
-			chIx, idAlreadyInChangeset := indexOf(actionId, *changes)
-			if idExists {
-				if !idAlreadyInChangeset {
-					*changes = append(*changes, actionId)
-				}
-			} else {
-				if idAlreadyInChangeset {
-					// remove id from changes
-					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
-				}
+func (w *collectionWatcher) mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changes, updates, w.idconv)
+}
+
+func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+	for val, idExists := range updates {
+		id, ok := val.(string)
+		if !ok {
+			return errors.Errorf("id is not of type string, got %T", val)
+		}
+
+		// Strip off the env UUID prefix. We only expect ids for a
+		// single environment.
+		id, err := st.strictLocalID(id)
+		if err != nil {
+			return errors.Annotatef(err, "collection watcher")
+		}
+
+		if idconv != nil {
+			id = idconv(id)
+		}
+
+		chIx, idAlreadyInChangeset := indexOf(id, *changes)
+		if idExists {
+			if !idAlreadyInChangeset {
+				*changes = append(*changes, id)
 			}
-		default:
-			return errors.Errorf("id is not of type string, got %T", id)
+		} else {
+			if idAlreadyInChangeset {
+				// remove id from changes
+				*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+			}
 		}
 	}
 	return nil
@@ -2244,14 +2285,22 @@ func ensureSuffixFn(marker string) func(string) string {
 // watchEnqueuedActions starts and returns a StringsWatcher that
 // notifies on new Actions being enqueued.
 func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker))
+	return newcollectionWatcher(st, colWCfg{
+		col:    actionNotificationsC,
+		filter: makeIdFilter(st, actionMarker),
+		idconv: actionNotificationIdToActionId,
+	})
 }
 
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
 func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...))
+	return newcollectionWatcher(st, colWCfg{
+		col:    actionNotificationsC,
+		filter: makeIdFilter(st, actionMarker, receivers...),
+		idconv: actionNotificationIdToActionId,
+	})
 }
 
 // WatchActionResults starts and returns a StringsWatcher that

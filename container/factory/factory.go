@@ -17,8 +17,7 @@ import (
 
 // NewContainerManager creates the appropriate container.Manager for the
 // specified container type.
-func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig, imageURLGetter container.ImageURLGetter,
-) (container.Manager, error) {
+func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	switch forType {
 	case instance.LXC:
 		return lxc.NewContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())

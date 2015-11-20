@@ -14,7 +14,11 @@ import (
 )
 
 func newFilesystemListCommand() cmd.Command {
-	return envcmd.Wrap(&filesystemListCommand{})
+	cmd := &filesystemListCommand{}
+	cmd.newAPIFunc = func() (FilesystemListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 const filesystemListCommandDoc = `
@@ -33,9 +37,9 @@ options:
 // filesystemListCommand lists storage filesystems.
 type filesystemListCommand struct {
 	FilesystemCommandBase
-	Ids []string
-	out cmd.Output
-	api FilesystemListAPI
+	Ids        []string
+	out        cmd.Output
+	newAPIFunc func() (FilesystemListAPI, error)
 }
 
 // Init implements Command.Init.
@@ -66,14 +70,11 @@ func (c *filesystemListCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *filesystemListCommand) Run(ctx *cmd.Context) (err error) {
-	api := c.api
-	if api == nil {
-		api, err := c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
 	found, err := api.ListFilesystems(c.Ids)
 	if err != nil {

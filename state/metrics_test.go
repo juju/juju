@@ -145,7 +145,7 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = saved.SetSent()
+	err = saved.SetSent(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Sent(), jc.IsTrue)
 	saved, err = s.State.MetricBatch(added.UUID())
@@ -155,32 +155,32 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
+	now := time.Now()
 	m := state.Metric{"pings", "5", oldTime}
 	oldMetric1, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
-			Created:  oldTime,
+			Created:  now,
 			CharmURL: s.meteredCharm.URL().String(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	oldMetric1.SetSent()
+	oldMetric1.SetSent(time.Now().Add(-25 * time.Hour))
 
 	oldMetric2, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
-			Created:  oldTime,
+			Created:  now,
 			CharmURL: s.meteredCharm.URL().String(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	oldMetric2.SetSent()
+	oldMetric2.SetSent(time.Now().Add(-25 * time.Hour))
 
-	now := time.Now()
 	m = state.Metric{"pings", "5", now}
 	newMetric, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -192,7 +192,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newMetric.SetSent()
+	newMetric.SetSent(time.Now())
 	err = s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -237,7 +237,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	newMetric.SetSent()
+	newMetric.SetSent(time.Now())
 	err = s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -510,9 +510,9 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(toSend, gc.HasLen, 2)
 
-	err = m1.SetSent()
+	err = m1.SetSent(time.Now().Add(-25 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetSent()
+	err = m2.SetSent(time.Now().Add(-25 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
 
 	sent, err := s.State.CountOfSentMetrics()

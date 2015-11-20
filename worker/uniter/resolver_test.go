@@ -40,15 +40,16 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), c.MkDir(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.resolver = uniter.NewUniterResolver(
-		func() error { return errors.New("unexpected resolved") },
-		func(_ hook.Info) error { return errors.New("unexpected report hook error") },
-		func() error { return nil },
-		uniteractions.NewResolver(),
-		leadership.NewResolver(),
-		relation.NewRelationsResolver(&dummyRelations{}),
-		storage.NewResolver(attachments),
-	)
+	s.resolver = uniter.NewUniterResolver(uniter.ResolverConfig{
+		ClearResolved:   func() error { return errors.New("unexpected resolved") },
+		ReportHookError: func(_ hook.Info) error { return errors.New("unexpected report hook error") },
+		FixDeployer:     func() error { return nil },
+		Leadership:      leadership.NewResolver(),
+		Actions:         uniteractions.NewResolver(),
+		Relations:       relation.NewRelationsResolver(&dummyRelations{}),
+		Storage:         storage.NewResolver(attachments),
+		Commands:        nopResolver{},
+	})
 }
 
 // TestStartedNotInstalled tests whether the Started flag overrides the

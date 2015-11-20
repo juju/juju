@@ -4,12 +4,13 @@
 package apiserver
 
 import (
+	"net/http"
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"net/http"
-	"sync"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"

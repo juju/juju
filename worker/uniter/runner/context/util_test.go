@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -388,4 +389,8 @@ func (MockEnvPaths) GetJujucSocket() string {
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
+}
+
+func (MockEnvPaths) ComponentDir(name string) string {
+	return filepath.Join("path-to-base-dir", name)
 }

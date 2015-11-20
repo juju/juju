@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
-	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -26,7 +26,11 @@ import (
 // to use interfaces.
 // NewCharmStore instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
-var NewCharmStore = charmrepo.NewCharmStore
+var NewCharmStore = newCharmStore
+
+func newCharmStore(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+	return charmrepo.NewCharmStore(p)
+}
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
@@ -194,7 +198,11 @@ func resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, e
 	}
 
 	// Resolve the charm location with the repository.
-	curl, err := repo.Resolve(ref)
+	refWithSeries, _, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	curl, err := refWithSeries.URL("")
 	if err != nil {
 		return nil, err
 	}

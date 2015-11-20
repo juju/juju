@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
@@ -201,12 +203,14 @@ var commandNames = []string{
 	"add-unit",
 	"api-endpoints",
 	"api-info",
+	"add-user",        // alias for "user add"
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
 	"cached-images",
+	"change-password", // alias for "user change-password"
 	"create-environment",
 	"create-model", // alias for create-environment
 	"debug-hooks",
@@ -219,6 +223,8 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"disable-user", // alias for "user disable"
+	"enable-user",  // alias for "user enable"
 	"ensure-availability",
 	"env", // alias for switch
 	"environment",
@@ -226,7 +232,8 @@ var commandNames = []string{
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
-	"get-env", // alias for get-environment
+	"get-credentials", // alias for "user credentials"
+	"get-env",         // alias for get-environment
 	"get-environment",
 	"help",
 	"help-tool",
@@ -236,6 +243,7 @@ var commandNames = []string{
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
+	"list-users",  // alias for "user list"
 	"login",
 	"machine",
 	"publish",
@@ -253,6 +261,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"show-user", // alias for "user info"
 	"space",
 	"ssh",
 	"stat", // alias for status
@@ -406,6 +415,33 @@ command\.(.|\n)*`)
 	for i, line := range flags {
 		c.Assert(line, gc.Matches, globalFlags[i])
 	}
+}
+
+func (s *MainSuite) TestRegisterCommands(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	extraNames := []string{"cmd-a", "cmd-b"}
+	for i := range extraNames {
+		name := extraNames[i]
+		RegisterCommand(func() cmd.Command {
+			return &stubCommand{
+				stub: stub,
+				info: &cmd.Info{
+					Name: name,
+				},
+			}
+		})
+	}
+
+	registry := &stubRegistry{stub: stub}
+	registry.names = append(registry.names, "help", "version") // implicit
+	registerCommands(registry, testing.Context(c))
+	sort.Strings(registry.names)
+
+	expected := make([]string, len(commandNames))
+	copy(expected, commandNames)
+	expected = append(expected, extraNames...)
+	sort.Strings(expected)
+	c.Check(registry.names, jc.DeepEquals, expected)
 }
 
 type commands []cmd.Command
