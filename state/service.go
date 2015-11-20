@@ -225,7 +225,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Id:     settingsDocID,
 			Remove: true,
 		},
-		removeEndpointBindingsOp(s.st, s.globalKey()),
+		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
@@ -552,12 +552,15 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	}
 	ops = append(ops, relOps...)
 
-	// Update endpoint bindings.
-	updateBindingsOps, err := updateEndpointBindingsForNewCharmOps(s.st, s.globalKey(), ch.Meta())
+	// Update any existing endpoint bindings, using defaults for new endpoints.
+	//
+	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
+	// given bindings below.
+	endpointBindingsOp, err := endpointBindingsForCharmOp(s.st, s.globalKey(), nil, ch.Meta())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, updateBindingsOps...)
+	ops = append(ops, endpointBindingsOp)
 
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
@@ -1155,10 +1158,13 @@ func (s *Service) Networks() ([]string, error) {
 
 // EndpointBindings returns the mapping for each endpoint name and the space
 // name it is bound to.
-func (s *Service) EndpointBindings() (bindings map[string]string, err error) {
-	bindings, _, err = readEndpointBindings(s.st, s.globalKey())
-	// We don't need the TxnRevno here.
-	return bindings, err
+func (s *Service) EndpointBindings() (map[string]string, error) {
+	// We don't need the TxnRevno below.
+	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bindings, nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
