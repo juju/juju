@@ -1997,10 +1997,44 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 	return inst, nil
 }
 
-// Spaces is not implemented by the ec2 provider as we don't currently have
-// provider level spaces.
-func (e *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	return nil, errors.NotSupportedf("Spaces")
+// Spaces returns all the spaces and subnets known by the provider.
+func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+	ok, err := environ.SupportsSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ok {
+		return nil, errors.NotSupportedf("Spaces")
+	}
+	client := environ.getMAASClient().GetSubObject("subnets")
+
+	json, err := client.CallGet("", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	jsonNets, err := json.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spaceMap := make(map[string]network.SpaceInfo)
+	spaces := []network.SpaceInfo{}
+	for _, jsonNet := range jsonNets {
+		subnetInfo, err := environ.subnetFromJson(jsonNet)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		space, ok := spaceMap[subnetInfo.SpaceName]
+		if !ok {
+			space = network.SpaceInfo{
+				Name:       subnetInfo.SpaceName,
+				ProviderId: network.Id(subnetInfo.SpaceProviderId),
+			}
+		}
+		spaces = append(spaces, space)
+		spaceMap[space.Name] = space
+		space.Subnets = append(space.Subnets, subnetInfo)
+	}
+	return spaces, nil
 }
 
 // Subnets returns basic information about the specified subnets known
