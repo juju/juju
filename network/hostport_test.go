@@ -54,7 +54,7 @@ func (t hostPortTest) expected() string {
 }
 
 func (*HostPortSuite) TestSelectPublicHostPort(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -67,7 +67,7 @@ func (*HostPortSuite) TestSelectPublicHostPort(c *gc.C) {
 }
 
 func (*HostPortSuite) TestSelectInternalHostPort(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -80,7 +80,7 @@ func (*HostPortSuite) TestSelectInternalHostPort(c *gc.C) {
 }
 
 func (*HostPortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
