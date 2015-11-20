@@ -1145,12 +1145,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if args.Bindings == nil {
-		args.Bindings = make(map[string]string)
-	}
-	if err := addDefaultEndpointBindings(st, args.Bindings, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	series := args.Series
 	if series == "" {
@@ -1190,6 +1184,11 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
+	endpointBindingsOp, err := endpointBindingsForCharmOp(st, svc.globalKey(), args.Bindings, args.Charm.Meta())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	statusDoc := statusDoc{
 		EnvUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
@@ -1209,8 +1208,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		createConstraintsOp(st, svc.globalKey(), args.Constraints),
 		// TODO(dimitern): Drop requested networks across the board in a
 		// follow-up.
-		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
-		createEndpointBindingsOp(st, svc.globalKey(), args.Bindings),
+		createRequestedNetworksOp(st, svc.globalKey(), nil),
+		endpointBindingsOp,
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
