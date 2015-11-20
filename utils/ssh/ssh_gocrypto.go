@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"strconv"
 	"strings"
 
 	"github.com/juju/utils"
@@ -58,7 +59,7 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 	return &Cmd{impl: &goCryptoCommand{
 		signers:      signers,
 		user:         user,
-		addr:         fmt.Sprintf("%s:%d", host, port),
+		addr:         net.JoinHostPort(host, strconv.Itoa(port)),
 		command:      shellCommand,
 		proxyCommand: proxyCommand,
 	}}
