@@ -208,7 +208,7 @@ var deployBundleErrorsTests = []struct {
                 charm: trusty/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot add charm "trusty/rails-42": cannot retrieve "cs:trusty/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "trusty/rails-42": cannot resolve URL "cs:trusty/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -291,7 +291,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: trusty
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
@@ -309,11 +309,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
                 to: [django]
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
-}
-
-func (s *deployRepoCharmStoreSuite) TestDeployBundleDirectoryError(c *gc.C) {
-	_, err := runDeployCommand(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "deployment of bundle directories not yet supported")
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {

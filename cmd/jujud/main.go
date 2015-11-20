@@ -27,13 +27,17 @@ import (
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/storage/looputil"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
+var log = loggo.GetLogger("juju.cmd.jujud")
+
 func init() {
-	utils.Must(components.RegisterForServer())
+	if err := components.RegisterForServer(); err != nil {
+		log.Criticalf("unabled to register server components: %v", err)
+		os.Exit(1)
+	}
 }
 
 var jujudDoc = `
@@ -148,7 +152,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf, logCh, looputil.NewLoopDeviceManager(),
+		agentConf, logCh, looputil.NewLoopDeviceManager(), "",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 

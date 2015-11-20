@@ -123,7 +123,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 
 	// Sometimes there are upgrade steps that are needed for each unit.
 	// There are plans afoot to unify the unit and machine agents. When

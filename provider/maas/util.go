@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	goyaml "gopkg.in/yaml.v2" // TODO(dfc) this is horridly wrong, utils.ReadYaml requires yaml.v1
+	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/utils"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.

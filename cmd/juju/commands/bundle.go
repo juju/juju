@@ -160,7 +160,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
+	url, err = addCharmFromURL(h.client, url, repo, h.csclient)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
