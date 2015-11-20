@@ -5,6 +5,7 @@ package controller
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -83,29 +84,36 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return envcmd.WrapBase(&destroyCommand{
+	return envcmd.Wrap(
+		&destroyCommand{
+			destroyCommandBase: destroyCommandBase{
+				api:       api,
+				clientapi: clientapi,
+				apierr:    apierr,
+			},
+		},
+		envcmd.EnvSkipFlags,
+		envcmd.EnvSkipDefault,
+	)
+}
+
+// NewKillCommandForTest returns a killCommand with the controller and client
+// endpoints mocked out.
+func NewKillCommandForTest(
+	api destroyControllerAPI,
+	clientapi destroyClientAPI,
+	apierr error,
+	clock clock.Clock,
+	apiOpenFunc func(string) (api.Connection, error),
+) cmd.Command {
+	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
-	})
-}
-
-// NewKillCommandForTest returns a killCommand with the controller and client
-// endpoints mocked out.
-func NewKillCommandForTest(api destroyControllerAPI,
-	clientapi destroyClientAPI,
-	apierr error,
-	dialFunc func(string) (api.Connection, error)) cmd.Command {
-	return envcmd.WrapBase(&killCommand{
-		destroyCommandBase{
-			api:       api,
-			clientapi: clientapi,
-			apierr:    apierr,
-		},
-		dialFunc,
-	})
+	}
+	return wrapKillCommand(kill, apiOpenFunc, clock)
 }
 
 // NewListBlocksCommandForTest returns a ListBlocksCommand with the controller

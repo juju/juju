@@ -71,6 +71,10 @@ type EnvironCommand interface {
 
 	// EnvName returns the name of the environment.
 	EnvName() string
+
+	// SetAPIOpener allows the replacement of the default API opener,
+	// which ends up calling NewAPIRoot
+	SetAPIOpener(opener APIOpener)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
@@ -87,6 +91,9 @@ type EnvCommandBase struct {
 	// that this command should be compatible with.
 	compatVerson *int
 
+	// opener is the strategy used to open the API connection.
+	opener APIOpener
+
 	envGetterClient EnvironmentGetter
 	envGetterErr    error
 }
@@ -99,6 +106,12 @@ func (c *EnvCommandBase) SetEnvName(envName string) {
 // EnvName implements the EnvironCommand interface.
 func (c *EnvCommandBase) EnvName() string {
 	return c.envName
+}
+
+// SetAPIOpener specifies the strategy used by the command to open
+// the API connection.
+func (c *EnvCommandBase) SetAPIOpener(opener APIOpener) {
+	c.opener = opener
 }
 
 func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
@@ -131,7 +144,11 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	return c.JujuCommandBase.NewAPIRoot(c.envName)
+	opener := c.opener
+	if opener == nil {
+		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
+	}
+	return opener.Open(c.envName)
 }
 
 // Config returns the configuration for the environment; obtaining bootstrap
@@ -307,6 +324,14 @@ func EnvSkipFlags(w *environCommandWrapper) {
 // use the default environment.
 func EnvSkipDefault(w *environCommandWrapper) {
 	w.useDefaultEnvironment = false
+}
+
+// EnvAPIOpener instructs the underlying environment command to use a
+// different Opener strategy.
+func EnvAPIOpener(opener APIOpener) WrapEnvOption {
+	return func(w *environCommandWrapper) {
+		w.EnvironCommand.SetAPIOpener(opener)
+	}
 }
 
 // EnvAllowEmpty instructs the wrapper

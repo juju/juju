@@ -8,20 +8,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
-)
-
-var (
-	apiTimeout      = 10 * time.Second
-	ErrConnTimedOut = errors.New("connection to controller timed out")
 )
 
 const killDoc = `
@@ -39,16 +34,32 @@ destroyed.
 // NewKillCommand returns a command to kill a controller. Killing is a forceful
 // destroy.
 func NewKillCommand() cmd.Command {
-	return envcmd.WrapBase(&killCommand{})
+	// Even though this command is all about killing a controller we end up
+	// needing environment endpoints so we can fall back to the client destroy
+	// environment method. This shouldn't really matter in practice as the
+	// user trying to take down the controller will need to have access to the
+	// controller environment anyway.
+	return wrapKillCommand(&killCommand{}, nil, clock.WallClock)
+}
+
+// wrapKillCommand provides the common wrapping used by tests and
+// the default NewKillCommand above.
+func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error), clock clock.Clock) cmd.Command {
+	if fn == nil {
+		fn = kill.JujuCommandBase.NewAPIRoot
+	}
+	openStrategy := envcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
+	return envcmd.Wrap(
+		kill,
+		envcmd.EnvSkipFlags,
+		envcmd.EnvSkipDefault,
+		envcmd.EnvAPIOpener(openStrategy),
+	)
 }
 
 // killCommand kills the specified controller.
 type killCommand struct {
 	destroyCommandBase
-	// TODO (cherylj) If timeouts for dialing the API are added to new or
-	// existing commands later, the dialer should be pulled into a common
-	// base and made to be an interface rather than a function.
-	apiDialerFunc func(string) (api.Connection, error)
 }
 
 // Info implements Command.Info.
@@ -72,47 +83,14 @@ func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
-func (c *killCommand) getControllerAPI(info configstore.EnvironInfo) (destroyControllerAPI, error) {
-	if c.api != nil {
-		return c.api, c.apierr
-	}
-
-	// Attempt to connect to the API with a short timeout
-	apic := make(chan api.Connection)
-	errc := make(chan error)
-	go func() {
-		api, dialErr := c.apiDialerFunc(c.controllerName)
-		if dialErr != nil {
-			errc <- dialErr
-			return
-		}
-		apic <- api
-	}()
-
-	var apiRoot api.Connection
-	select {
-	case err := <-errc:
-		return nil, err
-	case apiRoot = <-apic:
-	case <-time.After(apiTimeout):
-		return nil, ErrConnTimedOut
-	}
-
-	return controller.NewClient(apiRoot), nil
-}
-
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
-	if c.apiDialerFunc == nil {
-		c.apiDialerFunc = c.NewAPIRoot
-	}
-
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.controllerName)
+	cfgInfo, err := store.ReadInfo(c.EnvName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -120,24 +98,24 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.controllerName)
+		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.controllerName); err != nil {
+		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
 			return err
 		}
 	}
 
 	// Attempt to connect to the API.
-	api, err := c.getControllerAPI(cfgInfo)
+	api, err := c.getControllerAPI()
 	switch {
 	case err == nil:
 		defer api.Close()
 	case errors.Cause(err) == common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
-		if err != ErrConnTimedOut {
+		if errors.Cause(err) != envcmd.ErrConnTimedOut {
 			logger.Debugf("unable to open api: %s", err)
 		}
 		ctx.Infof("Unable to open API: %s\n", err)
