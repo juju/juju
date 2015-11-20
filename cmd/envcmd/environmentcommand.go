@@ -74,7 +74,7 @@ type EnvironCommand interface {
 
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
-	SetAPIOpener(opener Opener)
+	SetAPIOpener(opener APIOpener)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
@@ -92,7 +92,7 @@ type EnvCommandBase struct {
 	compatVerson *int
 
 	// opener is the strategy used to open the API connection.
-	opener Opener
+	opener APIOpener
 
 	envGetterClient EnvironmentGetter
 	envGetterErr    error
@@ -110,7 +110,7 @@ func (c *EnvCommandBase) EnvName() string {
 
 // SetAPIOpener specifies the strategy used by the command to open
 // the API connection.
-func (c *EnvCommandBase) SetAPIOpener(opener Opener) {
+func (c *EnvCommandBase) SetAPIOpener(opener APIOpener) {
 	c.opener = opener
 }
 
@@ -328,7 +328,7 @@ func EnvSkipDefault(w *environCommandWrapper) {
 
 // EnvAPIOpener instructs the underlying environment command to use a
 // different Opener strategy.
-func EnvAPIOpener(opener Opener) WrapEnvOption {
+func EnvAPIOpener(opener APIOpener) WrapEnvOption {
 	return func(w *environCommandWrapper) {
 		w.EnvironCommand.SetAPIOpener(opener)
 	}

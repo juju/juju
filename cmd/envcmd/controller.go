@@ -37,7 +37,7 @@ type ControllerCommand interface {
 
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
-	SetAPIOpener(opener Opener)
+	SetAPIOpener(opener APIOpener)
 }
 
 // ControllerCommandBase is a convenience type for embedding in commands
@@ -48,7 +48,7 @@ type ControllerCommandBase struct {
 	controllerName string
 
 	// opener is the strategy used to open the API connection.
-	opener Opener
+	opener APIOpener
 }
 
 // SetControllerName implements the ControllerCommand interface.
@@ -63,7 +63,7 @@ func (c *ControllerCommandBase) ControllerName() string {
 
 // SetAPIOpener specifies the strategy used by the command to open
 // the API connection.
-func (c *ControllerCommandBase) SetAPIOpener(opener Opener) {
+func (c *ControllerCommandBase) SetAPIOpener(opener APIOpener) {
 	c.opener = opener
 }
 
@@ -169,7 +169,7 @@ func ControllerSkipDefault(w *sysCommandWrapper) {
 
 // ControllerAPIOpener instructs the underlying controller command to use a
 // different APIOpener strategy.
-func ControllerAPIOpener(opener Opener) WrapControllerOption {
+func ControllerAPIOpener(opener APIOpener) WrapControllerOption {
 	return func(w *sysCommandWrapper) {
 		w.ControllerCommand.SetAPIOpener(opener)
 	}

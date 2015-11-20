@@ -42,8 +42,7 @@ func (*APIOpenerSuite) TestTimoutSuccess(c *gc.C) {
 		name = connectionName
 		return &mockConnection{}, nil
 	}
-	clock := &mockClock{wait: time.Second}
-	opener := envcmd.NewTimeoutOpener(open, clock, time.Second)
+	opener := envcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
 	conn, err := opener.Open("a-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -56,8 +55,7 @@ func (*APIOpenerSuite) TestTimoutErrors(c *gc.C) {
 		name = connectionName
 		return nil, errors.New("boom")
 	}
-	clock := &mockClock{wait: time.Second}
-	opener := envcmd.NewTimeoutOpener(open, clock, time.Second)
+	opener := envcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
 	conn, err := opener.Open("a-name")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(conn, gc.IsNil)

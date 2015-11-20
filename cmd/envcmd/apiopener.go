@@ -16,9 +16,9 @@ var ErrConnTimedOut = errors.New("open connection timed out")
 
 type OpenFunc func(string) (api.Connection, error)
 
-// Opener provides a way to open a connection to the Juju
+// APIOpener provides a way to open a connection to the Juju
 // API Server through the named connection.
-type Opener interface {
+type APIOpener interface {
 	Open(connectionName string) (api.Connection, error)
 }
 
@@ -28,7 +28,7 @@ type passthroughOpener struct {
 
 // NewPassthroughOpener returns an instance that will just call the opener
 // function when Open is called.
-func NewPassthroughOpener(opener OpenFunc) Opener {
+func NewPassthroughOpener(opener OpenFunc) APIOpener {
 	return &passthroughOpener{fn: opener}
 }
 
@@ -45,7 +45,7 @@ type timeoutOpener struct {
 // NewTimeoutOpener will call the opener function when Open is called, but if
 // the function does not return by the specified timeout, ErrConnTimeOut is
 // returned.
-func NewTimeoutOpener(opener OpenFunc, clock clock.Clock, timeout time.Duration) Opener {
+func NewTimeoutOpener(opener OpenFunc, clock clock.Clock, timeout time.Duration) APIOpener {
 	return &timeoutOpener{
 		fn:      opener,
 		clock:   clock,
@@ -54,13 +54,12 @@ func NewTimeoutOpener(opener OpenFunc, clock clock.Clock, timeout time.Duration)
 }
 
 func (t *timeoutOpener) Open(name string) (api.Connection, error) {
-	// Make the cannels buffered so the created go routine is guaranteed
+	// Make the channels buffered so the created goroutine is guaranteed
 	// not go get blocked trying to send down the channel.
 	apic := make(chan api.Connection, 1)
 	errc := make(chan error, 1)
 	go func() {
 		api, dialErr := t.fn(name)
-
 		if dialErr != nil {
 			errc <- dialErr
 			return
