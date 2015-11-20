@@ -4,7 +4,6 @@
 package state
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
@@ -48,23 +47,6 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *compatSuite) TestGetServiceWithoutEndpointBindingsReturnsNotFound(c *gc.C) {
-	charm := addCharm(c, s.state, "quantal", testcharms.Repo.CharmDir("mysql"))
-	owner := s.env.Owner()
-	service, err := s.state.AddService(AddServiceArgs{Name: "mysql", Owner: owner.String(), Charm: charm})
-	c.Assert(err, jc.ErrorIsNil)
-	// In 1.26+ all services have associated document in the endpoint bindings
-	// collection. We remove it here to test backwards compatibility.
-	ops := []txn.Op{removeEndpointBindingsOp(s.state, service.globalKey())}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bindings, err := service.EndpointBindings()
-	c.Assert(err, gc.ErrorMatches, `endpoint bindings for "s#mysql" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(bindings, gc.IsNil)
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
