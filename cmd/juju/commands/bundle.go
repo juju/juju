@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // deploymentLogger is used to notify clients about the bundle deployment
@@ -35,10 +36,15 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger) error {
-	if err := data.Verify(func(s string) error {
+	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
-	}); err != nil {
+	}
+	verifyStorage := func(s string) error {
+		_, err := storage.ParseConstraints(s)
+		return err
+	}
+	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 
