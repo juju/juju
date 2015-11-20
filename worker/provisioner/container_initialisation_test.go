@@ -83,7 +83,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
-	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
+	initLock, err := fslock.NewLock(s.initLockDir, "container-init", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
 
