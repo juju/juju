@@ -24,7 +24,7 @@ def parse_args(argv=None):
     """Parse command line args into an args object."""
     parser = ArgumentParser()
     add_basic_testing_arguments(parser)
-    parser.add_argument('charms', help='Charms to deploy.')
+    parser.add_argument('charms', nargs="+", help='Charms to deploy.')
     return parser.parse_args(argv)
 
 
@@ -81,7 +81,7 @@ def main():
     """ Test Juju scale out."""
     args = parse_args()
     configure_logging(args.verbose)
-    charms = args.charms.split()
+    charms = args.charms
     with scaleout_setup(args) as client:
         deploy_charms(client, charms)
         for charm in charms:

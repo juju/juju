@@ -43,12 +43,12 @@ class TestScaleOut(TestCase):
 
     def test_parse_args(self):
         args = parse_args(
-            ['env', '/path/juju', 'logs', 'temp_name', 'charms'])
+            ['env', '/path/juju', 'logs', 'temp_name', 'foo', 'bar'])
         expected = Namespace(
             agent_stream=None,
             agent_url=None,
             bootstrap_host=None,
-            charms='charms',
+            charms=['foo', 'bar'],
             debug=False,
             env='env',
             juju_bin='/path/juju',
@@ -159,6 +159,17 @@ class TestScaleOut(TestCase):
                     deploy_charms(client, ['ubuntu', 'mysql'])
         expected = [call('ubuntu', service='ubuntu'),
                     call('mysql', service='mysql')]
+        self.assertEqual(d_mock.mock_calls, expected)
+        wfs_mock.assert_called_once_with()
+
+    def test_deploy_charms_local(self):
+        with self.fake_client_cxt() as (client, env):
+            with patch.object(EnvJujuClient, 'deploy') as d_mock:
+                with patch.object(EnvJujuClient,
+                                  'wait_for_started') as wfs_mock:
+                    deploy_charms(client, ['local:foo', 'local:bar'])
+        expected = [call('local:foo', service='foo'),
+                    call('local:bar', service='bar')]
         self.assertEqual(d_mock.mock_calls, expected)
         wfs_mock.assert_called_once_with()
 
