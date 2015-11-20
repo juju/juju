@@ -62,7 +62,7 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.InitializeFromConfig(cfg)
+	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
 		return errors.Errorf("environment configuration has no admin-secret")
 	}
