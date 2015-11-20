@@ -1623,6 +1623,7 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	return result, nil
 }
 
+// subnetsFromNode fetches all the subnets for a specific node.
 func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("node").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
@@ -1750,6 +1751,8 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
 }
 
+// subnetsWithSpaces uses the MAAS 1.9+ API to fetch subnet information
+// including space name.
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	inst, err := environ.getInstance(instId)
 	if err != nil {
@@ -1768,6 +1771,9 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	return subnets, nil
 }
 
+// subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
+// representing a single subnet. This can come from either the subnets api
+// endpoint or the node endpoint.
 func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network.SubnetInfo, error) {
 	var subnetInfo network.SubnetInfo
 	fields, err := subnet.GetMap()
@@ -1813,6 +1819,9 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 	return subnetInfo, nil
 }
 
+// filteredSubnets fetches subnets, filtering by nodeId and optionally a slice
+// of subnetIds. If subnetIds is empty then all subnets for that node are
+// fetched.
 func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	jsonNets, err := environ.subnetsFromNode(nodeId)
 	if err != nil {
