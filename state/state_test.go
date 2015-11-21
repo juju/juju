@@ -1932,7 +1932,7 @@ func (s *StateSuite) TestAddServiceSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteService("s1", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": remote service with same name already exists`)
 }
 
@@ -1945,14 +1945,14 @@ func (s *StateSuite) TestAddServiceRemotedAddedAfterInitial(c *gc.C) {
 		_, err := s.State.AddRemoteService("s1", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": remote service with same name already exists`)
 }
 
 func (s *StateSuite) TestAddServiceSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "s0", charm)
-	_, err := s.State.AddService("s0", s.Owner.String(), charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "s0", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s0": service already exists`)
 }
 
@@ -1964,7 +1964,7 @@ func (s *StateSuite) TestAddServiceLocalAddedAfterInitial(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingService(c, "s1", charm)
 	}).Check()
-	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": service already exists`)
 }
 

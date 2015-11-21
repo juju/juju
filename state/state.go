@@ -1211,14 +1211,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		}
 		ops := []txn.Op{
 			env.assertAliveOp(),
-			createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+			createConstraintsOp(st, svc.globalKey(), args.Constraints),
 			// TODO(dimitern) 2014-04-04 bug #1302498
 			// Once we can add networks independently of machine
 			// provisioning, we should check the given networks are valid
 			// and known before setting them.
 			createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
 			createStorageConstraintsOp(svc.globalKey(), args.Storage),
-			createSettingsOp(svc.settingsKey(), nil),
+			createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 			addLeadershipSettingsOp(svc.Tag().Id()),
 			createStatusOp(st, svc.globalKey(), statusDoc),
 			{
@@ -1245,6 +1245,20 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, peerOps...)
+
+		for x := 0; x < args.NumUnits; x++ {
+			unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+			placement := instance.Placement{}
+			if x < len(args.Placement) {
+				placement = *args.Placement[x]
+			}
+			ops = append(ops, assignUnitOps(st, unit, placement)...)
+		}
+
 		return ops, nil
 	}
 	// At the last moment before inserting the service, prime status history.

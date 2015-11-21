@@ -351,7 +351,7 @@ func (s *remoteServiceSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 
 func (s *remoteServiceSuite) TestAddServiceSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteService("s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": local service with same name already exists`)
@@ -363,7 +363,7 @@ func (s *remoteServiceSuite) TestAddServiceLocalAddedAfterInitial(c *gc.C) {
 	// there is no conflict initially but a local service is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+		_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteService("s1", nil)
