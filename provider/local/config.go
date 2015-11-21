@@ -5,8 +5,10 @@ package local
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -168,7 +170,7 @@ func (c *environConfig) storagePort() int {
 }
 
 func (c *environConfig) storageAddr() string {
-	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.storagePort())
+	return net.JoinHostPort(c.bootstrapIPAddress(), strconv.Itoa(c.storagePort()))
 }
 
 func (c *environConfig) configFile(filename string) string {

@@ -7,8 +7,9 @@ package backups
 
 import (
 	"bytes"
-	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -61,7 +62,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		return nil, errors.Errorf("cannot get state serving info to dial")
 	}
 	info := mongo.Info{
-		Addrs:  []string{fmt.Sprintf("%s:%d", privateAddr, ssi.StatePort)},
+		Addrs:  []string{net.JoinHostPort(privateAddr, strconv.Itoa(ssi.StatePort))},
 		CACert: conf.CACert(),
 	}
 	dialInfo, err := mongo.DialInfo(info, dialOpts)
