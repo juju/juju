@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
 	"github.com/juju/utils/packaging/manager"
@@ -47,6 +49,8 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		satisfyPrerequisites: satisfyPrerequisites,
 		createTempDir:        createTempDir,
 		discoverService:      service.DiscoverService,
+		fsCopy:               fs.Copy,
+		osGetenv:             os.Getenv,
 
 		mongoStart:                  mongo.StartService,
 		mongoStop:                   mongo.StopService,
@@ -62,6 +66,8 @@ type removeFunc func(string) error
 type mkdirFunc func(string, os.FileMode) error
 type createTempDirFunc func() (string, error)
 type discoverService func(string, common.Conf) (service.Service, error)
+type fsCopyFunc func(string, string) error
+type osGetenv func(string) string
 
 type utilsRun func(command string, args ...string) (output string, err error)
 
@@ -95,6 +101,7 @@ type UpgradeMongoCommand struct {
 	backupPath     string
 	rollback       bool
 	slave          bool
+	members        string
 
 	// utils used by this struct.
 	stat                 statFunc
@@ -105,6 +112,8 @@ type UpgradeMongoCommand struct {
 	satisfyPrerequisites requisitesSatisfier
 	createTempDir        createTempDirFunc
 	discoverService      discoverService
+	fsCopy               fsCopyFunc
+	osGetenv             osGetenv
 
 	// mongo related utils.
 	mongoStart                  mongoService
@@ -128,7 +137,7 @@ func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&u.machineTag, "machinetag", "machine-0", "unique tag identifier for machine to be upgraded")
 	f.StringVar(&u.series, "series", "", "series for the machine")
 	f.StringVar(&u.configFilePath, "configfile", "", "path to the config file")
-	f.StringVar(&u.namespace, "namespace", "", "namespace, this should be blank unless the provider is local")
+	f.StringVar(&u.members, "members", "", "a comma separated list of replicaset member ips")
 	f.BoolVar(&u.rollback, "rollback", false, "rollback a previous attempt at upgrading that was cut in the process")
 	f.BoolVar(&u.slave, "slave", false, "this is a slave machine in a replicaset")
 }
@@ -165,7 +174,7 @@ func (u *UpgradeMongoCommand) run() (err error) {
 	agentServiceName := u.agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
-		agentServiceName = os.Getenv("UPSTART_JOB")
+		agentServiceName = u.osGetenv("UPSTART_JOB")
 	}
 	if agentServiceName == "" {
 		return errors.New("cannot determine juju service name")
@@ -185,7 +194,7 @@ func (u *UpgradeMongoCommand) run() (err error) {
 			err = errors.Annotate(svcErr, "could not start juju after upgrade")
 		}
 	}()
-
+	defer u.replicaAdd()
 	if u.rollback {
 		origin := u.agentConfig.Value(KeyUpgradeBackup)
 		if origin == "" {
@@ -235,6 +244,41 @@ func (u *UpgradeMongoCommand) run() (err error) {
 			}()
 			return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
 		}
+	}
+	return nil
+}
+
+func (u *UpgradeMongoCommand) replicaAdd() error {
+	if u.members == "" {
+		return nil
+	}
+	info, ok := u.agentConfig.MongoInfo()
+	if !ok {
+		return errors.New("cannot get mongo info from agent config to resume HA")
+	}
+
+	var session mgoSession
+	var err error
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, _, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
+	}
+	if err != nil {
+		return errors.Annotate(err, "error dialing mongo to resume HA")
+	}
+	defer session.Close()
+	mSession := session.(*mgo.Session)
+	addrs := strings.Split(u.members, ",")
+	members := make([]replicaset.Member, len(addrs))
+	for i, addr := range addrs {
+		members[i] = replicaset.Member{Address: addr}
+	}
+	if err := replicaset.Add(mSession, members...); err != nil {
+		return errors.Annotate(err, "cannot resume HA")
 	}
 	return nil
 }
@@ -678,7 +722,7 @@ func (u *UpgradeMongoCommand) copyBackupMongo(targetVersion, dataDir string) (st
 		return "", errors.Annotate(err, "cannot write agent config backup information")
 	}
 
-	if err := fs.Copy(dbPath, targetDb); err != nil {
+	if err := u.fsCopy(dbPath, targetDb); err != nil {
 		// TODO, delete what was copied
 		return "", errors.Annotate(err, "cannot backup mongo database")
 	}

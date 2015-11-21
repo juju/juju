@@ -98,7 +98,6 @@ type DBDumper interface {
 
 var getMongodumpPath = func() (string, error) {
 	// TODO(perrito666) Add automagic determination of version here
-	// FIXME this will not work with this version of juju
 	mongod, err := mongo.Path(mongo.Mongo24)
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")

@@ -526,12 +526,12 @@ func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) (bool, e
 		if err != nil {
 			return false, err
 		}
-		if !isMaster {
-			if err := mongo.StopService(conf.Value(agent.Namespace)); err != nil {
-				return false, errors.Annotate(err, "cannot stop mongo service")
-			}
-			return true, nil
-		}
+		//if !isMaster {
+		//	if err := mongo.StopService(conf.Value(agent.Namespace)); err != nil {
+		//		return false, errors.Annotate(err, "cannot stop mongo service")
+		//	}
+		//	return true, nil
+		//}
 	}
 	return false, nil
 
@@ -659,20 +659,17 @@ func (a *MachineAgent) upgradeMongoWatcher(st *state.State, stopch <-chan struct
 			if expectedVersion == mongo.Mongo24 {
 				continue
 			}
-			if err := m.SetStopMongoUntilVersion(mongo.Mongo24); err != nil {
-				return errors.Annotate(err, "cannot reset stop mongo flag")
-			}
 			var isMaster bool
 			isMaster, err = mongo.IsMaster(st.MongoSession(), m)
 			if err != nil {
 				return errors.Annotatef(err, "cannot determine if machine %q is master", a.machineId)
 			}
 
-			stop, err := a.maybeStopMongo(expectedVersion, isMaster)
+			_, err = a.maybeStopMongo(expectedVersion, isMaster)
 			if err != nil {
 				return errors.Annotate(err, "cannot determine if mongo must be stopped")
 			}
-			if stop {
+			if !isMaster {
 				addrs := make([]string, len(m.Addresses()))
 				ssi, err := st.StateServingInfo()
 				if err != nil {
@@ -683,6 +680,9 @@ func (a *MachineAgent) upgradeMongoWatcher(st *state.State, stopch <-chan struct
 				}
 				if err := replicaset.Remove(st.MongoSession(), addrs...); err != nil {
 					return errors.Annotatef(err, "cannot remove %q from replicaset", m.Id())
+				}
+				if err := m.SetStopMongoUntilVersion(mongo.Mongo24); err != nil {
+					return errors.Annotate(err, "cannot reset stop mongo flag")
 				}
 			}
 		case <-stopch:

@@ -134,9 +134,21 @@ func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeM
 	if err != nil {
 		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
 	}
+	members := make([]params.HAMember, len(ha.Members))
+	for i, m := range ha.Members {
+		members[i] = params.HAMember{
+			Tag:           m.Tag,
+			PublicAddress: ha.Master.PublicAddress,
+			Series:        ha.Master.Series,
+		}
+	}
 	return params.MongoUpgradeResults{
-		Master:    ha.Master,
-		Members:   ha.Members,
+		Master: params.HAMember{
+			Tag:           ha.Master.Tag,
+			PublicAddress: ha.Master.PublicAddress,
+			Series:        ha.Master.Series,
+		},
+		Members:   members,
 		RsMembers: ha.RsMembers,
 	}, nil
 }

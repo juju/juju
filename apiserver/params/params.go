@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -810,12 +810,20 @@ type UpgradeMongoParams struct {
 	Target mongo.Version
 }
 
+// HAMember holds information that identifies one member
+// of HA.
+type HAMember struct {
+	Tag           string
+	PublicAddress network.Address
+	Series        string
+}
+
 // MongoUpgradeResults holds the results of an attempt
 // to enter upgrade mongo mode.
 type MongoUpgradeResults struct {
 	RsMembers []replicaset.Member
-	Master    state.HAMember
-	Members   []state.HAMember
+	Master    HAMember
+	Members   []HAMember
 }
 
 // ResumeReplicationParams holds the members of a HA that

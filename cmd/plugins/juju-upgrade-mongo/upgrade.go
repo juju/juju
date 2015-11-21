@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"text/template"
 	"time"
 
@@ -41,18 +42,17 @@ func main() {
 func Main(args []string) {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "could not obtain context for command: %v\n", err)
 		os.Exit(2)
 	}
 	if err := juju.InitJujuHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		fmt.Fprintf(os.Stderr, "could not initialize juju context: %s\n", err)
 		os.Exit(2)
 	}
 	os.Exit(cmd.Main(envcmd.Wrap(&upgradeMongoCommand{}), ctx, args[1:]))
 }
 
-const upgradeDoc = `This command upgrades the state server
-mongo db from 2.4 to 3.`
+const upgradeDoc = `This command upgrades the version of mongo used to store the Juju model from 2.4 to 3.x`
 
 var logger = loggo.GetLogger("juju.plugins.upgrademongo")
 
@@ -73,8 +73,8 @@ type upgradeMongoCommand struct {
 
 func (c *upgradeMongoCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "juju-upgrade-mongo",
-		Purpose: "Upgrade from mongo 2.4 to 3.1",
+		Name:    "juju-upgrade-database",
+		Purpose: "Upgrade from mongo 2.4 to 3.x",
 		Args:    "",
 		Doc:     upgradeDoc,
 	}
@@ -90,7 +90,6 @@ func mustParseTemplate(templ string) *template.Template {
 // runViaJujuSSH will run arbitrary code in the remote machine.
 func runViaJujuSSH(machine, script string, stdout, stderr *bytes.Buffer) error {
 	cmd := exec.Command("ssh", []string{fmt.Sprintf("ubuntu@%s", machine), "sudo -n bash -c " + utils.ShQuote(script)}...)
-	fmt.Println(script)
 	cmd.Stderr = stderr
 	cmd.Stdout = stdout
 	err := cmd.Run()
@@ -100,6 +99,10 @@ func runViaJujuSSH(machine, script string, stdout, stderr *bytes.Buffer) error {
 	return nil
 }
 
+// bufferPrinter is intended to print the output of a remote script
+// in real time.
+// the intention behind this is to provide the user with continuous
+// feedback while waiting a remote process that might take some time.
 func bufferPrinter(stdout *bytes.Buffer, closer chan int, verbose bool) {
 	for {
 		select {
@@ -119,8 +122,6 @@ func bufferPrinter(stdout *bytes.Buffer, closer chan int, verbose bool) {
 	}
 }
 
-// We try to stop/start juju with both systems, safer than
-// try a convoluted discovery in bash.
 const (
 	jujuUpgradeScript = `
 /var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}}'
@@ -133,6 +134,7 @@ const (
 type upgradeScriptParams struct {
 	MachineNumber string
 	Series        string
+	Members       string
 }
 
 func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
@@ -144,6 +146,16 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot determine status servers")
 	}
+	defer c.resumeReplication(migratables.rsMembers)
+	addrs := make([]string, len(migratables.rsMembers))
+	for i, rsm := range migratables.rsMembers {
+		addrs[i] = rsm.Address
+	}
+	var members string
+	if len(addrs) > 0 {
+		members = strings.Join(addrs, ",")
+	}
+
 	var stdout, stderr bytes.Buffer
 	var closer chan int
 	closer = make(chan int, 1)
@@ -153,29 +165,25 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	t := template.New("").Funcs(template.FuncMap{
 		"shquote": utils.ShQuote,
 	})
-	tmpl := template.Must(t.Parse(jujuUpgradeScript))
+	var tmpl *template.Template
+	if members == "" {
+		tmpl = template.Must(t.Parse(jujuUpgradeScript))
+	} else {
+		script := jujuUpgradeScript + " --members '{{.Members}}'"
+		tmpl = template.Must(t.Parse(script))
+	}
 	var buf bytes.Buffer
 	upgradeParams := upgradeScriptParams{
 		migratables.master.machine.Id(),
 		migratables.master.series,
+		members,
 	}
 	err = tmpl.Execute(&buf, upgradeParams)
 
 	if err := runViaJujuSSH(migratables.master.ip.Value, buf.String(), &stdout, &stderr); err != nil {
-		return errors.Annotate(err, "migration to mongo 3 unsuccesful")
+		return errors.Annotate(err, "migration to mongo 3 unsuccesful, your database is left in the same state.")
 	}
-	for _, slave := range migratables.machines {
-		var buf bytes.Buffer
-		upgradeParams = upgradeScriptParams{
-			slave.machine.Id(),
-			slave.series,
-		}
-		err = tmpl.Execute(&buf, upgradeParams)
-		if err := runViaJujuSSH(slave.ip.Value, buf.String(), &stdout, &stderr); err != nil {
-			return errors.Annotate(err, "migration to mongo 3 in slave unsuccesful")
-		}
-	}
-	c.resumeReplication(migratables.rsMembers)
+
 	return nil
 }
 
@@ -249,7 +257,6 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 	}
 
 	return result, nil
-
 }
 
 // waitForNotified will wait for all ha members to be notified

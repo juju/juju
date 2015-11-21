@@ -90,6 +90,13 @@ func (v Version) NewerThan(ver Version) int {
 
 // NewVersion returns a mongo Version parsing the passed version string
 // or error if not possible.
+// A valid version string is of the form:
+// 1.2.patch/storage
+// major and minor are positive integers, patch is a string containing
+// any ascii character except / and storage is one of the above defined
+// StorageEngine. Only major is mandatory.
+// An alternative valid string is 0.0/Upgrading which represents that
+// mongo is being upgraded.
 func NewVersion(v string) (Version, error) {
 	version := Version{}
 	if v == "" {
@@ -267,7 +274,8 @@ func GenerateSharedSecret() (string, error) {
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
 	noVersion := Version{}
-	if version == Mongo24 || version == noVersion {
+	switch version {
+	case Mongo24, noVersion:
 		if _, err := os.Stat(JujuMongodPath); err == nil {
 			return JujuMongodPath, nil
 		}
@@ -278,16 +286,16 @@ func Path(version Version) (string, error) {
 			return "", err
 		}
 		return path, nil
-	}
-	if version == Mongo26 {
+
+	case Mongo26:
 		var err error
 		if _, err = os.Stat(JujuMongod26Path); err == nil {
 			return JujuMongod26Path, nil
 		}
 		logger.Infof("could not find %q ", JujuMongod26Path)
 		return "", err
-	}
-	if version == Mongo30 || version == Mongo30wt {
+
+	case Mongo30, Mongo30wt:
 		var err error
 		if _, err = os.Stat(JujuMongod30Path); err == nil {
 			return JujuMongod30Path, nil

@@ -53,7 +53,7 @@ type UpgradeMongoParams struct {
 func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error) {
 	currentInfo, err := st.StateServerInfo()
 	if err != nil {
-		return UpgradeMongoParams{}, errors.Annotate(err, "could not obtain current state serving information")
+		return UpgradeMongoParams{}, errors.Annotate(err, "could not obtain current controller information")
 	}
 	result := UpgradeMongoParams{}
 	machines := []*Machine{}
