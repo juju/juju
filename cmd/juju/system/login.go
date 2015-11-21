@@ -209,7 +209,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 	}
 	serverInfo := store.CreateInfo(c.Name)
 
-	serverTag, err := apiState.ServerTag()
+	controllerTag, err := apiState.ControllerTag()
 	if err != nil {
 		return nil, errors.Wrap(err, errors.New("juju system too old to support login"))
 	}
@@ -238,7 +238,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 		Addresses:  addrs,
 		Hostnames:  hosts,
 		CACert:     serverDetails.CACert,
-		ServerUUID: serverTag.Id(),
+		ServerUUID: controllerTag.Id(),
 	})
 
 	if err = serverInfo.Write(); err != nil {

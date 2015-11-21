@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
@@ -37,12 +37,18 @@ var logger = loggo.GetLogger("juju.provider.common")
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
 func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (arch, series string, _ environs.BootstrapFinalizer, err error) {
-	if result, series, finalizer, err := BootstrapInstance(ctx, env, args); err == nil {
-		return *result.Hardware.Arch, series, finalizer, nil
-	} else {
-		return "", "", nil, err
+) (*environs.BootstrapResult, error) {
+	result, series, finalizer, err := BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	bsResult := &environs.BootstrapResult{
+		Arch:     *result.Hardware.Arch,
+		Series:   series,
+		Finalize: finalizer,
+	}
+	return bsResult, nil
 }
 
 // BootstrapInstance creates a new instance with the series and architecture
@@ -110,7 +116,15 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = result.Instance.Id()
 		icfg.HardwareCharacteristics = result.Hardware
-		if err := instancecfg.FinishInstanceConfig(icfg, env.Config()); err != nil {
+		envConfig := env.Config()
+		if result.Config != nil {
+			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			envConfig = updated
+		}
+		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
 		}
 		maybeSetBridge(icfg)

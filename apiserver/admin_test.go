@@ -531,7 +531,7 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	c.Assert(result.EnvironTag, gc.Equals, s.State.EnvironTag().String())
 }
 
-func (s *loginV1Suite) TestLoginReportsEnvironAndServerTag(c *gc.C) {
+func (s *loginV1Suite) TestLoginReportsEnvironAndControllerTag(c *gc.C) {
 	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
 	newEnvTag := otherState.EnvironTag()
@@ -546,7 +546,7 @@ func (s *loginV1Suite) TestLoginReportsEnvironAndServerTag(c *gc.C) {
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.EnvironTag, gc.Equals, newEnvTag.String())
-	c.Assert(result.ServerTag, gc.Equals, s.State.EnvironTag().String())
+	c.Assert(result.ControllerTag, gc.Equals, s.State.EnvironTag().String())
 }
 
 func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {

@@ -4,64 +4,238 @@ package commands
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 )
 
 var _ = gc.Suite(&registrationSuite{})
 
 type registrationSuite struct {
-	handler *testMetricsRegistrationHandler
-	server  *httptest.Server
+	stub     *testing.Stub
+	handler  *testMetricsRegistrationHandler
+	server   *httptest.Server
+	register DeployStep
 }
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
-	s.handler = &testMetricsRegistrationHandler{}
+	s.stub = &testing.Stub{}
+	s.handler = &testMetricsRegistrationHandler{Stub: s.stub}
 	s.server = httptest.NewServer(s.handler)
+	s.register = &RegisterMeteredCharm{Plan: "someplan", RegisterURL: s.server.URL}
 }
 
 func (s *registrationSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 }
 
-func (s *registrationSuite) TestHttpMetricsRegistrar(c *gc.C) {
-	client := httpbakery.NewClient()
-	data, err := registerMetrics(s.server.URL, "environment uuid", "charm url", "service name", client)
-	c.Assert(err, gc.IsNil)
-	var b []byte
-	err = json.Unmarshal(data, &b)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(b), gc.Equals, "hello registration")
-	c.Assert(s.handler.registrationCalls, gc.HasLen, 1)
-	c.Assert(s.handler.registrationCalls[0], gc.DeepEquals, metricRegistrationPost{EnvironmentUUID: "environment uuid", CharmURL: "charm url", ServiceName: "service name"})
+func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			EnvironmentUUID: "environment uuid",
+			CharmURL:        "local:quantal/metered-1",
+			ServiceName:     "service name",
+			PlanURL:         "someplan",
+		}},
+	}, {
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
+			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
+				ServiceName:       "service name",
+				MetricCredentials: authorization,
+			}},
+		}},
+	}})
+}
+
+func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			EnvironmentUUID: "environment uuid",
+			CharmURL:        "local:quantal/metered-1",
+			ServiceName:     "service name",
+			PlanURL:         "thisplan",
+		}},
+	}, {
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
+			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
+				ServiceName:       "service name",
+				MetricCredentials: authorization,
+			}},
+		}},
+	}})
+}
+
+func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
+	s.stub.SetErrors(nil, errors.NotFoundf("default charm"))
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}})
+}
+
+func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/unmetered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/unmetered-1"}},
+	}})
+}
+
+func (s *registrationSuite) TestFailedAuth(c *gc.C) {
+	s.stub.SetErrors(nil, fmt.Errorf("could not authorize"))
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			EnvironmentUUID: "environment uuid",
+			CharmURL:        "local:quantal/metered-1",
+			ServiceName:     "service name",
+			PlanURL:         "someplan",
+		}},
+	}})
 }
 
 type testMetricsRegistrationHandler struct {
-	registrationCalls []metricRegistrationPost
+	*testing.Stub
 }
 
 // ServeHTTP implements http.Handler.
 func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
+	if req.Method == "POST" {
+		var registrationPost metricRegistrationPost
+		decoder := json.NewDecoder(req.Body)
+		err := decoder.Decode(&registrationPost)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		c.AddCall("Authorize", registrationPost)
+		rErr := c.NextErr()
+		if rErr != nil {
+			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = json.NewEncoder(w).Encode([]byte("hello registration"))
+		if err != nil {
+			panic(err)
+		}
+	} else if req.Method == "GET" {
+		cURL := req.URL.Query().Get("charm")
+		c.AddCall("DefaultPlan", cURL)
+		rErr := c.NextErr()
+		if rErr != nil {
+			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		result := struct {
+			URL string `json:"url"`
+		}{"thisplan"}
+		err := json.NewEncoder(w).Encode(result)
+		if err != nil {
+			panic(err)
+		}
+
+	} else {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+}
 
-	var registrationPost metricRegistrationPost
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&registrationPost)
-	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
+type mockAPIConnection struct {
+	api.Connection
+	*testing.Stub
+}
+
+func (*mockAPIConnection) BestFacadeVersion(facade string) int {
+	return 42
+}
+
+func (*mockAPIConnection) Close() error {
+	return nil
+}
+
+func (m *mockAPIConnection) APICall(objType string, version int, id, request string, parameters, response interface{}) error {
+	m.MethodCall(m, "APICall", objType, request, parameters)
+
+	switch request {
+	case "IsMetered":
+		parameters := parameters.(params.CharmInfo)
+		response := response.(*params.IsMeteredResult)
+		if parameters.CharmURL == "local:quantal/metered-1" {
+			response.Metered = true
+		}
+	case "SetMetricCredentials":
+		response := response.(*params.ErrorResults)
+		response.Results = append(response.Results, params.ErrorResult{Error: nil})
 	}
-
-	err = json.NewEncoder(w).Encode([]byte("hello registration"))
-	if err != nil {
-		panic(err)
-	}
-
-	c.registrationCalls = append(c.registrationCalls, registrationPost)
+	return m.NextErr()
 }

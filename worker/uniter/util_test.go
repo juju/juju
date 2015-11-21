@@ -23,6 +23,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
@@ -41,6 +42,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -84,7 +86,7 @@ type context struct {
 	api                    *apiuniter.State
 	leaderClaimer          coreleadership.Claimer
 	leaderTracker          *mockLeaderTracker
-	charmDirLocker         *mockCharmDirLocker
+	charmDirGuard          *mockCharmDirGuard
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -478,12 +480,16 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		UniterFacade:         ctx.api,
 		UnitTag:              tag,
 		LeadershipTracker:    ctx.leaderTracker,
-		CharmDirLocker:       ctx.charmDirLocker,
+		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
+		// TODO(axw) 2015-11-02 #1512191
+		// update tests that rely on timing to advance clock
+		// appropriately.
+		Clock: clock.WallClock,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 }
@@ -1431,15 +1437,19 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
-		c.Assert(err, jc.ErrorIsNil)
+		// Don't use asserts in go routines.
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
 		defer client.Close()
 
 		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, args, &result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result.Code, gc.Equals, 0)
-		c.Check(string(result.Stdout), gc.Equals, "")
-		c.Check(string(result.Stderr), gc.Equals, "")
+		if c.Check(err, jc.ErrorIsNil) {
+			c.Check(result.Code, gc.Equals, 0)
+			c.Check(string(result.Stdout), gc.Equals, "")
+			c.Check(string(result.Stderr), gc.Equals, "")
+		}
 	}()
 }
 
@@ -1636,10 +1646,13 @@ func (verify verifyNoFile) step(c *gc.C, ctx *context) {
 	c.Assert(verify.filename, jc.DoesNotExist)
 }
 
-type mockCharmDirLocker struct{}
+type mockCharmDirGuard struct{}
 
-// SetAvailable implements charmdir.Locker.
-func (*mockCharmDirLocker) SetAvailable(_ bool) {}
+// Unlock implements fortress.Guard.
+func (*mockCharmDirGuard) Unlock() error { return nil }
+
+// Lockdown implements fortress.Guard.
+func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
 
 // prepareGitUniter runs a sequence of uniter tests with the manifest deployer
 // replacement logic patched out, simulating the effect of running an older

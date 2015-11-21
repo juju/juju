@@ -80,33 +80,33 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 
 var deployTests = []struct {
 	args []string
-	com  *deployCommand
+	com  *DeployCommand
 }{
 	{
 		[]string{"charm-name"},
-		&deployCommand{},
+		&DeployCommand{},
 	}, {
 		[]string{"charm-name", "service-name"},
-		&deployCommand{ServiceName: "service-name"},
+		&DeployCommand{ServiceName: "service-name"},
 	}, {
 		[]string{"--repository", "/path/to/another-repo", "charm-name"},
-		&deployCommand{RepoPath: "/path/to/another-repo"},
+		&DeployCommand{RepoPath: "/path/to/another-repo"},
 	}, {
 		[]string{"--upgrade", "charm-name"},
-		&deployCommand{BumpRevision: true},
+		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"-u", "charm-name"},
-		&deployCommand{BumpRevision: true},
+		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"--num-units", "33", "charm-name"},
-		&deployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 33}},
+		&DeployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 33}},
 	}, {
 		[]string{"-n", "104", "charm-name"},
-		&deployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 104}},
+		&DeployCommand{UnitCommandBase: service.UnitCommandBase{NumUnits: 104}},
 	},
 }
 
-func initExpectations(com *deployCommand) {
+func initExpectations(com *DeployCommand) {
 	if com.CharmOrBundle == "" {
 		com.CharmOrBundle = "charm-name"
 	}
@@ -119,8 +119,8 @@ func initExpectations(com *deployCommand) {
 	com.SetEnvName("peckham")
 }
 
-func initDeployCommand(args ...string) (*deployCommand, error) {
-	com := &deployCommand{}
+func initDeployCommand(args ...string) (*DeployCommand, error) {
+	com := &DeployCommand{}
 	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 

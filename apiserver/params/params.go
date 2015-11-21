@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -411,7 +411,7 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
@@ -636,9 +636,9 @@ type LoginResultV1 struct {
 	// EnvironTag is the tag for the environment that is being connected to.
 	EnvironTag string `json:"environ-tag,omitempty"`
 
-	// ServerTag is the tag for the environment that holds the API servers.
+	// ControllerTag is the tag for the environment that holds the API servers.
 	// This is the initial environment created when bootstrapping juju.
-	ServerTag string `json:"server-tag,omitempty"`
+	ControllerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`

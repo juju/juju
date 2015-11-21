@@ -94,6 +94,8 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 			err = h.addService(change.Id(), change.Params)
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change.Id(), change.Params)
+		case *bundlechanges.ExposeChange:
+			err = h.exposeService(change.Id(), change.Params)
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change.Id(), change.Params)
 		default:
@@ -158,7 +160,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
+	url, err = addCharmFromURL(h.client, url, repo, h.csclient)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -365,6 +367,16 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 	// incomplete unit status. That's ok as the missing info is provided later
 	// when it is required.
 	h.unitStatus[unit] = machineSpec
+	return nil
+}
+
+// exposeService exposes a service.
+func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
+	service := resolve(p.Service, h.results)
+	if err := h.client.ServiceExpose(service); err != nil {
+		return errors.Annotatef(err, "cannot expose service %s", service)
+	}
+	h.log.Infof("service %s exposed", service)
 	return nil
 }
 

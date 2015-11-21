@@ -18,36 +18,50 @@ var (
 )
 
 func NewPoolListCommand(api PoolListAPI) cmd.Command {
-	cmd := &poolListCommand{api: api}
+	cmd := &poolListCommand{newAPIFunc: func() (PoolListAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewPoolCreateCommand(api PoolCreateAPI) cmd.Command {
-	cmd := &poolCreateCommand{api: api}
+	cmd := &poolCreateCommand{newAPIFunc: func() (PoolCreateAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewVolumeListCommand(api VolumeListAPI) cmd.Command {
-	cmd := &volumeListCommand{api: api}
+	cmd := &volumeListCommand{newAPIFunc: func() (VolumeListAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewShowCommand(api StorageShowAPI) cmd.Command {
-	cmd := &showCommand{api: api}
+	cmd := &showCommand{newAPIFunc: func() (StorageShowAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewListCommand(api StorageListAPI) cmd.Command {
-	cmd := &listCommand{api: api}
+	cmd := &listCommand{newAPIFunc: func() (StorageListAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewAddCommand(api StorageAddAPI) cmd.Command {
-	cmd := &addCommand{api: api}
+	cmd := &addCommand{newAPIFunc: func() (StorageAddAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
 
 func NewFilesystemListCommand(api FilesystemListAPI) cmd.Command {
-	cmd := &filesystemListCommand{api: api}
+	cmd := &filesystemListCommand{newAPIFunc: func() (FilesystemListAPI, error) {
+		return api, nil
+	}}
 	return envcmd.Wrap(cmd)
 }
