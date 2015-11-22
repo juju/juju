@@ -622,7 +622,7 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 		"--port", fmt.Sprint(port),
 		"--syslog",
 		"--journal",
-		//	"--quiet",
+		"--quiet",
 	}
 	if version == Mongo30wt {
 		args = append(args, "--storageEngine", "wiredTiger")

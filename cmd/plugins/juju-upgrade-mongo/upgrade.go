@@ -89,7 +89,7 @@ func mustParseTemplate(templ string) *template.Template {
 
 // runViaJujuSSH will run arbitrary code in the remote machine.
 func runViaJujuSSH(machine, script string, stdout, stderr *bytes.Buffer) error {
-	cmd := exec.Command("ssh", []string{fmt.Sprintf("ubuntu@%s", machine), "sudo -n bash -c " + utils.ShQuote(script)}...)
+	cmd := exec.Command("ssh", []string{"-o StrictHostKeyChecking=no", fmt.Sprintf("ubuntu@%s", machine), "sudo -n bash -c " + utils.ShQuote(script)}...)
 	cmd.Stderr = stderr
 	cmd.Stdout = stdout
 	err := cmd.Run()
@@ -126,8 +126,11 @@ const (
 	jujuUpgradeScript = `
 /var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}}'
 `
+	jujuUpgradeScriptMembers = `
+/var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}}' --members '{{.Members}}'
+`
 	jujuSlaveUpgradeScript = `
-/var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}} --slave'
+/var/lib/juju/tools/machine-{{.MachineNumber}}/jujud upgrade-mongo --series {{.Series}} --machinetag 'machine-{{.MachineNumber}}' --slave
 `
 )
 
@@ -146,7 +149,7 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot determine status servers")
 	}
-	defer c.resumeReplication(migratables.rsMembers)
+
 	addrs := make([]string, len(migratables.rsMembers))
 	for i, rsm := range migratables.rsMembers {
 		addrs[i] = rsm.Address
@@ -169,8 +172,7 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	if members == "" {
 		tmpl = template.Must(t.Parse(jujuUpgradeScript))
 	} else {
-		script := jujuUpgradeScript + " --members '{{.Members}}'"
-		tmpl = template.Must(t.Parse(script))
+		tmpl = template.Must(t.Parse(jujuUpgradeScriptMembers))
 	}
 	var buf bytes.Buffer
 	upgradeParams := upgradeScriptParams{
@@ -178,12 +180,32 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 		migratables.master.series,
 		members,
 	}
-	err = tmpl.Execute(&buf, upgradeParams)
+	if err = tmpl.Execute(&buf, upgradeParams); err != nil {
+		return errors.Annotate(err, "cannot build a script to perform the remote upgrade")
+	}
 
 	if err := runViaJujuSSH(migratables.master.ip.Value, buf.String(), &stdout, &stderr); err != nil {
 		return errors.Annotate(err, "migration to mongo 3 unsuccesful, your database is left in the same state.")
 	}
-
+	ts := template.New("")
+	tmpl = template.Must(ts.Parse(jujuSlaveUpgradeScript))
+	for _, m := range migratables.machines {
+		if m.ip.Value == migratables.master.ip.Value {
+			continue
+		}
+		var buf bytes.Buffer
+		upgradeParams := upgradeScriptParams{
+			m.machine.Id(),
+			m.series,
+			"",
+		}
+		if err := tmpl.Execute(&buf, upgradeParams); err != nil {
+			return errors.Annotate(err, "cannot build a script to perform the remote upgrade")
+		}
+		if err := runViaJujuSSH(m.ip.Value, buf.String(), &stdout, &stderr); err != nil {
+			return errors.Annotatef(err, "cannot migrate slave machine on %q", m.ip.Value)
+		}
+	}
 	return nil
 }
 
@@ -212,16 +234,6 @@ func (c *upgradeMongoCommand) getHAClient() (MongoUpgradeClient, error) {
 
 	// NewClient does not return an error, so we'll return nil
 	return highavailability.NewClient(root), nil
-}
-
-func (c *upgradeMongoCommand) resumeReplication(members []replicaset.Member) error {
-	haClient, err := c.getHAClient()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to juju")
-	}
-
-	defer haClient.Close()
-	return haClient.ResumeHAReplicationAfterUpgrade(members)
 }
 
 func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {

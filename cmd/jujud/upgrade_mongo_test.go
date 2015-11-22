@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -104,9 +105,9 @@ func (s *UpgradeMongoSuite) TestRemoveOldDb(c *gc.C) {
 	err := removeOldDbCall("/a/fake/datadir", command.stat, command.remove, command.mkdir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 3)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/a/fake/datadir/db"})
-	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"/a/fake/datadir/db"})
-	c.Assert(command.ranCommands[2], gc.DeepEquals, []string{"/a/fake/datadir/db"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"stat", "/a/fake/datadir/db"})
+	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"remove", "/a/fake/datadir/db"})
+	c.Assert(command.ranCommands[2], gc.DeepEquals, []string{"mkdir", "/a/fake/datadir/db"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoDump(c *gc.C) {
@@ -252,6 +253,18 @@ func (f *fakeRunCommand) fsCopy(src, dst string) error {
 	return nil
 }
 
+func (f *fakeRunCommand) replicaRemove(s mgoSession, addrs ...string) error {
+	ran := []string{"replicaRemove"}
+	f.ranCommands = append(f.ranCommands, ran)
+	return nil
+}
+
+func (f *fakeRunCommand) replicaAdd(s mgoSession, members ...replicaset.Member) error {
+	ran := []string{"replicaAdd"}
+	f.ranCommands = append(f.ranCommands, ran)
+	return nil
+}
+
 type fakeService struct {
 	ranCommands []string
 }
@@ -380,6 +393,8 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		mongoEnsureServiceInstalled: command.ensureServiceInstalled,
 		mongoDialInfo:               command.mongoDialInfo,
 		initiateMongoServer:         command.initiateMongoServer,
+		replicasetAdd:               command.replicaAdd,
+		replicasetRemove:            command.replicaRemove,
 	}
 
 	err := upgradeMongoCommand.run()
@@ -464,6 +479,8 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		mongoEnsureServiceInstalled: command.ensureServiceInstalled,
 		mongoDialInfo:               command.mongoDialInfo,
 		initiateMongoServer:         command.initiateMongoServer,
+		replicasetAdd:               command.replicaAdd,
+		replicasetRemove:            command.replicaRemove,
 	}
 
 	err := upgradeMongoCommand.run()
@@ -537,6 +554,8 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		mongoEnsureServiceInstalled: command.ensureServiceInstalled,
 		mongoDialInfo:               command.mongoDialInfo,
 		initiateMongoServer:         command.initiateMongoServer,
+		replicasetAdd:               command.replicaAdd,
+		replicasetRemove:            command.replicaRemove,
 	}
 
 	err := upgradeMongoCommand.run()

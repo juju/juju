@@ -138,8 +138,8 @@ func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeM
 	for i, m := range ha.Members {
 		members[i] = params.HAMember{
 			Tag:           m.Tag,
-			PublicAddress: ha.Master.PublicAddress,
-			Series:        ha.Master.Series,
+			PublicAddress: m.PublicAddress,
+			Series:        m.Series,
 		}
 	}
 	return params.MongoUpgradeResults{

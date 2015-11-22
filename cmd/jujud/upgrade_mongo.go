@@ -58,6 +58,8 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		mongoEnsureServiceInstalled: mongo.EnsureServiceInstalled,
 		mongoDialInfo:               mongo.DialInfo,
 		initiateMongoServer:         peergrouper.InitiateMongoServer,
+		replicasetAdd:               replicaAddCall,
+		replicasetRemove:            replicaRemoveCall,
 	}
 }
 
@@ -88,6 +90,9 @@ type mongoEnsureService func(string, string, int, int, bool, mongo.Version, bool
 type mongoDialInfo func(mongo.Info, mongo.DialOpts) (*mgo.DialInfo, error)
 
 type initiateMongoServerFunc func(peergrouper.InitiateMongoParams, bool) error
+
+type replicaAddFunc func(mgoSession, ...replicaset.Member) error
+type replicaRemoveFunc func(mgoSession, ...string) error
 
 // UpgradeMongoCommand represents a jujud upgrade-mongo command.
 type UpgradeMongoCommand struct {
@@ -122,6 +127,8 @@ type UpgradeMongoCommand struct {
 	mongoEnsureServiceInstalled mongoEnsureService
 	mongoDialInfo               mongoDialInfo
 	initiateMongoServer         initiateMongoServerFunc
+	replicasetAdd               replicaAddFunc
+	replicasetRemove            replicaRemoveFunc
 }
 
 // Info returns a decription of the command.
@@ -194,7 +201,9 @@ func (u *UpgradeMongoCommand) run() (err error) {
 			err = errors.Annotate(svcErr, "could not start juju after upgrade")
 		}
 	}()
-	defer u.replicaAdd()
+	if !u.slave {
+		defer u.replicaAdd()
+	}
 	if u.rollback {
 		origin := u.agentConfig.Value(KeyUpgradeBackup)
 		if origin == "" {
@@ -217,12 +226,13 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		if u.slave {
 			return u.upgradeSlave(dataDir)
 		}
+		u.replicaRemove()
 		if err := u.maybeUpgrade24to26(dataDir); err != nil {
 			defer func() {
 				if u.backupPath == "" {
 					return
 				}
-				fmt.Println("will roll back after failed 2.6 upgrade")
+				logger.Infof("will roll back after failed 2.6 upgrade")
 				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
@@ -237,13 +247,60 @@ func (u *UpgradeMongoCommand) run() (err error) {
 				if u.backupPath == "" {
 					return
 				}
-				fmt.Println("will roll back after failed 3.0 upgrade")
+				logger.Infof("will roll back after failed 3.0 upgrade")
 				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
 			return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
 		}
+	}
+	return nil
+}
+
+func replicaRemoveCall(session mgoSession, addrs ...string) error {
+	mSession := session.(*mgo.Session)
+	if err := replicaset.Remove(mSession, addrs...); err != nil {
+		return errors.Annotate(err, "cannot resume HA")
+	}
+	return nil
+}
+
+func (u *UpgradeMongoCommand) replicaRemove() error {
+	if u.members == "" {
+		return nil
+	}
+	info, ok := u.agentConfig.MongoInfo()
+	if !ok {
+		return errors.New("cannot get mongo info from agent config to resume HA")
+	}
+
+	var session mgoSession
+	var err error
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, _, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
+	}
+	if err != nil {
+		return errors.Annotate(err, "error dialing mongo to resume HA")
+	}
+	defer session.Close()
+	addrs := strings.Split(u.members, ",")
+
+	if err := u.replicasetRemove(session, addrs...); err != nil {
+		return errors.Annotate(err, "cannot resume HA")
+	}
+	return nil
+}
+
+func replicaAddCall(session mgoSession, members ...replicaset.Member) error {
+	mSession := session.(*mgo.Session)
+	if err := replicaset.Add(mSession, members...); err != nil {
+		return errors.Annotate(err, "cannot resume HA")
 	}
 	return nil
 }
@@ -271,13 +328,13 @@ func (u *UpgradeMongoCommand) replicaAdd() error {
 		return errors.Annotate(err, "error dialing mongo to resume HA")
 	}
 	defer session.Close()
-	mSession := session.(*mgo.Session)
 	addrs := strings.Split(u.members, ",")
 	members := make([]replicaset.Member, len(addrs))
 	for i, addr := range addrs {
 		members[i] = replicaset.Member{Address: addr}
 	}
-	if err := replicaset.Add(mSession, members...); err != nil {
+
+	if err := u.replicasetAdd(session, members...); err != nil {
 		return errors.Annotate(err, "cannot resume HA")
 	}
 	return nil
@@ -398,28 +455,28 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "could not do pre migration backup")
 		}
-		fmt.Println("pre 3.x migration dump ready.")
+		logger.Infof("pre 3.x migration dump ready.")
 		if err := u.mongoStop(namespace); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
 		}
-		fmt.Println("mongo stopped")
+		logger.Infof("mongo stopped")
 
 		// Mongo 3, no wired tiger
 		u.agentConfig.SetMongoVersion(mongo.Mongo30)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		fmt.Println(fmt.Sprintf("new mongo version set-up to %q", mongo.Mongo30.String()))
+		logger.Infof(fmt.Sprintf("new mongo version set-up to %q", mongo.Mongo30.String()))
 
 		if err := u.UpdateService(namespace, true); err != nil {
 			return errors.Annotate(err, "cannot update service script")
 		}
-		fmt.Println("service startup scripts up to date")
+		logger.Infof("service startup scripts up to date")
 
 		if err := u.mongoStart(namespace); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
 		}
-		fmt.Println("started mongo")
+		logger.Infof("started mongo")
 		current = mongo.Mongo30
 	}
 
@@ -429,35 +486,35 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "could not do the tiger migration export")
 		}
-		fmt.Println("dumped to change storage")
+		logger.Infof("dumped to change storage")
 
 		if err := u.mongoStop(namespace); err != nil {
 			return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
 		}
-		fmt.Println("mongo stopped before storage migration")
+		logger.Infof("mongo stopped before storage migration")
 		if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
 			return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
 		}
-		fmt.Println("old db files removed")
+		logger.Infof("old db files removed")
 
 		// Mongo 3, with wired tiger
 		u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		fmt.Println("wired tiger set in agent.config")
+		logger.Infof("wired tiger set in agent.config")
 
 		if err := u.UpdateService(namespace, false); err != nil {
 			return errors.Annotate(err, "cannot update service script to use wired tiger")
 		}
-		fmt.Println("service startup script up to date")
+		logger.Infof("service startup script up to date")
 
 		info, ok := u.agentConfig.MongoInfo()
 		if !ok {
 			return errors.New("cannot get mongo info from agent config")
 		}
 
-		fmt.Println("will create dialinfo for new mongo")
+		logger.Infof("will create dialinfo for new mongo")
 		//TODO(perrito666) make this into its own function
 		dialOpts := mongo.DialOpts{}
 		dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
@@ -468,7 +525,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err := u.mongoStart(namespace); err != nil {
 			return errors.Annotate(err, "cannot start mongo 3 to restart replicaset")
 		}
-		fmt.Println("mongo started")
+		logger.Infof("mongo started")
 
 		// perhaps statehost port?
 		// we need localhost, since there is no admin user
@@ -480,7 +537,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot initiate replicaset")
 		}
-		fmt.Println("mongo initiated")
+		logger.Infof("mongo initiated")
 
 		// blobstorage might fail to restore in certain versions of
 		// mongorestore because of a bug in mongorestore
@@ -489,17 +546,17 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot restore the db.")
 		}
-		fmt.Println("mongo restored into the new storage")
+		logger.Infof("mongo restored into the new storage")
 
 		if err := u.UpdateService(namespace, true); err != nil {
 			return errors.Annotate(err, "cannot update service script post wired tiger migration")
 		}
-		fmt.Println("service scripts up to date")
+		logger.Infof("service scripts up to date")
 
 		if err := u.mongoRestart(namespace); err != nil {
 			return errors.Annotate(err, "cannot restart mongo service after upgrade")
 		}
-		fmt.Println("mongo restarted")
+		logger.Infof("mongo restarted")
 	}
 	return nil
 }
@@ -765,6 +822,11 @@ func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
+	namespace := u.agentConfig.Value(agent.Namespace)
+	if err := u.mongoStop(namespace); err != nil {
+		return errors.Annotate(err, "cannot stop mongo to upgrade mongo slave")
+	}
+	defer u.mongoStart(namespace)
 	if err := u.removeOldDb(dataDir); err != nil {
 		return errors.Annotate(err, "cannot remove existing slave db")
 	}
@@ -773,11 +835,11 @@ func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
 	if err := u.agentConfig.Write(); err != nil {
 		return errors.Annotate(err, "could not update mongo version in agent.config")
 	}
-	fmt.Println("wired tiger set in agent.config")
-	namespace := u.agentConfig.Value(agent.Namespace)
+	logger.Infof("wired tiger set in agent.config")
+
 	if err := u.UpdateService(namespace, false); err != nil {
 		return errors.Annotate(err, "cannot update service script to use wired tiger")
 	}
-	fmt.Println("service startup script up to date")
+	logger.Infof("service startup script up to date")
 	return nil
 }

@@ -87,6 +87,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
@@ -128,6 +129,7 @@ var (
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
 	newMetadataUpdater       = imagemetadataworker.NewWorker
+	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -509,31 +511,28 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) (bool, error) {
+func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
 	if !a.mongoInitialized {
-		return false, nil
+		return nil
 	}
 
 	conf := a.AgentConfigWriter.CurrentConfig()
 	v := conf.MongoVersion()
 
 	logger.Errorf("Got version change %v", ver)
+	// TODO(perrito666) replace with "read-only" mode for environment when
+	// it is available.
 	if ver.NewerThan(v) > 0 {
 		err := a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
 			config.SetMongoVersion(mongo.MongoUpgrade)
 			return nil
 		})
 		if err != nil {
-			return false, err
+			return err
 		}
-		//if !isMaster {
-		//	if err := mongo.StopService(conf.Value(agent.Namespace)); err != nil {
-		//		return false, errors.Annotate(err, "cannot stop mongo service")
-		//	}
-		//	return true, nil
-		//}
+
 	}
-	return false, nil
+	return nil
 
 }
 
@@ -584,16 +583,6 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
-// newUpgradeMongoWatcherWorker returns a worker or err in case of failure.
-// this worker takes care of watching the state of machine's upgrade
-// mongo information and change agent conf accordingly.
-func (a *MachineAgent) newUpgradeMongoWatcherWorker(st *state.State) (worker.Worker, error) {
-	upgradeWorker := func(stopch <-chan struct{}) error {
-		return a.upgradeMongoWatcher(st, stopch)
-	}
-	return worker.NewSimpleWorker(upgradeWorker), nil
-}
-
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
@@ -625,65 +614,6 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 		case <-restoreWatch.Changes():
 			if err := a.restoreChanged(st); err != nil {
 				return err
-			}
-		case <-stopch:
-			return nil
-		}
-	}
-}
-
-func (a *MachineAgent) upgradeMongoWatcher(st *state.State, stopch <-chan struct{}) error {
-	m, err := st.Machine(a.machineId)
-	if err != nil {
-		return errors.Annotatef(err, "cannot start watcher for machine %q", a.machineId)
-	}
-	watch := m.Watch()
-	defer func() {
-		watch.Kill()
-		watch.Wait()
-	}()
-
-	for {
-		select {
-		case <-watch.Changes():
-			if err := m.Refresh(); err != nil {
-				return errors.Annotate(err, "cannot refresh machine information")
-			}
-			if !m.IsManager() {
-				continue
-			}
-			expectedVersion, err := m.StopMongoUntilVersion()
-			if err != nil {
-				return errors.Annotate(err, "cannot obtain minimum version of mongo")
-			}
-			if expectedVersion == mongo.Mongo24 {
-				continue
-			}
-			var isMaster bool
-			isMaster, err = mongo.IsMaster(st.MongoSession(), m)
-			if err != nil {
-				return errors.Annotatef(err, "cannot determine if machine %q is master", a.machineId)
-			}
-
-			_, err = a.maybeStopMongo(expectedVersion, isMaster)
-			if err != nil {
-				return errors.Annotate(err, "cannot determine if mongo must be stopped")
-			}
-			if !isMaster {
-				addrs := make([]string, len(m.Addresses()))
-				ssi, err := st.StateServingInfo()
-				if err != nil {
-					return errors.Annotate(err, "cannot obtain state serving info to stop mongo")
-				}
-				for i, addr := range m.Addresses() {
-					addrs[i] = net.JoinHostPort(addr.Value, strconv.Itoa(ssi.StatePort))
-				}
-				if err := replicaset.Remove(st.MongoSession(), addrs...); err != nil {
-					return errors.Annotatef(err, "cannot remove %q from replicaset", m.Id())
-				}
-				if err := m.SetStopMongoUntilVersion(mongo.Mongo24); err != nil {
-					return errors.Annotate(err, "cannot reset stop mongo flag")
-				}
 			}
 		case <-stopch:
 			return nil
@@ -1184,7 +1114,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
-				return a.newUpgradeMongoWatcherWorker(st)
+				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
 
 			// certChangedChan is shared by multiple workers it's up

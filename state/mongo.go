@@ -88,7 +88,15 @@ func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error
 	if err != nil {
 		return UpgradeMongoParams{}, errors.Annotate(err, "cannot obtain current replicaset members")
 	}
-	result.RsMembers = rsMembers
+	masterRs, err := replicaset.MasterHostPort(st.session)
+	if err != nil {
+		return UpgradeMongoParams{}, errors.Annotate(err, "cannot determine master on replicaset members")
+	}
+	for _, m := range rsMembers {
+		if m.Address != masterRs {
+			result.RsMembers = append(result.RsMembers, m)
+		}
+	}
 	for _, m := range machines {
 		if err := m.SetStopMongoUntilVersion(v); err != nil {
 			return UpgradeMongoParams{}, errors.Annotate(err, "cannot trigger replica shutdown")
