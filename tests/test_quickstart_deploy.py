@@ -3,16 +3,16 @@ from mock import (
     ANY,
     patch
 )
-from unittest import TestCase
 
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
 from quickstart_deploy import QuickstartTest
+from tests import FakeHomeTestCase
 
 
-class TestQuickstartTest(TestCase):
+class TestQuickstartTest(FakeHomeTestCase):
 
     @contextmanager
     def from_args_cxt(self):
@@ -115,8 +115,7 @@ class TestQuickstartTest(TestCase):
         ps_mock.assert_called_once_with(client)
         dl_mock.assert_called_once_with(client, 'foo', '/tmp/logs')
 
-    @patch('sys.stderr')
-    def test_run_exception(self, se_mock):
+    def test_run_exception(self):
         def fake_iter_steps():
             yield {'bootstrap_host': 'foo'}
             raise Exception()
@@ -141,7 +140,8 @@ class TestQuickstartTest(TestCase):
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
-            step = steps.next()
+            with patch('jujupy.check_free_disk_space', autospec=True):
+                step = steps.next()
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)
@@ -149,7 +149,7 @@ class TestQuickstartTest(TestCase):
                    return_value='mocked_name') as dns_mock:
             # Test second yield
             step = steps.next()
-        dns_mock.assert_called_once_with(client, 0)
+        dns_mock.assert_called_once_with(client, '0')
         self.assertEqual('mocked_name', step['bootstrap_host'])
         with patch.object(client, 'wait_for_deploy_started') as wds_mock:
             # Test third yield
