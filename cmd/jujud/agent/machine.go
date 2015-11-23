@@ -1324,7 +1324,11 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
-		w, err := metricworker.NewMetricsManager(getMetricAPI(apiSt))
+		client, err := getMetricAPI(apiSt)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot construct metrics api facade")
+		}
+		w, err := metricworker.NewMetricsManager(client)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start metrics manager worker")
 		}
@@ -1958,8 +1962,12 @@ func (c singularStateConn) Ping() error {
 	return c.session.Ping()
 }
 
-func metricAPI(st api.Connection) metricsmanager.MetricsManagerClient {
-	return metricsmanager.NewClient(st)
+func metricAPI(st api.Connection) (metricsmanager.MetricsManagerClient, error) {
+	client, err := metricsmanager.NewClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client, nil
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context
