@@ -13,7 +13,7 @@ import (
 
 const remoteRelationsFacade = "RemoteRelations"
 
-// State provides access to a storageprovisioner's view of the state.
+// State provides access to a remoterelations's view of the state.
 type State struct {
 	facade base.FacadeCaller
 }
