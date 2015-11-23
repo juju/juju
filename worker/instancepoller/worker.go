@@ -48,21 +48,18 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	observer, err := environ.NewEnvironObserver(u.st)
+
+	// TODO(fwereade): get this as a resource from a dependency.Engine.
+	tracker, err := environ.NewTracker(environ.Config{
+		Observer: u.st,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.catacomb.Add(observer); err != nil {
+	if err := u.catacomb.Add(tracker); err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(fwereade): EnvironObserver does not update the env, so the
-	// aggregator may get out of date. This should be addressed with a
-	// change to the observer; which should then be used with the
-	// firewaller and provisioner workers that still use WaitForEnviron,
-	// allowing us to maintain a single shared environ that updates in
-	// the background \o/.
-	u.aggregator = newAggregator(observer.Environ())
+	u.aggregator = newAggregator(tracker.Environ())
 	if err := u.catacomb.Add(u.aggregator); err != nil {
 		return errors.Trace(err)
 	}

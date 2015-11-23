@@ -4,251 +4,202 @@
 package environ_test
 
 import (
-	"errors"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/testing"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/environ"
+	"github.com/juju/juju/worker/workertest"
 )
 
-type environSuite struct {
+type TrackerSuite struct {
 	coretesting.BaseSuite
-
-	st *fakeState
 }
 
-var _ = gc.Suite(&environSuite{})
+var _ = gc.Suite(&TrackerSuite{})
 
-func (s *environSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.st = &fakeState{
-		Stub:    &testing.Stub{},
-		changes: make(chan struct{}, 100),
+func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
+	config := environ.Config{}
+	check := func(err error) {
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
 	}
+
+	err := config.Validate()
+	check(err)
+
+	tracker, err := environ.NewTracker(config)
+	c.Check(tracker, gc.IsNil)
+	check(err)
 }
 
-func (s *environSuite) TestStop(c *gc.C) {
-	s.st.SetErrors(
-		nil,                // WatchForEnvironConfigChanges
-		errors.New("err1"), // Changes (closing the channel)
-	)
-	s.st.SetConfig(c, coretesting.Attrs{
-		"type": "invalid",
+func (s *TrackerSuite) TestEnvironConfigFails(c *gc.C) {
+	fix := &fixture{
+		observerErrs: []error{
+			errors.New("no yuo"),
+		},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Check(err, gc.ErrorMatches, "cannot read environ config: no yuo")
+		c.Check(tracker, gc.IsNil)
+		context.CheckCallNames(c, "EnvironConfig")
 	})
 
-	w, err := s.st.WatchForEnvironConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	defer stopWatcher(c, w)
-	stop := make(chan struct{})
-	close(stop) // close immediately so the loop exits.
-	done := make(chan error)
-	go func() {
-		env, err := environ.WaitForEnviron(w, s.st, stop)
-		c.Check(env, gc.IsNil)
-		done <- err
-	}()
-	select {
-	case <-environ.LoadedInvalid:
-		c.Errorf("expected changes watcher to be closed")
-	case err := <-done:
-		c.Assert(err, gc.Equals, environ.ErrWaitAborted)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout waiting for the WaitForEnviron to stop")
+}
+
+func (s *TrackerSuite) TestEnvironConfigInvalid(c *gc.C) {
+	fix := &fixture{
+		initialConfig: coretesting.Attrs{
+			"type": "unknown",
+		},
 	}
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges", "Changes")
-}
-
-func stopWatcher(c *gc.C, w watcher.NotifyWatcher) {
-	err := worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *environSuite) TestInvalidConfig(c *gc.C) {
-	s.st.SetConfig(c, coretesting.Attrs{
-		"type": "unknown",
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Check(err, gc.ErrorMatches, `cannot create environ: no registered provider for "unknown"`)
+		c.Check(tracker, gc.IsNil)
+		context.CheckCallNames(c, "EnvironConfig")
 	})
 
-	w, err := s.st.WatchForEnvironConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	defer stopWatcher(c, w)
-	done := make(chan environs.Environ)
-	go func() {
-		env, err := environ.WaitForEnviron(w, s.st, nil)
+}
+
+func (s *TrackerSuite) TestEnvironConfigValid(c *gc.C) {
+	fix := &fixture{
+		initialConfig: coretesting.Attrs{
+			"name": "this-particular-name",
+		},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		defer workertest.CleanKill(c, tracker)
+
+		gotEnviron := tracker.Environ()
+		c.Assert(gotEnviron, gc.NotNil)
+		c.Check(gotEnviron.Config().Name(), gc.Equals, "this-particular-name")
+	})
+}
+
+func (s *TrackerSuite) TestWatchFails(c *gc.C) {
+	fix := &fixture{
+		observerErrs: []error{
+			nil, errors.New("grrk splat"),
+		},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		defer workertest.DirtyKill(c, tracker)
+
+		err = workertest.CheckKilled(c, tracker)
+		c.Check(err, gc.ErrorMatches, "cannot watch environ config: grrk splat")
+		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges")
+	})
+}
+
+func (s *TrackerSuite) TestWatchCloses(c *gc.C) {
+	fix := &fixture{}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		defer workertest.DirtyKill(c, tracker)
+
+		context.CloseNotify()
+		err = workertest.CheckKilled(c, tracker)
+		c.Check(err, gc.ErrorMatches, "environ config watch closed")
+		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges")
+	})
+}
+
+func (s *TrackerSuite) TestWatchedEnvironConfigFails(c *gc.C) {
+	fix := &fixture{
+		observerErrs: []error{
+			nil, nil, errors.New("blam ouch"),
+		},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
 		c.Check(err, jc.ErrorIsNil)
-		done <- env
-	}()
-	<-environ.LoadedInvalid
-	s.st.CheckCallNames(c,
-		"WatchForEnvironConfigChanges",
-		"Changes",
-		"EnvironConfig",
-		"Changes",
-	)
+		defer workertest.DirtyKill(c, tracker)
+
+		context.SendNotify()
+		err = workertest.CheckKilled(c, tracker)
+		c.Check(err, gc.ErrorMatches, "cannot read environ config: blam ouch")
+		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
+	})
 }
 
-func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
-	s.st.SetConfig(c, coretesting.Attrs{
-		"type": "unknown",
-	})
-
-	obs, err := environ.NewEnvironObserver(s.st)
-	c.Assert(err, gc.ErrorMatches,
-		`cannot create an environment: no registered provider for "unknown"`,
-	)
-	c.Assert(obs, gc.IsNil)
-	s.st.CheckCallNames(c, "EnvironConfig")
-}
-
-func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
-	s.st.SetConfig(c, nil)
-
-	logc := make(logChan, 1009)
-	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
-	defer loggo.RemoveWriter("testing")
-
-	obs, err := environ.NewEnvironObserver(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env := obs.Environ()
-	s.st.AssertConfig(c, env.Config())
-
-	// Change to an invalid configuration and check
-	// that the observer's environment remains the same.
-	originalConfig, err := s.st.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.st.SetConfig(c, coretesting.Attrs{
-		"type": "invalid",
-	})
-
-	// Wait for the observer to register the invalid environment
-loop:
-	for {
-		select {
-		case msg := <-logc:
-			if strings.Contains(msg, "error creating an environment") {
-				break loop
-			}
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting to see broken environment")
-		}
+func (s *TrackerSuite) TestWatchedEnvironConfigIncompatible(c *gc.C) {
+	fix := &fixture{
+		initialConfig: coretesting.Attrs{
+			"broken": "SetConfig",
+		},
 	}
-	// Check that the returned environ is still the same.
-	env = obs.Environ()
-	c.Assert(env.Config().AllAttrs(), jc.DeepEquals, originalConfig.AllAttrs())
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Check(err, jc.ErrorIsNil)
+		defer workertest.DirtyKill(c, tracker)
 
-	// Change the environment back to a valid configuration
-	// with a different name and check that we see it.
-	s.st.SetConfig(c, coretesting.Attrs{
-		"name": "a-new-name",
+		context.SendNotify()
+		err = workertest.CheckKilled(c, tracker)
+		c.Check(err, gc.ErrorMatches, "cannot update environ config: dummy.SetConfig is broken")
+		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
 	})
+}
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		env := obs.Environ()
-		if !a.HasNext() {
-			c.Fatalf("timed out waiting for new environ")
-		}
-		if env.Config().Name() == "a-new-name" {
+func (s *TrackerSuite) TestWatchedEnvironConfigUpdates(c *gc.C) {
+	fix := &fixture{
+		initialConfig: coretesting.Attrs{
+			"name": "original-name",
+		},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(environ.Config{
+			Observer: context,
+		})
+		c.Check(err, jc.ErrorIsNil)
+		defer workertest.CleanKill(c, tracker)
+
+		context.SetConfig(c, coretesting.Attrs{
+			"name": "updated-name",
+		})
+		gotEnviron := tracker.Environ()
+		c.Assert(gotEnviron.Config().Name(), gc.Equals, "original-name")
+
+		timeout := time.After(coretesting.LongWait)
+		attempt := time.After(0)
+		context.SendNotify()
+		for {
+			select {
+			case <-attempt:
+				name := gotEnviron.Config().Name()
+				if name == "original-name" {
+					attempt = time.After(coretesting.ShortWait)
+					continue
+				}
+				c.Check(name, gc.Equals, "updated-name")
+			case <-timeout:
+				c.Fatalf("timed out waiting for environ to be updated")
+			}
 			break
 		}
-	}
-}
-
-type logChan chan string
-
-func (logc logChan) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	logc <- message
-}
-
-type fakeState struct {
-	*testing.Stub
-	watcher.NotifyWatcher
-
-	mu sync.Mutex
-
-	changes chan struct{}
-	config  map[string]interface{}
-}
-
-// WatchForEnvironConfigChanges implements EnvironConfigObserver.
-func (s *fakeState) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
-	s.MethodCall(s, "WatchForEnvironConfigChanges")
-	if err := s.NextErr(); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-// EnvironConfig implements EnvironConfigObserver.
-func (s *fakeState) EnvironConfig() (*config.Config, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.MethodCall(s, "EnvironConfig")
-	if err := s.NextErr(); err != nil {
-		return nil, err
-	}
-	return config.New(config.NoDefaults, s.config)
-}
-
-// SetConfig changes the stored environment config with the given
-// extraAttrs and triggers a change for the watcher.
-func (s *fakeState) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	attrs := dummy.SampleConfig()
-	for k, v := range extraAttrs {
-		attrs[k] = v
-	}
-
-	// Simulate it's prepared.
-	attrs["broken"] = ""
-	attrs["state-id"] = "42"
-
-	s.config = coretesting.CustomEnvironConfig(c, attrs).AllAttrs()
-	s.changes <- struct{}{}
-}
-
-// Kill implements watcher.NotifyWatcher.
-func (s *fakeState) Kill() {
-	s.MethodCall(s, "Kill")
-}
-
-// Wait implements watcher.NotifyWatcher.
-func (s *fakeState) Wait() error {
-	s.MethodCall(s, "Wait")
-	return s.NextErr()
-}
-
-// Changes implements watcher.NotifyWatcher.
-func (s *fakeState) Changes() watcher.NotifyChannel {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.MethodCall(s, "Changes")
-	if err := s.NextErr(); err != nil && s.changes != nil {
-		close(s.changes) // simulate the watcher died.
-		s.changes = nil
-	}
-	return s.changes
-}
-
-func (s *fakeState) AssertConfig(c *gc.C, expected *config.Config) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	c.Assert(s.config, jc.DeepEquals, expected.AllAttrs())
+		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
+	})
 }
