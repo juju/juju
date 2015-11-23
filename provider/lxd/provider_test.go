@@ -114,6 +114,10 @@ type ProviderFunctionalSuite struct {
 }
 
 func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
+	if !s.IsRunningLocally(c) {
+		c.Skip("LXD not running locally")
+	}
+
 	s.BaseSuite.SetUpTest(c)
 
 	provider, err := environs.Provider("lxd")
