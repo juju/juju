@@ -195,6 +195,10 @@ class EnvJujuClient:
             prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if self.debug else '--show-log'
 
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
         # we split the command here so that the caller can control where the -e
         # <env> flag goes.  Everything in the command string is put before the
         # -e flag.
@@ -313,10 +317,10 @@ class EnvJujuClient:
                 if raw:
                     return self.get_juju_output('status', *args)
                 return Status.from_text(self.get_juju_output('status'))
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 pass
         raise Exception(
-            'Timed out waiting for juju status to succeed: %s' % e)
+            'Timed out waiting for juju status to succeed')
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -542,6 +546,55 @@ class EnvJujuClient:
         else:
             raise Exception('Timed out waiting for services to start.')
 
+    def wait_for(self, thing, search_type, timeout=300):
+        """ Wait for a something (thing) matching none/all/some machines.
+
+        Examples:
+          wait_for('containers', 'all')
+          This will wait for a container to appear on all machines.
+
+          wait_for('machines-not-0', 'none')
+          This will wait for all machines other than 0 to be removed.
+
+        :param thing: string, either 'containers' or 'not-machine-0'
+        :param search_type: string containing none, some or all
+        :param timeout: number of seconds to wait for condition to be true.
+        :return:
+        """
+        try:
+            for status in self.status_until(timeout):
+                hit = False
+                miss = False
+
+                for machine, details in status.status['machines'].iteritems():
+                    if thing == 'containers':
+                        if 'containers' in details:
+                            hit = True
+                        else:
+                            miss = True
+
+                    elif thing == 'machines-not-0':
+                        if machine != '0':
+                            hit = True
+                        else:
+                            miss = True
+
+                    else:
+                        raise ValueError("Unrecognised thing to wait for: %s",
+                                         thing)
+
+                if search_type == 'none':
+                    if not hit:
+                        return
+                elif search_type == 'some':
+                    if hit:
+                        return
+                elif search_type == 'all':
+                    if not miss:
+                        return
+        except Exception:
+            raise Exception("Timed out waiting for %s" % thing)
+
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
         version_parts = self.version.split('-')
@@ -653,6 +706,7 @@ class EnvJujuClient26(EnvJujuClient):
     def __init__(self, *args, **kwargs):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
+        self._use_container_address_allocation = False
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -671,11 +725,16 @@ class EnvJujuClient26(EnvJujuClient):
             self._use_jes = False
             raise JESNotSupported()
 
+    def enable_container_address_allocation(self):
+        self._use_container_address_allocation = True
+
     def _get_feature_flags(self):
         if self.env.config.get('type') == 'cloudsigma':
             yield 'cloudsigma'
         if self._use_jes is True:
             yield 'jes'
+        if self._use_container_address_allocation:
+            yield 'address-allocation'
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -888,9 +947,10 @@ class Status:
         status_yaml = yaml_loads(text)
         return cls(status_yaml, text)
 
-    def iter_machines(self, containers=False):
+    def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
-            yield machine_name, machine
+            if machines:
+                yield machine_name, machine
             if containers:
                 for contained, unit in machine.get('containers', {}).items():
                     yield contained, unit
