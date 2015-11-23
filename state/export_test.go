@@ -39,18 +39,21 @@ const (
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	StateServerAvailable   = &stateServerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
+	ToolstorageNewStorage            = &toolstorageNewStorage
+	ImageStorageNewStorage           = &imageStorageNewStorage
+	MachineIdLessThan                = machineIdLessThan
+	StateServerAvailable             = &stateServerAvailable
+	GetOrCreatePorts                 = getOrCreatePorts
+	GetPorts                         = getPorts
+	PortsGlobalKey                   = portsGlobalKey
+	CurrentUpgradeId                 = currentUpgradeId
+	NowToTheSecond                   = nowToTheSecond
+	PickAddress                      = &pickAddress
+	AddVolumeOps                     = (*State).addVolumeOps
+	CombineMeterStatus               = combineMeterStatus
+	DefaultEndpointBindingsForCharm  = defaultEndpointBindingsForCharm
+	ValidateEndpointBindingsForCharm = validateEndpointBindingsForCharm
+	CombinedCharmRelations           = combinedCharmRelations
 )
 
 type (
@@ -118,17 +121,23 @@ func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.U
 	return addTestingService(c, st, name, ch, owner, nil, nil)
 }
 
+// TODO(dimitern): Drop this along with the remnants of requested networks in a
+// follow-up.
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, name, ch, owner, networks, nil)
+	return addTestingService(c, st, name, ch, owner, nil, nil)
 }
 
 func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
 	return addTestingService(c, st, name, ch, owner, nil, storage)
 }
 
-func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
+func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string) *Service {
+	return addTestingService(c, st, name, ch, owner, bindings, nil)
+}
+
+func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
+	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Bindings: bindings, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

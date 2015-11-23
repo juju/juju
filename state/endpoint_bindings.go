@@ -64,6 +64,41 @@ type endpointBindingsDoc struct {
 	Bindings bindingsMap `bson:"bindings"`
 }
 
+// endpointBindingsForCharmOp returns the op needed to create new or update
+// existing endpoint bindings for the specified charm metadata. If givenMap is
+// not empty, any specified bindings there will override the defaults.
+func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+	if meta == nil {
+		return txn.Op{}, errors.Errorf("nil charm metadata")
+	}
+
+	// Prepare the effective new bindings map.
+	defaults, err := defaultEndpointBindingsForCharm(meta)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	newMap := make(map[string]string)
+	if len(givenMap) > 0 {
+		// Combine the given bindings with defaults.
+		for key, defaultValue := range defaults {
+			if givenValue, found := givenMap[key]; !found {
+				newMap[key] = defaultValue
+			} else {
+				newMap[key] = givenValue
+			}
+		}
+	} else {
+		// No bindings given, just use the defaults.
+		newMap = defaults
+	}
+	// Validate the bindings before updating.
+	if err := validateEndpointBindingsForCharm(st, newMap, meta); err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+
+	return replaceEndpointBindingsOp(st, key, newMap)
+}
+
 // replaceEndpointBindingsOp returns an op that sets and/or unsets existing
 // endpoint bindings as needed, so the effective stored bindings match
 // newBindings for the given key. If no bindings exist yet, they will be created
@@ -148,19 +183,6 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 	return doc.Bindings, txnRevno, nil
 }
 
-// defaultEndpointBindingsForCharm populates a bindings map containing each
-// endpoint of the given charm metadata bound to the default space.
-func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
-	if charmMeta == nil {
-		return nil, errors.Errorf("nil charm metadata")
-	}
-	bindings := make(map[string]string)
-	for name := range combinedCharmRelations(charmMeta) {
-		bindings[name] = network.DefaultSpace
-	}
-	return bindings, nil
-}
-
 // validateEndpointBindingsForCharm returns no error all endpoints in the given
 // bindings for the given charm metadata are explicitly bound to an existing
 // space, otherwise it returns an error satisfying errors.IsNotValid().
@@ -191,8 +213,6 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		endpointsNamesSet.Add(name)
 		if space, isSet := bindings[name]; !isSet || space == "" {
 			return errors.NotValidf("endpoint %q not bound to a space", name)
-		} else if isSet && space != "" && !spacesNamesSet.Contains(space) {
-			return errors.NotValidf("endpoint %q bound to unknown space %q", name, space)
 		}
 	}
 	// Ensure no extra, unknown endpoints are given.
@@ -207,39 +227,17 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	return nil
 }
 
-// endpointBindingsForCharmOp returns the op needed to create new or update
-// existing endpoint bindings for the specified charm metadata. If givenMap is
-// not empty, any specified bindings there will override the defaults.
-func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
-	if meta == nil {
-		return txn.Op{}, errors.Errorf("nil charm metadata")
+// defaultEndpointBindingsForCharm populates a bindings map containing each
+// endpoint of the given charm metadata bound to the default space.
+func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
+	if charmMeta == nil {
+		return nil, errors.Errorf("nil charm metadata")
 	}
-
-	// Prepare the effective new bindings map.
-	defaults, err := defaultEndpointBindingsForCharm(meta)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
+	bindings := make(map[string]string)
+	for name := range combinedCharmRelations(charmMeta) {
+		bindings[name] = network.DefaultSpace
 	}
-	newMap := make(map[string]string)
-	if len(givenMap) > 0 {
-		// Combine the given bindings with defaults.
-		for key, defaultValue := range defaults {
-			if givenValue, found := givenMap[key]; !found {
-				newMap[key] = defaultValue
-			} else {
-				newMap[key] = givenValue
-			}
-		}
-	} else {
-		// No bindings given, just use the defaults.
-		newMap = defaults
-	}
-	// Validate the bindings before updating.
-	if err := validateEndpointBindingsForCharm(st, newMap, meta); err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-
-	return replaceEndpointBindingsOp(st, key, newMap)
+	return bindings, nil
 }
 
 // combinedCharmRelations returns the relations defined in the given charm
