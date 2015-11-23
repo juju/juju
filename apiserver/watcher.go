@@ -36,7 +36,7 @@ func init() {
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"ServiceRelationsWatcher", 0, newServiceRelationsWatcher,
+		"ServiceRelationsWatcher", 1, newServiceRelationsWatcher,
 		reflect.TypeOf((*srvServiceRelationsWatcher)(nil)),
 	)
 	common.RegisterFacade(
