@@ -147,17 +147,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Architecture: arch.AMD64,
 		NumCores:     1,
 		MemoryMB:     3750,
-		//RootDiskMB:   50000,
 	}
 	var archName string = arch.AMD64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
-	//var rootDiskMB uint64 = 50000
 	s.HWC = &instance.HardwareCharacteristics{
 		Arch:     &archName,
 		CpuCores: &numCores,
 		Mem:      &memoryMB,
-		//RootDisk: &rootDiskMB,
 	}
 
 	s.Metadata = map[string]string{ // userdata
@@ -177,11 +174,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
-		//Placement: "",
-		//DistributionGroup: nil,
 	}
-
-	//s.InstanceType = allInstanceTypes[0]
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -276,20 +269,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		policyProvider: s.Policy,
 	}
 	s.Env.base = s.Common
-
-	//s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
-	//	return s.StubConn, nil
-	//})
-	//s.PatchValue(&supportedArchitectures, s.StubCommon.SupportedArchitectures)
-	//s.PatchValue(&bootstrap, s.StubCommon.Bootstrap)
-	//s.PatchValue(&destroyEnv, s.StubCommon.Destroy)
-	//s.PatchValue(&availabilityZoneAllocations, s.StubCommon.AvailabilityZoneAllocations)
-	//s.PatchValue(&buildInstanceSpec, s.StubEnviron.BuildInstanceSpec)
-	//s.PatchValue(&getHardwareCharacteristics, s.StubEnviron.GetHardwareCharacteristics)
-	//s.PatchValue(&newRawInstance, s.StubEnviron.NewRawInstance)
-	//s.PatchValue(&findInstanceSpec, s.StubEnviron.FindInstanceSpec)
-	//s.PatchValue(&getInstances, s.StubEnviron.GetInstances)
-	//s.PatchValue(&imageMetadataFetch, s.StubImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
