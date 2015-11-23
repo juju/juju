@@ -193,19 +193,8 @@ func (cfg Config) write() error {
 	}
 
 	// Write the cert file and key file, if applicable.
-	var cert Cert
-	if cfg.Remote.Cert != nil {
-		cert = *cfg.Remote.Cert
-	}
-	if err := cert.Validate(); err != nil {
-		logger.Debugf("not writing invalid/empty certificate")
-	} else {
-		if err := cfg.writeCertPEM(cert); err != nil {
-			return errors.Trace(err)
-		}
-		if err := cfg.writeKeyPEM(cert); err != nil {
-			return errors.Trace(err)
-		}
+	if err := cfg.writeCert(); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -234,6 +223,27 @@ func (cfg Config) writeConfigFile() error {
 	// Write out the updated config, if changed.
 	// TODO(ericsnow) Check if changed.
 	if err := lxd.SaveConfig(rawCfg); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (cfg Config) writeCert() error {
+	if cfg.Remote.Cert == nil || cfg.Remote.Cert.isZero() {
+		logger.Debugf("not writing empty certificate")
+		return nil
+	}
+
+	cert := *cfg.Remote.Cert
+	if err := cert.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.writeCertPEM(cert); err != nil {
+		return errors.Trace(err)
+	}
+	if err := cfg.writeKeyPEM(cert); err != nil {
 		return errors.Trace(err)
 	}
 
