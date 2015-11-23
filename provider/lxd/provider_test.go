@@ -31,28 +31,27 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	provider, err := environs.Provider("lxd")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
-	c.Assert(s.provider, gc.Equals, lxd.Provider)
+	c.Check(s.provider, gc.Equals, lxd.Provider)
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {
 	validCfg, err := s.provider.Validate(s.Config, nil)
-	c.Check(err, jc.ErrorIsNil)
-
+	c.Assert(err, jc.ErrorIsNil)
 	validAttrs := validCfg.AllAttrs()
-	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+
+	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
 }
 
 func (s *providerSuite) TestSecretAttrs(c *gc.C) {
 	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(obtainedAttrs, gc.HasLen, 0)
-
+	c.Check(obtainedAttrs, gc.HasLen, 0)
 }
 
 func (s *providerSuite) TestBoilerplateConfig(c *gc.C) {
@@ -121,21 +120,22 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	provider, err := environs.Provider("lxd")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.provider = provider
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	env, err := s.provider.Open(s.Config)
-	c.Check(err, jc.ErrorIsNil)
-
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
-	c.Assert(envConfig.Name(), gc.Equals, "testenv")
+
+	c.Check(envConfig.Name(), gc.Equals, "testenv")
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareForBootstrap(c *gc.C) {
 	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Check(env, gc.NotNil)
 }
