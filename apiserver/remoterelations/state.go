@@ -8,19 +8,41 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// RemoteRelationState provides the subset of global state required by the
+// remote relations facade.
 type RemoteRelationsState interface {
+	// KeyRelation returns the existing relation with the given key (which can
+	// be derived unambiguously from the relation's endpoints).
 	KeyRelation(string) (Relation, error)
+
+	// WatchRemoteServices returns a StringsWatcher that notifies of changes to
+	// the lifecycles of the remote services in the environment.
 	WatchRemoteServices() state.StringsWatcher
+
+	// WatchRemoteServiceRelations returns a StringsWatcher that notifies of
+	// changes to the lifecycles of relations involving the specified remote
+	// service.
 	WatchRemoteServiceRelations(serviceName string) (state.StringsWatcher, error)
 }
 
+// Relation provides access a relation in global state.
 type Relation interface {
+	// Id returns the integer internal relation key.
 	Id() int
+
+	// Life returns the relation's current life state.
 	Life() state.Life
+
+	// Unit returns a RelationUnit for the unit with the supplied ID.
 	Unit(unitId string) (RelationUnit, error)
+
+	// WatchCounterpartEndpointUnits returns a watcher that notifies of
+	// changes to the units with the endpoint counterpart to the specified
+	// service.
 	WatchCounterpartEndpointUnits(serviceName string) (state.RelationUnitsWatcher, error)
 }
 
+// RelationUnit provides access to the settings of a single unit in a relation.
 type RelationUnit interface {
 	Settings() (map[string]interface{}, error)
 }
