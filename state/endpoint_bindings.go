@@ -37,12 +37,12 @@ func (bp *bindingsMap) SetBSON(raw bson.Raw) error {
 
 // GetBSON ensures any special characters ($ or .) are escaped in keys before
 // marshalling the map into BSON and storing in mongo.
-func (b bindingsMap) GetBSON() (interface{}, error) {
-	if b == nil {
+func (bp *bindingsMap) GetBSON() (interface{}, error) {
+	if bp == nil || len(*bp) == 0 {
 		return nil, nil
 	}
-	rawMap := make(map[string]string, len(b))
-	for key, value := range b {
+	rawMap := make(map[string]string, len(*bp))
+	for key, value := range *bp {
 		newKey := escapeReplacer.Replace(key)
 		if newKey != key {
 			delete(rawMap, key)
@@ -62,10 +62,6 @@ type endpointBindingsDoc struct {
 
 	// Bindings maps a service endpoint name to the space name it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
-
-	// TxnRevno is used to assert the contents of the collection have not
-	// changed since the document was retrieved.
-	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // replaceEndpointBindingsOp returns an op that sets and/or unsets existing
@@ -76,6 +72,10 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	existingMap, txnRevno, err := readEndpointBindings(st, key)
 	if errors.IsNotFound(err) {
 		// No bindings yet, just create them.
+		newMap := make(bindingsMap)
+		for key, value := range newBindings {
+			newMap[key] = value
+		}
 		return txn.Op{
 			C:      endpointBindingsC,
 			Id:     st.docID(key),
@@ -83,7 +83,7 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 			Insert: &endpointBindingsDoc{
 				DocID:    st.docID(key),
 				EnvUUID:  st.EnvironUUID(),
-				Bindings: newBindings,
+				Bindings: newMap,
 			},
 		}, nil
 	}
@@ -93,12 +93,11 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	updates := make(bson.M)
 	deletes := make(bson.M)
 	for key, value := range existingMap {
-		newKey := escapeReplacer.Replace(key)
 		newValue, found := newBindings[key]
 		if !found {
-			deletes[newKey] = 1
+			deletes[key] = 1
 		} else if newValue != value {
-			updates[newKey] = newValue
+			updates[key] = newValue
 		}
 	}
 	op := txn.Op{
@@ -113,7 +112,9 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	if len(deletes) > 0 {
 		update = append(update, bson.DocElem{"$unset", deletes})
 	}
-	op.Update = update
+	if len(update) > 0 {
+		op.Update = update
+	}
 	return op, nil
 }
 
@@ -134,14 +135,19 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 	defer closer()
 
 	var doc endpointBindingsDoc
-	err := endpointBindings.FindId(st.docID(key)).One(&doc)
+	err := endpointBindings.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, 0, errors.NotFoundf("endpoint bindings for %q", key)
 	}
 	if err != nil {
 		return nil, 0, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
 	}
-	return doc.Bindings, doc.TxnRevno, nil
+	txnRevno, err := getTxnRevno(endpointBindings, doc.DocID)
+	if err != nil {
+		return nil, 0, errors.Annotatef(err, "getting txn-revno for endpoint bindings for %q txn-revno", key)
+	}
+
+	return doc.Bindings, txnRevno, nil
 }
 
 // defaultEndpointBindingsForCharm populates a bindings map containing each
