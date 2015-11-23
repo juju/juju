@@ -45,7 +45,7 @@ Examples:
     fred/prod/hosted-db2  db2    db2, log     23         local  /u/fred/prod/hosted-db2 
     mary/test/hosted-db2  db2    db2          0          local  /u/mary/test/hosted-db2
 
-    JAAS
+    VENDOR
     APPLICATION             CHARM  INTERFACES   CONNECTED  STORE  URL
     ibm/us-east/hosted-db2  db2    db2          3212       vendor   /u/ibm/hosted-db2
 
