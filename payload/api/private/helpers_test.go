@@ -136,11 +136,12 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(result.Error.Error(), gc.Equals, failure.Error())
 	c.Check(result, jc.DeepEquals, payload.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
-		Error:    failure,
+		Error:    result.Error, // The actual error is checked above.
 	})
 }
 
@@ -157,11 +158,13 @@ func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(result.Error.Error(), gc.Equals, notFound.Error())
+	c.Check(result.Error, jc.Satisfies, errors.IsNotFound)
 	c.Check(result, jc.DeepEquals, payload.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
-		Error:    notFound,
+		Error:    result.Error, // The actual error is checked above.
 	})
 }
 
