@@ -43,6 +43,8 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
+DEFAULT_JES_COMMAND = 'list-controllers'
+OPTIONAL_JES_COMMAND = 'system'
 
 log = logging.getLogger("jujupy")
 
@@ -149,10 +151,10 @@ class EnvJujuClient:
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith('list-controllers'):
-                return 'list-controllers'
-            if line.startswith('system'):
-                return 'system'
+            if line.startswith(DEFAULT_JES_COMMAND):
+                return DEFAULT_JES_COMMAND
+            if line.startswith(OPTIONAL_JES_COMMAND):
+                return OPTIONAL_JES_COMMAND
         raise JESNotSupported()
 
     @classmethod
