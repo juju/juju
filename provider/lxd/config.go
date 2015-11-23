@@ -62,10 +62,19 @@ lxd:
     #
     #   newgrp lxd
     #
-    # You will also need to prepare the "ubuntu" image that Juju uses:
+    # You will also need to prepare the "ubuntu" images that Juju uses:
     #
     #   lxc remote add images images.linuxcontainers.org
-    #   lxd-images import ubuntu --alias ubuntu
+    #   lxd-images import ubuntu --alias ubuntu-trusty
+    #
+    # (Also consider the --stream and --sync options.)
+    #
+    # You will need to prepare an image for each Ubuntu series for which
+    # you want to create instances.  The alias must match the series:
+    #
+    #   lxd-images import ubuntu --alias ubuntu-trusty
+    #   lxd-images import ubuntu --alias ubuntu-wily
+    #   lxd-images import ubuntu --alias ubuntu-xenial
     #
     # See: https://linuxcontainers.org/lxd/getting-started-cli/
     #
