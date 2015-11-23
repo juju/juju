@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package private
+package private_test
 
 import (
 	"github.com/juju/errors"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
+	"github.com/juju/juju/payload/api/private"
 )
 
 type internalHelpersSuite struct {
@@ -25,9 +26,9 @@ var _ = gc.Suite(&internalHelpersSuite{})
 
 func (internalHelpersSuite) TestNewPayloadResultOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result := NewPayloadResult(id, nil)
+	result := private.NewPayloadResult(id, nil)
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -40,9 +41,9 @@ func (internalHelpersSuite) TestNewPayloadResultOkay(c *gc.C) {
 func (internalHelpersSuite) TestNewPayloadResultError(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	err := errors.New("<failure>")
-	result := NewPayloadResult(id, err)
+	result := private.NewPayloadResult(id, err)
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -55,9 +56,9 @@ func (internalHelpersSuite) TestNewPayloadResultError(c *gc.C) {
 func (internalHelpersSuite) TestNewPayloadResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	err := errors.NotFoundf("payload %q", id)
-	result := NewPayloadResult(id, err)
+	result := private.NewPayloadResult(id, err)
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -69,7 +70,7 @@ func (internalHelpersSuite) TestNewPayloadResultNotFound(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result, err := API2Result(PayloadResult{
+	result, err := private.API2Result(private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -89,7 +90,7 @@ func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result, err := API2Result(PayloadResult{
+	result, err := private.API2Result(private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -128,7 +129,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	failure := errors.New("<failure>")
-	result, err := API2Result(PayloadResult{
+	result, err := private.API2Result(private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -150,7 +151,7 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	notFound := errors.NotFoundf("payload %q", id)
-	result, err := API2Result(PayloadResult{
+	result, err := private.API2Result(private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -172,14 +173,14 @@ func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 
 func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result := Result2api(payload.Result{
+	result := private.Result2api(payload.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	})
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -191,7 +192,7 @@ func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
 
 func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result := Result2api(payload.Result{
+	result := private.Result2api(payload.Result{
 		ID:       id,
 		NotFound: false,
 		Error:    nil,
@@ -209,7 +210,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		},
 	})
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -229,14 +230,14 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	err := errors.New("<failure>")
-	result := Result2api(payload.Result{
+	result := private.Result2api(payload.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    err,
 	})
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -249,14 +250,14 @@ func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	err := errors.NotFoundf("payload %q", id)
-	result := Result2api(payload.Result{
+	result := private.Result2api(payload.Result{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    err,
 	})
 
-	c.Check(result, jc.DeepEquals, PayloadResult{
+	c.Check(result, jc.DeepEquals, private.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
