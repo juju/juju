@@ -36,6 +36,10 @@ func init() {
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
+		"ServiceRelationsWatcher", 1, newServiceRelationsWatcher,
+		reflect.TypeOf((*srvServiceRelationsWatcher)(nil)),
+	)
+	common.RegisterFacade(
 		"RelationUnitsWatcher", 0, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
@@ -226,6 +230,62 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 
 // Stop stops the watcher.
 func (w *srvRelationUnitsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// srvServiceRelationsWatcher defines the API wrapping a ServiceRelationsWatcher.
+// This watcher notifies about:
+//  - addition and removal of relations of the service
+//  - lifecycle changes to relations of the service
+//  - settings of relation units changing
+//  - units departing the relation (joining is implicit in seeing new settings)
+type srvServiceRelationsWatcher struct {
+	watcher   ServiceRelationsWatcher
+	id        string
+	resources *common.Resources
+}
+
+// ServiceRelationsWatcher is a watcher that reports on changes to relations
+// and relation units related to those relations for a specified service.
+type ServiceRelationsWatcher interface {
+	Changes() <-chan params.ServiceRelationsChange
+	Err() error
+	Stop() error
+}
+
+func newServiceRelationsWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+	if !auth.AuthEnvironManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(ServiceRelationsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvServiceRelationsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvServiceRelationsWatcher.
+func (w *srvServiceRelationsWatcher) Next() (params.ServiceRelationsWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		return params.ServiceRelationsWatchResult{
+			Changes: &changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.ServiceRelationsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvServiceRelationsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 

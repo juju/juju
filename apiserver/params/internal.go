@@ -496,6 +496,50 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// ServiceRelationsWatchResult holds a ServiceRelationsWatcher id,
+// changes and an error (if any).
+type ServiceRelationsWatchResult struct {
+	ServiceRelationsWatcherId string
+	Changes                   *ServiceRelationsChange `json:"changes,omitempty"`
+	Error                     *Error                  `json:"error,omitempty"`
+}
+
+// ServiceRelationsWatchResults holds the results for any API call which ends
+// up returning a list of ServiceRelationsWatchers.
+type ServiceRelationsWatchResults struct {
+	Results []ServiceRelationsWatchResult `json:"results"`
+}
+
+// ServiceRelationsChange describes changes to the relations that a service
+// is involved in.
+type ServiceRelationsChange struct {
+	// ChangedRelations maps relation IDs to relation changes.
+	ChangedRelations map[int]RelationChange
+
+	// RemovedRelations contains the IDs of relations removed
+	// since the last change.
+	RemovedRelations []int
+}
+
+// RelationChange describes changes to a relation.
+type RelationChange struct {
+	// Life is the current lifecycle state of the relation.
+	Life Life `json:"life"`
+
+	// ChangedUnits maps unit names to relation unit changes.
+	ChangedUnits map[string]RelationUnitChange `json:"changed-units,omitempty"`
+
+	// DepartedUnits contains the names of units that have departed
+	// the relation since the last change.
+	DepartedUnits []string `json:"departed-units,omitempty"`
+}
+
+// RelationUnitChange describes a relation unit change.
+type RelationUnitChange struct {
+	// Settings is the current settings for the relation unit.
+	Settings map[string]interface{} `json:"settings,omitempty"`
+}
+
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
 type MachineStorageIdsWatchResult struct {
