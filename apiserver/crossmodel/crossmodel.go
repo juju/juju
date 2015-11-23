@@ -118,6 +118,8 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	return params.RemoteServiceResults{results}, nil
 }
 
+// List gets all remote services that have been offered from this Juju model.
+// Returned list satisfies specified filters.
 func (api *API) List(args params.ListEndpointsFiltersSets) (params.ListEndpointsItemsResults, error) {
 
 	// This func constructs individual set of filters.
