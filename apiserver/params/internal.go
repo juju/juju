@@ -514,7 +514,7 @@ type ServiceRelationsWatchResults struct {
 // is involved in.
 type ServiceRelationsChange struct {
 	// ChangedRelations maps relation IDs to relation changes.
-	ChangedRelations map[int]RelationChange
+	ChangedRelations []RelationChange
 
 	// RemovedRelations contains the IDs of relations removed
 	// since the last change.
@@ -523,15 +523,18 @@ type ServiceRelationsChange struct {
 
 // RelationChange describes changes to a relation.
 type RelationChange struct {
+	// RelationId is the numeric ID of the relation.
+	RelationId int `json:"id"`
+
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
 	// ChangedUnits maps unit names to relation unit changes.
-	ChangedUnits map[string]RelationUnitChange `json:"changed-units,omitempty"`
+	ChangedUnits map[string]RelationUnitChange `json:"changedunits,omitempty"`
 
 	// DepartedUnits contains the names of units that have departed
 	// the relation since the last change.
-	DepartedUnits []string `json:"departed-units,omitempty"`
+	DepartedUnits []string `json:"departedunits,omitempty"`
 }
 
 // RelationUnitChange describes a relation unit change.
