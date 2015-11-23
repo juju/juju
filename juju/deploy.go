@@ -38,6 +38,9 @@ type DeployServiceParams struct {
 	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
 	Networks []string
 	Storage  map[string]storage.Constraints
+	// If ForceSeries is true, the service can be assigned to a machine
+	// which is running a series is unsupported by the charm.
+	ForceSeries bool
 }
 
 type ServiceDeployer interface {
@@ -84,14 +87,15 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	}
 
 	asa := state.AddServiceArgs{
-		Name:      args.ServiceName,
-		Owner:     args.ServiceOwner,
-		Charm:     args.Charm,
-		Networks:  args.Networks,
-		Storage:   stateStorageConstraints(args.Storage),
-		Settings:  settings,
-		NumUnits:  args.NumUnits,
-		Placement: args.Placement,
+		Name:        args.ServiceName,
+		Owner:       args.ServiceOwner,
+		Charm:       args.Charm,
+		Networks:    args.Networks,
+		Storage:     stateStorageConstraints(args.Storage),
+		Settings:    settings,
+		NumUnits:    args.NumUnits,
+		Placement:   args.Placement,
+		ForceSeries: args.ForceSeries,
 	}
 
 	if !args.Charm.Meta().Subordinate {
@@ -104,8 +108,9 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 }
 
 // AddUnits starts n units of the given service and allocates machines
-// to them as necessary.
-func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
+// to them as necessary. If forceSeries is true, units may be placed on machines running
+// a series not supported by the charm.
+func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string, forceSeries bool) ([]*state.Unit, error) {
 	if machineIdSpec != "" && n != 1 {
 		return nil, errors.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 	}
@@ -113,7 +118,7 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return AddUnitsWithPlacement(st, svc, n, placement)
+	return AddUnitsWithPlacement(st, svc, n, placement, forceSeries)
 }
 
 // makePlacement makes a placement directive for the given machineIdSpec.
@@ -146,7 +151,7 @@ func makePlacement(machineIdSpec string) ([]*instance.Placement, error) {
 
 // AddUnitsWithPlacement starts n units of the given service using the specified placement
 // directives to allocate the machines.
-func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement []*instance.Placement, forceSeries bool) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
@@ -169,7 +174,7 @@ func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement
 			units[i] = unit
 			continue
 		}
-		if err := st.AssignUnitWithPlacement(unit, placement[i], networks); err != nil {
+		if err := st.AssignUnitWithPlacement(unit, placement[i], networks, forceSeries); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
 		}
 		units[i] = unit

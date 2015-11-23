@@ -169,6 +169,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			Placement:      args.Placement,
 			Networks:       requestedNetworks,
 			Storage:        args.Storage,
+			ForceSeries:    args.ForceSeries,
 		})
 	return err
 }

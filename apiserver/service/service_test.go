@@ -373,6 +373,33 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
+func (s *serviceSuite) TestClientServiceDeployForceSeries(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ServiceDeploy{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		NumUnits:    1,
+		ForceSeries: true,
+	}
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	// Check the assign unit records to ensure the ForceSeries flag is recorded.
+	ua, err := s.State.AllUnitAssignments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ua, gc.HasLen, 1)
+	c.Assert(ua[0], jc.DeepEquals, state.UnitAssignment{
+		Unit:        "service/0",
+		ForceSeries: true,
+	})
+}
+
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
 // package in order to use the fake charm store testing infrastructure. They are legacy tests
 // written to use the api client instead of the apiserver logic. They need to be rewritten and

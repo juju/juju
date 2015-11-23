@@ -1940,6 +1940,27 @@ func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
+func (s *StateSuite) TestAddServiceForceSeries(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: ch,
+		NumUnits:    1,
+		ForceSeries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitAssignment(c, "wordpress/0", true)
+}
+
+func (s *StateSuite) assertUnitAssignment(c *gc.C, unit string, forceSeries bool) {
+	ua, err := s.State.AllUnitAssignments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ua, gc.HasLen, 1)
+	c.Assert(ua[0], jc.DeepEquals, state.UnitAssignment{
+		Unit:        unit,
+		ForceSeries: forceSeries,
+	})
+}
+
 func (s *StateSuite) TestAllServices(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()

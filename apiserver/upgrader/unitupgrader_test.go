@@ -58,7 +58,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.rawUnit, err = svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
-	s.rawMachine, err = s.rawUnit.AssignToCleanMachine()
+	s.rawMachine, err = s.rawUnit.AssignToCleanMachine(false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the unit agent

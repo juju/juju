@@ -64,6 +64,7 @@ const (
 	CodeCannotEnterScopeYet       = "cannot enter scope yet"
 	CodeExcessiveContention       = "excessive contention"
 	CodeUnitHasSubordinates       = "unit has subordinates"
+	CodeSeriesDoesNotMatch        = "series does not match"
 	CodeNotAssigned               = "not assigned"
 	CodeStopped                   = "stopped"
 	CodeDead                      = "dead"
@@ -148,6 +149,10 @@ func IsCodeExcessiveContention(err error) bool {
 
 func IsCodeUnitHasSubordinates(err error) bool {
 	return ErrCode(err) == CodeUnitHasSubordinates
+}
+
+func IsCodeSeriesDoesNotMatch(err error) bool {
+	return ErrCode(err) == CodeSeriesDoesNotMatch
 }
 
 func IsCodeNotAssigned(err error) bool {

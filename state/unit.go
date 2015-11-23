@@ -1138,7 +1138,8 @@ var (
 // - unitNotAliveErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
-func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+// - seriesDoesNotMatch when the machine has a series that the charm does not support
+func (u *Unit) assignToMachine(m *Machine, unused, forceSeries bool) (err error) {
 	originalm := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1147,7 +1148,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 				return nil, errors.Trace(err)
 			}
 		}
-		return u.assignToMachineOps(m, unused)
+		return u.assignToMachineOps(m, unused, forceSeries)
 	}
 	if err := u.st.run(buildTxn); err != nil {
 		// Don't wrap the error, as we want to return specific values
@@ -1159,15 +1160,19 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	return nil
 }
 
-func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
+// ErrSeriesDoesNotMatch is used to indicate an attempt to assign a unit
+// to a machine where the machine's series is not supported by the charm.
+var ErrSeriesDoesNotMatch = stderrors.New("series does not match")
+
+func (u *Unit) assignToMachineOps(m *Machine, unused, forceSeries bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
 	}
 	if m.Life() != Alive {
 		return nil, machineNotAliveErr
 	}
-	if u.doc.Series != m.doc.Series {
-		return nil, fmt.Errorf("series does not match")
+	if !forceSeries && u.doc.Series != m.doc.Series {
+		return nil, ErrSeriesDoesNotMatch
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
@@ -1343,7 +1348,15 @@ func assignContextf(err *error, unit *Unit, target string) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
-	return u.assignToMachine(m, false)
+	return u.assignToMachine(m, false, false)
+}
+
+// AssignToMachineForceSeries assigns this unit to a given machine.
+// If forceSeries is true, then the series of the charm is not required to
+// match that of the machine.
+func (u *Unit) AssignToMachineForceSeries(m *Machine, forceSeries bool) (err error) {
+	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
+	return u.assignToMachine(m, false, forceSeries)
 }
 
 // assignToNewMachine assigns the unit to a machine created according to
@@ -1729,8 +1742,8 @@ var noCleanMachines = stderrors.New("all eligible machines in use")
 // an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
-func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
-	return u.assignToCleanMaybeEmptyMachine(false)
+func (u *Unit) AssignToCleanMachine(forceSeries bool) (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(false, forceSeries)
 }
 
 // AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
@@ -1739,8 +1752,8 @@ func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
 // an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
-func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
-	return u.assignToCleanMaybeEmptyMachine(true)
+func (u *Unit) AssignToCleanEmptyMachine(forceSeries bool) (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(true, forceSeries)
 }
 
 var hasContainerTerm = bson.DocElem{
@@ -1840,7 +1853,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
 // A 'machine' may be a machine instance or container depending on the service constraints.
-func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, err error) {
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty, forceSeries bool) (m *Machine, err error) {
 	context := "clean"
 	if requireEmpty {
 		context += ", empty"
@@ -1948,7 +1961,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 			assignContextf(&err, u, context)
 			return nil, err
 		}
-		err := u.assignToMachine(m, true)
+		err := u.assignToMachine(m, true, forceSeries)
 		if err == nil {
 			return m, nil
 		}

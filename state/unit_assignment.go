@@ -12,10 +12,14 @@ type assignUnitDoc struct {
 	DocId string `bson:"_id"`
 
 	// Scope is the placement scope to apply to the unit.
-	Scope string `bson:"scope`
+	Scope string `bson:"scope"`
 
 	// Directive is the placement directive to apply to the unit.
-	Directive string `bson:"scope`
+	Directive string `bson:"directive"`
+
+	// ForceSeries is true if we allow the unit to be assigned to
+	// a machine with a non matching series.
+	ForceSeries bool `bson:"forceseries"`
 }
 
 // UnitAssignment represents a staged unit assignment.
@@ -28,6 +32,10 @@ type UnitAssignment struct {
 
 	// Directive is the placement directive to apply to the unit.
 	Directive string
+
+	// ForceSeries is true if we allow the unit to be assigned to
+	// a machine with a non matching series.
+	ForceSeries bool
 }
 
 // UnitAssignmentResult is the result of running a staged unit assignment.

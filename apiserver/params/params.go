@@ -204,6 +204,7 @@ type ServiceDeploy struct {
 	Placement     []*instance.Placement
 	Networks      []string
 	Storage       map[string]storage.Constraints
+	ForceSeries   bool
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -337,6 +338,7 @@ type AddServiceUnits struct {
 	NumUnits      int
 	ToMachineSpec string
 	Placement     []*instance.Placement
+	ForceSeries   bool
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.

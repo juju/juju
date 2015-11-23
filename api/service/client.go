@@ -74,6 +74,7 @@ func (c *Client) ServiceDeploy(
 	placement []*instance.Placement,
 	networks []string,
 	storage map[string]storage.Constraints,
+	forceSeries bool,
 ) error {
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
@@ -86,6 +87,7 @@ func (c *Client) ServiceDeploy(
 			Placement:     placement,
 			Networks:      networks,
 			Storage:       storage,
+			ForceSeries:   forceSeries,
 		}},
 	}
 	var results params.ErrorResults
