@@ -23,8 +23,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -689,6 +691,33 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 	}
 }
 
+func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
+	output, err := runDeployCommand(c, "trusty/terms1")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+Added charm "cs:trusty/terms1-1" to the environment.
+`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"terms1": {charm: "cs:trusty/terms1-1"},
+	})
+	_, err = s.State.Unit("terms1/0")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
+	s.termsDischargerError = &httpbakery.Error{
+		Message: "term agreement required: term/1 term/2",
+		Code:    "term agreement required",
+	}
+	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
+	_, err := runDeployCommand(c, "quantal/terms1")
+	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	c.Assert(err, gc.ErrorMatches, expectedError)
+}
+
 const (
 	// clientUserCookie is the name of the cookie which is
 	// used to signal to the charmStoreSuite macaroon discharger
@@ -704,10 +733,13 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	handler    charmstore.HTTPCloseHandler
-	srv        *httptest.Server
-	client     *csclient.Client
-	discharger *bakerytest.Discharger
+	handler              charmstore.HTTPCloseHandler
+	srv                  *httptest.Server
+	client               *csclient.Client
+	discharger           *bakerytest.Discharger
+	termsDischarger      *bakerytest.Discharger
+	termsDischargerError error
+	termsString          string
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
@@ -724,13 +756,34 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		}, nil
 	})
 
+	s.termsDischargerError = nil
+	// Set up the third party terms discharger.
+	s.termsDischarger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		s.termsString = arg
+		return nil, s.termsDischargerError
+	})
+	s.termsString = ""
+
+	keyring := bakery.NewPublicKeyRing()
+
+	pk, err := httpbakery.PublicKeyForLocation(http.DefaultClient, s.discharger.Location())
+	c.Assert(err, gc.IsNil)
+	err = keyring.AddPublicKeyForLocation(s.discharger.Location(), true, pk)
+	c.Assert(err, gc.IsNil)
+
+	pk, err = httpbakery.PublicKeyForLocation(http.DefaultClient, s.termsDischarger.Location())
+	c.Assert(err, gc.IsNil)
+	err = keyring.AddPublicKeyForLocation(s.termsDischarger.Location(), true, pk)
+	c.Assert(err, gc.IsNil)
+
 	// Set up the charm store testing server.
 	db := s.Session.DB("juju-testing")
 	params := charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: s.discharger,
+		TermsLocation:    s.termsDischarger.Location(),
+		PublicKeyLocator: keyring,
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
 	c.Assert(err, jc.ErrorIsNil)
