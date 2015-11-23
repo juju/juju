@@ -97,10 +97,12 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 		NotFound: false,
 		Error:    nil,
 		Payload: &api.Payload{
-			Class:  "foobar",
-			Type:   "type",
-			ID:     "idfoo",
-			Status: payload.StateRunning,
+			Class:   "foobar",
+			Type:    "type",
+			ID:      "idfoo",
+			Status:  payload.StateRunning,
+			Unit:    "unit-a-service-0",
+			Machine: "machine-1",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,10 +214,12 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		NotFound: false,
 		Error:    nil,
 		Payload: &api.Payload{
-			Class:  "foobar",
-			Type:   "type",
-			ID:     "idfoo",
-			Status: payload.StateRunning,
+			Class:   "foobar",
+			Type:    "type",
+			ID:      "idfoo",
+			Status:  payload.StateRunning,
+			Unit:    "unit-a-service-0",
+			Machine: "machine-1",
 		},
 	})
 }
