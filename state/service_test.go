@@ -1747,11 +1747,14 @@ func (s *ServiceSuite) TestNetworks(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
+	// TODO(dimitern): AddService now ignores networks, as they're deprecated
+	// and will be removed in a follow-up. Remove this test then as well.
 	networks := []string{"yes", "on"}
 	service := s.AddTestingServiceWithNetworks(c, "withnets", s.charm, networks)
 	requestedNetworks, err := service.Networks()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(requestedNetworks, gc.DeepEquals, networks)
+	c.Check(requestedNetworks, gc.HasLen, 0)
+	c.Check(requestedNetworks, gc.Not(gc.DeepEquals), networks)
 }
 
 func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {
