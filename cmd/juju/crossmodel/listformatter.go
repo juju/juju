@@ -31,7 +31,7 @@ func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	headers := []string{"APPLICATION", "CHARM", "CONNECTED", "STORE", "URL", "ENDPOINT", "INTERFACE", "ROLE"}
+	headers := []string{"SERVICE", "CHARM", "CONNECTED", "STORE", "URL", "ENDPOINT", "INTERFACE", "ROLE"}
 
 	// Ensure directories are sorted alphabetically.
 	//	directories := sortMapKeys(all)
@@ -45,32 +45,32 @@ func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error
 		print(directory)
 		print(headers...)
 
-		// Sort application names alphabetically.
+		// Sort service names alphabetically.
 		services := all[directory]
-		applicationNames := []string{}
+		serviceNames := []string{}
 		for name, _ := range services {
-			applicationNames = append(applicationNames, name)
+			serviceNames = append(serviceNames, name)
 		}
-		sort.Strings(applicationNames)
+		sort.Strings(serviceNames)
 
-		for _, name := range applicationNames {
-			application := services[name]
+		for _, name := range serviceNames {
+			service := services[name]
 
 			// Sort endpoints alphabetically.
 			endpoints := []string{}
-			for endpoint, _ := range application.Endpoints {
+			for endpoint, _ := range service.Endpoints {
 				endpoints = append(endpoints, endpoint)
 			}
 			sort.Strings(endpoints)
 
 			for i, endpointName := range endpoints {
 
-				endpoint := application.Endpoints[endpointName]
+				endpoint := service.Endpoints[endpointName]
 				if i == 0 {
 					// As there is some information about service and its endpoints,
 					// only display service information once
 					// when the first endpoint is  displayed.
-					print(name, application.CharmName, fmt.Sprintf("%v", application.UsersCount), application.Store, application.Location, endpointName, endpoint.Interface, endpoint.Role)
+					print(name, service.CharmName, fmt.Sprintf("%v", service.UsersCount), service.Store, service.Location, endpointName, endpoint.Interface, endpoint.Role)
 					continue
 				}
 				// Subsequent lines only need to display endpoint information.

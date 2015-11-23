@@ -7,10 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 const listCommandDoc = `
@@ -57,7 +59,7 @@ type listCommand struct {
 
 	newAPIFunc func() (ListAPI, error)
 
-	filters map[string][]string
+	filters []crossmodel.RemoteServiceFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -72,8 +74,6 @@ func NewListEndpointsCommand() cmd.Command {
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
 	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
-	// filter scope -key- can only be a few values
-	// , including "" for "no filter scope specified as it is optional"
 	return cmd.CheckEmpty(args)
 }
 
@@ -91,8 +91,6 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CrossModelCommandBase.SetFlags(f)
 
 	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
-	// filter scope -key- can only be a few values
-	//, including "" for "no filter scope specified as it is optional"
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -109,35 +107,38 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	// TODO (anastasiamac 2015-11-17) add input filters
-	// Expecting back a map grouped by directory.
-	found, err := api.List(c.filters)
+	offeredServices, err := api.List(c.filters...)
 	if err != nil {
 		return err
 	}
 
 	// Filter out valid output, if any...
-	valid := make(map[string][]params.ListEndpointsServiceItem)
-	for directory, items := range found {
-		for _, one := range items {
-			if one.Error != nil {
-				fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
-				continue
-			}
-			if one.Result != nil {
-				valid[directory] = append(valid[directory], *one.Result)
-			}
+	valid := []crossmodel.ListEndpointsService{}
+	for _, service := range offeredServices {
+		if service.Error != nil {
+			fmt.Fprintf(ctx.Stderr, "%v\n", service.Error)
+			continue
+		}
+		if service.Result != nil {
+			valid = append(valid, *service.Result)
 		}
 	}
 	if len(valid) == 0 {
 		return nil
 	}
-	return c.out.Write(ctx, formatServiceItems(valid))
+
+	data, err := formatListEndpointsServices(valid)
+	if err != nil {
+		return errors.Annotate(err, "failed to format found services")
+	}
+
+	return c.out.Write(ctx, data)
 }
 
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	List(filters map[string][]string) (map[string][]params.ListEndpointsServiceItemResult, error)
+	List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.
@@ -160,25 +161,50 @@ type ListServiceItem struct {
 
 type directoryServices map[string]ListServiceItem
 
-func formatServiceItems(all map[string][]params.ListEndpointsServiceItem) map[string]directoryServices {
-	items := make(map[string]directoryServices)
-	for directory, services := range all {
-		servicesMap := make(directoryServices)
-		for _, service := range services {
-			servicesMap[service.ApplicationName] = convertServiceToListItem(service)
+func formatListEndpointsServices(all []crossmodel.ListEndpointsService) (map[string]directoryServices, error) {
+	directories := make(map[string]directoryServices)
+	for _, one := range all {
+		url, err := crossmodel.ParseServiceURL(one.ServiceURL)
+		if err != nil {
+			return nil, err
 		}
-		items[directory] = servicesMap
+
+		// Get services for this directory.
+		servicesMap, ok := directories[url.Directory]
+		if !ok {
+			servicesMap = make(directoryServices)
+			directories[url.Directory] = servicesMap
+		}
+
+		// Store services by name.
+		servicesMap[url.ServiceName] = convertServiceToListItem(url, one)
 	}
-	return items
+	return directories, nil
 }
 
-func convertServiceToListItem(p params.ListEndpointsServiceItem) ListServiceItem {
+func convertServiceToListItem(url *crossmodel.ServiceURL, service crossmodel.ListEndpointsService) ListServiceItem {
 	item := ListServiceItem{
-		CharmName:  p.CharmName,
-		Store:      p.Store,
-		Location:   p.Location,
-		UsersCount: p.UsersCount,
-		Endpoints:  convertRemoteEndpoints(p.Endpoints...),
+		CharmName: service.CharmName,
+		// TODO (anastasiamac 2-15-11-20) what is the difference between store and directory.
+		// At this stage, the distinction is unclear apart from strong desire to call "directory" "store".
+		Store: url.Directory,
+		// Location is the suffix of the service's url, the part after "<directory name>:".
+		Location:   service.ServiceURL[len(url.Directory)+1:],
+		UsersCount: service.ConnectedCount,
+		Endpoints:  convertCharmEndpoints(service.Endpoints...),
 	}
 	return item
+}
+
+// convertCharmEndpoints takes any number of charm relations and
+// creates a collection of ui-formatted endpoints.
+func convertCharmEndpoints(relations ...charm.Relation) map[string]RemoteEndpoint {
+	if len(relations) == 0 {
+		return nil
+	}
+	output := make(map[string]RemoteEndpoint, len(relations))
+	for _, one := range relations {
+		output[one.Name] = RemoteEndpoint{one.Interface, string(one.Role)}
+	}
+	return output
 }

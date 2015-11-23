@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/model/crossmodel"
+	model "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -85,9 +85,9 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	urls := filter.URLs
 	results := make([]params.RemoteServiceResult, len(urls))
 
-	filters := make([]crossmodel.ServiceOfferFilter, len(urls))
+	filters := make([]model.ServiceOfferFilter, len(urls))
 	for i, one := range urls {
-		if _, err := crossmodel.ParseServiceURL(one); err != nil {
+		if _, err := model.ParseServiceURL(one); err != nil {
 			results[i].Error = common.ServerError(err)
 		}
 		filters[i].ServiceURL = one
@@ -98,7 +98,7 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 		return params.RemoteServiceResults{}, errors.Trace(err)
 	}
 
-	tpMap := make(map[string]crossmodel.ServiceOffer, len(found))
+	tpMap := make(map[string]model.ServiceOffer, len(found))
 	for _, offer := range found {
 		tpMap[offer.ServiceURL] = offer
 	}
@@ -118,28 +118,40 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	return params.RemoteServiceResults{results}, nil
 }
 
-func (api *API) List(fs params.ListEndpointsFilters) (params.ListEndpointsServiceItemResults, error) {
-	filters := make([]crossmodel.RemoteServiceFilter, len(fs.Filters))
-	for i, filter := range fs.Filters {
-		filters[i] = constructRemoteServiceFilter(filter)
-	}
-	found, err := api.backend.ListRemoteServices(filters...)
-	if err != nil {
-		return params.ListEndpointsServiceItemResults{}, errors.Trace(err)
-	}
+func (api *API) List(args params.ListEndpointsFiltersSets) (params.ListEndpointsItemsResults, error) {
 
-	results := make(map[string][]params.ListEndpointsServiceItemResult)
-	for directory, services := range found {
-		results[directory] = make([]params.ListEndpointsServiceItemResult, len(services))
-		for i, service := range services {
-			results[directory][i] = api.getRemoteService(service)
+	// This func constructs individual set of filters.
+	filters := func(aSet params.ListEndpointsFiltersSet) []model.RemoteServiceFilter {
+		result := make([]model.RemoteServiceFilter, len(aSet.Filters))
+		for i, filter := range aSet.Filters {
+			result[i] = constructRemoteServiceFilter(filter)
 		}
+		return result
 	}
 
-	return params.ListEndpointsServiceItemResults{results}, nil
+	// This func converts results for a filters set to params.
+	convertToParams := func(remotes []model.RemoteService) []params.ListEndpointsServiceItemResult {
+		results := make([]params.ListEndpointsServiceItemResult, len(remotes))
+		for i, one := range remotes {
+			results[i] = api.getRemoteService(one)
+		}
+		return results
+	}
+
+	found := make([]params.ListEndpointsItemsResult, len(args.Filters))
+	for i, set := range args.Filters {
+		setResult, err := api.backend.ListRemoteServices(filters(set)...)
+		if err != nil {
+			found[i].Error = common.ServerError(err)
+			continue
+		}
+		found[i].Result = convertToParams(setResult)
+	}
+
+	return params.ListEndpointsItemsResults{found}, nil
 }
 
-func (api *API) getRemoteService(remote crossmodel.RemoteService) params.ListEndpointsServiceItemResult {
+func (api *API) getRemoteService(remote model.RemoteService) params.ListEndpointsServiceItemResult {
 	service, err := api.access.Service(remote.ServiceName)
 	if err != nil {
 		return params.ListEndpointsServiceItemResult{Error: common.ServerError(err)}
@@ -149,38 +161,44 @@ func (api *API) getRemoteService(remote crossmodel.RemoteService) params.ListEnd
 	if err != nil {
 		return params.ListEndpointsServiceItemResult{Error: common.ServerError(err)}
 	}
-
 	result := params.ListEndpointsServiceItem{
-		Endpoints:  convertEndpoints(remote.Endpoints),
-		CharmName:  ch.Meta().Name,
-		UsersCount: len(remote.ConnectedUsers),
+		Endpoints:   remote.Endpoints,
+		CharmName:   ch.Meta().Name,
+		ServiceName: remote.ServiceName,
+		ServiceURL:  remote.ServiceURL,
+		UsersCount:  len(remote.ConnectedUsers),
 	}
-
-	// TODO (anastasiamac 2016-11-18) where do I get application name, store and url suffix from?
 	return params.ListEndpointsServiceItemResult{Result: &result}
 }
 
-func constructRemoteServiceFilter(filter params.OfferFilter) crossmodel.RemoteServiceFilter {
-	// TODO (anastasiamac 2015-11-18)  populate filters
-	return crossmodel.RemoteServiceFilter{}
+func constructRemoteServiceFilter(filter params.ListEndpointsFilter) model.RemoteServiceFilter {
+	return model.RemoteServiceFilter{
+		ServiceURL: filter.ServiceURL,
+		CharmName:  filter.CharmName,
+		Endpoint: model.RemoteEndpointFilter{
+			Name:      filter.Endpoint.Name,
+			Interface: filter.Endpoint.Interface,
+			Role:      filter.Endpoint.Role,
+		},
+	}
 }
 
 // parseOffer is a helper function that translates from params
 // structure into internal service layer one.
-func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer, error) {
+func (api *API) parseOffer(p params.RemoteServiceOffer) (model.ServiceOffer, error) {
 	service, err := api.access.Service(p.ServiceName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return crossmodel.ServiceOffer{}, common.ErrPerm
+			return model.ServiceOffer{}, common.ErrPerm
 		}
-		return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
+		return model.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
 	}
 
 	endpoints, err := getServiceEndpoints(service, p.Endpoints)
 	if err != nil {
-		return crossmodel.ServiceOffer{}, errors.Trace(err)
+		return model.ServiceOffer{}, errors.Trace(err)
 	}
-	offer := crossmodel.ServiceOffer{
+	offer := model.ServiceOffer{
 		ServiceURL:         p.ServiceURL,
 		ServiceName:        service.Name(),
 		Endpoints:          endpoints,
@@ -190,7 +208,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (crossmodel.ServiceOffer
 	if p.ServiceDescription == "" {
 		ch, _, err := service.Charm()
 		if err != nil {
-			return crossmodel.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ServiceName)
+			return model.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ServiceName)
 		}
 		offer.ServiceDescription = ch.Meta().Description
 	}
@@ -212,7 +230,7 @@ func getServiceEndpoints(service *state.Service, endpointNames []string) ([]char
 
 // convertServiceOffer is a helper function that translates from internal service layer
 // structure into params one.
-func convertServiceOffer(c crossmodel.ServiceOffer) params.ServiceOffer {
+func convertServiceOffer(c model.ServiceOffer) params.ServiceOffer {
 	return params.ServiceOffer{
 		ServiceName:        c.ServiceName,
 		ServiceURL:         c.ServiceURL,
@@ -243,26 +261,26 @@ func convertEndpoints(endpoints []charm.Relation) []params.RemoteEndpoint {
 type ServicesBackend interface {
 
 	// AddOffer adds a new service offer to the directory.
-	AddOffer(offer crossmodel.ServiceOffer) error
+	AddOffer(offer model.ServiceOffer) error
 
 	// ListOffers returns offers satisfying the specified filter.
-	ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+	ListOffers(filter ...model.ServiceOfferFilter) ([]model.ServiceOffer, error)
 
 	// ListRemoteServices returns remote services satisfying specified filters.
-	ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error)
+	ListRemoteServices(filters ...model.RemoteServiceFilter) ([]model.RemoteService, error)
 }
 
 // TODO (anastasiamac 2015-11-16) Remove me when backend is done
 type servicesBackendStub struct{}
 
-func (e *servicesBackendStub) AddOffer(offer crossmodel.ServiceOffer) error {
+func (e *servicesBackendStub) AddOffer(offer model.ServiceOffer) error {
 	return nil
 }
 
-func (e *servicesBackendStub) ListOffers(filter ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (e *servicesBackendStub) ListOffers(filter ...model.ServiceOfferFilter) ([]model.ServiceOffer, error) {
 	return nil, nil
 }
 
-func (e *servicesBackendStub) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
+func (e *servicesBackendStub) ListRemoteServices(filters ...model.RemoteServiceFilter) ([]model.RemoteService, error) {
 	return nil, nil
 }

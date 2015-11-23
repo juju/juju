@@ -106,37 +106,109 @@ type RemoteServiceResult struct {
 
 // RemoteServiceResults is a result of listing remote service offers.
 type RemoteServiceResults struct {
+	// Result contains collection of remote service results.
 	Results []RemoteServiceResult `json:"results,omitempty"`
 }
 
 // ShowFilter is a filter used to select remote services via show call.
 type ShowFilter struct {
+	// URLs contains collection of urls for services that are to be shown.
 	URLs []string `json:"urls,omitempty"`
 }
 
 // OfferedService represents attributes for an offered service.
 // TODO(wallyworld) - consolidate this with the CLI when possible.
 type OfferedService struct {
-	ServiceURL  string            `json:"serviceurl"`
-	ServiceName string            `json:"servicename"`
-	Registered  bool              `json:"registered"`
-	Endpoints   map[string]string `json:"endpoints"`
+    ServiceURL  string            `json:"serviceurl"`
+    ServiceName string            `json:"servicename"`
+    Registered  bool              `json:"registered"`
+    Endpoints   map[string]string `json:"endpoints"`
 }
 
 // OfferedServiceResult holds the result of loading an
 // offerred service at a URL.
 type OfferedServiceResult struct {
-	Result OfferedService `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
+    Result OfferedService `json:"result,omitempty"`
+    Error  *Error         `json:"error,omitempty"`
 }
 
 // OfferedServiceResults represents the result of a ListOfferedServices call.
 type OfferedServiceResults struct {
-	Results []OfferedServiceResult
+    Results []OfferedServiceResult
 }
 
 // OfferedServiceQueryParams is used to specify the URLs
 // for which we want to load offered service details.
 type OfferedServiceQueryParams struct {
-	ServiceUrls []string
+    ServiceUrls []string
+}
+
+// ListEndpointsServiceItem is a service found during a request to list remote services.
+type ListEndpointsServiceItem struct {
+	// ServiceURL may contain user supplied service url.
+	ServiceURL string `json:"serviceurl,omitempty"`
+
+	// ServiceName contains name of service being offered.
+	ServiceName string `json:"servicename"`
+
+	// CharmName is the charm name of this service.
+	CharmName string `json:"charm"`
+
+	// UsersCount is the count of how many users are connected to this shared service.
+	UsersCount int `json:"connected,omitempty"`
+
+	// Endpoints is a list of charm relations that this remote service offered.
+	Endpoints []charm.Relation `json:"endpoints"`
+}
+
+// ListEndpointsServiceItemResult is a result of listing a remote service.
+type ListEndpointsServiceItemResult struct {
+	// Result contains remote service information.
+	Result *ListEndpointsServiceItem `json:"result,omitempty"`
+
+	// Error contains error related to this item.
+	Error *Error `json:"error,omitempty"`
+}
+
+// ListEndpointsItemsResult is a result of listing remote service offers
+// for a service directory.
+type ListEndpointsItemsResult struct {
+	// Error contains error related to this directory.
+	Error *Error `json:"error,omitempty"`
+
+	// Result contains collection of remote service item results for this directory.
+	Result []ListEndpointsServiceItemResult `json:"results,omitempty"`
+}
+
+// ListEndpointsItemsResults is a result of listing remote service offers
+// for service directories.
+type ListEndpointsItemsResults struct {
+	// Results contains collection of remote directories results.
+	Results []ListEndpointsItemsResult `json:"results,omitempty"`
+}
+
+// ListEndpointsFiltersSets has sets of filters that
+// are used by a vendor to query remote services that the vendor has offered.
+type ListEndpointsFiltersSets struct {
+	Filters []ListEndpointsFiltersSet
+}
+
+// ListEndpointsFiltersSet has a set of filters that
+// are used by a vendor to query remote services that the vendor has offered.
+type ListEndpointsFiltersSet struct {
+	Filters []ListEndpointsFilter
+}
+
+// ListEndpointsFilter has filter criteria that
+// are used by a vendor to query remote services that the vendor has offered.
+type ListEndpointsFilter struct {
+	// ServiceURL is url for remote service.
+	// This may be a part of valid URL.
+	ServiceURL string `json:"serviceurl,omitempty"`
+
+	// Endpoint contains endpoint properties for filter.
+	Endpoint RemoteEndpoint `json:"endpoint,omitempty"`
+
+	// CharmName is the charm name of this service.
+	CharmName string `json:"charm"`
 }

@@ -183,44 +183,54 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
+var emptyFilterSet = params.ListEndpointsFiltersSets{
+	[]params.ListEndpointsFiltersSet{{
+		[]params.ListEndpointsFilter{},
+	}},
+}
+
 func (s *crossmodelSuite) TestList(c *gc.C) {
 	serviceName := "test"
 	url := "local:/u/fred/hosted-db2"
 	connectedUsers := []string{"user1", "user2"}
-	directory := "local"
 
 	s.addService(c, serviceName)
 
 	remote := crossmodel.RemoteService{crossmodel.ServiceOffer{ServiceName: serviceName, ServiceURL: url}, connectedUsers}
 
-	s.serviceBackend.listRemoteServices = func(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
-		return map[string][]crossmodel.RemoteService{directory: {remote}}, nil
+	s.serviceBackend.listRemoteServices = func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
+		return []crossmodel.RemoteService{remote}, nil
 	}
 
-	found, err := s.api.List(params.ListEndpointsFilters{})
+	found, err := s.api.List(emptyFilterSet)
 	c.Assert(err, jc.ErrorIsNil)
 	s.serviceBackend.CheckCallNames(c, listRemoteServicesBackendCall)
 
+	expectedService := params.ListEndpointsServiceItem{
+		CharmName:   "wordpress",
+		UsersCount:  len(connectedUsers),
+		ServiceName: serviceName,
+		ServiceURL:  url,
+	}
 	c.Assert(found, gc.DeepEquals,
-		params.ListEndpointsServiceItemResults{map[string][]params.ListEndpointsServiceItemResult{
-			directory: []params.ListEndpointsServiceItemResult{{Result: &params.ListEndpointsServiceItem{
-				CharmName:  "wordpress",
-				UsersCount: len(connectedUsers),
-				Endpoints:  []params.RemoteEndpoint{},
-			}},
+		params.ListEndpointsItemsResults{
+			Results: []params.ListEndpointsItemsResult{{
+				Result: []params.ListEndpointsServiceItemResult{
+					{Result: &expectedService},
+				}},
 			},
-		}})
+		})
 }
 
 func (s *crossmodelSuite) TestListError(c *gc.C) {
 	msg := "fail test"
 
-	s.serviceBackend.listRemoteServices = func(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
+	s.serviceBackend.listRemoteServices = func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
 		return nil, errors.New(msg)
 	}
 
-	found, err := s.api.List(params.ListEndpointsFilters{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%v", msg))
+	found, err := s.api.List(emptyFilterSet)
+	c.Assert(err, jc.ErrorIsNil)
 	s.serviceBackend.CheckCallNames(c, listRemoteServicesBackendCall)
-	c.Assert(found, gc.DeepEquals, params.ListEndpointsServiceItemResults{Results: map[string][]params.ListEndpointsServiceItemResult(nil)})
+	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
 }

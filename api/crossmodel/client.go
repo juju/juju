@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 var logger = loggo.GetLogger("juju.api.crossmodel")
@@ -64,15 +65,46 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 	return theOne.Result, nil
 }
 
-func (c *Client) List(filters map[string][]string) (map[string][]params.ListEndpointsServiceItemResult, error) {
-	// TODO (anastasiamac 2015-11-18) construct meaningful filters from input
-	in := params.ListEndpointsFilters{}
-	out := params.ListEndpointsServiceItemResults{}
+func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error) {
+	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
+	in := params.ListEndpointsFiltersSet{}
+	out := params.ListEndpointsItemsResults{}
 
-	err := c.facade.FacadeCall("List", in, &out)
+	err := c.facade.FacadeCall("List", params.ListEndpointsFiltersSets{[]params.ListEndpointsFiltersSet{in}}, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return out.Results, nil
+	result := out.Results
+	// Since only one filters set was sent, expecting only one back
+	if len(result) != 1 {
+		return nil, errors.Errorf("expected to find one result but found %d", len(result))
+
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return nil, errors.Trace(theOne.Error)
+	}
+
+	return convertListResultsToModel(theOne.Result), nil
+}
+
+func convertListResultsToModel(items []params.ListEndpointsServiceItemResult) []crossmodel.ListEndpointsServiceResult {
+	result := make([]crossmodel.ListEndpointsServiceResult, len(items))
+	for i, one := range items {
+		if one.Error != nil {
+			result[i].Error = one.Error
+			continue
+		}
+		remoteService := one.Result
+		result[i].Result = &crossmodel.ListEndpointsService{
+			ServiceName:    remoteService.ServiceName,
+			ServiceURL:     remoteService.ServiceURL,
+			CharmName:      remoteService.CharmName,
+			ConnectedCount: remoteService.UsersCount,
+			Endpoints:      remoteService.Endpoints,
+		}
+	}
+	return result
 }

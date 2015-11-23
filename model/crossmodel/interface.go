@@ -123,14 +123,27 @@ type OfferedServices interface {
 
 // RemoteServiceFilter represents a remote service filter.
 type RemoteServiceFilter struct {
-	// URL is a remote service URL prefix.
-	URL string
+	// ServiceURL is the URl where the service can be located.
+	// This can contain a part of URL.
+	ServiceURL string
 
-	// EndpointName is a name of an endpoint on a remote service.
-	EndpointName string
+	// Endpoint contains an endpoint filter criteria.
+	Endpoint RemoteEndpointFilter
 
 	// CharmName is a name of a charm for remote service.
 	CharmName string
+}
+
+// RemoteEndpoint represents a remote endpoint filter.
+type RemoteEndpointFilter struct {
+	// Name is an endpoint name.
+	Name string
+
+	// Interface is an endpoint interface.
+	Interface string
+
+	// Role is an endpoint role.
+	Role charm.RelationRole
 }
 
 // RemoteService represents a remote service.

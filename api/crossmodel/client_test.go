@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	model "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/testing"
 )
 
@@ -257,15 +258,13 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 
 func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	directoryName := "local"
-
-	appName := "fred/prod/hosted-db2"
 	charmName := "db2"
-	endPointA := "endPointA"
-	url := "u/fred/prod/hosted-db2"
+	serviceName := fmt.Sprintf("hosted-%s", charmName)
+	url := fmt.Sprintf("%s:/u/fred/%s", directoryName, serviceName)
+	endpoints := []charm.Relation{{Name: "endPointA"}}
 	count := 23
-	store := "local"
 
-	msg := "fail"
+	msg := "item fail"
 	called := false
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -278,51 +277,102 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			c.Check(request, gc.Equals, "List")
 
 			called = true
-			args, ok := a.(params.ListEndpointsFilters)
+			args, ok := a.(params.ListEndpointsFiltersSets)
 			c.Assert(ok, jc.IsTrue)
 			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
-			c.Assert(args.Filters, gc.HasLen, 0)
+			c.Assert(args.Filters, gc.HasLen, 1)
 
-			if results, ok := result.(*params.ListEndpointsServiceItemResults); ok {
-				all := map[string][]params.ListEndpointsServiceItemResult{
-					directoryName: []params.ListEndpointsServiceItemResult{
-						{Result: &params.ListEndpointsServiceItem{
-							ApplicationName: appName,
-							CharmName:       charmName,
-							UsersCount:      count,
-							Store:           store,
-							Location:        url,
-							Endpoints:       []params.RemoteEndpoint{{Name: endPointA}},
-						}},
-						// add one error to make sure it's catered for.
-						{Error: common.ServerError(errors.New(msg))},
-					},
+			if results, ok := result.(*params.ListEndpointsItemsResults); ok {
+
+				validItem := params.ListEndpointsServiceItem{
+					ServiceURL:  url,
+					ServiceName: serviceName,
+					CharmName:   charmName,
+					UsersCount:  count,
+					Endpoints:   endpoints,
 				}
-				results.Results = all
+
+				validDir := params.ListEndpointsItemsResult{
+					Result: []params.ListEndpointsServiceItemResult{
+						{Result: &validItem},
+						{Error: common.ServerError(errors.New(msg))},
+					}}
+
+				results.Results = []params.ListEndpointsItemsResult{validDir}
 			}
 
 			return nil
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.List(nil)
+	results, err := client.List(model.RemoteServiceFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, map[string][]params.ListEndpointsServiceItemResult{
-		directoryName: []params.ListEndpointsServiceItemResult{
-			{Result: &params.ListEndpointsServiceItem{
-				ApplicationName: appName,
-				CharmName:       charmName,
-				UsersCount:      count,
-				Store:           store,
-				Location:        url,
-				Endpoints:       []params.RemoteEndpoint{{Name: endPointA}},
-			}},
-			// add one error to make sure it's catered for.
-			params.ListEndpointsServiceItemResult{Error: common.ServerError(errors.New(msg))},
-		},
+	c.Assert(results, jc.DeepEquals, []model.ListEndpointsServiceResult{
+		{Result: &model.ListEndpointsService{
+			ServiceName:    serviceName,
+			ServiceURL:     url,
+			CharmName:      charmName,
+			ConnectedCount: count,
+			Endpoints:      endpoints,
+		}},
+		{Error: common.ServerError(errors.New(msg))},
 	})
+}
 
+func (s *crossmodelMockSuite) TestListMultipleResults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "List")
+
+			called = true
+			if results, ok := result.(*params.ListEndpointsItemsResults); ok {
+				results.Results = []params.ListEndpointsItemsResult{{}, {}}
+			}
+
+			return nil
+		})
+
+	client := crossmodel.NewClient(apiCaller)
+	_, err := client.List(model.RemoteServiceFilter{})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *crossmodelMockSuite) TestListDirectoryError(c *gc.C) {
+	msg := "dir failure"
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "List")
+
+			called = true
+			if results, ok := result.(*params.ListEndpointsItemsResults); ok {
+				results.Results = []params.ListEndpointsItemsResult{
+					{Error: common.ServerError(errors.New(msg))},
+				}
+			}
+
+			return nil
+		})
+
+	client := crossmodel.NewClient(apiCaller)
+	_, err := client.List(model.RemoteServiceFilter{})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
@@ -340,7 +390,7 @@ func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.List(nil)
+	results, err := client.List(model.RemoteServiceFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

@@ -67,7 +67,7 @@ type mockServiceBackend struct {
 
 	addOffer           func(offer crossmodel.ServiceOffer) error
 	listOffers         func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
-	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error)
+	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error)
 }
 
 func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
@@ -80,7 +80,7 @@ func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter
 	return m.listOffers(filters...)
 }
 
-func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) (map[string][]crossmodel.RemoteService, error) {
+func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
 	m.MethodCall(m, listRemoteServicesBackendCall, filters)
 	return m.listRemoteServices(filters...)
 }
