@@ -78,9 +78,13 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 		// No bindings yet, just create them.
 		return txn.Op{
 			C:      endpointBindingsC,
-			Id:     key,
+			Id:     st.docID(key),
 			Assert: txn.DocMissing,
-			Insert: &endpointBindingsDoc{Bindings: newBindings},
+			Insert: &endpointBindingsDoc{
+				DocID:    st.docID(key),
+				EnvUUID:  st.EnvironUUID(),
+				Bindings: newBindings,
+			},
 		}, nil
 	}
 	if err != nil {
@@ -99,7 +103,7 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	}
 	op := txn.Op{
 		C:      endpointBindingsC,
-		Id:     key,
+		Id:     st.docID(key),
 		Assert: bson.D{{"txn-revno", txnRevno}},
 	}
 	var update bson.D
@@ -115,10 +119,10 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
 // key, asserting the document exists.
-func removeEndpointBindingsOp(key string) txn.Op {
+func removeEndpointBindingsOp(st *State, key string) txn.Op {
 	return txn.Op{
 		C:      endpointBindingsC,
-		Id:     key,
+		Id:     st.docID(key),
 		Remove: true,
 	}
 }
@@ -130,7 +134,7 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 	defer closer()
 
 	var doc endpointBindingsDoc
-	err := endpointBindings.FindId(key).One(&doc)
+	err := endpointBindings.FindId(st.docID(key)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, 0, errors.NotFoundf("endpoint bindings for %q", key)
 	}
