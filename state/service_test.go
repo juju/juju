@@ -140,25 +140,23 @@ var setCharmEndpointsTests = []struct {
 	summary string
 	meta    string
 	err     string
-}{
-	{
-		summary: "different provider (but no relation yet)",
-		meta:    metaDifferentProvider,
-	}, {
-		summary: "different requirer (but no relation yet)",
-		meta:    metaDifferentRequirer,
-	}, {
-		summary: "different peer",
-		meta:    metaDifferentPeer,
-		err:     `cannot upgrade service "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
-	}, {
-		summary: "same relations ok",
-		meta:    metaBase,
-	}, {
-		summary: "extra endpoints ok",
-		meta:    metaExtraEndpoints,
-	},
-}
+}{{
+	summary: "different provider (but no relation yet)",
+	meta:    metaDifferentProvider,
+}, {
+	summary: "different requirer (but no relation yet)",
+	meta:    metaDifferentRequirer,
+}, {
+	summary: "different peer",
+	meta:    metaDifferentPeer,
+	err:     `cannot upgrade service "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
+}, {
+	summary: "same relations ok",
+	meta:    metaBase,
+}, {
+	summary: "extra endpoints ok",
+	meta:    metaExtraEndpoints,
+}}
 
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 	revno := 2
@@ -233,42 +231,40 @@ var setCharmConfigTests = []struct {
 	endconfig   string
 	endvalues   charm.Settings
 	err         string
-}{
-	{
-		summary:     "add float key to empty config",
-		startconfig: emptyConfig,
-		endconfig:   floatConfig,
-	}, {
-		summary:     "add string key to empty config",
-		startconfig: emptyConfig,
-		endconfig:   stringConfig,
-	}, {
-		summary:     "add string key and preserve existing values",
-		startconfig: stringConfig,
-		startvalues: charm.Settings{"key": "foo"},
-		endconfig:   newStringConfig,
-		endvalues:   charm.Settings{"key": "foo"},
-	}, {
-		summary:     "remove string key",
-		startconfig: stringConfig,
-		startvalues: charm.Settings{"key": "value"},
-		endconfig:   emptyConfig,
-	}, {
-		summary:     "remove float key",
-		startconfig: floatConfig,
-		startvalues: charm.Settings{"key": 123.45},
-		endconfig:   emptyConfig,
-	}, {
-		summary:     "change key type without values",
-		startconfig: stringConfig,
-		endconfig:   floatConfig,
-	}, {
-		summary:     "change key type with values",
-		startconfig: stringConfig,
-		startvalues: charm.Settings{"key": "value"},
-		endconfig:   floatConfig,
-	},
-}
+}{{
+	summary:     "add float key to empty config",
+	startconfig: emptyConfig,
+	endconfig:   floatConfig,
+}, {
+	summary:     "add string key to empty config",
+	startconfig: emptyConfig,
+	endconfig:   stringConfig,
+}, {
+	summary:     "add string key and preserve existing values",
+	startconfig: stringConfig,
+	startvalues: charm.Settings{"key": "foo"},
+	endconfig:   newStringConfig,
+	endvalues:   charm.Settings{"key": "foo"},
+}, {
+	summary:     "remove string key",
+	startconfig: stringConfig,
+	startvalues: charm.Settings{"key": "value"},
+	endconfig:   emptyConfig,
+}, {
+	summary:     "remove float key",
+	startconfig: floatConfig,
+	startvalues: charm.Settings{"key": 123.45},
+	endconfig:   emptyConfig,
+}, {
+	summary:     "change key type without values",
+	startconfig: stringConfig,
+	endconfig:   floatConfig,
+}, {
+	summary:     "change key type with values",
+	startconfig: stringConfig,
+	startvalues: charm.Settings{"key": "value"},
+	endconfig:   floatConfig,
+}}
 
 func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 	charms := map[string]*state.Charm{
