@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/worker/util"
 )
 
-// ManifoldConfig describes the resources used by the cleanup workers.
+// ManifoldConfig describes the resources used by the addresser worker.
 type ManifoldConfig util.ApiManifoldConfig
 
-// Manifold returns a Manifold that encapsulates the cleanup worker.
+// Manifold returns a Manifold that encapsulates the addresser worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return util.ApiManifold(
 		util.ApiManifoldConfig(config),
@@ -24,7 +24,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	)
 }
 
-// manifoldStart creates a cleaner worker, given a base.APICaller.
+// manifoldStart creates an addresser worker, given a base.APICaller.
 func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
 	api := addresser.NewAPI(apiCaller)
 	w, err := NewWorker(api)
