@@ -4,10 +4,7 @@
 package environ
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -15,140 +12,116 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-var logger = loggo.GetLogger("juju.worker.environ")
-
-var loadedInvalid = func() {}
-
-// EnvironConfigGetter interface defines a way to read the environment
-// configuration.
-type EnvironConfigGetter interface {
+// ConfigGetter exposes an environment configuration to its clients.
+type ConfigGetter interface {
 	EnvironConfig() (*config.Config, error)
 }
 
-// ErrWaitAborted is returned from WaitForEnviron when the wait is terminated by
-// closing the abort chan.
-var ErrWaitAborted = errors.New("environ wait aborted")
-
-// TODO(rog) remove WaitForEnviron, as we now should always
-// start with a valid environ config.
-
-// WaitForEnviron waits for an valid environment to arrive from
-// the given watcher. It terminates with ErrWaitAborted if
-// it receives a value on dying.
-func WaitForEnviron(w watcher.NotifyWatcher, st EnvironConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
-	for {
-		select {
-		case <-dying:
-			return nil, ErrWaitAborted
-		case _, ok := <-w.Changes():
-			if !ok {
-				return nil, errors.New("watcher closed channel")
-			}
-			config, err := st.EnvironConfig()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			environ, err := environs.New(config)
-			if err == nil {
-				return environ, nil
-			}
-			logger.Errorf("loaded invalid environment configuration: %v", err)
-			loadedInvalid()
-		}
-	}
-}
-
-// EnvironConfigObserver interface defines a way to read the
-// environment configuration and watch for changes.
-type EnvironConfigObserver interface {
-	EnvironConfigGetter
+// ConfigObserver exposes an environment configuration and a watch constructor
+// that allows clients to be informed of changes to the configuration.
+type ConfigObserver interface {
+	ConfigGetter
 	WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error)
 }
 
-// EnvironObserver watches the current environment configuration
-// and makes it available. It discards invalid environment
-// configurations.
-type EnvironObserver struct {
+// Config describes the dependencies of a Tracker.
+//
+// It's arguable that it should be called TrackerConfig, because of the heavy
+// use of environ config in this package.
+type Config struct {
+	Observer ConfigObserver
+}
+
+// Validate returns an error if the config cannot be used to start a Tracker.
+func (config Config) Validate() error {
+	if config.Observer == nil {
+		return errors.NotValidf("nil Observer")
+	}
+	return nil
+}
+
+// Tracker loads an environment, makes it available to clients, and updates
+// the environment in response to config changes until it is killed.
+type Tracker struct {
+	config   Config
 	catacomb catacomb.Catacomb
-	st       EnvironConfigObserver
-	mu       sync.Mutex
 	environ  environs.Environ
 }
 
-// NewEnvironObserver waits for the environment to have a valid
-// environment configuration and returns a new environment observer.
-// While waiting for the first environment configuration, it will
-// return with tomb.ErrDying if it receives a value on dying.
-func NewEnvironObserver(st EnvironConfigObserver) (*EnvironObserver, error) {
-	config, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
+// NewTracker loads an environment from the observer and returns a new Tracker,
+// or an error if anything goes wrong. If a tracker is returned, its Environ()
+// method is immediately usable.
+//
+// The caller is responsible for Kill()ing the returned Tracker and Wait()ing
+// for any errors it might return.
+func NewTracker(config Config) (*Tracker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	environ, err := environs.New(config)
+	environConfig, err := config.Observer.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot create an environment")
+		return nil, errors.Annotate(err, "cannot read environ config")
+	}
+	environ, err := environs.New(environConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create environ")
 	}
 
-	obs := &EnvironObserver{
-		st:      st,
+	t := &Tracker{
+		config:  config,
 		environ: environ,
 	}
 	err = catacomb.Invoke(catacomb.Plan{
-		Site: &obs.catacomb,
-		Work: obs.loop,
+		Site: &t.catacomb,
+		Work: t.loop,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return obs, nil
+	return t, nil
 }
 
-func (obs *EnvironObserver) loop() error {
-	environWatcher, err := obs.st.WatchForEnvironConfigChanges()
+// Environ returns the encapsulated Environ. It will continue to be updated in
+// the background for as long as the Tracker continues to run.
+func (t *Tracker) Environ() environs.Environ {
+	return t.environ
+}
+
+func (t *Tracker) loop() error {
+	environWatcher, err := t.config.Observer.WatchForEnvironConfigChanges()
 	if err != nil {
-		return errors.Annotate(err, "cannot watch environment config")
+		return errors.Annotate(err, "cannot watch environ config")
 	}
-	if err := obs.catacomb.Add(environWatcher); err != nil {
+	if err := t.catacomb.Add(environWatcher); err != nil {
 		return errors.Trace(err)
 	}
 	for {
+		logger.Debugf("waiting for environ watch notification")
 		select {
-		case <-obs.catacomb.Dying():
-			return obs.catacomb.ErrDying()
+		case <-t.catacomb.Dying():
+			return t.catacomb.ErrDying()
 		case _, ok := <-environWatcher.Changes():
 			if !ok {
-				return errors.New("environment config watch closed")
+				return errors.New("environ config watch closed")
 			}
 		}
-		config, err := obs.st.EnvironConfig()
+		logger.Debugf("reloading environ config")
+		environConfig, err := t.config.Observer.EnvironConfig()
 		if err != nil {
-			logger.Warningf("error reading environment config: %v", err)
-			continue
+			return errors.Annotate(err, "cannot read environ config")
 		}
-		environ, err := environs.New(config)
-		if err != nil {
-			logger.Warningf("error creating an environment: %v", err)
-			continue
+		if err = t.environ.SetConfig(environConfig); err != nil {
+			return errors.Annotate(err, "cannot update environ config")
 		}
-		obs.mu.Lock()
-		obs.environ = environ
-		obs.mu.Unlock()
 	}
 }
 
-// Environ returns the most recent valid Environ.
-func (obs *EnvironObserver) Environ() environs.Environ {
-	obs.mu.Lock()
-	defer obs.mu.Unlock()
-	return obs.environ
-}
-
 // Kill is part of the worker.Worker interface.
-func (obs *EnvironObserver) Kill() {
-	obs.catacomb.Kill(nil)
+func (t *Tracker) Kill() {
+	t.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (obs *EnvironObserver) Wait() error {
-	return obs.catacomb.Wait()
+func (t *Tracker) Wait() error {
+	return t.catacomb.Wait()
 }
