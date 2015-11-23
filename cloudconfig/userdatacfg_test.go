@@ -128,6 +128,7 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 	if bootstrap {
 		return cfg.setStateServer()
 	}
+
 	return cfg
 }
 

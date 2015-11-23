@@ -28,7 +28,7 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 	mongodVersion := mongo.Mongo24
 	port := 12345
 	oplogSizeMB := 10
-	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false, mongodVersion)
+	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false, mongodVersion, true)
 
 	expected := common.Conf{
 		Desc: "juju state database",
@@ -38,7 +38,6 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 		},
 		Timeout: 300,
 		ExecStart: "/mgo/bin/mongod" +
-			" --auth" +
 			" --dbpath '/var/lib/juju/db'" +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
@@ -46,14 +45,16 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			" --port 12345" +
 			" --syslog" +
 			" --journal" +
-			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --replSet juju" +
 			" --ipv6" +
 			" --quiet" +
 			" --oplogSize 10" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --noprealloc" +
 			" --smallfiles",
 	}
+
 	c.Check(conf, jc.DeepEquals, expected)
 	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
 }

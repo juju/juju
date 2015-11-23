@@ -530,28 +530,28 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion, true)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 

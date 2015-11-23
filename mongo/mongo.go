@@ -593,7 +593,12 @@ func packagesForSeries(series string) []string {
 }
 
 func optionalPackagesForSeries(series string) []string {
-	return []string{"juju-mongodb2.6", "juju-mongodb3"}
+	switch series {
+	case "precise", "quantal", "raring", "saucy", "centos7":
+		return []string{}
+	default:
+		return []string{"juju-mongodb2.6", "juju-mongodb3"}
+	}
 }
 
 // DbDir returns the dir where mongo storage is.

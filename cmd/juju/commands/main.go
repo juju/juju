@@ -192,8 +192,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage state server availability
 	r.Register(newEnsureAvailabilityCommand())
-	// Manage preparation for a mongo 3 upgrade.
-	r.Register(newPrepareMongo3UpgradeCommand())
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())

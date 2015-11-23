@@ -647,16 +647,6 @@ func satisfyPrerequisites(operatingsystem string) error {
 	if err := pacman.InstallPrerequisite(); err != nil {
 		return err
 	}
-	// TODO Remove the PPAs
-	if err := pacman.AddRepository("ppa:hduran-8/juju-mongodb2.6"); err != nil {
-		return errors.Annotate(err, "cannot add ppa for mongo 2.6")
-	}
-	if err := pacman.AddRepository("ppa:hduran-8/juju-mongodb3"); err != nil {
-		return errors.Annotate(err, "cannot add ppa for mongo 3")
-	}
-	if err := pacman.Update(); err != nil {
-		return errors.Annotate(err, "cannot update package package db")
-	}
 
 	if err := pacman.Install("juju-mongodb2.6"); err != nil {
 		return errors.Annotate(err, "cannot install juju-mongodb2.6")

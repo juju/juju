@@ -594,9 +594,6 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	status, err := s.APIState.Client().Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
-	v, err := s.State.MongoVersion()
-	c.Check(err, jc.ErrorIsNil)
-	scenarioStatus.PrimaryMachineStatus.MongoVersion = v
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 

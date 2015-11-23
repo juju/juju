@@ -101,7 +101,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 		if err != nil && isNotUnreachableError(err) {
 			return errors.Annotate(err, "cannot determine mongo build information")
 		}
-		cfg := &replicaset.Config{}
+		var cfg *replicaset.Config
 		if err != nil || !bInfo.VersionAtLeast(3) {
 			cfg, err = replicaset.CurrentConfig(session)
 			if err != nil && err != mgo.ErrNotFound {
@@ -109,7 +109,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 			}
 		}
 
-		if len(cfg.Members) > 0 {
+		if cfg != nil && len(cfg.Members) > 0 {
 			logger.Infof("replica set configuration found: %#v", cfg)
 			return ErrReplicaSetAlreadyInitiated
 		}

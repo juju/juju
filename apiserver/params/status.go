@@ -24,21 +24,12 @@ type StatusParams struct {
 
 // FullStatus holds information about the status of a juju environment.
 type FullStatus struct {
-	EnvironmentName      string
-	AvailableVersion     string
-	PrimaryMachineStatus PrimaryMachineStatus
-	Machines             map[string]MachineStatus
-	Services             map[string]ServiceStatus
-	Networks             map[string]NetworkStatus
-	Relations            []RelationStatus
-}
-
-// PrimaryMachineStatus holds status about the machine hosting
-// the primary state server.
-type PrimaryMachineStatus struct {
-	MongoVersion string
-	PartOfHA     bool
-	Nodes        int
+	EnvironmentName  string
+	AvailableVersion string
+	Machines         map[string]MachineStatus
+	Services         map[string]ServiceStatus
+	Networks         map[string]NetworkStatus
+	Relations        []RelationStatus
 }
 
 // MachineStatus holds status info about a machine.
