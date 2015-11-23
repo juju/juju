@@ -225,7 +225,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Id:     settingsDocID,
 			Remove: true,
 		},
-		removeEndpointBindingsOp(s.globalKey()),
+		removeEndpointBindingsOp(s.st, s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
