@@ -1019,6 +1019,30 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
+func createSubnet(id uint) gomaasapi.CreateSubnet {
+	var s gomaasapi.CreateSubnet
+	s.DNSServers = []string{"192.168.1.2"}
+	s.Name = fmt.Sprintf("maas-eth%v", id)
+	s.Space = fmt.Sprintf("space-%v", id)
+	s.GatewayIP = fmt.Sprintf("192.168.%v.1", id)
+	s.CIDR = fmt.Sprintf("192.168.%v.0/24", id)
+	s.ID = id
+	return s
+}
+
+func (suite *environSuite) TestSpaces(c *gc.C) {
+	// We still need the createSubnets call to setup the nodes.
+	suite.createSubnets(c, true)
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	var out bytes.Buffer
+	err := json.NewEncoder(&out).Encode(createSubnet(1))
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.NewSubnet(&out)
+
+	_, err = suite.makeEnviron().Spaces()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()

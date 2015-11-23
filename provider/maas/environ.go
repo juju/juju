@@ -1891,7 +1891,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ok {
+	if !ok {
 		return nil, errors.NotSupportedf("Spaces")
 	}
 	client := environ.getMAASClient().GetSubObject("subnets")
