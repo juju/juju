@@ -31,7 +31,7 @@ series in the following PPA:
 
     https://launchpad.net/~juju/+archive/devel
 
-Windows and OS X users will find installers at:
+Windows, Centos, and OS X users will find installers at:
 
     https://launchpad.net/juju-core/+milestone/{version}
 
@@ -75,7 +75,7 @@ series in the following PPA:
 
     https://launchpad.net/~juju/+archive/proposed
 
-Windows and OS X users will find installers at:
+Windows, Centos, and OS X users will find installers at:
 
     https://launchpad.net/juju-core/+milestone/{version}
 
