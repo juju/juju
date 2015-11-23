@@ -78,11 +78,9 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 		}
 		return txn.Op{
 			C:      endpointBindingsC,
-			Id:     st.docID(key),
+			Id:     key,
 			Assert: txn.DocMissing,
 			Insert: &endpointBindingsDoc{
-				DocID:    st.docID(key),
-				EnvUUID:  st.EnvironUUID(),
 				Bindings: newMap,
 			},
 		}, nil
@@ -102,7 +100,7 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	}
 	op := txn.Op{
 		C:      endpointBindingsC,
-		Id:     st.docID(key),
+		Id:     key,
 		Assert: bson.D{{"txn-revno", txnRevno}},
 	}
 	var update bson.D
@@ -120,10 +118,10 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
 // key, asserting the document exists.
-func removeEndpointBindingsOp(st *State, key string) txn.Op {
+func removeEndpointBindingsOp(key string) txn.Op {
 	return txn.Op{
 		C:      endpointBindingsC,
-		Id:     st.docID(key),
+		Id:     key,
 		Remove: true,
 	}
 }
@@ -144,7 +142,7 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 	}
 	txnRevno, err := getTxnRevno(endpointBindings, doc.DocID)
 	if err != nil {
-		return nil, 0, errors.Annotatef(err, "getting txn-revno for endpoint bindings for %q txn-revno", key)
+		return nil, 0, errors.Trace(err)
 	}
 
 	return doc.Bindings, txnRevno, nil
