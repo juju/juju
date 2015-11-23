@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -31,10 +30,6 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 const (
 	useDefaultKeys = true
