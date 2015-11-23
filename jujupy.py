@@ -139,7 +139,7 @@ class EnvJujuClient:
     def get_jes_command(self):
         """Return the JES command.
 
-        Juju 1.26 has the 'controller' command to manage the master env.
+        Juju 1.26 has the 'list-controllers' command to manage the master env.
         Juju 1.25 has the 'system' command to manage the master env when
         the jes feature flag is set.
 
@@ -149,8 +149,8 @@ class EnvJujuClient:
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith('controller'):
-                return 'controller'
+            if line.startswith('list-controllers'):
+                return 'list-controllers'
             if line.startswith('system'):
                 return 'system'
         raise JESNotSupported()
@@ -712,7 +712,7 @@ class EnvJujuClient26(EnvJujuClient):
         """Enable JES if JES is optional.
 
         :raises: JESByDefault when JES is always enabled; Juju has the
-            'controller' command.
+            'list-controllers' command.
         :raises: JESNotSupported when JES is not supported; Juju does not have
             the 'system' command when the JES feature flag is set.
         """
