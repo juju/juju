@@ -1742,8 +1742,8 @@ var noCleanMachines = stderrors.New("all eligible machines in use")
 // an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
-func (u *Unit) AssignToCleanMachine(forceSeries bool) (m *Machine, err error) {
-	return u.assignToCleanMaybeEmptyMachine(false, forceSeries)
+func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(false)
 }
 
 // AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
@@ -1752,8 +1752,8 @@ func (u *Unit) AssignToCleanMachine(forceSeries bool) (m *Machine, err error) {
 // an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
-func (u *Unit) AssignToCleanEmptyMachine(forceSeries bool) (m *Machine, err error) {
-	return u.assignToCleanMaybeEmptyMachine(true, forceSeries)
+func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(true)
 }
 
 var hasContainerTerm = bson.DocElem{
@@ -1853,7 +1853,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
 // A 'machine' may be a machine instance or container depending on the service constraints.
-func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty, forceSeries bool) (m *Machine, err error) {
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, err error) {
 	context := "clean"
 	if requireEmpty {
 		context += ", empty"
@@ -1961,7 +1961,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty, forceSeries bool) (m
 			assignContextf(&err, u, context)
 			return nil, err
 		}
-		err := u.assignToMachine(m, true, forceSeries)
+		err := u.assignToMachine(m, true, false)
 		if err == nil {
 			return m, nil
 		}

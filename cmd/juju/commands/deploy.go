@@ -215,6 +215,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	if c.Force && c.Series == "" && c.PlacementSpec == "" {
+		return errors.New("--force is only used with --series or --to")
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsValidService(args[1]) {

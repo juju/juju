@@ -163,6 +163,19 @@ func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units with --to")
 }
 
+func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsForceWithoutOverride(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+	_, err = juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			ForceSeries: true,
+		})
+	c.Assert(err, gc.ErrorMatches, "--force is only used with --series or --to")
+}
+
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
@@ -209,10 +222,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceSeries(c *gc.C) {
 	_, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
-			ServiceName: "bob",
-			Charm:       s.charm,
-			NumUnits:    1,
-			ForceSeries: true,
+			ServiceName:   "bob",
+			Charm:         s.charm,
+			NumUnits:      1,
+			ToMachineSpec: "1",
+			ForceSeries:   true,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitAssignment(c, "bob/0", true)
@@ -225,6 +239,8 @@ func (s *DeployLocalSuite) assertUnitAssignment(c *gc.C, unit string, forceSerie
 	c.Assert(ua[0], jc.DeepEquals, state.UnitAssignment{
 		Unit:        unit,
 		ForceSeries: forceSeries,
+		Scope:       "#",
+		Directive:   "1",
 	})
 }
 

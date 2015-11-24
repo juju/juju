@@ -1404,7 +1404,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
@@ -2076,12 +2076,12 @@ func (st *State) AssignUnitForceSeries(u *Unit, policy AssignmentPolicy, forceSe
 		}
 		return u.AssignToMachineForceSeries(m, forceSeries)
 	case AssignClean:
-		if _, err = u.AssignToCleanMachine(forceSeries); err != noCleanMachines {
+		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
 			return errors.Trace(err)
 		}
 		return u.AssignToNewMachineOrContainer()
 	case AssignCleanEmpty:
-		if _, err = u.AssignToCleanEmptyMachine(forceSeries); err != noCleanMachines {
+		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
 			return errors.Trace(err)
 		}
 		return u.AssignToNewMachineOrContainer()

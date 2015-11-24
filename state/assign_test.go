@@ -168,9 +168,9 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = subUnit.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to machine 0: unit is a subordinate`)
-	_, err = subUnit.AssignToCleanMachine(false)
+	_, err = subUnit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to clean machine: unit is a subordinate`)
-	_, err = subUnit.AssignToCleanEmptyMachine(false)
+	_, err = subUnit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to clean, empty machine: unit is a subordinate`)
 	err = subUnit.AssignToNewMachine()
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to new machine: unit is a subordinate`)
@@ -708,9 +708,9 @@ func (s *assignCleanSuite) errorMessage(msg string) string {
 
 func (s *assignCleanSuite) assignUnit(unit *state.Unit) (*state.Machine, error) {
 	if s.policy == state.AssignCleanEmpty {
-		return unit.AssignToCleanEmptyMachine(false)
+		return unit.AssignToCleanEmptyMachine()
 	}
-	return unit.AssignToCleanMachine(false)
+	return unit.AssignToCleanMachine()
 }
 
 func (s *assignCleanSuite) assertMachineEmpty(c *gc.C, machine *state.Machine) {

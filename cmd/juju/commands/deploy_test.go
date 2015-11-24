@@ -82,6 +82,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
+	}, {
+		args: []string{"charm", "service", "--force"},
+		err:  `--force is only used with --series or --to`,
 	},
 }
 

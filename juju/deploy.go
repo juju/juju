@@ -53,6 +53,9 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	if args.NumUnits > 1 && len(args.Placement) == 0 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use --num-units with --to")
 	}
+	if args.ForceSeries && len(args.Placement) == 0 && args.ToMachineSpec == "" {
+		return nil, fmt.Errorf("--force is only used with --series or --to")
+	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
