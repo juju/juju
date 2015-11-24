@@ -1625,7 +1625,7 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 
 // subnetsFromNode fetches all the subnets for a specific node.
 func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
-	client := environ.getMAASClient().GetSubObject("node").GetSubObject(nodeId)
+	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1701,8 +1701,8 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		}
 		purposeArray, err := rangeMap["purpose"].GetArray()
 		if err != nil {
-			// XXX workaround test server bug that sends nil instead of
-			// empty array.
+			// XXX workaround test server bug that sends nil or
+			// string instead of array.
 			continue
 			return nil, nil, errors.Trace(err)
 		}

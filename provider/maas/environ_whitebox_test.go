@@ -1030,16 +1030,17 @@ func createSubnet(id uint, interfaceAndSpace uint) gomaasapi.CreateSubnet {
 	return s
 }
 
-func (suite *environSuite) addSubnet(c *gc.C, i, j uint) {
+func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	out := bytes.Buffer{}
 	err := json.NewEncoder(&out).Encode(createSubnet(i, j))
 	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.NewSubnet(&out)
+	outNet := suite.testMAASObject.TestServer.NewSubnet(&out)
 
 	// reserve at least one address to work around bug in
 	// TestServer.
 	addr1 := fmt.Sprintf("192.168.%d.1", i)
 	suite.testMAASObject.TestServer.NewIPAddress(addr1, fmt.Sprintf("maas-eth%d", j))
+	return outNet
 }
 
 func (suite *environSuite) TestSpaces(c *gc.C) {
@@ -1057,6 +1058,28 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 		{Name: "space-3", ProviderId: "space-3", Subnets: []network.SubnetInfo{}},
 	}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	var node gomaasapi.Node
+	node.SystemID = "node1"
+	for _, i := range []uint{1, 2, 3} {
+		subnet := suite.addSubnet(c, i, i)
+		var nni gomaasapi.NodeNetworkInterface
+		nni.Name = subnet.Name
+		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
+		server.SetNodeNetworkLink(node, nni)
+		suite.addSubnet(c, i+5, i)
+	}
+
+	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSubnets := []network.SubnetInfo{}
+	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
