@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/systemmanager"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -151,4 +152,18 @@ func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
+}
+
+func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
+	sysManager := s.OpenAPI(c)
+	envTag := s.State.EnvironTag()
+	results, err := sysManager.EnvironmentStatus(envTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.EnvironmentStatus{{
+		UUID:               envTag.Id(),
+		HostedMachineCount: 0,
+		ServiceCount:       0,
+		Owner:              "dummy-admin@local",
+		Life:               params.Alive,
+	}})
 }
