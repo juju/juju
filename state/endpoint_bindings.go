@@ -14,6 +14,18 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// endpointBindingsDoc represents how a service endpoints are bound to spaces.
+// The DocID field contains the service's global key, so there is always one
+// endpointBindingsDoc per service.
+type endpointBindingsDoc struct {
+	// DocID is always the same as a service's global key.
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+
+	// Bindings maps a service endpoint name to the space name it is bound to.
+	Bindings bindingsMap `bson:"bindings"`
+}
+
 // bindingsMap is the underlying type stored in mongo for bindings.
 type bindingsMap map[string]string
 
@@ -37,37 +49,27 @@ func (bp *bindingsMap) SetBSON(raw bson.Raw) error {
 
 // GetBSON ensures any special characters ($ or .) are escaped in keys before
 // marshalling the map into BSON and storing in mongo.
-func (bp *bindingsMap) GetBSON() (interface{}, error) {
-	if bp == nil || len(*bp) == 0 {
-		return nil, nil
+func (b bindingsMap) GetBSON() (interface{}, error) {
+	if b == nil || len(b) == 0 {
+		// We need to return a non-nil map otherwise bson.Unmarshal
+		// call will fail when reading the doc back.
+		return make(map[string]string), nil
 	}
-	rawMap := make(map[string]string, len(*bp))
-	for key, value := range *bp {
+	rawMap := make(map[string]string, len(b))
+	for key, value := range b {
 		newKey := escapeReplacer.Replace(key)
-		if newKey != key {
-			delete(rawMap, key)
-		}
 		rawMap[newKey] = value
 	}
 	return rawMap, nil
-}
-
-// endpointBindingsDoc represents how a service endpoints are bound to spaces.
-// The DocID field contains the service's global key, so there is always one
-// endpointBindingsDoc per service.
-type endpointBindingsDoc struct {
-	// DocID is always the same as a service's global key.
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-
-	// Bindings maps a service endpoint name to the space name it is bound to.
-	Bindings bindingsMap `bson:"bindings"`
 }
 
 // endpointBindingsForCharmOp returns the op needed to create new or update
 // existing endpoint bindings for the specified charm metadata. If givenMap is
 // not empty, any specified bindings there will override the defaults.
 func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+	if st == nil {
+		return txn.Op{}, errors.Errorf("nil state")
+	}
 	if meta == nil {
 		return txn.Op{}, errors.Errorf("nil charm metadata")
 	}
@@ -82,9 +84,14 @@ func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]strin
 		// Combine the given bindings with defaults.
 		for key, defaultValue := range defaults {
 			if givenValue, found := givenMap[key]; !found {
+				// Use default when unspecified.
 				newMap[key] = defaultValue
-			} else {
+			} else if givenValue != "" {
+				// Use given space names only when non-empty.
 				newMap[key] = givenValue
+			} else {
+				// Otherwise use the default instead.
+				newMap[key] = defaultValue
 			}
 		}
 	} else {
@@ -127,10 +134,11 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	deletes := make(bson.M)
 	for key, value := range existingMap {
 		newValue, found := newBindings[key]
+		newKey := escapeReplacer.Replace(key)
 		if !found {
-			deletes[key] = 1
+			deletes["bindings."+newKey] = 1
 		} else if newValue != value {
-			updates[key] = newValue
+			updates["bindings."+newKey] = newValue
 		}
 	}
 	op := txn.Op{
@@ -152,7 +160,7 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
-// key, asserting the document exists.
+// key.
 func removeEndpointBindingsOp(key string) txn.Op {
 	return txn.Op{
 		C:      endpointBindingsC,
@@ -164,6 +172,10 @@ func removeEndpointBindingsOp(key string) txn.Op {
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // service global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
+	if st == nil {
+		return nil, 0, errors.Errorf("nil state")
+	}
+
 	endpointBindings, closer := st.getCollection(endpointBindingsC)
 	defer closer()
 
@@ -187,6 +199,9 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 // bindings for the given charm metadata are explicitly bound to an existing
 // space, otherwise it returns an error satisfying errors.IsNotValid().
 func validateEndpointBindingsForCharm(st *State, bindings map[string]string, charmMeta *charm.Meta) error {
+	if st == nil {
+		return errors.Errorf("nil state")
+	}
 	if bindings == nil {
 		return errors.NotValidf("nil bindings")
 	}
