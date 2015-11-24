@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker"
 )
 
@@ -202,21 +201,21 @@ func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	environConfigChanges = environWatcher.Changes()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
 
 	harvestMode := p.environ.Config().ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	defer watcher.Stop(task, &p.tomb)
 

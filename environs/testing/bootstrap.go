@@ -6,6 +6,7 @@ package testing
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")

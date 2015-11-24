@@ -4,30 +4,165 @@
 package azure
 
 import (
-	"fmt"
-	"strings"
-
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
-	"launchpad.net/gwacl"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/provider/azure/internal/imageutils"
 )
 
-const defaultMem = 1 * gwacl.GB
+const defaultMem = 1024 // 1GiB
 
-var (
-	roleSizeCost          = gwacl.RoleSizeCost
-	getAvailableRoleSizes = (*azureEnviron).getAvailableRoleSizes
-	getVirtualNetwork     = (*azureEnviron).getVirtualNetwork
-)
+// newInstanceType creates an InstanceType based on a VirtualMachineSize.
+func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
+	// We're not doing real costs for now; just made-up, relative
+	// costs, to ensure we choose the right VMs given matching
+	// constraints. This was based on the pricing for West US,
+	// and assumes that all regions have the same relative costs.
+	//
+	// DS is the same price as D, but is targeted at Premium Storage.
+	// Likewise for GS and G. We put the premium storage variants
+	// directly after their non-premium counterparts.
+	machineSizeCost := []string{
+		"Standard_A0",
+		"Standard_A1",
+		"Standard_D1",
+		"Standard_DS1",
+		"Standard_D1_v2",
+		"Standard_A2",
+		"Standard_D2",
+		"Standard_DS2",
+		"Standard_D2_v2",
+		"Standard_D11",
+		"Standard_DS11",
+		"Standard_D11_v2",
+		"Standard_A3",
+		"Standard_D3",
+		"Standard_DS3",
+		"Standard_D3_v2",
+		"Standard_D12",
+		"Standard_DS12",
+		"Standard_D12_v2",
+		"Standard_A5", // Yes, A5 is cheaper than A4.
+		"Standard_A4",
+		"Standard_A6",
+		"Standard_G1",
+		"Standard_GS1",
+		"Standard_D4",
+		"Standard_DS4",
+		"Standard_D4_v2",
+		"Standard_D13",
+		"Standard_DS13",
+		"Standard_D13_v2",
+		"Standard_A7",
+		"Standard_A10",
+		"Standard_G2",
+		"Standard_GS2",
+		"Standard_D5_v2",
+		"Standard_D14",
+		"Standard_DS14",
+		"Standard_D14_v2",
+		"Standard_A8",
+		"Standard_A11",
+		"Standard_G3",
+		"Standard_GS3",
+		"Standard_A9",
+		"Standard_G4",
+		"Standard_GS4",
+		"Standard_GS5",
+		"Standard_G5",
+
+		// Basic instances are less capable than standard
+		// ones, so we don't want to be providing them as
+		// a default. This is achieved by costing them at
+		// a higher price, even though they are cheaper
+		// in reality.
+		"Basic_A0",
+		"Basic_A1",
+		"Basic_A2",
+		"Basic_A3",
+		"Basic_A4",
+	}
+
+	// Anything not in the list is more expensive that is in the list.
+	cost := len(machineSizeCost)
+	sizeName := to.String(size.Name)
+	for i, name := range machineSizeCost {
+		if sizeName == name {
+			cost = i
+			break
+		}
+	}
+	if cost == len(machineSizeCost) {
+		logger.Warningf("found unknown VM size %q", sizeName)
+	}
+
+	vtype := "Hyper-V"
+	return instances.InstanceType{
+		Id:       sizeName,
+		Name:     sizeName,
+		Arches:   []string{arch.AMD64},
+		CpuCores: uint64(to.Int(size.NumberOfCores)),
+		Mem:      uint64(to.Int(size.MemoryInMB)),
+		// NOTE(axw) size.OsDiskSizeInMB is the maximum root disk
+		// size, but the actual disk size is limited to the size
+		// of the image/VHD that the machine is backed by. The
+		// Azure Resource Manager APIs do not provide a way of
+		// determining the image size.
+		//
+		// All of the published images that we use are ~30GiB.
+		RootDisk: uint64(29495),
+		Cost:     uint64(cost),
+		VirtType: &vtype,
+		// tags are not currently supported by azure
+	}
+}
+
+// findInstanceSpec returns the InstanceSpec that best satisfies the supplied
+// InstanceConstraint.
+//
+// NOTE(axw) for now we ignore simplestreams altogether, and go straight to
+// Azure's image registry.
+func findInstanceSpec(
+	client compute.VirtualMachineImagesClient,
+	instanceTypesMap map[string]instances.InstanceType,
+	constraint *instances.InstanceConstraint,
+	imageStream string,
+) (*instances.InstanceSpec, error) {
+
+	if !constraintHasArch(constraint, arch.AMD64) {
+		// Azure only supports AMD64.
+		return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
+	}
+
+	image, err := imageutils.SeriesImage(constraint.Series, imageStream, constraint.Region, client)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	images := []instances.Image{*image}
+
+	instanceTypes := make([]instances.InstanceType, 0, len(instanceTypesMap))
+	for _, instanceType := range instanceTypesMap {
+		instanceTypes = append(instanceTypes, instanceType)
+	}
+	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
+	return instances.FindInstanceSpec(images, constraint, instanceTypes)
+}
+
+func constraintHasArch(constraint *instances.InstanceConstraint, arch string) bool {
+	for _, constraintArch := range constraint.Arches {
+		if constraintArch == arch {
+			return true
+		}
+	}
+	return false
+}
 
 // If you specify no constraints at all, you're going to get the smallest
-// instance type available.  In practice that one's a bit small.  So unless
+// instance type available. In practice that one's a bit small, so unless
 // the constraints are deliberately set lower, this gives you a set of
 // baseline constraints that are just slightly more ambitious than that.
 func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
@@ -37,174 +172,4 @@ func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
 		result.Mem = &value
 	}
 	return result
-}
-
-// selectMachineType returns the Azure machine type that best matches the
-// supplied instanceConstraint.
-func selectMachineType(env *azureEnviron, cons constraints.Value) (*instances.InstanceType, error) {
-	instanceTypes, err := listInstanceTypes(env)
-	if err != nil {
-		return nil, err
-	}
-	region := env.getSnapshot().ecfg.location()
-	instanceTypes, err = instances.MatchingInstanceTypes(instanceTypes, region, cons)
-	if err != nil {
-		return nil, err
-	}
-	return &instanceTypes[0], nil
-}
-
-// getEndpoint returns the simplestreams endpoint to use for the given Azure
-// location (e.g. West Europe or China North).
-func getEndpoint(location string) string {
-	// Simplestreams uses the management-API endpoint for the image, not
-	// the base managent API URL.
-	return gwacl.GetEndpoint(location).ManagementAPI()
-}
-
-// As long as this code only supports the default simplestreams
-// database, which is always signed, there is no point in accepting
-// unsigned metadata.
-//
-// For tests, however, unsigned data is more convenient.  They can override
-// this setting.
-var signedImageDataOnly = true
-
-// findMatchingImages queries simplestreams for OS images that match the given
-// requirements.
-//
-// If it finds no matching images, that's an error.
-func findMatchingImages(e *azureEnviron, location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
-	endpoint := getEndpoint(location)
-	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{location, endpoint},
-		Series:    []string{series},
-		Arches:    arches,
-		Stream:    e.Config().ImageStream(),
-	})
-	sources, err := environs.ImageMetadataSources(e)
-	if err != nil {
-		return nil, err
-	}
-	images, _, err := imagemetadata.Fetch(sources, constraint, signedImageDataOnly)
-	if len(images) == 0 || errors.IsNotFound(err) {
-		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
-	} else if err != nil {
-		return nil, err
-	}
-	return images, nil
-}
-
-// newInstanceType creates an InstanceType based on a gwacl.RoleSize.
-func newInstanceType(roleSize gwacl.RoleSize, region string) (instances.InstanceType, error) {
-	cost, err := roleSizeCost(region, roleSize.Name)
-	if err != nil {
-		return instances.InstanceType{}, err
-	}
-
-	vtype := "Hyper-V"
-	return instances.InstanceType{
-		Id:       roleSize.Name,
-		Name:     roleSize.Name,
-		CpuCores: roleSize.CpuCores,
-		Mem:      roleSize.Mem,
-		RootDisk: roleSize.OSDiskSpace,
-		Cost:     cost,
-		VirtType: &vtype,
-		// tags are not currently supported by azure
-	}, nil
-}
-
-// listInstanceTypes describes the available instance types based on a
-// description in gwacl's terms.
-func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
-	// Not all locations are made equal: some role sizes are only available
-	// in some locations.
-	availableRoleSizes, err := getAvailableRoleSizes(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// If the virtual network is tied to an affinity group, then the
-	// role sizes that are useable are limited.
-	vnet, err := getVirtualNetwork(env)
-	if err != nil && errors.IsNotFound(err) {
-		// Virtual network doesn't exist yet; we'll create it with a
-		// location, so we're not limited.
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get virtual network details to filter instance types")
-	}
-	limitedTypes := make(set.Strings)
-
-	region := env.getSnapshot().ecfg.location()
-	arches, err := env.SupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	types := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
-	for _, roleSize := range gwacl.RoleSizes {
-		if !availableRoleSizes.Contains(roleSize.Name) {
-			logger.Debugf("role size %q is unavailable in location %q", roleSize.Name, region)
-			continue
-		}
-		// TODO(axw) 2014-06-23 #1324666
-		// Support basic instance types. We need to not default
-		// to them as they do not support load balancing.
-		if strings.HasPrefix(roleSize.Name, "Basic_") {
-			logger.Debugf("role size %q is unsupported", roleSize.Name)
-			continue
-		}
-		if vnet != nil && vnet.AffinityGroup != "" && isLimitedRoleSize(roleSize.Name) {
-			limitedTypes.Add(roleSize.Name)
-			continue
-		}
-		instanceType, err := newInstanceType(roleSize, region)
-		if err != nil {
-			return nil, err
-		}
-		types = append(types, instanceType)
-	}
-	for i := range types {
-		types[i].Arches = arches
-	}
-	if len(limitedTypes) > 0 {
-		logger.Warningf(
-			"virtual network %q has an affinity group: disabling instance types %s",
-			vnet.Name, limitedTypes.SortedValues(),
-		)
-	}
-	return types, nil
-}
-
-// isLimitedRoleSize reports whether the named role size is limited to some
-// physical hosts only.
-func isLimitedRoleSize(name string) bool {
-	switch name {
-	case "ExtraSmall", "Small", "Medium", "Large", "ExtraLarge":
-		// At the time of writing, only the original role sizes are not limited.
-		return false
-	case "A5", "A6", "A7", "A8", "A9":
-		// We never used to filter out A5-A9 role sizes, so leave them in
-		// case users have been relying on them. It is *possible* that A-series
-		// role sizes are available, but we cannot automatically use them as
-		// they *may* not be.
-		return false
-	}
-	return true
-}
-
-// findInstanceSpec returns the InstanceSpec that best satisfies the supplied
-// InstanceConstraint.
-func findInstanceSpec(env *azureEnviron, constraint *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
-	imageData, err := findMatchingImages(env, constraint.Region, constraint.Series, constraint.Arches)
-	if err != nil {
-		return nil, err
-	}
-	images := instances.ImageMetadataToImages(imageData)
-	instanceTypes, err := listInstanceTypes(env)
-	if err != nil {
-		return nil, err
-	}
-	return instances.FindInstanceSpec(images, constraint, instanceTypes)
 }

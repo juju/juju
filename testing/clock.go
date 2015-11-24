@@ -7,14 +7,45 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/juju/utils/clock"
 )
 
 // Clock implements a mock clock.Clock for testing purposes.
 type Clock struct {
-	mu     sync.Mutex
-	now    time.Time
-	alarms []alarm
+	mu             sync.Mutex
+	now            time.Time
+	alarms         []alarm
+	currentAlarmID int
 }
+
+// timerClock gives timer access to some of clock's internals.
+type timerClock interface {
+	reset(id int, d time.Duration) bool
+	stop(id int) bool
+}
+
+// Timer implements a mock clock.Timer for testing purposes.
+type Timer struct {
+	ID    int
+	clock timerClock
+}
+
+// Reset is part of the clock.Timer interface
+func (t *Timer) Reset(d time.Duration) bool {
+	return t.clock.reset(t.ID, d)
+}
+
+// Stop is part of the clock.Timer interface
+func (t *Timer) Stop() bool {
+	return t.clock.stop(t.ID)
+}
+
+// stoppedTimer is a noop implementation for timer
+type stoppedTimer struct{}
+
+func (stoppedTimer) Reset(time.Duration) bool { return false }
+func (stoppedTimer) Stop() bool               { return false }
 
 // NewClock returns a new clock set to the supplied time.
 func NewClock(now time.Time) *Clock {
@@ -36,10 +67,21 @@ func (clock *Clock) After(d time.Duration) <-chan time.Time {
 	if d <= 0 {
 		notify <- clock.now
 	} else {
-		clock.alarms = append(clock.alarms, alarm{clock.now.Add(d), notify})
-		sort.Sort(byTime(clock.alarms))
+		clock.setAlarm(clock.now.Add(d), func() { notify <- clock.now })
 	}
 	return notify
+}
+
+// AfterFunc is part of the clock.Clock interface.
+func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+	if d <= 0 {
+		f()
+		return &stoppedTimer{}
+	}
+	id := clock.setAlarm(clock.now.Add(d), f)
+	return &Timer{id, clock}
 }
 
 // Advance advances the result of Now by the supplied duration, and sends
@@ -53,16 +95,71 @@ func (clock *Clock) Advance(d time.Duration) {
 		if clock.now.Before(alarm.time) {
 			break
 		}
-		alarm.notify <- clock.now
+		alarm.trigger()
 		rung++
 	}
 	clock.alarms = clock.alarms[rung:]
 }
 
-// alarm records the time at which we're expected to send on notify.
+// reset is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) reset(id int, d time.Duration) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms[i].time = clock.now.Add(d)
+			sort.Sort(byTime(clock.alarms))
+			return true
+		}
+	}
+	return false
+}
+
+// stop is a bridge method for timer. It basically
+// implements clock.Timer, but it needs access to clock's internals
+// so the access is somewhat restricted
+func (clock *Clock) stop(id int) bool {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+
+	for i, alarm := range clock.alarms {
+		if id == alarm.ID {
+			clock.alarms = removeFromSlice(clock.alarms, i)
+			return true
+		}
+	}
+	return false
+}
+
+// setAlarm adds an alarm at time t.
+// It also sorts the alarms and increments the current ID by 1.
+func (clock *Clock) setAlarm(t time.Time, trigger func()) int {
+	alarm := alarm{
+		time:    t,
+		trigger: trigger,
+		ID:      clock.currentAlarmID,
+	}
+	clock.alarms = append(clock.alarms, alarm)
+	sort.Sort(byTime(clock.alarms))
+	clock.currentAlarmID = clock.currentAlarmID + 1
+	return alarm.ID
+}
+
+// alarm records the time at which we're expected to execute trigger.
 type alarm struct {
-	time   time.Time
-	notify chan time.Time
+	ID      int
+	time    time.Time
+	trigger func()
+}
+
+// removeFromSlice removes item at the specified index from the slice
+// It exists to make the append train clearer
+// This doesn't check that index is valid, so the caller needs to check that.
+func removeFromSlice(sl []alarm, index int) []alarm {
+	return append(sl[:index], sl[index+1:]...)
 }
 
 // byTime is used to sort alarms by time.

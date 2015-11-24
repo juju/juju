@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -80,11 +81,13 @@ type state struct {
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
 
-	// loggedIn holds whether the client has successfully logged in.
-	loggedIn bool
+	// loggedIn holds whether the client has successfully logged
+	// in. It's a int32 so that the atomic package can be used to
+	// access it safely.
+	loggedIn int32
 
 	// tag and password and nonce hold the cached login credentials.
-	// These are only valid if loggedIn is true.
+	// These are only valid if loggedIn is 1.
 	tag      string
 	password string
 	nonce    string
@@ -282,7 +285,7 @@ func tlsConfigForCACert(caCert string) (*tls.Config, error) {
 
 // ConnectStream implements Connection.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
-	if !st.loggedIn {
+	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
 	// We use the standard "macaraq" macaroon authentication dance here.
@@ -597,4 +600,12 @@ func (s *state) BestFacadeVersion(facade string) int {
 // to login, prefixed with "<URI scheme>://" (usually https).
 func (s *state) serverRoot() string {
 	return s.serverScheme + "://" + s.serverRootAddress
+}
+
+func (s *state) isLoggedIn() bool {
+	return atomic.LoadInt32(&s.loggedIn) == 1
+}
+
+func (s *state) setLoggedIn() {
+	atomic.StoreInt32(&s.loggedIn, 1)
 }

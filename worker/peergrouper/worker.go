@@ -159,8 +159,7 @@ func (w *pgWorker) loop() error {
 	infow := w.watchStateServerInfo()
 	defer infow.stop()
 
-	retry := time.NewTimer(0)
-	retry.Stop()
+	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 	for {
 		select {
@@ -174,8 +173,9 @@ func (w *pgWorker) loop() error {
 				break
 			}
 			// Try to update the replica set immediately.
-			retry.Reset(0)
-		case <-retry.C:
+			updateChan = time.After(0)
+
+		case <-updateChan:
 			ok := true
 			servers, instanceIds, err := w.apiPublishInfo()
 			if err != nil {
@@ -196,10 +196,10 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
-				retry.Reset(pollInterval)
+				updateChan = time.After(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
-				retry.Reset(retryInterval)
+				updateChan = time.After(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {
 					retryInterval = maxRetryInterval

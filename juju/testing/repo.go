@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
@@ -86,6 +87,7 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
+
 	units, err := svc.AllUnits()
 	c.Logf("Service units: %+v", units)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,15 +114,25 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 }
 
 func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
-	expectUnitNames := []string{}
-	for _, u := range units {
-		expectUnitNames = append(expectUnitNames, u.Name())
+	tags := make([]names.UnitTag, len(units))
+	expectUnitNames := make([]string, len(units))
+	for i, u := range units {
+		expectUnitNames[i] = u.Name()
+		tags[i] = u.UnitTag()
 	}
+
+	// manually assign all units to machines.  This replaces work normally done
+	// by the unitassigner code.
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
+
 	sort.Strings(expectUnitNames)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, len(units))
+
 	unitNames := []string{}
 	for _, m := range machines {
 		mUnits, err := m.Units()

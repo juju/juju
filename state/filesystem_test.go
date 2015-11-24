@@ -25,7 +25,7 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddService("storage-filesystem", s.Owner.String(), ch, nil, storage)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: s.Owner.String(), Charm: ch, Storage: storage})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -49,7 +49,7 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	svc, err := s.State.AddService("storage-filesystem", s.Owner.String(), ch, nil, storage)
+	svc, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: s.Owner.String(), Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := svc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)

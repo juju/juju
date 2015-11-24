@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -421,11 +421,15 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 // and the revision number will be incremented before pushing.
 func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := charmrepo.Latest(repo, curl)
+		var err error
+		ref, _, err := repo.Resolve(curl.Reference())
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
-		curl = curl.WithRevision(rev)
+		curl, err = ref.URL("")
+		if err != nil {
+			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
+		}
 	}
 	ch, err := repo.Get(curl)
 	if err != nil {
@@ -607,7 +611,7 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, nil, storage)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -615,7 +619,7 @@ func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *s
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Networks: networks})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

@@ -10,6 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 )
 
 type runSuite struct {
@@ -76,22 +76,22 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.AdminUserTag(c)
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
+	magic, err := s.State.AddService(state.AddServiceArgs{Name: "magic", Owner: owner.String(), Charm: charm})
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", owner.String(), charm, nil, nil)
+	notAssigned, err := s.State.AddService(state.AddServiceArgs{Name: "not-assigned", Owner: owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddService("no-units", owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "no-units", Owner: owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddService("wordpress", owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
+	wordpress, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: owner.String(), Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "logging", Owner: owner.String(), Charm: s.AddTestingCharm(c, "logging")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -276,7 +276,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.Factory.MakeUser(c, nil).Tag()
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
+	magic, err := s.State.AddService(state.AddServiceArgs{Name: "magic", Owner: owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -323,7 +323,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.Factory.MakeUser(c, nil).Tag()
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
+	magic, err := s.State.AddService(state.AddServiceArgs{Name: "magic", Owner: owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

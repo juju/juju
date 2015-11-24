@@ -309,7 +309,10 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	default:
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(&mockRunner{c}, socketPath)
+	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
+		SocketPath:    socketPath,
+		CommandRunner: &mockRunner{c},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {

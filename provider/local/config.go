@@ -12,8 +12,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
@@ -120,15 +119,8 @@ func (c *environConfig) container() instance.ContainerType {
 // provided. Default network bridge varies based on container type.
 func (c *environConfig) setDefaultNetworkBridge() {
 	name := c.networkBridge()
-	switch c.container() {
-	case instance.LXC:
-		if name == "" {
-			name = lxc.DefaultLxcBridge
-		}
-	case instance.KVM:
-		if name == "" {
-			name = kvm.DefaultKvmBridge
-		}
+	if name == "" {
+		name = factory.DefaultNetworkBridge(c.container())
 	}
 	c.attrs[NetworkBridgeKey] = name
 }
