@@ -1249,7 +1249,8 @@ class TestEnvJujuClient(ClientTest):
         fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual(OPTIONAL_JES_COMMAND, client.get_jes_command())
+            self.assertEqual(
+                '%s kill' % OPTIONAL_JES_COMMAND, client.get_jes_command())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
