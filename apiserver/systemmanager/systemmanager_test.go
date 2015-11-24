@@ -230,6 +230,7 @@ func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
 	defer otherSt.Close()
 
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageEnviron}})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
 	s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})

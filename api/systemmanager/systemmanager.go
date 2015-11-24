@@ -131,6 +131,5 @@ func (c *Client) EnvironmentStatus(tags ...names.EnvironTag) ([]base.Environment
 		}
 
 	}
-
 	return results, nil
 }

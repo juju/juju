@@ -13,8 +13,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -48,6 +50,8 @@ type destroySystemAPI interface {
 	EnvironmentConfig() (map[string]interface{}, error)
 	DestroySystem(destroyEnvs bool) error
 	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
+	EnvironmentStatus(envs ...names.EnvironTag) ([]base.EnvironmentStatus, error)
+	AllEnvironments() ([]base.UserEnvironment, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
