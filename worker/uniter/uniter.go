@@ -212,7 +212,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			default:
 			}
 		},
-		Clock: clock.WallClock,
+		Clock: u.clock,
 	})
 	u.addCleanup(func() error {
 		// Stop any send that might be pending
