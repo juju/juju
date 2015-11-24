@@ -1775,15 +1775,17 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
 func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network.SubnetInfo, error) {
+	logger.Errorf("%v", subnet)
 	var subnetInfo network.SubnetInfo
 	fields, err := subnet.GetMap()
 	if err != nil {
 		return subnetInfo, errors.Trace(err)
 	}
-	subnetId, err := fields["id"].GetString()
+	subnetIdFloat, err := fields["id"].GetFloat64()
 	if err != nil {
 		return subnetInfo, errors.Annotatef(err, "cannot get subnet Id")
 	}
+	subnetId := strconv.Itoa(int(subnetIdFloat))
 	cidr, err := fields["cidr"].GetString()
 	if err != nil {
 		return subnetInfo, errors.Errorf("cannot get cidr: %v", err)

@@ -1035,12 +1035,15 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	suite.createSubnets(c, true)
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	var out bytes.Buffer
-	err := json.NewEncoder(&out).Encode(createSubnet(1))
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.NewSubnet(&out)
+	for _, i := range []uint{1, 2, 3} {
+		err := json.NewEncoder(&out).Encode(createSubnet(i))
+		c.Assert(err, jc.ErrorIsNil)
+		suite.testMAASObject.TestServer.NewSubnet(&out)
+	}
 
-	_, err = suite.makeEnviron().Spaces()
+	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, gc.HasLen, 3)
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
