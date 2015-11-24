@@ -65,7 +65,8 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 
 // endpointBindingsForCharmOp returns the op needed to create new or update
 // existing endpoint bindings for the specified charm metadata. If givenMap is
-// not empty, any specified bindings there will override the defaults.
+// not empty, any specified bindings there will be merged with the existing
+// bindings or created (if missing).
 func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
 	if st == nil {
 		return txn.Op{}, errors.Errorf("nil state")
@@ -80,23 +81,13 @@ func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]strin
 		return txn.Op{}, errors.Trace(err)
 	}
 	newMap := make(map[string]string)
-	if len(givenMap) > 0 {
-		// Combine the given bindings with defaults.
-		for key, defaultValue := range defaults {
-			if givenValue, found := givenMap[key]; !found {
-				// Use default when unspecified.
-				newMap[key] = defaultValue
-			} else if givenValue != "" {
-				// Use given space names only when non-empty.
-				newMap[key] = givenValue
-			} else {
-				// Otherwise use the default instead.
-				newMap[key] = defaultValue
-			}
-		}
-	} else {
-		// No bindings given, just use the defaults.
-		newMap = defaults
+	// Apply defaults first.
+	for key, defaultValue := range defaults {
+		newMap[key] = defaultValue
+	}
+	// Now override with any given.
+	for key, givenValue := range givenMap {
+		newMap[key] = givenValue
 	}
 	// Validate the bindings before updating.
 	if err := validateEndpointBindingsForCharm(st, newMap, meta); err != nil {
@@ -106,10 +97,10 @@ func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]strin
 	return replaceEndpointBindingsOp(st, key, newMap)
 }
 
-// replaceEndpointBindingsOp returns an op that sets and/or unsets existing
-// endpoint bindings as needed, so the effective stored bindings match
-// newBindings for the given key. If no bindings exist yet, they will be created
-// from newBindings.
+// replaceEndpointBindingsOp returns an op that merges the existing bindings
+// with newBindings, setting changed or new endpoints or unsetting endpoints
+// having an empty value in newBindings. If no bindings exist yet, they will be
+// created from newBindings.
 func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]string) (txn.Op, error) {
 	existingMap, txnRevno, err := readEndpointBindings(st, key)
 	if errors.IsNotFound(err) {
@@ -132,12 +123,27 @@ func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]str
 	}
 	updates := make(bson.M)
 	deletes := make(bson.M)
-	for key, value := range existingMap {
-		newValue, found := newBindings[key]
+	for key, oldValue := range existingMap {
 		newKey := escapeReplacer.Replace(key)
-		if !found {
+		newValue, given := newBindings[key]
+		if given && newValue != oldValue && newValue != network.DefaultSpace {
+			// existing endpoints are already bound to the default space, so
+			// only update if needed.
+			updates["bindings."+newKey] = newValue
+		} else if !given {
+			// since endpoints should have been validated against the charm
+			// already, missing ones need to go.
 			deletes["bindings."+newKey] = 1
-		} else if newValue != value {
+		}
+	}
+	for key, newValue := range newBindings {
+		newKey := escapeReplacer.Replace(key)
+		oldValue, exists := existingMap[key]
+		if exists && newValue != oldValue && newValue != network.DefaultSpace {
+			// only update existing if changed.
+			updates["bindings."+newKey] = newValue
+		} else if !exists {
+			// add new endpoints, previously missing.
 			updates["bindings."+newKey] = newValue
 		}
 	}
@@ -230,13 +236,21 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 			return errors.NotValidf("endpoint %q not bound to a space", name)
 		}
 	}
-	// Ensure no extra, unknown endpoints are given.
+	// Ensure no extra, unknown endpoints and/or spaces are given.
 	for endpoint, space := range bindings {
-		if !endpointsNamesSet.Contains(endpoint) {
-			return errors.NotValidf("unknown endpoint %q binding to space %q", endpoint, space)
-		}
-		if !spacesNamesSet.Contains(space) {
+		knownEndpoint := endpointsNamesSet.Contains(endpoint)
+		knownSpace := spacesNamesSet.Contains(space)
+		switch {
+		case !knownEndpoint && !knownSpace && space == "":
+			return errors.NotValidf("unknown endpoint %q not bound to a space", endpoint)
+		case !knownEndpoint && !knownSpace:
+			return errors.NotValidf("unknown endpoint %q bound to unknown space %q", endpoint, space)
+		case !knownEndpoint:
+			return errors.NotValidf("unknown endpoint %q bound to space %q", endpoint, space)
+		case !knownSpace:
 			return errors.NotValidf("endpoint %q bound to unknown space %q", endpoint, space)
+		default:
+			// both endpoint and space are known and valid.
 		}
 	}
 	return nil
