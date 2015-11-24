@@ -128,6 +128,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		// Network is omitted (left empty).
 	}
 
+	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
