@@ -49,17 +49,44 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	svc, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+
+	args := state.AddServiceArgs{
+		Name:     "storage-filesystem",
+		Owner:    s.Owner.String(),
+		Charm:    ch,
+		Storage:  storage,
+		NumUnits: 1,
+	}
+	svc, err := s.State.AddService(args)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := svc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+	expected := map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
 			Pool:  expectedPool,
 			Size:  1024,
 			Count: 1,
 		},
-	})
+	}
+	c.Assert(cons, jc.DeepEquals, expected)
+
+	svc, err = s.State.Service(args.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+	scons, err := unit.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(scons, gc.DeepEquals, expected)
+
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
 }
 
 func (s *FilesystemStateSuite) TestAddFilesystemWithoutBackingVolume(c *gc.C) {

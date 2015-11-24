@@ -662,6 +662,7 @@ const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
 // assumes that the service already exists in the db.
 func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
 	var cons constraints.Value
+	var storageCons map[string]StorageConstraints
 	if !s.doc.Subordinate {
 		scons, err := s.Constraints()
 		if errors.IsNotFound(err) {
@@ -674,8 +675,18 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
+		storageCons, err = s.StorageConstraints()
+		if err != nil {
+			return "", nil, err
+		}
+
 	}
-	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+	args := addUnitOpsArgs{
+		cons:          cons,
+		principalName: principalName,
+		storageCons:   storageCons,
+	}
+	names, ops, err := s.addUnitOpsWithCons(args)
 	if err != nil {
 		return names, ops, err
 	}
@@ -685,21 +696,27 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return names, ops, err
 }
 
+type addUnitOpsArgs struct {
+	principalName string
+	cons          constraints.Value
+	storageCons   map[string]StorageConstraints
+}
+
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at service creation time).
-func (s *Service) addServiceUnitOps(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
-	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+func (s *Service) addServiceUnitOps(args addUnitOpsArgs) (string, []txn.Op, error) {
+	names, ops, err := s.addUnitOpsWithCons(args)
 	if err == nil {
-		ops = append(ops, s.incUnitCountOp(asserts))
+		ops = append(ops, s.incUnitCountOp(nil))
 	}
 	return names, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Value) (string, []txn.Op, error) {
-	if s.doc.Subordinate && principalName == "" {
+func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, error) {
+	if s.doc.Subordinate && args.principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
-	} else if !s.doc.Subordinate && principalName != "" {
+	} else if !s.doc.Subordinate && args.principalName != "" {
 		return "", nil, fmt.Errorf("service is not a subordinate")
 	}
 	name, err := s.newUnitName()
@@ -708,7 +725,7 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 	}
 
 	// Create instances of the charm's declared stores.
-	storageOps, numStorageAttachments, err := s.unitStorageOps(name)
+	storageOps, numStorageAttachments, err := s.unitStorageOps(name, args.storageCons)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -724,7 +741,7 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 		Service:                s.doc.Name,
 		Series:                 s.doc.Series,
 		Life:                   Alive,
-		Principal:              principalName,
+		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
 	now := time.Now()
@@ -752,19 +769,20 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 			Insert: udoc,
 		},
 	}
+
 	ops = append(ops, storageOps...)
 
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
-			Id: s.st.docID(principalName),
+			Id: s.st.docID(args.principalName),
 			Assert: append(isAliveDoc, bson.DocElem{
 				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, args.cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
@@ -793,11 +811,7 @@ func (s *Service) incUnitCountOp(asserts bson.D) txn.Op {
 // instances and attachments for a new unit. unitStorageOps
 // returns the number of initial storage attachments, to
 // initialise the unit's storage attachment refcount.
-func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttachments int, err error) {
-	cons, err := s.StorageConstraints()
-	if err != nil {
-		return nil, -1, err
-	}
+func (s *Service) unitStorageOps(unitName string, cons map[string]StorageConstraints) (ops []txn.Op, numStorageAttachments int, err error) {
 	charm, _, err := s.Charm()
 	if err != nil {
 		return nil, -1, err
@@ -836,6 +850,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st, servicesC, s.doc.DocID); err != nil {
 			return nil, err
