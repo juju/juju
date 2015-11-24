@@ -4,11 +4,15 @@
 package remotestate_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
+	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
+	if jujutesting.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519149")
+	}
 	gc.TestingT(t)
 }
