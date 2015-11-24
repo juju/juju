@@ -26,6 +26,7 @@ from jujuconfig import (
 )
 from jujupy import (
     CannotConnectEnv,
+    DEFAULT_JES_COMMAND,
     EnvJujuClient,
     EnvJujuClient22,
     EnvJujuClient24,
@@ -43,6 +44,7 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     make_client,
     make_jes_home,
+    OPTIONAL_JES_COMMAND,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
@@ -119,8 +121,9 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.26-foobar', 'path')
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND, '', 0)
         with patch('subprocess.Popen', autospec=True,
-                   return_value=FakePopen('controller', '', 0)) as po_mock:
+                   return_value=fake_popen) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
@@ -150,7 +153,8 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             '1.25-foobar', 'path')
         # The help output will change when the jes feature flag is set.
         with patch('subprocess.Popen', autospec=True, side_effect=[
-                FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
+                FakePopen('', '', 0),
+                FakePopen(OPTIONAL_JES_COMMAND, '', 0)]) as po_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
         assert_juju_call(
@@ -1217,7 +1221,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertTrue(client.is_jes_enabled())
         # Juju 1.26 uses the controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('controller', None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
@@ -1236,10 +1240,10 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'help', 'commands'))
         # Juju 1.26 uses the controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('controller', None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual('controller', client.get_jes_command())
+            self.assertEqual(DEFAULT_JES_COMMAND, client.get_jes_command())
         # Juju 1.25 uses the system command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen('system', None, 0)
