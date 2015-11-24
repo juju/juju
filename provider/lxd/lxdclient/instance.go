@@ -58,6 +58,10 @@ type InstanceSpec struct {
 	// Image is the name of the image to use.
 	Image string
 
+	// ImageRemote identifies the remote to use for images. By default
+	// the client's remote is used.
+	ImageRemote string
+
 	// Profiles are the names of the container profiles to apply to the
 	// new container, in order.
 	Profiles []string

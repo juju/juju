@@ -37,8 +37,7 @@ type instanceClient struct {
 }
 
 func (client *instanceClient) addInstance(spec InstanceSpec) error {
-	// TODO(ericsnow) Default to spec.ImageRemote (once it gets added).
-	imageRemote := ""
+	imageRemote := spec.ImageRemote
 	if imageRemote == "" {
 		imageRemote = client.remote
 	}
