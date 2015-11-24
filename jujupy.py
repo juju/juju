@@ -139,11 +139,10 @@ class EnvJujuClient:
             return False
 
     def get_jes_command(self):
-        """Return the JES command.
+        """Return the JES command to destroy a controller.
 
-        Juju 1.26 has the 'list-controllers' command to manage the master env.
-        Juju 1.25 has the 'system' command to manage the master env when
-        the jes feature flag is set.
+        Juju 1.26 has the 'destroy-controller'.
+        Juju 1.25 has the 'system kill' when the jes feature flag is set.
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
@@ -714,9 +713,9 @@ class EnvJujuClient26(EnvJujuClient):
         """Enable JES if JES is optional.
 
         :raises: JESByDefault when JES is always enabled; Juju has the
-            'list-controllers' command.
+            'destroy-controller' command.
         :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system' command when the JES feature flag is set.
+            the 'system kill' command when the JES feature flag is set.
         """
         if self._use_jes:
             return
