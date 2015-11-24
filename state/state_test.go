@@ -1940,19 +1940,6 @@ func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
-func (s *StateSuite) TestAssignToMachineWithIncompatibleOS(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	service := s.AddTestingService(c, "service", ch)
-	u, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-
-	machine, err := s.State.AddMachine("centos7", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	p := &instance.Placement{"#", machine.Id()}
-	err = s.State.AssignUnitWithPlacement(u, p, nil)
-	c.Assert(err, gc.ErrorMatches, ".* machine has incompatible operating system")
-}
-
 func (s *StateSuite) TestAllServices(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()

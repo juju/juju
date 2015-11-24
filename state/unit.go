@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -1160,22 +1159,6 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	return nil
 }
 
-// errIncompatibleOS is used to indicate an attempt to assign a unit
-// to a machine where the machine's OS is not supported by the charm.
-var errIncompatibleOS = stderrors.New("machine has incompatible operating system")
-
-func validateCompatibleSeries(unitSeries, machineSeries string) error {
-	if unitSeries == machineSeries {
-		return nil
-	}
-	machineOS, _ := series.GetOSFromSeries(machineSeries)
-	unitOS, _ := series.GetOSFromSeries(unitSeries)
-	if machineOS != unitOS {
-		return errIncompatibleOS
-	}
-	return nil
-}
-
 func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
@@ -1183,8 +1166,8 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if m.Life() != Alive {
 		return nil, machineNotAliveErr
 	}
-	if err := validateCompatibleSeries(u.doc.Series, m.doc.Series); err != nil {
-		return nil, err
+	if u.doc.Series != m.doc.Series {
+		return nil, fmt.Errorf("series does not match")
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
