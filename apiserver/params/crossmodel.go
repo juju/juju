@@ -119,28 +119,28 @@ type ShowFilter struct {
 // OfferedService represents attributes for an offered service.
 // TODO(wallyworld) - consolidate this with the CLI when possible.
 type OfferedService struct {
-    ServiceURL  string            `json:"serviceurl"`
-    ServiceName string            `json:"servicename"`
-    Registered  bool              `json:"registered"`
-    Endpoints   map[string]string `json:"endpoints"`
+	ServiceURL  string            `json:"serviceurl"`
+	ServiceName string            `json:"servicename"`
+	Registered  bool              `json:"registered"`
+	Endpoints   map[string]string `json:"endpoints"`
 }
 
 // OfferedServiceResult holds the result of loading an
 // offerred service at a URL.
 type OfferedServiceResult struct {
-    Result OfferedService `json:"result,omitempty"`
-    Error  *Error         `json:"error,omitempty"`
+	Result OfferedService `json:"result,omitempty"`
+	Error  *Error         `json:"error,omitempty"`
 }
 
 // OfferedServiceResults represents the result of a ListOfferedServices call.
 type OfferedServiceResults struct {
-    Results []OfferedServiceResult
+	Results []OfferedServiceResult
 }
 
 // OfferedServiceQueryParams is used to specify the URLs
 // for which we want to load offered service details.
 type OfferedServiceQueryParams struct {
-    ServiceUrls []string
+	ServiceUrls []string
 }
 
 // ListEndpointsServiceItem is a service found during a request to list remote services.
@@ -187,21 +187,21 @@ type ListEndpointsItemsResults struct {
 	Results []ListEndpointsItemsResult `json:"results,omitempty"`
 }
 
-// ListEndpointsFiltersSets has sets of filters that
+// ListEndpointsFilters has sets of filters that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListEndpointsFiltersSets struct {
-	Filters []ListEndpointsFiltersSet
-}
-
-// ListEndpointsFiltersSet has a set of filters that
-// are used by a vendor to query remote services that the vendor has offered.
-type ListEndpointsFiltersSet struct {
+type ListEndpointsFilters struct {
 	Filters []ListEndpointsFilter
 }
 
-// ListEndpointsFilter has filter criteria that
+// ListEndpointsFilter has a set of filter terms that
 // are used by a vendor to query remote services that the vendor has offered.
 type ListEndpointsFilter struct {
+	FilterTerms []ListEndpointsFilterTerm
+}
+
+// ListEndpointsFilterTerm has filter criteria that
+// are used by a vendor to query remote services that the vendor has offered.
+type ListEndpointsFilterTerm struct {
 	// ServiceURL is url for remote service.
 	// This may be a part of valid URL.
 	ServiceURL string `json:"serviceurl,omitempty"`

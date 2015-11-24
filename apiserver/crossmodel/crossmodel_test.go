@@ -183,10 +183,10 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	s.serviceBackend.CheckCallNames(c, listOffersBackendCall)
 }
 
-var emptyFilterSet = params.ListEndpointsFiltersSets{
-	[]params.ListEndpointsFiltersSet{{
-		[]params.ListEndpointsFilter{},
-	}},
+var emptyFilterSet = params.ListEndpointsFilters{
+	Filters: []params.ListEndpointsFilter{
+		{FilterTerms: []params.ListEndpointsFilterTerm{}},
+	},
 }
 
 func (s *crossmodelSuite) TestList(c *gc.C) {

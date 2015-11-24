@@ -69,10 +69,15 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 // Each returned service satisfies at least one of the the specified filters.
 func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
-	in := params.ListEndpointsFiltersSet{}
+	paramsFilters := params.ListEndpointsFilters{
+		Filters: []params.ListEndpointsFilter{
+			{FilterTerms: []params.ListEndpointsFilterTerm{}},
+		},
+	}
+
 	out := params.ListEndpointsItemsResults{}
 
-	err := c.facade.FacadeCall("List", params.ListEndpointsFiltersSets{[]params.ListEndpointsFiltersSet{in}}, &out)
+	err := c.facade.FacadeCall("List", paramsFilters, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -120,12 +120,12 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 
 // List gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (api *API) List(args params.ListEndpointsFiltersSets) (params.ListEndpointsItemsResults, error) {
+func (api *API) List(args params.ListEndpointsFilters) (params.ListEndpointsItemsResults, error) {
 
 	// This func constructs individual set of filters.
-	filters := func(aSet params.ListEndpointsFiltersSet) []model.RemoteServiceFilter {
-		result := make([]model.RemoteServiceFilter, len(aSet.Filters))
-		for i, filter := range aSet.Filters {
+	filters := func(aSet params.ListEndpointsFilter) []model.RemoteServiceFilter {
+		result := make([]model.RemoteServiceFilter, len(aSet.FilterTerms))
+		for i, filter := range aSet.FilterTerms {
 			result[i] = constructRemoteServiceFilter(filter)
 		}
 		return result
@@ -173,7 +173,7 @@ func (api *API) getRemoteService(remote model.RemoteService) params.ListEndpoint
 	return params.ListEndpointsServiceItemResult{Result: &result}
 }
 
-func constructRemoteServiceFilter(filter params.ListEndpointsFilter) model.RemoteServiceFilter {
+func constructRemoteServiceFilter(filter params.ListEndpointsFilterTerm) model.RemoteServiceFilter {
 	return model.RemoteServiceFilter{
 		ServiceURL: filter.ServiceURL,
 		CharmName:  filter.CharmName,

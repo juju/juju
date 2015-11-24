@@ -277,7 +277,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			c.Check(request, gc.Equals, "List")
 
 			called = true
-			args, ok := a.(params.ListEndpointsFiltersSets)
+			args, ok := a.(params.ListEndpointsFilters)
 			c.Assert(ok, jc.IsTrue)
 			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
 			c.Assert(args.Filters, gc.HasLen, 1)
