@@ -40,6 +40,9 @@ lxd:
     # created by the provider.  It is prepended to the container names.
     # By default the environment's name is used as the namespace.
     #
+    # Setting the namespace is useful when more than one environment
+    # is using the same remote (e.g. the local LXD socket).
+    #
     # namespace: lxd
 
     # remote-url is the URL to the LXD API server to use for managing
