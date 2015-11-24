@@ -34,13 +34,3 @@ type ListEndpointsServiceResult struct {
 	// Error contains error related to this item.
 	Error error `json:"error,omitempty"`
 }
-
-// ListEndpointsServicesResult is a result of listing remote service offers
-// for a service directory.
-type ListEndpointsServicesResult struct {
-	// Error contains error related to this directory.
-	Error error `json:"error,omitempty"`
-
-	// Result contains collection of remote service item results for this directory.
-	Result []ListEndpointsServiceResult `json:"results,omitempty"`
-}

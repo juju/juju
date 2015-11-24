@@ -70,7 +70,7 @@ func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error
 					// As there is some information about service and its endpoints,
 					// only display service information once
 					// when the first endpoint is  displayed.
-					print(name, service.CharmName, fmt.Sprintf("%v", service.UsersCount), service.Store, service.Location, endpointName, endpoint.Interface, endpoint.Role)
+					print(name, service.CharmName, fmt.Sprint(service.UsersCount), service.Store, service.Location, endpointName, endpoint.Interface, endpoint.Role)
 					continue
 				}
 				// Subsequent lines only need to display endpoint information.
