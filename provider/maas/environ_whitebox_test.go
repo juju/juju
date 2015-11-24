@@ -1065,14 +1065,18 @@ func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	testInstance := suite.createSubnets(c, false)
 	var node gomaasapi.Node
-	node.SystemID = "node1"
 	for _, i := range []uint{1, 2, 3} {
+		// Put most, but not all, of the subnets on node1.
+		if i == 2 {
+			node.SystemID = "node2"
+		} else {
+			node.SystemID = "node1"
+		}
 		subnet := suite.addSubnet(c, i, i)
 		var nni gomaasapi.NodeNetworkInterface
 		nni.Name = subnet.Name
 		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
 		server.SetNodeNetworkLink(node, nni)
-		suite.addSubnet(c, i+5, i)
 	}
 
 	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
