@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 var logger = loggo.GetLogger("juju.api.crossmodel")
@@ -62,4 +63,55 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 		return params.ServiceOffer{}, errors.Trace(theOne.Error)
 	}
 	return theOne.Result, nil
+}
+
+// List gets all remote services that have been offered from this Juju model.
+// Each returned service satisfies at least one of the the specified filters.
+func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error) {
+	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
+	paramsFilters := params.ListEndpointsFilters{
+		Filters: []params.ListEndpointsFilter{
+			{FilterTerms: []params.ListEndpointsFilterTerm{}},
+		},
+	}
+
+	out := params.ListEndpointsItemsResults{}
+
+	err := c.facade.FacadeCall("List", paramsFilters, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := out.Results
+	// Since only one filters set was sent, expecting only one back
+	if len(result) != 1 {
+		return nil, errors.Errorf("expected to find one result but found %d", len(result))
+
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return nil, errors.Trace(theOne.Error)
+	}
+
+	return convertListResultsToModel(theOne.Result), nil
+}
+
+func convertListResultsToModel(items []params.ListEndpointsServiceItemResult) []crossmodel.ListEndpointsServiceResult {
+	result := make([]crossmodel.ListEndpointsServiceResult, len(items))
+	for i, one := range items {
+		if one.Error != nil {
+			result[i].Error = one.Error
+			continue
+		}
+		remoteService := one.Result
+		result[i].Result = &crossmodel.ListEndpointsService{
+			ServiceName:    remoteService.ServiceName,
+			ServiceURL:     remoteService.ServiceURL,
+			CharmName:      remoteService.CharmName,
+			ConnectedCount: remoteService.UsersCount,
+			Endpoints:      remoteService.Endpoints,
+		}
+	}
+	return result
 }

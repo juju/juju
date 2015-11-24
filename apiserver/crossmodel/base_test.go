@@ -18,12 +18,9 @@ import (
 )
 
 const (
-	addOfferBackendCall   = "addOfferBackendCall"
-	listOffersBackendCall = "listOffersBackendCall"
-
-	serviceCall       = "serviceCall"
-	environConfigCall = "environConfigCall"
-	environUUIDCall   = "environUUIDCall"
+	addOfferBackendCall           = "AddOffer"
+	listOffersBackendCall         = "ListOffers"
+	listRemoteServicesBackendCall = "ListRemoteServices"
 )
 
 type baseCrossmodelSuite struct {
@@ -68,16 +65,22 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 type mockServiceBackend struct {
 	jtesting.Stub
 
-	addOffer   func(offer crossmodel.ServiceOffer) error
-	listOffers func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+	addOffer           func(offer crossmodel.ServiceOffer) error
+	listOffers         func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error)
 }
 
 func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
-	m.AddCall(addOfferBackendCall)
+	m.MethodCall(m, addOfferBackendCall, offer)
 	return m.addOffer(offer)
 }
 
 func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	m.AddCall(listOffersBackendCall)
+	m.MethodCall(m, listOffersBackendCall, filters)
 	return m.listOffers(filters...)
+}
+
+func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
+	m.MethodCall(m, listRemoteServicesBackendCall, filters)
+	return m.listRemoteServices(filters...)
 }

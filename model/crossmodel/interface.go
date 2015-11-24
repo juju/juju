@@ -120,3 +120,36 @@ type OfferedServices interface {
 	// Remove removes the service offer at the specified URL.
 	RemoveOffer(url string) error
 }
+
+// RemoteServiceFilter represents a remote service filter.
+type RemoteServiceFilter struct {
+	// ServiceURL is the URl where the service can be located.
+	// This can contain a part of URL.
+	ServiceURL string
+
+	// Endpoint contains an endpoint filter criteria.
+	Endpoint RemoteEndpointFilter
+
+	// CharmName is a name of a charm for remote service.
+	CharmName string
+}
+
+// RemoteEndpoint represents a remote endpoint filter.
+type RemoteEndpointFilter struct {
+	// Name is an endpoint name.
+	Name string
+
+	// Interface is an endpoint interface.
+	Interface string
+
+	// Role is an endpoint role.
+	Role charm.RelationRole
+}
+
+// RemoteService represents a remote service.
+type RemoteService struct {
+	ServiceOffer
+
+	// ConnectedUsers are the users that are consuming the service.
+	ConnectedUsers []string
+}

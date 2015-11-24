@@ -40,33 +40,6 @@ type RemoteEndpoint struct {
 	Role string `yaml:"role" json:"role"`
 }
 
-// RemoteService defines the serialization behaviour of remote service.
-// This is used in map-style yaml output where remote service name is the key.
-type RemoteService struct {
-	// Endpoints list of offered service endpoints.
-	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
-
-	// Description is the user entered description.
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-}
-
-// convertRemoteServices takes any number of api-formatted remote services and
-// creates a collection of ui-formatted services.
-func convertRemoteServices(services ...params.ServiceOffer) (map[string]RemoteService, error) {
-	if len(services) == 0 {
-		return nil, nil
-	}
-	output := make(map[string]RemoteService, len(services))
-	for _, one := range services {
-		service := RemoteService{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		if one.ServiceDescription != "" {
-			service.Description = one.ServiceDescription
-		}
-		output[one.ServiceName] = service
-	}
-	return output, nil
-}
-
 // convertRemoteEndpoints takes any number of api-formatted remote services' endpoints and
 // creates a collection of ui-formatted endpoints.
 func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]RemoteEndpoint {

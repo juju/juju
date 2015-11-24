@@ -62,16 +62,6 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	if url.Scheme != "" {
 		result.Directory = url.Scheme
-		supported := false
-		for _, s := range supportedURLDirectories {
-			supported = s == result.Directory
-			if supported {
-				break
-			}
-		}
-		if !supported {
-			return nil, errors.Errorf("service URL has invalid directory: %q", urlStr)
-		}
 	}
 	urlPath := strings.Trim(url.Path, "/")
 	parts := strings.Split(urlPath, "/")
