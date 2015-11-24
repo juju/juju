@@ -371,3 +371,5 @@ var RuleMatchesPortRange = ruleMatchesPortRange
 
 var MakeServiceURL = &makeServiceURL
 var ProviderInstance = providerInstance
+
+var GetVolumeEndpointURL = getVolumeEndpointURL

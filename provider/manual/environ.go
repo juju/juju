@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -101,32 +101,32 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	if err := e.SetConfig(cfg); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	agentEnv, err := localstorage.StoreConfig(e)
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	envConfig := e.envConfig()
 	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
 	provisioned, err := manualCheckProvisioned(host)
 	if err != nil {
-		return "", "", nil, errors.Annotate(err, "failed to check provisioned status")
+		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
-		return "", "", nil, manual.ErrProvisioned
+		return nil, manual.ErrProvisioned
 	}
 	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = BootstrapInstanceId
@@ -139,7 +139,13 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		}
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, icfg)
 	}
-	return *hc.Arch, series, finalize, nil
+
+	result := &environs.BootstrapResult{
+		Arch:     *hc.Arch,
+		Series:   series,
+		Finalize: finalize,
+	}
+	return result, nil
 }
 
 // StateServerInstances is specified in the Environ interface.
@@ -282,6 +288,7 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 func (e *manualEnviron) Destroy() error {
 	script := `
 set -x
+touch %s
 pkill -%d jujud && exit
 stop %s
 rm -f /etc/init/juju*
@@ -291,6 +298,10 @@ exit 0
 `
 	script = fmt.Sprintf(
 		script,
+		utils.ShQuote(path.Join(
+			agent.DefaultPaths.DataDir,
+			agent.UninstallAgentFile,
+		)),
 		terminationworker.TerminationSignal,
 		mongo.ServiceName(""),
 		utils.ShQuote(agent.DefaultPaths.DataDir),

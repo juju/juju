@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -366,14 +367,17 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
-	return f.setFilesystemInfo(filesystems)
+	if f.setFilesystemInfo != nil {
+		return f.setFilesystemInfo(filesystems)
+	}
+	return make([]params.ErrorResult, len(filesystems)), nil
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 	if f.setFilesystemAttachmentInfo != nil {
 		return f.setFilesystemAttachmentInfo(filesystemAttachments)
 	}
-	return nil, nil
+	return make([]params.ErrorResult, len(filesystemAttachments)), nil
 }
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
@@ -448,15 +452,18 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
-	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
-	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
-	createFilesystemsFunc func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
-	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
-	attachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
-	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
-	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]error, error)
-	destroyVolumesFunc    func([]string) ([]error, error)
+	volumeSourceFunc             func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc         func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	createVolumesFunc            func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	createFilesystemsFunc        func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
+	attachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
+	attachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
+	detachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]error, error)
+	detachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]error, error)
+	destroyVolumesFunc           func([]string) ([]error, error)
+	destroyFilesystemsFunc       func([]string) ([]error, error)
+	validateVolumeParamsFunc     func(storage.VolumeParams) error
+	validateFilesystemParamsFunc func(storage.FilesystemParams) error
 }
 
 type dummyVolumeSource struct {
@@ -489,7 +496,10 @@ func (p *dummyProvider) Dynamic() bool {
 	return p.dynamic
 }
 
-func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+func (s *dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	if s.provider != nil && s.provider.validateVolumeParamsFunc != nil {
+		return s.provider.validateVolumeParamsFunc(params)
+	}
 	return nil
 }
 
@@ -561,7 +571,10 @@ func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParam
 	return make([]error, len(params)), nil
 }
 
-func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+func (s *dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	if s.provider != nil && s.provider.validateFilesystemParamsFunc != nil {
+		return s.provider.validateFilesystemParamsFunc(params)
+	}
 	return nil
 }
 
@@ -590,6 +603,9 @@ func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemPar
 
 // DestroyFilesystems destroys filesystems.
 func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+	if s.provider.destroyFilesystemsFunc != nil {
+		return s.provider.destroyFilesystemsFunc(filesystemIds)
+	}
 	return make([]error, len(filesystemIds)), nil
 }
 
@@ -726,23 +742,24 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 
 type mockClock struct {
 	gitjujutesting.Stub
-	now       time.Time
-	nowFunc   func() time.Time
-	afterFunc func(time.Duration) <-chan time.Time
+	now         time.Time
+	onNow       func() time.Time
+	onAfter     func(time.Duration) <-chan time.Time
+	onAfterFunc func(time.Duration, func()) clock.Timer
 }
 
 func (c *mockClock) Now() time.Time {
 	c.MethodCall(c, "Now")
-	if c.nowFunc != nil {
-		return c.nowFunc()
+	if c.onNow != nil {
+		return c.onNow()
 	}
 	return c.now
 }
 
 func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	c.MethodCall(c, "After", d)
-	if c.afterFunc != nil {
-		return c.afterFunc(d)
+	if c.onAfter != nil {
+		return c.onAfter(d)
 	}
 	if d > 0 {
 		c.now = c.now.Add(d)
@@ -750,6 +767,17 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	ch := make(chan time.Time, 1)
 	ch <- c.now
 	return ch
+}
+
+func (c *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	c.MethodCall(c, "AfterFunc", d, f)
+	if c.onAfterFunc != nil {
+		return c.onAfterFunc(d, f)
+	}
+	if d > 0 {
+		c.now = c.now.Add(d)
+	}
+	return time.AfterFunc(0, f)
 }
 
 type mockStatusSetter struct {

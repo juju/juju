@@ -115,4 +115,21 @@ Service Unit
 Service Unit Agent
   Software which manages all the lifecycle of a single Service Unit.
 
+Subnet
+  A broadcast address range identified by a CIDR like 10.1.2.0/24, or 2001:db8::/32.
+
+Space
+  A collection of subnets which must be routable between each other without
+  firewalls. A subnet can be in one and only one space. Connections between
+  spaces instead are assumed to go through firewalls.
+
+  Spaces and their subnets can span multiples zones, if supported by the
+  cloud provider.
+
+Zone
+  Zones, also known as Availability Zones, are running on own physically
+  distinct, independent infrastructure. They are engineered to be highly reliable.
+  Common points of failures like generators and cooling equipment are not shared
+  across Zones. Additionally, they are physically separate, such that even extremely
+  uncommon disasters would only affect a single Zone.
 `

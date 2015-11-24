@@ -39,8 +39,8 @@ type Command struct {
 	cmd.SuperCommand
 }
 
-// NewCommand returns a new backups super-command.
-func NewCommand() cmd.Command {
+// NewSuperCommand returns a new backups super-command.
+func NewSuperCommand() cmd.Command {
 	if featureflag.Enabled(feature.JES) {
 		backupsDoc = jesBackupsDoc
 	}
@@ -55,13 +55,13 @@ func NewCommand() cmd.Command {
 			},
 		),
 	}
-	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&InfoCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&ListCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&UploadCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&RestoreCommand{}))
+	backupsCmd.Register(newCreateCommand())
+	backupsCmd.Register(newInfoCommand())
+	backupsCmd.Register(newListCommand())
+	backupsCmd.Register(newDownloadCommand())
+	backupsCmd.Register(newUploadCommand())
+	backupsCmd.Register(newRemoveCommand())
+	backupsCmd.Register(newRestoreCommand())
 	return &backupsCmd
 }
 
@@ -78,13 +78,13 @@ type APIClient interface {
 	// Download pulls the backup archive file.
 	Download(id string) (io.ReadCloser, error)
 	// Upload pushes a backup archive to storage.
-	Upload(ar io.Reader, meta params.BackupsMetadataResult) (string, error)
+	Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
 	// Restore will restore a backup with the given id into the state server.
 	Restore(string, backups.ClientConnection) error
 	// Restore will restore a backup file into the state server.
-	RestoreReader(io.Reader, *params.BackupsMetadataResult, backups.ClientConnection) error
+	RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, backups.ClientConnection) error
 }
 
 // CommandBase is the base type for backups sub-commands.
@@ -102,7 +102,7 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return backups.NewClient(root), nil
+	return backups.NewClient(root)
 }
 
 // dumpMetadata writes the formatted backup metadata to stdout.
@@ -123,7 +123,12 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
 }
 
-func getArchive(filename string) (rc io.ReadCloser, metaResult *params.BackupsMetadataResult, err error) {
+type readSeekCloser interface {
+	io.ReadSeeker
+	io.Closer
+}
+
+func getArchive(filename string) (rc readSeekCloser, metaResult *params.BackupsMetadataResult, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()

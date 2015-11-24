@@ -20,6 +20,8 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
+	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
@@ -28,6 +30,15 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+var log = loggo.GetLogger("juju.cmd.jujud")
+
+func init() {
+	if err := components.RegisterForServer(); err != nil {
+		log.Criticalf("unabled to register server components: %v", err)
+		os.Exit(1)
+	}
+}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
@@ -129,7 +140,11 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Name: "jujud",
 		Doc:  jujudDoc,
 	})
-	jujud.Log.Factory = &writerFactory{}
+
+	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
+		return &jujudWriter{target: target}
+	}
+
 	jujud.Register(NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
@@ -137,7 +152,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf, logCh, looputil.NewLoopDeviceManager(),
+		agentConf, logCh, looputil.NewLoopDeviceManager(), "",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
@@ -180,6 +195,8 @@ func Main(args []string) int {
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
+	} else if commandName == names.JujuDumpLogs {
+		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, ctx, args)
 	}
@@ -189,19 +206,11 @@ func Main(args []string) int {
 	return code
 }
 
-type writerFactory struct{}
-
-func (*writerFactory) NewWriter(target io.Writer) loggo.Writer {
-	return &jujudWriter{target: target}
-}
-
 type jujudWriter struct {
 	target           io.Writer
 	unitFormatter    simpleFormatter
 	defaultFormatter loggo.DefaultFormatter
 }
-
-var _ loggo.Writer = (*jujudWriter)(nil)
 
 func (w *jujudWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
 	if strings.HasPrefix(module, "unit.") {

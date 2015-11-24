@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/utils/ssh"
 )
 
 // Implementations of this interface should provide a way to configure external

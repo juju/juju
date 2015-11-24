@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api/base"
 	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -97,7 +97,7 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 		return nil, err
 	}
 
-	var charmdir charmdir.Consumer
+	var charmdir fortress.Guest
 	err = getResource(config.CharmDirName, &charmdir)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ type collect struct {
 	agent           agent.Agent
 	unitCharmLookup UnitCharmLookup
 	metricFactory   spool.MetricFactory
-	charmdir        charmdir.Consumer
+	charmdir        fortress.Guest
 }
 
 var errMetricsNotDefined = errors.New("no metrics defined")
@@ -159,9 +159,9 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 
 // Do satisfies the worker.PeriodWorkerCall function type.
 func (w *collect) Do(stop <-chan struct{}) error {
-	err := w.charmdir.Run(w.do)
-	if err == charmdir.ErrNotAvailable {
-		logger.Debugf("cannot execute collect-metrics - charmdir locked")
+	err := w.charmdir.Visit(w.do, stop)
+	if err == fortress.ErrAborted {
+		logger.Tracef("cannot execute collect-metrics: %v", err)
 		return nil
 	}
 	return err

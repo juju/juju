@@ -19,6 +19,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -1849,20 +1851,26 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", s.Owner.String(), charm, nil, nil)
+	ch := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "haha/borken", Owner: s.Owner.String(), Charm: ch})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", s.Owner.String(), nil, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "umadbro", Owner: s.Owner.String()})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", s.Owner.String(), charm, nil, nil)
+	insettings := charm.Settings{"tuning": "optimized"}
+
+	wordpress, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", s.Owner.String(), charm, nil, nil)
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+
+	mysql, err := s.State.AddService(state.AddServiceArgs{Name: "mysql", Owner: s.Owner.String(), Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -1870,15 +1878,15 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	ch, _, err := wordpress.Charm()
+	ch, _, err = wordpress.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 	mysql, err = s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	ch, _, err = mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
@@ -1889,7 +1897,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1904,7 +1912,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1916,19 +1924,19 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "admin", charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "admin", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "machine-3", charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "machine-3", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3: \"machine-3\" is not a valid user tag")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil, nil)
+	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "user-notAuser", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
@@ -1939,13 +1947,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", s.Owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", s.Owner.String(), charm, nil, nil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "mysql", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2791,7 +2799,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	indexColl, closer := state.GetCollection(st, "userenvname")
 	defer closer()
-	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	id := state.UserEnvNameIndex(env.Owner().Canonical(), env.Name())
 	n, err := indexColl.FindId(id).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
@@ -2873,7 +2881,7 @@ func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	cur := version.Current.Number
+	cur := version.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForEnvironConfigChanges()
@@ -3234,8 +3242,8 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
-				expected := test.tag.(names.UserTag).Username()
-				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
+				expected := test.tag.(names.UserTag).Canonical()
+				c.Assert(e.Tag().(names.UserTag).Canonical(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}
@@ -3562,7 +3570,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3612,7 +3620,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	// Add a machine and a unit with the current version.
 	machine, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service, err := st.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
+	service, err := st.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3672,29 +3680,32 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
+	current := version.MustParseBinary("1.24.7-trusty-amd64")
+	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 
-	higher := version.Current
-	higher.Patch++
-	lower := version.Current
-	lower.Patch--
+	higher := version.MustParseBinary("1.25.0-trusty-amd64")
+	lower := version.MustParseBinary("1.24.6-trusty-amd64")
 
-	// Set other environ version to < server envrion version
+	// Set other environ version to < server environ version
 	err := otherSt.SetEnvironAgentVersion(lower.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
-	// Set other environ version == server envrion version
-	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
+	// Set other environ version == server environ version
+	err = otherSt.SetEnvironAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.Number.String())
+	assertAgentVersion(c, otherSt, version.Current.String())
 
-	// Set other environ version to > server envrion version
+	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
-		higher.Number.String(),
-		version.Current.Number.String(),
+		higher.Number,
+		version.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }

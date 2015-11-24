@@ -183,7 +183,10 @@ func (s *networkerSuite) TestMachineNetworkConfigNameChange(c *gc.C) {
 		if !called {
 			called = true
 			c.Assert(request, gc.Equals, "MachineNetworkConfig")
-			return &params.Error{"MachineNetworkConfig", params.CodeNotImplemented}
+			return &params.Error{
+				Message: "MachineNetworkConfig",
+				Code:    params.CodeNotImplemented,
+			}
 		}
 		c.Assert(request, gc.Equals, "MachineNetworkInfo")
 		expected := params.Entities{

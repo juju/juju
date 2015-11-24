@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -28,7 +27,7 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&AddRelationCommand{}), args...)
+	_, err := testing.RunCommand(c, newAddRelationCommand(), args...)
 	return err
 }
 

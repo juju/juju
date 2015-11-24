@@ -446,7 +446,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetEnvironAgentVersion(version.Current.Number)
+	err = st.Client().SetEnvironAgentVersion(version.Current)
 	if err != nil {
 		return func() {}, err
 	}

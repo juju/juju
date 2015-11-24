@@ -14,6 +14,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -66,6 +68,12 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.agentUpgradeComplete = make(chan struct{})
 }
 
+func (s *UpgraderSuite) patchVersion(v version.Binary) {
+	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return v.Series })
+	s.PatchValue(&version.Current, v.Number)
+}
+
 type mockConfig struct {
 	agent.Config
 	tag     names.Tag
@@ -104,7 +112,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	stor := s.DefaultToolsStorage
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), vers)
-	s.PatchValue(&version.Current, agentTools.Version)
+	s.patchVersion(agentTools.Version)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -121,7 +129,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-precise-amd64")
 	agentTools := envtesting.PrimeTools(c, s.DefaultToolsStorage, s.DataDir(), s.Environ.Config().AgentStream(), vers)
-	s.PatchValue(&version.Current, agentTools.Version)
+	s.patchVersion(agentTools.Version)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,7 +144,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: version.Current})
+	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: vers})
 }
 
 func (s *UpgraderSuite) expectUpgradeChannelClosed(c *gc.C) {
@@ -158,7 +166,7 @@ func (s *UpgraderSuite) expectUpgradeChannelNotClosed(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, oldTools.Version)
+	s.patchVersion(oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
@@ -188,7 +196,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, oldTools.Version)
+	s.patchVersion(oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
@@ -247,7 +255,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	newToolsBinary := "5.4.3-precise-amd64"
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
-	s.PatchValue(&version.Current, newTools.Version)
+	s.patchVersion(newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 	ugErr := &upgrader.UpgradeReadyError{
@@ -266,7 +274,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	oldVersion := version.MustParseBinary("1.2.3-quantal-amd64")
-	s.PatchValue(&version.Current, oldVersion)
+	s.patchVersion(oldVersion)
 
 	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
 	err := statetesting.SetAgentVersion(s.State, newVersion.Number)
@@ -292,7 +300,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, origTools.Version)
+	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.3.3-precise-amd64"))[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
@@ -314,7 +322,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, origTools.Version)
+	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.2-precise-amd64"))[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
@@ -346,7 +354,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, origTools.Version)
+	s.patchVersion(origTools.Version)
 	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)[0]
 	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
@@ -377,7 +385,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 
 	stor := s.DefaultToolsStorage
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, origTools.Version)
+	s.patchVersion(origTools.Version)
 	envtesting.AssertUploadFakeToolsVersions(
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)
 	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)

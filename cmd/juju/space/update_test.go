@@ -49,13 +49,3 @@ func (s *UpdateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.CheckCallNames(c, "UpdateSpace", "Close")
 	s.api.CheckCall(c, 0, "UpdateSpace", "foo", s.Strings("10.1.2.0/24"))
 }
-
-func (s *UpdateSuite) TestRunAPIConnectFails(c *gc.C) {
-	s.command = space.NewUpdateCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"myname", "10.0.0.0/8", // Drop the args once RunWitnAPI is called internally.
-	)
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
-}

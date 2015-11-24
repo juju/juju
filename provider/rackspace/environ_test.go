@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -37,7 +37,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
+	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, args)
 	})
 	s.environ.Bootstrap(nil, environs.BootstrapParams{})
@@ -101,9 +101,9 @@ func (p *fakeEnviron) Open(cfg *config.Config) (environs.Environ, error) {
 	return nil, nil
 }
 
-func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, params)
-	return "", "", nil, nil
+	return nil, nil
 }
 
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {

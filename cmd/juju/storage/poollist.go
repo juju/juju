@@ -8,9 +8,10 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const PoolListCommandDoc = `
+const poolListCommandDoc = `
 Lists storage pools.
 The user can filter on pool type, name.
 
@@ -37,30 +38,39 @@ options:
 
 `
 
-// PoolListCommand lists storage pools.
-type PoolListCommand struct {
+func newPoolListCommand() cmd.Command {
+	cmd := &poolListCommand{}
+	cmd.newAPIFunc = func() (PoolListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
+}
+
+// poolListCommand lists storage pools.
+type poolListCommand struct {
 	PoolCommandBase
-	Providers []string
-	Names     []string
-	out       cmd.Output
+	newAPIFunc func() (PoolListAPI, error)
+	Providers  []string
+	Names      []string
+	out        cmd.Output
 }
 
 // Init implements Command.Init.
-func (c *PoolListCommand) Init(args []string) (err error) {
+func (c *poolListCommand) Init(args []string) (err error) {
 	return nil
 }
 
 // Info implements Command.Info.
-func (c *PoolListCommand) Info() *cmd.Info {
+func (c *poolListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "list storage pools",
-		Doc:     PoolListCommandDoc,
+		Doc:     poolListCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *PoolListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "only show pools of these provider types")
 	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "only show pools with these names")
@@ -73,13 +83,12 @@ func (c *PoolListCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *PoolListCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getPoolListAPI(c)
+func (c *poolListCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer api.Close()
-
 	result, err := api.ListPools(c.Providers, c.Names)
 	if err != nil {
 		return err
@@ -91,16 +100,8 @@ func (c *PoolListCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-var (
-	getPoolListAPI = (*PoolListCommand).getPoolListAPI
-)
-
 // PoolListAPI defines the API methods that the storage commands use.
 type PoolListAPI interface {
 	Close() error
 	ListPools(providers, names []string) ([]params.StoragePool, error)
-}
-
-func (c *PoolListCommand) getPoolListAPI() (PoolListAPI, error) {
-	return c.NewStorageAPI()
 }

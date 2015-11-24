@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/utils/ssh"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 )
@@ -27,7 +27,7 @@ type environ struct {
 var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
-func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, params)
 }

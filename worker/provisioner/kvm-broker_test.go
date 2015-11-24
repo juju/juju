@@ -84,7 +84,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		agent.AgentConfigParams{
 			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewUnitTag("ubuntu/1"),
-			UpgradedToVersion: version.Current.Number,
+			UpgradedToVersion: version.Current,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
@@ -162,6 +162,9 @@ func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 	machineId := "1/kvm/0"
 	kvm := s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+	}, {
 		FuncName: "ContainerConfig",
 	}})
 	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))

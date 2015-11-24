@@ -28,8 +28,12 @@ Examples:
      Give local user "sam" access to the environment named "myenv"
  `
 
-// ShareCommand represents the command to share an environment with a user(s).
-type ShareCommand struct {
+func newShareCommand() cmd.Command {
+	return envcmd.Wrap(&shareCommand{})
+}
+
+// shareCommand represents the command to share an environment with a user(s).
+type shareCommand struct {
 	envcmd.EnvCommandBase
 	envName string
 	api     ShareEnvironmentAPI
@@ -39,7 +43,7 @@ type ShareCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *ShareCommand) Info() *cmd.Info {
+func (c *shareCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "share",
 		Args:    "<user> ...",
@@ -48,7 +52,7 @@ func (c *ShareCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ShareCommand) Init(args []string) (err error) {
+func (c *shareCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.New("no users specified")
 	}
@@ -63,7 +67,7 @@ func (c *ShareCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *ShareCommand) getAPI() (ShareEnvironmentAPI, error) {
+func (c *shareCommand) getAPI() (ShareEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -76,7 +80,7 @@ type ShareEnvironmentAPI interface {
 	ShareEnvironment(...names.UserTag) error
 }
 
-func (c *ShareCommand) Run(ctx *cmd.Context) error {
+func (c *shareCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

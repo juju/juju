@@ -21,22 +21,28 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 var NoEnvironmentError = stderrors.New("no environment specified")
 var DoubleEnvironmentError = stderrors.New("you cannot supply both -e and the envname as a positional argument")
 
-// DestroyEnvironmentCommand destroys an environment.
-type DestroyEnvironmentCommand struct {
+func newDestroyEnvironmentCommand() cmd.Command {
+	return envcmd.Wrap(
+		&destroyEnvironmentCommand{},
+		envcmd.EnvSkipDefault,
+		envcmd.EnvAllowEmpty,
+	)
+}
+
+// destroyEnvironmentCommand destroys an environment.
+type destroyEnvironmentCommand struct {
 	envcmd.EnvCommandBase
 	cmd.CommandBase
-	envName   string
 	assumeYes bool
 	force     bool
 }
 
-func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
+func (c *destroyEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-environment",
 		Args:    "<environment name>",
@@ -44,16 +50,14 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *destroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
-	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
-	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
 }
 
-func (c *DestroyEnvironmentCommand) Init(args []string) error {
-	if c.envName != "" {
+func (c *destroyEnvironmentCommand) Init(args []string) error {
+	if c.EnvName() != "" {
 		logger.Warningf("-e/--environment flag is deprecated in 1.18, " +
 			"please supply environment as a positional parameter")
 		// They supplied the -e flag
@@ -69,20 +73,20 @@ func (c *DestroyEnvironmentCommand) Init(args []string) error {
 	case 0:
 		return NoEnvironmentError
 	case 1:
-		c.envName = args[0]
+		c.SetEnvName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
 }
 
-func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
+func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open environment info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.envName)
+	cfgInfo, err := store.ReadInfo(c.EnvName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read environment info")
 	}
@@ -109,12 +113,12 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 	}
 
-	apiclient, err := juju.NewAPIClientFromName(c.envName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Warningf("environment not found, removing config file")
 			ctx.Infof("environment not found, removing config file")
-			return environs.DestroyInfo(c.envName, store)
+			return environs.DestroyInfo(c.EnvName(), store)
 		}
 		return errors.Annotate(err, "cannot connect to API")
 	}
@@ -125,7 +129,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	}
 
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName, info.ProviderType)
+		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.EnvName(), info.ProviderType)
 
 		scanner := bufio.NewScanner(ctx.Stdin)
 		scanner.Scan()
@@ -160,7 +164,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		if err := environs.Destroy(serverEnviron, store); err != nil {
 			return errors.Annotate(err, "environment destruction failed")
 		}
-		return environs.DestroyInfo(c.envName, store)
+		return environs.DestroyInfo(c.EnvName(), store)
 	}
 
 	// If this is not the server environment, there is no bootstrap info and
@@ -169,7 +173,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	if err := c.destroyEnv(apiclient); err != nil {
 		errors.Annotate(err, "cannot destroy environment")
 	}
-	return environs.DestroyInfo(c.envName, store)
+	return environs.DestroyInfo(c.EnvName(), store)
 }
 
 func getServerEnv(bootstrapCfg map[string]interface{}) (environs.Environ, error) {
@@ -180,7 +184,7 @@ func getServerEnv(bootstrapCfg map[string]interface{}) (environs.Environ, error)
 	return environs.New(cfg)
 }
 
-func (c *DestroyEnvironmentCommand) destroyEnv(apiclient *api.Client) (result error) {
+func (c *destroyEnvironmentCommand) destroyEnv(apiclient *api.Client) (result error) {
 	defer func() {
 		result = c.ensureUserFriendlyErrorLog(result)
 	}()
@@ -207,14 +211,14 @@ func processDestroyError(err error) error {
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
 // in a user-friendly manner with readable and digestable error message.
-func (c *DestroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error {
+func (c *destroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error {
 	if err == nil {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
-	logger.Errorf(stdFailureMsg, c.envName)
+	logger.Errorf(stdFailureMsg, c.EnvName())
 	return err
 }
 

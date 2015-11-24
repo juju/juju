@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -66,13 +65,13 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		return testData, nil
 	}
-	s.PatchValue(&getImageMetadataListAPI, func(c *ListImagesCommand) (MetadataListAPI, error) {
+	s.PatchValue(&getImageMetadataListAPI, func(c *listImagesCommand) (MetadataListAPI, error) {
 		return s.mockAPI, nil
 	})
 }
 
 func runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&ListImagesCommand{}), args...)
+	return testing.RunCommand(c, newListImagesCommand(), args...)
 }
 
 func (s *ListSuite) TestListDefault(c *gc.C) {

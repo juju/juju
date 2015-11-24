@@ -926,7 +926,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	return params.AgentVersionResult{Version: version.Current.Number}, nil
+	return params.AgentVersionResult{Version: version.Current}, nil
 }
 
 // EnvironmentGet implements the server-side part of the

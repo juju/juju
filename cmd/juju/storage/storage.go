@@ -39,11 +39,11 @@ func NewSuperCommand() cmd.Command {
 			UsagePrefix: "juju",
 			Purpose:     storageCmdPurpose,
 		})
-	storagecmd.Register(envcmd.Wrap(&ShowCommand{}))
-	storagecmd.Register(envcmd.Wrap(&ListCommand{}))
-	storagecmd.Register(envcmd.Wrap(&AddCommand{}))
-	storagecmd.Register(NewPoolSuperCommand())
-	storagecmd.Register(NewVolumeSuperCommand())
+	storagecmd.Register(newShowCommand())
+	storagecmd.Register(newListCommand())
+	storagecmd.Register(newAddCommand())
+	storagecmd.Register(newPoolSuperCommand())
+	storagecmd.Register(newVolumeSuperCommand())
 	storagecmd.Register(NewFilesystemSuperCommand())
 	return storagecmd
 }

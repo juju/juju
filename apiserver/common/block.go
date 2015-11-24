@@ -63,7 +63,7 @@ func (c *BlockChecker) checkBlock(blockType state.BlockType) error {
 		return errors.Trace(err)
 	}
 	if isEnabled {
-		return ErrOperationBlocked(aBlock.Message())
+		return OperationBlockedError(aBlock.Message())
 	}
 	return nil
 }

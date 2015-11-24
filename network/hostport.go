@@ -102,6 +102,9 @@ func (hp hostPortsPreferringIPv4Slice) Less(i, j int) bool {
 	order1 := hp1.sortOrder(false)
 	order2 := hp2.sortOrder(false)
 	if order1 == order2 {
+		if hp1.Address.Value == hp2.Address.Value {
+			return hp1.Port < hp2.Port
+		}
 		return hp1.Address.Value < hp2.Address.Value
 	}
 	return order1 < order2
@@ -117,6 +120,9 @@ func (hp hostPortsPreferringIPv6Slice) Less(i, j int) bool {
 	order1 := hp1.sortOrder(true)
 	order2 := hp2.sortOrder(true)
 	if order1 == order2 {
+		if hp1.Address.Value == hp2.Address.Value {
+			return hp1.Port < hp2.Port
+		}
 		return hp1.Address.Value < hp2.Address.Value
 	}
 	return order1 < order2

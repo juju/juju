@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -62,7 +62,7 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.InitializeFromConfig(cfg)
+	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
 		return errors.Errorf("environment configuration has no admin-secret")
 	}
@@ -117,12 +117,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := version.Current.Number.String()
+	agentVersion := version.Current
 	if args.AgentVersion != nil {
-		agentVersion = args.AgentVersion.String()
+		agentVersion = *args.AgentVersion
 	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": agentVersion,
+		"agent-version": agentVersion.String(),
 	}); err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Starting new instance for initial state server")
-	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
@@ -141,8 +141,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   arch,
-		Series: series,
+		Arch:   result.Arch,
+		Series: result.Series,
 	})
 	if err != nil {
 		return err
@@ -168,13 +168,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, instanceConfig); err != nil {
+	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")
@@ -206,12 +206,12 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	// We should only ever bootstrap the exact same version as the client,
 	// or we risk bootstrap incompatibility. We still set agent-version to
 	// the newest version, so the agent will immediately upgrade itself.
-	if !isCompatibleVersion(newVersion, version.Current.Number) {
-		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current.Number)
+	if !isCompatibleVersion(newVersion, version.Current) {
+		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current)
 		if len(compatibleTools) == 0 {
 			logger.Warningf(
 				"failed to find %s tools, will attempt to use %s",
-				version.Current.Number, newVersion,
+				version.Current, newVersion,
 			)
 		} else {
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools

@@ -30,3 +30,5 @@ const (
 	ResolvedRetryHooks ResolvedMode = "retry-hooks"
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
+
+const MachineNonceHeader = "X-Juju-Nonce"

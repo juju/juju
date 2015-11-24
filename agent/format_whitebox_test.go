@@ -30,7 +30,7 @@ var _ = gc.Suite(&formatSuite{})
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current.Number,
+	UpgradedToVersion: version.Current,
 	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",

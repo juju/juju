@@ -10,22 +10,27 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
+
+func newImportKeysCommand() cmd.Command {
+	return envcmd.Wrap(&importKeysCommand{})
+}
 
 var importKeysDoc = `
 Import new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
 The keys are imported using ssh-import-id.
 `
 
-// ImportKeysCommand is used to add new authorized ssh keys for a user.
-type ImportKeysCommand struct {
+// importKeysCommand is used to add new authorized ssh keys for a user.
+type importKeysCommand struct {
 	AuthorizedKeysBase
 	user      string
 	sshKeyIds []string
 }
 
-func (c *ImportKeysCommand) Info() *cmd.Info {
+func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import",
 		Args:    "<ssh key id> [...]",
@@ -34,7 +39,7 @@ func (c *ImportKeysCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ImportKeysCommand) Init(args []string) error {
+func (c *importKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
@@ -44,11 +49,11 @@ func (c *ImportKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *ImportKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *importKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "admin", "the user for which to import the keys")
 }
 
-func (c *ImportKeysCommand) Run(context *cmd.Context) error {
+func (c *importKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err

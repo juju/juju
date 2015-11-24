@@ -44,7 +44,7 @@ type Context interface {
 	Id() string
 	HookVars(paths context.Paths) ([]string, error)
 	ActionData() (*context.ActionData, error)
-	SetProcess(process *os.Process)
+	SetProcess(process context.HookProcess)
 	HasExecutionSetUnitStatus() bool
 	ResetExecutionSetUnitStatus()
 
@@ -89,7 +89,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	if err != nil {
 		return nil, err
 	}
-	runner.context.SetProcess(command.Process())
+	runner.context.SetProcess(hookProcess{command.Process()})
 
 	// Block and wait for process to finish
 	result, err := command.Wait()
@@ -141,10 +141,6 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
-		if context.IsMissingHookError(err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-		}
 		return err
 	}
 	hookCmd := hookCommand(hook)
@@ -167,7 +163,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	outWriter.Close()
 	if err == nil {
 		// Record the *os.Process of the hook
-		runner.context.SetProcess(ps.Process)
+		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
 		err = ps.Wait()
 	}
@@ -193,4 +189,12 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 
 func (runner *runner) getLogger(hookName string) loggo.Logger {
 	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
+}
+
+type hookProcess struct {
+	*os.Process
+}
+
+func (p hookProcess) Pid() int {
+	return p.Process.Pid
 }

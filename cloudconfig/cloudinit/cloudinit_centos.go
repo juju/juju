@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // centOSCloudConfig is the cloudconfig type specific to CentOS machines.

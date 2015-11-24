@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"errors"
+	"fmt"
 	"net"
 
 	jc "github.com/juju/testing/checkers"
@@ -340,7 +342,7 @@ var selectPublicTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -439,7 +441,7 @@ var selectInternalTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -591,7 +593,7 @@ var selectInternalMachineTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -602,6 +604,84 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, true)
 		c.Check(actualOK, gc.Equals, expectOK)
 		c.Check(actualAddr, gc.Equals, expectAddr)
+	}
+}
+
+type selectInternalHostPortsTest struct {
+	about      string
+	addresses  []network.HostPort
+	expected   []string
+	preferIPv6 bool
+}
+
+var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
+	"no addresses gives empty string result",
+	[]network.HostPort{},
+	[]string{},
+	false,
+}, {
+	"a public IPv4 address is selected",
+	[]network.HostPort{
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 9999},
+	},
+	[]string{"8.8.8.8:9999"},
+	false,
+}, {
+	"public IPv6 addresses selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
+	[]network.HostPort{
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 9999},
+		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic}, 8888},
+		{network.Address{"2002:db8::1", network.IPv6Address, "public", network.ScopePublic}, 9999},
+	},
+	[]string{"[2001:db8::1]:8888", "[2002:db8::1]:9999"},
+	true,
+}, {
+	"a cloud local IPv4 addresses are selected",
+	[]network.HostPort{
+		{network.Address{"10.1.0.1", network.IPv4Address, "private", network.ScopeCloudLocal}, 8888},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "private", network.ScopeCloudLocal}, 1234},
+	},
+	[]string{"10.1.0.1:8888", "10.0.0.1:1234"},
+	false,
+}, {
+	"a machine local or link-local address is not selected",
+	[]network.HostPort{
+		{network.Address{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal}, 111},
+		{network.Address{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal}, 222},
+		{network.Address{"fe80::1", network.IPv6Address, "machine", network.ScopeLinkLocal}, 333},
+	},
+	[]string{},
+	false,
+}, {
+	"cloud local addresses are preferred to a public addresses",
+	[]network.HostPort{
+		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic}, 123},
+		{network.Address{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal}, 123},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal}, 4444},
+	},
+	[]string{"[fc00::1]:123", "10.0.0.1:4444"},
+	false,
+}, {
+	"IPv4 addresses are used when prefer-IPv6 is set but no IPv6 addresses are available",
+	[]network.HostPort{
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal}, 4444},
+	},
+	[]string{"10.0.0.1:4444"},
+	true,
+}}
+
+func (s *AddressSuite) TestSelectInternalHostPorts(c *gc.C) {
+	oldValue := network.PreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
+	for i, t := range selectInternalHostPortsTests {
+		c.Logf("test %d: %s", i, t.about)
+		network.SetPreferIPv6(t.preferIPv6)
+		c.Check(network.SelectInternalHostPorts(t.addresses, false), gc.DeepEquals, t.expected)
 	}
 }
 
@@ -789,4 +869,73 @@ func (*AddressSuite) TestExactScopeMatchHonoursPreferIPv6(c *gc.C) {
 	c.Assert(match, jc.IsTrue)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
+}
+
+func (s *AddressSuite) TestResolvableHostnames(c *gc.C) {
+	seq := 0
+
+	s.PatchValue(network.NetLookupIP, func(host string) ([]net.IP, error) {
+		if host == "not-resolvable.com" {
+			return nil, errors.New("no such host")
+		}
+		seq++
+		return []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", seq))}, nil
+	})
+
+	// Test empty input yields empty output.
+	empty := []network.Address{}
+	c.Assert(empty, jc.DeepEquals, network.ResolvableHostnames(empty))
+
+	// Test unresolvable inputs yields empty output.
+	unresolvable := []network.Address{{Value: "not-resolvable.com", Type: network.HostName}}
+	c.Assert(empty, jc.DeepEquals, network.ResolvableHostnames(unresolvable))
+
+	// Test resolvable inputs yields identical outputs.
+	resolvable := []network.Address{{Value: "localhost", Type: network.HostName}}
+	c.Assert(resolvable, jc.DeepEquals, network.ResolvableHostnames(resolvable))
+
+	unscopedAddrs := []network.Address{
+		network.NewAddress("localhost"),
+		network.NewAddress("127.0.0.1"),
+		network.NewAddress("fe80::d806:dbff:fe23:1199"),
+		network.NewAddress("not-resolvable.com"),
+		network.NewAddress("not-resolvable.com"),
+		network.NewAddress("fe80::1"),
+		network.NewAddress("resolvable.com"),
+		network.NewAddress("localhost"),
+		network.NewAddress("resolvable.com"),
+		network.NewAddress("ubuntu.com"),
+	}
+
+	unscopedAddrsExpected := []network.Address{
+		unscopedAddrs[0], unscopedAddrs[1],
+		unscopedAddrs[2], unscopedAddrs[5],
+		unscopedAddrs[6], unscopedAddrs[7],
+		unscopedAddrs[8], unscopedAddrs[9],
+	}
+
+	c.Assert(unscopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(unscopedAddrs))
+
+	// Test multiple inputs have their order preserved, that
+	// duplicates are preserved but unresolvable hostnames (except
+	// 'localhost') are removed.
+	scopedAddrs := []network.Address{
+		network.NewScopedAddress("172.16.1.1", network.ScopeCloudLocal),
+		network.NewScopedAddress("not-resolvable.com", network.ScopePublic),
+		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
+		network.NewScopedAddress("resolvable.com", network.ScopePublic),
+		network.NewScopedAddress("fc00:1", network.ScopeCloudLocal),
+		network.NewScopedAddress("localhost", network.ScopePublic),
+		network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
+		network.NewScopedAddress("localhost", network.ScopeCloudLocal),
+		network.NewScopedAddress("not-resolvable.com", network.ScopePublic),
+		network.NewScopedAddress("resolvable.com", network.ScopePublic),
+	}
+
+	scopedAddrsExpected := []network.Address{
+		scopedAddrs[0], scopedAddrs[2], scopedAddrs[3], scopedAddrs[4],
+		scopedAddrs[5], scopedAddrs[6], scopedAddrs[7], scopedAddrs[9],
+	}
+
+	c.Assert(scopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(scopedAddrs))
 }

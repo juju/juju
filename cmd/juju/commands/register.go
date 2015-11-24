@@ -10,59 +10,129 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
-)
-
-var (
-	openWebBrowser = func(_ *url.URL) error { return nil }
+	"github.com/juju/juju/apiserver/params"
 )
 
 type metricRegistrationPost struct {
 	EnvironmentUUID string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
 	ServiceName     string `json:"service-name"`
+	PlanURL         string `json:"plan-url"`
 }
 
-var registerMeteredCharm = func(registrationURL string, state api.Connection, jar *cookiejar.Jar, charmURL string, serviceName, environmentUUID string) error {
+// RegisterMeteredCharm implements the DeployStep interface.
+type RegisterMeteredCharm struct {
+	Plan        string
+	RegisterURL string
+	QueryURL    string
+}
+
+func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
+}
+
+func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
-	metered, err := charmsClient.IsMetered(charmURL)
-	if err != nil {
+	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
+	if params.IsCodeNotImplemented(err) {
+		// The state server is too old to support metering.  Warn
+		// the user, but don't return an error.
+		logger.Warningf("current state server version does not support charm metering")
+		return nil
+	} else if err != nil {
 		return err
 	}
-	if metered {
-		client := httpbakery.NewClient()
-		client.Client.Jar = jar
-		client.VisitWebPage = openWebBrowser
-		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, client)
-		if err != nil {
-			logger.Infof("failed to register metrics: %v", err)
-			return err
-		}
-
-		api, cerr := getMetricCredentialsAPI(state)
-		if cerr != nil {
-			logger.Infof("failed to get the metrics credentials setter: %v", cerr)
-		}
-		err = api.SetMetricCredentials(serviceName, credentials)
-		if err != nil {
-			logger.Infof("failed to set metric credentials: %v", err)
-			return err
-		}
-		api.Close()
+	if !metered {
+		return nil
 	}
+
+	bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+
+	if r.Plan == "" {
+		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
+		if err != nil {
+			logger.Errorf("could not determine default plan")
+			return err
+		}
+	}
+
+	credentials, err := r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	if err != nil {
+		logger.Infof("failed to obtain plan authorization: %v", err)
+		return err
+	}
+
+	api, cerr := getMetricCredentialsAPI(state)
+	if cerr != nil {
+		logger.Infof("failed to get the metrics credentials setter: %v", cerr)
+		return cerr
+	}
+	defer api.Close()
+
+	err = api.SetMetricCredentials(deployInfo.ServiceName, credentials)
+	if params.IsCodeNotImplemented(err) {
+		// The state server is too old to support metering.  Warn
+		// the user, but don't return an error.
+		logger.Warningf("current state server version does not support charm metering")
+		return nil
+	} else if err != nil {
+		logger.Infof("failed to set metric credentials: %v", err)
+		return err
+	}
+
 	return nil
 }
 
-func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
-	if registrationURL == "" {
+func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) (string, error) {
+	if r.QueryURL == "" {
+		return "", errors.Errorf("no plan query url specified")
+	}
+	qURL, err := url.Parse(r.RegisterURL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	query := qURL.Query()
+	query.Set("charm", cURL)
+	qURL.RawQuery = query.Encode()
+
+	req, err := http.NewRequest("GET", qURL.String(), nil)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return "", errors.Errorf("failed to query default plan: http response is %d", response.StatusCode)
+	}
+
+	var planInfo struct {
+		URL string `json:"url"`
+	}
+	dec := json.NewDecoder(response.Body)
+	err = dec.Decode(&planInfo)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return planInfo.URL, nil
+}
+
+func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
+	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
-	registerURL, err := url.Parse(registrationURL)
+	registerURL, err := url.Parse(r.RegisterURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,6 +141,7 @@ func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName str
 		EnvironmentUUID: environmentUUID,
 		CharmURL:        charmURL,
 		ServiceName:     serviceName,
+		PlanURL:         r.Plan,
 	}
 
 	buff := &bytes.Buffer{}

@@ -25,7 +25,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command = subnet.NewListCommand(s.api)
+	s.command, _ = subnet.NewListCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -86,8 +86,8 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := subnet.NewListCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := subnet.NewListCommand(s.api)
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
@@ -95,7 +95,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		}
 		c.Check(command.SpaceName, gc.Equals, test.expectSpace)
 		c.Check(command.ZoneName, gc.Equals, test.expectZone)
-		c.Check(subnet.ListFormat(command), gc.Equals, test.expectFormat)
+		c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -329,15 +329,4 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
-}
-
-func (s *ListSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
-	s.command = subnet.NewListCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-	)
-
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

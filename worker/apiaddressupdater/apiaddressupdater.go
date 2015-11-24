@@ -75,7 +75,6 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
 		return fmt.Errorf("error setting addresses: %v", err)
 	}
-	logger.Infof("API addresses updated to %q", hpsToSet)
 	return nil
 }
 

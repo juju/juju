@@ -12,7 +12,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
@@ -97,7 +97,7 @@ var jenvFileContentErrorsTests = []struct {
 }, {
 	about:    "invalid YAML",
 	contents: []byte(":"),
-	err:      "invalid jenv file .*: cannot unmarshal jenv data: YAML error: .*",
+	err:      "invalid jenv file .*: cannot unmarshal jenv data: yaml: .*",
 }, {
 	about:    "missing field",
 	contents: makeJenvContents("myuser", "mypasswd", "env-uuid", "", "1.2.3.4:17070"),

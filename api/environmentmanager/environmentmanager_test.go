@@ -80,7 +80,7 @@ func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
 	s.SetFeatureFlags(feature.JES)
 	envManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
-	owner := user.UserTag().Username()
+	owner := user.UserTag().Canonical()
 	newEnv, err := envManager.CreateEnvironment(owner, nil, map[string]interface{}{
 		"name":            "new-env",
 		"authorized-keys": "ssh-key",

@@ -23,7 +23,7 @@ var _ = gc.Suite(&CreateSuite{})
 func (s *CreateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command = subnet.NewCreateCommand(s.api)
+	s.command, _ = subnet.NewCreateCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -125,8 +125,8 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := subnet.NewCreateCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := subnet.NewCreateCommand(s.api)
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
@@ -231,16 +231,4 @@ func (s *CreateSuite) TestRunWithUnknownZonesFails(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "AllZones", "Close")
-}
-
-func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
-	s.command = subnet.NewCreateCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"10.10.0.0/24", "space", "zone1",
-	)
-
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

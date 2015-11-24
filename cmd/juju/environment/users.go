@@ -18,10 +18,14 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 )
 
-const ListCommandDoc = `List all users with access to the current environment`
+const userCommandDoc = `List all users with access to the current environment`
 
-// UsersCommand shows all the users with access to the current environment.
-type UsersCommand struct {
+func newUsersCommand() cmd.Command {
+	return envcmd.Wrap(&usersCommand{})
+}
+
+// usersCommand shows all the users with access to the current environment.
+type usersCommand struct {
 	envcmd.EnvCommandBase
 	out cmd.Output
 	api UsersAPI
@@ -41,7 +45,7 @@ type UsersAPI interface {
 	EnvironmentUserInfo() ([]params.EnvUserInfo, error)
 }
 
-func (c *UsersCommand) getAPI() (UsersAPI, error) {
+func (c *usersCommand) getAPI() (UsersAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -49,16 +53,16 @@ func (c *UsersCommand) getAPI() (UsersAPI, error) {
 }
 
 // Info implements Command.Info.
-func (c *UsersCommand) Info() *cmd.Info {
+func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "users",
 		Purpose: "shows all users with access to the current environment",
-		Doc:     ListCommandDoc,
+		Doc:     userCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *UsersCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *usersCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -67,7 +71,7 @@ func (c *UsersCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *UsersCommand) Run(ctx *cmd.Context) (err error) {
+func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -83,7 +87,7 @@ func (c *UsersCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *UsersCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
 	users, ok := value.([]UserInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
@@ -106,7 +110,7 @@ func (c *UsersCommand) formatTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func (c *UsersCommand) apiUsersToUserInfoSlice(users []params.EnvUserInfo) []UserInfo {
+func (c *usersCommand) apiUsersToUserInfoSlice(users []params.EnvUserInfo) []UserInfo {
 	var output []UserInfo
 	for _, info := range users {
 		outInfo := UserInfo{Username: info.UserName}

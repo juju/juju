@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
@@ -30,7 +29,7 @@ func NewFilesystemSuperCommand() cmd.Command {
 		UsagePrefix: "juju storage",
 		Purpose:     filesystemCmdPurpose,
 	})
-	supercmd.Register(envcmd.Wrap(&FilesystemListCommand{}))
+	supercmd.Register(newFilesystemListCommand())
 	return supercmd
 }
 

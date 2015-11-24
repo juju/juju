@@ -122,7 +122,7 @@ func locallyBuildableTools() (buildable coretools.List) {
 			continue
 		}
 		binary := version.Binary{
-			Number: version.Current.Number,
+			Number: version.Current,
 			Series: ser,
 			Arch:   arch.HostArch(),
 		}
@@ -139,7 +139,7 @@ func locallyBuildableTools() (buildable coretools.List) {
 // all tools matching the current major.minor version are chosen.
 func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string) (list coretools.List, err error) {
 	// Construct a tools filter.
-	cliVersion := version.Current.Number
+	cliVersion := version.Current
 	var filter coretools.Filter
 	if arch != nil {
 		filter.Arch = *arch

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
@@ -16,37 +17,66 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
+// BaseRepoSuite sets up $JUJU_REPOSITORY to point to a local charm repository.
+type BaseRepoSuite struct {
+	SeriesPath  string
+	BundlesPath string
+	RepoPath    string
+}
+
+func (s *BaseRepoSuite) SetUpSuite(c *gc.C)    {}
+func (s *BaseRepoSuite) TearDownSuite(c *gc.C) {}
+
+func (s *BaseRepoSuite) SetUpTest(c *gc.C) {
+	// Set up a local repository.
+	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
+	repoPath := c.MkDir()
+	os.Setenv("JUJU_REPOSITORY", repoPath)
+	s.SeriesPath = filepath.Join(repoPath, config.LatestLtsSeries())
+	c.Assert(os.Mkdir(s.SeriesPath, 0777), jc.ErrorIsNil)
+	// Create a symlink "quantal" -> "precise", because most charms
+	// and machines are written with hard-coded "quantal" series,
+	// hence they interact badly with a local repository that assumes
+	// only "precise" charms are available.
+	err := symlink.New(s.SeriesPath, filepath.Join(repoPath, "quantal"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.BundlesPath = filepath.Join(repoPath, "bundle")
+	c.Assert(os.Mkdir(s.BundlesPath, 0777), jc.ErrorIsNil)
+}
+
+func (s *BaseRepoSuite) TearDownTest(c *gc.C) {
+	os.Setenv("JUJU_REPOSITORY", s.RepoPath)
+}
+
 // RepoSuite acts as a JujuConnSuite but also sets up
 // $JUJU_REPOSITORY to point to a local charm repository.
 type RepoSuite struct {
 	JujuConnSuite
-	SeriesPath string
-	RepoPath   string
+	BaseRepoSuite
+}
+
+func (s *RepoSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.BaseRepoSuite.SetUpSuite(c)
+}
+
+func (s *RepoSuite) TearDownSuite(c *gc.C) {
+	s.BaseRepoSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
 }
 
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.BaseRepoSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
 	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
-	repoPath := c.MkDir()
-	os.Setenv("JUJU_REPOSITORY", repoPath)
-	s.SeriesPath = filepath.Join(repoPath, config.LatestLtsSeries())
-	err = os.Mkdir(s.SeriesPath, 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	// Create a symlink "quantal" -> "precise", because most charms
-	// and machines are written with hard-coded "quantal" series,
-	// hence they interact badly with a local repository that assumes
-	// only "precise" charms are available.
-	err = symlink.New(s.SeriesPath, filepath.Join(repoPath, "quantal"))
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RepoSuite) TearDownTest(c *gc.C) {
-	os.Setenv("JUJU_REPOSITORY", s.RepoPath)
+	s.BaseRepoSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -57,6 +87,7 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
+
 	units, err := svc.AllUnits()
 	c.Logf("Service units: %+v", units)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,15 +114,25 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 }
 
 func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
-	expectUnitNames := []string{}
-	for _, u := range units {
-		expectUnitNames = append(expectUnitNames, u.Name())
+	tags := make([]names.UnitTag, len(units))
+	expectUnitNames := make([]string, len(units))
+	for i, u := range units {
+		expectUnitNames[i] = u.Name()
+		tags[i] = u.UnitTag()
 	}
+
+	// manually assign all units to machines.  This replaces work normally done
+	// by the unitassigner code.
+	errs, err := s.APIState.UnitAssigner().AssignUnits(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
+
 	sort.Strings(expectUnitNames)
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, len(units))
+
 	unitNames := []string{}
 	for _, m := range machines {
 		mUnits, err := m.Units()

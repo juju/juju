@@ -4,18 +4,23 @@
 package testing
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -105,10 +110,22 @@ type AgentSuite struct {
 	testing.JujuConnSuite
 }
 
-// PrimeAgent writes the configuration file and tools with version vers
-// for an agent with the given entity name.  It returns the agent's
+// PrimeAgent writes the configuration file and tools for an agent
+// with the given entity name. It returns the agent's configuration and the
+// current tools.
+func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	return s.PrimeAgentVersion(c, tag, password, vers)
+}
+
+// PrimeAgentVersion writes the configuration file and tools with version
+// vers for an agent with the given entity name. It returns the agent's
 // configuration and the current tools.
-func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,6 +156,72 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers ve
 	c.Assert(conf.Write(), gc.IsNil)
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
+}
+
+// PrimeStateAgent writes the configuration file and tools for
+// a state agent with the given entity name. It returns the agent's
+// configuration and the current tools.
+func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	return s.PrimeStateAgentVersion(c, tag, password, vers)
+}
+
+// PrimeStateAgentVersion writes the configuration file and tools with
+// version vers for a state agent with the given entity name. It
+// returns the agent's configuration and the current tools.
+func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (
+	agent.ConfigSetterWriter, *coretools.Tools,
+) {
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, jc.ErrorIsNil)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tools1, gc.DeepEquals, agentTools)
+
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.State.EnvironTag())
+	s.primeAPIHostPorts(c)
+	return conf, agentTools
+}
+
+// WriteStateAgentConfig creates and writes a state agent config.
+func (s *AgentSuite) WriteStateAgentConfig(
+	c *gc.C,
+	tag names.Tag,
+	password string,
+	vers version.Binary,
+	envTag names.EnvironTag,
+) agent.ConfigSetterWriter {
+	stateInfo := s.State.MongoConnectionInfo()
+	apiPort := gitjujutesting.FindTCPPort()
+	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
+	conf, err := agent.NewStateMachineConfig(
+		agent.AgentConfigParams{
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: s.DataDir()}),
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             agent.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiAddr,
+			CACert:            stateInfo.CACert,
+			Environment:       envTag,
+		},
+		params.StateServingInfo{
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    gitjujutesting.MgoServer.Port(),
+			APIPort:      apiPort,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	conf.SetPassword(password)
+	c.Assert(conf.Write(), gc.IsNil)
+	return conf
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {

@@ -179,7 +179,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.globalFirewallName(),
 		machineID,
 	}
-	disks, err := getDisks(spec, args.Constraints, os)
+	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -258,12 +258,16 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OSType) ([]google.DiskSpec, error) {
-	size := common.MinRootDiskSizeGiB
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser string) ([]google.DiskSpec, error) {
+	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}
 	var imageURL string
+	os, err := series.GetOSFromSeries(ser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	switch os {
 	case jujuos.Ubuntu:
 		imageURL = ubuntuImageBasePath
@@ -273,6 +277,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OS
 		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
 	}
 	dSpec := google.DiskSpec{
+		Series:     ser,
 		SizeHintGB: size,
 		ImageURL:   imageURL + spec.Image.Id,
 		Boot:       true,
@@ -280,7 +285,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OS
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
-		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
+		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB(ser))
 	}
 	return []google.DiskSpec{dSpec}, nil
 }

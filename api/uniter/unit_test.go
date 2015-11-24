@@ -919,7 +919,7 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
 		case "AddMetricBatches":
 			result := response.(*params.ErrorResults)
 			result.Results = make([]params.ErrorResult, 1)
-			return &params.Error{"not implemented", params.CodeNotImplemented}
+			return &params.Error{Message: "not implemented", Code: params.CodeNotImplemented}
 		case "AddMetrics":
 			called = true
 			result := response.(*params.ErrorResults)

@@ -13,8 +13,12 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// GetCommand retrieves the configuration of a service.
-type GetCommand struct {
+func newGetCommand() cmd.Command {
+	return envcmd.Wrap(&getCommand{})
+}
+
+// getCommand retrieves the configuration of a service.
+type getCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
@@ -49,7 +53,7 @@ Note that the "default" field indicates whether a configuration setting is at it
 default value. It does not indicate the default value for the setting.
 `
 
-func (c *GetCommand) Info() *cmd.Info {
+func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get",
 		Args:    "<service>",
@@ -58,14 +62,14 @@ func (c *GetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *getCommand) SetFlags(f *gnuflag.FlagSet) {
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
 }
 
-func (c *GetCommand) Init(args []string) error {
+func (c *getCommand) Init(args []string) error {
 	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no service name specified")
@@ -81,7 +85,7 @@ type GetServiceAPI interface {
 	ServiceGet(service string) (*params.ServiceGetResults, error)
 }
 
-func (c *GetCommand) getAPI() (GetServiceAPI, error) {
+func (c *getCommand) getAPI() (GetServiceAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -90,7 +94,7 @@ func (c *GetCommand) getAPI() (GetServiceAPI, error) {
 
 // Run fetches the configuration of the service and formats
 // the result as a YAML string.
-func (c *GetCommand) Run(ctx *cmd.Context) error {
+func (c *getCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

@@ -20,11 +20,23 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.status")
 
-type StatusCommand struct {
+type statusAPI interface {
+	Status(patterns []string) (*params.FullStatus, error)
+	Close() error
+}
+
+// NewStatusCommand returns a new command, which reports on the
+// runtime state of various system entities.
+func NewStatusCommand() cmd.Command {
+	return envcmd.Wrap(&statusCommand{})
+}
+
+type statusCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	patterns []string
 	isoTime  bool
+	api      statusAPI
 }
 
 var statusDoc = `
@@ -40,12 +52,14 @@ There are a number of ways to format the status output:
            - UNITS: total #, and # in each state.
            - SERVICES: total #, and # exposed of each service.
 - tabular: Displays information in a tabular format in these sections:
-           - Machines: ID, STATE, VERSION, DNS, INS-ID, SERIES, HARDWARE
+           - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
            - Services: NAME, EXPOSED, CHARM
            - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
              - Also displays subordinate units.
 - yaml (DEFAULT): Displays information on machines, services, and units
                   in the yaml format.
+
+Note: AZ above is the cloud region's availability zone.
 
 Service or unit names may be specified to filter the status to only those
 services and units that match, along with the related machines, services
@@ -58,7 +72,7 @@ of characters. For example, 'nova-*' will match any service whose name begins
 with 'nova-': 'nova-compute', 'nova-volume', etc.
 `
 
-func (c *StatusCommand) Info() *cmd.Info {
+func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
 		Args:    "[pattern ...]",
@@ -68,7 +82,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 
 	oneLineFormatter := FormatOneline
@@ -89,7 +103,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *StatusCommand) Init(args []string) error {
+func (c *statusCommand) Init(args []string) error {
 	c.patterns = args
 	// If use of ISO time not specified on command line,
 	// check env var.
@@ -112,17 +126,11 @@ Error details:
 %v
 `
 
-type statusAPI interface {
-	Status(patterns []string) (*params.FullStatus, error)
-	Close() error
-}
-
-var newApiClientForStatus = func(c *StatusCommand) (statusAPI, error) {
+var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
 	return c.NewAPIClient()
 }
 
-func (c *StatusCommand) Run(ctx *cmd.Context) error {
-
+func (c *statusCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
 		return errors.Errorf(connectionError, c.ConnectionName(), err)

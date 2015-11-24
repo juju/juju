@@ -39,6 +39,7 @@ func NewFactory(st *state.State) *Factory {
 	return &Factory{st: st}
 }
 
+// UserParams defines the parameters for creating a user with MakeUser.
 type UserParams struct {
 	Name        string
 	DisplayName string
@@ -99,10 +100,11 @@ type RelationParams struct {
 }
 
 type MetricParams struct {
-	Unit    *state.Unit
-	Time    *time.Time
-	Metrics []state.Metric
-	Sent    bool
+	Unit       *state.Unit
+	Time       *time.Time
+	Metrics    []state.Metric
+	Sent       bool
+	DeleteTime *time.Time
 }
 
 type EnvParams struct {
@@ -136,6 +138,8 @@ func uniqueString(prefix string) string {
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used.
+// If params.NoEnvUser is false, the user will also be created
+// in the current environment.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -179,7 +183,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	if params.User == "" {
 		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
-		params.User = user.UserTag().Username()
+		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
@@ -332,7 +336,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
+	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -422,7 +426,11 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
-		err := metric.SetSent()
+		t := now
+		if params.DeleteTime != nil {
+			t = *params.DeleteTime
+		}
+		err := metric.SetSent(t)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return metric

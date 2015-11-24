@@ -10,9 +10,18 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const FilesystemListCommandDoc = `
+func newFilesystemListCommand() cmd.Command {
+	cmd := &filesystemListCommand{}
+	cmd.newAPIFunc = func() (FilesystemListAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
+}
+
+const filesystemListCommandDoc = `
 List filesystems in the environment.
 
 options:
@@ -25,30 +34,31 @@ options:
 
 `
 
-// FilesystemListCommand lists storage filesystems.
-type FilesystemListCommand struct {
+// filesystemListCommand lists storage filesystems.
+type filesystemListCommand struct {
 	FilesystemCommandBase
-	Ids []string
-	out cmd.Output
+	Ids        []string
+	out        cmd.Output
+	newAPIFunc func() (FilesystemListAPI, error)
 }
 
 // Init implements Command.Init.
-func (c *FilesystemListCommand) Init(args []string) (err error) {
+func (c *filesystemListCommand) Init(args []string) (err error) {
 	c.Ids = args
 	return nil
 }
 
 // Info implements Command.Info.
-func (c *FilesystemListCommand) Info() *cmd.Info {
+func (c *filesystemListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "list storage filesystems",
-		Doc:     FilesystemListCommandDoc,
+		Doc:     filesystemListCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *FilesystemListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *filesystemListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -59,8 +69,8 @@ func (c *FilesystemListCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *FilesystemListCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getFilesystemListAPI(c)
+func (c *filesystemListCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
@@ -98,14 +108,8 @@ func (c *FilesystemListCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-var getFilesystemListAPI = (*FilesystemListCommand).getFilesystemListAPI
-
 // FilesystemListAPI defines the API methods that the filesystem list command use.
 type FilesystemListAPI interface {
 	Close() error
 	ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error)
-}
-
-func (c *FilesystemListCommand) getFilesystemListAPI() (FilesystemListAPI, error) {
-	return c.NewStorageAPI()
 }
