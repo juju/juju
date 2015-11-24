@@ -48,7 +48,7 @@ func (st *mockState) Relation(id int) (remoterelations.Relation, error) {
 		return nil, err
 	}
 	for _, r := range st.relations {
-		if r.Id() == id {
+		if r.id == id {
 			return r, nil
 		}
 	}
@@ -165,10 +165,12 @@ func newMockRemoteService(name, url string) *mockRemoteService {
 }
 
 func (r *mockRemoteService) Name() string {
+	r.MethodCall(r, "Name")
 	return r.name
 }
 
 func (r *mockRemoteService) URL() string {
+	r.MethodCall(r, "URL")
 	return r.url
 }
 
