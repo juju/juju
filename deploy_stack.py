@@ -379,9 +379,8 @@ def tear_down(client, jes_enabled):
     and non-JES environments are torn down via 'destroy-environment --force.'
     """
     if jes_enabled:
-        jes_command = '%s kill' % client.get_jes_command()
         client.juju(
-            jes_command, (client.env.environment, '-y'),
+            client.get_jes_command(), (client.env.environment, '-y'),
             include_e=False, check=False, timeout=600)
     else:
         client.destroy_environment()

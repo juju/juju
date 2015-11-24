@@ -1207,7 +1207,7 @@ class TestEnvJujuClient(ClientTest):
     def test_is_jes_enabled(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(' system', None, 0)
+        fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
             self.assertFalse(client.is_jes_enabled())
@@ -1215,7 +1215,7 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'help', 'commands'))
         # Juju 1.25 uses the system command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('system', None, 0)
+        fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
@@ -1231,7 +1231,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, '/foobar/baz')
         # Juju 1.24 and older do not have a JES command. It is an error
         # to call get_jes_command when is_jes_enabled is False
-        fake_popen = FakePopen(' system', None, 0)
+        fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
             with self.assertRaises(JESNotSupported):
@@ -1246,10 +1246,10 @@ class TestEnvJujuClient(ClientTest):
             self.assertEqual(DEFAULT_JES_COMMAND, client.get_jes_command())
         # Juju 1.25 uses the system command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('system', None, 0)
+        fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual('system', client.get_jes_command())
+            self.assertEqual(OPTIONAL_JES_COMMAND, client.get_jes_command())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
