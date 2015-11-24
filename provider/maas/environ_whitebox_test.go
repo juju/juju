@@ -1043,8 +1043,6 @@ func (suite *environSuite) addSubnet(c *gc.C, i, j uint) {
 }
 
 func (suite *environSuite) TestSpaces(c *gc.C) {
-	// We still need the createSubnets call to setup the nodes.
-	suite.createSubnets(c, true)
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	for _, i := range []uint{1, 2, 3} {
 		suite.addSubnet(c, i, i)
