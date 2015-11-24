@@ -66,7 +66,7 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 }
 
 // List gets all remote services that have been offered from this Juju model.
-// Returned list satisfies specified filters.
+// Each returned service satisfies at least one of the the specified filters.
 func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
 	in := params.ListEndpointsFiltersSet{}
