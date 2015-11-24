@@ -204,7 +204,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		Jitter: retryTimeJitter,
 		Factor: retryTimeFactor,
 		Func: func() {
-			retryHookChan <- struct{}{}
+			// Don't try to send on the channel if it's already full
+			// This can happen if the timer fires off before the event is consumed
+			// by the resolver loop
+			select {
+			case retryHookChan <- struct{}{}:
+			default:
+			}
 		},
 		Clock: clock.WallClock,
 	})
