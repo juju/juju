@@ -33,6 +33,7 @@ type SystemManager interface {
 	ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllEnvs() (params.AllWatcherId, error)
+	EnvironmentStatus(req params.Entities) (params.EnvironmentStatusResults, error)
 }
 
 // SystemManagerAPI implements the environment manager interface and is
@@ -239,6 +240,61 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 	// environments of the same name for the same owner, but return false
 	// instead of panicing.
 	return false
+}
+
+// EnvironmentStatus returns a summary of the environment.
+func (c *SystemManagerAPI) EnvironmentStatus(req params.Entities) (params.EnvironmentStatusResults, error) {
+	envs := req.Entities
+	results := params.EnvironmentStatusResults{}
+	status := make([]params.EnvironmentStatus, len(envs))
+	for i, env := range envs {
+		envStatus, err := c.environStatus(env.Tag)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		status[i] = envStatus
+	}
+	results.Results = status
+	return results, nil
+}
+
+func (c *SystemManagerAPI) environStatus(tag string) (params.EnvironmentStatus, error) {
+	var status params.EnvironmentStatus
+	envTag, err := names.ParseEnvironTag(tag)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	st, err := c.state.ForEnviron(envTag)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	defer st.Close()
+
+	machines, err := st.AllMachines()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	services, err := st.AllServices()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	env, err := st.Environment()
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	return params.EnvironmentStatus{
+		EnvironTag:         tag,
+		OwnerTag:           env.Owner().String(),
+		Life:               params.Life(env.Life().String()),
+		HostedMachineCount: len(machines),
+		ServiceCount:       len(services),
+	}, nil
 }
 
 func (o orderedBlockInfo) Swap(i, j int) {
