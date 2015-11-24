@@ -1634,7 +1634,7 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interfacesArray, err := nodeMap["interfaces_set"].GetArray()
+	interfacesArray, err := nodeMap["interface_set"].GetArray()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1842,10 +1842,11 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		if err != nil {
 			return nil, err
 		}
-		subnetId, err := fields["id"].GetString()
+		subnetIdFloat, err := fields["id"].GetFloat64()
 		if err != nil {
 			return nil, errors.Errorf("cannot get subnet Id: %v", err)
 		}
+		subnetId := strconv.Itoa(int(subnetIdFloat))
 
 		// If we're filtering by subnet id check if this subnet is one
 		// we're looking for.
