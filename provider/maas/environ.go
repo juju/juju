@@ -1908,8 +1908,8 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaceMap := make(map[string]network.SpaceInfo)
-	spaces := []network.SpaceInfo{}
+	spaceMap := make(map[string]*network.SpaceInfo)
+	names := []string{}
 	for _, jsonNet := range jsonNets {
 		subnetInfo, err := environ.subnetFromJson(jsonNet)
 		if err != nil {
@@ -1917,14 +1917,19 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 		}
 		space, ok := spaceMap[subnetInfo.SpaceName]
 		if !ok {
-			space = network.SpaceInfo{
+			space = &network.SpaceInfo{
 				Name:       subnetInfo.SpaceName,
 				ProviderId: subnetInfo.SpaceProviderId,
 			}
+			spaceMap[space.Name] = space
+			names = append(names, space.Name)
+
 		}
-		spaces = append(spaces, space)
-		spaceMap[space.Name] = space
 		space.Subnets = append(space.Subnets, subnetInfo)
+	}
+	spaces := []network.SpaceInfo{}
+	for _, name := range names {
+		spaces = append(spaces, *spaceMap[name])
 	}
 	return spaces, nil
 }
