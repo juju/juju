@@ -152,10 +152,10 @@ type ListEndpointsServiceItem struct {
 	ServiceName string `json:"servicename"`
 
 	// CharmName is the charm name of this service.
-	CharmName string `json:"charm"`
+	CharmName string `json:"charmname"`
 
 	// UsersCount is the count of how many users are connected to this shared service.
-	UsersCount int `json:"connected,omitempty"`
+	UsersCount int `json:"userscount,omitempty"`
 
 	// Endpoints is a list of charm relations that this remote service offered.
 	Endpoints []charm.Relation `json:"endpoints"`
@@ -177,7 +177,7 @@ type ListEndpointsItemsResult struct {
 	Error *Error `json:"error,omitempty"`
 
 	// Result contains collection of remote service item results for this directory.
-	Result []ListEndpointsServiceItemResult `json:"results,omitempty"`
+	Result []ListEndpointsServiceItemResult `json:"result,omitempty"`
 }
 
 // ListEndpointsItemsResults is a result of listing remote service offers
@@ -190,13 +190,13 @@ type ListEndpointsItemsResults struct {
 // ListEndpointsFilters has sets of filters that
 // are used by a vendor to query remote services that the vendor has offered.
 type ListEndpointsFilters struct {
-	Filters []ListEndpointsFilter
+	Filters []ListEndpointsFilter `json:"filters,omitempty"`
 }
 
 // ListEndpointsFilter has a set of filter terms that
 // are used by a vendor to query remote services that the vendor has offered.
 type ListEndpointsFilter struct {
-	FilterTerms []ListEndpointsFilterTerm
+	FilterTerms []ListEndpointsFilterTerm `json:"filterterms,omitempty"`
 }
 
 // ListEndpointsFilterTerm has filter criteria that
@@ -207,8 +207,8 @@ type ListEndpointsFilterTerm struct {
 	ServiceURL string `json:"serviceurl,omitempty"`
 
 	// Endpoint contains endpoint properties for filter.
-	Endpoint RemoteEndpoint `json:"endpoint,omitempty"`
+	Endpoint RemoteEndpoint `json:"endpoint"`
 
 	// CharmName is the charm name of this service.
-	CharmName string `json:"charm"`
+	CharmName string `json:"charmname,omitempty"`
 }

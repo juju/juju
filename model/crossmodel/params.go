@@ -29,8 +29,8 @@ type ListEndpointsService struct {
 // ListEndpointsServiceResult is a result of listing a remote service.
 type ListEndpointsServiceResult struct {
 	// Result contains remote service information.
-	Result *ListEndpointsService `json:"result,omitempty"`
+	Result *ListEndpointsService
 
 	// Error contains error related to this item.
-	Error error `json:"error,omitempty"`
+	Error error
 }
