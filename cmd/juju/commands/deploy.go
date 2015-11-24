@@ -435,9 +435,9 @@ type serviceDeployer struct {
 
 func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	// If storage or placement is specified, we attempt to use a new API on the service facade.
-	// We also use the a newer API if we need to force placement.
+	// We also use the a newer API if we need to force placement or series.
 	if (args.force && args.placementSpec != "") || len(args.storage) > 0 || len(args.placement) > 0 {
-		notSupported := errors.New("cannot deploy charms with storage or placement or forcing series: not supported by the API server")
+		notSupported := errors.New("cannot deploy charms with storage or placement or forced series: not supported by the API server")
 		serviceClient, err := c.newServiceAPIClient()
 		if err != nil {
 			return notSupported
@@ -449,18 +449,17 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 			}
 			args.placement[i] = p
 		}
-		err = serviceClient.ServiceDeploy(
-			args.charmURL,
-			args.serviceName,
-			args.numUnits,
-			args.configYAML,
-			args.constraints,
-			args.placementSpec,
-			args.placement,
-			[]string{},
-			args.storage,
-			args.force,
-		)
+		err = serviceClient.ServiceDeploy(params.ServiceDeploy{
+			CharmUrl:      args.charmURL,
+			ServiceName:   args.serviceName,
+			NumUnits:      args.numUnits,
+			ConfigYAML:    args.configYAML,
+			Constraints:   args.constraints,
+			ToMachineSpec: args.placementSpec,
+			Placement:     args.placement,
+			Storage:       args.storage,
+			ForceSeries:   args.force,
+		})
 		if params.IsCodeNotImplemented(err) {
 			return notSupported
 		}

@@ -95,8 +95,17 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.ServiceDeploy("charmURL", "serviceA", 2, "configYAML", constraints.MustParse("mem=4G"),
-		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}}, true)
+	err := s.client.ServiceDeploy(params.ServiceDeploy{
+		CharmUrl:      "charmURL",
+		ServiceName:   "serviceA",
+		NumUnits:      2,
+		ConfigYAML:    "configYAML",
+		Constraints:   constraints.MustParse("mem=4G"),
+		ToMachineSpec: "machineSpec",
+		Networks:      []string{"neta"},
+		Storage:       map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		ForceSeries:   true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
