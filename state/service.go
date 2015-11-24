@@ -557,7 +557,7 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	// Update any existing endpoint bindings, using defaults for new endpoints.
 	//
 	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
-	// given bindings below.
+	// given bindings below, instead of nil.
 	endpointBindingsOp, err := endpointBindingsForCharmOp(s.st, s.globalKey(), nil, ch.Meta())
 	if err != nil {
 		return nil, errors.Trace(err)
