@@ -1668,7 +1668,7 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId string) (net.IP, net.IP, error) {
 	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
 
-	json, err := client.CallGet("unreserved_ranges", nil)
+	json, err := client.CallGet("reserved_ip_ranges", nil)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
