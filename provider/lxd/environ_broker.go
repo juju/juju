@@ -94,6 +94,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
+	series := args.Tools.OneSeries()
+	image := "ubuntu-" + series
+
 	metadata, err := getMetadata(args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -107,7 +110,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := lxdclient.InstanceSpec{
-		Name: machineID,
+		Name:  machineID,
+		Image: image,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
