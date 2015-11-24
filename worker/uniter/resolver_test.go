@@ -60,8 +60,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		ClearResolved:       func() error { return s.clearResolved() },
 		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
 		FixDeployer:         func() error { return nil },
-		StartRetryHookTimer: func() { s.stub.AddCall("startRetryHookTimer") },
-		StopRetryHookTimer:  func() { s.stub.AddCall("stopRetryHookTimer") },
+		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
+		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
@@ -120,11 +120,11 @@ func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 	// timer on the first time through, no change on the second.
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer") // no change
+	s.stub.CheckCallNames(c, "StartRetryHookTimer") // no change
 }
 
 func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
@@ -144,18 +144,18 @@ func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
 
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	s.remoteState.RetryHookVersion = 1
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
-	s.stub.CheckCallNames(c, "startRetryHookTimer") // no change
+	s.stub.CheckCallNames(c, "StartRetryHookTimer") // no change
 	localState.RetryHookVersion = 1
 
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer", "startRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StartRetryHookTimer")
 }
 
 func (s *resolverSuite) TestResolvedRetryHooksStopRetryTimer(c *gc.C) {
@@ -187,12 +187,12 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	s.remoteState.ResolvedMode = mode
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "startRetryHookTimer", "stopRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
 
 func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
@@ -212,10 +212,10 @@ func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer")
 
 	localState.Kind = operation.Continue
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-	s.stub.CheckCallNames(c, "startRetryHookTimer", "stopRetryHookTimer")
+	s.stub.CheckCallNames(c, "StartRetryHookTimer", "StopRetryHookTimer")
 }
