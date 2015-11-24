@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package state
 
 import (
 	stdtesting "testing"
@@ -13,7 +13,7 @@ import (
 
 func TestPackage(t *stdtesting.T) {
 	if testing.RaceEnabled {
-		t.Skip("skipping package under -race, see LP 1519097")
+		t.Skip("skipping package under -race, see LP 1519095")
 	}
 	coretesting.MgoTestPackage(t)
 }

@@ -27,6 +27,13 @@ import (
 	"github.com/juju/juju/worker/machiner"
 )
 
+func TestPackage(t *stdtesting.T) {
+	if gitjujutesting.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519145")
+	}
+	coretesting.MgoTestPackage(t)
+}
+
 type MachinerSuite struct {
 	coretesting.BaseSuite
 	accessor   *mockMachineAccessor
@@ -248,10 +255,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 // not affect the overall running time of the tests
 // unless they fail.
 const worstCase = 5 * time.Second
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type MachinerStateSuite struct {
 	testing.JujuConnSuite

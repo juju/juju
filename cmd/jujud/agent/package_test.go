@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package agent_test
 
 import (
 	stdtesting "testing"
@@ -13,7 +13,9 @@ import (
 
 func TestPackage(t *stdtesting.T) {
 	if testing.RaceEnabled {
-		t.Skip("skipping package under -race, see LP 1519097")
+		t.Skip("skipping package under -race, see LP 1519133, 1519097")
 	}
+	// TODO(waigani) 2014-03-19 bug 1294458
+	// Refactor to use base suites
 	coretesting.MgoTestPackage(t)
 }
