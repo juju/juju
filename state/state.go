@@ -1102,7 +1102,6 @@ type AddServiceArgs struct {
 	NumUnits    int
 	Placement   []*instance.Placement
 	Constraints constraints.Value
-	ForceSeries bool
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1235,7 +1234,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if x < len(args.Placement) {
 			placement = *args.Placement[x]
 		}
-		ops = append(ops, assignUnitOps(st, unit, placement, args.ForceSeries)...)
+		ops = append(ops, assignUnitOps(st, unit, placement)...)
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
@@ -1257,12 +1256,11 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
-func assignUnitOps(st *State, unit string, placement instance.Placement, forceSeries bool) []txn.Op {
+func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:       unit,
-		Scope:       placement.Scope,
-		Directive:   placement.Directive,
-		ForceSeries: forceSeries,
+		DocId:     unit,
+		Scope:     placement.Scope,
+		Directive: placement.Directive,
 	}
 	return []txn.Op{{
 		C:      assignUnitC,
@@ -1308,7 +1306,6 @@ func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
 			st.localID(doc.DocId),
 			doc.Scope,
 			doc.Directive,
-			doc.ForceSeries,
 		}
 	}
 	return results, nil
@@ -1336,18 +1333,18 @@ func (st *State) assignStagedUnit(a UnitAssignment) error {
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnitForceSeries(u, AssignCleanEmpty, a.ForceSeries))
+		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
 	// units always have the same networks as their service.
-	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks, a.ForceSeries))
+	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string, forceSeries bool) error {
+func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
@@ -1355,7 +1352,7 @@ func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placeme
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return unit.AssignToMachineForceSeries(m, forceSeries)
+	return unit.AssignToMachine(m)
 }
 
 // placementData is a helper type that encodes some of the logic behind how an
@@ -2055,14 +2052,6 @@ func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
 // state of the environment, this may lead to new instances being launched
 // within the environment.
 func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
-	return st.AssignUnitForceSeries(u, policy, false)
-}
-
-// AssignUnitForceSeries places the unit on a machine. Depending on the policy, and the
-// state of the environment, this may lead to new instances being launched
-// within the environment. If forceSeries is true, then the unit is allowed to be
-// placed onto a machine running an unsupported series.
-func (st *State) AssignUnitForceSeries(u *Unit, policy AssignmentPolicy, forceSeries bool) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
@@ -2074,7 +2063,7 @@ func (st *State) AssignUnitForceSeries(u *Unit, policy AssignmentPolicy, forceSe
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return u.AssignToMachineForceSeries(m, forceSeries)
+		return u.AssignToMachine(m)
 	case AssignClean:
 		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
 			return errors.Trace(err)

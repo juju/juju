@@ -557,7 +557,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", charm)
 	err := svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(s.State, svc, 1, "", false)
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 

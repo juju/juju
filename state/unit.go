@@ -1138,8 +1138,7 @@ var (
 // - unitNotAliveErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
-// - seriesDoesNotMatch when the machine has a series that the charm does not support
-func (u *Unit) assignToMachine(m *Machine, unused, forceSeries bool) (err error) {
+func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	originalm := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1148,7 +1147,7 @@ func (u *Unit) assignToMachine(m *Machine, unused, forceSeries bool) (err error)
 				return nil, errors.Trace(err)
 			}
 		}
-		return u.assignToMachineOps(m, unused, forceSeries)
+		return u.assignToMachineOps(m, unused)
 	}
 	if err := u.st.run(buildTxn); err != nil {
 		// Don't wrap the error, as we want to return specific values
@@ -1164,14 +1163,14 @@ func (u *Unit) assignToMachine(m *Machine, unused, forceSeries bool) (err error)
 // to a machine where the machine's series is not supported by the charm.
 var ErrSeriesDoesNotMatch = stderrors.New("series does not match")
 
-func (u *Unit) assignToMachineOps(m *Machine, unused, forceSeries bool) ([]txn.Op, error) {
+func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
 	}
 	if m.Life() != Alive {
 		return nil, machineNotAliveErr
 	}
-	if !forceSeries && u.doc.Series != m.doc.Series {
+	if u.doc.Series != m.doc.Series {
 		return nil, ErrSeriesDoesNotMatch
 	}
 	if u.doc.MachineId != "" {
@@ -1348,15 +1347,7 @@ func assignContextf(err *error, unit *Unit, target string) {
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
-	return u.assignToMachine(m, false, false)
-}
-
-// AssignToMachineForceSeries assigns this unit to a given machine.
-// If forceSeries is true, then the series of the charm is not required to
-// match that of the machine.
-func (u *Unit) AssignToMachineForceSeries(m *Machine, forceSeries bool) (err error) {
-	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
-	return u.assignToMachine(m, false, forceSeries)
+	return u.assignToMachine(m, false)
 }
 
 // assignToNewMachine assigns the unit to a machine created according to
@@ -1961,7 +1952,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 			assignContextf(&err, u, context)
 			return nil, err
 		}
-		err := u.assignToMachine(m, true, false)
+		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil
 		}

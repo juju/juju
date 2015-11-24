@@ -14,6 +14,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.api.service")
@@ -61,17 +64,37 @@ func (c *Client) EnvironmentUUID() string {
 // service is deployed. Another way to specify networks to include/exclude
 // is using constraints. Placement directives, if provided, specify the
 // machine on which the charm is deployed.
-func (c *Client) ServiceDeploy(arg params.ServiceDeploy) error {
+func (c *Client) ServiceDeploy(
+	charmURL string,
+	serviceName string,
+	numUnits int,
+	configYAML string,
+	cons constraints.Value,
+	toMachineSpec string,
+	placement []*instance.Placement,
+	networks []string,
+	storage map[string]storage.Constraints,
+) error {
 	args := params.ServicesDeploy{
-		Services: []params.ServiceDeploy{arg},
+		Services: []params.ServiceDeploy{{
+			ServiceName:   serviceName,
+			CharmUrl:      charmURL,
+			NumUnits:      numUnits,
+			ConfigYAML:    configYAML,
+			Constraints:   cons,
+			ToMachineSpec: toMachineSpec,
+			Placement:     placement,
+			Networks:      networks,
+			Storage:       storage,
+		}},
 	}
 	var results params.ErrorResults
 	var err error
-	if len(arg.Placement) > 0 {
+	if len(placement) > 0 {
 		err = c.facade.FacadeCall("ServicesDeployWithPlacement", args, &results)
 		if err != nil {
 			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf("unsupported --to parameter %q", arg.ToMachineSpec)
+				return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
 			}
 			return err
 		}

@@ -431,7 +431,7 @@ func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Uni
 
 	// New API uses placement directives.
 	if len(args.Placement) > 0 {
-		return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement, args.ForceSeries)
+		return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
 	}
 
 	// Otherwise we use the older machine spec.
@@ -445,7 +445,7 @@ func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Uni
 			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
-	return jjj.AddUnits(st, service, args.NumUnits, args.ToMachineSpec, args.ForceSeries)
+	return jjj.AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.

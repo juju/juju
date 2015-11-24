@@ -16,10 +16,6 @@ type assignUnitDoc struct {
 
 	// Directive is the placement directive to apply to the unit.
 	Directive string `bson:"directive"`
-
-	// ForceSeries is true if we allow the unit to be assigned to
-	// a machine with a non matching series.
-	ForceSeries bool `bson:"forceseries"`
 }
 
 // UnitAssignment represents a staged unit assignment.
@@ -32,10 +28,6 @@ type UnitAssignment struct {
 
 	// Directive is the placement directive to apply to the unit.
 	Directive string
-
-	// ForceSeries is true if we allow the unit to be assigned to
-	// a machine with a non matching series.
-	ForceSeries bool
 }
 
 // UnitAssignmentResult is the result of running a staged unit assignment.

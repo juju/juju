@@ -23,8 +23,7 @@ func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Serv
 	svc, err := s.State.AddService(state.AddServiceArgs{
 		Name: "dummy", Owner: s.Owner.String(),
 		Charm: charm, NumUnits: 2,
-		Placement:   []*instance.Placement{{s.State.EnvironUUID(), "abc"}},
-		ForceSeries: true,
+		Placement: []*instance.Placement{{s.State.EnvironUUID(), "abc"}},
 	})
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,8 +36,8 @@ func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Serv
 	assignments, err := s.State.AllUnitAssignments()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignments, jc.SameContents, []state.UnitAssignment{
-		{Unit: "dummy/0", Scope: s.State.EnvironUUID(), Directive: "abc", ForceSeries: true},
-		{Unit: "dummy/1", ForceSeries: true},
+		{Unit: "dummy/0", Scope: s.State.EnvironUUID(), Directive: "abc"},
+		{Unit: "dummy/1"},
 	})
 	return svc, assignments
 }
