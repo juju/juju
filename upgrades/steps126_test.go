@@ -27,6 +27,7 @@ func (s *steps126Suite) TestStateStepsFor126(c *gc.C) {
 		"add status to filesystem",
 		"upgrade environment config",
 		"update machine preferred addresses",
+		"add default endpoint bindings to services",
 	}
 	assertStateSteps(c, version.MustParse("1.26.0"), expected)
 }

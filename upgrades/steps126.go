@@ -48,5 +48,12 @@ func stateStepsFor126() []Step {
 				return state.AddPreferredAddressesToMachines(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "add default endpoint bindings to services",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddDefaultEndpointBindingsToServices(context.State())
+			},
+		},
 	}
 }
