@@ -43,8 +43,8 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND = 'list-controllers'
-OPTIONAL_JES_COMMAND = 'system'
+DEFAULT_JES_COMMAND = 'destroy-controller'
+OPTIONAL_JES_COMMAND = 'system kill'
 
 log = logging.getLogger("jujupy")
 

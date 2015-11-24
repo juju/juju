@@ -800,7 +800,7 @@ class TestBootContext(FakeHomeTestCase):
             if jes:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
-                        'juju', '--show-log', jes, 'kill', 'bar', '-y'))
+                        'juju', '--show-log', jes, 'bar', '-y'))
             else:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
