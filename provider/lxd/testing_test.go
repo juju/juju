@@ -112,7 +112,10 @@ type BaseSuiteUnpatched struct {
 func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 	s.osPathOrig = os.Getenv("PATH")
 	if s.osPathOrig == "" {
-		// TODO(ericsnow) This shouldn't happen...
+		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
+		// bug in testing.IsolationSuite is causing $PATH to remain unset
+		// sometimes.  Once that is cleared up this special-case can go
+		// away.
 		s.osPathOrig =
 			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 	}
@@ -258,7 +261,7 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 	defer restore()
 
 	running, err := lxdclient.IsRunningLocally()
-	c.Assert(err, jc.ErrorIsNil) // TODO(ericsnow) Ignore err instead?
+	c.Assert(err, jc.ErrorIsNil)
 	return running
 }
 
