@@ -98,7 +98,7 @@ type RemoteServiceOffers struct {
 // RemoteServiceResult is a result of listing a remote service offer.
 type RemoteServiceResult struct {
 	// Result contains service offer information.
-	Result ServiceOffer `json:"result,omitempty"`
+	Result ServiceOffer `json:"result"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -128,7 +128,7 @@ type OfferedService struct {
 // OfferedServiceResult holds the result of loading an
 // offerred service at a URL.
 type OfferedServiceResult struct {
-	Result OfferedService `json:"result,omitempty"`
+	Result OfferedService `json:"result"`
 	Error  *Error         `json:"error,omitempty"`
 }
 
