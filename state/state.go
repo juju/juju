@@ -1401,7 +1401,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {

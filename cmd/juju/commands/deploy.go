@@ -38,12 +38,17 @@ type DeployCommand struct {
 	// or a bundle name.
 	CharmOrBundle string
 	Series        string
-	ServiceName   string
-	Config        cmd.FileVar
-	Constraints   constraints.Value
-	Networks      string // TODO(dimitern): Drop this in a follow-up and fix docs.
-	BumpRevision  bool   // Remove this once the 1.16 support is dropped.
-	RepoPath      string // defaults to JUJU_REPOSITORY
+
+	// Force is used to allow a charm to be deployed onto a machine
+	// running an unsupported series.
+	Force bool
+
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
+	RepoPath     string // defaults to JUJU_REPOSITORY
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -85,6 +90,12 @@ Charms may also be deployed from a user specified path. In this case, the
 path to the charm is specified along with an optional series.
 
    juju deploy /path/to/charm --series trusty
+
+If series is not specified, the charm's default series is used. The default series
+for a charm is the first one specified in the charm metadata. If the specified series
+is not supported by the charm, this results in an error, unless --force is used.
+
+   juju deploy /path/to/charm --series wily --force
 
 Deploying using a local repository is supported but deprecated.
 In this case, when the default-series is not specified in the
@@ -196,6 +207,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
+	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
 	for _, step := range c.AfterSteps {
 		step.SetFlags(f)
@@ -203,6 +215,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	if c.Force && c.Series == "" && c.PlacementSpec == "" {
+		return errors.New("--force is only used with --series")
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsValidService(args[1]) {
@@ -245,7 +260,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// If not a bundle then maybe a local charm.
 	if err != nil {
 		// Charm may have been supplied via a path reference.
-		ch, curl, charmErr := charmrepo.NewCharmAtPath(c.CharmOrBundle, c.Series)
+		ch, curl, charmErr := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
 		if charmErr == nil {
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
@@ -259,7 +274,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			return charmErr
 		}
 		if charm.IsUnsupportedSeriesError(charmErr) {
-			return charmErr
+			return errors.Errorf("%v. Use --force to deploy the charm anyway.", charmErr)
 		}
 		err = charmErr
 	}
