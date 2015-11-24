@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/provider"
@@ -569,6 +570,74 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 	).Check()
 
 	err := s.mysql.SetCharm(newCh, true)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
+	revno := 2 // revno 1 is used by SetUpSuite
+	mysqlKey := state.ServiceGlobalKey(s.mysql.Name())
+	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
+	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, revno+1)
+	err := s.mysql.SetCharm(oldCharm, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	oldBindings, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(oldBindings, jc.DeepEquals, map[string]string{
+		"server":  network.DefaultSpace,
+		"kludge":  network.DefaultSpace,
+		"cluster": network.DefaultSpace,
+	})
+	_, err = s.State.AddSpace("db", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("admin", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	updateBindings := func(updatesMap bson.M) {
+		ops := []txn.Op{{
+			C:      state.EndpointBindingsC,
+			Id:     mysqlKey,
+			Update: bson.D{{"$set", updatesMap}},
+		}}
+		err := state.RunTransaction(s.State, ops)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// First change.
+				updateBindings(bson.M{
+					"bindings.server": "db",
+					"bindings.kludge": "admin", // will be removed before newCharm is set.
+				})
+			},
+			After: func() {
+				// Second change.
+				updateBindings(bson.M{
+					"bindings.cluster": "admin",
+				})
+			},
+		},
+		jujutxn.TestHook{
+			Before: nil, // Ensure there will be a (final) retry.
+			After: func() {
+				// Verify final bindings.
+				newBindings, err := s.mysql.EndpointBindings()
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(newBindings, jc.DeepEquals, map[string]string{
+					"server":  "db", // from the first change.
+					"foo":     network.DefaultSpace,
+					"client":  network.DefaultSpace,
+					"baz":     network.DefaultSpace,
+					"cluster": "admin", // from the second change.
+					"just":    network.DefaultSpace,
+				})
+			},
+		},
+	).Check()
+
+	err = s.mysql.SetCharm(newCharm, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2006,4 +2075,96 @@ func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c
 		mysqlBaseMeta+oneMultipleLocationStorageMeta,
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
+}
+
+func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *state.Service) {
+	// Removing the service removes the bindings with it.
+	err := service.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = service.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	bindings, err := service.EndpointBindings()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(bindings, gc.IsNil)
+}
+
+func (s *ServiceSuite) copyBindings(oldMap map[string]string) map[string]string {
+	newMap := make(map[string]string, len(oldMap))
+	for key, value := range oldMap {
+		newMap[key] = value
+	}
+	return newMap
+}
+
+func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
+	// With unspecified bindings, all endpoints are explicitly bound to the
+	// default space when saved in state.
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
+	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+
+	setBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(setBindings, jc.DeepEquals, map[string]string{
+		"server":  network.DefaultSpace,
+		"client":  network.DefaultSpace,
+		"cluster": network.DefaultSpace,
+	})
+
+	s.assertServiceRemovedWithItsBindings(c, service)
+}
+
+func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
+	_, err := s.State.AddSpace("db", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("ha", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings := map[string]string{
+		"server":  "db",
+		"cluster": "ha",
+	}
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
+	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, bindings)
+
+	setBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(setBindings, jc.DeepEquals, map[string]string{
+		"server":  "db",
+		"client":  network.DefaultSpace,
+		"cluster": "ha",
+	})
+
+	s.assertServiceRemovedWithItsBindings(c, service)
+}
+
+func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
+	_, err := s.State.AddSpace("db", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
+	oldDefaults, err := state.DefaultEndpointBindingsForCharm(oldCharm.Meta())
+	c.Assert(err, jc.ErrorIsNil)
+	oldBindings := map[string]string{
+		"kludge": "db",
+		"client": "db",
+	}
+	service := s.AddTestingServiceWithBindings(c, "yoursql", oldCharm, oldBindings)
+	setBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	effectiveOld := s.copyBindings(oldDefaults)
+	effectiveOld["kludge"] = "db"
+	effectiveOld["client"] = "db"
+	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
+
+	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
+	newDefaults, err := state.DefaultEndpointBindingsForCharm(newCharm.Meta())
+	err = service.SetCharm(newCharm, false)
+	c.Assert(err, jc.ErrorIsNil)
+	setBindings, err = service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	effectiveNew := s.copyBindings(newDefaults)
+	effectiveNew["client"] = "db" // "kludge" is missing in newMeta.
+	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+
+	s.assertServiceRemovedWithItsBindings(c, service)
 }
