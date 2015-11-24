@@ -1039,11 +1039,21 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 		err := json.NewEncoder(&out).Encode(createSubnet(i))
 		c.Assert(err, jc.ErrorIsNil)
 		suite.testMAASObject.TestServer.NewSubnet(&out)
+
+		// reserve at least one address to work around bug in
+		// TestServer.
+		addr := fmt.Sprintf("192.168.%d.1", i)
+		suite.testMAASObject.TestServer.NewIPAddress(addr, fmt.Sprintf("maas-eth%d", i))
 	}
 
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, gc.HasLen, 3)
+	expectedSpaces := []network.SpaceInfo{
+		{Name: "space-1", ProviderId: "space-1", Subnets: []network.SubnetInfo{}},
+		{Name: "space-2", ProviderId: "space-2", Subnets: []network.SubnetInfo{}},
+		{Name: "space-3", ProviderId: "space-3", Subnets: []network.SubnetInfo{}},
+	}
+	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {

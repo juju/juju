@@ -1701,6 +1701,9 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		}
 		purposeArray, err := rangeMap["purpose"].GetArray()
 		if err != nil {
+			// XXX workaround test server bug that sends nil instead of
+			// empty array.
+			continue
 			return nil, nil, errors.Trace(err)
 		}
 		found := false
@@ -1775,7 +1778,6 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
 func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network.SubnetInfo, error) {
-	logger.Errorf("%v", subnet)
 	var subnetInfo network.SubnetInfo
 	fields, err := subnet.GetMap()
 	if err != nil {
