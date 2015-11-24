@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	model "github.com/juju/juju/model/crossmodel"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -85,9 +85,9 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	urls := filter.URLs
 	results := make([]params.RemoteServiceResult, len(urls))
 
-	filters := make([]model.ServiceOfferFilter, len(urls))
+	filters := make([]jujucrossmodel.ServiceOfferFilter, len(urls))
 	for i, one := range urls {
-		if _, err := model.ParseServiceURL(one); err != nil {
+		if _, err := jujucrossmodel.ParseServiceURL(one); err != nil {
 			results[i].Error = common.ServerError(err)
 		}
 		filters[i].ServiceURL = one
@@ -98,7 +98,7 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 		return params.RemoteServiceResults{}, errors.Trace(err)
 	}
 
-	tpMap := make(map[string]model.ServiceOffer, len(found))
+	tpMap := make(map[string]jujucrossmodel.ServiceOffer, len(found))
 	for _, offer := range found {
 		tpMap[offer.ServiceURL] = offer
 	}
@@ -123,8 +123,8 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 func (api *API) List(args params.ListEndpointsFilters) (params.ListEndpointsItemsResults, error) {
 
 	// This func constructs individual set of filters.
-	filters := func(aSet params.ListEndpointsFilter) []model.RemoteServiceFilter {
-		result := make([]model.RemoteServiceFilter, len(aSet.FilterTerms))
+	filters := func(aSet params.ListEndpointsFilter) []jujucrossmodel.RemoteServiceFilter {
+		result := make([]jujucrossmodel.RemoteServiceFilter, len(aSet.FilterTerms))
 		for i, filter := range aSet.FilterTerms {
 			result[i] = constructRemoteServiceFilter(filter)
 		}
@@ -132,7 +132,7 @@ func (api *API) List(args params.ListEndpointsFilters) (params.ListEndpointsItem
 	}
 
 	// This func converts results for a filters set to params.
-	convertToParams := func(remotes []model.RemoteService) []params.ListEndpointsServiceItemResult {
+	convertToParams := func(remotes []jujucrossmodel.RemoteService) []params.ListEndpointsServiceItemResult {
 		results := make([]params.ListEndpointsServiceItemResult, len(remotes))
 		for i, one := range remotes {
 			results[i] = api.getRemoteService(one)
@@ -153,7 +153,7 @@ func (api *API) List(args params.ListEndpointsFilters) (params.ListEndpointsItem
 	return params.ListEndpointsItemsResults{found}, nil
 }
 
-func (api *API) getRemoteService(remote model.RemoteService) params.ListEndpointsServiceItemResult {
+func (api *API) getRemoteService(remote jujucrossmodel.RemoteService) params.ListEndpointsServiceItemResult {
 	service, err := api.access.Service(remote.ServiceName)
 	if err != nil {
 		return params.ListEndpointsServiceItemResult{Error: common.ServerError(err)}
@@ -173,11 +173,11 @@ func (api *API) getRemoteService(remote model.RemoteService) params.ListEndpoint
 	return params.ListEndpointsServiceItemResult{Result: &result}
 }
 
-func constructRemoteServiceFilter(filter params.ListEndpointsFilterTerm) model.RemoteServiceFilter {
-	return model.RemoteServiceFilter{
+func constructRemoteServiceFilter(filter params.ListEndpointsFilterTerm) jujucrossmodel.RemoteServiceFilter {
+	return jujucrossmodel.RemoteServiceFilter{
 		ServiceURL: filter.ServiceURL,
 		CharmName:  filter.CharmName,
-		Endpoint: model.RemoteEndpointFilter{
+		Endpoint: jujucrossmodel.RemoteEndpointFilter{
 			Name:      filter.Endpoint.Name,
 			Interface: filter.Endpoint.Interface,
 			Role:      filter.Endpoint.Role,
@@ -187,20 +187,20 @@ func constructRemoteServiceFilter(filter params.ListEndpointsFilterTerm) model.R
 
 // parseOffer is a helper function that translates from params
 // structure into internal service layer one.
-func (api *API) parseOffer(p params.RemoteServiceOffer) (model.ServiceOffer, error) {
+func (api *API) parseOffer(p params.RemoteServiceOffer) (jujucrossmodel.ServiceOffer, error) {
 	service, err := api.access.Service(p.ServiceName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return model.ServiceOffer{}, common.ErrPerm
+			return jujucrossmodel.ServiceOffer{}, common.ErrPerm
 		}
-		return model.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
+		return jujucrossmodel.ServiceOffer{}, errors.Annotatef(err, "getting service %v", p.ServiceName)
 	}
 
 	endpoints, err := getServiceEndpoints(service, p.Endpoints)
 	if err != nil {
-		return model.ServiceOffer{}, errors.Trace(err)
+		return jujucrossmodel.ServiceOffer{}, errors.Trace(err)
 	}
-	offer := model.ServiceOffer{
+	offer := jujucrossmodel.ServiceOffer{
 		ServiceURL:         p.ServiceURL,
 		ServiceName:        service.Name(),
 		Endpoints:          endpoints,
@@ -210,7 +210,7 @@ func (api *API) parseOffer(p params.RemoteServiceOffer) (model.ServiceOffer, err
 	if p.ServiceDescription == "" {
 		ch, _, err := service.Charm()
 		if err != nil {
-			return model.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ServiceName)
+			return jujucrossmodel.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ServiceName)
 		}
 		offer.ServiceDescription = ch.Meta().Description
 	}
@@ -232,7 +232,7 @@ func getServiceEndpoints(service *state.Service, endpointNames []string) ([]char
 
 // convertServiceOffer is a helper function that translates from internal service layer
 // structure into params one.
-func convertServiceOffer(c model.ServiceOffer) params.ServiceOffer {
+func convertServiceOffer(c jujucrossmodel.ServiceOffer) params.ServiceOffer {
 	return params.ServiceOffer{
 		ServiceName:        c.ServiceName,
 		ServiceURL:         c.ServiceURL,
@@ -263,26 +263,26 @@ func convertEndpoints(endpoints []charm.Relation) []params.RemoteEndpoint {
 type ServicesBackend interface {
 
 	// AddOffer adds a new service offer to the directory.
-	AddOffer(offer model.ServiceOffer) error
+	AddOffer(offer jujucrossmodel.ServiceOffer) error
 
 	// ListOffers returns offers satisfying the specified filter.
-	ListOffers(filter ...model.ServiceOfferFilter) ([]model.ServiceOffer, error)
+	ListOffers(filter ...jujucrossmodel.ServiceOfferFilter) ([]jujucrossmodel.ServiceOffer, error)
 
 	// ListRemoteServices returns remote services satisfying specified filters.
-	ListRemoteServices(filters ...model.RemoteServiceFilter) ([]model.RemoteService, error)
+	ListRemoteServices(filters ...jujucrossmodel.RemoteServiceFilter) ([]jujucrossmodel.RemoteService, error)
 }
 
 // TODO (anastasiamac 2015-11-16) Remove me when backend is done
 type servicesBackendStub struct{}
 
-func (e *servicesBackendStub) AddOffer(offer model.ServiceOffer) error {
+func (e *servicesBackendStub) AddOffer(offer jujucrossmodel.ServiceOffer) error {
 	return nil
 }
 
-func (e *servicesBackendStub) ListOffers(filter ...model.ServiceOfferFilter) ([]model.ServiceOffer, error) {
+func (e *servicesBackendStub) ListOffers(filter ...jujucrossmodel.ServiceOfferFilter) ([]jujucrossmodel.ServiceOffer, error) {
 	return nil, nil
 }
 
-func (e *servicesBackendStub) ListRemoteServices(filters ...model.RemoteServiceFilter) ([]model.RemoteService, error) {
+func (e *servicesBackendStub) ListRemoteServices(filters ...jujucrossmodel.RemoteServiceFilter) ([]jujucrossmodel.RemoteService, error) {
 	return nil, nil
 }
