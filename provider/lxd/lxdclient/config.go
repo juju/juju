@@ -230,7 +230,7 @@ func (cfg Config) writeConfigFile() error {
 }
 
 func (cfg Config) writeCert() error {
-	if cfg.Remote.Cert == nil || cfg.Remote.Cert.isZero() {
+	if cfg.Remote.Cert.isZero() {
 		logger.Debugf("not writing empty certificate")
 		return nil
 	}
