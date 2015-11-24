@@ -195,10 +195,11 @@ func (i *ServiceInfo) EntityId() EntityId {
 // RemoteServiceInfo holds the information about a remote service that is
 // tracked by multiwatcherStore.
 type RemoteServiceInfo struct {
-	EnvUUID   string
-	Name      string
-	Life      Life
-	Endpoints []Endpoint
+	EnvUUID    string
+	Name       string
+	ServiceURL string
+	Life       Life
+	Endpoints  []Endpoint
 	// TODO(axw) Description, Icon. These would normally be part of a
 	// charm, but remote services do not have this information currently.
 	// TODO(axw) Status? Needs status in the remote service model too.

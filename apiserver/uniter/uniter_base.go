@@ -996,23 +996,33 @@ func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResul
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	one := func(relTag string, unitTag names.UnitTag) error {
+		rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
+		if err != nil {
+			return err
+		}
+		relUnit, err := rel.Unit(unit)
+		if err != nil {
+			return err
+		}
+		// Construct the settings, passing the unit's
+		// private address (we already know it).
+		privateAddress, _ := unit.PrivateAddress()
+		settings := map[string]interface{}{
+			"private-address": privateAddress.Value,
+		}
+		return relUnit.EnterScope(settings)
+	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, tag)
-		if err == nil {
-			// Construct the settings, passing the unit's
-			// private address (we already know it).
-			privateAddress, _ := relUnit.PrivateAddress()
-			settings := map[string]interface{}{
-				"private-address": privateAddress.Value,
-			}
-			err = relUnit.EnterScope(settings)
+		err = one(arg.Relation, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
 		}
-		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }

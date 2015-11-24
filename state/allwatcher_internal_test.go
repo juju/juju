@@ -262,7 +262,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		})
 	}
 
-	_, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+	_, remoteServiceInfo := addTestingRemoteService(
+		c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+	)
 	add(&remoteServiceInfo)
 	return
 }
@@ -280,20 +282,21 @@ var mysqlRelations = []charm.Relation{{
 }}
 
 func addTestingRemoteService(
-	c *gc.C, st *State, name string, relations []charm.Relation,
+	c *gc.C, st *State, name, url string, relations []charm.Relation,
 ) (*RemoteService, multiwatcher.RemoteServiceInfo) {
 
-	rs, err := st.AddRemoteService(name, relations)
+	rs, err := st.AddRemoteService(name, url, relations)
 	c.Assert(err, jc.ErrorIsNil)
 	endpoints := make([]multiwatcher.Endpoint, len(relations))
 	for i, r := range relations {
 		endpoints[i] = multiwatcher.Endpoint{name, r}
 	}
 	return rs, multiwatcher.RemoteServiceInfo{
-		EnvUUID:   st.EnvironUUID(),
-		Name:      name,
-		Life:      multiwatcher.Life(rs.Life().String()),
-		Endpoints: endpoints,
+		EnvUUID:    st.EnvironUUID(),
+		Name:       name,
+		ServiceURL: url,
+		Life:       multiwatcher.Life(rs.Life().String()),
+		Endpoints:  endpoints,
 	}
 }
 
@@ -447,7 +450,9 @@ func (s *allWatcherStateSuite) TestChangeRemoteServices(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestRemoveRemoteService(c *gc.C) {
-	mysql, remoteServiceInfo := addTestingRemoteService(c, s.state, "remote-mysql", mysqlRelations)
+	mysql, remoteServiceInfo := addTestingRemoteService(
+		c, s.state, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+	)
 	tw := newTestAllWatcher(s.state, c)
 	defer tw.Stop()
 
@@ -464,8 +469,9 @@ func (s *allWatcherStateSuite) TestRemoveRemoteService(c *gc.C) {
 	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
 		Removed: true,
 		Entity: &multiwatcher.RemoteServiceInfo{
-			EnvUUID: s.state.EnvironUUID(),
-			Name:    "remote-mysql",
+			EnvUUID:    s.state.EnvironUUID(),
+			Name:       "remote-mysql",
+			ServiceURL: "local:/u/me/mysql",
 		},
 	}})
 }
@@ -2938,8 +2944,9 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 				about: "remote service is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.RemoteServiceInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "remote-mysql",
+						EnvUUID:    st.EnvironUUID(),
+						Name:       "remote-mysql",
+						ServiceURL: "local:/u/me/mysql",
 					},
 				},
 				change: watcher.Change{
@@ -2948,7 +2955,7 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			_, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+			_, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations)
 			return changeTestCase{
 				about: "remote service is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -2967,7 +2974,9 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 			// removed and thus the remote service is not removed
 			// upon destroying.
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
-			mysql, remoteServiceInfo := addTestingRemoteService(c, st, "remote-mysql", mysqlRelations)
+			mysql, remoteServiceInfo := addTestingRemoteService(
+				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+			)
 
 			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
 			c.Assert(err, jc.ErrorIsNil)

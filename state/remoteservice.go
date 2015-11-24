@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -27,6 +28,7 @@ type RemoteService struct {
 type remoteServiceDoc struct {
 	DocID         string              `bson:"_id"`
 	Name          string              `bson:"name"`
+	URL           string              `bson:"url"`
 	Endpoints     []remoteEndpointDoc `bson:"endpoints"`
 	Life          Life                `bson:"life"`
 	RelationCount int                 `bson:"relationcount"`
@@ -57,6 +59,11 @@ func (s *RemoteService) IsRemote() bool {
 // Name returns the service name.
 func (s *RemoteService) Name() string {
 	return s.doc.Name
+}
+
+// URL returns the remote service URL.
+func (s *RemoteService) URL() string {
+	return s.doc.URL
 }
 
 // Tag returns a name identifying the service.
@@ -252,12 +259,15 @@ var (
 
 // AddRemoteService creates a new remote service record, having the supplied relation endpoints,
 // with the supplied name (which must be unique across all services, local and remote).
-func (st *State) AddRemoteService(name string, endpoints []charm.Relation) (service *RemoteService, err error) {
+func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) (service *RemoteService, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add remote service %q", name)
 
 	// Sanity checks.
 	if !names.IsValidService(name) {
 		return nil, errors.Errorf("invalid name")
+	}
+	if _, err := crossmodel.ParseServiceURL(url); err != nil {
+		return nil, errors.Annotate(err, "validating service URL")
 	}
 	env, err := st.Environment()
 	if err != nil {
@@ -271,6 +281,7 @@ func (st *State) AddRemoteService(name string, endpoints []charm.Relation) (serv
 	svcDoc := &remoteServiceDoc{
 		DocID: serviceID,
 		Name:  name,
+		URL:   url,
 		Life:  Alive,
 	}
 	eps := make([]remoteEndpointDoc, len(endpoints))

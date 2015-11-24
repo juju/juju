@@ -45,7 +45,7 @@ func (s *remoteServiceSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	var err error
-	s.service, err = s.State.AddRemoteService("mysql", eps)
+	s.service, err = s.State.AddRemoteService("mysql", "local:/u/me/mysql", eps)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -66,6 +66,10 @@ func (s *remoteServiceSuite) assertServiceRelations(c *gc.C, svc *state.Service,
 
 func (s *remoteServiceSuite) TestTag(c *gc.C) {
 	c.Assert(s.service.Tag().String(), gc.Equals, "service-mysql")
+}
+
+func (s *remoteServiceSuite) TestURL(c *gc.C) {
+	c.Assert(s.service.URL(), gc.Equals, "local:/u/me/mysql")
 }
 
 func (s *remoteServiceSuite) TestMysqlEndpoints(c *gc.C) {
@@ -126,7 +130,7 @@ func (s *remoteServiceSuite) TestAddRelationBothRemote(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	_, err := s.State.AddRemoteService("wordpress", wpep)
+	_, err := s.State.AddRemoteService("wordpress", "local:/u/me/wordpress", wpep)
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,14 +146,22 @@ func (s *remoteServiceSuite) TestInferEndpointsWrongScope(c *gc.C) {
 }
 
 func (s *remoteServiceSuite) TestAddRemoteServiceErrors(c *gc.C) {
-	_, err := s.State.AddRemoteService("haha/borken", nil)
+	_, err := s.State.AddRemoteService("haha/borken", "local:/u/me/mysql", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "haha/borken": invalid name`)
 	_, err = s.State.RemoteService("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `remote service name "haha/borken" not valid`)
+
+	_, err = s.State.AddRemoteService("borken", "haha/borken", nil)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot add remote service "borken": validating service URL: `+
+			`service URL has invalid form, missing "/u/<user>": "haha/borken"`,
+	)
+	_, err = s.State.RemoteService("borken")
+	c.Assert(err, gc.ErrorMatches, `remote service "borken" not found`)
 }
 
 func (s *remoteServiceSuite) TestAddRemoteService(c *gc.C) {
-	foo, err := s.State.AddRemoteService("foo", nil)
+	foo, err := s.State.AddRemoteService("foo", "local:/u/me/foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	foo, err = s.State.RemoteService("foo")
@@ -323,7 +335,7 @@ func (s *remoteServiceSuite) TestAllRemoteServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddRemoteService("another", nil)
+	_, err = s.State.AddRemoteService("another", "local:/u/me/another", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	services, err = s.State.AllRemoteServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,7 +357,7 @@ func (s *remoteServiceSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteService("s1", nil)
+	_, err = s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": environment is no longer alive`)
 }
 
@@ -353,7 +365,7 @@ func (s *remoteServiceSuite) TestAddServiceSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteService("s1", nil)
+	_, err = s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": local service with same name already exists`)
 }
 
@@ -366,14 +378,14 @@ func (s *remoteServiceSuite) TestAddServiceLocalAddedAfterInitial(c *gc.C) {
 		_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteService("s1", nil)
+	_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": local service with same name already exists`)
 }
 
 func (s *remoteServiceSuite) TestAddServiceSameRemoteExists(c *gc.C) {
-	_, err := s.State.AddRemoteService("s1", nil)
+	_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteService("s1", nil)
+	_, err = s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": remote service already exists`)
 }
 
@@ -382,10 +394,10 @@ func (s *remoteServiceSuite) TestAddServiceRemoteAddedAfterInitial(c *gc.C) {
 	// there is no conflict initially but a remote service is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddRemoteService("s1", nil)
+		_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteService("s1", nil)
+	_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": remote service already exists`)
 }
 
@@ -399,7 +411,7 @@ func (s *remoteServiceSuite) TestAddServiceEnvironDiesAfterInitial(c *gc.C) {
 		err = env.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteService("s1", nil)
+	_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": environment is no longer alive`)
 }
 
@@ -410,7 +422,7 @@ func (s *remoteServiceSuite) TestWatchRemoteServices(c *gc.C) {
 	wc.AssertChangeInSingleEvent("mysql") // initial
 	wc.AssertNoChange()
 
-	db2, err := s.State.AddRemoteService("db2", nil)
+	db2, err := s.State.AddRemoteService("db2", "local:/u/ibm/db2", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()
