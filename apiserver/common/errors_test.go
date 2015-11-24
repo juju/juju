@@ -68,11 +68,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeUnitHasSubordinates,
 }, {
-	err:        state.ErrSeriesDoesNotMatch,
-	code:       params.CodeSeriesDoesNotMatch,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeSeriesDoesNotMatch,
-}, {
 	err:        common.ErrBadId,
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,

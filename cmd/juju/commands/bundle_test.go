@@ -317,7 +317,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
+func (s *deployRepoCharmStoreSuite) TestDeployBundleDifferentSeries(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "vivid/django-0", "dummy")
 	_, err := s.deployBundleYAML(c, `
         services:
@@ -330,7 +330,14 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: trusty
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUplodaded(c, "cs:vivid/django-0")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"django": {charm: "cs:vivid/django-0"},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"django/0": "0",
+	})
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/series"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -1159,9 +1160,21 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	return nil
 }
 
-// ErrSeriesDoesNotMatch is used to indicate an attempt to assign a unit
-// to a machine where the machine's series is not supported by the charm.
-var ErrSeriesDoesNotMatch = stderrors.New("series does not match")
+// errIncompatibleOS is used to indicate an attempt to assign a unit
+// to a machine where the machine's OS is not supported by the charm.
+var errIncompatibleOS = stderrors.New("machine has incompatible operating system")
+
+func validateCompatibleSeries(unitSeries, machineSeries string) error {
+	if unitSeries == machineSeries {
+		return nil
+	}
+	machineOS, _ := series.GetOSFromSeries(machineSeries)
+	unitOS, _ := series.GetOSFromSeries(unitSeries)
+	if machineOS != unitOS {
+		return errIncompatibleOS
+	}
+	return nil
+}
 
 func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
@@ -1170,8 +1183,8 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if m.Life() != Alive {
 		return nil, machineNotAliveErr
 	}
-	if u.doc.Series != m.doc.Series {
-		return nil, ErrSeriesDoesNotMatch
+	if err := validateCompatibleSeries(u.doc.Series, m.doc.Series); err != nil {
+		return nil, err
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {

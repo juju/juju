@@ -246,13 +246,23 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, econs)
 }
 
-func (s *AssignSuite) TestAssignBadSeries(c *gc.C) {
-	machine, err := s.State.AddMachine("burble", state.JobHostUnits)
+func (s *AssignSuite) TestAssignToMachineWithIncompatibleOS(c *gc.C) {
+	machine, err := s.State.AddMachine("centos7", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, ".* machine has incompatible operating system")
+}
+
+func (s *AssignSuite) TestAssignToMachineDifferentSeries(c *gc.C) {
+	machine, err := s.State.AddMachine("wily", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Series(), gc.Not(gc.Equals), "wily")
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
