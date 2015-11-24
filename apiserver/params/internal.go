@@ -510,15 +510,32 @@ type ServiceRelationsWatchResults struct {
 	Results []ServiceRelationsWatchResult `json:"results"`
 }
 
+// ServiceChange describes changes to a service.
+type ServiceChange struct {
+	ServiceTag string                 `json:"servicetag"`
+	Life       Life                   `json:"life"`
+	Relations  ServiceRelationsChange `json:"relations"`
+}
+
+// ServiceChanges describes a set of changes to services.
+type ServiceChanges struct {
+	Changes []ServiceChange `json:"changes,omitempty"`
+}
+
 // ServiceRelationsChange describes changes to the relations that a service
 // is involved in.
 type ServiceRelationsChange struct {
 	// ChangedRelations maps relation IDs to relation changes.
-	ChangedRelations []RelationChange
+	ChangedRelations []RelationChange `json:"changed,omitempty"`
 
 	// RemovedRelations contains the IDs of relations removed
 	// since the last change.
-	RemovedRelations []int
+	RemovedRelations []int `json:"removed,omitempty"`
+}
+
+// ServiceRelationsChanges holds a set of ServiceRelationsChange structures.
+type ServiceRelationsChanges struct {
+	Changes []ServiceRelationsChange `json:"changes,omitempty"`
 }
 
 // RelationChange describes changes to a relation.

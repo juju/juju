@@ -32,7 +32,11 @@ type RemoteRelationsAPI struct {
 
 // NewRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
-func NewStateRemoteRelationsAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*RemoteRelationsAPI, error) {
+func NewStateRemoteRelationsAPI(
+	st *state.State,
+	resources *common.Resources,
+	authorizer common.Authorizer,
+) (*RemoteRelationsAPI, error) {
 	return NewRemoteRelationsAPI(stateShim{st}, resources, authorizer)
 }
 
@@ -50,6 +54,98 @@ func NewRemoteRelationsAPI(
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
+}
+
+// ConsumeRemoteServiceChange consumes remote changes to services into the
+// local environment.
+func (api *RemoteRelationsAPI) ConsumeRemoteServiceChange(
+	changes params.ServiceChanges,
+) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+	handleServiceRelationsChange := func(change params.ServiceRelationsChange) error {
+		// For any relations that have been removed on the offering
+		// side, destroy them on the consuming side.
+		for _, relId := range change.RemovedRelations {
+			rel, err := api.st.Relation(relId)
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			if err := rel.Destroy(); err != nil {
+				return errors.Trace(err)
+			}
+			// TODO(axw) remove remote relation units.
+		}
+		for _, change := range change.ChangedRelations {
+			rel, err := api.st.Relation(change.RelationId)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if change.Life != params.Alive {
+				if err := rel.Destroy(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+			for _, unitId := range change.DepartedUnits {
+				ru, err := rel.RemoteUnit(unitId)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if err := ru.LeaveScope(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+			for unitId, change := range change.ChangedUnits {
+				ru, err := rel.RemoteUnit(unitId)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				inScope, err := ru.InScope()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !inScope {
+					err = ru.EnterScope(change.Settings)
+				} else {
+					err = ru.ReplaceSettings(change.Settings)
+				}
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+		return nil
+	}
+	handleServiceChange := func(change params.ServiceChange) error {
+		serviceTag, err := names.ParseServiceTag(change.ServiceTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		service, err := api.st.RemoteService(serviceTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// TODO(axw) update service status, lifecycle state.
+		_ = service
+		return handleServiceRelationsChange(change.Relations)
+	}
+	for i, change := range changes.Changes {
+		if err := handleServiceChange(change); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// PublishLocalRelationChange publishes local relations changes to the
+// remote side offering those relations.
+func (api *RemoteRelationsAPI) PublishLocalRelationsChange(
+	changes params.ServiceRelationsChanges,
+) (params.ErrorResults, error) {
+	return params.ErrorResults{}, errors.NotImplementedf("PublishLocalRelationChange")
 }
 
 // WatchRemoteServices starts a strings watcher that notifies of the addition,
@@ -97,6 +193,7 @@ func (api *RemoteRelationsAPI) WatchRemoteService(args params.Entities) (params.
 }
 
 func (api *RemoteRelationsAPI) watchService(serviceTag names.ServiceTag) (*serviceRelationsWatcher, error) {
+	// TODO(axw) subscribe to changes sent by the offering side.
 	serviceName := serviceTag.Id()
 	relationsWatcher, err := api.st.WatchRemoteServiceRelations(serviceName)
 	if err != nil {
