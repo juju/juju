@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -29,10 +29,6 @@ type environSuite struct {
 	innerEnviron *fakeEnviron
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> More review comments implemented
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
@@ -41,7 +37,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
+	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, args)
 	})
 	s.environ.Bootstrap(nil, environs.BootstrapParams{})
@@ -81,11 +77,6 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	c.Check(dropParams.params[1], gc.Equals, "1.1.1.1")
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> test fixed for rackspace provider
-=======
->>>>>>> More review comments implemented
 type methodCall struct {
 	name   string
 	params []interface{}
@@ -110,9 +101,9 @@ func (p *fakeEnviron) Open(cfg *config.Config) (environs.Environ, error) {
 	return nil, nil
 }
 
-func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, params)
-	return "", "", nil, nil
+	return nil, nil
 }
 
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -298,51 +289,3 @@ func (e *fakeInstance) Ports(machineId string) ([]network.PortRange, error) {
 	e.Push("Ports", machineId)
 	return nil, nil
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
-var _ = gc.Suite(&environSuite{})
-
-func (s *environSuite) SetUpTest(c *gc.C) {
-	s.innerEnviron = new(fakeEnviron)
-	s.environ = rackspace.NewEnviron(s.innerEnviron)
-}
-
-func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(&rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-	) (arch, series string, _ environs.BootstrapFinalizer, err error) {
-		return s.innerEnviron.Bootstrap(ctx, args)
-	})
-	s.environ.Bootstrap(nil, environs.BootstrapParams{})
-	c.Check(s.innerEnviron.Pop().name, gc.Equals, "Bootstrap")
-}
-
-func (s *environSuite) TestStartInstance(c *gc.C) {
-	configurator := &fakeConfigurator{}
-	s.PatchValue(&rackspace.NewInstanceConfigurator, func(host string) common.InstanceConfigurator {
-		return configurator
-	})
-	config, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "some-name",
-		"type":            "some-type",
-		"authorized-keys": "key",
-	})
-	c.Check(err, gc.IsNil)
-	_, err = s.environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Config: config,
-		},
-		Tools: tools.List{&tools.Tools{
-			Version: version.Binary{Series: "trusty"},
-		}},
-	})
-	c.Check(err, gc.IsNil)
-	c.Check(s.innerEnviron.Pop().name, gc.Equals, "StartInstance")
-	dropParams := configurator.Pop()
-	c.Check(dropParams.name, gc.Equals, "DropAllPorts")
-	c.Check(dropParams.params[1], gc.Equals, "1.1.1.1")
-}
->>>>>>> test fixed for rackspace provider
-=======
->>>>>>> More review comments implemented
