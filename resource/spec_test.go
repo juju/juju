@@ -1,0 +1,81 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package resource_test
+
+import (
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
+
+	"github.com/juju/juju/resource"
+)
+
+var _ = gc.Suite(&specSuite{})
+
+type specSuite struct {
+	testing.IsolationSuite
+}
+
+func (specSuite) TestNewResourceSpecUpload(c *gc.C) {
+	info := charm.ResourceInfo{
+		Name:    "spam",
+		Type:    "file",
+		Path:    "spam.tgz",
+		Comment: "you need it",
+	}
+	origin := resource.OriginUpload
+	revision := resource.NoRevision
+
+	spec, err := resource.NewResourceSpec(info, origin, revision)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(spec.Definition(), jc.DeepEquals, info)
+	c.Check(spec.Origin(), gc.Equals, origin)
+	c.Check(spec.Revision(), gc.Equals, revision)
+}
+
+func (specSuite) TestNewResourceSpecEmptyInfo(c *gc.C) {
+	var info charm.ResourceInfo
+	origin := resource.OriginUpload
+	revision := resource.NoRevision
+
+	spec, err := resource.NewResourceSpec(info, origin, revision)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(spec.Definition(), jc.DeepEquals, info)
+	c.Check(spec.Origin(), gc.Equals, origin)
+	c.Check(spec.Revision(), gc.Equals, revision)
+}
+
+func (specSuite) TestNewResourceSpecEmptyOrigin(c *gc.C) {
+	info := charm.ResourceInfo{
+		Name:    "spam",
+		Type:    "file",
+		Path:    "spam.tgz",
+		Comment: "you need it",
+	}
+	revision := resource.NoRevision
+
+	_, err := resource.NewResourceSpec(info, "", revision)
+
+	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, gc.ErrorMatches, `.*origin.*`)
+}
+
+func (specSuite) TestNewResourceSpecUnknownOrigin(c *gc.C) {
+	info := charm.ResourceInfo{
+		Name:    "spam",
+		Type:    "file",
+		Path:    "spam.tgz",
+		Comment: "you need it",
+	}
+	revision := resource.NoRevision
+
+	_, err := resource.NewResourceSpec(info, "<bogus>", revision)
+
+	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, gc.ErrorMatches, `.*origin.*`)
+}
