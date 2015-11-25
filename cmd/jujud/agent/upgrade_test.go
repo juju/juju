@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,23 +19,22 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 type UpgradeSuite struct {
-	commonMachineSuite
+	agenttesting.AgentSuite
 
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
@@ -46,18 +44,11 @@ type UpgradeSuite struct {
 
 var _ = gc.Suite(&UpgradeSuite{})
 
-type exposedAPI bool
-
-var (
-	FullAPIExposed       exposedAPI = true
-	RestrictedAPIExposed exposedAPI = false
-)
-
 const fails = true
 const succeeds = false
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
-	s.commonMachineSuite.SetUpTest(c)
+	s.AgentSuite.SetUpTest(c)
 
 	s.oldVersion = version.Binary{
 		Number: version.Current,
@@ -246,7 +237,9 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
 	s.captureLogs(c)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
@@ -286,7 +279,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	// the other state servers doesn't signal it is ready in time.
 
 	// The master state server in this scenario is functionally tested
-	// elsewhere in this suite.
+	// elsewhere.
 	s.machineIsMaster = false
 
 	s.createUpgradingStateServers(c)
@@ -324,8 +317,9 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
-
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
 	config := s.makeFakeConfig()
 	agent := NewFakeUpgradingMachineAgent(config)
 	close(agent.DyingCh)
@@ -408,183 +402,6 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
-func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
-	// Create machine agent to upgrade
-	machine, machine0Conf, _ := s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
-	a := s.newAgent(c, machine)
-
-	// Mock out upgrade logic, using a channel so that the test knows
-	// when upgrades have started and can control when upgrades
-	// should finish.
-	upgradeCh := make(chan bool)
-	abort := make(chan bool)
-	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
-		// Signal that upgrade has started.
-		select {
-		case upgradeCh <- true:
-		case <-abort:
-			return nil
-		}
-
-		// Wait for signal that upgrades should finish.
-		select {
-		case <-upgradeCh:
-		case <-abort:
-			return nil
-		}
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-
-	// Start the API server and upgrade-steps works just as the agent would.
-	runner := worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, 250*time.Millisecond)
-	defer func() {
-		close(abort)
-		runner.Kill()
-		runner.Wait()
-	}()
-	certChangedChan := make(chan params.StateServingInfo)
-	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State, certChangedChan))
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(
-		s.APIState,
-		[]multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-	))
-
-	// Set up a second machine to log in as.
-	// API logins are tested manually so there's no need to actually
-	// start this machine.
-	var machine1Conf agent.Config
-	_, machine1Conf, _ = s.primeAgent(c, state.JobHostUnits)
-
-	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
-
-	// Only user and local logins are allowed during upgrade. Users get a restricted API.
-	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
-
-	close(upgradeCh) // Allow upgrade to complete
-
-	waitForUpgradeToFinish(c, machine0Conf)
-
-	// Only user and local logins are allowed even after upgrade steps because
-	// agent upgrade not finished yet.
-	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
-
-	machineAPI := s.OpenAPIAsMachine(c, machine.Tag(), initialMachinePassword, agent.BootstrapNonce)
-	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(machineAPI.Upgrader(), machine0Conf))
-	// Wait for agent upgrade worker to determine that no
-	// agent upgrades are required.
-	select {
-	case <-a.initialAgentUpgradeCheckComplete:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout waiting for upgrade check")
-	}
-
-	// All logins are allowed after upgrade
-	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
-}
-
-func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
-	attempts := 0
-	upgradeCh := make(chan bool)
-	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
-		// Note: this shouldn't run.
-		attempts++
-		// If execution ends up here, wait so it can be detected (by
-		// checking for restricted API
-		<-upgradeCh
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-
-	// Set up machine agent running the current version.
-	//
-	// Set the agent's initial upgradedToVersion to be almost the same
-	// as version.Current but not quite. We want it to be different to
-	// version.Current (so that we can see it change) but not to
-	// trigger upgrade steps.
-	initialVersion := makeBumpedCurrentVersion()
-	machine, agentConf, _ := s.primeAgentVersion(c, initialVersion, state.JobManageEnviron)
-	a := s.newAgent(c, machine)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() {
-		close(upgradeCh)
-		c.Check(a.Stop(), gc.IsNil)
-	}()
-
-	// Test that unrestricted API logins are possible (i.e. no
-	// "upgrade mode" in force)
-	s.checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
-	c.Assert(attempts, gc.Equals, 0) // There should have been no attempt to upgrade.
-
-	// Even though no upgrade was done upgradedToVersion should have been updated.
-	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current)
-}
-
-func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1446885")
-	// This test checks that the master triggers a downgrade if one of
-	// the other state server fails to signal it is ready for upgrade.
-	//
-	// This test is functional, ensuring that the upgrader worker
-	// terminates the machine agent with the UpgradeReadyError which
-	// makes the downgrade happen.
-
-	// Speed up the watcher frequency to make the test much faster.
-	s.PatchValue(&watcher.Period, 200*time.Millisecond)
-
-	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
-
-	// Only the first machine is going to be ready for upgrade.
-	machineIdA, machineIdB, _ := s.createUpgradingStateServers(c)
-
-	// One of the other state servers is ready for upgrade (but machine C doesn't).
-	info, err := s.State.EnsureUpgradeInfo(machineIdB, s.oldVersion.Number, version.Current)
-	c.Assert(err, jc.ErrorIsNil)
-
-	agent := s.newAgentFromMachineId(c, machineIdA)
-	defer agent.Stop()
-
-	s.machineIsMaster = true
-
-	var agentErr error
-	agentDone := make(chan bool)
-	go func() {
-		agentErr = agent.Run(nil)
-		close(agentDone)
-	}()
-
-	select {
-	case <-agentDone:
-		upgradeReadyErr, ok := agentErr.(*upgrader.UpgradeReadyError)
-		if !ok {
-			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
-		}
-		// Confirm that the downgrade is back to the previous version.
-		current := version.Binary{
-			Number: version.Current,
-			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
-		}
-		c.Assert(upgradeReadyErr.OldTools, gc.Equals, current)
-		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)
-
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("machine agent did not exit as expected")
-	}
-
-	// UpgradeInfo doc should now be archived.
-	err = info.Refresh()
-	c.Assert(err, gc.ErrorMatches, "current upgrade info not found")
-}
-
 // Run just the upgrade-steps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
@@ -613,27 +430,41 @@ func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 	return NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
 }
 
-// Create 3 configured state servers that appear to be running tools
-// with version s.oldVersion and return their ids.
 func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
-	machine0, _, _ := s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
+	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
 	machineIdA = machine0.Id()
+	s.setMachineAlive(c, machineIdA)
 
 	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
+
 	machineIdB = changes.Added[0]
-	s.configureMachine(c, machineIdB, s.oldVersion)
+	s.setMachineProvisioned(c, machineIdB)
+	s.setMachineAlive(c, machineIdB)
+
 	machineIdC = changes.Added[1]
-	s.configureMachine(c, machineIdC, s.oldVersion)
+	s.setMachineProvisioned(c, machineIdC)
+	s.setMachineAlive(c, machineIdC)
 
 	return
 }
 
-func (s *UpgradeSuite) newAgentFromMachineId(c *gc.C, machineId string) *MachineAgent {
-	machine, err := s.State.Machine(machineId)
+func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
+	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
-	return s.newAgent(c, machine)
+	err = machine.SetProvisioned(instance.Id(id+"-inst"), "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+	pinger, err := machine.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { pinger.Stop() })
 }
 
 // Return a version the same as the current software version, but with
@@ -650,15 +481,6 @@ func makeBumpedCurrentVersion() version.Binary {
 	v.Build++
 	v.Tag = ""
 	return v
-}
-
-func waitForUpgradeToStart(upgradeCh chan bool) bool {
-	select {
-	case <-upgradeCh:
-		return true
-	case <-time.After(coretesting.LongWait):
-		return false
-	}
 }
 
 const maxUpgradeRetries = 3
@@ -734,100 +556,12 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 	return outLogs
 }
 
-func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) (*MachineAgent, func()) {
-	machine, _, _ := s.primeAgentVersion(c, s.oldVersion, job)
-	a := s.newAgent(c, machine)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	return a, func() { c.Check(a.Stop(), gc.IsNil) }
-}
-
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, expected)
-}
-
-func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
-	success := false
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		diskConf := readConfigFromDisk(c, conf.DataDir(), conf.Tag())
-		success = diskConf.UpgradedToVersion() == version.Current
-		if success {
-			break
-		}
-	}
-	c.Assert(success, jc.IsTrue)
-}
-
-func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
-	conf, err := agent.ReadConfig(agent.ConfigPath(dir, tag))
-	c.Assert(err, jc.ErrorIsNil)
-	return conf
-}
-
-func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
-	var err error
-	// Multiple attempts may be necessary because there is a small gap
-	// between the post-upgrade version being written to the agent's
-	// config (as observed by waitForUpgradeToFinish) and the end of
-	// "upgrade mode" (i.e. when the agent's UpgradeComplete channel
-	// is closed). Without this tests that call checkLoginToAPIAsUser
-	// can occasionally fail.
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		err = s.attemptRestrictedAPIAsUser(c, conf)
-		switch expectFullApi {
-		case FullAPIExposed:
-			if err == nil {
-				return
-			}
-		case RestrictedAPIExposed:
-			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
-				return
-			}
-		}
-	}
-	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
-}
-
-func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
-	info, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	info.Tag = s.AdminUserTag(c)
-	info.Password = "dummy-secret"
-	info.Nonce = ""
-
-	apiState, err := api.Open(info, upgradeTestDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
-	// this call should always work
-	var result params.FullStatus
-	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// this call should only work if API is not restricted
-	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
-}
-
-func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
-	fromInfo, ok := fromConf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	toInfo, ok := toConf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	fromInfo.Addrs = toInfo.Addrs
-	apiState, err := api.Open(fromInfo, upgradeTestDialOpts)
-	if apiState != nil {
-		apiState.Close()
-	}
-	return apiState != nil && err == nil
-}
-
-var upgradeTestDialOpts = api.DialOpts{
-	Timeout:             2 * time.Minute,
-	RetryDelay:          250 * time.Millisecond,
-	DialAddressInterval: 50 * time.Millisecond,
 }
 
 func assertUpgradeComplete(c *gc.C, context *upgradeWorkerContext) {
