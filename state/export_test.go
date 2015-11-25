@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -338,12 +339,11 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDying(st *State, envUUID string) error {
+func SetEnvLifeDead(st *State, envUUID string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     envUUID,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-		Assert: isEnvAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
 }
@@ -426,6 +426,14 @@ func MakeLogDoc(
 
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
+}
+
+func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
+	return m.forceDestroyOps()
+}
+
+func IsManagerMachineError(err error) bool {
+	return errors.Cause(err) == managerMachineError
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId

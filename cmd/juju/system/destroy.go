@@ -46,7 +46,7 @@ Continue [y/N]? `[1:]
 type destroySystemAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
-	DestroySystem(destroyEnvs bool, ignoreBlocks bool) error
+	DestroySystem(destroyEnvs bool) error
 	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
 }
 
@@ -125,7 +125,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the system.
-	err = api.DestroySystem(c.destroyEnvs, false)
+	err = api.DestroySystem(c.destroyEnvs)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.

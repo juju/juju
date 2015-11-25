@@ -33,12 +33,11 @@ var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the systemmanager API
 type fakeDestroyAPI struct {
-	err          error
-	env          map[string]interface{}
-	destroyAll   bool
-	ignoreBlocks bool
-	blocks       []params.EnvironmentBlockInfo
-	blocksErr    error
+	err        error
+	env        map[string]interface{}
+	destroyAll bool
+	blocks     []params.EnvironmentBlockInfo
+	blocksErr  error
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -50,9 +49,8 @@ func (f *fakeDestroyAPI) EnvironmentConfig() (map[string]interface{}, error) {
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPI) DestroySystem(destroyAll bool, ignoreBlocks bool) error {
+func (f *fakeDestroyAPI) DestroySystem(destroyAll bool) error {
 	f.destroyAll = destroyAll
-	f.ignoreBlocks = ignoreBlocks
 	return f.err
 }
 
@@ -204,7 +202,6 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkSystemRemovedFromStore(c, "test1", s.store)
@@ -213,7 +210,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-environments")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkSystemRemovedFromStore(c, "test1", s.store)
 }
@@ -247,7 +243,6 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	s.api.err = errors.New("permission denied")
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy system: permission denied")
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkSystemExistsInStore(c, "test1", s.store)
 }

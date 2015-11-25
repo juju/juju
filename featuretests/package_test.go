@@ -35,6 +35,7 @@ func init() {
 	gc.Suite(&cloudImageMetadataSuite{})
 	gc.Suite(&cmdSpaceSuite{})
 	gc.Suite(&cmdSubnetSuite{})
+	gc.Suite(&undertakerSuite{})
 	gc.Suite(&dumpLogsCommandSuite{})
 }
 

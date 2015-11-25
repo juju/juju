@@ -121,7 +121,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
-		Assert: bson.D{{"life", Dying}},
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 
