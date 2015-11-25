@@ -97,6 +97,18 @@ func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.L
 	return convertListResultsToModel(theOne.Result), nil
 }
 
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+// One of the endpoints is remote.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+
+	if err := c.facade.FacadeCall("AddRelation", params, &addRelRes); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &addRelRes, nil
+}
+
 func convertListResultsToModel(items []params.ListEndpointsServiceItemResult) []crossmodel.ListEndpointsServiceResult {
 	result := make([]crossmodel.ListEndpointsServiceResult, len(items))
 	for i, one := range items {
