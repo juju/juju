@@ -279,5 +279,5 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	}
 
 	out := system.FmtEnvStatus(data)
-	c.Assert(out, gc.Equals, "owner@local/envName (dying), 8 machines, 1 service")
+	c.Assert(out, gc.Equals, "owner@local/envname (dying), 8 machines, 1 service")
 }

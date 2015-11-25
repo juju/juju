@@ -172,7 +172,7 @@ Destroying system %q
 Waiting for resources to be reclaimed
 `[1:], c.systemName)
 
-	updateStatus := newStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
 	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 
 		ctx.Infof(fmtCtrStatus(ctrStatus))

@@ -20,14 +20,17 @@ type ctrData struct {
 }
 
 type envData struct {
-	Owner              string
-	Name               string
-	Life               params.Life
+	Owner string
+	Name  string
+	Life  params.Life
+
 	HostedMachineCount int
 	ServiceCount       int
 }
 
-func newStatusUpdater(ctx *cmd.Context, api destroySystemAPI, uuid string) func(time.Duration) (ctrData, []envData) {
+// newTimedStatusUpdater returns a function which waits a given period of time
+// before querying the apiserver for updated data.
+func newTimedStatusUpdater(ctx *cmd.Context, api destroySystemAPI, uuid string) func(time.Duration) (ctrData, []envData) {
 	return func(wait time.Duration) (ctrData, []envData) {
 		time.Sleep(wait)
 
