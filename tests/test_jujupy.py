@@ -26,7 +26,8 @@ from jujuconfig import (
 )
 from jujupy import (
     CannotConnectEnv,
-    DEFAULT_JES_COMMAND,
+    DEFAULT_JES_COMMAND_1x,
+    DEFAULT_JES_COMMAND_2x,
     EnvJujuClient,
     EnvJujuClient22,
     EnvJujuClient24,
@@ -121,7 +122,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.26-foobar', 'path')
-        fake_popen = FakePopen(DEFAULT_JES_COMMAND, '', 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, '', 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen) as po_mock:
             with self.assertRaises(JESByDefault):
@@ -1221,7 +1222,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertTrue(client.is_jes_enabled())
         # Juju 1.26 uses the controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
@@ -1238,13 +1239,20 @@ class TestEnvJujuClient(ClientTest):
                 client.get_jes_command()
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
-        # Juju 1.26 uses the controller command.
+        # Juju 2.x uses the 'controller kill' command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual(DEFAULT_JES_COMMAND, client.get_jes_command())
-        # Juju 1.25 uses the system command.
+            self.assertEqual(
+                '%s kill' % DEFAULT_JES_COMMAND_2x, client.get_jes_command())
+        # Juju 1.26 uses the destroy-controller command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_1x, None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual(DEFAULT_JES_COMMAND_1x, client.get_jes_command())
+        # Juju 1.25 uses the 'system kill' command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,

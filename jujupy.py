@@ -43,7 +43,8 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND = 'destroy-controller'
+DEFAULT_JES_COMMAND_2x = 'controller'
+DEFAULT_JES_COMMAND_1x = 'destroy-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
 log = logging.getLogger("jujupy")
@@ -141,8 +142,9 @@ class EnvJujuClient:
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
-        Juju 1.26 has the 'destroy-controller'.
-        Juju 1.25 has the 'system kill' when the jes feature flag is set.
+        Juju 2.x has 'controller kill'.
+        Juju 1.26 has 'destroy-controller'.
+        Juju 1.25 has 'system kill' when the jes feature flag is set.
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
@@ -150,9 +152,11 @@ class EnvJujuClient:
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith(DEFAULT_JES_COMMAND):
-                return DEFAULT_JES_COMMAND
-            if line.startswith(OPTIONAL_JES_COMMAND):
+            if line.startswith(DEFAULT_JES_COMMAND_1x):
+                return DEFAULT_JES_COMMAND_1x
+            elif line.startswith(DEFAULT_JES_COMMAND_2x):
+                return '%s kill' % DEFAULT_JES_COMMAND_2x
+            elif line.startswith(OPTIONAL_JES_COMMAND):
                 return '%s kill' % OPTIONAL_JES_COMMAND
         raise JESNotSupported()
 
