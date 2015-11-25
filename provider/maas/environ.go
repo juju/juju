@@ -1788,9 +1788,6 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		}
 		purposeArray, err := rangeMap["purpose"].GetArray()
 		if err != nil {
-			// XXX workaround test server bug that sends nil or
-			// string instead of array.
-			continue
 			return nil, nil, errors.Trace(err)
 		}
 		found := false
