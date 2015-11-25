@@ -394,3 +394,71 @@ func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
+
+func (s *crossmodelMockSuite) TestAddRelation(c *gc.C) {
+
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddRelation")
+
+			called = true
+
+			args, ok := a.(params.ListEndpointsFilters)
+			c.Assert(ok, jc.IsTrue)
+			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
+			c.Assert(args.Filters, gc.HasLen, 1)
+
+			if results, ok := result.(*params.ListEndpointsItemsResults); ok {
+
+				validItem := params.ListEndpointsServiceItem{
+					ServiceURL:  url,
+					ServiceName: serviceName,
+					CharmName:   charmName,
+					UsersCount:  count,
+					Endpoints:   endpoints,
+				}
+
+				validDir := params.ListEndpointsItemsResult{
+					Result: []params.ListEndpointsServiceItemResult{
+						{Result: &validItem},
+						{Error: common.ServerError(errors.New(msg))},
+					}}
+
+				results.Results = []params.ListEndpointsItemsResult{validDir}
+			}
+
+			return nil
+		})
+	client := crossmodel.NewClient(apiCaller)
+	results, err := client.AddRelation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(results, gc.IsNil)
+}
+
+func (s *crossmodelMockSuite) TestAddRelationFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddRelation")
+
+			return errors.New(msg)
+		})
+	client := crossmodel.NewClient(apiCaller)
+	results, err := client.AddRelation("")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(results, gc.IsNil)
+}
