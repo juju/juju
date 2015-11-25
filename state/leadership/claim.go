@@ -54,7 +54,6 @@ func (c claim) invoke(secretary Secretary, ch chan<- claim) error {
 			ch = nil
 		case success := <-c.response:
 			if !success {
-				// XXX
 				return leadership.ErrClaimDenied
 			}
 			return nil
