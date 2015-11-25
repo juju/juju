@@ -167,13 +167,23 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return environs.Destroy(systemEnviron, store)
 	}
 
-	// TODO(waigani) FIX BEFORE LANDING IN MASTER. A follow up branch will
-	// poll state and wait for the controller to be down before destroying
-	// it's provider.
+	ctx.Infof(`
+Destroying system %q
+Waiting for resources to be reclaimed
+`[1:], c.systemName)
 
-	// return environs.Destroy(systemEnviron, store)
+	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 
-	return nil
+		ctx.Infof(fmtCtrStatus(ctrStatus))
+
+		for _, envStatus := range envsStatus {
+			ctx.Verbosef(fmtEnvStatus(envStatus))
+		}
+	}
+
+	ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+	return environs.Destroy(systemEnviron, store)
 }
 
 // killSystemViaClient attempts to kill the system using the client

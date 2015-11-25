@@ -275,6 +275,13 @@ func (c *SystemManagerAPI) environStatus(tag string) (params.EnvironmentStatus, 
 		return status, errors.Trace(err)
 	}
 
+	var hostedMachines []*state.Machine
+	for _, m := range machines {
+		if !m.IsManager() {
+			hostedMachines = append(hostedMachines, m)
+		}
+	}
+
 	services, err := st.AllServices()
 	if err != nil {
 		return status, errors.Trace(err)
@@ -292,7 +299,7 @@ func (c *SystemManagerAPI) environStatus(tag string) (params.EnvironmentStatus, 
 		EnvironTag:         tag,
 		OwnerTag:           env.Owner().String(),
 		Life:               params.Life(env.Life().String()),
-		HostedMachineCount: len(machines),
+		HostedMachineCount: len(hostedMachines),
 		ServiceCount:       len(services),
 	}, nil
 }
