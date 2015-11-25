@@ -40,7 +40,7 @@ from deploy_stack import (
     update_env,
 )
 from jujupy import (
-    DEFAULT_JES_COMMAND,
+    DEFAULT_JES_COMMAND_1x,
     EnvJujuClient,
     get_timeout_prefix,
     get_timeout_path,
@@ -905,7 +905,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.26', 'path')
-        with self.bc_context(client, 'log_dir', jes=DEFAULT_JES_COMMAND):
+        with self.bc_context(client, 'log_dir', jes=DEFAULT_JES_COMMAND_1x):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
