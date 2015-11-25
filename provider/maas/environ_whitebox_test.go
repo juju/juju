@@ -829,6 +829,7 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
