@@ -25,6 +25,9 @@ type Secretary interface {
 	CheckDuration(duration time.Duration) error
 }
 
+// ErrLeaseNotHeld indicates that a lease is not held.
+var ErrLeaseNotHeld = errors.New("lease not held")
+
 // ManagerWorker implements leadership functions, and worker.Worker. We don't
 // import worker because it pulls in a lot of dependencies and causes import
 // cycles when you try to use leadership in state. We should break this cycle

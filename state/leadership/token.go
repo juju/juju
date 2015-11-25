@@ -61,6 +61,9 @@ func (c check) invoke(ch chan<- check) error {
 		case ch <- c:
 			ch = nil
 		case err := <-c.response:
+			if err == ErrLeaseNotHeld {
+				return errors.Errorf("%q is not leader of %q", c.holderName, c.leaseName)
+			}
 			return errors.Trace(err)
 		}
 	}

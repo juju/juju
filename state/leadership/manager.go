@@ -194,7 +194,7 @@ func (manager *manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		response = errors.Errorf("%q does not hold lease %q", check.holderName, check.leaseName)
+		response = ErrLeaseNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
 	}

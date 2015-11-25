@@ -108,7 +108,7 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	// Check leadership still reported accurately.
 	var ops2 []txn.Op
 	err = token.Check(&ops2)
-	c.Check(err, gc.ErrorMatches, `"service/0" does not hold lease "service"`)
+	c.Check(err, gc.ErrorMatches, `"service/0" is not leader of "service"`)
 	c.Check(ops2, gc.IsNil)
 }
 

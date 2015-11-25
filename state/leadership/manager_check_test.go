@@ -87,7 +87,7 @@ func (s *LeadershipCheckSuite) TestRefresh_Failure_Missing(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		token := manager.LeadershipCheck("redis", "redis/0")
-		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" does not hold lease "redis"`)
+		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
 	})
 }
 
@@ -106,7 +106,7 @@ func (s *LeadershipCheckSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		token := manager.LeadershipCheck("redis", "redis/0")
-		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" does not hold lease "redis"`)
+		c.Check(token.Check(nil), gc.ErrorMatches, `"redis/0" is not leader of "redis"`)
 	})
 }
 
