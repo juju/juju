@@ -98,7 +98,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `.* entity not found in ".*": local:trusty/unknown-123`)
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -195,7 +195,8 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 	output := strings.Split(coretesting.Stderr(ctx), "\n")
 	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
-	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
+	c.Check(output[1], gc.Matches, `Deploying charm .*`)
+	c.Check(output[2], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
@@ -496,39 +497,47 @@ var deployAuthorizationTests = []struct {
 	expectError  string
 	expectOutput string
 }{{
-	about:        "public charm, success",
-	uploadURL:    "cs:~bob/trusty/wordpress1-10",
-	deployURL:    "cs:~bob/trusty/wordpress1",
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress1-10" to the environment.`,
+	about:     "public charm, success",
+	uploadURL: "cs:~bob/trusty/wordpress1-10",
+	deployURL: "cs:~bob/trusty/wordpress1",
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress1-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress1-10" with the charm series "trusty".`,
 }, {
-	about:        "public charm, fully resolved, success",
-	uploadURL:    "cs:~bob/trusty/wordpress2-10",
-	deployURL:    "cs:~bob/trusty/wordpress2-10",
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress2-10" to the environment.`,
+	about:     "public charm, fully resolved, success",
+	uploadURL: "cs:~bob/trusty/wordpress2-10",
+	deployURL: "cs:~bob/trusty/wordpress2-10",
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress2-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, success",
 	uploadURL:    "cs:~bob/trusty/wordpress3-10",
 	deployURL:    "cs:~bob/trusty/wordpress3",
 	readPermUser: clientUserName,
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress3-10" to the environment.`,
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress3-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
 	uploadURL:    "cs:~bob/trusty/wordpress4-10",
 	deployURL:    "cs:~bob/trusty/wordpress4-10",
 	readPermUser: clientUserName,
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress4-10" to the environment.`,
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress4-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -561,7 +570,7 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
 	deployURL:    "cs:~bob/bundle/wordpress-simple3",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
@@ -587,12 +596,12 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		}
 		ctx, err := coretesting.RunCommand(c, newDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		output := strings.Trim(coretesting.Stderr(ctx), "\n")
-		c.Assert(output, gc.Equals, strings.TrimSpace(test.expectOutput))
+		c.Check(output, gc.Equals, strings.TrimSpace(test.expectOutput))
 	}
 }
 

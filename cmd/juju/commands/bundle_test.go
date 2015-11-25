@@ -683,7 +683,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             pgres:
                 charm: trusty/postgres-2

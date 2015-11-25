@@ -172,7 +172,12 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
-	url, repo, err := resolveCharmStoreEntityURL(p.Charm, h.csclient.params, h.repoPath, h.conf)
+	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:   p.Charm,
+		csParams: h.csclient.params,
+		repoPath: h.repoPath,
+		conf:     h.conf,
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}

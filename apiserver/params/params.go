@@ -119,6 +119,7 @@ type DestroyRelation struct {
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
+	RequestedSeries    string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
@@ -195,6 +196,7 @@ type ServicesDeploy struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
+	Series        string
 	CharmUrl      string
 	NumUnits      int
 	Config        map[string]string

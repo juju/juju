@@ -195,7 +195,15 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 
-	newURL, repo, err := resolveCharmStoreEntityURL(charmRef, csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	// TODO(wallyworld) - check supported series of new charm.
+	newURL, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:          charmRef,
+		requestedSeries: oldURL.Series,
+		forceSeries:     c.Force,
+		csParams:        csClient.params,
+		repoPath:        ctx.AbsPath(c.RepoPath),
+		conf:            conf,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

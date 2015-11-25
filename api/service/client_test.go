@@ -83,6 +83,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		c.Assert(args.Services, gc.HasLen, 1)
 		c.Assert(args.Services[0].CharmUrl, gc.Equals, "charmURL")
 		c.Assert(args.Services[0].ServiceName, gc.Equals, "serviceA")
+		c.Assert(args.Services[0].Series, gc.Equals, "series")
 		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
 		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
 		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
@@ -94,7 +95,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.ServiceDeploy("charmURL", "serviceA", 2, "configYAML", constraints.MustParse("mem=4G"),
+	err := s.client.ServiceDeploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
 		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)

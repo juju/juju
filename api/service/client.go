@@ -67,6 +67,7 @@ func (c *Client) EnvironmentUUID() string {
 func (c *Client) ServiceDeploy(
 	charmURL string,
 	serviceName string,
+	series string,
 	numUnits int,
 	configYAML string,
 	cons constraints.Value,
@@ -78,6 +79,7 @@ func (c *Client) ServiceDeploy(
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			ServiceName:   serviceName,
+			Series:        series,
 			CharmUrl:      charmURL,
 			NumUnits:      numUnits,
 			ConfigYAML:    configYAML,
