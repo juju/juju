@@ -3,11 +3,7 @@
 
 package leadership
 
-import (
-	"github.com/juju/errors"
-)
-
-// block is used to deliver leaderlessness-notification requests to a manager's
+// block is used to deliver lease-expiry-notification requests to a manager's
 // loop goroutine on behalf of BlockUntilLeadershipReleased.
 type block struct {
 	leaseName string
@@ -15,26 +11,9 @@ type block struct {
 	abort     <-chan struct{}
 }
 
-// validate returns an error if any fields are invalid or missing.
-func (b block) validate(secretary Secretary) error {
-	if err := secretary.CheckLease(b.leaseName); err != nil {
-		return errors.Annotate(err, "lease name")
-	}
-	if b.unblock == nil {
-		return errors.NotValidf("nil unblock channel")
-	}
-	if b.abort == nil {
-		return errors.NotValidf("nil abort channel")
-	}
-	return nil
-}
-
 // invoke sends the block request on the supplied channel, and waits for the
 // unblock channel to be closed.
-func (b block) invoke(secretary Secretary, ch chan<- block) error {
-	if err := b.validate(secretary); err != nil {
-		return errors.Annotatef(err, "cannot wait for lease expiry")
-	}
+func (b block) invoke(ch chan<- block) error {
 	for {
 		select {
 		case <-b.abort:
@@ -47,11 +26,11 @@ func (b block) invoke(secretary Secretary, ch chan<- block) error {
 	}
 }
 
-// blocks is used to keep track of leaderlessness-notification channels for
-// each service name.
+// blocks is used to keep track of expiry-notification channels for
+// each lease name.
 type blocks map[string][]chan struct{}
 
-// add records the block's unblock channel under the block's service name.
+// add records the block's unblock channel under the block's lease name.
 func (b blocks) add(block block) {
 	b[block.leaseName] = append(b[block.leaseName], block.unblock)
 }

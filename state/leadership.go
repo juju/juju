@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -78,7 +79,7 @@ type leadershipSecretary struct{}
 // CheckLease is part of the leadership.Secretary interface.
 func (leadershipSecretary) CheckLease(name string) error {
 	if !names.IsValidService(name) {
-		return errors.NotValidf("%q", name)
+		return errors.NewNotValid(nil, "not a service name")
 	}
 	return nil
 }
@@ -86,7 +87,15 @@ func (leadershipSecretary) CheckLease(name string) error {
 // CheckHolder is part of the leadership.Secretary interface.
 func (leadershipSecretary) CheckHolder(name string) error {
 	if !names.IsValidUnit(name) {
-		return errors.NotValidf("%q", name)
+		return errors.NewNotValid(nil, "not a unit name")
 	}
+	return nil
+}
+
+// CheckDuration is part of the leadership.Secretary interface.
+func (leadershipSecretary) CheckDuration(duration time.Duration) error {
+	// We don't have any opinions on valid lease times at this level. The
+	// substrate will barf if we go <= 0; the apiserver won't relay requests
+	// outside [5s, 5m]; not much sense duplicating either condition here.
 	return nil
 }

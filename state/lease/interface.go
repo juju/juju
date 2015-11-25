@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/txn"
 )
 
-// Client manipulates leases backed by MongoDB. Client implementations are not
-// expected to be goroutine-safe.
+// Client manipulates leases. Client implementations are not expected to be
+// goroutine-safe.
 type Client interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
@@ -39,9 +38,8 @@ type Client interface {
 	Refresh() error
 }
 
-// Info holds information about a lease. It's MongoDB-specific, because it
-// includes information that can be used with the mgo/txn package to gate
-// transaction operations on lease state.
+// Info holds substrate-independent information about a lease; and a substrate-
+// specific trapdoor func.
 type Info struct {
 
 	// Holder is the name of the current leaseholder.
@@ -51,10 +49,25 @@ type Info struct {
 	// be valid. Attempting to expire the lease before this time will fail.
 	Expiry time.Time
 
-	// AssertOp, if included in a mgo/txn transaction, will gate the transaction
-	// on the lease remaining held by Holder. If we didn't need this, we could
-	// easily implement Clients backed by other substrates.
-	AssertOp txn.Op
+	// Trapdoor exposes the originating Client's persistence substrate, if the
+	// substrate exposes any such capability. It's useful specifically for
+	// integrating mgo/txn-based components: which thus get a mechanism for
+	// extracting assertion operations they can use to gate other substrate
+	// changes on lease state.
+	Trapdoor Trapdoor
+}
+
+// Trapdoor allows a client to use pre-agreed special knowledge to communicate
+// with a Client substrate by passing a key with suitable properties.
+type Trapdoor func(key interface{}) error
+
+// LockedTrapdoor is a Trapdoor suitable for use by substrates that don't want
+// or need to expose their internals.
+func LockedTrapdoor(key interface{}) error {
+	if key != nil {
+		return errors.New("lease substrate not accessible")
+	}
+	return nil
 }
 
 // Request describes a lease request.

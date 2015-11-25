@@ -39,33 +39,33 @@ func (s *LeadershipSuite) SetUpTest(c *gc.C) {
 
 func (s *LeadershipSuite) TestClaimValidatesServiceName(c *gc.C) {
 	err := s.claimer.ClaimLeadership("not/a/service", "u/0", time.Minute)
-	c.Check(err, gc.ErrorMatches, `cannot claim lease: lease name: "not/a/service" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease "not/a/service": not a service name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *LeadershipSuite) TestClaimValidatesUnitName(c *gc.C) {
 	err := s.claimer.ClaimLeadership("service", "not/a/unit", time.Minute)
-	c.Check(err, gc.ErrorMatches, `cannot claim lease: holder name: "not/a/unit" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "not/a/unit": not a unit name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *LeadershipSuite) TestCheckValidatesServiceName(c *gc.C) {
 	token := s.checker.LeadershipCheck("not/a/service", "u/0")
 	err := token.Check(nil)
-	c.Check(err, gc.ErrorMatches, `cannot check lease: lease name: "not/a/service" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/service": not a service name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 	token := s.checker.LeadershipCheck("service", "not/a/unit")
 	err := token.Check(nil)
-	c.Check(err, gc.ErrorMatches, `cannot check lease: holder name: "not/a/unit" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot check holder "not/a/unit": not a unit name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *LeadershipSuite) TestBlockValidatesServiceName(c *gc.C) {
 	err := s.claimer.BlockUntilLeadershipReleased("not/a/service")
-	c.Check(err, gc.ErrorMatches, `cannot wait for lease expiry: lease name: "not/a/service" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot block for lease "not/a/service" expiry: not a service name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 

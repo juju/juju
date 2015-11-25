@@ -4,6 +4,8 @@
 package leadership
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/leadership"
@@ -18,6 +20,9 @@ type Secretary interface {
 
 	// CheckHolder returns an error if the supplied holder name is not valid.
 	CheckHolder(name string) error
+
+	// CheckDuration returns an error if the supplied duration is not valid.
+	CheckDuration(duration time.Duration) error
 }
 
 // ManagerWorker implements leadership functions, and worker.Worker. We don't

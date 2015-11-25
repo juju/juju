@@ -5,7 +5,6 @@ package leadership
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/txn"
 )
 
 // token implements leadership.Token.
@@ -18,29 +17,59 @@ type token struct {
 }
 
 // Check is part of the leadership.Token interface.
-func (t token) Check(out interface{}) error {
+func (t token) Check(trapdoorKey interface{}) error {
 
-	// Check validity and get the assert op in case it's needed.
-	op, err := check{
-		leaseName:  t.leaseName,
-		holderName: t.holderName,
-		response:   make(chan txn.Op),
-		abort:      t.abort,
-	}.invoke(
-		t.secretary,
-		t.checks,
-	)
-	if err != nil {
-		return errors.Trace(err)
+	// This validation, which could be done at Token creation time, is deferred
+	// until this point so as not to pollute the LeadershipCheck signature with
+	// an error that might cause clients to assume LeadershipCheck actually
+	// checked leadership.
+	//
+	// Um, we should probably name it something different, shouldn't we?
+	if err := t.secretary.CheckLease(t.leaseName); err != nil {
+		return errors.Annotatef(err, "cannot check lease %q", t.leaseName)
 	}
+	if err := t.secretary.CheckHolder(t.holderName); err != nil {
+		return errors.Annotatef(err, "cannot check holder %q", t.holderName)
+	}
+	return check{
+		leaseName:   t.leaseName,
+		holderName:  t.holderName,
+		trapdoorKey: trapdoorKey,
+		response:    make(chan error),
+		abort:       t.abort,
+	}.invoke(t.checks)
+}
 
-	// Report transaction ops if the client wants them.
-	if out != nil {
-		outPtr, ok := out.(*[]txn.Op)
-		if !ok {
-			return errors.NotValidf("expected *[]txn.Op; %T", out)
+// check is used to deliver leadership-check requests to a manager's loop
+// goroutine on behalf of a token (as returned by LeadershipCheck).
+type check struct {
+	leaseName   string
+	holderName  string
+	trapdoorKey interface{}
+	response    chan error
+	abort       <-chan struct{}
+}
+
+// invoke sends the check on the supplied channel, waits for a response, and
+// returns either a txn.Op that can be used to assert continued leadership in
+// the future, or an error.
+func (c check) invoke(ch chan<- check) error {
+	for {
+		select {
+		case <-c.abort:
+			return errStopped
+		case ch <- c:
+			ch = nil
+		case err := <-c.response:
+			return errors.Trace(err)
 		}
-		*outPtr = []txn.Op{op}
 	}
-	return nil
+}
+
+// respond notifies the originating invoke of completion status.
+func (c check) respond(err error) {
+	select {
+	case <-c.abort:
+	case c.response <- err:
+	}
 }

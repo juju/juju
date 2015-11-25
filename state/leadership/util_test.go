@@ -29,7 +29,14 @@ func (Secretary) CheckHolder(name string) error {
 
 func checkName(name string) error {
 	if name == "INVALID" {
-		return errors.NotValidf("INVALID")
+		return errors.NotValidf("name")
+	}
+	return nil
+}
+
+func (Secretary) CheckDuration(duration time.Duration) error {
+	if duration != time.Minute {
+		return errors.NotValidf("time")
 	}
 	return nil
 }
