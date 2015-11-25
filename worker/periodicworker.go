@@ -4,9 +4,9 @@
 package worker
 
 import (
+	"errors"
 	"time"
 
-	"github.com/juju/errors"
 	"launchpad.net/tomb"
 )
 
@@ -84,10 +84,10 @@ func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) erro
 			return tomb.ErrDying
 		case <-timer.CountDown():
 			if err := call(stop); err != nil {
-				if cause := errors.Cause(err); cause == ErrKilled {
+				if err == ErrKilled {
 					return tomb.ErrDying
 				}
-				return errors.Trace(err)
+				return err
 			}
 		}
 		timer.Reset(period)

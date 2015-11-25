@@ -317,10 +317,8 @@ func (srv *Server) run(lis net.Listener) {
 	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
-
-		err := srv.statePool.Close()
-		srv.tomb.Kill(err)
 		srv.tomb.Done()
+		srv.statePool.Close()
 	}()
 
 	srv.wg.Add(1)
