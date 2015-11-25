@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -101,6 +101,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -180,7 +181,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string, string) *MachineAgent,
+	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -198,7 +199,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string, string) *MachineAgent
+	machineAgentFactory func(string) *MachineAgent
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -247,7 +248,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId, c.Dir)
+	machineAgent := a.machineAgentFactory(a.machineId)
 	return machineAgent.Run(c)
 }
 
@@ -271,8 +272,9 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
-) func(string, string) *MachineAgent {
-	return func(machineId, rootDir string) *MachineAgent {
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -448,7 +450,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
@@ -791,6 +793,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		addressUpdater := agent.APIHostPortsSetter{a}
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
 	})
+
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
@@ -1237,6 +1240,12 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
 		return newAddresser(apiSt.Addresser())
 	})
+
+	if machine.IsManager() {
+		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
+			return unitassigner.New(apiSt.UnitAssigner()), nil
+		})
+	}
 
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
@@ -1740,7 +1749,7 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 }
 
 func (a *MachineAgent) createSymlink(target, link string) error {
-	fullLink := filepath.Join(a.rootDir, link)
+	fullLink := utils.EnsureBaseDir(a.rootDir, link)
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {
@@ -1765,7 +1774,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		err := os.Remove(filepath.Join(a.rootDir, link))
+		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
 		}

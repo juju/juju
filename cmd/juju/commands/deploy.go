@@ -5,12 +5,14 @@ package commands
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -31,14 +34,21 @@ func newDeployCommand() cmd.Command {
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
+	// CharmOrBundle is either a charm URL, a path where a charm can be found,
+	// or a bundle name.
 	CharmOrBundle string
-	ServiceName   string
-	Config        cmd.FileVar
-	Constraints   constraints.Value
-	Networks      string // TODO(dimitern): Drop this in a follow-up and fix docs.
-	BumpRevision  bool   // Remove this once the 1.16 support is dropped.
-	RepoPath      string // defaults to JUJU_REPOSITORY
-	RegisterURL   string
+	Series        string
+
+	// Force is used to allow a charm to be deployed onto a machine
+	// running an unsupported series.
+	Force bool
+
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
+	RepoPath     string // defaults to JUJU_REPOSITORY
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -46,6 +56,12 @@ type DeployCommand struct {
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
 	Storage map[string]storage.Constraints
+
+	// BundleStorage maps service names to maps of storage constraints keyed on
+	// the storage name defined in that service's charm storage metadata.
+	BundleStorage map[string]map[string]storage.Constraints
+
+	AfterSteps []DeployStep
 }
 
 const deployDoc = `
@@ -63,14 +79,26 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-
-The current series for charms is determined first by the default-series
-environment setting, followed by the preferred series in the charm store.
+  
+The current series for charms is determined first by the default-series environment
+setting, followed by the preferred series for the charm in the charm store.
 
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
-However, for local charms, when the default-series is not specified in the
+Charms may also be deployed from a user specified path. In this case, the
+path to the charm is specified along with an optional series.
+
+   juju deploy /path/to/charm --series trusty
+
+If series is not specified, the charm's default series is used. The default series
+for a charm is the first one specified in the charm metadata. If the specified series
+is not supported by the charm, this results in an error, unless --force is used.
+
+   juju deploy /path/to/charm --series wily --force
+
+Deploying using a local repository is supported but deprecated.
+In this case, when the default-series is not specified in the
 environment, one must specify the series. For example:
   local:precise/mysql
 
@@ -144,6 +172,22 @@ See Also:
    juju help get-constraints
 `
 
+// DeployStep is an action that needs to be taken during charm deployment.
+type DeployStep interface {
+	// Set flags necessary for the deploy step.
+	SetFlags(*gnuflag.FlagSet)
+	// Run the deploy step.
+	Run(api.Connection, *http.Client, DeploymentInfo) error
+}
+
+// DeploymentInfo is used to maintain all deployment information for
+// deployment steps.
+type DeploymentInfo struct {
+	CharmURL    *charm.URL
+	ServiceName string
+	EnvUUID     string
+}
+
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
@@ -162,10 +206,18 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
+	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
+	for _, step := range c.AfterSteps {
+		step.SetFlags(f)
+	}
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	if c.Force && c.Series == "" && c.PlacementSpec == "" {
+		return errors.New("--force is only used with --series")
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsValidService(args[1]) {
@@ -191,18 +243,55 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
-func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	client, err := c.NewAPIClient()
+func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
+	deployer := serviceDeployer{ctx, client, c.newServiceAPIClient}
+
+	// We may have been given a local bundle file.
+	bundlePath := c.CharmOrBundle
+	bundleData, err := charmrepo.ReadBundleFile(bundlePath)
 	if err != nil {
+		// We may have been given a local bundle archive or exploded directory.
+		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); err == nil {
+			bundleData = bundle.Data()
+			bundlePath = burl.String()
+			err = pathErr
+		}
+	}
+	// If not a bundle then maybe a local charm.
+	if err != nil {
+		// Charm may have been supplied via a path reference.
+		ch, curl, charmErr := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
+		if charmErr == nil {
+			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
+				return charmErr
+			}
+			return c.deployCharm(curl, ctx, client, &deployer)
+		}
+		// We check for several types of known error which indicate
+		// that the supplied reference was indeed a path but there was
+		// an issue reading the charm located there.
+		if charm.IsMissingSeriesError(charmErr) {
+			return charmErr
+		}
+		if charm.IsUnsupportedSeriesError(charmErr) {
+			return errors.Errorf("%v. Use --force to deploy the charm anyway.", charmErr)
+		}
+		err = charmErr
+	}
+	if _, ok := err.(*charmrepo.NotFoundError); ok {
+		return errors.Errorf("no charm or bundle found at %q", c.CharmOrBundle)
+	}
+	// If we get a "not exists" error then we attempt to interpret the supplied
+	// charm or bundle reference as a URL below, otherwise we return the error.
+	if err != nil && err != os.ErrNotExist {
 		return err
 	}
-	defer client.Close()
 
+	repoPath := ctx.AbsPath(c.RepoPath)
 	conf, err := service.GetClientConfig(client)
 	if err != nil {
 		return err
 	}
-
 	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
@@ -212,57 +301,50 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	csClient := newCharmStoreClient(httpClient)
-	repoPath := ctx.AbsPath(c.RepoPath)
 
-	// Handle local bundle paths.
-	f, err := os.Open(c.CharmOrBundle)
-	if err == nil {
-		defer f.Close()
-		info, err := f.Stat()
+	var charmOrBundleURL *charm.URL
+	var repo charmrepo.Interface
+	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
+	if bundleData == nil {
+		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
+		charmOrBundleURL, repo, err = resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
 		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
+			return errors.Trace(err)
 		}
-		if info.IsDir() {
-			return errors.New("deployment of bundle directories not yet supported")
+		if charmOrBundleURL.Series == "bundle" {
+			// Load the bundle entity.
+			bundle, err := repo.GetBundle(charmOrBundleURL)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			bundleData = bundle.Data()
+			bundlePath = charmOrBundleURL.String()
 		}
-		bundleData, err := charm.ReadBundleData(f)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		if err := deployBundle(bundleData, client, csClient, repoPath, conf, ctx); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		ctx.Infof("deployment of bundle %q completed", f.Name())
-		return nil
-	} else if !os.IsNotExist(err) {
-		logger.Warningf("cannot open %q: %v; falling back to using charm repository", c.CharmOrBundle, err)
 	}
-
-	curl, repo, err := resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
+	// Handle a bundle.
+	if bundleData != nil {
+		if err := deployBundle(
+			bundleData, client, &deployer, csClient,
+			repoPath, conf, ctx, c.BundleStorage,
+		); err != nil {
+			return errors.Trace(err)
+		}
+		ctx.Infof("deployment of bundle %q completed", bundlePath)
+		return nil
+	}
+	// Handle a charm.
+	curl, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// Handle bundle URLs.
-	if curl.Series == "bundle" {
-		// Deploy a bundle entity.
-		bundle, err := repo.GetBundle(curl)
-		if err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		if err := deployBundle(bundle.Data(), client, csClient, repoPath, conf, ctx); err != nil {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-		ctx.Infof("deployment of bundle %q completed", curl)
-		return nil
-	}
-
-	curl, err = addCharmViaAPI(client, curl, repo, csClient)
-	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
-	}
 	ctx.Infof("Added charm %q to the environment.", curl)
+	return c.deployCharm(curl, ctx, client, &deployer)
+}
 
+func (c *DeployCommand) deployCharm(
+	curl *charm.URL, ctx *cmd.Context,
+	client *api.Client, deployer *serviceDeployer,
+) error {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -296,65 +378,123 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	if err := deployer.serviceDeploy(serviceDeployParams{
+		curl.String(),
+		serviceName,
+		numUnits,
+		string(configYAML),
+		c.Constraints,
+		c.PlacementSpec,
+		c.Placement,
+		c.Networks,
+		c.Storage,
+	}); err != nil {
+		return err
+	}
+
+	state, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deployInfo := DeploymentInfo{
+		CharmURL:    curl,
+		ServiceName: serviceName,
+		EnvUUID:     client.EnvironmentUUID(),
+	}
+
+	for _, step := range c.AfterSteps {
+		err = step.Run(state, httpClient, deployInfo)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+type serviceDeployParams struct {
+	charmURL      string
+	serviceName   string
+	numUnits      int
+	configYAML    string
+	constraints   constraints.Value
+	placementSpec string
+	placement     []*instance.Placement
+	networks      string
+	storage       map[string]storage.Constraints
+}
+
+type serviceDeployer struct {
+	ctx                 *cmd.Context
+	client              *api.Client
+	newServiceAPIClient func() (*apiservice.Client, error)
+}
+
+func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	// If storage or placement is specified, we attempt to use a new API on the service facade.
-	if len(c.Storage) > 0 || len(c.Placement) > 0 {
+	if len(args.storage) > 0 || len(args.placement) > 0 {
 		notSupported := errors.New("cannot deploy charms with storage or placement: not supported by the API server")
 		serviceClient, err := c.newServiceAPIClient()
 		if err != nil {
 			return notSupported
 		}
 		defer serviceClient.Close()
-		for i, p := range c.Placement {
+		for i, p := range args.placement {
 			if p.Scope == "env-uuid" {
 				p.Scope = serviceClient.EnvironmentUUID()
 			}
-			c.Placement[i] = p
+			args.placement[i] = p
 		}
 		err = serviceClient.ServiceDeploy(
-			curl.String(),
-			serviceName,
-			numUnits,
-			string(configYAML),
-			c.Constraints,
-			c.PlacementSpec,
-			c.Placement,
+			args.charmURL,
+			args.serviceName,
+			args.numUnits,
+			args.configYAML,
+			args.constraints,
+			args.placementSpec,
+			args.placement,
 			[]string{},
-			c.Storage,
+			args.storage,
 		)
 		if params.IsCodeNotImplemented(err) {
 			return notSupported
 		}
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return err
 	}
 
-	if len(c.Networks) > 0 {
-		ctx.Infof("use of --networks is deprecated and is ignored. Please use spaces to manage placement within networks")
+	if len(args.networks) > 0 {
+		c.ctx.Infof(
+			"use of --networks is deprecated and is ignored. " +
+				"Please use spaces to manage placement within networks",
+		)
 	}
 
-	err = client.ServiceDeploy(
-		curl.String(),
-		serviceName,
-		numUnits,
-		string(configYAML),
-		c.Constraints,
-		c.PlacementSpec)
-
-	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+	if err := c.client.ServiceDeploy(
+		args.charmURL,
+		args.serviceName,
+		args.numUnits,
+		args.configYAML,
+		args.constraints,
+		args.placementSpec,
+	); err != nil {
+		return errors.Trace(err)
 	}
 
-	state, err := c.NewAPIRoot()
+	return nil
+}
+
+func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
-	err = registerMeteredCharm(c.RegisterURL, state, httpClient, curl.String(), serviceName, client.EnvironmentUUID())
-	if params.IsCodeNotImplemented(err) {
-		// The state server is too old to support metering.  Warn
-		// the user, but don't return an error.
-		logger.Warningf("current state server version does not support charm metering")
-		return nil
-	}
+	defer client.Close()
 
+	err = c.deployCharmOrBundle(ctx, client)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

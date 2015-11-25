@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/juju/cmd"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
@@ -31,7 +31,7 @@ import (
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -93,12 +93,6 @@ var (
 	_ = gc.Suite(&MachineWithCharmsSuite{})
 	_ = gc.Suite(&mongoSuite{})
 )
-
-func TestPackage(t *testing.T) {
-	// TODO(waigani) 2014-03-19 bug 1294458
-	// Refactor to use base suites
-	coretesting.MgoTestPackage(t)
-}
 
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
@@ -231,9 +225,9 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, logsCh, &mockLoopDeviceManager{},
+		&agentConf, logsCh, &mockLoopDeviceManager{}, c.MkDir(),
 	)
-	return machineAgentFactory(m.Id(), c.MkDir())
+	return machineAgentFactory(m.Id())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
@@ -241,7 +235,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}),
+			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -266,6 +260,7 @@ var perEnvSingularWorkers = []string{
 	"charm-revision-updater",
 	"instancepoller",
 	"firewaller",
+	"unitassigner",
 }
 
 const initialMachinePassword = "machine-password-1234567890"
@@ -314,7 +309,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -338,7 +333,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -1313,7 +1308,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 
 	// Symlinks should have been created
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		_, err := os.Stat(filepath.Join(a.rootDir, link))
+		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
 
@@ -1335,7 +1330,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	links := []string{jujuRun, jujuDumpLogs}
 	a.rootDir = c.MkDir()
 	for _, link := range links {
-		fullLink := filepath.Join(a.rootDir, link)
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
 		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -1345,7 +1340,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 
 	// juju-run symlink should have been recreated.
 	for _, link := range links {
-		fullLink := filepath.Join(a.rootDir, link)
+		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
@@ -1420,7 +1415,7 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	// juju-run and juju-dumplogs symlinks should have been removed on
 	// termination.
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
-		_, err = os.Stat(filepath.Join(a.rootDir, link))
+		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
 

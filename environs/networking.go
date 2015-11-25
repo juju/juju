@@ -20,7 +20,7 @@ type Networking interface {
 
 	// ReleaseAddress releases a specific address previously allocated with
 	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error
+	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
 
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.

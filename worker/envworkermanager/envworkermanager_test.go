@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
@@ -24,6 +25,10 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
+	if jujutesting.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519144")
+	}
+
 	testing.MgoTestPackage(t)
 }
 

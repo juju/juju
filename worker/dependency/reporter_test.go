@@ -98,12 +98,12 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 	mh1 := newManifoldHarness()
 	err := s.engine.Install("task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	mh1.AssertStart(c)
+	mh1.AssertOneStart(c)
 
 	mh2 := newManifoldHarness("task")
 	err = s.engine.Install("another task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	mh2.AssertStart(c)
+	mh2.AssertOneStart(c)
 
 	report := s.engine.Report()
 	c.Check(report, jc.DeepEquals, map[string]interface{}{
