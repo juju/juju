@@ -502,7 +502,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
 	// Start the API server and upgrade-steps works just as the agent would.
-	runner := worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, 250*time.Millisecond)
 	defer func() {
 		close(abort)
 		runner.Kill()

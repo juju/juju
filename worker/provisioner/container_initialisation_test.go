@@ -99,7 +99,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
-	runner := worker.NewRunner(allFatal, noImportance)
+	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
