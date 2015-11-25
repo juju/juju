@@ -1061,22 +1061,61 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 			Name:       "space-1",
 			ProviderId: "space-1",
 			Subnets: []network.SubnetInfo{
-				{},
-				{},
+				{
+					CIDR:              "192.168.1.0/24",
+					ProviderId:        "1",
+					AllocatableIPLow:  net.ParseIP("192.168.1.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.1.255"),
+					SpaceName:         "space-1",
+					SpaceProviderId:   "space-1",
+				}, {
+					CIDR:              "192.168.6.0/24",
+					ProviderId:        "2",
+					AllocatableIPLow:  net.ParseIP("192.168.6.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.6.255"),
+					SpaceName:         "space-1",
+					SpaceProviderId:   "space-1",
+				},
 			},
 		}, {
 			Name:       "space-2",
 			ProviderId: "space-2",
 			Subnets: []network.SubnetInfo{
-				{},
-				{},
+				{
+					CIDR:              "192.168.2.0/24",
+					ProviderId:        "3",
+					AllocatableIPLow:  net.ParseIP("192.168.2.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.2.255"),
+					SpaceName:         "space-2",
+					SpaceProviderId:   "space-2",
+				}, {
+					CIDR:              "192.168.7.0/24",
+					ProviderId:        "4",
+					AllocatableIPLow:  net.ParseIP("192.168.7.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.7.255"),
+					SpaceName:         "space-2",
+					SpaceProviderId:   "space-2",
+				},
 			},
 		}, {
 			Name:       "space-3",
 			ProviderId: "space-3",
 			Subnets: []network.SubnetInfo{
-				{},
-				{},
+				{
+					CIDR:              "192.168.3.0/24",
+					ProviderId:        "4",
+					AllocatableIPLow:  net.ParseIP("192.168.3.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.3.255"),
+					SpaceName:         "space-3",
+					SpaceProviderId:   "space-3",
+				}, {
+					CIDR:              "192.168.8.0/24",
+					ProviderId:        "5",
+					AllocatableIPLow:  net.ParseIP("192.168.8.1"),
+					AllocatableIPHigh: net.ParseIP("192.168.8.255"),
+					SpaceName:         "space-3",
+					SpaceProviderId:   "space-3",
+				},
 			},
 		},
 	}
