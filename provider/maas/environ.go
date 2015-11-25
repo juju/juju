@@ -116,8 +116,9 @@ type maasEnviron struct {
 	availabilityZones      []common.AvailabilityZone
 
 	// The following are initialized from the discovered MAAS API capabilities.
-	supportsDevices   bool
-	supportsStaticIPs bool
+	supportsDevices                 bool
+	supportsStaticIPs               bool
+	supportsNetworkDeploymentUbuntu bool
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -140,6 +141,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	logger.Debugf("MAAS API capabilities: %v", capabilities.SortedValues())
 	env.supportsDevices = capabilities.Contains(capDevices)
 	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
+	env.supportsNetworkDeploymentUbuntu = capabilities.Contains(capNetworkDeploymentUbuntu)
 	return env, nil
 }
 
@@ -281,12 +283,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	caps, err := env.getCapabilities()
-	if err != nil {
-		return false, errors.Annotatef(err, "getCapabilities failed")
-	}
-
-	return caps.Contains(capNetworkDeploymentUbuntu), nil
+	return env.supportsNetworkDeploymentUbuntu, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
