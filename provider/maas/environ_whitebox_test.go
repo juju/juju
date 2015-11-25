@@ -829,7 +829,6 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
@@ -837,7 +836,7 @@ func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management", "network-deployment-ubuntu"]}`)
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1037,10 +1036,14 @@ func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	c.Assert(err, jc.ErrorIsNil)
 	outNet := suite.testMAASObject.TestServer.NewSubnet(&out)
 
-	// reserve at least one address to work around bug in
-	// TestServer.
-	addr1 := fmt.Sprintf("192.168.%d.1", i)
-	suite.testMAASObject.TestServer.NewIPAddress(addr1, fmt.Sprintf("maas-eth%d", j))
+	// XXX this will change and actually work...
+	var ar gomaasapi.AddressRange
+	startIP := gomaasapi.IPFromString(fmt.Sprintf("192.168.%d.10", i))
+	endIP := gomaasapi.IPFromString(fmt.Sprintf("192.168.%d.138", i))
+	ar.Start = startIP.String()
+	ar.End = endIP.String()
+	ar.Purpose = []string{"dynamic-range"}
+	outNet.AddFixedAddressRange(ar)
 	return outNet
 }
 
