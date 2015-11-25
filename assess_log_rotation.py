@@ -168,7 +168,8 @@ def check_log0(expected, action_output):
 
 def parse_args(argv=None):
     """Parse all arguments."""
-    parser = add_basic_testing_arguments(ArgumentParser('Test log rotation.'))
+    parser = add_basic_testing_arguments(
+        ArgumentParser(description='Test log rotation.'))
     parser.add_argument(
         'agent',
         help='Which agent log rotation to test.',
