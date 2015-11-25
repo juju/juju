@@ -9,6 +9,9 @@ import (
 
 var logger = loggo.GetLogger("juju.resource.api.server")
 
+// Version is the version number of the current Facade.
+const Version = 0
+
 // State is the functionality of Juju's state needed for the resources API.
 type State interface {
 	specState
