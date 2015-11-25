@@ -497,10 +497,11 @@ func (svc *backingRemoteService) updated(st *State, store *multiwatcherStore, id
 		endpoints[i] = multiwatcher.Endpoint{ep.ServiceName, ep.Relation}
 	}
 	info := &multiwatcher.RemoteServiceInfo{
-		EnvUUID:   st.EnvironUUID(),
-		Name:      svc.Name,
-		Endpoints: endpoints,
-		Life:      multiwatcher.Life(svc.Life.String()),
+		EnvUUID:    st.EnvironUUID(),
+		Name:       svc.Name,
+		ServiceURL: svc.URL,
+		Endpoints:  endpoints,
+		Life:       multiwatcher.Life(svc.Life.String()),
 	}
 	if store.Get(info.EntityId()) == nil {
 		logger.Debugf("new remote service %q added to backing state", svc.Name)

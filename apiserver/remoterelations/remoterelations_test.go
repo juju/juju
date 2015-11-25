@@ -4,6 +4,7 @@
 package remoterelations_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -261,4 +262,87 @@ func (s *remoteRelationsSuite) TestWatchRemoteServiceRelationUnitRemovedRace(c *
 			}},
 		},
 	}})
+}
+
+func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
+	_, err := s.api.PublishLocalRelationsChange(params.ServiceRelationsChanges{})
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *remoteRelationsSuite) TestConsumeRemoveServiceChange(c *gc.C) {
+	mysql := newMockRemoteService("mysql", "local:/u/me/mysql")
+	s.st.remoteServices["mysql"] = mysql
+
+	relation1 := newMockRelation(1)
+	relation2 := newMockRelation(2)
+	relation3 := newMockRelation(3)
+	s.st.relations["mysql:db wordpress:db"] = relation1
+	s.st.relations["mysql:db django:db"] = relation2
+	s.st.relations["mysql:munin munin:munin-node"] = relation3
+
+	mysql0 := newMockRelationUnit()
+	mysql1 := newMockRelationUnit()
+	relation1.units["mysql/0"] = mysql0
+	relation2.units["mysql/1"] = mysql1
+	mysql0Settings := map[string]interface{}{"k": "v"}
+
+	results, err := s.api.ConsumeRemoteServiceChange(params.ServiceChanges{
+		Changes: []params.ServiceChange{{
+			ServiceTag: "service-mysql",
+			Life:       params.Alive,
+			Relations: params.ServiceRelationsChange{
+				ChangedRelations: []params.RelationChange{{
+					RelationId: 1,
+					Life:       params.Alive,
+					ChangedUnits: map[string]params.RelationUnitChange{
+						"mysql/0": params.RelationUnitChange{mysql0Settings},
+					},
+				}, {
+					RelationId:    2,
+					Life:          params.Dying,
+					DepartedUnits: []string{"mysql/1"},
+				}},
+				RemovedRelations: []int{3, 42},
+			},
+		}, {
+			ServiceTag: "service-db2",
+		}, {
+			ServiceTag: "machine-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{nil},
+		{&params.Error{Code: params.CodeNotFound, Message: `remote service "db2" not found`}},
+		{&params.Error{Code: "", Message: `"machine-42" is not a valid service tag`}},
+	})
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"RemoteService", []interface{}{"mysql"}},
+		{"Relation", []interface{}{int(3)}},
+		{"Relation", []interface{}{int(42)}},
+		{"Relation", []interface{}{int(1)}},
+		{"Relation", []interface{}{int(2)}},
+		{"RemoteService", []interface{}{"db2"}},
+	})
+	mysql.CheckCalls(c, []testing.StubCall{}) // no calls yet
+
+	relation1.CheckCalls(c, []testing.StubCall{
+		{"RemoteUnit", []interface{}{"mysql/0"}},
+	})
+	relation2.CheckCalls(c, []testing.StubCall{
+		{"Destroy", []interface{}{}},
+		{"RemoteUnit", []interface{}{"mysql/1"}},
+	})
+	relation3.CheckCalls(c, []testing.StubCall{
+		{"Destroy", []interface{}{}},
+	})
+
+	mysql0.CheckCalls(c, []testing.StubCall{
+		{"InScope", []interface{}{}},
+		{"EnterScope", []interface{}{mysql0Settings}},
+	})
+	mysql1.CheckCalls(c, []testing.StubCall{
+		{"LeaveScope", []interface{}{}},
+	})
 }

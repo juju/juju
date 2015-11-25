@@ -370,7 +370,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				return st.WatchRemoteServices()
 			},
 			triggerEvent: func(st *state.State) {
-				st.AddRemoteService("db2", nil)
+				st.AddRemoteService("db2", "local:/u/ibm/db2", nil)
 			},
 		}, {
 			about: "relations",
@@ -1930,7 +1930,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddRemoteService("s1", nil)
+	_, err := s.State.AddRemoteService("s1", "local:/u/me/dummy", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": remote service with same name already exists`)
@@ -1942,7 +1942,7 @@ func (s *StateSuite) TestAddServiceRemotedAddedAfterInitial(c *gc.C) {
 	// there is no conflict initially but a remote service is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddRemoteService("s1", nil)
+		_, err := s.State.AddRemoteService("s1", "local:/u/me/s1", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})

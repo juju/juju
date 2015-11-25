@@ -150,9 +150,51 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 	assertJoined(c, pr.ru1)
 }
 
+func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
+	_, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", []charm.Relation{{
+		Interface: "mysql",
+		Name:      "server",
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddRemoteService("mysql1", "local:/u/me/mysql", []charm.Relation{{
+		Interface: "mysql",
+		Name:      "server",
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = rel.RemoteUnit("mysql")
+	c.Assert(err, gc.ErrorMatches, `"mysql" is not a valid unit name`)
+
+	_, err = rel.RemoteUnit("wordpress/0")
+	c.Assert(err, gc.ErrorMatches, `remote service "wordpress" not found`)
+
+	_, err = rel.RemoteUnit("mysql1/0")
+	c.Assert(err, gc.ErrorMatches, `service "mysql1" is not a member of "wordpress:db mysql:server"`)
+}
+
 func (s *RelationUnitSuite) TestProReqSettings(c *gc.C) {
 	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
-	rus := RUs{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
+	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
+}
+
+func (s *RelationUnitSuite) TestRemoteProReqSettings(c *gc.C) {
+	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
+}
+
+func (s *RelationUnitSuite) testProReqSettings(c *gc.C, pru0, pru1, rru0, rru1 *state.RelationUnit) {
+	rus := RUs{pru0, pru1, rru0, rru1}
 
 	// Check missing settings cannot be read by any RU.
 	for _, ru := range rus {
@@ -161,15 +203,15 @@ func (s *RelationUnitSuite) TestProReqSettings(c *gc.C) {
 	}
 
 	// Add settings for one RU.
-	assertNotInScope(c, prr.pru0)
-	err := prr.pru0.EnterScope(map[string]interface{}{"gene": "simmons"})
+	assertNotInScope(c, pru0)
+	err := pru0.EnterScope(map[string]interface{}{"gene": "simmons"})
 	c.Assert(err, jc.ErrorIsNil)
-	node, err := prr.pru0.Settings()
+	node, err := pru0.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	node.Set("meme", "foul-bachelor-frog")
 	_, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	assertJoined(c, prr.pru0)
+	assertJoined(c, pru0)
 
 	// Check settings can be read by every RU.
 	for _, ru := range rus {
@@ -482,9 +524,20 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
 
 func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
 	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	s.testProReqWatchScope(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1, prr.watches)
+}
 
+func (s *RelationUnitSuite) TestRemoteProReqWatchScope(c *gc.C) {
+	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	s.testProReqWatchScope(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1, prr.watches)
+}
+
+func (s *RelationUnitSuite) testProReqWatchScope(
+	c *gc.C, pru0, pru1, rru0, rru1 *state.RelationUnit,
+	watches func() []*state.RelationScopeWatcher,
+) {
 	// Test empty initial events for all RUs.
-	ws := prr.watches()
+	ws := watches()
 	for _, w := range ws {
 		defer testing.AssertStop(c, w)
 	}
@@ -494,8 +547,8 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 enters; check detected only by req RUs.
-	assertNotInScope(c, prr.pru0)
-	err := prr.pru0.EnterScope(nil)
+	assertNotInScope(c, pru0)
+	err := pru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	rws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[2], ws[3]}
@@ -504,11 +557,11 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
 		s.assertScopeChange(c, w, []string{"mysql/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
-	assertJoined(c, prr.pru0)
+	assertJoined(c, pru0)
 
 	// req0 enters; check detected only by pro RUs.
-	assertNotInScope(c, prr.rru0)
-	err = prr.rru0.EnterScope(nil)
+	assertNotInScope(c, rru0)
+	err = rru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	pws := func() []*state.RelationScopeWatcher {
 		return []*state.RelationScopeWatcher{ws[0], ws[1]}
@@ -517,23 +570,23 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
 		s.assertScopeChange(c, w, []string{"wordpress/0"}, nil)
 	}
 	s.assertNoScopeChange(c, ws...)
-	assertJoined(c, prr.rru0)
+	assertJoined(c, rru0)
 
 	// Stop watches; remaining RUs enter.
 	for _, w := range ws {
 		testing.AssertStop(c, w)
 	}
-	assertNotInScope(c, prr.pru1)
-	err = prr.pru1.EnterScope(nil)
+	assertNotInScope(c, pru1)
+	err = pru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	assertJoined(c, prr.pru1)
-	assertNotInScope(c, prr.rru1)
-	err = prr.rru1.EnterScope(nil)
+	assertJoined(c, pru1)
+	assertNotInScope(c, rru1)
+	err = rru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	assertJoined(c, prr.rru0)
+	assertJoined(c, rru0)
 
 	// Start new watches, check initial events.
-	ws = prr.watches()
+	ws = watches()
 	for _, w := range ws {
 		defer testing.AssertStop(c, w)
 	}
@@ -546,24 +599,24 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
 	s.assertNoScopeChange(c, ws...)
 
 	// pru0 leaves; check detected only by req RUs.
-	assertJoined(c, prr.pru0)
-	err = prr.pru0.LeaveScope()
+	assertJoined(c, pru0)
+	err = pru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, w := range rws() {
 		s.assertScopeChange(c, w, nil, []string{"mysql/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
-	assertNotInScope(c, prr.pru0)
+	assertNotInScope(c, pru0)
 
 	// rru0 leaves; check detected only by pro RUs.
-	assertJoined(c, prr.rru0)
-	err = prr.rru0.LeaveScope()
+	assertJoined(c, rru0)
+	err = rru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, w := range pws() {
 		s.assertScopeChange(c, w, nil, []string{"wordpress/0"})
 	}
 	s.assertNoScopeChange(c, ws...)
-	assertNotInScope(c, prr.rru0)
+	assertNotInScope(c, rru0)
 }
 
 func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
@@ -672,48 +725,56 @@ func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 
 func (s *RelationUnitSuite) TestPrepareLeaveScope(c *gc.C) {
 	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	s.testPrepareLeaveScope(c, prr.rel, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
+}
 
+func (s *RelationUnitSuite) TestPrepareLeaveScopeRemote(c *gc.C) {
+	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	s.testPrepareLeaveScope(c, prr.rel, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
+}
+
+func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, pru0, pru1, rru0, rru1 *state.RelationUnit) {
 	// Test empty initial event.
-	w0 := prr.pru0.WatchScope()
+	w0 := pru0.WatchScope()
 	defer testing.AssertStop(c, w0)
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
 	// rru0 and rru1 enter; check changes.
-	err := prr.rru0.EnterScope(nil)
+	err := rru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru1.EnterScope(nil)
+	err = rru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertScopeChange(c, w0, []string{"wordpress/0", "wordpress/1"}, nil)
 	s.assertNoScopeChange(c, w0)
 
 	// rru0 notifies that it will leave soon; it's reported as departed by the
 	// watcher, but InScope remains accurate.
-	err = prr.rru0.PrepareLeaveScope()
+	err = rru0.PrepareLeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertScopeChange(c, w0, nil, []string{"wordpress/0"})
 	s.assertNoScopeChange(c, w0)
-	assertInScope(c, prr.rru0)
-	assertNotJoined(c, prr.rru0)
+	assertInScope(c, rru0)
+	assertNotJoined(c, rru0)
 
 	// rru1 leaves, and the relation is destroyed; it's not removed, because
 	// rru0 keeps it alive until it really leaves scope.
-	err = prr.rru1.LeaveScope()
+	err = rru1.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertScopeChange(c, w0, nil, []string{"wordpress/1"})
 	s.assertNoScopeChange(c, w0)
-	err = prr.rel.Destroy()
+	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Refresh()
+	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// rru0 really leaves; the relation is cleaned up.
-	err = prr.rru0.LeaveScope()
+	err = rru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Destroy()
+	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoScopeChange(c, w0)
-	err = prr.rel.Refresh()
+	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -844,6 +905,50 @@ func addRU(c *gc.C, svc *state.Service, rel *state.Relation, principal *state.Un
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, ru
+}
+
+type RemoteProReqRelation struct {
+	rel                    *state.Relation
+	psvc                   *state.RemoteService
+	rsvc                   *state.Service
+	pru0, pru1, rru0, rru1 *state.RelationUnit
+}
+
+func NewRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
+	psvc, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", []charm.Relation{{
+		Interface: "mysql",
+		Name:      "server",
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	rsvc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	prr := &RemoteProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
+	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
+	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
+	_, prr.rru0 = addRU(c, rsvc, rel, nil)
+	_, prr.rru1 = addRU(c, rsvc, rel, nil)
+	return prr
+}
+
+func (prr *RemoteProReqRelation) watches() []*state.RelationScopeWatcher {
+	return []*state.RelationScopeWatcher{
+		prr.pru0.WatchScope(), prr.pru1.WatchScope(),
+		prr.rru0.WatchScope(), prr.rru1.WatchScope(),
+	}
+}
+
+func addRemoteRU(c *gc.C, rel *state.Relation, unitName string) *state.RelationUnit {
+	// Add a remote unit with the given name to rel.
+	ru, err := rel.RemoteUnit(unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	return ru
 }
 
 type WatchScopeSuite struct {

@@ -35,7 +35,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteServices(c *gc.C) {
-	_, err := s.State.AddRemoteService("mysql", nil)
+	_, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.client.WatchRemoteServices()
@@ -47,7 +47,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteServices(c *gc.C) {
 	wc.AssertChangeInSingleEvent("mysql")
 	wc.AssertNoChange()
 
-	_, err = s.State.AddRemoteService("db2", nil)
+	_, err = s.State.AddRemoteService("db2", "local:/u/ibm/db2", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()
@@ -56,7 +56,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteServices(c *gc.C) {
 func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
 	// Add a remote service, and watch it. It should initially have no
 	// relations.
-	_, err := s.State.AddRemoteService("mysql", []charm.Relation{{
+	_, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", []charm.Relation{{
 		Interface: "mysql",
 		Name:      "db",
 		Role:      charm.RoleProvider,
