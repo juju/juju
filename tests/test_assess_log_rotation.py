@@ -151,21 +151,16 @@ class TestCheckLog0(TestCase):
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
-        args = parse_args(['machine', 'b', 'c', 'd', 'e'])
+        args = parse_args(['b', 'c', 'd', 'e', 'machine'])
         self.assertEqual(args, Namespace(
-            agent='machine', juju_path='b', env_name='c', logs='d',
-            temp_env_name='e', debug=False, agent_stream=None))
+            agent='machine', env='b', juju_bin='c', logs='d',
+            temp_env_name='e', debug=False, agent_stream=None, agent_url=None,
+            bootstrap_host=None, machine=[], keep_env=False,
+            region=None, series=None, upload_tools=False, verbose=20))
 
-    def test_parse_args_debug(self):
-        args = parse_args(['--debug', 'unit', 'b', 'c', 'd', 'e'])
-        self.assertEqual(args, Namespace(
-            agent='unit', juju_path='b', env_name='c', logs='d',
-            temp_env_name='e', debug=True, agent_stream=None))
-
-    def test_parse_args_agent_stream(self):
-        args = parse_args(['unit', 'b', 'c', 'd', 'e', '--agent-stream',
-                           'foo'])
-        self.assertEqual(args.agent_stream, 'foo')
+    def test_parse_args_unit(self):
+        args = parse_args(['b', 'c', 'd', 'e', 'unit'])
+        self.assertEqual('unit', args.agent)
 
 
 class TestMakeClientFromArgs(TestCase):
@@ -180,20 +175,21 @@ class TestMakeClientFromArgs(TestCase):
     def make_client_cxt(self):
         with temp_env({'environments': {'foo': {}}}):
             with patch('subprocess.check_output', return_value=''):
-                yield
+                with patch('jujupy.EnvJujuClient.get_jes_command',
+                           autospec=True, return_value='controller'):
+                    with patch('jujupy.EnvJujuClient.juju',
+                               autospec=True, return_value=''):
+                        with patch('assess_log_rotation.tear_down',
+                                   autospec=True, return_value='') as td_func:
+                            yield td_func
 
     def test_defaults(self):
-        with self.make_client_cxt():
+        with self.make_client_cxt() as td_func:
             client = make_client_from_args(Namespace(
-                juju_path='', debug=False, env_name='foo', temp_env_name='',
-                agent_stream=None,
+                juju_bin='', debug=False, env='foo', temp_env_name='bar',
+                agent_url=None, agent_stream=None, series=None, region=None,
+                bootstrap_host=None, machine=[]
                 ))
         self.assertIsInstance(client, EnvJujuClient)
-
-    def test_agent_stream(self):
-        with self.make_client_cxt():
-            client = make_client_from_args(Namespace(
-                juju_path='', debug=False, env_name='foo', temp_env_name='',
-                agent_stream='bar',
-                ))
-        self.assertEqual('bar', client.env.config['agent-stream'])
+        self.assertIn('/jes-homes/bar', client.juju_home)
+        td_func.assert_called_once_with(client, True)
