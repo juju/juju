@@ -5,11 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +23,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -44,12 +38,10 @@ import (
 type UpgradeSuite struct {
 	commonMachineSuite
 
-	aptCmds         []*exec.Cmd
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
 	connectionDead  bool
 	machineIsMaster bool
-	aptMutex        sync.Mutex
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -64,35 +56,8 @@ var (
 const fails = true
 const succeeds = false
 
-func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) {
-	s.aptMutex.Lock()
-	defer s.aptMutex.Unlock()
-	if cmd == nil {
-		s.aptCmds = nil
-	} else {
-		s.aptCmds = append(s.aptCmds, cmd)
-	}
-}
-
-func (s *UpgradeSuite) getInstallCmds() []*exec.Cmd {
-	s.aptMutex.Lock()
-	defer s.aptMutex.Unlock()
-	return s.aptCmds
-}
-
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
-
-	// clear s.aptCmds
-	s.setAptCmds(nil)
-
-	// Capture all apt commands.
-	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
-	go func() {
-		for cmd := range aptCmds {
-			s.setAptCmds(cmd)
-		}
-	}()
 
 	s.oldVersion = version.Binary{
 		Number: version.Current,
@@ -443,36 +408,6 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
-func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1444576")
-	coretesting.SkipIfPPC64EL(c, "lp:1444576")
-	coretesting.SkipIfWindowsBug(c, "lp:1446885")
-	s.setInstantRetryStrategy(c)
-	// Upload tools to provider storage, so they can be migrated to environment storage.
-	stor, err := environs.LegacyStorage(s.State)
-	if !errors.IsNotSupported(err) {
-		c.Assert(err, jc.ErrorIsNil)
-		envtesting.AssertUploadFakeToolsVersions(
-			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
-	}
-	s.assertUpgradeSteps(c, state.JobManageEnviron)
-	s.assertStateServerUpgrades(c)
-}
-
-func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1444576")
-	coretesting.SkipIfWindowsBug(c, "lp:1446885")
-	s.setInstantRetryStrategy(c)
-	// We need to first start up a state server that thinks it has already been upgraded.
-	ss, _, _ := s.primeAgent(c, state.JobManageEnviron)
-	a := s.newAgent(c, ss)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	// Now run the test.
-	s.assertUpgradeSteps(c, state.JobHostUnits)
-	s.assertHostUpgrades(c)
-}
-
 func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// Create machine agent to upgrade
 	machine, machine0Conf, _ := s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
@@ -797,65 +732,6 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 			fmt.Sprintf(`upgrade to %s completed successfully.`, version.Current)})
 	}
 	return outLogs
-}
-
-func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
-	agent, stopFunc := s.createAgentAndStartUpgrade(c, job)
-	defer stopFunc()
-	waitForUpgradeToFinish(c, agent.CurrentConfig())
-}
-
-func (s *UpgradeSuite) keyFile() string {
-	return filepath.Join(s.DataDir(), "system-identity")
-}
-
-func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
-	// rsyslog-gnutls should have been installed.
-	cmds := s.getInstallCmds()
-	c.Assert(cmds, gc.HasLen, 1)
-	args := cmds[0].Args
-	c.Assert(len(args), jc.GreaterThan, 1)
-
-	pm, err := coretesting.GetPackageManager()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(args[0], gc.Equals, pm.PackageManager)
-
-	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")
-}
-
-func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
-	s.assertCommonUpgrades(c)
-	// System SSH key
-	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
-	// Syslog port should have been updated
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.SyslogPort(), gc.Equals, config.DefaultSyslogPort)
-	// Deprecated attributes should have been deleted - just test a couple.
-	allAttrs := cfg.AllAttrs()
-	_, ok := allAttrs["public-bucket"]
-	c.Assert(ok, jc.IsFalse)
-	_, ok = allAttrs["public-bucket-region"]
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
-	s.assertCommonUpgrades(c)
-	// Lock directory
-	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
-	// used to create the directory which partially works on windows 8 but
-	// doesn't work on windows server.
-	lockdir := filepath.Join(s.DataDir(), "locks")
-	c.Assert(lockdir, jc.IsDirectory)
-	// SSH key file should not be generated for hosts.
-	_, err := os.Stat(s.keyFile())
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	// Syslog port should not have been updated
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.SyslogPort(), gc.Not(gc.Equals), config.DefaultSyslogPort)
-	// Add other checks as needed...
 }
 
 func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) (*MachineAgent, func()) {
