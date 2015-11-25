@@ -14,7 +14,7 @@ import (
 // specClient provides methods for interacting with resource specs
 // in Juju's public RPC API.
 type specClient struct {
-	rawAPI
+	FacadeCaller
 }
 
 // ListSpecs calls the ListSpecs API server method with
