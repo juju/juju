@@ -26,7 +26,8 @@ SUPPORTED_RELEASES = """\
 14.04 trusty LTS
 14.10 utopic HISTORIC
 15.04 vivid SUPPORTED
-15.10 wily DEVEL
+15.10 wily SUPPORTED
+16.04 xenial DEVEL
 """
 
 
