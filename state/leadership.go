@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -69,4 +70,23 @@ func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership
 		}
 		return append(prereqs, ops...), nil
 	}
+}
+
+// leadershipSecretary implements leadership.Secretary.
+type leadershipSecretary struct{}
+
+// CheckLease is part of the leadership.Secretary interface.
+func (leadershipSecretary) CheckLease(name string) error {
+	if !names.IsValidService(name) {
+		return errors.NotValidf("%q", name)
+	}
+	return nil
+}
+
+// CheckHolder is part of the leadership.Secretary interface.
+func (leadershipSecretary) CheckHolder(name string) error {
+	if !names.IsValidUnit(name) {
+		return errors.NotValidf("%q", name)
+	}
+	return nil
 }

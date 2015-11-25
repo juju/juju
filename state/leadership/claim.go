@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/leadership"
 )
@@ -15,37 +14,37 @@ import (
 // claim is used to deliver leadership-claim requests to a manager's loop
 // goroutine on behalf of ClaimLeadership.
 type claim struct {
-	serviceName string
-	unitName    string
-	duration    time.Duration
-	response    chan bool
-	abort       <-chan struct{}
+	leaseName  string
+	holderName string
+	duration   time.Duration
+	response   chan bool
+	abort      <-chan struct{}
 }
 
 // validate returns an error if any fields are invalid or missing.
-func (c claim) validate() error {
-	if !names.IsValidService(c.serviceName) {
-		return errors.Errorf("invalid service name %q", c.serviceName)
+func (c claim) validate(secretary Secretary) error {
+	if err := secretary.CheckLease(c.leaseName); err != nil {
+		return errors.Annotate(err, "lease name")
 	}
-	if !names.IsValidUnit(c.unitName) {
-		return errors.Errorf("invalid unit name %q", c.unitName)
+	if err := secretary.CheckHolder(c.holderName); err != nil {
+		return errors.Annotate(err, "holder name")
 	}
 	if c.duration <= 0 {
-		return errors.Errorf("invalid duration %v", c.duration)
+		return errors.NotValidf("duration %v", c.duration)
 	}
 	if c.response == nil {
-		return errors.New("missing response channel")
+		return errors.NotValidf("nil response channel")
 	}
 	if c.abort == nil {
-		return errors.New("missing abort channel")
+		return errors.NotValidf("nil abort channel")
 	}
 	return nil
 }
 
 // invoke sends the claim on the supplied channel and waits for a response.
-func (c claim) invoke(ch chan<- claim) error {
-	if err := c.validate(); err != nil {
-		return errors.Annotatef(err, "cannot claim leadership")
+func (c claim) invoke(secretary Secretary, ch chan<- claim) error {
+	if err := c.validate(secretary); err != nil {
+		return errors.Annotatef(err, "cannot claim lease")
 	}
 	for {
 		select {
@@ -55,6 +54,7 @@ func (c claim) invoke(ch chan<- claim) error {
 			ch = nil
 		case success := <-c.response:
 			if !success {
+				// XXX
 				return leadership.ErrClaimDenied
 			}
 			return nil

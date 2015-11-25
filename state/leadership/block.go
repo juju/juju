@@ -5,36 +5,35 @@ package leadership
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 )
 
 // block is used to deliver leaderlessness-notification requests to a manager's
 // loop goroutine on behalf of BlockUntilLeadershipReleased.
 type block struct {
-	serviceName string
-	unblock     chan struct{}
-	abort       <-chan struct{}
+	leaseName string
+	unblock   chan struct{}
+	abort     <-chan struct{}
 }
 
 // validate returns an error if any fields are invalid or missing.
-func (b block) validate() error {
-	if !names.IsValidService(b.serviceName) {
-		return errors.Errorf("invalid service name %q", b.serviceName)
+func (b block) validate(secretary Secretary) error {
+	if err := secretary.CheckLease(b.leaseName); err != nil {
+		return errors.Annotate(err, "lease name")
 	}
 	if b.unblock == nil {
-		return errors.New("missing unblock channel")
+		return errors.NotValidf("nil unblock channel")
 	}
 	if b.abort == nil {
-		return errors.New("missing abort channel")
+		return errors.NotValidf("nil abort channel")
 	}
 	return nil
 }
 
 // invoke sends the block request on the supplied channel, and waits for the
 // unblock channel to be closed.
-func (b block) invoke(ch chan<- block) error {
-	if err := b.validate(); err != nil {
-		return errors.Annotatef(err, "cannot wait for leaderlessness")
+func (b block) invoke(secretary Secretary, ch chan<- block) error {
+	if err := b.validate(secretary); err != nil {
+		return errors.Annotatef(err, "cannot wait for lease expiry")
 	}
 	for {
 		select {
@@ -54,14 +53,14 @@ type blocks map[string][]chan struct{}
 
 // add records the block's unblock channel under the block's service name.
 func (b blocks) add(block block) {
-	b[block.serviceName] = append(b[block.serviceName], block.unblock)
+	b[block.leaseName] = append(b[block.leaseName], block.unblock)
 }
 
 // unblock closes all channels added under the supplied name and removes
 // them from blocks.
-func (b blocks) unblock(serviceName string) {
-	unblocks := b[serviceName]
-	delete(b, serviceName)
+func (b blocks) unblock(leaseName string) {
+	unblocks := b[leaseName]
+	delete(b, leaseName)
 	for _, unblock := range unblocks {
 		close(unblock)
 	}
