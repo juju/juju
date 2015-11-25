@@ -20,8 +20,8 @@ const (
 // NoRevision indicates that the spec does not have a revision specified.
 const NoRevision = ""
 
-// ResourceSpec describes one resource that a service uses.
-type ResourceSpec interface {
+// Spec describes one resource that a service uses.
+type Spec interface {
 	// Definition is the basic info about the resource.
 	Definition() charm.ResourceInfo
 
@@ -33,33 +33,33 @@ type ResourceSpec interface {
 	Revision() string
 }
 
-// NewResourceSpec returns a new ResourceSpec for the given info.
-func NewResourceSpec(info charm.ResourceInfo, origin, revision string) (ResourceSpec, error) {
+// NewSpec returns a new Spec for the given info.
+func NewSpec(info charm.ResourceInfo, origin, revision string) (Spec, error) {
 	switch origin {
 	case OriginUpload:
 		// TODO(ericsnow) Fail if revision not NoRevision?
-		return &UploadResourceSpec{info}, nil
+		return &UploadSpec{info}, nil
 	default:
 		return nil, errors.NotSupportedf("resource origin %q", origin)
 	}
 }
 
-// UploadResourceSpec defines an *uploaded* resource that a service expects.
-type UploadResourceSpec struct {
+// UploadSpec defines an *uploaded* resource that a service expects.
+type UploadSpec struct {
 	charm.ResourceInfo
 }
 
-// Definition implements ResourceSpec.
-func (res UploadResourceSpec) Definition() charm.ResourceInfo {
+// Definition implements Spec.
+func (res UploadSpec) Definition() charm.ResourceInfo {
 	return res.ResourceInfo
 }
 
-// Origin implements ResourceSpec.
-func (res UploadResourceSpec) Origin() string {
+// Origin implements Spec.
+func (res UploadSpec) Origin() string {
 	return OriginUpload
 }
 
-// Revision implements ResourceSpec.
-func (res UploadResourceSpec) Revision() string {
+// Revision implements Spec.
+func (res UploadSpec) Revision() string {
 	return NoRevision
 }

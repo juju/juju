@@ -10,9 +10,9 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// ResourceSpec2API converts a resource.ResourceSpec into
+// ResourceSpec2API converts a resource.Spec into
 // a ResourceSpec struct.
-func ResourceSpec2API(r resource.ResourceSpec) ResourceSpec {
+func ResourceSpec2API(r resource.Spec) ResourceSpec {
 	info := r.Definition()
 	return ResourceSpec{
 		Name:     info.Name,
@@ -25,15 +25,15 @@ func ResourceSpec2API(r resource.ResourceSpec) ResourceSpec {
 }
 
 // API2ResourceSpec converts an API ResourceSpec info struct into
-// a resource.ResourceSpec.
-func API2ResourceSpec(apiSpec ResourceSpec) (resource.ResourceSpec, error) {
+// a resource.Spec.
+func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 	info := charm.ResourceInfo{
 		Name:    apiSpec.Name,
 		Type:    apiSpec.Type,
 		Path:    apiSpec.Path,
 		Comment: apiSpec.Comment,
 	}
-	res, err := resource.NewResourceSpec(info, apiSpec.Origin, apiSpec.Revision)
+	res, err := resource.NewSpec(info, apiSpec.Origin, apiSpec.Revision)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

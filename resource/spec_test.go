@@ -19,7 +19,7 @@ type specSuite struct {
 	testing.IsolationSuite
 }
 
-func (specSuite) TestNewResourceSpecUpload(c *gc.C) {
+func (specSuite) TestNewSpecUpload(c *gc.C) {
 	info := charm.ResourceInfo{
 		Name:    "spam",
 		Type:    "file",
@@ -29,7 +29,7 @@ func (specSuite) TestNewResourceSpecUpload(c *gc.C) {
 	origin := resource.OriginUpload
 	revision := resource.NoRevision
 
-	spec, err := resource.NewResourceSpec(info, origin, revision)
+	spec, err := resource.NewSpec(info, origin, revision)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(spec.Definition(), jc.DeepEquals, info)
@@ -37,12 +37,12 @@ func (specSuite) TestNewResourceSpecUpload(c *gc.C) {
 	c.Check(spec.Revision(), gc.Equals, revision)
 }
 
-func (specSuite) TestNewResourceSpecEmptyInfo(c *gc.C) {
+func (specSuite) TestNewSpecEmptyInfo(c *gc.C) {
 	var info charm.ResourceInfo
 	origin := resource.OriginUpload
 	revision := resource.NoRevision
 
-	spec, err := resource.NewResourceSpec(info, origin, revision)
+	spec, err := resource.NewSpec(info, origin, revision)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(spec.Definition(), jc.DeepEquals, info)
@@ -50,7 +50,7 @@ func (specSuite) TestNewResourceSpecEmptyInfo(c *gc.C) {
 	c.Check(spec.Revision(), gc.Equals, revision)
 }
 
-func (specSuite) TestNewResourceSpecEmptyOrigin(c *gc.C) {
+func (specSuite) TestNewSpecEmptyOrigin(c *gc.C) {
 	info := charm.ResourceInfo{
 		Name:    "spam",
 		Type:    "file",
@@ -59,13 +59,13 @@ func (specSuite) TestNewResourceSpecEmptyOrigin(c *gc.C) {
 	}
 	revision := resource.NoRevision
 
-	_, err := resource.NewResourceSpec(info, "", revision)
+	_, err := resource.NewSpec(info, "", revision)
 
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 	c.Check(err, gc.ErrorMatches, `.*origin.*`)
 }
 
-func (specSuite) TestNewResourceSpecUnknownOrigin(c *gc.C) {
+func (specSuite) TestNewSpecUnknownOrigin(c *gc.C) {
 	info := charm.ResourceInfo{
 		Name:    "spam",
 		Type:    "file",
@@ -74,7 +74,7 @@ func (specSuite) TestNewResourceSpecUnknownOrigin(c *gc.C) {
 	}
 	revision := resource.NoRevision
 
-	_, err := resource.NewResourceSpec(info, "<bogus>", revision)
+	_, err := resource.NewSpec(info, "<bogus>", revision)
 
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 	c.Check(err, gc.ErrorMatches, `.*origin.*`)

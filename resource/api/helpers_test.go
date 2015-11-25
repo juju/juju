@@ -20,7 +20,7 @@ type helpersSuite struct {
 }
 
 func (helpersSuite) TestResourceSpec2API(c *gc.C) {
-	spec, err := resource.NewResourceSpec(
+	spec, err := resource.NewSpec(
 		charm.ResourceInfo{
 			Name:    "spam",
 			Type:    "file",
@@ -54,7 +54,7 @@ func (helpersSuite) TestAPI2ResourceSpec(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected, err := resource.NewResourceSpec(
+	expected, err := resource.NewSpec(
 		charm.ResourceInfo{
 			Name:    "spam",
 			Type:    "file",
