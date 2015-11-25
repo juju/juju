@@ -662,7 +662,6 @@ const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
 // assumes that the service already exists in the db.
 func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
 	var cons constraints.Value
-	var storageCons map[string]StorageConstraints
 	if !s.doc.Subordinate {
 		scons, err := s.Constraints()
 		if errors.IsNotFound(err) {
@@ -675,11 +674,10 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		storageCons, err = s.StorageConstraints()
-		if err != nil {
-			return "", nil, err
-		}
-
+	}
+	storageCons, err := s.StorageConstraints()
+	if err != nil {
+		return "", nil, err
 	}
 	args := addUnitOpsArgs{
 		cons:          cons,

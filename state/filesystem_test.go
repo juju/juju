@@ -31,7 +31,13 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 
 func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefault(c *gc.C) {
 	// no pool specified, no default configured: use rootfs.
-	s.testAddServiceDefaultPool(c, "rootfs")
+	s.testAddServiceDefaultPool(c, "rootfs", 0)
+}
+
+func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
+	// no pool specified, no default configured: use rootfs, add a unit during
+	// service deploy.
+	s.testAddServiceDefaultPool(c, "rootfs", 1)
 }
 
 func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
@@ -41,10 +47,10 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
 		"storage-default-block-source": "machinescoped",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.testAddServiceDefaultPool(c, "machinescoped")
+	s.testAddServiceDefaultPool(c, "machinescoped", 0)
 }
 
-func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string) {
+func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string, numUnits int) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
@@ -55,7 +61,7 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 		Owner:    s.Owner.String(),
 		Charm:    ch,
 		Storage:  storage,
-		NumUnits: 1,
+		NumUnits: numUnits,
 	}
 	svc, err := s.State.AddService(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,18 +81,20 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-	unit := units[0]
-	scons, err := unit.StorageConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(scons, gc.DeepEquals, expected)
+	c.Assert(units, gc.HasLen, numUnits)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageAttachments, gc.HasLen, 1)
-	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
+	for _, unit := range units {
+		scons, err := unit.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(scons, gc.DeepEquals, expected)
+
+		storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(storageAttachments, gc.HasLen, 1)
+		storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
+	}
 }
 
 func (s *FilesystemStateSuite) TestAddFilesystemWithoutBackingVolume(c *gc.C) {
