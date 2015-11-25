@@ -42,118 +42,78 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, addrFamily, nic, bridge string) {
+func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, nic, bridge string, isBond bool) {
+	// To simplify most cases, trim trailing new lines.
+	initialConfig = strings.TrimSuffix(initialConfig, "\n")
+	expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
 	err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
 	c.Check(err, jc.ErrorIsNil)
 	// Run the script and verify the modified config.
-	output, code := s.runScript(c, addrFamily, nic, s.testConfigPath, bridge)
-	c.Check(code, gc.Equals, 0)
-	c.Check(output, gc.Equals, "")
-	data, err := ioutil.ReadFile(s.testConfigPath)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, expectedConfig)
+	output, retcode := s.runScript(c, s.testConfigPath, nic, bridge, isBond)
+	c.Check(retcode, gc.Equals, 0)
+	c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptWithInvalidParams(c *gc.C) {
-	var tests = []struct {
-		about  string
-		params []string
-	}{{
-		about:  "argument 1 is zero length",
-		params: []string{"", "2", "3", "4"},
-	}, {
-		about:  "argument 2 is zero length",
-		params: []string{"1", "", "3", "4"},
-	}, {
-		about:  "argument 3 is zero length",
-		params: []string{"1", "2", "", "4"},
-	}, {
-		about:  "argument 4 is zero length",
-		params: []string{"1", "2", "3", ""},
-	}, {
-		about:  "both addr_family and primary_nic arguments empty",
-		params: []string{"", "", s.testBridgeName, s.testConfigPath},
-	}, {
-		about:  "invalid address family, empty primary NIC",
-		params: []string{"foo", "", s.testBridgeName, s.testConfigPath},
-	}, {
-		about:  "empty address family, invalid primary NIC",
-		params: []string{"", "bar", s.testBridgeName, s.testConfigPath},
-	}, {
-		about:  "valid address family, empty primary NIC",
-		params: []string{"inet", "", s.testBridgeName, s.testConfigPath},
-	}, {
-		about:  "valid address family, invalid primary NIC",
-		params: []string{"inet", "foo", s.testBridgeName, s.testConfigPath},
-	}, {
-		about:  "valid, but mismatched address family, valid primary NIC",
-		params: []string{"inet6", "eth0", s.testBridgeName, s.testConfigPath},
-	}}
-
-	for i, test := range tests {
-		c.Logf("test #%d: %s", i, test.about)
-
-		// Simple initial config.
-		err := ioutil.WriteFile(s.testConfigPath, []byte(networkDHCPInitial), 0644)
-		c.Check(err, jc.ErrorIsNil)
-
-		// Run and check it fails.
-		output, code := s.runScript(c, test.params[0], test.params[1], test.params[2], test.params[3])
-		c.Check(code, gc.Equals, 1)
-		c.Check(output, gc.Equals, "")
-
-		// Verify the config was not modified.
-		data, err := ioutil.ReadFile(s.testConfigPath)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(string(data), gc.Equals, networkDHCPInitial)
-	}
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithZeroArgs(c *gc.C) {
-	_, code := s.runScript(c, "", "", "", "")
+func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
+	_, code := s.runScript(c, "", "", "", false)
 	c.Check(code, gc.Equals, 1)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
-	s.assertScript(c, networkDHCPInitial, networkDHCPExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkDHCPInitial, networkDHCPExpected, "eth0", "juju-br0", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptStatic(c *gc.C) {
-	s.assertScript(c, networkStaticInitial, networkStaticExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkStaticInitial, networkStaticExpected, "eth0", "juju-br0", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultiple(c *gc.C) {
-	s.assertScript(c, networkMultipleInitial, networkMultipleExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkMultipleInitial, networkMultipleExpected, "eth0", "juju-br0", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithAlias(c *gc.C) {
-	s.assertScript(c, networkWithAliasInitial, networkWithAliasExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkWithAliasInitial, networkWithAliasExpected, "eth0", "juju-br0", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithAlias(c *gc.C) {
-	s.assertScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "eth0", "juju-br0", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleStaticWithAliases(c *gc.C) {
-	s.assertScript(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "inet", "eth0", "juju-br0")
+	s.assertScript(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "eth0", "juju-br0", false)
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, addressFamily, nic, configFile, bridgeName string) (output string, exitCode int) {
-	script := fmt.Sprintf("%s\n%s %q %q %q %q\n",
-		bridgeScriptBase,
-		"modify_network_config",
-		addressFamily,
-		nic,
+func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithBond(c *gc.C) {
+	s.assertScript(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "bond0", "juju-br0", true)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptMultipleAliases(c *gc.C) {
+	s.assertScript(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "eth10", "juju-br10", false)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptPopEmptyStanza(c *gc.C) {
+	s.assertScript(c, networkMinimalInitial, networkMinimalExpected, "eth0", "juju-br0", false)
+}
+
+func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, nic string, bridge string, isBond bool) (output string, exitCode int) {
+	var primaryNicIsBonded = ""
+
+	if isBond {
+		primaryNicIsBonded = "--primary-nic-is-bonded"
+	}
+
+	script := fmt.Sprintf("%s\npython -c %q --render-only --filename=%q --primary-nic=%q --bridge-name=%q %s\n",
+		bridgeScriptPythonBashDef,
+		"$python_script",
 		configFile,
-		bridgeName)
+		nic,
+		bridge,
+		primaryNicIsBonded)
 
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
-	// To simplify most cases, trim any trailing new lines, but still separate
-	// the stdout and stderr (in that order) with a new line, if both are
-	// non-empty.
-	stdout := strings.TrimSuffix(string(result.Stdout), "\n")
-	stderr := strings.TrimSuffix(string(result.Stderr), "\n")
+	stdout := string(result.Stdout)
+	stderr := string(result.Stderr)
 	if stderr != "" {
 		return stdout + "\n" + stderr, result.Code
 	}
@@ -199,8 +159,7 @@ iface eth0 inet manual
 
 auto juju-br0
 iface juju-br0 inet dhcp
-    bridge_ports eth0
-`
+    bridge_ports eth0`
 
 const networkMultipleInitial = networkStaticInitial + `
 auto eth1
@@ -220,6 +179,7 @@ iface juju-br0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
+
 auto eth1
 iface eth1 inet static
     address 1.2.3.5
@@ -242,6 +202,7 @@ iface juju-br0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
+
 auto juju-br0:1
 iface juju-br0:1 inet static
     address 1.2.3.5`
@@ -304,8 +265,7 @@ iface eth1 inet manual
 dns-nameservers 10.17.20.200
 dns-search maas`
 
-const networkMultipleStaticWithAliasesExpected = `
-iface eth0 inet manual
+const networkMultipleStaticWithAliasesExpected = `iface eth0 inet manual
 
 auto juju-br0
 iface juju-br0 inet static
@@ -325,3 +285,288 @@ iface eth1 inet manual
 
 dns-nameservers 10.17.20.200
 dns-search maas`
+
+const networkDHCPWithBondInitial = `auto eth0
+iface eth0 inet manual
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode active-backup
+
+auto eth1
+iface eth1 inet manual
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode active-backup
+
+auto bond0
+iface bond0 inet dhcp
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-mode active-backup
+    hwaddress 52:54:00:1c:f1:5b
+    bond-slaves none
+
+dns-nameservers 10.17.20.200
+dns-search maas19`
+
+const networkDHCPWithBondExpected = `auto eth0
+iface eth0 inet manual
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode active-backup
+
+auto eth1
+iface eth1 inet manual
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode active-backup
+
+auto bond0
+iface bond0 inet manual
+    bond-lacp_rate slow
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-mode active-backup
+    hwaddress 52:54:00:1c:f1:5b
+    bond-slaves none
+
+auto juju-br0
+iface juju-br0 inet dhcp
+    bridge_ports bond0
+    mtu 1500
+    hwaddress 52:54:00:1c:f1:5b
+    pre-up ip link add dev bond0 name juju-br0 type bridge || true
+
+dns-nameservers 10.17.20.200
+dns-search maas19`
+
+const networkMultipleAliasesInitial = `auto eth0
+iface eth0 inet dhcp
+
+auto eth1
+iface eth1 inet dhcp
+
+auto eth2
+iface eth2 inet dhcp
+
+auto eth3
+iface eth3 inet dhcp
+
+auto eth4
+iface eth4 inet dhcp
+
+auto eth5
+iface eth5 inet dhcp
+
+auto eth5
+iface eth5 inet dhcp
+
+auto eth6
+iface eth6 inet dhcp
+
+auto eth7
+iface eth7 inet dhcp
+
+auto eth8
+iface eth8 inet dhcp
+
+auto eth9
+iface eth9 inet dhcp
+
+auto eth10
+iface eth10 inet static
+    gateway 10.17.20.1
+    address 10.17.20.201/24
+    mtu 1500
+
+auto eth10:1
+iface eth10:1 inet static
+    address 10.17.20.202/24
+    mtu 1500
+
+auto eth10:2
+iface eth10:2 inet static
+    address 10.17.20.203/24
+    mtu 1500
+
+auto eth10:3
+iface eth10:3 inet static
+    address 10.17.20.204/24
+    mtu 1500
+
+auto eth10:4
+iface eth10:4 inet static
+    address 10.17.20.205/24
+    mtu 1500
+
+auto eth10:5
+iface eth10:5 inet static
+    address 10.17.20.206/24
+    mtu 1500
+
+auto eth10:6
+iface eth10:6 inet static
+    address 10.17.20.207/24
+    mtu 1500
+
+auto eth10:7
+iface eth10:7 inet static
+    address 10.17.20.208/24
+    mtu 1500
+
+auto eth10:8
+iface eth10:8 inet static
+    address 10.17.20.209/24
+    mtu 1500
+
+auto eth10:9
+iface eth10:9 inet static
+    address 10.17.20.210/24
+    mtu 1500
+
+auto eth10:10
+iface eth10:10 inet static
+    address 10.17.20.211/24
+    mtu 1500
+
+auto eth10:11
+iface eth10:11 inet static
+    address 10.17.20.212/24
+    mtu 1500
+
+auto eth10:12
+iface eth10:12 inet static
+    address 10.17.20.213/24
+    mtu 1500
+
+dns-nameservers 10.17.20.200
+dns-search maas19`
+
+const networkMultipleAliasesExpected = `auto eth0
+iface eth0 inet dhcp
+
+auto eth1
+iface eth1 inet dhcp
+
+auto eth2
+iface eth2 inet dhcp
+
+auto eth3
+iface eth3 inet dhcp
+
+auto eth4
+iface eth4 inet dhcp
+
+auto eth5
+iface eth5 inet dhcp
+
+auto eth5
+iface eth5 inet dhcp
+
+auto eth6
+iface eth6 inet dhcp
+
+auto eth7
+iface eth7 inet dhcp
+
+auto eth8
+iface eth8 inet dhcp
+
+auto eth9
+iface eth9 inet dhcp
+
+iface eth10 inet manual
+
+auto juju-br10
+iface juju-br10 inet static
+    bridge_ports eth10
+    gateway 10.17.20.1
+    address 10.17.20.201/24
+    mtu 1500
+
+auto juju-br10:1
+iface juju-br10:1 inet static
+    address 10.17.20.202/24
+    mtu 1500
+
+auto juju-br10:2
+iface juju-br10:2 inet static
+    address 10.17.20.203/24
+    mtu 1500
+
+auto juju-br10:3
+iface juju-br10:3 inet static
+    address 10.17.20.204/24
+    mtu 1500
+
+auto juju-br10:4
+iface juju-br10:4 inet static
+    address 10.17.20.205/24
+    mtu 1500
+
+auto juju-br10:5
+iface juju-br10:5 inet static
+    address 10.17.20.206/24
+    mtu 1500
+
+auto juju-br10:6
+iface juju-br10:6 inet static
+    address 10.17.20.207/24
+    mtu 1500
+
+auto juju-br10:7
+iface juju-br10:7 inet static
+    address 10.17.20.208/24
+    mtu 1500
+
+auto juju-br10:8
+iface juju-br10:8 inet static
+    address 10.17.20.209/24
+    mtu 1500
+
+auto juju-br10:9
+iface juju-br10:9 inet static
+    address 10.17.20.210/24
+    mtu 1500
+
+auto juju-br10:10
+iface juju-br10:10 inet static
+    address 10.17.20.211/24
+    mtu 1500
+
+auto juju-br10:11
+iface juju-br10:11 inet static
+    address 10.17.20.212/24
+    mtu 1500
+
+auto juju-br10:12
+iface juju-br10:12 inet static
+    address 10.17.20.213/24
+    mtu 1500
+
+dns-nameservers 10.17.20.200
+dns-search maas19`
+
+const networkMinimalInitial = `auto eth0
+iface eth0 inet dhcp`
+
+const networkMinimalExpected = `iface eth0 inet manual
+
+auto juju-br0
+iface juju-br0 inet dhcp
+    bridge_ports eth0`
