@@ -1057,9 +1057,28 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSpaces := []network.SpaceInfo{
-		{Name: "space-1", ProviderId: "space-1", Subnets: []network.SubnetInfo{}},
-		{Name: "space-2", ProviderId: "space-2", Subnets: []network.SubnetInfo{}},
-		{Name: "space-3", ProviderId: "space-3", Subnets: []network.SubnetInfo{}},
+		{
+			Name:       "space-1",
+			ProviderId: "space-1",
+			Subnets: []network.SubnetInfo{
+				{},
+				{},
+			},
+		}, {
+			Name:       "space-2",
+			ProviderId: "space-2",
+			Subnets: []network.SubnetInfo{
+				{},
+				{},
+			},
+		}, {
+			Name:       "space-3",
+			ProviderId: "space-3",
+			Subnets: []network.SubnetInfo{
+				{},
+				{},
+			},
+		},
 	}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
