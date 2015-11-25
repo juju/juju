@@ -105,11 +105,11 @@ func APIInfo(env Environ) (*api.Info, error) {
 	apiAddrs := network.HostPortsToStrings(
 		network.AddressesWithPort(addrs, apiPort),
 	)
-	uuid, uuidSet := config.UUID()
-	if !uuidSet {
-		return nil, errors.New("config has no UUID")
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert}
+	if uuid, uuidSet := config.UUID(); uuidSet {
+		apiInfo.EnvironTag = names.NewEnvironTag(uuid)
+	} else {
+		logger.Warningf("missing environment-uuid, old environment?")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
 	return apiInfo, nil
 }
