@@ -48,13 +48,13 @@ type manager struct {
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
 
-	// claims is used to deliver leadership claim requests to the loop.
+	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
 
-	// checks is used to deliver leadership check requests to the loop.
+	// checks is used to deliver lease check requests to the loop.
 	checks chan check
 
-	// blocks is used to deliver leaderlessness block requests to the loop.
+	// blocks is used to deliver expiry block requests to the loop.
 	blocks chan block
 }
 
@@ -69,7 +69,7 @@ func (manager *manager) kill(err error) {
 	if errors.Cause(err) == tomb.ErrDying {
 		err = tomb.ErrDying
 	} else if err != nil {
-		logger.Errorf("stopping leadership manager with error: %v", err)
+		logger.Errorf("stopping lease manager with error: %v", err)
 	}
 	manager.tomb.Kill(err)
 }
@@ -88,9 +88,9 @@ func (manager *manager) loop() error {
 		}
 
 		leases := manager.config.Client.Leases()
-		for serviceName := range blocks {
-			if _, found := leases[serviceName]; !found {
-				blocks.unblock(serviceName)
+		for leaseName := range blocks {
+			if _, found := leases[leaseName]; !found {
+				blocks.unblock(leaseName)
 			}
 		}
 	}
@@ -114,13 +114,22 @@ func (manager *manager) choose(blocks blocks) error {
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
-func (manager *manager) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
+func (manager *manager) ClaimLeadership(leaseName, holderName string, duration time.Duration) error {
+	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
+		return errors.Annotatef(err, "cannot claim lease %q", leaseName)
+	}
+	if err := manager.config.Secretary.CheckHolder(holderName); err != nil {
+		return errors.Annotatef(err, "cannot claim lease for holder %q", holderName)
+	}
+	if err := manager.config.Secretary.CheckDuration(duration); err != nil {
+		return errors.Annotatef(err, "cannot claim lease for %s", duration)
+	}
 	return claim{
-		serviceName: serviceName,
-		unitName:    unitName,
-		duration:    duration,
-		response:    make(chan bool),
-		abort:       manager.tomb.Dying(),
+		leaseName:  leaseName,
+		holderName: holderName,
+		duration:   duration,
+		response:   make(chan bool),
+		abort:      manager.tomb.Dying(),
 	}.invoke(manager.claims)
 }
 
@@ -129,19 +138,19 @@ func (manager *manager) ClaimLeadership(serviceName, unitName string, duration t
 // is communicated back to the claim's originator.
 func (manager *manager) handleClaim(claim claim) error {
 	client := manager.config.Client
-	request := lease.Request{claim.unitName, claim.duration}
+	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
 	for err == lease.ErrInvalid {
 		select {
 		case <-manager.tomb.Dying():
 			return tomb.ErrDying
 		default:
-			info, found := client.Leases()[claim.serviceName]
+			info, found := client.Leases()[claim.leaseName]
 			switch {
 			case !found:
-				err = client.ClaimLease(claim.serviceName, request)
-			case info.Holder == claim.unitName:
-				err = client.ExtendLease(claim.serviceName, request)
+				err = client.ClaimLease(claim.leaseName, request)
+			case info.Holder == claim.holderName:
+				err = client.ExtendLease(claim.leaseName, request)
 			default:
 				claim.respond(false)
 				return nil
@@ -158,14 +167,15 @@ func (manager *manager) handleClaim(claim claim) error {
 // LeadershipCheck is part of the leadership.Checker interface.
 //
 // The token returned will accept a `*[]txn.Op` passed to Check, and will
-// populate it with transaction operations that will fail if the unit is
-// not leader of the service.
-func (manager *manager) LeadershipCheck(serviceName, unitName string) leadership.Token {
+// populate it with transaction operations that will fail if the holder is
+// not occupying the lease.
+func (manager *manager) LeadershipCheck(leaseName, holderName string) leadership.Token {
 	return token{
-		serviceName: serviceName,
-		unitName:    unitName,
-		checks:      manager.checks,
-		abort:       manager.tomb.Dying(),
+		leaseName:  leaseName,
+		holderName: holderName,
+		secretary:  manager.config.Secretary,
+		checks:     manager.checks,
+		abort:      manager.tomb.Dying(),
 	}
 }
 
@@ -174,27 +184,33 @@ func (manager *manager) LeadershipCheck(serviceName, unitName string) leadership
 // request, and is communicated back to the check's originator.
 func (manager *manager) handleCheck(check check) error {
 	client := manager.config.Client
-	info, found := client.Leases()[check.serviceName]
-	if !found || info.Holder != check.unitName {
+	info, found := client.Leases()[check.leaseName]
+	if !found || info.Holder != check.holderName {
 		if err := client.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		info, found = client.Leases()[check.serviceName]
+		info, found = client.Leases()[check.leaseName]
 	}
-	if found && info.Holder == check.unitName {
-		check.succeed(info.AssertOp)
-	} else {
-		check.fail()
+
+	var response error
+	if !found || info.Holder != check.holderName {
+		response = ErrLeaseNotHeld
+	} else if check.trapdoorKey != nil {
+		response = info.Trapdoor(check.trapdoorKey)
 	}
+	check.respond(response)
 	return nil
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
+func (manager *manager) BlockUntilLeadershipReleased(leaseName string) error {
+	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
+		return errors.Annotatef(err, "cannot block for lease %q expiry", leaseName)
+	}
 	return block{
-		serviceName: serviceName,
-		unblock:     make(chan struct{}),
-		abort:       manager.tomb.Dying(),
+		leaseName: leaseName,
+		unblock:   make(chan struct{}),
+		abort:     manager.tomb.Dying(),
 	}.invoke(manager.blocks)
 }
 

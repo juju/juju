@@ -69,7 +69,7 @@ func (client *client) Leases() map[string]Info {
 		leases[name] = Info{
 			Holder:   entry.holder,
 			Expiry:   skew.Latest(entry.expiry),
-			AssertOp: client.assertOp(name, entry.holder),
+			Trapdoor: client.assertOpTrapdoor(name, entry.holder),
 		}
 	}
 	return leases
@@ -473,15 +473,23 @@ func (client *client) writeClockOp(now time.Time) txn.Op {
 	}
 }
 
-// assertOp returns a txn.Op which will succeed only if holder holds the
-// named lease.
-func (client *client) assertOp(name, holder string) txn.Op {
-	return txn.Op{
+// assertOpTrapdoor returns a client.Trapdoor that will replace a supplied
+// *[]txn.Op with one that asserts that the holder still holds the named lease.
+func (client *client) assertOpTrapdoor(name, holder string) Trapdoor {
+	op := txn.Op{
 		C:  client.config.Collection,
 		Id: client.leaseDocId(name),
 		Assert: bson.M{
 			fieldLeaseHolder: holder,
 		},
+	}
+	return func(out interface{}) error {
+		outPtr, ok := out.(*[]txn.Op)
+		if !ok {
+			return errors.NotValidf("expected *[]txn.Op; %T", out)
+		}
+		*outPtr = []txn.Op{op}
+		return nil
 	}
 }
 

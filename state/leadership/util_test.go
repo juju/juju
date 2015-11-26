@@ -14,6 +14,33 @@ import (
 	"github.com/juju/juju/state/lease"
 )
 
+// Secretary implements leadership.Secretary for testing purposes.
+type Secretary struct{}
+
+// CheckLease is part of the leadership.Secretary interface.
+func (Secretary) CheckLease(name string) error {
+	return checkName(name)
+}
+
+// CheckHolder is part of the leadership.Secretary interface.
+func (Secretary) CheckHolder(name string) error {
+	return checkName(name)
+}
+
+func checkName(name string) error {
+	if name == "INVALID" {
+		return errors.NotValidf("name")
+	}
+	return nil
+}
+
+func (Secretary) CheckDuration(duration time.Duration) error {
+	if duration != time.Minute {
+		return errors.NotValidf("time")
+	}
+	return nil
+}
+
 // Client implements lease.Client for testing purposes.
 type Client struct {
 	leases map[string]lease.Info

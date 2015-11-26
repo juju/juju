@@ -4,10 +4,29 @@
 package leadership
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/leadership"
 )
+
+// Secretary is reponsible for validating the sanity of lease and holder names
+// before bothering the manager with them.
+type Secretary interface {
+
+	// CheckLease returns an error if the supplied lease name is not valid.
+	CheckLease(name string) error
+
+	// CheckHolder returns an error if the supplied holder name is not valid.
+	CheckHolder(name string) error
+
+	// CheckDuration returns an error if the supplied duration is not valid.
+	CheckDuration(duration time.Duration) error
+}
+
+// ErrLeaseNotHeld indicates that a lease is not held.
+var ErrLeaseNotHeld = errors.New("lease not held")
 
 // ManagerWorker implements leadership functions, and worker.Worker. We don't
 // import worker because it pulls in a lot of dependencies and causes import

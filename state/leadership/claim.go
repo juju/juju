@@ -6,47 +6,21 @@ package leadership
 import (
 	"time"
 
-	"github.com/juju/errors"
-	"github.com/juju/names"
-
 	"github.com/juju/juju/leadership"
 )
 
-// claim is used to deliver leadership-claim requests to a manager's loop
+// claim is used to deliver lease-claim requests to a manager's loop
 // goroutine on behalf of ClaimLeadership.
 type claim struct {
-	serviceName string
-	unitName    string
-	duration    time.Duration
-	response    chan bool
-	abort       <-chan struct{}
-}
-
-// validate returns an error if any fields are invalid or missing.
-func (c claim) validate() error {
-	if !names.IsValidService(c.serviceName) {
-		return errors.Errorf("invalid service name %q", c.serviceName)
-	}
-	if !names.IsValidUnit(c.unitName) {
-		return errors.Errorf("invalid unit name %q", c.unitName)
-	}
-	if c.duration <= 0 {
-		return errors.Errorf("invalid duration %v", c.duration)
-	}
-	if c.response == nil {
-		return errors.New("missing response channel")
-	}
-	if c.abort == nil {
-		return errors.New("missing abort channel")
-	}
-	return nil
+	leaseName  string
+	holderName string
+	duration   time.Duration
+	response   chan bool
+	abort      <-chan struct{}
 }
 
 // invoke sends the claim on the supplied channel and waits for a response.
 func (c claim) invoke(ch chan<- claim) error {
-	if err := c.validate(); err != nil {
-		return errors.Annotatef(err, "cannot claim leadership")
-	}
 	for {
 		select {
 		case <-c.abort:
