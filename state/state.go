@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -196,7 +195,7 @@ func (st *State) start(serverTag names.EnvironTag) error {
 	logger.Infof("creating leadership lease client as %s", clientId)
 	clock := GetClock()
 	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
+	leaseClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,

@@ -10,6 +10,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
+	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/worker/lease"
 )
 
 func addLeadershipSettingsOp(serviceId string) txn.Op {
@@ -27,13 +29,13 @@ func leadershipSettingsKey(serviceId string) string {
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
 // state's environment.
 func (st *State) LeadershipClaimer() leadership.Claimer {
-	return st.leadershipManager
+	return leadershipClaimer{st.leadershipManager}
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
 // state's environment.
 func (st *State) LeadershipChecker() leadership.Checker {
-	return st.leadershipManager
+	return leadershipChecker{st.leadershipManager}
 }
 
 // HackLeadership stops the state's internal leadership manager to prevent it
@@ -73,10 +75,11 @@ func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership
 	}
 }
 
-// leadershipSecretary implements leadership.Secretary.
+// leadershipSecretary implements lease.Secretary; it checks that leases are
+// service names, and holders are unit names.
 type leadershipSecretary struct{}
 
-// CheckLease is part of the leadership.Secretary interface.
+// CheckLease is part of the lease.Secretary interface.
 func (leadershipSecretary) CheckLease(name string) error {
 	if !names.IsValidService(name) {
 		return errors.NewNotValid(nil, "not a service name")
@@ -84,7 +87,7 @@ func (leadershipSecretary) CheckLease(name string) error {
 	return nil
 }
 
-// CheckHolder is part of the leadership.Secretary interface.
+// CheckHolder is part of the lease.Secretary interface.
 func (leadershipSecretary) CheckHolder(name string) error {
 	if !names.IsValidUnit(name) {
 		return errors.NewNotValid(nil, "not a unit name")
@@ -92,10 +95,58 @@ func (leadershipSecretary) CheckHolder(name string) error {
 	return nil
 }
 
-// CheckDuration is part of the leadership.Secretary interface.
+// CheckDuration is part of the lease.Secretary interface.
 func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 	// We don't have any opinions on valid lease times at this level. The
 	// substrate will barf if we go <= 0; the apiserver won't relay requests
 	// outside [5s, 5m]; not much sense duplicating either condition here.
 	return nil
+}
+
+// leadershipChecker implements leadership.Checker by wrapping a lease.Manager.
+type leadershipChecker struct {
+	manager *lease.Manager
+}
+
+// LeadershipCheck is part of the leadership.Checker interface.
+func (m leadershipChecker) LeadershipCheck(serviceName, unitName string) leadership.Token {
+	return leadershipToken{
+		token:      m.manager.Token(serviceName, unitName),
+		notHeldErr: errors.Errorf("%q is not leader of %q", unitName, serviceName),
+	}
+}
+
+// leadershipToken implements leadership.Token by wrapping a corelease.Token.
+type leadershipToken struct {
+	token      corelease.Token
+	notHeldErr error
+}
+
+// Check is part of the leadership.Token interface.
+func (t leadershipToken) Check(out interface{}) error {
+	err := t.token.Check(out)
+	if errors.Cause(err) == corelease.ErrNotHeld {
+		return t.notHeldErr
+	}
+	return errors.Trace(err)
+}
+
+// leadershipClaimer implements leadership.Claimer by wrappping a lease.Manager.
+type leadershipClaimer struct {
+	manager *lease.Manager
+}
+
+// ClaimLeadership is part of the leadership.Claimer interface.
+func (m leadershipClaimer) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
+	err := m.manager.Claim(serviceName, unitName, duration)
+	if errors.Cause(err) == corelease.ErrClaimDenied {
+		return leadership.ErrClaimDenied
+	}
+	return errors.Trace(err)
+}
+
+// BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
+func (m leadershipClaimer) BlockUntilLeadershipReleased(serviceName string) error {
+	err := m.manager.WaitExpired(serviceName)
+	return errors.Trace(err)
 }

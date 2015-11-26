@@ -65,7 +65,7 @@ func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 
 func (s *LeadershipSuite) TestBlockValidatesServiceName(c *gc.C) {
 	err := s.claimer.BlockUntilLeadershipReleased("not/a/service")
-	c.Check(err, gc.ErrorMatches, `cannot block for lease "not/a/service" expiry: not a service name`)
+	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/a/service" expiry: not a service name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -119,7 +119,7 @@ func (s *LeadershipSuite) TestHackLeadershipUnblocksClaimer(c *gc.C) {
 	s.State.HackLeadership()
 	select {
 	case err := <-s.expiryChan("blah"):
-		c.Check(err, gc.ErrorMatches, "leadership manager stopped")
+		c.Check(err, gc.ErrorMatches, "lease manager stopped")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
