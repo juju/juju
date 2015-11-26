@@ -1036,10 +1036,16 @@ func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	c.Assert(err, jc.ErrorIsNil)
 	outNet := suite.testMAASObject.TestServer.NewSubnet(&out)
 
-	var ar gomaasapi.AddressRange
+	other := gomaasapi.AddressRange{}
+	other.Start = fmt.Sprintf("192.168.%d.139", i)
+	other.End = fmt.Sprintf("192.168.%d.149", i)
+	other.Purpose = []string{"not-the-dynamic-range"}
+	suite.testMAASObject.TestServer.AddFixedAddressRange(outNet.ID, other)
+
+	ar := gomaasapi.AddressRange{}
 	ar.Start = fmt.Sprintf("192.168.%d.10", i)
 	ar.End = fmt.Sprintf("192.168.%d.138", i)
-	ar.Purpose = []string{"dynamic-range"}
+	ar.Purpose = []string{"something", "dynamic-range"}
 	suite.testMAASObject.TestServer.AddFixedAddressRange(outNet.ID, ar)
 	return outNet
 }
