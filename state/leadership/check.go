@@ -50,9 +50,8 @@ type check struct {
 	abort       <-chan struct{}
 }
 
-// invoke sends the check on the supplied channel, waits for a response, and
-// returns either a txn.Op that can be used to assert continued leadership in
-// the future, or an error.
+// invoke sends the check on the supplied channel and waits for an error
+// response.
 func (c check) invoke(ch chan<- check) error {
 	for {
 		select {
