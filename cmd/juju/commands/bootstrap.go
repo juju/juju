@@ -317,6 +317,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
+
+	err = envcmd.SetCurrentEnvironment(ctx, envName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the state server's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
