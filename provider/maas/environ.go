@@ -1708,6 +1708,9 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
+		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+			return nil, errors.NotFoundf("intance %q", nodeId)
+		}
 		return nil, errors.Trace(err)
 	}
 	nodeMap, err := json.GetMap()
@@ -1753,6 +1756,7 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		return nil, nil, errors.Trace(err)
 	}
 
+	// TODO(mfoord): needs updating to work with IPv6 as well.
 	lowBound, err := network.IPv4ToDecimal(ip)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -1908,9 +1912,9 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnetIdSet := make(map[network.Id]bool)
+	subnetIdSet := make(map[string]bool)
 	for _, netId := range subnetIds {
-		subnetIdSet[netId] = false
+		subnetIdSet[string(netId)] = false
 	}
 
 	subnets := []network.SubnetInfo{}
@@ -1928,12 +1932,12 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		// If we're filtering by subnet id check if this subnet is one
 		// we're looking for.
 		if len(subnetIds) != 0 {
-			_, ok := subnetIdSet[network.Id(subnetId)]
+			_, ok := subnetIdSet[subnetId]
 			if !ok {
 				// This id is not what we're looking for.
 				continue
 			}
-			subnetIdSet[network.Id(subnetId)] = true
+			subnetIdSet[subnetId] = true
 		}
 		subnetInfo, err := environ.subnetFromJson(jsonNet)
 		if err != nil {
@@ -1942,7 +1946,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		subnets = append(subnets, subnetInfo)
 		logger.Tracef("found subnet with info %#v", subnetInfo)
 	}
-	notFound := []network.Id{}
+	notFound := []string{}
 	for subnetId, found := range subnetIdSet {
 		if !found {
 			notFound = append(notFound, subnetId)
