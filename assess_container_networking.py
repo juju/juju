@@ -379,8 +379,6 @@ def get_client(args):
 
 
 def main():
-    wait_for_port("127.0.0.1", 6776, closed=True)
-    return
     args = parse_args()
     client = get_client(args)
     juju_home = get_juju_home()
