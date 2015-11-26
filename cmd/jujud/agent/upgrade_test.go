@@ -59,8 +59,8 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&upgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
-	s.PatchValue(&upgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
+	s.PatchValue(&UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
+	s.PatchValue(&UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false
@@ -80,7 +80,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
 		return s.machineIsMaster, nil
 	}
-	s.PatchValue(&isMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&IsMachineMaster, fakeIsMachineMaster)
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
@@ -97,7 +97,7 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 
 func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 	count := 0
-	s.PatchValue(&upgradesPerformUpgrade, func(version.Number, []upgrades.Target, upgrades.Context) error {
+	s.PatchValue(&PerformUpgrade, func(version.Number, []upgrades.Target, upgrades.Context) error {
 		count++
 		return upgradeErr
 	})
@@ -213,7 +213,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 			return nil
 		}
 	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
@@ -236,7 +236,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 		s.State.ClearUpgradeInfo()
 		return nil
 	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
@@ -282,7 +282,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	// elsewhere.
 	s.machineIsMaster = false
 
-	s.createUpgradingStateServers(c)
+	s.create3StateServers(c)
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
@@ -357,7 +357,7 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 }
 
 func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
-	_, machineIdB, machineIdC := s.createUpgradingStateServers(c)
+	_, machineIdB, machineIdC := s.create3StateServers(c)
 
 	// Indicate that machine B and C are ready to upgrade
 	vPrevious := s.oldVersion.Number
@@ -430,7 +430,7 @@ func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 	return NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
 }
 
-func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
+func (s *UpgradeSuite) create3StateServers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
 	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
