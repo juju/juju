@@ -44,7 +44,7 @@ const (
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 	// The string from the api indicating the dynamic range.
-	dynamicRange = "dyanmic-range"
+	dynamicRange = "dynamic-range"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -1815,13 +1815,13 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		dynamicLow, err := network.IPv4ToDecimal(net.IP(start))
+		dynamicLow, err := network.IPv4ToDecimal(net.ParseIP(start))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Trace(err)
 		}
-		dynamicHigh, err := network.IPv4ToDecimal(net.IP(end))
+		dynamicHigh, err := network.IPv4ToDecimal(net.ParseIP(end))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Trace(err)
 		}
 
 		// We pick the larger of the two portions of the subnet around

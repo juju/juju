@@ -1041,7 +1041,6 @@ func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	ar.End = fmt.Sprintf("192.168.%d.138", i)
 	ar.Purpose = []string{"dynamic-range"}
 	suite.testMAASObject.TestServer.AddFixedAddressRange(outNet.ID, ar)
-	suite.testMAASObject.TestServer.NewIPAddress(ar.Start, fmt.Sprintf("maas-eth%d", j))
 	return outNet
 }
 
@@ -1062,14 +1061,14 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 				{
 					CIDR:              "192.168.1.0/24",
 					ProviderId:        "1",
-					AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 					SpaceName:         "space-1",
 					SpaceProviderId:   "Space 1",
 				}, {
 					CIDR:              "192.168.6.0/24",
 					ProviderId:        "2",
-					AllocatableIPLow:  net.ParseIP("192.168.6.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.6.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.6.255").To4(),
 					SpaceName:         "space-1",
 					SpaceProviderId:   "Space 1",
@@ -1082,14 +1081,14 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 				{
 					CIDR:              "192.168.2.0/24",
 					ProviderId:        "3",
-					AllocatableIPLow:  net.ParseIP("192.168.2.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.2.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.2.255").To4(),
 					SpaceName:         "space-2",
 					SpaceProviderId:   "Space 2",
 				}, {
 					CIDR:              "192.168.7.0/24",
 					ProviderId:        "4",
-					AllocatableIPLow:  net.ParseIP("192.168.7.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.7.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.7.255").To4(),
 					SpaceName:         "space-2",
 					SpaceProviderId:   "Space 2",
@@ -1102,14 +1101,14 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 				{
 					CIDR:              "192.168.3.0/24",
 					ProviderId:        "5",
-					AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 					SpaceName:         "space-3",
 					SpaceProviderId:   "Space 3",
 				}, {
 					CIDR:              "192.168.8.0/24",
 					ProviderId:        "6",
-					AllocatableIPLow:  net.ParseIP("192.168.8.1").To4(),
+					AllocatableIPLow:  net.ParseIP("192.168.8.139").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.8.255").To4(),
 					SpaceName:         "space-3",
 					SpaceProviderId:   "Space 3",
@@ -1151,14 +1150,14 @@ func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 		{
 			CIDR:              "192.168.1.0/24",
 			ProviderId:        "1",
-			AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
+			AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 			SpaceName:         "space-1",
 			SpaceProviderId:   "Space 1",
 		}, {
 			CIDR:              "192.168.3.0/24",
 			ProviderId:        "3",
-			AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
+			AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 			SpaceName:         "space-3",
 			SpaceProviderId:   "Space 3",
@@ -1193,14 +1192,14 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 		{
 			CIDR:              "192.168.1.0/24",
 			ProviderId:        "1",
-			AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
+			AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 			SpaceName:         "space-1",
 			SpaceProviderId:   "Space 1",
 		}, {
 			CIDR:              "192.168.3.0/24",
 			ProviderId:        "3",
-			AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
+			AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 			SpaceName:         "space-3",
 			SpaceProviderId:   "Space 3",
