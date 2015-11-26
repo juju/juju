@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -1030,6 +1031,16 @@ func createSubnet(id uint, interfaceAndSpace uint) gomaasapi.CreateSubnet {
 	return s
 }
 
+func createSubnetInfo(id, space, ipRange int) network.SubnetInfo {
+	return network.SubnetInfo{
+		CIDR:              fmt.Sprintf("192.168.%d.0/24", ipRange),
+		ProviderId:        network.Id(strconv.Itoa(id)),
+		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
+		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
+		SpaceProviderId:   network.Id(fmt.Sprintf("Space %d", space)),
+	}
+}
+
 func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	out := bytes.Buffer{}
 	err := json.NewEncoder(&out).Encode(createSubnet(i, j))
@@ -1059,59 +1070,25 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSpaces := []network.SpaceInfo{
-		{
-			ProviderId: "Space 1",
-			Subnets: []network.SubnetInfo{
-				{
-					CIDR:              "192.168.1.0/24",
-					ProviderId:        "1",
-					AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
-					SpaceProviderId:   "Space 1",
-				}, {
-					CIDR:              "192.168.6.0/24",
-					ProviderId:        "2",
-					AllocatableIPLow:  net.ParseIP("192.168.6.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.6.255").To4(),
-					SpaceProviderId:   "Space 1",
-				},
-			},
-		}, {
-			ProviderId: "Space 2",
-			Subnets: []network.SubnetInfo{
-				{
-					CIDR:              "192.168.2.0/24",
-					ProviderId:        "3",
-					AllocatableIPLow:  net.ParseIP("192.168.2.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.2.255").To4(),
-					SpaceProviderId:   "Space 2",
-				}, {
-					CIDR:              "192.168.7.0/24",
-					ProviderId:        "4",
-					AllocatableIPLow:  net.ParseIP("192.168.7.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.7.255").To4(),
-					SpaceProviderId:   "Space 2",
-				},
-			},
-		}, {
-			ProviderId: "Space 3",
-			Subnets: []network.SubnetInfo{
-				{
-					CIDR:              "192.168.3.0/24",
-					ProviderId:        "5",
-					AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
-					SpaceProviderId:   "Space 3",
-				}, {
-					CIDR:              "192.168.8.0/24",
-					ProviderId:        "6",
-					AllocatableIPLow:  net.ParseIP("192.168.8.139").To4(),
-					AllocatableIPHigh: net.ParseIP("192.168.8.255").To4(),
-					SpaceProviderId:   "Space 3",
-				},
-			},
+	expectedSpaces := []network.SpaceInfo{{
+		ProviderId: "Space 1",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(1, 1, 1),
+			createSubnetInfo(2, 1, 6),
 		},
+	}, {
+		ProviderId: "Space 2",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(3, 2, 2),
+			createSubnetInfo(4, 2, 7),
+		},
+	}, {
+		ProviderId: "Space 3",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(5, 3, 3),
+			createSubnetInfo(6, 3, 8),
+		},
+	},
 	}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
@@ -1144,19 +1121,8 @@ func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedSubnets := []network.SubnetInfo{
-		{
-			CIDR:              "192.168.1.0/24",
-			ProviderId:        "1",
-			AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
-			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
-			SpaceProviderId:   "Space 1",
-		}, {
-			CIDR:              "192.168.3.0/24",
-			ProviderId:        "3",
-			AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
-			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
-			SpaceProviderId:   "Space 3",
-		},
+		createSubnetInfo(1, 1, 1),
+		createSubnetInfo(3, 3, 3),
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 }
@@ -1184,19 +1150,8 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedSubnets := []network.SubnetInfo{
-		{
-			CIDR:              "192.168.1.0/24",
-			ProviderId:        "1",
-			AllocatableIPLow:  net.ParseIP("192.168.1.139").To4(),
-			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
-			SpaceProviderId:   "Space 1",
-		}, {
-			CIDR:              "192.168.3.0/24",
-			ProviderId:        "3",
-			AllocatableIPLow:  net.ParseIP("192.168.3.139").To4(),
-			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
-			SpaceProviderId:   "Space 3",
-		},
+		createSubnetInfo(1, 1, 1),
+		createSubnetInfo(3, 3, 3),
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 }
