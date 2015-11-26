@@ -12,7 +12,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/cmd"
@@ -72,9 +71,9 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM   REV COMMENT
-website  upload -   .tgz of your website
-music    upload -   mp3 of your backing vocals
+RESOURCE FROM   REV COMMENT                    
+website  upload -   .tgz of your website       
+music    upload -   mp3 of your backing vocals 
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -89,7 +88,7 @@ func (s *ShowSuite) TestNoResources(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM REV COMMENT
+RESOURCE FROM REV COMMENT 
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -97,17 +96,17 @@ RESOURCE FROM REV COMMENT
 }
 
 func (s *ShowSuite) TestOutputFormats(c *gc.C) {
-	specs := cmd.NewSpecs(c,
-		"website:.tgz of your website",
-		"music:mp3 of your backing vocals",
-	)
+	specs := []resource.Spec{
+		cmd.NewSpec(c, "website", ".tgz", ".tgz of your website"),
+		cmd.NewSpec(c, "music", ".mp3", "mp3 of your backing vocals"),
+	}
 	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs...)
 
 	formats := map[string]string{
 		"tabular": `
-RESOURCE  FROM    REV  COMMENT
-website   upload  -    .tgz of your website
-music     upload  -    mp3 of your backing vocals
+RESOURCE FROM   REV COMMENT                    
+website  upload -   .tgz of your website       
+music    upload -   mp3 of your backing vocals 
 
 `[1:],
 		"yaml": `
@@ -124,21 +123,21 @@ music     upload  -    mp3 of your backing vocals
 `[1:],
 		"json": strings.Replace(""+
 			"["+
-			" {"+
-			`  "name":"website",`+
-			`  "type":"file",`+
-			`  "path":"website.tgz",`+
-			`  "comment":".tgz of your website",`+
-			`  "origin":"upload",`+
-			" },{"+
-			`  "name":"music",`+
-			`  "type":"file",`+
-			`  "path":"music.mp3",`+
-			`  "comment":"mp3 of your backing vocals",`+
-			`  "origin":"upload",`+
-			" }"+
+			"  {"+
+			`    "name":"website",`+
+			`    "type":"file",`+
+			`    "path":"website.tgz",`+
+			`    "comment":".tgz of your website",`+
+			`    "origin":"upload"`+
+			"  },{"+
+			`    "name":"music",`+
+			`    "type":"file",`+
+			`    "path":"music.mp3",`+
+			`    "comment":"mp3 of your backing vocals",`+
+			`    "origin":"upload"`+
+			"  }"+
 			"]\n",
-			" ", "", -1),
+			"  ", "", -1),
 	}
 	for format, expected := range formats {
 		command := cmd.NewShowCommand(s.newAPIClient)

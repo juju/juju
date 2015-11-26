@@ -55,12 +55,11 @@ func (c *ShowCommand) Info() *cmd.Info {
 }
 
 func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
-	defaultFormat := "yaml"
-	//defaultFormat := "tabular"
+	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
-		//"tabular": FormatTabular,
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+		"tabular": FormatTabular,
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
 	})
 }
 
@@ -97,9 +96,8 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return c.out.Write(ctx, specs)
 	// Note that we do not worry about c.CompatVersion for show-resources...
-	//formatter := newShowFormatter(payloads)
-	//formatted := formatter.format()
-	//return c.out.Write(ctx, formatted)
+	formatter := newSpecListFormatter(specs)
+	formatted := formatter.format()
+	return c.out.Write(ctx, formatted)
 }
