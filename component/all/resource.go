@@ -10,9 +10,12 @@ import (
 	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/api/server"
+	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	"github.com/juju/juju/state/utils"
@@ -26,6 +29,7 @@ func (c resources) registerForServer() error {
 }
 
 func (c resources) registerForClient() error {
+	c.registerPublicCommands()
 	return nil
 }
 
@@ -55,9 +59,41 @@ func (st resourceState) CharmMetadata(serviceID string) (*charm.Meta, error) {
 	return meta, nil
 }
 
-func (resources) newAPIClient(apiCaller coreapi.Connection) (*client.Client, error) {
+type resourcesAPIClient struct {
+	*client.Client
+	closeFunc func() error
+}
+
+func (c resourcesAPIClient) Close() error {
+	return c.closeFunc()
+}
+
+func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient, error) {
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
 
-	cl := client.NewClient(caller)
+	cl := &resourcesAPIClient{
+		Client:    client.NewClient(caller),
+		closeFunc: apiCaller.Close,
+	}
+
 	return cl, nil
+}
+
+func (c resources) registerPublicCommands() {
+	if !markRegistered(resource.ComponentName, "public-commands") {
+		return
+	}
+
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		return cmd.NewShowCommand(c.newShowAPIClient)
+	})
+}
+
+func (c resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
+	apiCaller, err := command.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return c.newAPIClient(apiCaller)
 }
