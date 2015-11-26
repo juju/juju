@@ -1953,7 +1953,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		}
 	}
 	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
+		return nil, errors.Errorf("failed to find the following subnets: %v", strings.Join(notFound, ", "))
 	}
 
 	return subnets, nil
@@ -2107,14 +2107,14 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	}
 	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
 
-	notFound := []network.Id{}
+	notFound := []string{}
 	for subnetId, found := range subnetIdSet {
 		if !found {
-			notFound = append(notFound, subnetId)
+			notFound = append(notFound, string(subnetId))
 		}
 	}
 	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
+		return nil, errors.Errorf("failed to find the following subnets: %v", strings.Join(notFound, ", "))
 	}
 
 	return networkInfo, nil

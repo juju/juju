@@ -1004,7 +1004,7 @@ func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"WLAN", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: Missing")
 }
 
 func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
@@ -1142,8 +1142,8 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 		suite.addSubnet(c, i, i, "node1")
 	}
 
-	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3"})
-	errorText := "failed to find the following subnets: \\[3\\]"
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3", "6"})
+	errorText := "failed to find the following subnets: 3, 6"
 	c.Assert(err, gc.ErrorMatches, errorText)
 }
 
@@ -1249,7 +1249,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: bar")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
