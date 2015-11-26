@@ -1968,7 +1968,7 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 		return nil, errors.Annotatef(err, "getting instance %q", instId)
 	}
 	if len(instances) == 0 {
-		return nil, errors.NotFoundf("instance %v", instId)
+		return nil, errors.NotFoundf("instance %q", instId)
 	}
 	inst := instances[0]
 	return inst, nil
