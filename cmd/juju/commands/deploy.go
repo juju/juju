@@ -405,7 +405,7 @@ func charmSeries(
 
 	// Use model default supported series.
 	if defaultSeries, ok := conf.DefaultSeries(); ok {
-		if !force && seriesFromCharm == "" && !isSeriesSupported(defaultSeries, supportedSeries) {
+		if !force && !isSeriesSupported(defaultSeries, supportedSeries) {
 			return "", "", charm.NewUnsupportedSeriesError(defaultSeries, supportedSeries)
 		}
 		return defaultSeries, msgDefaultModelSeries, nil
@@ -413,7 +413,7 @@ func charmSeries(
 
 	// Use latest LTS.
 	latestLtsSeries := config.LatestLtsSeries()
-	if !force && seriesFromCharm == "" && !isSeriesSupported(latestLtsSeries, supportedSeries) {
+	if !force && !isSeriesSupported(latestLtsSeries, supportedSeries) {
 		return "", "", charm.NewUnsupportedSeriesError(latestLtsSeries, supportedSeries)
 	}
 	return latestLtsSeries, msgLatestLTSSeries, nil
