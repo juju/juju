@@ -52,7 +52,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	charm := addCharm(c, s.state, "quantal", testcharms.Repo.CharmDir("mysql"))
 	owner := s.env.Owner()
-	service, err := s.state.AddService("mysql", owner.String(), charm, nil, nil)
+	service, err := s.state.AddService(AddServiceArgs{Name: "mysql", Owner: owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	// In 1.17.7+ all services have associated document in the
 	// requested networks collection. We remove it here to test

@@ -35,6 +35,7 @@ func init() {
 	gc.Suite(&cmdSpaceSuite{})
 	gc.Suite(&cmdSubnetSuite{})
 	gc.Suite(&undertakerSuite{})
+	gc.Suite(&dumpLogsCommandSuite{})
 }
 
 func Test(t *testing.T) {

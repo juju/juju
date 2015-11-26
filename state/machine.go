@@ -161,6 +161,11 @@ func (m *Machine) Id() string {
 	return m.doc.Id
 }
 
+// Principals returns the principals for the machine.
+func (m *Machine) Principals() []string {
+	return m.doc.Principals
+}
+
 // Series returns the operating system series running on the machine.
 func (m *Machine) Series() string {
 	return m.doc.Series
@@ -1172,7 +1177,7 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
-func containsAddress(addresses []network.Address, address network.Address) bool {
+func containsAddress(addresses []address, address address) bool {
 	for _, addr := range addresses {
 		if addr.Value == address.Value {
 			return true
@@ -1196,21 +1201,39 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 // match, and if not it selects the best from the slice of all available
 // addresses. It returns the new address and a bool indicating if a different
 // one was picked.
-func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAddr func() network.Address, checkScope func(network.Address) bool) (network.Address, bool) {
-	newAddr := getAddr()
+func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []address, getAddr func([]address) network.Address, checkScope func(address) bool) (address, bool) {
+	// For picking the best address, try provider addresses first.
+	var newAddr address
+	netAddr := getAddr(providerAddresses)
+	if netAddr.Value == "" {
+		netAddr = getAddr(machineAddresses)
+		newAddr = fromNetworkAddress(netAddr, OriginMachine)
+	} else {
+		newAddr = fromNetworkAddress(netAddr, OriginProvider)
+	}
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
 	// first. If the stored address is unavilable we also *must* check for
-	// a new address so we do that next. Finally we check to see if a
-	// better match on scope is available.
+	// a new address so we do that next. If the original is a machine
+	// address and a provider address is available we want to switch to
+	// that. Finally we check to see if a better match on scope from the
+	// same origin is available.
 	if addr.Value == "" {
 		return newAddr, newAddr.Value != ""
 	}
-	if !containsAddress(addresses, addr) {
+	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
+		return newAddr, true
+	}
+	if Origin(addr.Origin) != OriginProvider && Origin(newAddr.Origin) == OriginProvider {
 		return newAddr, true
 	}
 	if !checkScope(addr) {
-		return newAddr, checkScope(newAddr)
+		// If addr.Origin is machine and newAddr.Origin is provider we will
+		// have already caught that, and for the inverse we don't want to
+		// replace the address.
+		if addr.Origin == newAddr.Origin {
+			return newAddr, checkScope(newAddr)
+		}
 	}
 	return addr, false
 }
@@ -1226,8 +1249,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	return privateAddress, err
 }
 
-func (m *Machine) setPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
-	addr := fromNetworkAddress(netAddr)
+func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	fieldName := "preferredprivateaddress"
 	current := m.doc.PreferredPrivateAddress
 	if isPublic {
@@ -1247,19 +1269,19 @@ func (m *Machine) setPreferredAddressOps(netAddr network.Address, isPublic bool)
 	return ops
 }
 
-func (m *Machine) setPublicAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
-	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
+func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
+	publicAddress := m.doc.PreferredPublicAddress
 	// Always prefer an exact match if available.
-	checkScope := func(addr network.Address) bool {
-		return network.ExactScopeMatch(addr, network.ScopePublic)
+	checkScope := func(addr address) bool {
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func() network.Address {
-		addr, _ := network.SelectPublicAddress(addresses)
+	getAddr := func(addresses []address) network.Address {
+		addr, _ := network.SelectPublicAddress(networkAddresses(addresses))
 		return addr
 	}
 
-	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
+	newAddr, changed := maybeGetNewAddress(publicAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
 		return []txn.Op{}, publicAddress, false
@@ -1269,19 +1291,19 @@ func (m *Machine) setPublicAddressOps(addresses []network.Address) ([]txn.Op, ne
 	return ops, newAddr, true
 }
 
-func (m *Machine) setPrivateAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
-	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
+func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
+	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
-	checkScope := func(addr network.Address) bool {
-		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
+	checkScope := func(addr address) bool {
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func() network.Address {
-		addr, _ := network.SelectInternalAddress(addresses, false)
+	getAddr := func(addresses []address) network.Address {
+		addr, _ := network.SelectInternalAddress(networkAddresses(addresses), false)
 		return addr
 	}
 
-	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
+	newAddr, changed := maybeGetNewAddress(privateAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
 		return []txn.Op{}, privateAddress, false
@@ -1379,9 +1401,13 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		return err
 	}
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
-	stateAddresses := fromNetworkAddresses(addressesToSet)
+	origin := OriginProvider
+	if fieldName == "machineaddresses" {
+		origin = OriginMachine
+	}
+	stateAddresses := fromNetworkAddresses(addressesToSet, origin)
 
-	var newPrivate, newPublic network.Address
+	var newPrivate, newPublic address
 	var changedPrivate, changedPublic bool
 	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1400,21 +1426,19 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
 		}}
 
-		// Create the full list of addresses, to pick preferred
-		// addresses from, by merging the ones we're updating with the
-		// ones that aren't changing.
-		var notChanging []address
+		var providerAddresses []address
+		var machineAddresses []address
 		if fieldName == "machineaddresses" {
-			notChanging = machine.doc.Addresses
+			providerAddresses = machine.doc.Addresses
+			machineAddresses = stateAddresses
 		} else {
-			notChanging = machine.doc.MachineAddresses
+			machineAddresses = machine.doc.MachineAddresses
+			providerAddresses = stateAddresses
 		}
-		allAddresses := mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
-		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
 
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
-		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(allAddresses)
-		setPublicAddressOps, newPublic, changedPublic = machine.setPublicAddressOps(allAddresses)
+		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(providerAddresses, machineAddresses)
+		setPublicAddressOps, newPublic, changedPublic = machine.setPublicAddressOps(providerAddresses, machineAddresses)
 		ops = append(ops, setPrivateAddressOps...)
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
@@ -1429,10 +1453,10 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 
 	*field = stateAddresses
 	if changedPrivate {
-		m.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
+		m.doc.PreferredPrivateAddress = newPrivate
 	}
 	if changedPublic {
-		m.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
+		m.doc.PreferredPublicAddress = newPublic
 	}
 	return nil
 }

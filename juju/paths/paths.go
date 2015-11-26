@@ -21,6 +21,7 @@ const (
 	certDir
 	metricsSpoolDir
 	uniterStateDir
+	jujuDumpLogs
 )
 
 var nixVals = map[osVarType]string{
@@ -30,6 +31,7 @@ var nixVals = map[osVarType]string{
 	storageDir:      "/var/lib/juju/storage",
 	confDir:         "/etc/juju",
 	jujuRun:         "/usr/bin/juju-run",
+	jujuDumpLogs:    "/usr/bin/juju-dumplogs",
 	certDir:         "/etc/juju/certs.d",
 	metricsSpoolDir: "/var/lib/juju/metricspool",
 	uniterStateDir:  "/var/lib/juju/uniter/state",
@@ -42,6 +44,7 @@ var winVals = map[osVarType]string{
 	storageDir:      "C:/Juju/lib/juju/storage",
 	confDir:         "C:/Juju/etc",
 	jujuRun:         "C:/Juju/bin/juju-run.exe",
+	jujuDumpLogs:    "C:/Juju/bin/juju-dumplogs.exe",
 	certDir:         "C:/Juju/certs",
 	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
 	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
@@ -108,9 +111,15 @@ func ConfDir(series string) (string, error) {
 }
 
 // JujuRun returns the absolute path to the juju-run binary for
-// a particular series
+// a particular series.
 func JujuRun(series string) (string, error) {
 	return osVal(series, jujuRun)
+}
+
+// JujuDumpLogs returns the absolute path to the juju-dumplogs binary
+// for a particular series.
+func JujuDumpLogs(series string) (string, error) {
+	return osVal(series, jujuDumpLogs)
 }
 
 func MustSucceed(s string, e error) string {
@@ -123,12 +132,11 @@ func MustSucceed(s string, e error) string {
 var osStat = os.Stat
 var execLookPath = exec.LookPath
 
-// mongorestorePath will look for mongorestore binary on the system
-// and return it if mongorestore actually exists.
-// it will look first for the juju provided one and if not found make a
-// try at a system one.
+// MongorestorePath will look for a mongorestore binary and return it
+// if it exists. It will look first for the juju provided one and if
+// not found make a try at a system installed one.
 func MongorestorePath() (string, error) {
-	// TODO (perrito666) this seems to be a package decission we should not
+	// TODO (perrito666) this seems to be a packaging decision we should not
 	// rely on it and we should be aware of /usr/lib/juju if its something
 	// of ours.
 	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"

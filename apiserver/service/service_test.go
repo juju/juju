@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -369,6 +369,7 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.NotNil)
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 

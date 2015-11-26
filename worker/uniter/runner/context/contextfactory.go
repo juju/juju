@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/api/uniter"
@@ -71,6 +72,7 @@ type contextFactory struct {
 	envName    string
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
+	clock      clock.Clock
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -89,6 +91,7 @@ func NewContextFactory(
 	getRelationInfos RelationsFunc,
 	storage StorageContextAccessor,
 	paths Paths,
+	clock clock.Clock,
 ) (
 	ContextFactory, error,
 ) {
@@ -116,6 +119,7 @@ func NewContextFactory(
 		relationCaches:   map[int]*RelationCache{},
 		storage:          storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
+		clock:            clock,
 	}
 	return f, nil
 }
@@ -144,6 +148,9 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		relationId:         -1,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
+		clock:              f.clock,
+		componentDir:       f.paths.ComponentDir,
+		componentFuncs:     registeredComponentFuncs,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err

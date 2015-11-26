@@ -320,7 +320,13 @@ func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(
 	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: otherEnv.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	service, err = otherSt.AddService(service.Name(), service.GetOwnerTag(), ch, nil, nil)
+
+	args := state.AddServiceArgs{
+		Name:  service.Name(),
+		Owner: service.GetOwnerTag(),
+		Charm: ch,
+	}
+	service, err = otherSt.AddService(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerEnv, err := s.State.Environment()
@@ -429,7 +435,12 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: env.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	service, err = st.AddService(service.Name(), service.GetOwnerTag(), ch, nil, nil)
+	args := state.AddServiceArgs{
+		Name:  service.Name(),
+		Owner: service.GetOwnerTag(),
+		Charm: ch,
+	}
+	service, err = st.AddService(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertEnv := func(life state.Life, expectedMachines, expectedServices int) {

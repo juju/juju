@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
-	"github.com/juju/juju/utils"
 )
 
 // imagesDownloadHandler handles image download through HTTPS in the API server.
@@ -96,11 +95,10 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 	metadata, imageReader, err := storage.Image(kind, series, arch)
 	// Not in storage, so go fetch it.
 	if errors.IsNotFound(err) {
-		err = h.fetchAndCacheLxcImage(storage, envuuid, series, arch)
-		if err != nil {
+		if err := h.fetchAndCacheLxcImage(storage, envuuid, series, arch); err != nil {
 			return nil, nil, errors.Annotate(err, "error fetching and caching image")
 		}
-		err = utils.NetworkOperationWitDefaultRetries(func() error {
+		err = networkOperationWitDefaultRetries(func() error {
 			metadata, imageReader, err = storage.Image(string(instance.LXC), series, arch)
 			return err
 		}, "streaming os image from blobstore")()
@@ -177,7 +175,7 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	}
 
 	// Stream the image to storage.
-	err = utils.NetworkOperationWitDefaultRetries(func() error {
+	err = networkOperationWitDefaultRetries(func() error {
 		return storage.AddImage(rdr, metadata)
 	}, "add os image to blobstore")()
 	if err != nil {
@@ -186,7 +184,7 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	// Better check the downloaded image checksum.
 	downloadChecksum := fmt.Sprintf("%x", hash.Sum(nil))
 	if downloadChecksum != checksum {
-		err = utils.NetworkOperationWitDefaultRetries(func() error {
+		err := networkOperationWitDefaultRetries(func() error {
 			return storage.DeleteImage(metadata)
 		}, "delete os image from blobstore")()
 		if err != nil {
