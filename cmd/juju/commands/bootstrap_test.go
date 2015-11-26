@@ -427,6 +427,24 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
+func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
+	env := resetJujuHome(c, "devenv")
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
+	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentEnv, gc.Equals, "devenv")
+}
+
 type mockBootstrapInstance struct {
 	instance.Instance
 }
@@ -438,13 +456,13 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
+		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--upload-series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\nBootstrap complete\n")
+		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
 }
 
 func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
