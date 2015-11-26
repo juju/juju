@@ -43,7 +43,7 @@ import (
 const (
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
-	// The string from the api indicating the dynamic range.
+	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
 )
 
@@ -55,13 +55,6 @@ const (
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-// maasSpaceNameToJuju translates a space name from MAAS into the equivalent
-// Juju space name. This means lowercasing and replacing spaces with "-".
-func maasSpaceNameToJuju(space string) string {
-	noSpaces := strings.Replace(space, " ", "-", -1)
-	return strings.ToLower(noSpaces)
 }
 
 var (
@@ -1900,7 +1893,6 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 		ProviderId:        network.Id(subnetId),
 		VLANTag:           vid,
 		CIDR:              cidr,
-		SpaceName:         maasSpaceNameToJuju(spaceName),
 		SpaceProviderId:   network.Id(spaceName),
 		AllocatableIPLow:  allocatableLow,
 		AllocatableIPHigh: allocatableHigh,
@@ -1975,7 +1967,9 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 	return inst, nil
 }
 
-// Spaces returns all the spaces and subnets known by the provider.
+// Spaces returns all the spaces, that have subnets, known to the provider.
+// Space name is not filled in as the provider doesn't know the juju name for
+// the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	ok, err := environ.SupportsSpaces()
 	if err != nil {
@@ -1994,21 +1988,20 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaceMap := make(map[string]*network.SpaceInfo)
-	names := []string{}
+	spaceMap := make(map[network.Id]*network.SpaceInfo)
+	names := []network.Id{}
 	for _, jsonNet := range jsonNets {
 		subnetInfo, err := environ.subnetFromJson(jsonNet)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		space, ok := spaceMap[subnetInfo.SpaceName]
+		space, ok := spaceMap[subnetInfo.SpaceProviderId]
 		if !ok {
 			space = &network.SpaceInfo{
-				Name:       subnetInfo.SpaceName,
 				ProviderId: subnetInfo.SpaceProviderId,
 			}
-			spaceMap[space.Name] = space
-			names = append(names, space.Name)
+			spaceMap[space.ProviderId] = space
+			names = append(names, space.ProviderId)
 
 		}
 		space.Subnets = append(space.Subnets, subnetInfo)
