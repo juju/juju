@@ -33,7 +33,8 @@ def make_hosted_env_client(client, suffix):
         hosted_environment, client.full_path, client.debug,
     )
     hosted_env_client.juju_home = client.juju_home
-    hosted_env_client.enable_jes()
+    if not hosted_env_client.is_jes_enabled():
+        hosted_env_client.enable_jes()
     return hosted_env_client
 
 
@@ -102,11 +103,7 @@ def hosted_environment(system_client, suffix):
             config = make_safe_config(client)
             yaml.dump(config, config_file)
             config_file.flush()
-            client.juju(
-                "system create-environment", (
-                    '-s', system_client.env.environment,
-                    client.env.environment, '--config', config_file.name),
-                include_e=False)
+            client.create_environment(system_client, config_file.name)
         yield client
     except:
         logging.exception(

@@ -47,6 +47,16 @@ DEFAULT_JES_COMMAND_2x = 'controller'
 DEFAULT_JES_COMMAND_1x = 'destroy-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
+_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
+    'create': 'create-environment',
+    'kill': DEFAULT_JES_COMMAND_1x,
+    }}
+for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
+    _jes_cmds[super_cmd] = {
+        'create': '{} create-environment'.format(super_cmd),
+        'kill': '{} kill'.format(super_cmd),
+        }
+
 log = logging.getLogger("jujupy")
 
 
@@ -152,12 +162,9 @@ class EnvJujuClient:
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith(DEFAULT_JES_COMMAND_1x):
-                return DEFAULT_JES_COMMAND_1x
-            elif line.startswith(DEFAULT_JES_COMMAND_2x):
-                return '%s kill' % DEFAULT_JES_COMMAND_2x
-            elif line.startswith(OPTIONAL_JES_COMMAND):
-                return '%s kill' % OPTIONAL_JES_COMMAND
+            for cmd in _jes_cmds.keys():
+                if line.startswith(cmd):
+                    return cmd
         raise JESNotSupported()
 
     @classmethod
@@ -268,6 +275,15 @@ class EnvJujuClient:
             log.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
+    def create_environment(self, controller_client, config_file):
+        seen_cmd = self.get_jes_command()
+        if seen_cmd == OPTIONAL_JES_COMMAND:
+            controller_option = ('-s', controller_client.env.environment)
+        else:
+            controller_option = ('-c', controller_client.env.environment)
+        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
+                self.env.environment, '--config', config_file),
+            include_e=False)
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
             force_arg = ('--force',)
@@ -281,6 +297,13 @@ class EnvJujuClient:
         if delete_jenv:
             jenv_path = get_jenv_path(self.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
+
+    def kill_controller(self):
+        """Kill a controller and its environments."""
+        seen_cmd = self.get_jes_command()
+        self.juju(
+            _jes_cmds[seen_cmd]['kill'], (self.env.environment, '-y'),
+            include_e=False, check=False, timeout=600)
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
