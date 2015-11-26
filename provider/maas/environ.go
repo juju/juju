@@ -1923,8 +1923,8 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		subnetIdSet[netId] = false
 	}
 
-	subnets := make([]network.SubnetInfo, len(jsonNets))
-	for i, jsonNet := range jsonNets {
+	subnets := []network.SubnetInfo{}
+	for _, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
 		if err != nil {
 			return nil, err
@@ -1949,7 +1949,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		subnets[i] = subnetInfo
+		subnets = append(subnets, subnetInfo)
 		logger.Tracef("found subnet with info %#v", subnetInfo)
 	}
 	notFound := []network.Id{}
