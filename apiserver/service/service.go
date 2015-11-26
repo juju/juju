@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("Service", 1, NewAPI)
+	common.RegisterStandardFacade("Service", 2, NewAPI)
 }
 
 // Service defines the methods on the service API end point.

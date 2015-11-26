@@ -244,7 +244,7 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
-	deployer := serviceDeployer{ctx, client, c.newServiceAPIClient}
+	deployer := serviceDeployer{ctx, c.newServiceAPIClient}
 
 	// We may have been given a local bundle file.
 	bundlePath := c.CharmOrBundle
@@ -503,7 +503,6 @@ type serviceDeployParams struct {
 
 type serviceDeployer struct {
 	ctx                 *cmd.Context
-	client              *api.Client
 	newServiceAPIClient func() (*apiservice.Client, error)
 }
 
@@ -512,8 +511,16 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if c.client.BestAPIVersion() < 2 && curl.Series == "" {
-		return errors.NotSupportedf("cannot deploy charms until the API server is upgraded to Juju 2.0 or later")
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
+		return err
+	}
+	defer serviceClient.Close()
+	if serviceClient.BestAPIVersion() < 1 {
+		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 1.24 or later")
+	}
+	if serviceClient.BestAPIVersion() < 2 && curl.Series == "" {
+		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 2.0 or later")
 	}
 	if len(args.networks) > 0 {
 		c.ctx.Infof(
@@ -521,11 +528,6 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 				"Please use spaces to manage placement within networks",
 		)
 	}
-	serviceClient, err := c.newServiceAPIClient()
-	if err != nil {
-		return err
-	}
-	defer serviceClient.Close()
 	for i, p := range args.placement {
 		if p.Scope == "env-uuid" {
 			p.Scope = serviceClient.EnvironmentUUID()
