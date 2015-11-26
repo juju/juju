@@ -1779,8 +1779,6 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	}
 	jsonRanges, err := json.GetArray()
 	if err != nil {
-		// XXX workaround for test server bug
-		return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
 		return nil, nil, errors.Trace(err)
 	}
 

@@ -1036,14 +1036,12 @@ func (suite *environSuite) addSubnet(c *gc.C, i, j uint) *gomaasapi.Subnet {
 	c.Assert(err, jc.ErrorIsNil)
 	outNet := suite.testMAASObject.TestServer.NewSubnet(&out)
 
-	// XXX this will change and actually work...
 	var ar gomaasapi.AddressRange
-	startIP := gomaasapi.IPFromString(fmt.Sprintf("192.168.%d.10", i))
-	endIP := gomaasapi.IPFromString(fmt.Sprintf("192.168.%d.138", i))
-	ar.Start = startIP.String()
-	ar.End = endIP.String()
+	ar.Start = fmt.Sprintf("192.168.%d.10", i)
+	ar.End = fmt.Sprintf("192.168.%d.138", i)
 	ar.Purpose = []string{"dynamic-range"}
-	outNet.AddFixedAddressRange(ar)
+	suite.testMAASObject.TestServer.AddFixedAddressRange(outNet.ID, ar)
+	suite.testMAASObject.TestServer.NewIPAddress(ar.Start, fmt.Sprintf("maas-eth%d", j))
 	return outNet
 }
 
@@ -1131,19 +1129,19 @@ func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	testInstance := suite.createSubnets(c, false)
-	var node gomaasapi.Node
+	systemID := "node1"
 	for _, i := range []uint{1, 2, 3} {
 		// Put most, but not all, of the subnets on node1.
 		if i == 2 {
-			node.SystemID = "node2"
+			systemID = "node2"
 		} else {
-			node.SystemID = "node1"
+			systemID = "node1"
 		}
 		subnet := suite.addSubnet(c, i, i)
 		var nni gomaasapi.NodeNetworkInterface
 		nni.Name = subnet.Name
 		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
-		server.SetNodeNetworkLink(node, nni)
+		server.SetNodeNetworkLink(systemID, nni)
 	}
 
 	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
@@ -1173,19 +1171,19 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	testInstance := suite.createSubnets(c, false)
-	var node gomaasapi.Node
+	systemID := "node1"
 	for _, i := range []uint{1, 2, 3, 4} {
 		// Put most, but not all, of the subnets on node1.
 		if i == 2 {
-			node.SystemID = "node2"
+			systemID = "node2"
 		} else {
-			node.SystemID = "node1"
+			systemID = "node1"
 		}
 		subnet := suite.addSubnet(c, i, i)
 		var nni gomaasapi.NodeNetworkInterface
 		nni.Name = subnet.Name
 		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
-		server.SetNodeNetworkLink(node, nni)
+		server.SetNodeNetworkLink(systemID, nni)
 	}
 
 	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3"})
@@ -1215,14 +1213,12 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	testInstance := suite.createSubnets(c, false)
-	var node gomaasapi.Node
-	node.SystemID = "node1"
 	for _, i := range []uint{1, 2} {
 		subnet := suite.addSubnet(c, i, i)
 		var nni gomaasapi.NodeNetworkInterface
 		nni.Name = subnet.Name
 		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
-		server.SetNodeNetworkLink(node, nni)
+		server.SetNodeNetworkLink("node1", nni)
 	}
 
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3"})
