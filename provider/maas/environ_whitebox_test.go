@@ -1211,6 +1211,25 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 }
 
+func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	var node gomaasapi.Node
+	node.SystemID = "node1"
+	for _, i := range []uint{1, 2} {
+		subnet := suite.addSubnet(c, i, i)
+		var nni gomaasapi.NodeNetworkInterface
+		nni.Name = subnet.Name
+		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
+		server.SetNodeNetworkLink(node, nni)
+	}
+
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3"})
+	errorText := "failed to find the following subnets: \\[3\\]"
+	c.Assert(err, gc.ErrorMatches, errorText)
+}
+
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
