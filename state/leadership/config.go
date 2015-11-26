@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // ManagerConfig contains the resources and information required to create a

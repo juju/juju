@@ -9,7 +9,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 func addLeadershipSettingsOp(serviceId string) txn.Op {

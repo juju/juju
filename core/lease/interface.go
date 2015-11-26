@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -82,11 +83,24 @@ type Request struct {
 
 // Validate returns an error if any fields are invalid or inconsistent.
 func (request Request) Validate() error {
-	if err := validateString(request.Holder); err != nil {
+	if err := ValidateString(request.Holder); err != nil {
 		return errors.Annotatef(err, "invalid holder")
 	}
 	if request.Duration <= 0 {
 		return errors.Errorf("invalid duration")
+	}
+	return nil
+}
+
+// ValidateString returns an error if the string is empty, or if it contains
+// whitespace, or if it contains any character in `.#$`. Client implementations
+// are expected to always reject invalid strings, and never to produce them.
+func ValidateString(s string) error {
+	if s == "" {
+		return errors.New("string is empty")
+	}
+	if strings.ContainsAny(s, ".$# \t\r\n") {
+		return errors.New("string contains forbidden characters")
 	}
 	return nil
 }

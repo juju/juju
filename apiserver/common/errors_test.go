@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )

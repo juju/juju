@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 )
 
 var logger = loggo.GetLogger("juju.state.leadership")

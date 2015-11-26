@@ -6,7 +6,7 @@ package leadership
 import (
 	"time"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 // claim is used to deliver lease-claim requests to a manager's loop
