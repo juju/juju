@@ -295,7 +295,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
 	_, err := s.deployBundleYAML(c, `
         services:
             wp:
-                charm: trusty/wordpress
+                charm: trusty/wordpress-42
                 num_units: 1
                 options:
                     blog-title: 42

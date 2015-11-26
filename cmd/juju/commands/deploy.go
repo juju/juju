@@ -405,11 +405,18 @@ func charmSeries(
 
 	// Use model default supported series.
 	if defaultSeries, ok := conf.DefaultSeries(); ok {
+		if !force && seriesFromCharm == "" && !isSeriesSupported(defaultSeries, supportedSeries) {
+			return "", "", charm.NewUnsupportedSeriesError(defaultSeries, supportedSeries)
+		}
 		return defaultSeries, msgDefaultModelSeries, nil
 	}
 
 	// Use latest LTS.
-	return config.LatestLtsSeries(), msgLatestLTSSeries, nil
+	latestLtsSeries := config.LatestLtsSeries()
+	if !force && seriesFromCharm == "" && !isSeriesSupported(latestLtsSeries, supportedSeries) {
+		return "", "", charm.NewUnsupportedSeriesError(latestLtsSeries, supportedSeries)
+	}
+	return latestLtsSeries, msgLatestLTSSeries, nil
 }
 
 func (c *DeployCommand) deployCharm(
@@ -520,7 +527,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 1.24 or later")
 	}
 	if serviceClient.BestAPIVersion() < 2 && curl.Series == "" {
-		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 2.0 or later")
+		return errors.Errorf("cannot deploy charms without series until the API server is upgraded to Juju 2.0 or later")
 	}
 	if len(args.networks) > 0 {
 		c.ctx.Infof(

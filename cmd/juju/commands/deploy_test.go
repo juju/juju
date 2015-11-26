@@ -458,10 +458,6 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		message         string
 		err             string
 	}{{
-		ltsSeries:      "trusty",
-		expectedSeries: "trusty",
-		message:        "with the latest LTS series %q",
-	}, {
 		ltsSeries:       "precise",
 		modelSeries:     "wily",
 		supportedSeries: []string{"trusty", "precise"},
@@ -481,6 +477,12 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		supportedSeries: []string{"trusty", "precise"},
 		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
 	}, {
+		ltsSeries: config.LatestLtsSeries(),
+		err:       `series .* not supported by charm, supported series are: .*`,
+	}, {
+		modelSeries: "xenial",
+		err:         `series "xenial" not supported by charm, supported series are: .*`,
+	}, {
 		requestedSeries: "wily",
 		seriesFromCharm: "trusty",
 		expectedSeries:  "wily",
@@ -493,9 +495,15 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		message:         "with the user specified series %q",
 		force:           true,
 	}, {
+		ltsSeries:      config.LatestLtsSeries(),
+		force:          true,
+		expectedSeries: config.LatestLtsSeries(),
+		message:        "with the latest LTS series %q",
+	}, {
 		ltsSeries:      "precise",
-		modelSeries:    "trusty",
-		expectedSeries: "trusty",
+		modelSeries:    "xenial",
+		force:          true,
+		expectedSeries: "xenial",
 		message:        "with the configured model default series %q",
 	}}
 
