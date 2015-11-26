@@ -119,7 +119,6 @@ type DestroyRelation struct {
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
-	RequestedSeries    string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
