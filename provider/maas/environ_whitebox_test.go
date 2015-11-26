@@ -1122,6 +1122,11 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
 
+func (suite *environSuite) TestSpacesNeedsSupportsSpaces(c *gc.C) {
+	_, err := suite.makeEnviron().Spaces()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
