@@ -45,8 +45,8 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter")
 
 const (
-	retryTimeMin    = 5 * time.Second
-	retryTimeMax    = 5 * time.Minute
+	retryTimeMin    = 20 * time.Second
+	retryTimeMax    = 20 * time.Minute
 	retryTimeJitter = true
 	retryTimeFactor = 2
 )
