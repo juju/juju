@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package lease_test
 
 import (
 	"time"
@@ -12,9 +12,9 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
 type ValidationSuite struct {
@@ -24,9 +24,9 @@ type ValidationSuite struct {
 var _ = gc.Suite(&ValidationSuite{})
 
 func (s *ValidationSuite) TestMissingClient(c *gc.C) {
-	manager, err := leadership.NewManager(leadership.ManagerConfig{
+	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock:     struct{ clock.Clock }{},
-		Secretary: struct{ leadership.Secretary }{},
+		Secretary: struct{ lease.Secretary }{},
 	})
 	c.Check(err, gc.ErrorMatches, "nil Client not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -34,9 +34,9 @@ func (s *ValidationSuite) TestMissingClient(c *gc.C) {
 }
 
 func (s *ValidationSuite) TestMissingClock(c *gc.C) {
-	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client:    struct{ lease.Client }{},
-		Secretary: struct{ leadership.Secretary }{},
+	manager, err := lease.NewManager(lease.ManagerConfig{
+		Client:    struct{ corelease.Client }{},
+		Secretary: struct{ lease.Secretary }{},
 	})
 	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -44,8 +44,8 @@ func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 }
 
 func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
-	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: struct{ lease.Client }{},
+	manager, err := lease.NewManager(lease.ManagerConfig{
+		Client: struct{ corelease.Client }{},
 		Clock:  struct{ clock.Clock }{},
 	})
 	c.Check(err, gc.ErrorMatches, "nil Secretary not valid")
@@ -53,62 +53,62 @@ func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 	c.Check(manager, gc.IsNil)
 }
 
-func (s *ValidationSuite) TestClaimLeadership_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		err := manager.ClaimLeadership("INVALID", "bar/0", time.Minute)
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		err := manager.Claim("INVALID", "bar/0", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }
 
-func (s *ValidationSuite) TestClaimLeadership_HolderName(c *gc.C) {
+func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		err := manager.ClaimLeadership("foo", "INVALID", time.Minute)
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		err := manager.Claim("foo", "INVALID", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }
 
-func (s *ValidationSuite) TestClaimLeadership_Duration(c *gc.C) {
+func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		err := manager.ClaimLeadership("foo", "bar/0", time.Second)
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		err := manager.Claim("foo", "bar/0", time.Second)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for 1s: time not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }
 
-func (s *ValidationSuite) TestLeadershipCheck_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		token := manager.LeadershipCheck("INVALID", "bar/0")
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		token := manager.Token("INVALID", "bar/0")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }
 
-func (s *ValidationSuite) TestLeadershipCheck_HolderName(c *gc.C) {
+func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		token := manager.LeadershipCheck("foo", "INVALID")
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		token := manager.Token("foo", "INVALID")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }
 
-func (s *ValidationSuite) TestLeadershipCheck_OutPtr(c *gc.C) {
+func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 	expectKey := "bad"
 	expectErr := errors.New("bad")
 
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]lease.Info) {
-				leases["redis"] = lease.Info{
+			callback: func(leases map[string]corelease.Info) {
+				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
 					Expiry: offset(time.Second),
 					Trapdoor: func(gotKey interface{}) error {
@@ -119,19 +119,19 @@ func (s *ValidationSuite) TestLeadershipCheck_OutPtr(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		token := manager.LeadershipCheck("redis", "redis/0")
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		token := manager.Token("redis", "redis/0")
 		err := token.Check(&expectKey)
 		cause := errors.Cause(err)
 		c.Check(cause, gc.Equals, expectErr)
 	})
 }
 
-func (s *ValidationSuite) TestBlockUntilLeadershipReleased_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestWaitExpired_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
-		err := manager.BlockUntilLeadershipReleased("INVALID")
-		c.Check(err, gc.ErrorMatches, `cannot block for lease "INVALID" expiry: name not valid`)
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+		err := manager.WaitExpired("INVALID")
+		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})
 }

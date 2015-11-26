@@ -10,8 +10,9 @@ import (
 	"github.com/juju/errors"
 )
 
-// Client manipulates leases. Client implementations are not expected to be
-// goroutine-safe.
+// Client manipulates leases directly, and is most likely to be seen set on a
+// worker/lease.ManagerConfig struct (and used by the Manager). Implementations
+// of Client are not expected to be goroutine-safe.
 type Client interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
@@ -105,7 +106,7 @@ func ValidateString(s string) error {
 	return nil
 }
 
-// ErrInvalid indicates that a client operation failed because latest state
+// ErrInvalid indicates that a Client operation failed because latest state
 // indicates that it's a logical impossibility. It's a short-range signal to
 // calling code only; that code should never pass it on, but should inspect
 // the Client's updated Leases() and either attempt a new operation or return

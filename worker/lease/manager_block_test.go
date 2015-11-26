@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package lease_test
 
 import (
 	"time"
@@ -10,30 +10,30 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
-type BlockUntilLeadershipReleasedSuite struct {
+type WaitExpiredSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&BlockUntilLeadershipReleasedSuite{})
+var _ = gc.Suite(&WaitExpiredSuite{})
 
-func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipNotHeld(c *gc.C) {
+func (s *WaitExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
 }
 
-func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
+func (s *WaitExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]lease.Info{
-			"redis": lease.Info{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -41,12 +41,12 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 		expectCalls: []call{{
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
-			callback: func(leases map[string]lease.Info) {
+			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
@@ -57,10 +57,10 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 	})
 }
 
-func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
+func (s *WaitExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]lease.Info{
-			"redis": lease.Info{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -68,16 +68,16 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 		expectCalls: []call{{
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
-			err:    lease.ErrInvalid,
-			callback: func(leases map[string]lease.Info) {
-				leases["redis"] = lease.Info{
+			err:    corelease.ErrInvalid,
+			callback: func(leases map[string]corelease.Info) {
+				leases["redis"] = corelease.Info{
 					Holder: "redis/99",
 					Expiry: offset(time.Minute),
 				}
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
@@ -87,41 +87,41 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 	})
 }
 
-func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) {
+func (s *WaitExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]lease.Info{
-			"redis": lease.Info{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]lease.Info) {
+			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
 		// Induce a refresh by making an unexpected check; it turns out the
 		// lease had already been expired by someone else.
-		manager.LeadershipCheck("redis", "redis/99").Check(nil)
+		manager.Token("redis", "redis/99").Check(nil)
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
 }
 
-func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
+func (s *WaitExpiredSuite) TestMultiple(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]lease.Info{
-			"redis": lease.Info{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": lease.Info{
+			"store": corelease.Info{
 				Holder: "store/0",
 				Expiry: offset(time.Second),
 			},
@@ -129,10 +129,10 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 		expectCalls: []call{{
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
-			err:    lease.ErrInvalid,
-			callback: func(leases map[string]lease.Info) {
+			err:    corelease.ErrInvalid,
+			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
-				leases["store"] = lease.Info{
+				leases["store"] = corelease.Info{
 					Holder: "store/9",
 					Expiry: offset(time.Minute),
 				}
@@ -140,10 +140,10 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"store"},
-			err:    lease.ErrInvalid,
+			err:    corelease.ErrInvalid,
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, clock *coretesting.Clock) {
 		redisTest1 := newBlockTest(manager, "redis")
 		redisTest1.assertBlocked(c)
 		redisTest2 := newBlockTest(manager, "redis")
@@ -165,30 +165,29 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 	})
 }
 
-func (s *BlockUntilLeadershipReleasedSuite) TestKillManager(c *gc.C) {
+func (s *WaitExpiredSuite) TestKillManager(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]lease.Info{
-			"redis": lease.Info{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
 		},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
 		manager.Kill()
 		err := blockTest.assertUnblocked(c)
-		c.Check(err, gc.ErrorMatches, "leadership manager stopped")
+		c.Check(err, gc.ErrorMatches, "lease manager stopped")
 	})
 }
 
-// blockTest wraps a goroutine running BlockUntilLeadershipReleased, and
-// fails if it's used more than a second after creation (which should be
-// *plenty* of time).
+// blockTest wraps a goroutine running WaitExpired, and fails if it's used more
+// than a second after creation (which should be *plenty* of time).
 type blockTest struct {
-	manager   leadership.ManagerWorker
+	manager   *lease.Manager
 	leaseName string
 	done      chan error
 	abort     <-chan time.Time
@@ -196,7 +195,7 @@ type blockTest struct {
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
 // expiry of the named lease.
-func newBlockTest(manager leadership.ManagerWorker, leaseName string) *blockTest {
+func newBlockTest(manager *lease.Manager, leaseName string) *blockTest {
 	bt := &blockTest{
 		manager:   manager,
 		leaseName: leaseName,
@@ -206,7 +205,7 @@ func newBlockTest(manager leadership.ManagerWorker, leaseName string) *blockTest
 	go func() {
 		select {
 		case <-bt.abort:
-		case bt.done <- bt.manager.BlockUntilLeadershipReleased(bt.leaseName):
+		case bt.done <- bt.manager.WaitExpired(bt.leaseName):
 		}
 	}()
 	return bt

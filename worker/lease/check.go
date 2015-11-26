@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package lease
 
 import (
 	"github.com/juju/errors"
 )
 
-// token implements leadership.Token.
+// token implements lease.Token.
 type token struct {
 	leaseName  string
 	holderName string
@@ -16,7 +16,7 @@ type token struct {
 	abort      <-chan struct{}
 }
 
-// Check is part of the leadership.Token interface.
+// Check is part of the lease.Token interface.
 func (t token) Check(trapdoorKey interface{}) error {
 
 	// This validation, which could be done at Token creation time, is deferred
@@ -40,7 +40,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 	}.invoke(t.checks)
 }
 
-// check is used to deliver leadership-check requests to a manager's loop
+// check is used to deliver lease-check requests to a manager's loop
 // goroutine on behalf of a token (as returned by LeadershipCheck).
 type check struct {
 	leaseName   string
@@ -60,9 +60,6 @@ func (c check) invoke(ch chan<- check) error {
 		case ch <- c:
 			ch = nil
 		case err := <-c.response:
-			if err == ErrLeaseNotHeld {
-				return errors.Errorf("%q is not leader of %q", c.holderName, c.leaseName)
-			}
 			return errors.Trace(err)
 		}
 	}

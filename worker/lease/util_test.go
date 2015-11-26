@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package lease_test
 
 import (
 	"fmt"
@@ -14,15 +14,15 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// Secretary implements leadership.Secretary for testing purposes.
+// Secretary implements lease.Secretary for testing purposes.
 type Secretary struct{}
 
-// CheckLease is part of the leadership.Secretary interface.
+// CheckLease is part of the lease.Secretary interface.
 func (Secretary) CheckLease(name string) error {
 	return checkName(name)
 }
 
-// CheckHolder is part of the leadership.Secretary interface.
+// CheckHolder is part of the lease.Secretary interface.
 func (Secretary) CheckHolder(name string) error {
 	return checkName(name)
 }
@@ -34,6 +34,7 @@ func checkName(name string) error {
 	return nil
 }
 
+// CheckDuration is part of the lease.Secretary interface.
 func (Secretary) CheckDuration(duration time.Duration) error {
 	if duration != time.Minute {
 		return errors.NotValidf("time")
@@ -41,7 +42,7 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 	return nil
 }
 
-// Client implements lease.Client for testing purposes.
+// Client implements corelease.Client for testing purposes.
 type Client struct {
 	leases map[string]lease.Info
 	expect []call
@@ -119,17 +120,17 @@ func (client *Client) call(method string, args []interface{}) error {
 	return errors.New(client.failed)
 }
 
-// ClaimLease is part of the lease.Client interface.
+// ClaimLease is part of the corelease.Client interface.
 func (client *Client) ClaimLease(name string, request lease.Request) error {
 	return client.call("ClaimLease", []interface{}{name, request})
 }
 
-// ExtendLease is part of the lease.Client interface.
+// ExtendLease is part of the corelease.Client interface.
 func (client *Client) ExtendLease(name string, request lease.Request) error {
 	return client.call("ExtendLease", []interface{}{name, request})
 }
 
-// ExpireLease is part of the lease.Client interface.
+// ExpireLease is part of the corelease.Client interface.
 func (client *Client) ExpireLease(name string) error {
 	return client.call("ExpireLease", []interface{}{name})
 }

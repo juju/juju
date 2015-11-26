@@ -1,12 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package lease
 
 import (
 	"time"
 
-	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 )
 
 // claim is used to deliver lease-claim requests to a manager's loop
@@ -29,7 +29,7 @@ func (c claim) invoke(ch chan<- claim) error {
 			ch = nil
 		case success := <-c.response:
 			if !success {
-				return leadership.ErrClaimDenied
+				return lease.ErrClaimDenied
 			}
 			return nil
 		}
