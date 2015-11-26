@@ -60,31 +60,8 @@ The resources are looked up in the service's charm metadata.
 	})
 }
 
-func newSpecs(c *gc.C, names ...string) []resource.Spec {
-	var specs []resource.Spec
-	for _, name := range names {
-		var comment string
-		parts := strings.SplitN(name, ":", 2)
-		if len(parts) == 2 {
-			name = parts[0]
-			comment = parts[1]
-		}
-
-		info := charm.ResourceInfo{
-			Name:    name,
-			Type:    charm.ResourceTypeFile,
-			Path:    name + ".tgz",
-			Comment: comment,
-		}
-		spec, err := resource.NewSpec(info, resource.OriginUpload, "")
-		c.Assert(err, jc.ErrorIsNil)
-		specs = append(specs, spec)
-	}
-	return specs
-}
-
 func (s *ShowSuite) TestOkay(c *gc.C) {
-	specs := newSpecs(c,
+	specs := cmd.NewSpecs(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
@@ -120,7 +97,7 @@ RESOURCE FROM REV COMMENT
 }
 
 func (s *ShowSuite) TestOutputFormats(c *gc.C) {
-	specs := newSpecs(c,
+	specs := cmd.NewSpecs(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
