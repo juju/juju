@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
 	coretesting "github.com/juju/juju/testing"
 )
 

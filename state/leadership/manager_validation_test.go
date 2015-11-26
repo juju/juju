@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
 	coretesting "github.com/juju/juju/testing"
 )
 
