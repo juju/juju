@@ -1769,7 +1769,7 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	ones, bits := ipnet.Mask.Size()
 	zeros := bits - ones
 	numIPs := uint32(1) << uint32(zeros)
-	highBound := lowBound + numIPs - 1
+	highBound := lowBound + numIPs - 2
 
 	client := environ.getMAASClient().GetSubObject("subnets").GetSubObject(subnetId)
 
