@@ -1023,7 +1023,7 @@ func createSubnet(id uint, interfaceAndSpace uint) gomaasapi.CreateSubnet {
 	var s gomaasapi.CreateSubnet
 	s.DNSServers = []string{"192.168.1.2"}
 	s.Name = fmt.Sprintf("maas-eth%d", interfaceAndSpace)
-	s.Space = fmt.Sprintf("space-%d", interfaceAndSpace)
+	s.Space = fmt.Sprintf("Space %d", interfaceAndSpace)
 	s.GatewayIP = fmt.Sprintf("192.168.%v.1", id)
 	s.CIDR = fmt.Sprintf("192.168.%v.0/24", id)
 	s.ID = id
@@ -1059,7 +1059,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	expectedSpaces := []network.SpaceInfo{
 		{
 			Name:       "space-1",
-			ProviderId: "space-1",
+			ProviderId: "Space 1",
 			Subnets: []network.SubnetInfo{
 				{
 					CIDR:              "192.168.1.0/24",
@@ -1067,19 +1067,19 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 					AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 					SpaceName:         "space-1",
-					SpaceProviderId:   "space-1",
+					SpaceProviderId:   "Space 1",
 				}, {
 					CIDR:              "192.168.6.0/24",
 					ProviderId:        "2",
 					AllocatableIPLow:  net.ParseIP("192.168.6.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.6.255").To4(),
 					SpaceName:         "space-1",
-					SpaceProviderId:   "space-1",
+					SpaceProviderId:   "Space 1",
 				},
 			},
 		}, {
 			Name:       "space-2",
-			ProviderId: "space-2",
+			ProviderId: "Space 2",
 			Subnets: []network.SubnetInfo{
 				{
 					CIDR:              "192.168.2.0/24",
@@ -1087,19 +1087,19 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 					AllocatableIPLow:  net.ParseIP("192.168.2.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.2.255").To4(),
 					SpaceName:         "space-2",
-					SpaceProviderId:   "space-2",
+					SpaceProviderId:   "Space 2",
 				}, {
 					CIDR:              "192.168.7.0/24",
 					ProviderId:        "4",
 					AllocatableIPLow:  net.ParseIP("192.168.7.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.7.255").To4(),
 					SpaceName:         "space-2",
-					SpaceProviderId:   "space-2",
+					SpaceProviderId:   "Space 2",
 				},
 			},
 		}, {
 			Name:       "space-3",
-			ProviderId: "space-3",
+			ProviderId: "Space 3",
 			Subnets: []network.SubnetInfo{
 				{
 					CIDR:              "192.168.3.0/24",
@@ -1107,14 +1107,14 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 					AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 					SpaceName:         "space-3",
-					SpaceProviderId:   "space-3",
+					SpaceProviderId:   "Space 3",
 				}, {
 					CIDR:              "192.168.8.0/24",
 					ProviderId:        "6",
 					AllocatableIPLow:  net.ParseIP("192.168.8.1").To4(),
 					AllocatableIPHigh: net.ParseIP("192.168.8.255").To4(),
 					SpaceName:         "space-3",
-					SpaceProviderId:   "space-3",
+					SpaceProviderId:   "Space 3",
 				},
 			},
 		},
@@ -1151,14 +1151,14 @@ func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
 			AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 			SpaceName:         "space-1",
-			SpaceProviderId:   "space-1",
+			SpaceProviderId:   "Space 1",
 		}, {
 			CIDR:              "192.168.3.0/24",
 			ProviderId:        "3",
 			AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 			SpaceName:         "space-3",
-			SpaceProviderId:   "space-3",
+			SpaceProviderId:   "Space 3",
 		},
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
@@ -1193,14 +1193,14 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 			AllocatableIPLow:  net.ParseIP("192.168.1.1").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.1.255").To4(),
 			SpaceName:         "space-1",
-			SpaceProviderId:   "space-1",
+			SpaceProviderId:   "Space 1",
 		}, {
 			CIDR:              "192.168.3.0/24",
 			ProviderId:        "3",
 			AllocatableIPLow:  net.ParseIP("192.168.3.1").To4(),
 			AllocatableIPHigh: net.ParseIP("192.168.3.255").To4(),
 			SpaceName:         "space-3",
-			SpaceProviderId:   "space-3",
+			SpaceProviderId:   "Space 3",
 		},
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
