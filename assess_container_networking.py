@@ -352,12 +352,20 @@ def assess_container_networking(client, args):
 
     _assess_container_networking(client, types, hosts, containers)
 
-    for host in hosts:
+    # Reboot all hosts apart from machine 0 because we use machine 0 to jump
+    # through for some hosts.
+    for host in hosts[1:]:
         ssh(client, host, 'sudo reboot')
 
-    # If wait_for_started is called too early the machines still appear to be
-    # up, so we wait a bit before retrying.
-    time.sleep(10)
+    # Finally reboot machine 0
+    ssh(client, hosts[0], 'sudo reboot')
+
+    # Wait for the state server to shut down. This prevents us from calling
+    # wait_for_started before machine 0 has shut down, which can cause us
+    # to think that we have finished rebooting before we actually have.
+    hostname = status['machines'][hosts[0]]['dns-name']
+    wait_for_port(hostname, 22, closed=True)
+
     client.wait_for_started()
 
     # Once Juju is up it can take a little while before ssh responds.
