@@ -446,6 +446,82 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
 }
 
+func (s *DeploySuite) TestCharmSeries(c *gc.C) {
+	deploySeriesTests := []struct {
+		requestedSeries string
+		force           bool
+		seriesFromCharm string
+		supportedSeries []string
+		modelSeries     string
+		ltsSeries       string
+		expectedSeries  string
+		message         string
+		err             string
+	}{{
+		ltsSeries:      "trusty",
+		expectedSeries: "trusty",
+		message:        "with the latest LTS series %q",
+	}, {
+		ltsSeries:       "precise",
+		modelSeries:     "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		expectedSeries:  "trusty",
+		message:         "with the default charm metadata series %q",
+	}, {
+		requestedSeries: "trusty",
+		seriesFromCharm: "trusty",
+		expectedSeries:  "trusty",
+		message:         "with the user specified series %q",
+	}, {
+		requestedSeries: "wily",
+		seriesFromCharm: "trusty",
+		err:             `series "wily" not supported by charm, supported series are: trusty`,
+	}, {
+		requestedSeries: "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
+	}, {
+		requestedSeries: "wily",
+		seriesFromCharm: "trusty",
+		expectedSeries:  "wily",
+		message:         "with the user specified series %q",
+		force:           true,
+	}, {
+		requestedSeries: "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		expectedSeries:  "wily",
+		message:         "with the user specified series %q",
+		force:           true,
+	}, {
+		ltsSeries:      "precise",
+		modelSeries:    "trusty",
+		expectedSeries: "trusty",
+		message:        "with the configured model default series %q",
+	}}
+
+	for i, test := range deploySeriesTests {
+		c.Logf("test %d", i)
+		cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+			"name":            "test",
+			"type":            "dummy",
+			"uuid":            coretesting.EnvironmentTag.Id(),
+			"ca-cert":         coretesting.CACert,
+			"ca-private-key":  coretesting.CAKey,
+			"authorized-keys": coretesting.FakeAuthKeys,
+			"default-series":  test.modelSeries,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(series, gc.Equals, test.expectedSeries)
+		c.Check(msg, gc.Matches, test.message)
+	}
+}
+
 type DeployLocalSuite struct {
 	testing.RepoSuite
 }

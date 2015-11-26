@@ -367,13 +367,18 @@ const (
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )
 
-func charmSeries(requestedSeries, seriesFromCharm string, supportedSeries []string, force bool, conf *config.Config) (string, string, error) {
-	// Determine what series to use with the charm. Order of preference is:
-	// - user specified when deploying
-	// - default from charm metadata
-	// - model default
-	// - charm store default
-
+// charmSeries determine what series to use with a charm.
+// Order of preference is:
+// - user requested when deploying
+// - default from charm metadata supported series
+// - model default
+// - charm store default
+func charmSeries(
+	requestedSeries, seriesFromCharm string,
+	supportedSeries []string,
+	force bool,
+	conf *config.Config,
+) (string, string, error) {
 	// User has requested a series and we have a new charm with series in metadata.
 	if requestedSeries != "" && seriesFromCharm == "" {
 		if !force && !isSeriesSupported(requestedSeries, supportedSeries) {
