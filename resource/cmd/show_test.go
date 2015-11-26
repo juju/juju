@@ -116,13 +116,11 @@ music     upload  -    mp3 of your backing vocals
   path: website.tgz
   comment: .tgz of your website
   origin: upload
-  revision: ""
 - name: music
   type: file
   path: music.mp3
   comment: mp3 of your backing vocals
   origin: upload
-  revision: ""
 `[1:],
 		"json": strings.Replace(""+
 			"["+
@@ -132,14 +130,12 @@ music     upload  -    mp3 of your backing vocals
 			`  "path":"website.tgz",`+
 			`  "comment":".tgz of your website",`+
 			`  "origin":"upload",`+
-			`  "revision":"",`+
 			" },{"+
 			`  "name":"music",`+
 			`  "type":"file",`+
 			`  "path":"music.mp3",`+
 			`  "comment":"mp3 of your backing vocals",`+
 			`  "origin":"upload",`+
-			`  "revision":"",`+
 			" }"+
 			"]\n",
 			" ", "", -1),
