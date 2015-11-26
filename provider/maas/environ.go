@@ -1996,7 +1996,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	spaceMap := make(map[network.Id]*network.SpaceInfo)
-	names := []network.Id{}
+	names := set.Strings{}
 	for _, jsonNet := range jsonNets {
 		subnetInfo, err := environ.subnetFromJson(jsonNet)
 		if err != nil {
@@ -2008,14 +2008,13 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 				ProviderId: subnetInfo.SpaceProviderId,
 			}
 			spaceMap[space.ProviderId] = space
-			names = append(names, space.ProviderId)
-
+			names.Add(string(space.ProviderId))
 		}
 		space.Subnets = append(space.Subnets, subnetInfo)
 	}
 	spaces := make([]network.SpaceInfo, len(names))
-	for i, name := range names {
-		spaces[i] = *spaceMap[name]
+	for i, name := range names.SortedValues() {
+		spaces[i] = *spaceMap[network.Id(name)]
 	}
 	return spaces, nil
 }
