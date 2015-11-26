@@ -1962,7 +1962,10 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not find instance %q", instId)
+		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+			return nil, errors.NotFoundf("instance %q", instId)
+		}
+		return nil, errors.Annotatef(err, "getting instance %q", instId)
 	}
 	if len(instances) == 0 {
 		return nil, errors.NotFoundf("instance %v", instId)
@@ -2010,9 +2013,9 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 		}
 		space.Subnets = append(space.Subnets, subnetInfo)
 	}
-	spaces := []network.SpaceInfo{}
-	for _, name := range names {
-		spaces = append(spaces, *spaceMap[name])
+	spaces := make([]network.SpaceInfo, len(names))
+	for i, name := range names {
+		spaces[i] = *spaceMap[name]
 	}
 	return spaces, nil
 }
