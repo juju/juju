@@ -37,86 +37,35 @@ const (
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
 	StatusesHistoryC   = statusesHistoryC
-	FullWidthDot       = fullWidthDot
-	FullWidthDollar    = fullWidthDollar
 )
 
 var (
-	ToolstorageNewStorage            = &toolstorageNewStorage
-	ImageStorageNewStorage           = &imageStorageNewStorage
-	MachineIdLessThan                = machineIdLessThan
-	StateServerAvailable             = &stateServerAvailable
-	GetOrCreatePorts                 = getOrCreatePorts
-	GetPorts                         = getPorts
-	PortsGlobalKey                   = portsGlobalKey
-	CurrentUpgradeId                 = currentUpgradeId
-	NowToTheSecond                   = nowToTheSecond
-	PickAddress                      = &pickAddress
-	AddVolumeOps                     = (*State).addVolumeOps
-	CombineMeterStatus               = combineMeterStatus
-	EndpointBindingsForCharmOp       = endpointBindingsForCharmOp
-	ReplaceEndpointBindingsOp        = replaceEndpointBindingsOp
-	RemoveEndpointBindingsOp         = removeEndpointBindingsOp
-	ServiceGlobalKey                 = serviceGlobalKey
-	ReadEndpointBindings             = readEndpointBindings
-	DefaultEndpointBindingsForCharm  = defaultEndpointBindingsForCharm
-	ValidateEndpointBindingsForCharm = validateEndpointBindingsForCharm
-	CombinedCharmRelations           = combinedCharmRelations
+	ToolstorageNewStorage           = &toolstorageNewStorage
+	ImageStorageNewStorage          = &imageStorageNewStorage
+	MachineIdLessThan               = machineIdLessThan
+	StateServerAvailable            = &stateServerAvailable
+	GetOrCreatePorts                = getOrCreatePorts
+	GetPorts                        = getPorts
+	PortsGlobalKey                  = portsGlobalKey
+	CurrentUpgradeId                = currentUpgradeId
+	NowToTheSecond                  = nowToTheSecond
+	PickAddress                     = &pickAddress
+	AddVolumeOps                    = (*State).addVolumeOps
+	CombineMeterStatus              = combineMeterStatus
+	ServiceGlobalKey                = serviceGlobalKey
+	DefaultEndpointBindingsForCharm = defaultEndpointBindingsForCharm
+	MergeBindings                   = mergeBindings
+	CombinedCharmRelations          = combinedCharmRelations
 )
 
 type (
-	CharmDoc            charmDoc
-	MachineDoc          machineDoc
-	RelationDoc         relationDoc
-	ServiceDoc          serviceDoc
-	UnitDoc             unitDoc
-	BlockDevicesDoc     blockDevicesDoc
-	BindingsMap         bindingsMap
-	EndpointBindingsDoc endpointBindingsDoc
+	CharmDoc        charmDoc
+	MachineDoc      machineDoc
+	RelationDoc     relationDoc
+	ServiceDoc      serviceDoc
+	UnitDoc         unitDoc
+	BlockDevicesDoc blockDevicesDoc
 )
-
-func MakeEndpointBindingsDoc(docID, envUUID string, bindings BindingsMap) EndpointBindingsDoc {
-	return EndpointBindingsDoc(endpointBindingsDoc{
-		DocID:    docID,
-		EnvUUID:  envUUID,
-		Bindings: bindingsMap(bindings),
-	})
-}
-
-func AssertEndpointBindingsOp(
-	c *gc.C,
-	op txn.Op, id string,
-	insertBindings map[string]string,
-	updates bson.D, txnRevnoForUpdate int64,
-	isRemove bool,
-) {
-	switch {
-	case isRemove:
-		c.Assert(op, jc.DeepEquals, txn.Op{
-			C:      endpointBindingsC,
-			Id:     id,
-			Remove: true,
-		})
-	case insertBindings != nil:
-		c.Assert(op, jc.DeepEquals, txn.Op{
-			C:      endpointBindingsC,
-			Id:     id,
-			Assert: txn.DocMissing,
-			Insert: &endpointBindingsDoc{
-				Bindings: bindingsMap(insertBindings),
-			},
-		})
-	case updates != nil:
-		c.Assert(op, jc.DeepEquals, txn.Op{
-			C:      endpointBindingsC,
-			Id:     id,
-			Assert: bson.D{{"txn-revno", txnRevnoForUpdate}},
-			Update: updates,
-		})
-	default:
-		c.Fatalf("not enough args given to assert op %#v contents", op)
-	}
-}
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
