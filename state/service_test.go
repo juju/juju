@@ -89,7 +89,7 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Owner: s.Owner.String(),
 		Charm: oldCharm,
-		Bindings: map[string]string{
+		EndpointBindings: map[string]string{
 			"server": "db",
 			"client": "client",
 		}})
@@ -2194,14 +2194,6 @@ func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *sta
 	c.Assert(bindings, gc.IsNil)
 }
 
-func (s *ServiceSuite) copyBindings(oldMap map[string]string) map[string]string {
-	newMap := make(map[string]string, len(oldMap))
-	for key, value := range oldMap {
-		newMap[key] = value
-	}
-	return newMap
-}
-
 func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
 	// default space when saved in state.
@@ -2248,8 +2240,6 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
-	oldDefaults, err := state.DefaultEndpointBindingsForCharm(oldCharm.Meta())
-	c.Assert(err, jc.ErrorIsNil)
 	oldBindings := map[string]string{
 		"kludge": "db",
 		"client": "db",
@@ -2257,19 +2247,29 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	service := s.AddTestingServiceWithBindings(c, "yoursql", oldCharm, oldBindings)
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	effectiveOld := s.copyBindings(oldDefaults)
-	effectiveOld["kludge"] = "db"
-	effectiveOld["client"] = "db"
+	effectiveOld := map[string]string{
+		"kludge":  "db",
+		"client":  "db",
+		"cluster": network.DefaultSpace,
+	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
-	newDefaults, err := state.DefaultEndpointBindingsForCharm(newCharm.Meta())
 	err = service.SetCharm(newCharm, false)
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err = service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	effectiveNew := s.copyBindings(newDefaults)
-	effectiveNew["client"] = "db" // "kludge" is missing in newMeta.
+	effectiveNew := map[string]string{
+		// These two should be preserved from oldCharm.
+		"client":  "db",
+		"cluster": network.DefaultSpace,
+		// "kludge" is missing in newMeta, "server" is new and gets the default.
+		"server": network.DefaultSpace,
+		// All the remaining are new and use the default.
+		"foo":  network.DefaultSpace,
+		"baz":  network.DefaultSpace,
+		"just": network.DefaultSpace,
+	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
 	s.assertServiceRemovedWithItsBindings(c, service)

@@ -40,22 +40,20 @@ const (
 )
 
 var (
-	ToolstorageNewStorage           = &toolstorageNewStorage
-	ImageStorageNewStorage          = &imageStorageNewStorage
-	MachineIdLessThan               = machineIdLessThan
-	StateServerAvailable            = &stateServerAvailable
-	GetOrCreatePorts                = getOrCreatePorts
-	GetPorts                        = getPorts
-	PortsGlobalKey                  = portsGlobalKey
-	CurrentUpgradeId                = currentUpgradeId
-	NowToTheSecond                  = nowToTheSecond
-	PickAddress                     = &pickAddress
-	AddVolumeOps                    = (*State).addVolumeOps
-	CombineMeterStatus              = combineMeterStatus
-	ServiceGlobalKey                = serviceGlobalKey
-	DefaultEndpointBindingsForCharm = defaultEndpointBindingsForCharm
-	MergeBindings                   = mergeBindings
-	CombinedCharmRelations          = combinedCharmRelations
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	PickAddress            = &pickAddress
+	AddVolumeOps           = (*State).addVolumeOps
+	CombineMeterStatus     = combineMeterStatus
+	ServiceGlobalKey       = serviceGlobalKey
+	MergeBindings          = mergeBindings
 )
 
 type (
@@ -139,7 +137,13 @@ func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, o
 
 func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Bindings: bindings, Storage: storage})
+	service, err := st.AddService(AddServiceArgs{
+		Name:             name,
+		Owner:            owner.String(),
+		Charm:            ch,
+		EndpointBindings: bindings,
+		Storage:          storage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

@@ -1093,16 +1093,16 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 type AddServiceArgs struct {
-	Name        string
-	Owner       string
-	Charm       *Charm
-	Networks    []string
-	Storage     map[string]StorageConstraints
-	Bindings    map[string]string
-	Settings    charm.Settings
-	NumUnits    int
-	Placement   []*instance.Placement
-	Constraints constraints.Value
+	Name             string
+	Owner            string
+	Charm            *Charm
+	Networks         []string
+	Storage          map[string]StorageConstraints
+	EndpointBindings map[string]string
+	Settings         charm.Settings
+	NumUnits         int
+	Placement        []*instance.Placement
+	Constraints      constraints.Value
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1176,7 +1176,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
-	endpointBindingsOp, err := createEndpointBindingsOp(st, svc.globalKey(), args.Bindings, args.Charm.Meta())
+	endpointBindingsOp, err := createEndpointBindingsOp(
+		st, svc.globalKey(),
+		args.EndpointBindings, args.Charm.Meta(),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
