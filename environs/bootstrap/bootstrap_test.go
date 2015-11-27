@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -32,10 +31,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 const (
 	useDefaultKeys = true
@@ -416,7 +411,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
@@ -424,7 +419,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return arch.HostArch(), series.HostSeries(), finalizer, nil
+	return &environs.BootstrapResult{Arch: arch.HostArch(), Series: series.HostSeries(), Finalize: finalizer}, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {

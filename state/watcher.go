@@ -2082,6 +2082,20 @@ type colWCfg struct {
 // newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
+	// Always ensure that there is at least filtering on the
+	// environment in place.
+	if cfg.filter == nil {
+		cfg.filter = st.isForStateEnv
+	} else {
+		innerFilter := cfg.filter
+		cfg.filter = func(id interface{}) bool {
+			if !st.isForStateEnv(id) {
+				return false
+			}
+			return innerFilter(id)
+		}
+	}
+
 	w := &collectionWatcher{
 		colWCfg:       cfg,
 		commonWatcher: commonWatcher{st: st},
@@ -2213,7 +2227,14 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv
 		if !ok {
 			return errors.Errorf("id is not of type string, got %T", val)
 		}
-		id = st.localID(id)
+
+		// Strip off the env UUID prefix. We only expect ids for a
+		// single environment.
+		id, err := st.strictLocalID(id)
+		if err != nil {
+			return errors.Annotatef(err, "collection watcher")
+		}
+
 		if idconv != nil {
 			id = idconv(id)
 		}

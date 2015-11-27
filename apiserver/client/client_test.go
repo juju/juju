@@ -1047,25 +1047,22 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			url: "local:quantal/wordpress-3",
 		},
 		{
-			about:           "invalid URL",
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "not-valid",
-			err:             "charm or bundle url series is not resolved",
+			about: "invalid URL",
+			charm: "wordpress",
+			url:   "not-valid!",
+			err:   `URL has invalid charm or bundle name: "not-valid!"`,
 		},
 		{
-			about:           "invalid schema",
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "not-valid:your-arguments",
-			err:             `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
+			about: "invalid schema",
+			charm: "wordpress",
+			url:   "not-valid:your-arguments",
+			err:   `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
 		},
 		{
-			about:           "unknown charm",
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "cs:missing/one-1",
-			err:             `charm "cs:missing/one-1" not found`,
+			about: "unknown charm",
+			charm: "wordpress",
+			url:   "cs:missing/one-1",
+			err:   `charm "cs:missing/one-1" not found`,
 		},
 	}
 
@@ -1629,8 +1626,8 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 
 func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
-		"wordpress":                   "charm or bundle url series is not resolved",
-		"cs:wordpress":                "charm or bundle url series is not resolved",
+		"wordpress":                   "charm url must include revision",
+		"cs:wordpress":                "charm url must include revision",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -1930,8 +1927,6 @@ func (s *clientRepoSuite) TestBlockServiceUpdateForced(c *gc.C) {
 func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
-		"wordpress":                   "charm or bundle url series is not resolved",
-		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -2217,9 +2212,8 @@ func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
 func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
-		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   "charm or bundle url series is not resolved",
-		"cs:wordpress":                "charm or bundle url series is not resolved",
+		"wordpress":                   "charm url must include revision",
+		"cs:wordpress":                "charm url must include revision",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -2605,7 +2599,7 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	s.setUpScenario(c)
-	network.ResetGlobalPreferIPv6()
+	network.SetPreferIPv6(false)
 
 	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
@@ -2648,7 +2642,7 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
-	network.ResetGlobalPreferIPv6()
+	network.SetPreferIPv6(false)
 
 	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
@@ -3316,7 +3310,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 
 		client := s.APIState.Client()
-		ref, err := charm.ParseReference(test.url)
+		ref, err := charm.ParseURL(test.url)
 		if test.parseErr == "" {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
