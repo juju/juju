@@ -1091,8 +1091,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 			createSubnetInfo(5, 3, 3),
 			createSubnetInfo(6, 3, 8),
 		},
-	},
-	}
+	}}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
 

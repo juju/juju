@@ -1946,17 +1946,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		subnets = append(subnets, subnetInfo)
 		logger.Tracef("found subnet with info %#v", subnetInfo)
 	}
-	notFound := []string{}
-	for subnetId, found := range subnetIdSet {
-		if !found {
-			notFound = append(notFound, subnetId)
-		}
-	}
-	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following subnets: %v", strings.Join(notFound, ", "))
-	}
-
-	return subnets, nil
+	return subnets, checkNotFound(subnetIdSet)
 }
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
@@ -2054,26 +2044,24 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	}
 	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
 
-	subnetIdSet := make(map[network.Id]bool)
+	subnetIdSet := make(map[string]bool)
 	for _, netId := range subnetIds {
-		subnetIdSet[netId] = false
+		subnetIdSet[string(netId)] = false
 	}
-	processedIds := make(map[network.Id]bool)
 
 	var networkInfo []network.SubnetInfo
 	for _, subnet := range subnets {
-		_, ok := subnetIdSet[network.Id(subnet.Name)]
+		found, ok := subnetIdSet[subnet.Name]
 		if !ok {
 			// This id is not what we're looking for.
 			continue
 		}
-		if _, ok := processedIds[network.Id(subnet.Name)]; ok {
+		if found {
 			// Don't add the same subnet twice.
 			continue
 		}
 		// mark that we've found this subnet
-		processedIds[network.Id(subnet.Name)] = true
-		subnetIdSet[network.Id(subnet.Name)] = true
+		subnetIdSet[subnet.Name] = true
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(subnet.IP),
 			Mask: net.IPMask(net.ParseIP(subnet.Mask)),
@@ -2106,7 +2094,10 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 		networkInfo = append(networkInfo, subnetInfo)
 	}
 	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
+	return networkInfo, checkNotFound(subnetIdSet)
+}
 
+func checkNotFound(subnetIdSet map[string]bool) error {
 	notFound := []string{}
 	for subnetId, found := range subnetIdSet {
 		if !found {
@@ -2114,10 +2105,9 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 		}
 	}
 	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following subnets: %v", strings.Join(notFound, ", "))
+		return errors.Errorf("failed to find the following subnets: %v", strings.Join(notFound, ", "))
 	}
-
-	return networkInfo, nil
+	return nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.
