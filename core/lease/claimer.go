@@ -25,9 +25,9 @@ type Claimer interface {
 	// error, no reasonable inferences may be made.
 	Claim(leaseName, holderName string, duration time.Duration) error
 
-	// WaitExpired returns nil when the named lease is no longer held. If it
+	// WaitUntilExpired returns nil when the named lease is no longer held. If it
 	// returns any other error, no reasonable inferences may be made.
-	WaitExpired(leaseName string) error
+	WaitUntilExpired(leaseName string) error
 }
 
 // Checker exposes facts about lease ownership.

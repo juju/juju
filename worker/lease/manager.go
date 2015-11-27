@@ -156,10 +156,6 @@ func (manager *Manager) handleClaim(claim claim) error {
 }
 
 // Token is part of the lease.Checker interface.
-//
-// The token returned will accept a `*[]txn.Op` passed to Check, and will
-// populate it with transaction operations that will fail if the holder is
-// not occupying the lease.
 func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 	return token{
 		leaseName:  leaseName,
@@ -193,8 +189,8 @@ func (manager *Manager) handleCheck(check check) error {
 	return nil
 }
 
-// WaitExpired is part of the lease.Claimer interface.
-func (manager *Manager) WaitExpired(leaseName string) error {
+// WaitUntilExpired is part of the lease.Claimer interface.
+func (manager *Manager) WaitUntilExpired(leaseName string) error {
 	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
 		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
 	}

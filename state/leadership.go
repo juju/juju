@@ -110,23 +110,26 @@ type leadershipChecker struct {
 
 // LeadershipCheck is part of the leadership.Checker interface.
 func (m leadershipChecker) LeadershipCheck(serviceName, unitName string) leadership.Token {
+	token := m.manager.Token(serviceName, unitName)
 	return leadershipToken{
-		token:      m.manager.Token(serviceName, unitName),
-		notHeldErr: errors.Errorf("%q is not leader of %q", unitName, serviceName),
+		serviceName: serviceName,
+		unitName:    unitName,
+		token:       token,
 	}
 }
 
 // leadershipToken implements leadership.Token by wrapping a corelease.Token.
 type leadershipToken struct {
-	token      corelease.Token
-	notHeldErr error
+	serviceName string
+	unitName    string
+	token       corelease.Token
 }
 
 // Check is part of the leadership.Token interface.
 func (t leadershipToken) Check(out interface{}) error {
 	err := t.token.Check(out)
 	if errors.Cause(err) == corelease.ErrNotHeld {
-		return t.notHeldErr
+		return errors.Errorf("%q is not leader of %q", t.unitName, t.serviceName)
 	}
 	return errors.Trace(err)
 }
@@ -147,6 +150,6 @@ func (m leadershipClaimer) ClaimLeadership(serviceName, unitName string, duratio
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (m leadershipClaimer) BlockUntilLeadershipReleased(serviceName string) error {
-	err := m.manager.WaitExpired(serviceName)
+	err := m.manager.WaitUntilExpired(serviceName)
 	return errors.Trace(err)
 }

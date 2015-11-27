@@ -127,10 +127,10 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 	})
 }
 
-func (s *ValidationSuite) TestWaitExpired_LeaseName(c *gc.C) {
+func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
-		err := manager.WaitExpired("INVALID")
+		err := manager.WaitUntilExpired("INVALID")
 		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	})

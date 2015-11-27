@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/worker/lease"
 )
 
-type WaitExpiredSuite struct {
+type WaitUntilExpiredSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&WaitExpiredSuite{})
+var _ = gc.Suite(&WaitUntilExpiredSuite{})
 
-func (s *WaitExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
 	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
@@ -30,7 +30,7 @@ func (s *WaitExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 	})
 }
 
-func (s *WaitExpiredSuite) TestLeadershipExpires(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{
@@ -57,7 +57,7 @@ func (s *WaitExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	})
 }
 
-func (s *WaitExpiredSuite) TestLeadershipChanged(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{
@@ -87,7 +87,7 @@ func (s *WaitExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	})
 }
 
-func (s *WaitExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{
@@ -114,7 +114,7 @@ func (s *WaitExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	})
 }
 
-func (s *WaitExpiredSuite) TestMultiple(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{
@@ -165,7 +165,7 @@ func (s *WaitExpiredSuite) TestMultiple(c *gc.C) {
 	})
 }
 
-func (s *WaitExpiredSuite) TestKillManager(c *gc.C) {
+func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{
@@ -184,8 +184,8 @@ func (s *WaitExpiredSuite) TestKillManager(c *gc.C) {
 	})
 }
 
-// blockTest wraps a goroutine running WaitExpired, and fails if it's used more
-// than a second after creation (which should be *plenty* of time).
+// blockTest wraps a goroutine running WaitUntilExpired, and fails if it's used
+// more than a second after creation (which should be *plenty* of time).
 type blockTest struct {
 	manager   *lease.Manager
 	leaseName string
@@ -205,7 +205,7 @@ func newBlockTest(manager *lease.Manager, leaseName string) *blockTest {
 	go func() {
 		select {
 		case <-bt.abort:
-		case bt.done <- bt.manager.WaitExpired(bt.leaseName):
+		case bt.done <- bt.manager.WaitUntilExpired(bt.leaseName):
 		}
 	}()
 	return bt

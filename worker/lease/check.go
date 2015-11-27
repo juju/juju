@@ -20,11 +20,13 @@ type token struct {
 func (t token) Check(trapdoorKey interface{}) error {
 
 	// This validation, which could be done at Token creation time, is deferred
-	// until this point so as not to pollute the LeadershipCheck signature with
-	// an error that might cause clients to assume LeadershipCheck actually
-	// checked leadership.
+	// until this point for historical reasons. In particular, this code was
+	// extracted from a *leadership* implementation which has a LeadershipCheck
+	// method returning a token; if it returned an error as well it would seem
+	// to imply that the method implemented a check itself, rather than a check
+	// factory.
 	//
-	// Um, we should probably name it something different, shouldn't we?
+	// Fixing that would be great but seems out of scope.
 	if err := t.secretary.CheckLease(t.leaseName); err != nil {
 		return errors.Annotatef(err, "cannot check lease %q", t.leaseName)
 	}
