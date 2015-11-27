@@ -31,11 +31,11 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
+	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -70,7 +70,7 @@ type State struct {
 	// workers on which state depends.
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	leadershipManager *lease.Manager
 
 	// mu guards allManager, allEnvManager & allEnvWatcherBacking
 	mu                   sync.Mutex
@@ -192,10 +192,10 @@ func (st *State) start(serverTag names.EnvironTag) error {
 		clientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
 
-	logger.Infof("creating lease client as %s", clientId)
+	logger.Infof("creating leadership lease client as %s", clientId)
 	clock := GetClock()
 	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
+	leaseClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
@@ -203,16 +203,16 @@ func (st *State) start(serverTag names.EnvironTag) error {
 		Clock:      clock,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
+		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
+	logger.Infof("starting leadership lease manager")
+	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: leadershipSecretary{},
 		Client:    leaseClient,
 		Clock:     clock,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
+		return errors.Annotatef(err, "cannot create leadership lease manager")
 	}
 	st.leadershipManager = leadershipManager
 

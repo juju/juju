@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package lease
 
 import (
 	"sort"
@@ -10,40 +10,42 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	"launchpad.net/tomb"
 
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/worker/catacomb"
 )
 
-var logger = loggo.GetLogger("juju.state.leadership")
+var logger = loggo.GetLogger("juju.worker.lease")
 
-// NewManager returns a Manager implementation, backed by a lease.Client,
-// which (in addition to its exposed Manager capabilities) will expire all
-// known leases as they run out. The caller takes responsibility for killing,
-// and handling errors from, the returned Worker.
-func NewManager(config ManagerConfig) (ManagerWorker, error) {
+// errStopped is returned to clients when an operation cannot complete because
+// the manager has started (and possibly finished) shutdown.
+var errStopped = errors.New("lease manager stopped")
+
+// NewManager returns a new *Manager configured as supplied. The caller takes
+// responsibility for killing, and handling errors from, the returned Worker.
+func NewManager(config ManagerConfig) (*Manager, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	manager := &manager{
+	manager := &Manager{
 		config: config,
 		claims: make(chan claim),
 		checks: make(chan check),
 		blocks: make(chan block),
 	}
-	go func() {
-		defer manager.tomb.Done()
-		// note: we don't directly tomb.Kill, because we may need to
-		// unwrap tomb.ErrDying in order to function correctly.
-		manager.kill(manager.loop())
-	}()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &manager.catacomb,
+		Work: manager.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return manager, nil
 }
 
-// manager implements ManagerWorker.
-type manager struct {
-	tomb tomb.Tomb
+// Manager implements lease.Claimer, lease.Checker, and worker.Worker.
+type Manager struct {
+	catacomb catacomb.Catacomb
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
@@ -59,28 +61,17 @@ type manager struct {
 }
 
 // Kill is part of the worker.Worker interface.
-func (manager *manager) Kill() {
-	manager.kill(nil)
-}
-
-// kill unwraps tomb.ErrDying before killing the tomb, thus allowing the worker
-// to use errors.Trace liberally and still stop cleanly.
-func (manager *manager) kill(err error) {
-	if errors.Cause(err) == tomb.ErrDying {
-		err = tomb.ErrDying
-	} else if err != nil {
-		logger.Errorf("stopping lease manager with error: %v", err)
-	}
-	manager.tomb.Kill(err)
+func (manager *Manager) Kill() {
+	manager.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (manager *manager) Wait() error {
-	return manager.tomb.Wait()
+func (manager *Manager) Wait() error {
+	return manager.catacomb.Wait()
 }
 
 // loop runs until the manager is stopped.
-func (manager *manager) loop() error {
+func (manager *Manager) loop() error {
 	blocks := make(blocks)
 	for {
 		if err := manager.choose(blocks); err != nil {
@@ -97,10 +88,10 @@ func (manager *manager) loop() error {
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
-func (manager *manager) choose(blocks blocks) error {
+func (manager *Manager) choose(blocks blocks) error {
 	select {
-	case <-manager.tomb.Dying():
-		return tomb.ErrDying
+	case <-manager.catacomb.Dying():
+		return manager.catacomb.ErrDying()
 	case <-manager.nextExpiry():
 		return manager.expire()
 	case claim := <-manager.claims:
@@ -113,8 +104,8 @@ func (manager *manager) choose(blocks blocks) error {
 	}
 }
 
-// ClaimLeadership is part of the leadership.Claimer interface.
-func (manager *manager) ClaimLeadership(leaseName, holderName string, duration time.Duration) error {
+// Claim is part of the lease.Claimer interface.
+func (manager *Manager) Claim(leaseName, holderName string, duration time.Duration) error {
 	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
 		return errors.Annotatef(err, "cannot claim lease %q", leaseName)
 	}
@@ -129,21 +120,21 @@ func (manager *manager) ClaimLeadership(leaseName, holderName string, duration t
 		holderName: holderName,
 		duration:   duration,
 		response:   make(chan bool),
-		abort:      manager.tomb.Dying(),
+		abort:      manager.catacomb.Dying(),
 	}.invoke(manager.claims)
 }
 
 // handleClaim processes and responds to the supplied claim. It will only return
 // unrecoverable errors; mere failure to claim just indicates a bad request, and
 // is communicated back to the claim's originator.
-func (manager *manager) handleClaim(claim claim) error {
+func (manager *Manager) handleClaim(claim claim) error {
 	client := manager.config.Client
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
 	for err == lease.ErrInvalid {
 		select {
-		case <-manager.tomb.Dying():
-			return tomb.ErrDying
+		case <-manager.catacomb.Dying():
+			return manager.catacomb.ErrDying()
 		default:
 			info, found := client.Leases()[claim.leaseName]
 			switch {
@@ -164,25 +155,21 @@ func (manager *manager) handleClaim(claim claim) error {
 	return nil
 }
 
-// LeadershipCheck is part of the leadership.Checker interface.
-//
-// The token returned will accept a `*[]txn.Op` passed to Check, and will
-// populate it with transaction operations that will fail if the holder is
-// not occupying the lease.
-func (manager *manager) LeadershipCheck(leaseName, holderName string) leadership.Token {
+// Token is part of the lease.Checker interface.
+func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 	return token{
 		leaseName:  leaseName,
 		holderName: holderName,
 		secretary:  manager.config.Secretary,
 		checks:     manager.checks,
-		abort:      manager.tomb.Dying(),
+		abort:      manager.catacomb.Dying(),
 	}
 }
 
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
-func (manager *manager) handleCheck(check check) error {
+func (manager *Manager) handleCheck(check check) error {
 	client := manager.config.Client
 	info, found := client.Leases()[check.leaseName]
 	if !found || info.Holder != check.holderName {
@@ -194,30 +181,30 @@ func (manager *manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		response = ErrLeaseNotHeld
+		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
 	}
-	check.respond(response)
+	check.respond(errors.Trace(response))
 	return nil
 }
 
-// BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (manager *manager) BlockUntilLeadershipReleased(leaseName string) error {
+// WaitUntilExpired is part of the lease.Claimer interface.
+func (manager *Manager) WaitUntilExpired(leaseName string) error {
 	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
-		return errors.Annotatef(err, "cannot block for lease %q expiry", leaseName)
+		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
 	}
 	return block{
 		leaseName: leaseName,
 		unblock:   make(chan struct{}),
-		abort:     manager.tomb.Dying(),
+		abort:     manager.catacomb.Dying(),
 	}.invoke(manager.blocks)
 }
 
 // nextExpiry returns a channel that will send a value at some point when we
 // expect at least one lease to be ready to expire. If no leases are known,
 // it will return nil.
-func (manager *manager) nextExpiry() <-chan time.Time {
+func (manager *Manager) nextExpiry() <-chan time.Time {
 	var nextExpiry *time.Time
 	for _, info := range manager.config.Client.Leases() {
 		if nextExpiry != nil {
@@ -240,7 +227,7 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 // ErrInvalid is expected, and ignored, in the comfortable knowledge that the
 // client will have been updated and we'll see fresh info when we scan for new
 // expiries next time through the loop. It will return only unrecoverable errors.
-func (manager *manager) expire() error {
+func (manager *Manager) expire() error {
 	logger.Tracef("expiring leases...")
 	client := manager.config.Client
 	leases := client.Leases()

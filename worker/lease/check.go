@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package lease
 
 import (
 	"github.com/juju/errors"
 )
 
-// token implements leadership.Token.
+// token implements lease.Token.
 type token struct {
 	leaseName  string
 	holderName string
@@ -16,15 +16,17 @@ type token struct {
 	abort      <-chan struct{}
 }
 
-// Check is part of the leadership.Token interface.
+// Check is part of the lease.Token interface.
 func (t token) Check(trapdoorKey interface{}) error {
 
 	// This validation, which could be done at Token creation time, is deferred
-	// until this point so as not to pollute the LeadershipCheck signature with
-	// an error that might cause clients to assume LeadershipCheck actually
-	// checked leadership.
+	// until this point for historical reasons. In particular, this code was
+	// extracted from a *leadership* implementation which has a LeadershipCheck
+	// method returning a token; if it returned an error as well it would seem
+	// to imply that the method implemented a check itself, rather than a check
+	// factory.
 	//
-	// Um, we should probably name it something different, shouldn't we?
+	// Fixing that would be great but seems out of scope.
 	if err := t.secretary.CheckLease(t.leaseName); err != nil {
 		return errors.Annotatef(err, "cannot check lease %q", t.leaseName)
 	}
@@ -40,7 +42,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 	}.invoke(t.checks)
 }
 
-// check is used to deliver leadership-check requests to a manager's loop
+// check is used to deliver lease-check requests to a manager's loop
 // goroutine on behalf of a token (as returned by LeadershipCheck).
 type check struct {
 	leaseName   string
@@ -60,9 +62,6 @@ func (c check) invoke(ch chan<- check) error {
 		case ch <- c:
 			ch = nil
 		case err := <-c.response:
-			if err == ErrLeaseNotHeld {
-				return errors.Errorf("%q is not leader of %q", c.holderName, c.leaseName)
-			}
 			return errors.Trace(err)
 		}
 	}

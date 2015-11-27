@@ -4,13 +4,15 @@
 package lease
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 )
 
-// Client manipulates leases. Client implementations are not expected to be
-// goroutine-safe.
+// Client manipulates leases directly, and is most likely to be seen set on a
+// worker/lease.ManagerConfig struct (and used by the Manager). Implementations
+// of Client are not expected to be goroutine-safe.
 type Client interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
@@ -82,7 +84,7 @@ type Request struct {
 
 // Validate returns an error if any fields are invalid or inconsistent.
 func (request Request) Validate() error {
-	if err := validateString(request.Holder); err != nil {
+	if err := ValidateString(request.Holder); err != nil {
 		return errors.Annotatef(err, "invalid holder")
 	}
 	if request.Duration <= 0 {
@@ -91,7 +93,20 @@ func (request Request) Validate() error {
 	return nil
 }
 
-// ErrInvalid indicates that a client operation failed because latest state
+// ValidateString returns an error if the string is empty, or if it contains
+// whitespace, or if it contains any character in `.#$`. Client implementations
+// are expected to always reject invalid strings, and never to produce them.
+func ValidateString(s string) error {
+	if s == "" {
+		return errors.New("string is empty")
+	}
+	if strings.ContainsAny(s, ".$# \t\r\n") {
+		return errors.New("string contains forbidden characters")
+	}
+	return nil
+}
+
+// ErrInvalid indicates that a Client operation failed because latest state
 // indicates that it's a logical impossibility. It's a short-range signal to
 // calling code only; that code should never pass it on, but should inspect
 // the Client's updated Leases() and either attempt a new operation or return

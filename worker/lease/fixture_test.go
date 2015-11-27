@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package lease_test
 
 import (
 	"time"
@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
 var (
@@ -47,15 +47,15 @@ func almostSeconds(seconds int) time.Duration {
 	return (time.Second * time.Duration(seconds)) - time.Nanosecond
 }
 
-// Fixture allows us to test a leadership.ManagerWorker with a usefully-mocked
-// clock.Clock and lease.Client.
+// Fixture allows us to test a *lease.Manager with a usefully-mocked
+// clock.Clock and corelease.Client.
 type Fixture struct {
 
-	// leases contains the leases the lease.Client should report when the
+	// leases contains the leases the corelease.Client should report when the
 	// test starts up.
-	leases map[string]lease.Info
+	leases map[string]corelease.Info
 
-	// expectCalls contains the calls that should be made to the lease.Client
+	// expectCalls contains the calls that should be made to the corelease.Client
 	// in the course of a test. By specifying a callback you can cause the
 	// reported leases to change.
 	expectCalls []call
@@ -68,10 +68,10 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testing.Clock)) {
+func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
 	clock := testing.NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
-	manager, err := leadership.NewManager(leadership.ManagerConfig{
+	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock:     clock,
 		Client:    client,
 		Secretary: Secretary{},

@@ -1,14 +1,30 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership
+package lease
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
 )
+
+// Secretary is reponsible for validating the sanity of lease and holder names
+// before bothering the manager with them.
+type Secretary interface {
+
+	// CheckLease returns an error if the supplied lease name is not valid.
+	CheckLease(name string) error
+
+	// CheckHolder returns an error if the supplied holder name is not valid.
+	CheckHolder(name string) error
+
+	// CheckDuration returns an error if the supplied duration is not valid.
+	CheckDuration(duration time.Duration) error
+}
 
 // ManagerConfig contains the resources and information required to create a
 // Manager.

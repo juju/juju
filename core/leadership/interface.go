@@ -1,6 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+/*
+Package leadership holds code pertaining to service leadership in juju. It's
+expected to grow as we're able to extract (e.g.) the Ticket and Tracker
+interfaces from worker/leadership; and quite possible the implementations
+themselves; but that'll have to wait until it can all be expressed without
+reference to non-core code.
+*/
 package leadership
 
 import (
@@ -28,9 +35,6 @@ type Claimer interface {
 }
 
 // Token represents a unit's leadership of its service.
-//
-// It seems to be generic enough (it could easily represent any fact) that it
-// should find a more general home.
 type Token interface {
 
 	// Check returns an error if the condition it embodies no longer holds.

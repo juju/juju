@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 var logger = loggo.GetLogger("juju.worker.leadership")
