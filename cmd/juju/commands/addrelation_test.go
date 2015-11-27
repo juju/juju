@@ -31,7 +31,7 @@ func runAddRelation(c *gc.C, args ...string) error {
 	// Needed to ensure that old api is tested.
 	addRelationCmd := &addRelationCommand{
 		newAPIFunc: func() (AddRelationAPI, error) {
-			return &mockAddRelationAPI{version: 0}, nil
+			return &mockAddRelationAPI{}, nil
 		},
 	}
 
