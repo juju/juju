@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
@@ -29,7 +28,14 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, newAddRelationCommand(), args...)
+	// Needed to ensure that old api is tested.
+	addRelationCmd := &addRelationCommand{
+		newAPIFunc: func() (AddRelationAPI, error) {
+			return &mockAddRelationAPI{version: 0}, nil
+		},
+	}
+
+	_, err := testing.RunCommand(c, envcmd.Wrap(addRelationCmd), args...)
 	return err
 }
 
@@ -188,68 +194,4 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 			s.AssertBlocked(c, err, ".*TestBlockAddRelation.*")
 		}
 	}
-}
-
-func (s *AddRelationSuite) TestAddRelationBothServicesRemote(c *gc.C) {
-	err := runAddRelation(c, "local:/u/user/servicename1", "local:/u/user/servicename2")
-	c.Assert(err, gc.ErrorMatches, "add-relation between 2 remote services not supported")
-}
-
-func (s *AddRelationSuite) getAddRelationAfterRun(c *gc.C, args ...string) addRelationCommand {
-	cmd := addRelationCommand{}
-	err := envcmd.Wrap(&cmd).Init(args)
-	c.Assert(err, jc.ErrorIsNil)
-	return cmd
-}
-
-func (s *AddRelationSuite) assertHasRemoteServices(c *gc.C, args ...string) {
-	cmd := s.getAddRelationAfterRun(c, args...)
-	c.Assert(cmd.HasRemoteService, jc.IsTrue)
-}
-
-func (s *AddRelationSuite) assertHasNoRemoteServices(c *gc.C, args ...string) {
-	cmd := s.getAddRelationAfterRun(c, args...)
-	c.Assert(cmd.HasRemoteService, jc.IsFalse)
-}
-
-func (s *AddRelationSuite) TestAddRelationHasRemoteServicesFirst(c *gc.C) {
-	s.assertHasRemoteServices(c, "servicename", "local:/u/user/servicename2")
-}
-
-func (s *AddRelationSuite) TestAddRelationHasRemoteServicesSecond(c *gc.C) {
-	s.assertHasRemoteServices(c, "local:/u/user/servicename2", "servicename")
-}
-
-func (s *AddRelationSuite) TestAddRelationHasRemoteServicesNone(c *gc.C) {
-	s.assertHasNoRemoteServices(c, "servicename2", "servicename")
-}
-
-func (s *AddRelationSuite) TestAddRelationNotImplemented(c *gc.C) {
-	mockAPI := &mockAddRelationAPI{
-		assert: func(...string) {},
-		err: &params.Error{
-			Message: "AddRelation",
-			Code:    params.CodeNotImplemented,
-		},
-	}
-	addRelationCmd := &addRelationCommand{}
-	addRelationCmd.newAPIFunc = func() (AddRelationAPI, error) {
-		return mockAPI, nil
-	}
-	_, err := testing.RunCommand(c, envcmd.Wrap(addRelationCmd), "local:/u/user/servicename2", "servicename")
-	c.Assert(err, gc.ErrorMatches, ".*not supported by the API server.*")
-}
-
-type mockAddRelationAPI struct {
-	assert func(...string)
-	err    error
-}
-
-func (t *mockAddRelationAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	t.assert(endpoints...)
-	return nil, t.err
-}
-
-func (t *mockAddRelationAPI) Close() error {
-	return nil
 }

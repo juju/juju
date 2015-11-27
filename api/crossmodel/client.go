@@ -6,6 +6,7 @@ package crossmodel
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -99,14 +100,33 @@ func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.L
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 // One of the endpoints is remote.
-func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints}
+func (c *Client) AddRelation(endpoints ...string) (crossmodel.AddRelationResults, error) {
+	relationEndpoints := params.AddRelation{Endpoints: endpoints}
+	in := params.AddRelations{Relations: []params.AddRelation{relationEndpoints}}
 
-	if err := c.facade.FacadeCall("AddRelation", params, &addRelRes); err != nil {
-		return nil, errors.Trace(err)
+	out := params.AddRelationItemResults{}
+
+	if err := c.facade.FacadeCall("AddRelation", in, &out); err != nil {
+		return crossmodel.AddRelationResults{}, errors.Trace(err)
 	}
-	return &addRelRes, nil
+
+	result := out.Results
+	// Since only one relation set was sent, expecting only one back
+	if len(result) != 1 {
+		return crossmodel.AddRelationResults{}, errors.Errorf("expected to find one result but found %d", len(result))
+	}
+
+	one := result[0]
+	if one.Error != nil {
+		return crossmodel.AddRelationResults{}, errors.Trace(one.Error)
+	}
+
+	relations := make(map[string]charm.Relation, len(one.Result.Endpoints))
+	for endpointName, relation := range one.Result.Endpoints {
+		relations[endpointName] = relation
+	}
+
+	return crossmodel.AddRelationResults{Endpoints: relations}, nil
 }
 
 func convertListResultsToModel(items []params.ListEndpointsServiceItemResult) []crossmodel.ListEndpointsServiceResult {

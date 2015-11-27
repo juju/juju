@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/model/crossmodel"
@@ -232,5 +233,46 @@ func (s *crossmodelSuite) TestListError(c *gc.C) {
 	found, err := s.api.List(emptyFilterSet)
 	c.Assert(err, jc.ErrorIsNil)
 	s.serviceBackend.CheckCallNames(c, listRemoteServicesBackendCall)
+	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
+}
+
+func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
+	endpoint1 := "servicename:endpoint"
+	endpoint2 := "local:/u/user/servicename"
+	in := params.AddRelations{
+		Relations: []params.AddRelation{
+			{Endpoints: []string{endpoint1, endpoint2}},
+		},
+	}
+
+	expectedMap := make(map[string]charm.Relation)
+	s.serviceBackend.addRelation = func(endpoints ...string) (*crossmodel.AddRelationResults, error) {
+		expectedMap[endpoints[0]] = charm.Relation{Name: endpoints[1], Interface: "http", Role: charm.RoleProvider}
+		result := crossmodel.AddRelationResults{expectedMap}
+
+		return &result, nil
+	}
+
+	out, err := s.api.AddRelation(in)
+	c.Assert(err, jc.ErrorIsNil)
+	s.serviceBackend.CheckCallNames(c, addRelationBackendCall)
+
+	c.Assert(out, gc.DeepEquals, params.AddRelationItemResults{
+		Results: []params.AddRelationItemResult{
+			{Result: params.AddRelationResults{expectedMap}},
+		},
+	})
+}
+
+func (s *crossmodelSuite) TestAddRelationError(c *gc.C) {
+	msg := "fail test"
+
+	s.serviceBackend.addRelation = func(endpoints ...string) (*crossmodel.AddRelationResults, error) {
+		return nil, errors.New(msg)
+	}
+
+	found, err := s.api.AddRelation(params.AddRelations{[]params.AddRelation{{}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.serviceBackend.CheckCallNames(c, addRelationBackendCall)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
 }

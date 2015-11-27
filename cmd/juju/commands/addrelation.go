@@ -39,11 +39,6 @@ func newAddRelationCommand() cmd.Command {
 		if err != nil {
 			return nil, err
 		}
-
-		if !addRelationCmd.HasRemoteService {
-			return root.Client(), nil
-		}
-		// Only return cross-model-capable client if needed
 		return apicrossmodel.NewClient(root), nil
 	}
 	return envcmd.Wrap(addRelationCmd)
@@ -54,10 +49,6 @@ type addRelationCommand struct {
 	envcmd.EnvCommandBase
 	Endpoints []string
 
-	// HasRemoteService indicates if one of the command arguments is a remote service.
-	HasRemoteService bool
-
-	// newAPIFunc is func to get API that is capable of adding relation between services.
 	newAPIFunc func() (AddRelationAPI, error)
 }
 
@@ -75,21 +66,6 @@ func (c *addRelationCommand) Init(args []string) error {
 		return fmt.Errorf("a relation must involve two services")
 	}
 
-	// Is 1st service remote?
-	_, err := crossmodel.ParseServiceURL(args[0])
-	firstRemote := err == nil
-
-	// Is 2nd service remote?
-	_, err2 := crossmodel.ParseServiceURL(args[1])
-	secondRemote := err2 == nil
-
-	if firstRemote && secondRemote {
-		// Can't have relation between 2 remote services... yet
-		return errors.NotSupportedf("add-relation between 2 remote services")
-	}
-
-	c.HasRemoteService = firstRemote || secondRemote
-
 	c.Endpoints = args
 	return nil
 }
@@ -101,19 +77,42 @@ func (c *addRelationCommand) Run(_ *cmd.Context) error {
 	}
 	defer api.Close()
 
-	_, err = api.AddRelation(c.Endpoints...)
-
-	if params.IsCodeNotImplemented(err) {
-		// Client does not support add relation for given services. This may happen if the client is old
-		// and does not have cross-model capability.
-		// Return a user friendly message :D
-		return errors.Errorf("cannot add relation for services %v: not supported by the API server", c.Endpoints)
+	if api.BestAPIVersion() > 0 {
+		_, err = api.AddRelation(c.Endpoints...)
+		// if has access to new facade, use it; otherwise fall through to the old one further down..
+		if !params.IsCodeNotImplemented(err) {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
 	}
+
+	if c.hasRemoteServices() {
+		// old client does not have cross-model capability.
+		return errors.NotSupportedf("add relation between %v remote services", c.Endpoints)
+	}
+
+	oldAPI, err := c.NewAPIClient()
+	if err != nil {
+		return err
+	}
+	defer oldAPI.Close()
+
+	_, err = oldAPI.AddRelation(c.Endpoints...)
 	return block.ProcessBlockedError(err, block.BlockChange)
+}
+
+// hasRemoteServices determines if any of the command arguments is a remote service.
+func (c *addRelationCommand) hasRemoteServices() bool {
+	for _, endpoint := range c.Endpoints {
+		if _, err := crossmodel.ParseServiceURL(endpoint); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // AddRelationAPI defines the API methods that can add relation between services.
 type AddRelationAPI interface {
 	Close() error
-	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
+	BestAPIVersion() int
+	AddRelation(endpoints ...string) (crossmodel.AddRelationResults, error)
 }

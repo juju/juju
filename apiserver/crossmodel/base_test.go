@@ -21,6 +21,7 @@ const (
 	addOfferBackendCall           = "AddOffer"
 	listOffersBackendCall         = "ListOffers"
 	listRemoteServicesBackendCall = "ListRemoteServices"
+	addRelationBackendCall        = "AddRelation"
 )
 
 type baseCrossmodelSuite struct {
@@ -68,6 +69,7 @@ type mockServiceBackend struct {
 	addOffer           func(offer crossmodel.ServiceOffer) error
 	listOffers         func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
 	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error)
+	addRelation        func(endpoints ...string) (*crossmodel.AddRelationResults, error)
 }
 
 func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
@@ -83,4 +85,9 @@ func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter
 func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
 	m.MethodCall(m, listRemoteServicesBackendCall, filters)
 	return m.listRemoteServices(filters...)
+}
+
+func (m *mockServiceBackend) AddRelation(endpoints ...string) (*crossmodel.AddRelationResults, error) {
+	m.MethodCall(m, addRelationBackendCall, endpoints)
+	return m.addRelation(endpoints...)
 }

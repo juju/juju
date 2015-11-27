@@ -34,3 +34,9 @@ type ListEndpointsServiceResult struct {
 	// Error contains error related to this item.
 	Error error
 }
+
+// AddRelationResults holds the results of a AddRelation call. The Endpoints
+// field maps service names to the involved endpoints.
+type AddRelationResults struct {
+	Endpoints map[string]charm.Relation
+}

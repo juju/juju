@@ -396,6 +396,9 @@ func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestAddRelation(c *gc.C) {
+	endpoint1 := "sericename:endpoint"
+	endpoint2 := "vendor:/u/user/servicename"
+	endpoints := []string{endpoint1, endpoint2}
 
 	called := false
 	apiCaller := basetesting.APICallerFunc(
@@ -410,39 +413,94 @@ func (s *crossmodelMockSuite) TestAddRelation(c *gc.C) {
 
 			called = true
 
-			args, ok := a.(params.ListEndpointsFilters)
+			args, ok := a.(params.AddRelations)
 			c.Assert(ok, jc.IsTrue)
-			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
-			c.Assert(args.Filters, gc.HasLen, 1)
+			c.Assert(args.Relations, gc.HasLen, 1)
 
-			if results, ok := result.(*params.ListEndpointsItemsResults); ok {
+			addRelation := args.Relations[0]
+			c.Assert(addRelation.Endpoints, gc.DeepEquals, endpoints)
 
-				validItem := params.ListEndpointsServiceItem{
-					ServiceURL:  url,
-					ServiceName: serviceName,
-					CharmName:   charmName,
-					UsersCount:  count,
-					Endpoints:   endpoints,
+			if results, ok := result.(*params.AddRelationItemResults); ok {
+				relations := make(map[string]charm.Relation, len(addRelation.Endpoints))
+				for _, endpoint := range addRelation.Endpoints {
+					relations[endpoint] = charm.Relation{Name: endpoint, Role: charm.RoleProvider, Interface: "test"}
 				}
 
-				validDir := params.ListEndpointsItemsResult{
-					Result: []params.ListEndpointsServiceItemResult{
-						{Result: &validItem},
-						{Error: common.ServerError(errors.New(msg))},
-					}}
+				validItem := params.AddRelationItemResult{
+					Result: params.AddRelationResults{
+						Endpoints: relations,
+					},
+				}
 
-				results.Results = []params.ListEndpointsItemsResult{validDir}
+				results.Results = []params.AddRelationItemResult{validItem}
 			}
 
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.AddRelation("")
+	results, err := client.AddRelation(endpoints...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, gc.IsNil)
+	// since map order is not guaranteed, check that each key is in the result.
+	for _, key := range endpoints {
+		c.Assert(results.Endpoints[key], gc.NotNil)
+	}
 }
 
+func (s *crossmodelMockSuite) TestAddRelationMultipleResults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddRelation")
+
+			called = true
+			if results, ok := result.(*params.AddRelationItemResults); ok {
+				results.Results = []params.AddRelationItemResult{{}, {}}
+			}
+
+			return nil
+		})
+
+	client := crossmodel.NewClient(apiCaller)
+	_, err := client.AddRelation("")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *crossmodelMockSuite) TestAddRelationError(c *gc.C) {
+	msg := "add relation failure"
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "AddRelation")
+
+			called = true
+			if results, ok := result.(*params.AddRelationItemResults); ok {
+				results.Results = []params.AddRelationItemResult{
+					{Error: common.ServerError(errors.New(msg))},
+				}
+			}
+
+			return nil
+		})
+
+	client := crossmodel.NewClient(apiCaller)
+	_, err := client.AddRelation("")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(called, jc.IsTrue)
+}
 func (s *crossmodelMockSuite) TestAddRelationFacadeCallError(c *gc.C) {
 	msg := "facade failure"
 	apiCaller := basetesting.APICallerFunc(
@@ -460,5 +518,5 @@ func (s *crossmodelMockSuite) TestAddRelationFacadeCallError(c *gc.C) {
 	client := crossmodel.NewClient(apiCaller)
 	results, err := client.AddRelation("")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(results, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, model.AddRelationResults{})
 }
