@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
@@ -34,7 +34,7 @@ import (
 )
 
 type UpgradeSuite struct {
-	agenttesting.AgentSuite
+	statetesting.StateSuite
 
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
@@ -48,7 +48,7 @@ const fails = true
 const succeeds = false
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.oldVersion = version.Binary{
 		Number: version.Current,
@@ -277,6 +277,9 @@ func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
 func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
 	// This test checks when a state server is upgrading and one of
 	// the other state servers doesn't signal it is ready in time.
+
+	err := s.State.SetEnvironAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The master state server in this scenario is functionally tested
 	// elsewhere.
