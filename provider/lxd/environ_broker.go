@@ -72,8 +72,6 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	args.InstanceConfig.Tools = args.Tools[0]
 	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
 
-	args.InstanceConfig.MachineContainerType = env.ecfg.containerType()
-
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
 		return errors.Trace(err)
 	}
