@@ -236,14 +236,6 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
-// ServiceSetYAML holds the parameters for
-// a ServiceSetYAML command. Config contains the
-// configuration data in YAML format.
-type ServiceSetYAML struct {
-	ServiceName string
-	Config      string
-}
-
 // ServiceUnset holds the parameters for a ServiceUnset
 // command. Options contains the option attribute names
 // to unset.

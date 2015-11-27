@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -184,4 +185,5 @@ type Connection interface {
 	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
+	Service() *service.Client
 }

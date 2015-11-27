@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/storage"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 type serviceSuite struct {
@@ -96,6 +97,42 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	})
 	err := s.client.ServiceDeploy("charmURL", "serviceA", 2, "configYAML", constraints.MustParse("mem=4G"),
 		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
+	var called bool
+	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ServiceGetCharmURL")
+		args, ok := a.(params.ServiceGet)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.ServiceName, gc.Equals, "service")
+
+		result := response.(*params.StringResult)
+		result.Result = "curl"
+		return nil
+	})
+	curl, err := s.client.ServiceGetCharmURL("service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
+	var called bool
+	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ServiceSetCharm")
+		args, ok := a.(params.ServiceSetCharm)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.ServiceName, gc.Equals, "service")
+		c.Assert(args.CharmUrl, gc.Equals, "charmURL")
+		c.Assert(args.Force, gc.Equals, true)
+		return nil
+	})
+	err := s.client.ServiceSetCharm("service", "charmURL", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
