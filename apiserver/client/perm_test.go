@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
@@ -335,7 +336,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
-	err := st.Service().ServiceUpdate(args)
+	err := service.NewClient(st).ServiceUpdate(args)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -343,7 +344,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Service().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
+	err := service.NewClient(st).ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

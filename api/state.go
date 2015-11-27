@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -287,12 +286,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 // required by the resumer worker.
 func (st *state) Resumer() *resumer.API {
 	return resumer.NewAPI(st)
-}
-
-// Service returns a version of the state that provides functionality
-// for the service facade.
-func (st *state) Service() *service.Client {
-	return service.NewClient(st)
 }
 
 // Networker returns a version of the state that provides functionality
