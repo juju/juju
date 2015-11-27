@@ -13,11 +13,11 @@ from unittest import (
 
 from mock import (
     call,
+    MagicMock,
     patch,
 )
 import yaml
 
-import deploy_stack
 from deploy_stack import (
     archive_logs,
     assess_juju_run,
@@ -606,12 +606,14 @@ class TestDeployJob(FakeHomeTestCase):
                        return_value=client)
         fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
                        return_value=env)
-        boot_cxt = patch('deploy_stack.boot_context', autospec=True)
+        mgr = MagicMock()
+        bm_cxt = patch('deploy_stack.BootstrapManager', autospec=True,
+                       return_value=mgr)
         juju_cxt = patch('deploy_stack.EnvJujuClient.juju', autospec=True)
         ajr_cxt = patch('deploy_stack.assess_juju_run', autospec=True)
         dds_cxt = patch('deploy_stack.deploy_dummy_stack', autospec=True)
-        with bc_cxt, fc_cxt, boot_cxt, juju_cxt, ajr_cxt, dds_cxt:
-            yield client
+        with bc_cxt, fc_cxt, bm_cxt as bm_mock, juju_cxt, ajr_cxt, dds_cxt:
+            yield client, bm_mock
 
     @skipIf(sys.platform in ('win32', 'darwin'),
             'Not supported on Windown and OS X')
@@ -642,17 +644,16 @@ class TestDeployJob(FakeHomeTestCase):
         self.assertEqual(bc_mock.call_count, 0)
 
     def test_region(self):
-        with self.ds_cxt() as client:
-            bc_mock = deploy_stack.boot_context
-            with patch('subprocess.Popen', autospec=True,
-                       return_value=FakePopen('', '', 0)):
-                _deploy_job('foo', None, None, '', None, None, None, None,
-                            None, None, None, None, None, None, 0, False,
-                            False, 'region-foo')
-                permanent = client.is_jes_enabled()
-        bc_mock.assert_called_once_with(
-            'foo', client, None, None, None, None, None, None, None, None,
-            permanent=permanent, region='region-foo')
+        with self.ds_cxt() as (client, bm_mock):
+                with patch('subprocess.Popen', autospec=True,
+                           return_value=FakePopen('', '', 0)):
+                    _deploy_job('foo', None, None, '', None, None, None, None,
+                                None, None, None, None, None, None, 0, False,
+                                False, 'region-foo')
+                    permanent = client.is_jes_enabled()
+        bm_mock.assert_called_once_with(
+            'foo', client, None, None, None, None, None, 'region-foo', None,
+            None, permanent, permanent)
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(

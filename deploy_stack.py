@@ -609,11 +609,12 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
     if use_jes:
         client.enable_jes()
     permanent = client.is_jes_enabled()
-    with boot_context(temp_env_name, client, bootstrap_host, machines,
-                      series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools, permanent=permanent, region=region):
-        if machines is not None:
-            client.add_ssh_machines(machines)
+    bs_manager = BootstrapManager(
+        temp_env_name, client, bootstrap_host, machines, series, agent_url,
+        agent_stream, region, log_dir, keep_env, permanent, permanent)
+    with bs_manager.booted_context(upload_tools) as addable_machines:
+        if addable_machines is not None:
+            client.add_ssh_machines(addable_machines)
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
