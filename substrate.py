@@ -7,8 +7,8 @@ import os
 import subprocess
 from time import sleep
 import urlparse
-from utility import temp_dir
 
+from utility import temp_dir
 from boto import ec2
 from boto.exception import EC2ResponseError
 
