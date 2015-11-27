@@ -1,7 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils_test
+// +build go1.3
+
+package lxd_test
 
 import (
 	"testing"
@@ -9,6 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

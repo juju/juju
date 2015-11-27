@@ -63,7 +63,7 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.InitializeFromConfig(cfg)
+	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
 		return errors.Errorf("environment configuration has no admin-secret")
 	}
@@ -132,7 +132,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Starting new instance for initial state server")
-	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
@@ -142,8 +142,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   arch,
-		Series: series,
+		Arch:   result.Arch,
+		Series: result.Series,
 	})
 	if err != nil {
 		return err
@@ -169,13 +169,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, instanceConfig); err != nil {
+	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")

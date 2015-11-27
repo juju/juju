@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/utils"
 )
 
 const (

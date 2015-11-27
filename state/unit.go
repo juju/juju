@@ -1396,7 +1396,9 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		Id:     u.doc.DocID,
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"machineid", mdoc.Id}}}},
-	})
+	},
+		removeStagedAssignmentOp(u.doc.DocID),
+	)
 
 	err = u.st.runTransaction(ops)
 	if err == nil {

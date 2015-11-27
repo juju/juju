@@ -5,14 +5,19 @@ package ec2_test
 
 import (
 	"flag"
-	"testing"
+	stdtesting "testing"
+
+	"github.com/juju/testing"
 
 	gc "gopkg.in/check.v1"
 )
 
 var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")
 
-func TestEC2(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
+	if testing.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519141")
+	}
 	if *amazon {
 		registerAmazonTests()
 	}

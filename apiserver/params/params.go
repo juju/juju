@@ -411,7 +411,7 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.

@@ -120,7 +120,7 @@ func environFromNameProductionFunc(
 // resolveCharmStoreEntityURL also returns the charm repository holding
 // the charm or bundle.
 func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
-	ref, err := charm.ParseReference(urlStr)
+	ref, err := charm.ParseURL(urlStr)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -140,27 +140,16 @@ func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreP
 		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
-	if ref.Series != "" && ref.Revision != -1 {
-		// The URL is already fully resolved; do not
-		// bother with an unnecessary round-trip to the
-		// charm store.
-		curl, err := ref.URL("")
-		if err != nil {
-			panic(err)
-		}
-		return curl, repo, nil
-	}
 	// TODO(wallyworld) - charm store does not yet support returning the
 	// supported series for a charm.
 	ref, _, err = repo.Resolve(ref)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	curl, err := ref.URL("")
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+	if ref.Series == "" {
+		return nil, nil, errors.New("resolved charm URL has no series")
 	}
-	return curl, repo, nil
+	return ref, repo, nil
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the

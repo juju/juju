@@ -1249,7 +1249,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
+		unit, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1286,36 +1286,51 @@ func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.O
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}
-	return []txn.Op{
-		{
-			C:      assignUnitC,
-			Id:     udoc.DocId,
-			Assert: txn.DocMissing,
-			Insert: udoc,
-		},
-	}
+	return []txn.Op{{
+		C:      assignUnitC,
+		Id:     udoc.DocId,
+		Assert: txn.DocMissing,
+		Insert: udoc,
+	}}
 }
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
 func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
+	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
+	unitAssignments, err := st.unitAssignments(query)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting staged unit assignments")
+	}
+	results := make([]UnitAssignmentResult, len(unitAssignments))
+	for i, a := range unitAssignments {
+		err := st.assignStagedUnit(a)
+		results[i].Unit = a.Unit
+		results[i].Error = err
+	}
+	return results, nil
+}
+
+// UnitAssignments returns all staged unit assignments in the environment.
+func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
+	return st.unitAssignments(nil)
+}
+
+func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
 	col, close := st.getCollection(assignUnitC)
 	defer close()
-	docs := []assignUnitDoc{}
 
-	for i, id := range ids {
-		ids[i] = st.docID(id)
+	var docs []assignUnitDoc
+	if err := col.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get unit assignment docs")
 	}
-
-	sel := bson.D{{"_id", bson.D{{"$in", ids}}}}
-	if err := col.Find(sel).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get assign unit docs")
-	}
-	results := make([]UnitAssignmentResult, len(docs))
+	results := make([]UnitAssignment, len(docs))
 	for i, doc := range docs {
-		err := st.assignStagedUnit(doc)
-		results[i].Unit = doc.DocId
-		results[i].Error = err
+		results[i] = UnitAssignment{
+			st.localID(doc.DocId),
+			doc.Scope,
+			doc.Directive,
+		}
 	}
 	return results, nil
 }
@@ -1328,8 +1343,8 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(doc assignUnitDoc) error {
-	u, err := st.Unit(st.localID(doc.DocId))
+func (st *State) assignStagedUnit(a UnitAssignment) error {
+	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1341,11 +1356,11 @@ func (st *State) assignStagedUnit(doc assignUnitDoc) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if doc.Scope == "" && doc.Directive == "" {
+	if a.Scope == "" && a.Directive == "" {
 		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
 	}
 
-	placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
+	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
 	// units always have the same networks as their service.
 	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
@@ -1410,7 +1425,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {

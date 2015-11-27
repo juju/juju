@@ -240,7 +240,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			c.Assert(dialInfo.Username, gc.Equals, testCase.expectedUser)
 			c.Assert(dialInfo.Password, gc.Equals, testCase.expectedPassword)
 			c.Assert(dialInfo.Direct, gc.Equals, true)
-			c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+			c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{net.JoinHostPort(privateAddress, strconv.Itoa(statePort))})
 		}
 	}
 }
