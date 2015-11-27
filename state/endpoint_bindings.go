@@ -24,6 +24,10 @@ type endpointBindingsDoc struct {
 
 	// Bindings maps a service endpoint name to the space name it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
+
+	// TxnRevno is used to assert the collection have not changed since this
+	// document was fetched.
+	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // bindingsMap is the underlying type stored in mongo for bindings.
@@ -63,110 +67,140 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 	return rawMap, nil
 }
 
-// endpointBindingsForCharmOp returns the op needed to create new or update
-// existing endpoint bindings for the specified charm metadata. If givenMap is
-// not empty, any specified bindings there will be merged with the existing
-// bindings or created (if missing).
-func endpointBindingsForCharmOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
-	if st == nil {
-		return txn.Op{}, errors.Errorf("nil state")
-	}
-	if meta == nil {
-		return txn.Op{}, errors.Errorf("nil charm metadata")
-	}
+// mergeBindings returns the effective bindings, by combining the default
+// bindings based on the given charm metadata, overriding them first with
+// matching oldMap values, and then with newMap values (for the same keys).
+// newMap and oldMap are both optional and will ignored when empty. Returns a
+// map containing only those bindings that need updating, and a sorted slice of
+// keys to remove (if any) - those are present in oldMap but missing in both
+// newMap and defaults.
+func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, []string, error) {
 
-	// Prepare the effective new bindings map.
-	defaults, err := defaultEndpointBindingsForCharm(meta)
+	defaultsMap, err := defaultEndpointBindingsForCharm(meta)
 	if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	newMap := make(map[string]string)
-	// Apply defaults first.
-	for key, defaultValue := range defaults {
-		newMap[key] = defaultValue
-	}
-	// Now override with any given.
-	for key, givenValue := range givenMap {
-		newMap[key] = givenValue
-	}
-	// Validate the bindings before updating.
-	if err := validateEndpointBindingsForCharm(st, newMap, meta); err != nil {
-		return txn.Op{}, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return replaceEndpointBindingsOp(st, key, newMap)
+	// defaultsMap contains all endpoints that must be bound for the given charm
+	// metadata, but we need to figure out which value to use for each key.
+	updated := make(map[string]string)
+	for key, defaultValue := range defaultsMap {
+		effectiveValue := defaultValue
+
+		oldValue, hasOld := oldMap[key]
+		if hasOld && oldValue != effectiveValue {
+			effectiveValue = oldValue
+		}
+
+		newValue, hasNew := newMap[key]
+		if hasNew && newValue != effectiveValue {
+			effectiveValue = newValue
+		}
+
+		updated[key] = effectiveValue
+	}
+
+	// Any extra bindings in newMap are most like extraneous, but add them
+	// anyway and let the validation handle them.
+	for key, newValue := range newMap {
+		if _, defaultExists := defaultsMap[key]; !defaultExists {
+			updated[key] = newValue
+		}
+	}
+
+	// All defaults were processed, so anything else in oldMap not about to be
+	// updated and not having a default for the given metadata needs to be
+	// removed.
+	removedKeys := set.NewStrings()
+	for key := range oldMap {
+		if _, updating := updated[key]; !updating {
+			removedKeys.Add(key)
+		}
+		if _, defaultExists := defaultsMap[key]; !defaultExists {
+			removedKeys.Add(key)
+		}
+	}
+	removed := removedKeys.SortedValues()
+	return updated, removed, nil
 }
 
-// replaceEndpointBindingsOp returns an op that merges the existing bindings
-// with newBindings, setting changed or new endpoints or unsetting endpoints
-// having an empty value in newBindings. If no bindings exist yet, they will be
-// created from newBindings.
-func replaceEndpointBindingsOp(st *State, key string, newBindings map[string]string) (txn.Op, error) {
-	existingMap, txnRevno, err := readEndpointBindings(st, key)
-	if errors.IsNotFound(err) {
-		// No bindings yet, just create them.
-		newMap := make(bindingsMap)
-		for key, value := range newBindings {
-			newMap[key] = value
-		}
-		return txn.Op{
-			C:      endpointBindingsC,
-			Id:     key,
-			Assert: txn.DocMissing,
-			Insert: &endpointBindingsDoc{
-				Bindings: newMap,
-			},
-		}, nil
-	}
+// createEndpointBindingsOp returns the op needed to create new endpoint
+// bindings using the optional givenMap and the specified charm metadata to for
+// determining defaults and to validate the effective bindings.
+func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+
+	// No existing map to merge, just use the defaults.
+	initialMap, _, err := mergeBindings(givenMap, nil, meta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
-	updates := make(bson.M)
-	deletes := make(bson.M)
-	for key, oldValue := range existingMap {
-		newKey := escapeReplacer.Replace(key)
-		newValue, given := newBindings[key]
-		if given && newValue != oldValue && newValue != network.DefaultSpace {
-			// existing endpoints are already bound to the default space, so
-			// only update if needed.
-			updates["bindings."+newKey] = newValue
-		} else if !given {
-			// since endpoints should have been validated against the charm
-			// already, missing ones need to go.
-			deletes["bindings."+newKey] = 1
-		}
+
+	// Validate the bindings before inserting.
+	if err := validateEndpointBindingsForCharm(st, initialMap, meta); err != nil {
+		return txn.Op{}, errors.Trace(err)
 	}
-	for key, newValue := range newBindings {
-		newKey := escapeReplacer.Replace(key)
-		oldValue, exists := existingMap[key]
-		if exists && newValue != oldValue && newValue != network.DefaultSpace {
-			// only update existing if changed.
-			updates["bindings."+newKey] = newValue
-		} else if !exists {
-			// add new endpoints, previously missing.
-			updates["bindings."+newKey] = newValue
-		}
+
+	return txn.Op{
+		C:      endpointBindingsC,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: endpointBindingsDoc{
+			Bindings: initialMap,
+		},
+	}, nil
+}
+
+// updateEndpointBindingsOp returns an op that merges the existing bindings with
+// givenMap, using newMeta to validate the merged bindings, and asserting the
+// existing ones haven't changed in the since we fetched them.
+func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string, newMeta *charm.Meta) (txn.Op, error) {
+	// Fetch existing bindings.
+	existingMap, txnRevno, err := readEndpointBindings(st, key)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
 	}
-	op := txn.Op{
+
+	// Merge existing with given as needed.
+	updatedMap, removedKeys, err := mergeBindings(givenMap, existingMap, newMeta)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+
+	// Validate the bindings before updating.
+	if err := validateEndpointBindingsForCharm(st, updatedMap, newMeta); err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+
+	// Prepare the update operations.
+	sanitize := inSubdocEscapeReplacer("bindings")
+	updates := make(bson.M, len(updatedMap))
+	for endpoint, space := range updatedMap {
+		updates[sanitize(endpoint)] = space
+	}
+	deletes := make(bson.M, len(removedKeys))
+	for _, endpoint := range removedKeys {
+		deletes[sanitize(endpoint)] = 1
+	}
+
+	var update bson.D
+	if len(updates) != 0 {
+		update = append(update, bson.DocElem{Name: "$set", Value: updates})
+	}
+	if len(deletes) != 0 {
+		update = append(update, bson.DocElem{Name: "$unset", Value: deletes})
+	}
+	// NOTE: Even with nothing to update, but we still need to assert the
+	// bindings have not changed since we read them.
+	return txn.Op{
 		C:      endpointBindingsC,
 		Id:     key,
 		Assert: bson.D{{"txn-revno", txnRevno}},
-	}
-	var update bson.D
-	if len(updates) > 0 {
-		update = append(update, bson.DocElem{"$set", updates})
-	}
-	if len(deletes) > 0 {
-		update = append(update, bson.DocElem{"$unset", deletes})
-	}
-	if len(update) > 0 {
-		op.Update = update
-	}
-	return op, nil
+		Update: update,
+	}, nil
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
-// key.
+// key, without asserting they exist in the first place.
 func removeEndpointBindingsOp(key string) txn.Op {
 	return txn.Op{
 		C:      endpointBindingsC,
@@ -178,10 +212,6 @@ func removeEndpointBindingsOp(key string) txn.Op {
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // service global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
-	if st == nil {
-		return nil, 0, errors.Errorf("nil state")
-	}
-
 	endpointBindings, closer := st.getCollection(endpointBindingsC)
 	defer closer()
 
@@ -193,20 +223,16 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 	if err != nil {
 		return nil, 0, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
 	}
-	txnRevno, err := getTxnRevno(endpointBindings, doc.DocID)
-	if err != nil {
-		return nil, 0, errors.Trace(err)
-	}
 
-	return doc.Bindings, txnRevno, nil
+	return doc.Bindings, doc.TxnRevno, nil
 }
 
-// validateEndpointBindingsForCharm returns no error all endpoints in the given
-// bindings for the given charm metadata are explicitly bound to an existing
-// space, otherwise it returns an error satisfying errors.IsNotValid().
+// validateEndpointBindingsForCharm verifies that all endpoint names in bindings
+// are valid for the given charm metadata, and each endpoint is bound to a known
+// space - otherwise an error satisfying errors.IsNotValid() will be returned.
 func validateEndpointBindingsForCharm(st *State, bindings map[string]string, charmMeta *charm.Meta) error {
 	if st == nil {
-		return errors.Errorf("nil state")
+		return errors.NotValidf("nil state")
 	}
 	if bindings == nil {
 		return errors.NotValidf("nil bindings")
@@ -218,39 +244,38 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	if err != nil {
 		return errors.Trace(err)
 	}
-	spacesNamesSet := set.NewStrings()
-	for _, space := range spaces {
-		spacesNamesSet.Add(space.Name())
-	}
+
 	// TODO(dimitern): Do not treat the default space specially here, this is
 	// temporary only to reduce the fallout across state tests and will be fixed
 	// in a follow-up.
-	if !spacesNamesSet.Contains(network.DefaultSpace) {
-		spacesNamesSet.Add(network.DefaultSpace)
+	spacesNamesSet := set.NewStrings(network.DefaultSpace)
+	for _, space := range spaces {
+		spacesNamesSet.Add(space.Name())
 	}
-	endpointsNamesSet := set.NewStrings()
 
-	for name := range combinedCharmRelations(charmMeta) {
+	endpointsNamesSet := set.NewStrings()
+	allRelations, err := combinedCharmRelations(charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for name := range allRelations {
 		endpointsNamesSet.Add(name)
-		if space, isSet := bindings[name]; !isSet || space == "" {
+		if space, found := bindings[name]; !found || space == "" {
 			return errors.NotValidf("endpoint %q not bound to a space", name)
 		}
 	}
-	// Ensure no extra, unknown endpoints and/or spaces are given.
+
+	// Ensure there are no unknown endpoints and/or spaces specified.
+	//
+	// TODO(dimitern): This assumes spaces cannot be deleted when they are used
+	// in bindings. In follow-up, this will be enforced by using refcounts on
+	// spaces.
 	for endpoint, space := range bindings {
-		knownEndpoint := endpointsNamesSet.Contains(endpoint)
-		knownSpace := spacesNamesSet.Contains(space)
-		switch {
-		case !knownEndpoint && !knownSpace && space == "":
-			return errors.NotValidf("unknown endpoint %q not bound to a space", endpoint)
-		case !knownEndpoint && !knownSpace:
-			return errors.NotValidf("unknown endpoint %q bound to unknown space %q", endpoint, space)
-		case !knownEndpoint:
-			return errors.NotValidf("unknown endpoint %q bound to space %q", endpoint, space)
-		case !knownSpace:
-			return errors.NotValidf("endpoint %q bound to unknown space %q", endpoint, space)
-		default:
-			// both endpoint and space are known and valid.
+		if !endpointsNamesSet.Contains(endpoint) {
+			return errors.NotValidf("unknown endpoint %q", endpoint)
+		}
+		if !spacesNamesSet.Contains(space) {
+			return errors.NotValidf("unknown space %q", space)
 		}
 	}
 	return nil
@@ -259,11 +284,12 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 // defaultEndpointBindingsForCharm populates a bindings map containing each
 // endpoint of the given charm metadata bound to the default space.
 func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
-	if charmMeta == nil {
-		return nil, errors.Errorf("nil charm metadata")
+	allRelations, err := combinedCharmRelations(charmMeta)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	bindings := make(map[string]string)
-	for name := range combinedCharmRelations(charmMeta) {
+	bindings := make(map[string]string, len(allRelations))
+	for name := range allRelations {
 		bindings[name] = network.DefaultSpace
 	}
 	return bindings, nil
@@ -271,11 +297,13 @@ func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, 
 
 // combinedCharmRelations returns the relations defined in the given charm
 // metadata (from Provides, Requires, and Peers) in a single map. This works
-// because charm relation names must be unique regarless of their kind. This
-// helper is only used internally, and it will panic if charmMeta is nil.
-func combinedCharmRelations(charmMeta *charm.Meta) map[string]charm.Relation {
+// because charm relation names must be unique regarless of their kind.
+//
+// TODO(dimitern): This should be moved directly into the charm repo, as it's
+// generally useful.
+func combinedCharmRelations(charmMeta *charm.Meta) (map[string]charm.Relation, error) {
 	if charmMeta == nil {
-		panic("nil charm metadata")
+		return nil, errors.Errorf("nil charm metadata")
 	}
 	combined := make(map[string]charm.Relation)
 	for name, relation := range charmMeta.Provides {
@@ -287,5 +315,5 @@ func combinedCharmRelations(charmMeta *charm.Meta) map[string]charm.Relation {
 	for name, relation := range charmMeta.Peers {
 		combined[name] = relation
 	}
-	return combined
+	return combined, nil
 }

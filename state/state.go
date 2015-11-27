@@ -1176,7 +1176,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
-	endpointBindingsOp, err := endpointBindingsForCharmOp(st, svc.globalKey(), args.Bindings, args.Charm.Meta())
+	endpointBindingsOp, err := createEndpointBindingsOp(st, svc.globalKey(), args.Bindings, args.Charm.Meta())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

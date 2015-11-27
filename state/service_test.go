@@ -78,6 +78,112 @@ func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
 }
 
+func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
+	_, err := s.State.AddSpace("db", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("client", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
+
+	service, err := s.State.AddService(state.AddServiceArgs{
+		Name:  "yoursql",
+		Owner: s.Owner.String(),
+		Charm: oldCharm,
+		Bindings: map[string]string{
+			"server": "db",
+			"client": "client",
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
+	err = service.SetCharm(newCharm, false)
+	c.Assert(err, jc.ErrorIsNil)
+	updatedBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
+		// Existing bindings are preserved.
+		"server":  "db",
+		"client":  "client",
+		"cluster": network.DefaultSpace, // inherited from defaults in AddService.
+		// New endpoints use defaults.
+		"foo":  network.DefaultSpace,
+		"baz":  network.DefaultSpace,
+		"just": network.DefaultSpace,
+	})
+}
+
+func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
+	// This test ensures if special characters appear in endpoint names of the
+	// charm metadata, they are properly escaped before saving to mongo, and
+	// unescaped when read back.
+	_, err := s.State.AddSpace("client", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("db", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	initialBindings := map[string]string{
+		"$pull":     "db",
+		"$set.foo":  network.DefaultSpace,
+		"cli ent .": "client",
+		".":         "db",
+	}
+	weirdOldCharm := s.AddMetaCharm(c, "mysql", `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+provides:
+  $pull: mysql
+  $set.foo: bar
+requires:
+  foo: something
+  "cli ent .": mysql
+peers:
+  ".": bad
+  "$": mysql
+`, 42)
+	weirdNewCharm := s.AddMetaCharm(c, "mysql", `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+provides:
+  ser$ver2: mysql
+  $pull: mysql
+  $set.foo: bar
+requires:
+  "cli ent 2": mysql
+peers:
+  "$": mysql
+  ".": bad
+`, 43)
+	weirdService := s.AddTestingServiceWithBindings(c, "weird", weirdOldCharm, initialBindings)
+	readBindings, err := weirdService.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedBindings := map[string]string{
+		"cli ent .": "client",
+		"foo":       network.DefaultSpace,
+		"$":         network.DefaultSpace,
+		".":         "db",
+		"$set.foo":  network.DefaultSpace,
+		"$pull":     "db",
+	}
+	c.Check(readBindings, jc.DeepEquals, expectedBindings)
+
+	err = weirdService.SetCharm(weirdNewCharm, false)
+	c.Assert(err, jc.ErrorIsNil)
+	readBindings, err = weirdService.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedBindings = map[string]string{
+		"ser$ver2":  network.DefaultSpace,
+		"cli ent 2": network.DefaultSpace,
+		"$":         network.DefaultSpace,
+		".":         "db",
+		"$set.foo":  network.DefaultSpace,
+		"$pull":     "db",
+	}
+	c.Check(readBindings, jc.DeepEquals, expectedBindings)
+}
+
 var metaBase = `
 name: mysql
 summary: "Fake MySQL Database engine"
