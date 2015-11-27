@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/testing"
 )
 
@@ -49,11 +49,6 @@ type AddRemoteRelationSuiteOldAPI struct {
 
 var _ = gc.Suite(&AddRemoteRelationSuiteOldAPI{})
 
-func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationNoRemoteServices(c *gc.C) {
-	err := s.runAddRelation(c, "servicename2", "servicename")
-	c.Assert(err, gc.ErrorMatches, ".*not found.*")
-}
-
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteServices(c *gc.C) {
 	err := s.runAddRelation(c, "local:/u/user/servicename1", "local:/u/user/servicename2")
 	c.Assert(err, gc.ErrorMatches, ".*remote services not supported.*")
@@ -86,9 +81,9 @@ func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 
 	s.endpoints = []string{}
 	s.mockAPI = &mockAddRelationAPI{
-		addRelation: func(endpoints ...string) (crossmodel.AddRelationResults, error) {
+		addRelation: func(endpoints ...string) (*params.AddRelationResults, error) {
 			s.endpoints = endpoints
-			return crossmodel.AddRelationResults{}, nil
+			return nil, nil
 		},
 	}
 }
@@ -109,11 +104,11 @@ func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) err
 }
 
 type mockAddRelationAPI struct {
-	addRelation func(endpoints ...string) (crossmodel.AddRelationResults, error)
+	addRelation func(endpoints ...string) (*params.AddRelationResults, error)
 	version     int
 }
 
-func (m *mockAddRelationAPI) AddRelation(endpoints ...string) (crossmodel.AddRelationResults, error) {
+func (m *mockAddRelationAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	return m.addRelation(endpoints...)
 }
 

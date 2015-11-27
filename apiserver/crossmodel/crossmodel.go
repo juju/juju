@@ -153,22 +153,6 @@ func (api *API) List(args params.ListEndpointsFilters) (params.ListEndpointsItem
 	return params.ListEndpointsItemsResults{found}, nil
 }
 
-// AddRelation adds a relation between the specified endpoints and returns the relation info.
-// One of the endpoints is remote.
-func (api *API) AddRelation(relations params.AddRelations) (params.AddRelationItemResults, error) {
-	results := make([]params.AddRelationItemResult, len(relations.Relations))
-	for i, relation := range relations.Relations {
-		result, err := api.backend.AddRelation(relation.Endpoints...)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-		results[i].Result = params.AddRelationResults{result.Endpoints}
-	}
-
-	return params.AddRelationItemResults{results}, nil
-}
-
 func (api *API) getRemoteService(remote jujucrossmodel.RemoteService) params.ListEndpointsServiceItemResult {
 	service, err := api.access.Service(remote.ServiceName)
 	if err != nil {
@@ -286,11 +270,6 @@ type ServicesBackend interface {
 
 	// ListRemoteServices returns remote services satisfying specified filters.
 	ListRemoteServices(filters ...jujucrossmodel.RemoteServiceFilter) ([]jujucrossmodel.RemoteService, error)
-
-	// AddRelation adds a relation between the specified endpoints and returns the relation info.
-	// One the specified endpoints may be remote.
-	// This call delegates to existing behaviour for non-remote endpoints.
-	AddRelation(endpoints ...string) (*jujucrossmodel.AddRelationResults, error)
 }
 
 // TODO (anastasiamac 2015-11-16) Remove me when backend is done
@@ -305,9 +284,5 @@ func (e *servicesBackendStub) ListOffers(filter ...jujucrossmodel.ServiceOfferFi
 }
 
 func (e *servicesBackendStub) ListRemoteServices(filters ...jujucrossmodel.RemoteServiceFilter) ([]jujucrossmodel.RemoteService, error) {
-	return nil, nil
-}
-
-func (e *servicesBackendStub) AddRelation(endpoints ...string) (*jujucrossmodel.AddRelationResults, error) {
 	return nil, nil
 }

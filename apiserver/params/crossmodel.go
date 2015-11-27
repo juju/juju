@@ -212,24 +212,3 @@ type ListEndpointsFilterTerm struct {
 	// CharmName is the charm name of this service.
 	CharmName string `json:"charmname,omitempty"`
 }
-
-// AddRelations holds collection of AddRelation for bulk call.
-type AddRelations struct {
-	// Relations has add relation collection.
-	Relations []AddRelation `json:"relations,omitempty"`
-}
-
-// AddRelationItemResult is a result of adding relation between services.
-type AddRelationItemResult struct {
-	// Error contains error related to this directory.
-	Error *Error `json:"error,omitempty"`
-
-	// Result contains collection of addRelation results.
-	Result AddRelationResults `json:"result,omitempty"`
-}
-
-// AddRelationItemResults is a result of adding relations in bulk.
-type AddRelationItemResults struct {
-	// Results contains collection of add relation item results.
-	Results []AddRelationItemResult `json:"results,omitempty"`
-}

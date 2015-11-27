@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	apicrossmodel "github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -35,11 +34,11 @@ Examples:
 func newAddRelationCommand() cmd.Command {
 	addRelationCmd := &addRelationCommand{}
 	addRelationCmd.newAPIFunc = func() (AddRelationAPI, error) {
-		root, err := addRelationCmd.NewAPIRoot()
+		client, err := addRelationCmd.NewAPIClient()
 		if err != nil {
 			return nil, err
 		}
-		return apicrossmodel.NewClient(root), nil
+		return client, nil
 	}
 	return envcmd.Wrap(addRelationCmd)
 }
@@ -77,26 +76,13 @@ func (c *addRelationCommand) Run(_ *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if api.BestAPIVersion() > 0 {
-		_, err = api.AddRelation(c.Endpoints...)
-		// if has access to new facade, use it; otherwise fall through to the old one further down..
-		if !params.IsCodeNotImplemented(err) {
-			return block.ProcessBlockedError(err, block.BlockChange)
+	if api.BestAPIVersion() < 2 {
+		if c.hasRemoteServices() {
+			// old client does not have cross-model capability.
+			return errors.NotSupportedf("add relation between %v remote services", c.Endpoints)
 		}
 	}
-
-	if c.hasRemoteServices() {
-		// old client does not have cross-model capability.
-		return errors.NotSupportedf("add relation between %v remote services", c.Endpoints)
-	}
-
-	oldAPI, err := c.NewAPIClient()
-	if err != nil {
-		return err
-	}
-	defer oldAPI.Close()
-
-	_, err = oldAPI.AddRelation(c.Endpoints...)
+	_, err = api.AddRelation(c.Endpoints...)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
@@ -114,5 +100,5 @@ func (c *addRelationCommand) hasRemoteServices() bool {
 type AddRelationAPI interface {
 	Close() error
 	BestAPIVersion() int
-	AddRelation(endpoints ...string) (crossmodel.AddRelationResults, error)
+	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
 }
