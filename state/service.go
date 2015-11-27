@@ -561,9 +561,10 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
 	if err == nil {
 		ops = append(ops, endpointBindingsOp)
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
 		// If endpoint bindings do not exist this most likely means the service
 		// itself no longer exists, which will be caught soon enough anyway.
+		// ErrNoOperations on the other hand means there's nothing to update.
 		return nil, errors.Trace(err)
 	}
 
