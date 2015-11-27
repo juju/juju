@@ -438,7 +438,6 @@ class TestEnvJujuClient(ClientTest):
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
 
-
     def test_create_environment_system(self):
         self.do_create_environment(
             'system', 'system create-environment', ('-s', 'foo'))
@@ -455,8 +454,8 @@ class TestEnvJujuClient(ClientTest):
                               controller_option):
         controller_client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
         client = EnvJujuClient(SimpleEnvironment('bar'), None, None)
-        with patch.object(
-            client, 'get_jes_command', return_value=jes_command):
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
                 client.create_environment(controller_client, 'temp')
         juju_mock.assert_called_once_with(
@@ -516,8 +515,8 @@ class TestEnvJujuClient(ClientTest):
 
     def do_kill_controller(self, jes_command, kill_command):
         client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
-        with patch.object(
-            client, 'get_jes_command', return_value=jes_command):
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
                 client.kill_controller()
         juju_mock.assert_called_once_with(
