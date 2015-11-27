@@ -2317,22 +2317,25 @@ func addDefaultBindingsToServices(st *State) error {
 		return errors.Trace(err)
 	}
 
-	ops := make([]txn.Op, len(services))
-	for i, service := range services {
+	upgradesLogger.Debugf("adding default endpoint bindings to services (where missing)")
+	ops := make([]txn.Op, 0, len(services))
+	for _, service := range services {
 		ch, _, err := service.Charm()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil {
 			return errors.Annotatef(err, "cannot get charm for service %q", service.Name())
 		}
-		if ch == nil {
-			// Nothing to do if charm is not set yet, as bindings will be
-			// populated when set.
+		if _, err := service.EndpointBindings(); err == nil {
+			upgradesLogger.Debugf("service %q already has bindings (skipping)", service.Name())
 			continue
+		} else if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "checking service %q for existing bindings", service.Name())
 		}
 		// Passing nil for the bindings map will use the defaults.
-		ops[i], err = endpointBindingsForCharmOp(st, service.globalKey(), nil, ch.Meta())
+		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta())
 		if err != nil {
 			return errors.Annotatef(err, "setting default endpoint bindings for service %q", service.Name())
 		}
+		ops = append(ops, createOp)
 	}
 	return st.runTransaction(ops)
 }

@@ -558,11 +558,14 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	//
 	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
 	// given bindings below, instead of nil.
-	endpointBindingsOp, err := endpointBindingsForCharmOp(s.st, s.globalKey(), nil, ch.Meta())
-	if err != nil {
+	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
+	if err == nil {
+		ops = append(ops, endpointBindingsOp)
+	} else if !errors.IsNotFound(err) {
+		// If endpoint bindings do not exist this most likely means the service
+		// itself no longer exists, which will be caught soon enough anyway.
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, endpointBindingsOp)
 
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
