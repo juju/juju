@@ -226,6 +226,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Remove: true,
 		},
 		removeRequestedNetworksOp(s.st, s.globalKey()),
+		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
@@ -551,6 +552,20 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, relOps...)
+
+	// Update any existing endpoint bindings, using defaults for new endpoints.
+	//
+	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
+	// given bindings below, instead of nil.
+	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
+	if err == nil {
+		ops = append(ops, endpointBindingsOp)
+	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+		// If endpoint bindings do not exist this most likely means the service
+		// itself no longer exists, which will be caught soon enough anyway.
+		// ErrNoOperations on the other hand means there's nothing to update.
+		return nil, errors.Trace(err)
+	}
 
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
@@ -1140,10 +1155,21 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 // networks specified with constraints, these networks are required to
 // be present on machines hosting this service's units.
 //
-// TODO(dimitern): Convert this to use spaces from constraints or drop
-// it entirely.
+// TODO(dimitern): Drop this in a follow-up, as now we use endpoint bindings for
+// this.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
+}
+
+// EndpointBindings returns the mapping for each endpoint name and the space
+// name it is bound to.
+func (s *Service) EndpointBindings() (map[string]string, error) {
+	// We don't need the TxnRevno below.
+	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bindings, nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
