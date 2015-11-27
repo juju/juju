@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -100,7 +101,7 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 		updated[key] = effectiveValue
 	}
 
-	// Any extra bindings in newMap are most like extraneous, but add them
+	// Any extra bindings in newMap are most likely extraneous, but add them
 	// anyway and let the validation handle them.
 	for key, newValue := range newMap {
 		if _, defaultExists := defaultsMap[key]; !defaultExists {
@@ -173,9 +174,9 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 
 	// Prepare the update operations.
 	sanitize := inSubdocEscapeReplacer("bindings")
-	updates := make(bson.M, len(updatedMap))
+	changes := make(bson.M, len(updatedMap))
 	for endpoint, space := range updatedMap {
-		updates[sanitize(endpoint)] = space
+		changes[sanitize(endpoint)] = space
 	}
 	deletes := make(bson.M, len(removedKeys))
 	for _, endpoint := range removedKeys {
@@ -183,14 +184,15 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	}
 
 	var update bson.D
-	if len(updates) != 0 {
-		update = append(update, bson.DocElem{Name: "$set", Value: updates})
+	if len(changes) != 0 {
+		update = append(update, bson.DocElem{Name: "$set", Value: changes})
 	}
 	if len(deletes) != 0 {
 		update = append(update, bson.DocElem{Name: "$unset", Value: deletes})
 	}
-	// NOTE: Even with nothing to update, but we still need to assert the
-	// bindings have not changed since we read them.
+	if len(update) == 0 {
+		return txn.Op{}, jujutxn.ErrNoOperations
+	}
 	return txn.Op{
 		C:      endpointBindingsC,
 		Id:     key,
@@ -253,15 +255,15 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		spacesNamesSet.Add(space.Name())
 	}
 
-	endpointsNamesSet := set.NewStrings()
-	allRelations, err := combinedCharmRelations(charmMeta)
+	allRelations, err := CombinedCharmRelations(charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	endpointsNamesSet := set.NewStrings()
 	for name := range allRelations {
 		endpointsNamesSet.Add(name)
-		if space, found := bindings[name]; !found || space == "" {
-			return errors.NotValidf("endpoint %q not bound to a space", name)
+		if space, _ := bindings[name]; space == "" {
+			return errors.NotValidf("unbound endpoint %q", name)
 		}
 	}
 
@@ -284,7 +286,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 // defaultEndpointBindingsForCharm populates a bindings map containing each
 // endpoint of the given charm metadata bound to the default space.
 func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
-	allRelations, err := combinedCharmRelations(charmMeta)
+	allRelations, err := CombinedCharmRelations(charmMeta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -295,13 +297,14 @@ func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, 
 	return bindings, nil
 }
 
-// combinedCharmRelations returns the relations defined in the given charm
+// CombinedCharmRelations returns the relations defined in the given charm
 // metadata (from Provides, Requires, and Peers) in a single map. This works
 // because charm relation names must be unique regarless of their kind.
 //
-// TODO(dimitern): This should be moved directly into the charm repo, as it's
+// TODO(dimitern): 2015-11-27 bug http://pad.lv/1520623
+// This should be moved directly into the charm repo, as it's
 // generally useful.
-func combinedCharmRelations(charmMeta *charm.Meta) (map[string]charm.Relation, error) {
+func CombinedCharmRelations(charmMeta *charm.Meta) (map[string]charm.Relation, error) {
 	if charmMeta == nil {
 		return nil, errors.Errorf("nil charm metadata")
 	}

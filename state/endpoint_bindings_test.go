@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -84,8 +83,6 @@ peers:
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("apps", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Space(network.DefaultSpace)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
@@ -190,19 +187,6 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		c.Check(updated, jc.DeepEquals, test.updated)
 		c.Check(removed, jc.DeepEquals, test.removed)
 	}
-}
-
-func (s *BindingsSuite) TestDefaultEndpointBindingsForCharm(c *gc.C) {
-	_, err := state.DefaultEndpointBindingsForCharm(nil)
-	c.Check(err, gc.ErrorMatches, "nil charm metadata")
-
-	bindings, err := state.DefaultEndpointBindingsForCharm(s.oldMeta)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(bindings, jc.DeepEquals, s.oldDefaults)
-
-	bindings, err = state.DefaultEndpointBindingsForCharm(s.newMeta)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(bindings, jc.DeepEquals, s.newDefaults)
 }
 
 func (s *BindingsSuite) TestCombinedCharmRelations(c *gc.C) {

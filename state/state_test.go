@@ -1981,7 +1981,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 		Name:  "yoursql",
 		Owner: s.Owner.String(),
 		Charm: ch,
-		Bindings: map[string]string{
+		EndpointBindings: map[string]string{
 			"client":  "client",
 			"cluster": "db",
 		},
@@ -2038,7 +2038,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	}, {
 		about:         "known endpoint not bound to a space",
 		bindings:      map[string]string{"server": ""},
-		expectedError: `endpoint "server" not bound to a space not valid`,
+		expectedError: `unbound endpoint "server" not valid`,
 	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
 		bindings:      map[string]string{"server": "db", "foo": network.DefaultSpace},
@@ -2047,10 +2047,10 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 
 		_, err := s.State.AddService(state.AddServiceArgs{
-			Name:     "yoursql",
-			Owner:    s.Owner.String(),
-			Charm:    charm,
-			Bindings: test.bindings,
+			Name:             "yoursql",
+			Owner:            s.Owner.String(),
+			Charm:            charm,
+			EndpointBindings: test.bindings,
 		})
 		c.Check(err, gc.ErrorMatches, `cannot add service "yoursql": `+test.expectedError)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)

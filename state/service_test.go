@@ -128,14 +128,14 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Owner: s.Owner.String(),
 		Charm: oldCharm,
-		Bindings: map[string]string{
+		EndpointBindings: map[string]string{
 			"server": "db",
 			"client": "client",
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
-	err = service.SetCharm(newCharm, false)
+	err = service.SetCharm(newCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,7 +207,7 @@ peers:
 	}
 	c.Check(readBindings, jc.DeepEquals, expectedBindings)
 
-	err = weirdService.SetCharm(weirdNewCharm, false)
+	err = weirdService.SetCharm(weirdNewCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	readBindings, err = weirdService.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -723,7 +723,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	mysqlKey := state.ServiceGlobalKey(s.mysql.Name())
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, revno+1)
-	err := s.mysql.SetCharm(oldCharm, false)
+	err := s.mysql.SetCharm(oldCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldBindings, err := s.mysql.EndpointBindings()
@@ -782,7 +782,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		},
 	).Check()
 
-	err = s.mysql.SetCharm(newCharm, true)
+	err = s.mysql.SetCharm(newCharm, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2233,14 +2233,6 @@ func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *sta
 	c.Assert(bindings, gc.IsNil)
 }
 
-func (s *ServiceSuite) copyBindings(oldMap map[string]string) map[string]string {
-	newMap := make(map[string]string, len(oldMap))
-	for key, value := range oldMap {
-		newMap[key] = value
-	}
-	return newMap
-}
-
 func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
 	// default space when saved in state.
@@ -2287,8 +2279,6 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
-	oldDefaults, err := state.DefaultEndpointBindingsForCharm(oldCharm.Meta())
-	c.Assert(err, jc.ErrorIsNil)
 	oldBindings := map[string]string{
 		"kludge": "db",
 		"client": "db",
@@ -2296,19 +2286,29 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	service := s.AddTestingServiceWithBindings(c, "yoursql", oldCharm, oldBindings)
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	effectiveOld := s.copyBindings(oldDefaults)
-	effectiveOld["kludge"] = "db"
-	effectiveOld["client"] = "db"
+	effectiveOld := map[string]string{
+		"kludge":  "db",
+		"client":  "db",
+		"cluster": network.DefaultSpace,
+	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
-	newDefaults, err := state.DefaultEndpointBindingsForCharm(newCharm.Meta())
-	err = service.SetCharm(newCharm, false)
+	err = service.SetCharm(newCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err = service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	effectiveNew := s.copyBindings(newDefaults)
-	effectiveNew["client"] = "db" // "kludge" is missing in newMeta.
+	effectiveNew := map[string]string{
+		// These two should be preserved from oldCharm.
+		"client":  "db",
+		"cluster": network.DefaultSpace,
+		// "kludge" is missing in newMeta, "server" is new and gets the default.
+		"server": network.DefaultSpace,
+		// All the remaining are new and use the default.
+		"foo":  network.DefaultSpace,
+		"baz":  network.DefaultSpace,
+		"just": network.DefaultSpace,
+	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
 	s.assertServiceRemovedWithItsBindings(c, service)
