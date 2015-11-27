@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
@@ -169,10 +168,6 @@ func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) (map[st
 		updated[k] = v
 	}
 
-	// The container type would be pulled from cfg if there were more
-	// than one possible type for this provider.
-	//cType := instance.LXD
-
 	// Set the proper default namespace.
 	raw := updated[cfgNamespace]
 	if raw == nil || raw.(string) == "" {
@@ -259,12 +254,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
-}
-
-func (c *environConfig) containerType() instance.ContainerType {
-	// The container type would be pulled from c.attrs if there were
-	// more than one possible type for this provider.
-	return instance.LXD
 }
 
 func (c *environConfig) namespace() string {
