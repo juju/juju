@@ -958,3 +958,73 @@ func (c *Client) DestroyEnvironment() (err error) {
 	environTag := c.api.stateAccessor.EnvironTag()
 	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag))
 }
+
+//
+// The following methods are shims redirecting to the service facade until
+// the GUI is updated to use the new service facade. These are temporary and
+// will be ripped out as soon as the GUI is updated before 1.26 beta1.
+//
+
+// TODO(wallyworld) - deprecated, remove when GUI updated.
+// ServiceSetYAML implements the server side of Client.ServerSetYAML.
+func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
+	serviceApi, err := service.NewAPI(c.api.state(), c.api.resources, c.api.auth)
+	if err != nil {
+		return err
+	}
+	return serviceApi.ServiceUpdate(params.ServiceUpdate{
+		ServiceName:  p.ServiceName,
+		SettingsYAML: p.Config,
+	})
+}
+
+// TODO(wallyworld) - deprecated, remove when GUI updated.
+// ServiceUpdate updates the service attributes, including charm URL,
+// minimum number of units, settings and constraints.
+// All parameters in params.ServiceUpdate except the service name are optional.
+func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
+	serviceApi, err := service.NewAPI(c.api.state(), c.api.resources, c.api.auth)
+	if err != nil {
+		return err
+	}
+	return serviceApi.ServiceUpdate(args)
+}
+
+// TODO(wallyworld) - deprecated, remove when GUI updated.
+// ServiceSetCharm sets the charm for a given service.
+func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+	// Older Juju's required a charm to be added first; the GUI assumes this behaviour.
+	curl, err := charm.ParseURL(args.CharmUrl)
+	if err != nil {
+		return err
+	}
+	if curl.Schema != "cs" {
+		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("charm url must include revision")
+	}
+	_, err = c.api.state().Charm(curl)
+	if errors.IsNotFound(err) {
+		if err := c.AddCharm(params.CharmURL{URL: curl.String()}); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	serviceApi, err := service.NewAPI(c.api.state(), c.api.resources, c.api.auth)
+	if err != nil {
+		return err
+	}
+	return serviceApi.ServiceSetCharm(args)
+}
+
+// TODO(wallyworld) - deprecated, remove when GUI updated.
+// ServiceGetCharmURL gets the charm URL for a given service.
+func (c *Client) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error) {
+	serviceApi, err := service.NewAPI(c.api.state(), c.api.resources, c.api.auth)
+	if err != nil {
+		return params.StringResult{}, err
+	}
+	return serviceApi.ServiceGetCharmURL(args)
+}
