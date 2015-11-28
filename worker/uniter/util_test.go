@@ -33,6 +33,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
@@ -43,7 +44,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"

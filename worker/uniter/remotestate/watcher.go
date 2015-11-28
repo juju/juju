@@ -12,10 +12,10 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/leadership"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")

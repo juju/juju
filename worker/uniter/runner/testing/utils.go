@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 

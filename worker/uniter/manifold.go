@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
