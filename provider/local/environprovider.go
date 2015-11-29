@@ -113,7 +113,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		"proxy-ssh": false,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		attrs["agent-version"] = version.Current.Number.String()
+		attrs["agent-version"] = version.Current.String()
 	}
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
 		username := os.Getenv("USER")

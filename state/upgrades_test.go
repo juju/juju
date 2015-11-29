@@ -384,10 +384,10 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 
 	admin, err := s.state.EnvironmentUser(s.owner)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
+	c.Assert(admin.UserTag().Canonical(), gc.DeepEquals, s.owner.Canonical())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+	c.Assert(bob.UserTag().Canonical(), gc.DeepEquals, bobTag.Canonical())
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
@@ -402,10 +402,10 @@ func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	admin, err := s.state.EnvironmentUser(s.owner)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
+	c.Assert(admin.UserTag().Canonical(), gc.DeepEquals, s.owner.Canonical())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+	c.Assert(bob.UserTag().Canonical(), gc.DeepEquals, bobTag.Canonical())
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
@@ -1367,7 +1367,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 	// Make sure it is there now
 	env, err = s.state.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.ControllerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
 
@@ -1381,7 +1381,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironmentIdempotent(c *gc.
 	// Check as expected
 	env, err := s.state.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.ControllerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
 
@@ -2451,12 +2451,29 @@ func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) 
 
 	err := machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.DocElem{"preferredpublicaddress", ""}}},
+		bson.D{{"$unset", bson.D{{"preferredpublicaddress", ""}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.DocElem{"preferredprivateaddress", ""}}},
+		bson.D{{"$unset", bson.D{{"preferredprivateaddress", ""}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, addr string) {
+	machinesCol, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+
+	stateAddr := fromNetworkAddress(network.NewAddress(addr), OriginUnknown)
+	err := machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredpublicaddress", stateAddr}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredprivateaddress", stateAddr}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2471,13 +2488,13 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 		c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	}
 	c.Assert(addr.Value, gc.Equals, publicAddress)
-	addr, err = machine.PrivateAddress()
+	privAddr, err := machine.PrivateAddress()
 	if privateAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	}
-	c.Assert(addr.Value, gc.Equals, privateAddress)
+	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
@@ -2500,7 +2517,7 @@ func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	err = m2.SetProviderAddresses(network.NewAddress("10.0.0.2"), network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempting to set the addresses of a dead machine will fail, so we
@@ -2527,7 +2544,7 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 }
 
@@ -2541,14 +2558,45 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 
 	err = AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
+	assertMachineAddresses(c, m3, "", "")
+}
+
+func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields(c *gc.C) {
+	machines := s.createMachinesWithAddresses(c)
+	m1 := machines[0]
+	m2 := machines[1]
+	m3 := machines[2]
+	s.setPreferredAddressFields(c, m1, "1.1.2.2")
+	s.setPreferredAddressFields(c, m2, "1.1.2.2")
+	s.setPreferredAddressFields(c, m3, "1.1.2.2")
+
+	assertMachineInitial := func(m *Machine) {
+		err := m.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		addr, err := m.PublicAddress()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
+		addr, err = m.PrivateAddress()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
+	}
+	assertMachineInitial(m1)
+	assertMachineInitial(m2)
+	assertMachineInitial(m3)
+
+	err := AddPreferredAddressesToMachines(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
 }
 

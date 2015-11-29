@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -314,6 +315,41 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	s.assertTailer(c, tailer, 2, expected)
 }
 
+func (s *LogTailerSuite) TestNoTail(c *gc.C) {
+	expected := logTemplate{Message: "want"}
+	s.writeLogs(c, 2, expected)
+
+	// Write a log entry that's only in the oplog.
+	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, time.Now())
+	err := s.writeLogToOplog(doc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+		NoTail: true,
+	})
+	// Not strictly necessary, just in case NoTail doesn't work in the test.
+	defer tailer.Stop()
+
+	// Logs only in the oplog shouldn't be reported and the tailer
+	// should stop itself once the log collection has been read.
+	s.assertTailer(c, tailer, 2, expected)
+	select {
+	case _, ok := <-tailer.Logs():
+		if ok {
+			c.Fatal("shouldn't be any further logs")
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for logs channel to close")
+	}
+
+	select {
+	case <-tailer.Dying():
+		// Success.
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("tailer didn't stop itself")
+	}
+}
+
 func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
 	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
@@ -513,24 +549,28 @@ func (s *LogTailerSuite) writeLogs(c *gc.C, count int, lt logTemplate) {
 // endTime using the supplied template. As well as writing to the logs
 // collection, entries are also made into the fake oplog collection.
 func (s *LogTailerSuite) writeLogsT(c *gc.C, startTime, endTime time.Time, count int, lt logTemplate) {
-	s.normaliseLogTemplate(&lt)
-
 	interval := endTime.Sub(startTime) / time.Duration(count)
 	t := startTime
 	for i := 0; i < count; i++ {
-		err := state.WriteLogWithOplog(
-			s.oplogColl,
-			lt.EnvUUID,
-			lt.Entity,
-			t,
-			lt.Module,
-			lt.Location,
-			lt.Level,
-			lt.Message,
-		)
+		doc := s.logTemplateToDoc(lt, t)
+		err := s.writeLogToOplog(doc)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.logsColl.Insert(doc)
 		c.Assert(err, jc.ErrorIsNil)
 		t = t.Add(interval)
 	}
+}
+
+// writeLogToOplog writes out a log record to the a (probably fake)
+// oplog collection.
+func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
+	return s.oplogColl.Insert(bson.D{
+		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                  // again, a suitable fake
+		{"op", "i"},                                          // this will always be an insert
+		{"ns", "logs.logs"},
+		{"o", doc},
+	})
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
@@ -552,6 +592,19 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 	if lt.Message == "" {
 		lt.Message = "message"
 	}
+}
+
+func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface{} {
+	s.normaliseLogTemplate(&lt)
+	return state.MakeLogDoc(
+		lt.EnvUUID,
+		lt.Entity,
+		t,
+		lt.Module,
+		lt.Location,
+		lt.Level,
+		lt.Message,
+	)
 }
 
 func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedCount int, lt logTemplate) {

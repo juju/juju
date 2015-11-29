@@ -9,21 +9,27 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 const listDoc = `
 "list" provides the metadata associated with all backups.
 `
 
-// ListCommand is the sub-command for listing all available backups.
-type ListCommand struct {
+func newListCommand() cmd.Command {
+	return envcmd.Wrap(&listCommand{})
+}
+
+// listCommand is the sub-command for listing all available backups.
+type listCommand struct {
 	CommandBase
 	// Brief means only IDs will be printed.
 	Brief bool
 }
 
 // Info implements Command.Info.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Args:    "",
@@ -33,12 +39,12 @@ func (c *ListCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Brief, "brief", false, "only print IDs")
 }
 
 // Init implements Command.Init.
-func (c *ListCommand) Init(args []string) error {
+func (c *listCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
 	}
@@ -46,7 +52,7 @@ func (c *ListCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) error {
+func (c *listCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)

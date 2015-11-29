@@ -13,8 +13,12 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RemoveServiceCommand causes an existing service to be destroyed.
-type RemoveServiceCommand struct {
+func newRemoveServiceCommand() cmd.Command {
+	return envcmd.Wrap(&removeServiceCommand{})
+}
+
+// removeServiceCommand causes an existing service to be destroyed.
+type removeServiceCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 }
@@ -29,7 +33,7 @@ The machine will be destroyed if:
 - it is not hosting any Juju managed containers
 `
 
-func (c *RemoveServiceCommand) Info() *cmd.Info {
+func (c *removeServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-service",
 		Args:    "<service>",
@@ -39,7 +43,7 @@ func (c *RemoveServiceCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RemoveServiceCommand) Init(args []string) error {
+func (c *removeServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}
@@ -50,7 +54,7 @@ func (c *RemoveServiceCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
+func (c *removeServiceCommand) Run(_ *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

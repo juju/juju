@@ -26,8 +26,8 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     cachedImagesCommandPurpose,
 	})
-	usercmd.Register(envcmd.Wrap(&DeleteCommand{}))
-	usercmd.Register(envcmd.Wrap(&ListCommand{}))
+	usercmd.Register(newDeleteCommand())
+	usercmd.Register(newListCommand())
 	return usercmd
 }
 

@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -29,7 +28,7 @@ func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&ResolvedCommand{}), args...)
+	_, err := testing.RunCommand(c, newResolvedCommand(), args...)
 	return err
 }
 

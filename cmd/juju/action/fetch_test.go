@@ -19,7 +19,6 @@ import (
 
 type FetchSuite struct {
 	BaseActionSuite
-	subcommand *action.FetchCommand
 }
 
 var _ = gc.Suite(&FetchSuite{})
@@ -29,7 +28,8 @@ func (s *FetchSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FetchSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
+	cmd := action.NewFetchCommand()
+	s.checkHelp(c, cmd)
 }
 
 func (s *FetchSuite) TestInit(c *gc.C) {
@@ -50,7 +50,9 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: it should %s: juju actions fetch %s", i,
 			t.should, strings.Join(t.args, " "))
-		err := testing.InitCommand(&action.FetchCommand{}, t.args)
+		cmd := action.NewFetchCommand()
+		args := append([]string{"-e", "dummyenv"}, t.args...)
+		err := testing.InitCommand(cmd, args)
 		if t.expectError != "" {
 			c.Check(err, gc.ErrorMatches, t.expectError)
 		}
@@ -290,12 +292,13 @@ timing:
 func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query string) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
-	args := []string{query}
+	args := append([]string{"-e", "dummyenv"}, []string{query}...)
 	if wait != "" {
 		args = append(args, "--wait")
 		args = append(args, wait)
 	}
-	ctx, err := testing.RunCommand(c, &action.FetchCommand{}, args...)
+	cmd := action.NewFetchCommand()
+	ctx, err := testing.RunCommand(c, cmd, args...)
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)
 	} else {

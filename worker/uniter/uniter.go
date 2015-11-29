@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
@@ -22,7 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmdir"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -32,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runcommands"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -40,6 +43,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
+
+const (
+	retryTimeMin    = 5 * time.Second
+	retryTimeMax    = 5 * time.Minute
+	retryTimeJitter = true
+	retryTimeFactor = 2
+)
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -61,6 +71,7 @@ type Uniter struct {
 	relations relation.Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
+	clock     clock.Clock
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -74,12 +85,16 @@ type Uniter struct {
 	newOperationExecutor NewExecutorFunc
 
 	leadershipTracker leadership.Tracker
-	charmDirLocker    charmdir.Locker
+	charmDirGuard     fortress.Guard
 
-	hookLock    *fslock.Lock
-	runListener *RunListener
+	hookLock *fslock.Lock
 
-	ranConfigChanged bool
+	// TODO(axw) move the runListener and run-command code outside of the
+	// uniter, and introduce a separate worker. Each worker would feed
+	// operations to a single, synchronized runner to execute.
+	runListener    *RunListener
+	commands       runcommands.Commands
+	commandChannel chan string
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -97,9 +112,10 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	MachineLock          *fslock.Lock
-	CharmDirLocker       charmdir.Locker
+	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
+	Clock                clock.Clock
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -117,10 +133,11 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
-		charmDirLocker:       uniterParams.CharmDirLocker,
+		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
+		clock:                uniterParams.Clock,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -179,6 +196,32 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	retryHookChan := make(chan struct{}, 1)
+
+	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
+		Min:    retryTimeMin,
+		Max:    retryTimeMax,
+		Jitter: retryTimeJitter,
+		Factor: retryTimeFactor,
+		Func: func() {
+			// Don't try to send on the channel if it's already full
+			// This can happen if the timer fires off before the event is consumed
+			// by the resolver loop
+			select {
+			case retryHookChan <- struct{}{}:
+			default:
+			}
+		},
+		Clock: u.clock,
+	})
+	u.addCleanup(func() error {
+		// Stop any send that might be pending
+		// before closing the channel
+		retryHookTimer.Reset()
+		close(retryHookChan)
+		return nil
+	})
+
 	restartWatcher := func() error {
 		watcherMu.Lock()
 		defer watcherMu.Unlock()
@@ -195,6 +238,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				LeadershipTracker:   u.leadershipTracker,
 				UnitTag:             unitTag,
 				UpdateStatusChannel: u.updateStatusAt,
+				CommandChannel:      u.commandChannel,
+				RetryHookChannel:    retryHookChan,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -247,15 +292,20 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			break
 		}
 
-		uniterResolver := &uniterResolver{
-			clearResolved:      clearResolved,
-			reportHookError:    u.reportHookError,
-			fixDeployer:        u.deployer.Fix,
-			actionsResolver:    actions.NewResolver(),
-			leadershipResolver: uniterleadership.NewResolver(),
-			relationsResolver:  relation.NewRelationsResolver(u.relations),
-			storageResolver:    storage.NewResolver(u.storage),
-		}
+		uniterResolver := NewUniterResolver(ResolverConfig{
+			ClearResolved:       clearResolved,
+			ReportHookError:     u.reportHookError,
+			FixDeployer:         u.deployer.Fix,
+			StartRetryHookTimer: retryHookTimer.Start,
+			StopRetryHookTimer:  retryHookTimer.Reset,
+			Actions:             actions.NewResolver(),
+			Leadership:          uniterleadership.NewResolver(),
+			Relations:           relation.NewRelationsResolver(u.relations),
+			Storage:             storage.NewResolver(u.storage),
+			Commands: runcommands.NewCommandsResolver(
+				u.commands, watcher.CommandCompleted,
+			),
+		})
 
 		// We should not do anything until there has been a change
 		// to the remote state. The watcher will trigger at least
@@ -269,13 +319,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
-				Resolver:       uniterResolver,
-				Watcher:        watcher,
-				Executor:       u.operationExecutor,
-				Factory:        u.operationFactory,
-				Dying:          u.tomb.Dying(),
-				OnIdle:         onIdle,
-				CharmDirLocker: u.charmDirLocker,
+				Resolver:      uniterResolver,
+				Watcher:       watcher,
+				Executor:      u.operationExecutor,
+				Factory:       u.operationFactory,
+				Abort:         u.tomb.Dying(),
+				OnIdle:        onIdle,
+				CharmDirGuard: u.charmDirGuard,
 			}, &localState)
 			switch cause := errors.Cause(err); cause {
 			case nil:
@@ -397,6 +447,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
+	u.commands = runcommands.NewCommands()
+	u.commandChannel = make(chan string)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -408,7 +460,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.deployer = &deployerProxy{deployer}
 	contextFactory, err := context.NewContextFactory(
-		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
+		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
 	)
 	if err != nil {
 		return err
@@ -435,7 +487,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.operationExecutor = operationExecutor
 
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
-	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
+	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
+		Abort:          u.tomb.Dying(),
+		Commands:       u.commands,
+		CommandChannel: u.commandChannel,
+	})
+	if err != nil {
+		return errors.Annotate(err, "creating command runner")
+	}
+	u.runListener, err = NewRunListener(RunListenerConfig{
+		SocketPath:    u.paths.Runtime.JujuRunSocket,
+		CommandRunner: commandRunner,
+	})
 	if err != nil {
 		return err
 	}
@@ -486,86 +549,9 @@ func (u *Uniter) operationState() operation.State {
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We could
-	// address this by:
-	//  1) implementing an operation to encapsulate the relations.Update call
-	//  2) (quick+dirty) mutex runOperation until we can
-	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
-	//     that replaces them) such that they're handled and prioritised like
-	//     every other operation.
-	logger.Tracef("run commands: %s", args.Commands)
-
-	type responseInfo struct {
-		response *exec.ExecResponse
-		err      error
-	}
-	responseChan := make(chan responseInfo, 1)
-	sendResponse := func(response *exec.ExecResponse, err error) {
-		responseChan <- responseInfo{response, err}
-	}
-
-	commandArgs := operation.CommandArgs{
-		Commands:        args.Commands,
-		RelationId:      args.RelationId,
-		RemoteUnitName:  args.RemoteUnitName,
-		ForceRemoteUnit: args.ForceRemoteUnit,
-	}
-	err = u.runOperation(func(f operation.Factory) (operation.Operation, error) {
-		return f.NewCommands(commandArgs, sendResponse)
-	})
-	if err == nil {
-		select {
-		case response := <-responseChan:
-			results, err = response.response, response.err
-		default:
-			err = errors.New("command response never sent")
-		}
-	}
-	if errors.Cause(err) == operation.ErrNeedsReboot {
-		u.tomb.Kill(worker.ErrRebootMachine)
-		err = nil
-	}
-	if err != nil {
-		u.tomb.Kill(err)
-	}
-	return results, err
-}
-
-// creator exists primarily to make the implementation of the Mode funcs more
-// readable -- the general pattern is to switch to get a creator func (which
-// doesn't allow for the possibility of error) and then to pass the chosen
-// creator down to runOperation (which can then consistently create and run
-// all the operations in the same way).
-type creator func(factory operation.Factory) (operation.Operation, error)
-
-// runOperation uses the uniter's operation factory to run the supplied creation
-// func, and then runs the resulting operation.
-//
-// This has a number of advantages over having mode funcs use the factory and
-// executor directly:
-//   * it cuts down on duplicated code in the mode funcs, making the logic easier
-//     to parse
-//   * it narrows the (conceptual) interface exposed to the mode funcs -- one day
-//     we might even be able to use a (real) interface and maybe even approach a
-//     point where we can run direct unit tests(!) on the modes themselves.
-//   * it opens a path to fixing RunCommands -- all operation creation and
-//     execution is done in a single place, and it's much easier to force those
-//     onto a single thread.
-//       * this can't be done quite yet, though, because relation changes are
-//         not yet encapsulated in operations, and that needs to happen before
-//         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator) (err error) {
-	errorMessage := "creating operation to run"
-	defer func() {
-		reportAgentError(u, errorMessage, err)
-	}()
-	op, err := creator(u.operationFactory)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create operation")
-	}
-	errorMessage = op.String()
-	return u.operationExecutor.Run(op)
+	// TODO(axw) drop this when we move the run-listener to an independent
+	// worker. This exists purely for the tests.
+	return u.runListener.RunCommands(args)
 }
 
 // acquireExecutionLock acquires the machine-level execution lock, and

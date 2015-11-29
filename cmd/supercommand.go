@@ -6,6 +6,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
@@ -31,7 +33,16 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	p.Log = &cmd.Log{
 		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 	}
-	p.Version = version.Current.String()
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+
+	// p.Version should be a version.Binary, but juju/cmd does not
+	// import juju/juju/version so this cannot happen. We have
+	// tests to assert that this string value is correct.
+	p.Version = current.String()
 	p.NotifyRun = runNotifier
 	return cmd.NewSuperCommand(p)
 }

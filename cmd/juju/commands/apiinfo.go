@@ -15,8 +15,12 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// APIInfoCommand returns the fields used to connect to an API server.
-type APIInfoCommand struct {
+func newAPIInfoCommand() cmd.Command {
+	return envcmd.Wrap(&apiInfoCommand{})
+}
+
+// apiInfoCommand returns the fields used to connect to an API server.
+type apiInfoCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	refresh  bool
@@ -67,7 +71,7 @@ Examples:
 
 `
 
-func (c *APIInfoCommand) Info() *cmd.Info {
+func (c *apiInfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-info",
 		Args:    "[field ...]",
@@ -76,7 +80,7 @@ func (c *APIInfoCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *APIInfoCommand) Init(args []string) error {
+func (c *apiInfoCommand) Init(args []string) error {
 	c.fields = args
 	if len(args) == 0 {
 		c.user = true
@@ -113,7 +117,7 @@ func (c *APIInfoCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *APIInfoCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *apiInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
 		"default": c.format,
 		"yaml":    cmd.FormatYaml,
@@ -137,7 +141,7 @@ var (
 )
 
 // Print out the addresses of the API server endpoints.
-func (c *APIInfoCommand) Run(ctx *cmd.Context) error {
+func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
 	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
 	if err != nil {
 		return err
@@ -170,7 +174,7 @@ func (c *APIInfoCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, result)
 }
 
-func (c *APIInfoCommand) format(value interface{}) ([]byte, error) {
+func (c *apiInfoCommand) format(value interface{}) ([]byte, error) {
 	if len(c.fields) == 1 {
 		data := value.(InfoData)
 		field, err := data.field(c.fields[0])

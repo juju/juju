@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -22,8 +23,12 @@ If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
 `
 
-// DownloadCommand is the sub-command for downloading a backup archive.
-type DownloadCommand struct {
+func newDownloadCommand() cmd.Command {
+	return envcmd.Wrap(&downloadCommand{})
+}
+
+// downloadCommand is the sub-command for downloading a backup archive.
+type downloadCommand struct {
 	CommandBase
 	// Filename is where to save the downloaded archive.
 	Filename string
@@ -32,7 +37,7 @@ type DownloadCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *DownloadCommand) Info() *cmd.Info {
+func (c *downloadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "download",
 		Args:    "<ID>",
@@ -42,12 +47,12 @@ func (c *DownloadCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *DownloadCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Filename, "filename", "", "download target")
 }
 
 // Init implements Command.Init.
-func (c *DownloadCommand) Init(args []string) error {
+func (c *downloadCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing ID")
 	}
@@ -60,7 +65,7 @@ func (c *DownloadCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *DownloadCommand) Run(ctx *cmd.Context) error {
+func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -94,7 +99,7 @@ func (c *DownloadCommand) Run(ctx *cmd.Context) error {
 }
 
 // ResolveFilename returns the filename used by the command.
-func (c *DownloadCommand) ResolveFilename() string {
+func (c *downloadCommand) ResolveFilename() string {
 	filename := c.Filename
 	if filename == "" {
 		filename = backups.FilenamePrefix + c.ID + ".tar.gz"

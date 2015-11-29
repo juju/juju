@@ -6,9 +6,6 @@ package system
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.system")
@@ -40,15 +37,15 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "manage systems",
 	})
 
-	systemCmd.Register(&ListCommand{})
-	systemCmd.Register(&LoginCommand{})
-	systemCmd.Register(&DestroyCommand{})
-	systemCmd.Register(&KillCommand{apiDialerFunc: juju.NewAPIFromName})
-	systemCmd.Register(envcmd.WrapSystem(&ListBlocksCommand{}))
-	systemCmd.Register(envcmd.WrapSystem(&EnvironmentsCommand{}))
-	systemCmd.Register(envcmd.WrapSystem(&CreateEnvironmentCommand{}))
-	systemCmd.Register(envcmd.WrapSystem(&RemoveBlocksCommand{}))
-	systemCmd.Register(envcmd.WrapSystem(&UseEnvironmentCommand{}))
+	systemCmd.Register(newListCommand())
+	systemCmd.Register(newLoginCommand())
+	systemCmd.Register(newDestroyCommand())
+	systemCmd.Register(newKillCommand())
+	systemCmd.Register(newListBlocksCommand())
+	systemCmd.Register(newEnvironmentsCommand())
+	systemCmd.Register(newCreateEnvironmentCommand())
+	systemCmd.Register(newRemoveBlocksCommand())
+	systemCmd.Register(newUseEnvironmentCommand())
 
 	return systemCmd
 }

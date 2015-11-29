@@ -14,9 +14,13 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
+func newSetCommand() cmd.Command {
+	return envcmd.Wrap(&setCommand{})
+}
+
 type attributes map[string]interface{}
 
-type SetCommand struct {
+type setCommand struct {
 	envcmd.EnvCommandBase
 	api    SetEnvironmentAPI
 	values attributes
@@ -27,7 +31,7 @@ Updates the environment of a running Juju instance.  Multiple key/value pairs
 can be passed on as command line arguments.
 `
 
-func (c *SetCommand) Info() *cmd.Info {
+func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set",
 		Args:    "key=[value] ...",
@@ -36,7 +40,7 @@ func (c *SetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SetCommand) Init(args []string) (err error) {
+func (c *setCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no key, value pairs specified")
 	}
@@ -63,14 +67,14 @@ type SetEnvironmentAPI interface {
 	EnvironmentSet(config map[string]interface{}) error
 }
 
-func (c *SetCommand) getAPI() (SetEnvironmentAPI, error) {
+func (c *setCommand) getAPI() (SetEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *SetCommand) Run(ctx *cmd.Context) error {
+func (c *setCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

@@ -4,48 +4,25 @@
 package backups_test
 
 import (
-	"bytes"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	"github.com/juju/juju/apiserver/params"
 )
 
 type uploadSuite struct {
-	httpSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&uploadSuite{})
 
-func (s *uploadSuite) setSuccess(c *gc.C, id string) {
-	result := params.BackupsUploadResult{ID: id}
-	s.setJSONSuccess(c, &result)
-}
-
-func (s *uploadSuite) TestSuccess(c *gc.C) {
-	s.setSuccess(c, "<a new backup ID>")
-
+func (s *uploadSuite) TestSuccessfulRequest(c *gc.C) {
 	data := "<compressed archive data>"
-	archive := ioutil.NopCloser(bytes.NewBufferString(data))
-
-	meta := apiserverbackups.ResultFromMetadata(s.Meta)
-	meta.ID = ""
-	meta.Stored = time.Time{}
-
-	id, err := s.client.Upload(archive, meta)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(id, gc.Equals, "<a new backup ID>")
-	s.FakeClient.CheckCalledReader(c, "backups", archive, &meta, "juju-backup.tar.gz", "SendHTTPRequestReader")
-}
-
-func (s *uploadSuite) TestFunctional(c *gc.C) {
-	data := "<compressed archive data>"
-	archive := ioutil.NopCloser(bytes.NewBufferString(data))
+	archive := strings.NewReader(data)
 
 	meta := apiserverbackups.ResultFromMetadata(s.Meta)
 	meta.ID = ""
@@ -60,7 +37,6 @@ func (s *uploadSuite) TestFunctional(c *gc.C) {
 	// Check the stored contents.
 	stored, err := s.client.Download(id)
 	c.Assert(err, jc.ErrorIsNil)
-	defer archive.Close()
 	storedData, err := ioutil.ReadAll(stored)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(storedData), gc.Equals, data)
@@ -71,4 +47,20 @@ func (s *uploadSuite) TestFunctional(c *gc.C) {
 	meta.ID = id
 	meta.Stored = storedMeta.Stored
 	c.Check(storedMeta, gc.DeepEquals, &meta)
+}
+
+func (s *uploadSuite) TestFailedRequest(c *gc.C) {
+	data := "<compressed archive data>"
+	archive := strings.NewReader(data)
+
+	meta := apiserverbackups.ResultFromMetadata(s.Meta)
+	meta.ID = ""
+	meta.Size = int64(len(data))
+	// The Environment field is required, so zero it so that
+	// we'll get an error from the endpoint.
+	meta.Environment = ""
+
+	id, err := s.client.Upload(archive, meta)
+	c.Assert(err, gc.ErrorMatches, `PUT https://.*/environment/.*/backups: while storing backup archive: missing Environment`)
+	c.Assert(id, gc.Equals, "")
 }

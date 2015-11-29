@@ -4,15 +4,15 @@
 package worker
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/tomb"
 )
 
 // RestartDelay holds the length of time that a worker
 // will wait between exiting and restarting.
-var RestartDelay = 3 * time.Second
+const RestartDelay = 3 * time.Second
 
 // Worker is implemented by a running worker.
 type Worker interface {
@@ -41,9 +41,11 @@ type runner struct {
 	startedc      chan startInfo
 	isFatal       func(error) bool
 	moreImportant func(err0, err1 error) bool
-}
 
-var _ Runner = (*runner)(nil)
+	// restartDelay holds the length of time that a worker
+	// will wait between exiting and restarting.
+	restartDelay time.Duration
+}
 
 type startReq struct {
 	id    string
@@ -70,7 +72,7 @@ type doneInfo struct {
 // The function isFatal(err) returns whether err is a fatal error.  The
 // function moreImportant(err0, err1) returns whether err0 is considered
 // more important than err1.
-func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool) Runner {
+func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool, restartDelay time.Duration) Runner {
 	runner := &runner{
 		startc:        make(chan startReq),
 		stopc:         make(chan string),
@@ -78,6 +80,7 @@ func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bo
 		startedc:      make(chan startInfo),
 		isFatal:       isFatal,
 		moreImportant: moreImportant,
+		restartDelay:  restartDelay,
 	}
 	go func() {
 		defer runner.tomb.Done()
@@ -172,7 +175,7 @@ func (runner *runner) run() error {
 			if info == nil {
 				workers[req.id] = &workerInfo{
 					start:        req.start,
-					restartDelay: RestartDelay,
+					restartDelay: runner.restartDelay,
 				}
 				go runner.runWorker(0, req.id, req.start)
 				break
@@ -232,7 +235,7 @@ func (runner *runner) run() error {
 				break
 			}
 			go runner.runWorker(workerInfo.restartDelay, info.id, workerInfo.start)
-			workerInfo.restartDelay = RestartDelay
+			workerInfo.restartDelay = runner.restartDelay
 		}
 	}
 }
@@ -274,4 +277,45 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 	}
 	logger.Infof("stopped %q, err: %v", id, err)
 	runner.donec <- doneInfo{id, err}
+}
+
+// Workers is an order-preserving registry of worker factory functions.
+type Workers struct {
+	ids   []string
+	funcs map[string]func() (Worker, error)
+}
+
+// NewWorkers returns a new Workers.
+func NewWorkers() Workers {
+	return Workers{
+		funcs: make(map[string]func() (Worker, error)),
+	}
+}
+
+// IDs returns the list of registered worker IDs.
+func (r Workers) IDs() []string {
+	ids := make([]string, len(r.ids))
+	copy(ids, r.ids)
+	return ids
+}
+
+// Add registered the factory function for the identified worker.
+func (r *Workers) Add(id string, newWorker func() (Worker, error)) error {
+	if _, ok := r.funcs[id]; ok {
+		return errors.Errorf("worker %q already registered", id)
+	}
+	r.funcs[id] = newWorker
+	r.ids = append(r.ids, id)
+	return nil
+}
+
+// Start starts all the registered workers under the given runner.
+func (r *Workers) Start(runner Runner) error {
+	for _, id := range r.ids {
+		newWorker := r.funcs[id]
+		if err := runner.StartWorker(id, newWorker); err != nil {
+			return errors.Annotatef(err, "worker %q failed to start", id)
+		}
+	}
+	return nil
 }

@@ -84,7 +84,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		&SignMetadataCommand{}, ctx, []string{"-d", topLevel, "-k", keyfile, "-p", sstesting.PrivateKeyPassphrase})
+		newSignMetadataCommand(), ctx, []string{"-d", topLevel, "-k", keyfile, "-p", sstesting.PrivateKeyPassphrase})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedLoggingOutput)
@@ -92,7 +92,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 }
 
 func runSignMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, &SignMetadataCommand{}, args...)
+	_, err := coretesting.RunCommand(c, newSignMetadataCommand(), args...)
 	return err
 }
 

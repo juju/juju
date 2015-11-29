@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker"
 )
 
@@ -28,6 +28,11 @@ var logger = loggo.GetLogger("juju.provisioner")
 // Ensure our structs implement the required Provisioner interface.
 var _ Provisioner = (*environProvisioner)(nil)
 var _ Provisioner = (*containerProvisioner)(nil)
+
+var (
+	retryStrategyDelay = 10 * time.Second
+	retryStrategyCount = 3
+)
 
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
@@ -62,6 +67,22 @@ type provisioner struct {
 	broker      environs.InstanceBroker
 	toolsFinder ToolsFinder
 	tomb        tomb.Tomb
+}
+
+// RetryStrategy defines the retry behavior when encountering a retryable
+// error during provisioning.
+type RetryStrategy struct {
+	retryDelay time.Duration
+	retryCount int
+}
+
+// NewRetryStrategy returns a new retry strategy with the specified delay and
+// count for use with retryable provisioning errors.
+func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
+	return RetryStrategy{
+		retryDelay: delay,
+		retryCount: count,
+	}
 }
 
 // configObserver is implemented so that tests can see
@@ -151,6 +172,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		auth,
 		envCfg.ImageStream(),
 		secureServerConnection,
+		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
 	return task, nil
 }
@@ -179,21 +201,21 @@ func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	environConfigChanges = environWatcher.Changes()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
 
 	harvestMode := p.environ.Config().ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	defer watcher.Stop(task, &p.tomb)
 

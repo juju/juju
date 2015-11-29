@@ -92,11 +92,11 @@ type opsIterator struct {
 }
 
 func newStateUpgradeOpsIterator(from version.Number) *opsIterator {
-	return newOpsIterator(from, version.Current.Number, stateUpgradeOperations())
+	return newOpsIterator(from, version.Current, stateUpgradeOperations())
 }
 
 func newUpgradeOpsIterator(from version.Number) *opsIterator {
-	return newOpsIterator(from, version.Current.Number, upgradeOperations())
+	return newOpsIterator(from, version.Current, upgradeOperations())
 }
 
 func newOpsIterator(from, to version.Number, ops []Operation) *opsIterator {

@@ -13,8 +13,12 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RemoveUnitCommand is responsible for destroying service units.
-type RemoveUnitCommand struct {
+func newRemoveUnitCommand() cmd.Command {
+	return envcmd.Wrap(&removeUnitCommand{})
+}
+
+// removeUnitCommand is responsible for destroying service units.
+type removeUnitCommand struct {
 	envcmd.EnvCommandBase
 	UnitNames []string
 }
@@ -29,7 +33,7 @@ The machine will be destroyed if:
 - it is not hosting any Juju managed containers
 `
 
-func (c *RemoveUnitCommand) Info() *cmd.Info {
+func (c *removeUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...]",
@@ -39,7 +43,7 @@ func (c *RemoveUnitCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RemoveUnitCommand) Init(args []string) error {
+func (c *removeUnitCommand) Init(args []string) error {
 	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
 		return fmt.Errorf("no units specified")
@@ -54,7 +58,7 @@ func (c *RemoveUnitCommand) Init(args []string) error {
 
 // Run connects to the environment specified on the command line and destroys
 // units therein.
-func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
+func (c *removeUnitCommand) Run(_ *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

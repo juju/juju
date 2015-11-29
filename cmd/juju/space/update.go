@@ -10,10 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// UpdateCommand calls the API to update an existing network space.
-type UpdateCommand struct {
+func newUpdateCommand() cmd.Command {
+	return envcmd.Wrap(&updateCommand{})
+}
+
+// updateCommand calls the API to update an existing network space.
+type updateCommand struct {
 	SpaceCommandBase
 	Name  string
 	CIDRs set.Strings
@@ -25,12 +31,12 @@ can only be part of a single space, all specified subnets (using their
 CIDRs) "leave" their current space and "enter" the one we're updating.
 `
 
-func (c *UpdateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *updateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
 }
 
 // Info is defined on the cmd.Command interface.
-func (c *UpdateCommand) Info() *cmd.Info {
+func (c *updateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "update",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
@@ -41,14 +47,14 @@ func (c *UpdateCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *UpdateCommand) Init(args []string) error {
+func (c *updateCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, false)
 	return errors.Trace(err)
 }
 
 // Run implements Command.Run.
-func (c *UpdateCommand) Run(ctx *cmd.Context) error {
+func (c *updateCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Update the space.
 		err := api.UpdateSpace(c.Name, c.CIDRs.SortedValues())

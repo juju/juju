@@ -13,7 +13,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/retry"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
@@ -485,7 +486,7 @@ func (info *environInfo) writeJENVFile() error {
 }
 
 func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
-	lock, err := fslock.NewLock(dir, lockName)
+	lock, err := fslock.NewLock(dir, lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -518,19 +519,16 @@ func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
 // It appears that sometimes the lock is not cleared when we expect it to be.
 // Capture and log any errors from the Unlock method and retry a few times.
 func unlockEnvironmentLock(lock *fslock.Lock) {
-	attempts := utils.AttemptStrategy{
-		Delay: 50 * time.Millisecond,
-		Min:   10,
+	err := retry.Call(retry.CallArgs{
+		Func: lock.Unlock,
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("failed to unlock configstore lock: %s", err)
+		},
+		Attempts: 10,
+		Delay:    50 * time.Millisecond,
+		Clock:    clock.WallClock,
+	})
+	if err != nil {
+		logger.Errorf("unable to unlock configstore lock: %s", err)
 	}
-	var err error
-	for a := attempts.Start(); a.Next(); {
-		err = lock.Unlock()
-		if err == nil {
-			return
-		}
-		if a.HasNext() {
-			logger.Debugf("failed to unlock configstore lock: %s, retrying", err)
-		}
-	}
-	logger.Errorf("unable to unlock configstore lock: %s", err)
 }

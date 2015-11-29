@@ -31,7 +31,7 @@ type apiEnvironmentSuite struct {
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.client, err = juju.NewAPIClientFromName("")
+	s.client, err = juju.NewAPIClientFromName("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.client, gc.NotNil)
 }
@@ -49,8 +49,8 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
+	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
+	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
 	lastConn, err := envUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)

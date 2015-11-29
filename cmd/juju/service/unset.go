@@ -12,9 +12,13 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// UnsetCommand sets configuration values of a service back
+func newUnsetCommand() cmd.Command {
+	return envcmd.Wrap(&unsetCommand{})
+}
+
+// unsetCommand sets configuration values of a service back
 // to their default.
-type UnsetCommand struct {
+type unsetCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 	Options     []string
@@ -27,7 +31,7 @@ default. See also the set command to set one or more configuration options for
 a specified service.
 `
 
-func (c *UnsetCommand) Info() *cmd.Info {
+func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unset",
 		Args:    "<service> name ...",
@@ -36,7 +40,7 @@ func (c *UnsetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UnsetCommand) Init(args []string) error {
+func (c *unsetCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}
@@ -55,7 +59,7 @@ type UnsetServiceAPI interface {
 	ServiceUnset(service string, options []string) error
 }
 
-func (c *UnsetCommand) getAPI() (UnsetServiceAPI, error) {
+func (c *unsetCommand) getAPI() (UnsetServiceAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -63,7 +67,7 @@ func (c *UnsetCommand) getAPI() (UnsetServiceAPI, error) {
 }
 
 // Run resets the configuration of a service.
-func (c *UnsetCommand) Run(ctx *cmd.Context) error {
+func (c *unsetCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
 		return err

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.cloudinit.sshinit")

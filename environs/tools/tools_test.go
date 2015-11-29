@@ -30,7 +30,7 @@ type SimpleStreamsToolsSuite struct {
 	env environs.Environ
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
-	origCurrentVersion version.Binary
+	origCurrentVersion version.Number
 	customToolsDir     string
 	publicToolsDir     string
 }
@@ -159,7 +159,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		stream := envtools.PreferredStream(&version.Current.Number, s.env.Config().Development(), s.env.Config().AgentStream())
+		stream := envtools.PreferredStream(&version.Current, s.env.Config().Development(), s.env.Config().AgentStream())
 		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -313,8 +313,7 @@ var preferredStreamTests = []struct {
 func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
-		origVers := version.Current
-		version.Current.Number = version.MustParse(test.currentVers)
+		s.PatchValue(&version.Current, version.MustParse(test.currentVers))
 		var vers *version.Number
 		if test.explicitVers != "" {
 			v := version.MustParse(test.explicitVers)
@@ -322,7 +321,6 @@ func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 		}
 		obtained := envtools.PreferredStream(vers, test.forceDevel, test.streamInConfig)
 		c.Check(obtained, gc.Equals, test.expected)
-		version.Current = origVers
 	}
 }
 

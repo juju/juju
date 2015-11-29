@@ -4,14 +4,11 @@
 package context_test
 
 import (
-	"os"
-	"runtime"
-	"syscall"
+	"errors"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -275,46 +272,72 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
 }
 
-func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
-	command := exec.RunParams{
-		Commands: "trap 'exit 0' SIGTERM; while true;do sleep 1;done",
-	}
-	err := command.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	p := command.Process()
-	s.AddCleanup(func(c *gc.C) { p.Kill() })
-	return p
-}
-
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Cannot send sigterm on windows")
-	}
-	ctx := context.HookContext{}
-	p := s.startProcess(c)
+	var killed bool
+	p := &mockProcess{func() error {
+		killed = true
+		return nil
+	}}
+	ctx := s.GetContext(c, -1, "").(*context.HookContext)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Signal(syscall.SIGTERM)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(killed, jc.IsFalse)
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
 }
 
 func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
-	ctx := context.HookContext{}
-	p := s.startProcess(c)
+	ctx := s.GetContext(c, -1, "").(*context.HookContext)
+
+	var stub testing.Stub
+	var p *mockProcess
+	p = &mockProcess{func() error {
+		// Reboot priority should be set before the process
+		// is killed, or else the client waiting for the
+		// process to exit will race with the setting of
+		// the priority.
+		priority := ctx.GetRebootPriority()
+		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		return stub.NextErr()
+	}}
+	stub.SetErrors(errors.New("process is already dead"))
 	ctx.SetProcess(p)
-	go func() {
-		_, err := p.Wait()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
+
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Everything went well, so priority should still be RebootNow.
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+}
+
+func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
+	ctx := s.GetContext(c, -1, "").(*context.HookContext)
+
+	var advanced bool
+	var p *mockProcess
+	p = &mockProcess{func() error {
+		// Reboot priority should be set before the process
+		// is killed, or else the client waiting for the
+		// process to exit will race with the setting of
+		// the priority.
+		priority := ctx.GetRebootPriority()
+		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		if !advanced {
+			advanced = true
+			s.clock.Advance(time.Hour) // force timeout
+		}
+		return nil
+	}}
+	ctx.SetProcess(p)
+
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, gc.ErrorMatches, "failed to kill context process 123")
+
+	// RequestReboot failed, so priority should revert to RebootSkip.
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootSkip)
 }
 
 func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
@@ -387,4 +410,16 @@ func assertStorageAddInContext(c *gc.C,
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])
 	}
+}
+
+type mockProcess struct {
+	kill func() error
+}
+
+func (p *mockProcess) Kill() error {
+	return p.kill()
+}
+
+func (p *mockProcess) Pid() int {
+	return 123
 }

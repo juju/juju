@@ -4,11 +4,14 @@
 package sender_test
 
 import (
+	"net/url"
+
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/httprequest"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/worker"
@@ -80,6 +83,8 @@ func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
 	return worker
 }
 
+var _ base.APICaller = (*stubAPICaller)(nil)
+
 type stubAPICaller struct {
 	*testing.Stub
 }
@@ -97,4 +102,12 @@ func (s *stubAPICaller) BestFacadeVersion(facade string) int {
 func (s *stubAPICaller) EnvironTag() (names.EnvironTag, error) {
 	s.MethodCall(s, "EnvironTag")
 	return names.NewEnvironTag("foobar"), nil
+}
+
+func (s *stubAPICaller) ConnectStream(string, url.Values) (base.Stream, error) {
+	panic("should not be called")
+}
+
+func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
+	panic("should not be called")
 }

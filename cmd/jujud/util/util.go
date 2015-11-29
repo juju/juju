@@ -233,7 +233,7 @@ func (c *CloseWorker) Wait() error {
 // they require isolation from hook execution.
 func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
 	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution")
+	return fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 }
 
 // NewRsyslogConfigWorker creates and returns a new

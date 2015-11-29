@@ -77,7 +77,7 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.BaseSuite.PatchValue(&version.Current, testing.FakeVersionNumber)
 	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.BaseSuite.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
 	s.BaseSuite.SetUpTest(c)

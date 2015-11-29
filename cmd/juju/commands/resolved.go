@@ -14,14 +14,18 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// ResolvedCommand marks a unit in an error state as ready to continue.
-type ResolvedCommand struct {
+func newResolvedCommand() cmd.Command {
+	return envcmd.Wrap(&resolvedCommand{})
+}
+
+// resolvedCommand marks a unit in an error state as ready to continue.
+type resolvedCommand struct {
 	envcmd.EnvCommandBase
 	UnitName string
 	Retry    bool
 }
 
-func (c *ResolvedCommand) Info() *cmd.Info {
+func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
 		Args:    "<unit>",
@@ -29,12 +33,12 @@ func (c *ResolvedCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Retry, "r", false, "re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
 
-func (c *ResolvedCommand) Init(args []string) error {
+func (c *resolvedCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsValidUnit(c.UnitName) {
@@ -47,7 +51,7 @@ func (c *ResolvedCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *ResolvedCommand) Run(_ *cmd.Context) error {
+func (c *resolvedCommand) Run(_ *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

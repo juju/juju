@@ -12,6 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
@@ -121,7 +123,7 @@ func closeChannel(ch chan struct{}) {
 func (u *Upgrader) loop() error {
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the state server in communicating the desired version below).
-	if err := u.st.SetVersion(u.tag.String(), version.Current); err != nil {
+	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(version.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
@@ -157,10 +159,10 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion == version.Current.Number {
+		if wantVersion == version.Current {
 			closeChannel(u.agentUpgradeComplete)
 			continue
-		} else if !allowedTargetVersion(u.origAgentVersion, version.Current.Number,
+		} else if !allowedTargetVersion(u.origAgentVersion, version.Current,
 			u.areUpgradeStepsRunning(), wantVersion) {
 			// See also bug #1299802 where when upgrading from
 			// 1.16 to 1.18 there is a race condition that can
@@ -201,8 +203,11 @@ func (u *Upgrader) loop() error {
 }
 
 func toBinaryVersion(vers version.Number) version.Binary {
-	outVers := version.Current
-	outVers.Number = vers
+	outVers := version.Binary{
+		Number: vers,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	return outVers
 }
 
@@ -213,7 +218,7 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 
 func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		OldTools:  version.Current,
+		OldTools:  toBinaryVersion(version.Current),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

@@ -6,9 +6,9 @@ package envcmd_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func Test(t *testing.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }

@@ -4,18 +4,40 @@
 package authentication_test
 
 import (
+	"net/http"
+
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
+var logger = loggo.GetLogger("juju.apiserver.authentication")
+
 type userAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
+}
+
+type entityFinder struct {
+	entity state.Entity
+}
+
+func (f entityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	return f.entity, nil
 }
 
 var _ = gc.Suite(&userAuthenticatorSuite{})
@@ -36,7 +58,10 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.UserAuthenticator{}
-	err = authenticator.Authenticate(machine, machinePassword, nonce)
+	_, err = authenticator.Authenticate(nil, machine.Tag(), params.LoginRequest{
+		Credentials: machinePassword,
+		Nonce:       nonce,
+	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
 
@@ -53,7 +78,10 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.UserAuthenticator{}
-	err = authenticator.Authenticate(unit, unitPassword, "")
+	_, err = authenticator.Authenticate(nil, unit.Tag(), params.LoginRequest{
+		Credentials: unitPassword,
+		Nonce:       "",
+	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
 
@@ -66,7 +94,10 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	err := authenticator.Authenticate(user, "password", "")
+	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+		Credentials: "password",
+		Nonce:       "",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -79,7 +110,10 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	err := authenticator.Authenticate(user, "wrongpassword", "")
+	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+		Credentials: "wrongpassword",
+		Nonce:       "",
+	})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 }
@@ -98,7 +132,150 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.UserAuthenticator{}
-	err = authenticator.Authenticate(relation, "dummy-secret", "")
+	_, err = authenticator.Authenticate(nil, relation.Tag(), params.LoginRequest{
+		Credentials: "dummy-secret",
+		Nonce:       "",
+	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 
+}
+
+type macaroonAuthenticatorSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+	// username holds the username that will be
+	// declared in the discharger's caveats.
+	username string
+}
+
+var _ = gc.Suite(&macaroonAuthenticatorSuite{})
+
+func (s *macaroonAuthenticatorSuite) SetUpTest(c *gc.C) {
+	s.discharger = bakerytest.NewDischarger(nil, s.Checker)
+}
+
+func (s *macaroonAuthenticatorSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+}
+
+func (s *macaroonAuthenticatorSuite) Checker(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+	return []checkers.Caveat{checkers.DeclaredCaveat("username", s.username)}, nil
+}
+
+var authenticateSuccessTests = []struct {
+	about              string
+	dischargedUsername string
+	finder             authentication.EntityFinder
+	expectTag          string
+	expectError        string
+}{{
+	about:              "user that can be found",
+	dischargedUsername: "bobbrown@somewhere",
+	expectTag:          "user-bobbrown@somewhere",
+	finder: simpleEntityFinder{
+		"user-bobbrown@somewhere": true,
+	},
+}, {
+	about:              "user with no @ domain",
+	dischargedUsername: "bobbrown",
+	finder: simpleEntityFinder{
+		"user-bobbrown@external": true,
+	},
+	expectTag: "user-bobbrown@external",
+}, {
+	about:              "user not found in database",
+	dischargedUsername: "bobbrown@nowhere",
+	finder:             simpleEntityFinder{},
+	expectError:        "invalid entity name or password",
+}, {
+	about:              "invalid user name",
+	dischargedUsername: "--",
+	finder:             simpleEntityFinder{},
+	expectError:        `"--" is an invalid user name`,
+}, {
+	about:              "ostensibly local name",
+	dischargedUsername: "cheat@local",
+	finder: simpleEntityFinder{
+		"cheat@local": true,
+	},
+	expectError: `external identity provider has provided ostensibly local name "cheat@local"`,
+}, {
+	about:              "FindEntity error",
+	dischargedUsername: "bobbrown@nowhere",
+	finder:             errorEntityFinder("lost in space"),
+	expectError:        "lost in space",
+}}
+
+func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
+	for i, test := range authenticateSuccessTests {
+		c.Logf("\ntest %d; %s", i, test.about)
+		s.username = test.dischargedUsername
+
+		svc, err := bakery.NewService(bakery.NewServiceParams{
+			Locator: s.discharger,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		mac, err := svc.NewMacaroon("", nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		authenticator := &authentication.MacaroonAuthenticator{
+			Service:          svc,
+			IdentityLocation: s.discharger.Location(),
+			Macaroon:         mac,
+		}
+
+		// Authenticate once to obtain the macaroon to be discharged.
+		_, err = authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+			Credentials: "",
+			Nonce:       "",
+			Macaroons:   nil,
+		})
+
+		// Discharge the macaroon.
+		dischargeErr := errors.Cause(err).(*common.DischargeRequiredError)
+		client := httpbakery.NewClient()
+		ms, err := client.DischargeAll(dischargeErr.Macaroon)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Authenticate again with the discharged macaroon.
+		entity, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+			Credentials: "",
+			Nonce:       "",
+			Macaroons:   []macaroon.Slice{ms},
+		})
+		if test.expectError != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectError)
+			c.Assert(entity, gc.Equals, nil)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(entity.Tag().String(), gc.Equals, test.expectTag)
+		}
+	}
+}
+
+type errorEntityFinder string
+
+func (f errorEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	return nil, errors.New(string(f))
+}
+
+type simpleEntityFinder map[string]bool
+
+func (f simpleEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	if utag, ok := tag.(names.UserTag); ok {
+		// It's a user tag which we need to be in canonical form
+		// so we can look it up unambiguously.
+		tag = names.NewUserTag(utag.Canonical())
+	}
+	if f[tag.String()] {
+		return &simpleEntity{tag}, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type simpleEntity struct {
+	tag names.Tag
+}
+
+func (e *simpleEntity) Tag() names.Tag {
+	return e.tag
 }

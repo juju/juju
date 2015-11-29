@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -109,13 +108,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(envcmd.Wrap(service.NewAddUnitCommand(s.fake)), t.args)
+		err := testing.InitCommand(service.NewAddUnitCommand(s.fake), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(service.NewAddUnitCommand(s.fake)), args...)
+	_, err := testing.RunCommand(c, service.NewAddUnitCommand(s.fake), args...)
 	return err
 }
 
@@ -166,7 +165,7 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockAddUnit")
+	s.fake.err = common.OperationBlockedError("TestBlockAddUnit")
 	s.runAddUnit(c, "some-service-name")
 
 	// msg is logged

@@ -17,6 +17,11 @@ type actionsResolver struct{}
 
 // NewResolver returns a new resolver with determines which action related operation
 // should be run based on local and remote uniter states.
+//
+// TODO(axw) 2015-10-27 #1510333
+// Use the same method as in the runcommands resolver
+// for updating the remote state snapshot when an
+// action is completed.
 func NewResolver() resolver.Resolver {
 	return &actionsResolver{}
 }

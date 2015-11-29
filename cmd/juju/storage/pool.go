@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 const poolCmdDoc = `
@@ -18,17 +17,17 @@ const poolCmdDoc = `
 
 const poolCmdPurpose = "manage storage pools"
 
-// NewPoolSuperCommand creates the storage pool super subcommand and
+// newPoolSuperCommand creates the storage pool super subcommand and
 // registers the subcommands that it supports.
-func NewPoolSuperCommand() cmd.Command {
+func newPoolSuperCommand() cmd.Command {
 	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
 		Name:        "pool",
 		Doc:         poolCmdDoc,
 		UsagePrefix: "juju storage",
 		Purpose:     poolCmdPurpose,
 	})
-	poolcmd.Register(envcmd.Wrap(&PoolListCommand{}))
-	poolcmd.Register(envcmd.Wrap(&PoolCreateCommand{}))
+	poolcmd.Register(newPoolListCommand())
+	poolcmd.Register(newPoolCreateCommand())
 	return poolcmd
 }
 

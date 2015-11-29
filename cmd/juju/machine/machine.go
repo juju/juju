@@ -6,8 +6,6 @@ package machine
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.machine")
@@ -27,7 +25,7 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     machineCommandPurpose,
 	})
-	machineCmd.Register(envcmd.Wrap(&AddCommand{}))
-	machineCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	machineCmd.Register(newAddCommand())
+	machineCmd.Register(newRemoveCommand())
 	return machineCmd
 }

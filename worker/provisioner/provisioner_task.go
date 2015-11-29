@@ -71,41 +71,49 @@ func NewProvisionerTask(
 	auth authentication.AuthenticationProvider,
 	imageStream string,
 	secureServerConnection bool,
+	retryStartInstanceStrategy RetryStrategy,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:             machineTag,
-		machineGetter:          machineGetter,
-		toolsFinder:            toolsFinder,
-		machineWatcher:         machineWatcher,
-		retryWatcher:           retryWatcher,
-		broker:                 broker,
-		auth:                   auth,
-		harvestMode:            harvestMode,
-		harvestModeChan:        make(chan config.HarvestMode, 1),
-		machines:               make(map[string]*apiprovisioner.Machine),
-		imageStream:            imageStream,
-		secureServerConnection: secureServerConnection,
+		machineTag:                 machineTag,
+		machineGetter:              machineGetter,
+		toolsFinder:                toolsFinder,
+		machineWatcher:             machineWatcher,
+		retryWatcher:               retryWatcher,
+		broker:                     broker,
+		auth:                       auth,
+		harvestMode:                harvestMode,
+		harvestModeChan:            make(chan config.HarvestMode, 1),
+		machines:                   make(map[string]*apiprovisioner.Machine),
+		imageStream:                imageStream,
+		secureServerConnection:     secureServerConnection,
+		retryStartInstanceStrategy: retryStartInstanceStrategy,
 	}
 	go func() {
 		defer task.tomb.Done()
-		task.tomb.Kill(task.loop())
+		err := task.loop()
+		switch cause := errors.Cause(err); cause {
+		case tomb.ErrDying:
+			err = cause
+		}
+		task.tomb.Kill(err)
 	}()
 	return task
 }
 
 type provisionerTask struct {
-	machineTag             names.MachineTag
-	machineGetter          MachineGetter
-	toolsFinder            ToolsFinder
-	machineWatcher         apiwatcher.StringsWatcher
-	retryWatcher           apiwatcher.NotifyWatcher
-	broker                 environs.InstanceBroker
-	tomb                   tomb.Tomb
-	auth                   authentication.AuthenticationProvider
-	imageStream            string
-	secureServerConnection bool
-	harvestMode            config.HarvestMode
-	harvestModeChan        chan config.HarvestMode
+	machineTag                 names.MachineTag
+	machineGetter              MachineGetter
+	toolsFinder                ToolsFinder
+	machineWatcher             apiwatcher.StringsWatcher
+	retryWatcher               apiwatcher.NotifyWatcher
+	broker                     environs.InstanceBroker
+	tomb                       tomb.Tomb
+	auth                       authentication.AuthenticationProvider
+	imageStream                string
+	secureServerConnection     bool
+	harvestMode                config.HarvestMode
+	harvestModeChan            chan config.HarvestMode
+	retryStartInstanceStrategy RetryStrategy
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
@@ -616,7 +624,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current.Number,
+			version.Current,
 			pInfo.Series,
 			arch,
 		)
@@ -689,18 +697,31 @@ func (task *provisionerTask) startMachine(
 
 	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
-		// If this is a retryable error, we retry once
-		if instance.IsRetryableCreationError(errors.Cause(err)) {
-			logger.Infof("retryable error received on start instance - retrying instance creation")
-			result, err = task.broker.StartInstance(startInstanceParams)
-			if err != nil {
-				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
-			}
-		} else {
+		if !instance.IsRetryableCreationError(errors.Cause(err)) {
 			// Set the state to error, so the machine will be skipped next
 			// time until the error is resolved, but don't return an
 			// error; just keep going with the other machines.
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		}
+		logger.Infof("retryable error received on start instance: %v", err)
+		for count := task.retryStartInstanceStrategy.retryCount; count > 0; count-- {
+			if task.retryStartInstanceStrategy.retryDelay > 0 {
+				select {
+				case <-task.tomb.Dying():
+					return tomb.ErrDying
+				case <-time.After(task.retryStartInstanceStrategy.retryDelay):
+				}
+
+			}
+			result, err = task.broker.StartInstance(startInstanceParams)
+			if err == nil {
+				break
+			}
+			// If this was the last attempt and an error was received, set the error
+			// status on the machine.
+			if count == 1 {
+				return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+			}
 		}
 	}
 

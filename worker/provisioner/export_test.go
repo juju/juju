@@ -44,6 +44,8 @@ var (
 	MaybeOverrideDefaultLXCNet = maybeOverrideDefaultLXCNet
 	EtcDefaultLXCNetPath       = &etcDefaultLXCNetPath
 	EtcDefaultLXCNet           = etcDefaultLXCNet
+	RetryStrategyDelay         = &retryStrategyDelay
+	RetryStrategyCount         = &retryStrategyCount
 )
 
 const (

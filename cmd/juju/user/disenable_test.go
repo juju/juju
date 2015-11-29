@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -30,7 +29,7 @@ type disenableCommand interface {
 	Username() string
 }
 
-func (s *DisableUserSuite) testInit(c *gc.C, command disenableCommand) {
+func (s *DisableUserSuite) testInit(c *gc.C, wrappedCommand cmd.Command, command *user.DisenableUserBase) {
 	for i, test := range []struct {
 		args     []string
 		errMatch string
@@ -48,10 +47,10 @@ func (s *DisableUserSuite) testInit(c *gc.C, command disenableCommand) {
 		},
 	} {
 		c.Logf("test %d, args %v", i, test.args)
-		err := testing.InitCommand(command, test.args)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(command.Username(), gc.Equals, test.user)
+			c.Assert(command.User, gc.Equals, test.user)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -59,13 +58,15 @@ func (s *DisableUserSuite) testInit(c *gc.C, command disenableCommand) {
 }
 
 func (s *DisableUserSuite) TestInit(c *gc.C) {
-	s.testInit(c, &user.EnableCommand{})
-	s.testInit(c, &user.DisableCommand{})
+	wrappedCommand, command := user.NewEnableCommand(nil)
+	s.testInit(c, wrappedCommand, command)
+	wrappedCommand, command = user.NewDisableCommand(nil)
+	s.testInit(c, wrappedCommand, command)
 }
 
 func (s *DisableUserSuite) TestDisable(c *gc.C) {
 	username := "testing"
-	disableCommand := envcmd.WrapSystem(user.NewDisableCommand(s.mock))
+	disableCommand, _ := user.NewDisableCommand(s.mock)
 	_, err := testing.RunCommand(c, disableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.disable, gc.Equals, username)
@@ -73,7 +74,7 @@ func (s *DisableUserSuite) TestDisable(c *gc.C) {
 
 func (s *DisableUserSuite) TestEnable(c *gc.C) {
 	username := "testing"
-	enableCommand := envcmd.WrapSystem(user.NewEnableCommand(s.mock))
+	enableCommand, _ := user.NewEnableCommand(s.mock)
 	_, err := testing.RunCommand(c, enableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.enable, gc.Equals, username)
@@ -83,8 +84,6 @@ type mockDisenableUserAPI struct {
 	enable  string
 	disable string
 }
-
-var _ user.DisenableUserAPI = (*mockDisenableUserAPI)(nil)
 
 func (m *mockDisenableUserAPI) Close() error {
 	return nil

@@ -14,7 +14,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -30,10 +29,6 @@ func (s *volumeListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockVolumeListAPI{}
-	s.PatchValue(storage.GetVolumeListAPI,
-		func(c *storage.VolumeListCommand) (storage.VolumeListAPI, error) {
-			return s.mockAPI, nil
-		})
 }
 
 func (s *volumeListSuite) TestVolumeListEmpty(c *gc.C) {
@@ -51,7 +46,7 @@ func (s *volumeListSuite) TestVolumeListError(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsResult, error) {
 		return nil, errors.New("just my luck")
 	}
-	context, err := runVolumeList(c, "--format", "yaml")
+	context, err := s.runVolumeList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
 	s.assertUserFacingOutput(c, context, "", "")
 }
@@ -134,7 +129,7 @@ func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
 }
 
 func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
-	context, err := runVolumeList(c, args...)
+	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var result struct {
@@ -168,14 +163,14 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]storage.
 }
 
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut string) {
-	context, err := runVolumeList(c, args...)
+	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 
-func runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *volumeListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		envcmd.Wrap(&storage.VolumeListCommand{}),
+		storage.NewVolumeListCommand(s.mockAPI),
 		args...)
 }
 

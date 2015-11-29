@@ -34,17 +34,15 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func defineNextVersion() version.Number {
-	ver := version.Current.Number
+func nextVersion() version.Number {
+	ver := version.Current
 	ver.Patch++
 	return ver
 }
 
-var nextVersion = defineNextVersion()
-
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
-	code = cmd.Main(envcmd.Wrap(&StatusCommand{}), ctx, args)
+	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	return
@@ -2307,7 +2305,7 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"environment-status": M{
-					"upgrade-available": nextVersion.String(),
+					"upgrade-available": nextVersion().String(),
 				},
 				"machines": M{},
 				"services": M{},
@@ -2414,6 +2412,23 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	ctx.pingers[m.Id()] = pinger
 }
 
+type startMachineWithHardware struct {
+	machineId string
+	hc        instance.HardwareCharacteristics
+}
+
+func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	pinger := ctx.setAgentPresence(c, m)
+	cons, err := m.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.pingers[m.Id()] = pinger
+}
+
 type setAddresses struct {
 	machineId string
 	addresses []network.Address
@@ -2488,7 +2503,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks, nil)
+	svc, err := ctx.st.AddService(state.AddServiceArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch, Networks: as.networks})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
@@ -2821,7 +2836,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion)
+	err = env.UpdateLatestToolsVersion(nextVersion())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2924,7 +2939,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 		Networks: map[string]params.NetworkStatus{},
 		// Relations field intentionally not set
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 
@@ -3146,7 +3161,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setToolsUpgradeAvailable{},
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
-		startAliveMachine{"0"},
+		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
@@ -3221,13 +3236,13 @@ wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns
   logging/0 active         idle                              dummyenv-1.dns                                
 
 [Machines] 
-ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         
-0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
-1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
-2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
+ID         STATE   DNS            INS-ID     SERIES  AZ         
+0          started dummyenv-0.dns dummyenv-0 quantal us-east-1a 
+1          started dummyenv-1.dns dummyenv-1 quantal            
+2          started dummyenv-2.dns dummyenv-2 quantal            
 
 `
-	nextVersionStr := nextVersion.String()
+	nextVersionStr := nextVersion().String()
 	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
 	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
 }
@@ -3283,7 +3298,7 @@ foo/0   maintenance    executing                                        (config-
 foo/1   maintenance    executing                                        (backup database) doing some work 
 
 [Machines] 
-ID         STATE VERSION DNS INS-ID SERIES HARDWARE 
+ID         STATE DNS INS-ID SERIES AZ 
 `[1:])
 }
 
@@ -3306,7 +3321,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
 		return nil, nil
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 
@@ -3612,8 +3627,8 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	// Test should not panic.
 }
 
-func initStatusCommand(args ...string) (*StatusCommand, error) {
-	com := &StatusCommand{}
+func initStatusCommand(args ...string) (*statusCommand, error) {
+	com := &statusCommand{}
 	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 

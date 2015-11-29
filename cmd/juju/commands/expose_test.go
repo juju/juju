@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -29,7 +28,7 @@ func (s *ExposeSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ExposeSuite{})
 
 func runExpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&ExposeCommand{}), args...)
+	_, err := testing.RunCommand(c, newExposeCommand(), args...)
 	return err
 }
 
