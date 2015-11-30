@@ -62,7 +62,7 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 var unsupportedConstraints = []string{
 	constraints.CpuCores,
 	constraints.CpuPower,
-	//constraints.Mem,
+	//TODO(ericsnow) Add constraints.Mem as unsupported?
 	constraints.InstanceType,
 	constraints.Tags,
 }
@@ -72,15 +72,15 @@ var unsupportedConstraints = []string{
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
-	// conflicts
+	// Register conflicts.
 
-	//validator.RegisterConflicts(...)
+	// We don't have any conflicts to register.
 
-	// unsupported
+	// Register unsupported constraints.
 
 	validator.RegisterUnsupported(unsupportedConstraints)
 
-	// vocab
+	// Register the constraints vocab.
 
 	// TODO(ericsnow) This depends on the targetted remote host.
 	supportedArches, err := env.SupportedArchitectures()

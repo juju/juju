@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
@@ -42,6 +43,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
+
+const (
+	retryTimeMin    = 5 * time.Second
+	retryTimeMax    = 5 * time.Minute
+	retryTimeJitter = true
+	retryTimeFactor = 2
+)
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -188,6 +196,32 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	retryHookChan := make(chan struct{}, 1)
+
+	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
+		Min:    retryTimeMin,
+		Max:    retryTimeMax,
+		Jitter: retryTimeJitter,
+		Factor: retryTimeFactor,
+		Func: func() {
+			// Don't try to send on the channel if it's already full
+			// This can happen if the timer fires off before the event is consumed
+			// by the resolver loop
+			select {
+			case retryHookChan <- struct{}{}:
+			default:
+			}
+		},
+		Clock: u.clock,
+	})
+	u.addCleanup(func() error {
+		// Stop any send that might be pending
+		// before closing the channel
+		retryHookTimer.Reset()
+		close(retryHookChan)
+		return nil
+	})
+
 	restartWatcher := func() error {
 		watcherMu.Lock()
 		defer watcherMu.Unlock()
@@ -205,6 +239,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UnitTag:             unitTag,
 				UpdateStatusChannel: u.updateStatusAt,
 				CommandChannel:      u.commandChannel,
+				RetryHookChannel:    retryHookChan,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -258,13 +293,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		uniterResolver := NewUniterResolver(ResolverConfig{
-			ClearResolved:   clearResolved,
-			ReportHookError: u.reportHookError,
-			FixDeployer:     u.deployer.Fix,
-			Actions:         actions.NewResolver(),
-			Leadership:      uniterleadership.NewResolver(),
-			Relations:       relation.NewRelationsResolver(u.relations),
-			Storage:         storage.NewResolver(u.storage),
+			ClearResolved:       clearResolved,
+			ReportHookError:     u.reportHookError,
+			FixDeployer:         u.deployer.Fix,
+			StartRetryHookTimer: retryHookTimer.Start,
+			StopRetryHookTimer:  retryHookTimer.Reset,
+			Actions:             actions.NewResolver(),
+			Leadership:          uniterleadership.NewResolver(),
+			Relations:           relation.NewRelationsResolver(u.relations),
+			Storage:             storage.NewResolver(u.storage),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),

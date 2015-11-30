@@ -4,6 +4,7 @@
 package remotestate_test
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/names"
@@ -406,7 +407,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	delete(s.st.storageAttachment, storageAttachmentId0)
 	storageTag0Watcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-	c.Assert(storageTag0Watcher.stopped, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&storageTag0Watcher.stopped) > 0, jc.IsTrue)
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
@@ -468,7 +469,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Relations, gc.HasLen, 0)
-	c.Assert(s.st.relationUnitsWatchers[relationTag].stopped, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&s.st.relationUnitsWatchers[relationTag].stopped) > 0, jc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {

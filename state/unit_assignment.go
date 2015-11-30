@@ -12,10 +12,10 @@ type assignUnitDoc struct {
 	DocId string `bson:"_id"`
 
 	// Scope is the placement scope to apply to the unit.
-	Scope string `bson:"scope`
+	Scope string `bson:"scope"`
 
 	// Directive is the placement directive to apply to the unit.
-	Directive string `bson:"scope`
+	Directive string `bson:"directive"`
 }
 
 // UnitAssignment represents a staged unit assignment.

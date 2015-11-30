@@ -4,6 +4,8 @@
 package envworkermanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -21,15 +23,12 @@ var logger = loggo.GetLogger("juju.worker.envworkermanager")
 // needs to run on a per environment basis. It takes a function which will
 // be called to start a worker for a new environment. This worker
 // will be killed when an environment goes away.
-func NewEnvWorkerManager(
-	st InitialState,
-	startEnvWorker func(InitialState, *state.State) (worker.Worker, error),
-) worker.Worker {
+func NewEnvWorkerManager(st InitialState, fn func(InitialState, *state.State) (worker.Worker, error), delay time.Duration) worker.Worker {
 	m := &envWorkerManager{
 		st:             st,
-		startEnvWorker: startEnvWorker,
+		startEnvWorker: fn,
 	}
-	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, delay)
 	go func() {
 		defer m.tomb.Done()
 		m.tomb.Kill(m.loop())

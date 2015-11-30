@@ -99,7 +99,7 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) 
 	}
 
 	query := qURL.Query()
-	query.Set("charm", cURL)
+	query.Set("charm-url", cURL)
 	qURL.RawQuery = query.Encode()
 
 	req, err := http.NewRequest("GET", qURL.String(), nil)
