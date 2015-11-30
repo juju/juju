@@ -78,7 +78,7 @@ func (t *Tests) TearDownTest(c *gc.C) {
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = e.SetConfig(cfg)

@@ -103,7 +103,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 				return errors.Trace(err)
 			}
 		} else {
-			upgradesLogger.Infof("user '%s' already added to environment", uTag.Username())
+			upgradesLogger.Infof("user '%s' already added to environment", uTag.Canonical())
 		}
 
 	}
@@ -684,15 +684,14 @@ func AddPreferredAddressesToMachines(st *State) error {
 		}
 		// Setting the addresses is enough to trigger setting the preferred
 		// addresses.
-		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -813,7 +812,7 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
 			{"server-uuid", env.UUID()},
-			{"owner", owner.Username()},
+			{"owner", owner.Canonical()},
 		}}},
 	}}
 	return st.runRawTransaction(ops)

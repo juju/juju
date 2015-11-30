@@ -66,7 +66,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 }
 
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
-	cs.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	cs.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
@@ -185,11 +185,11 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
-	apiclient, err := juju.NewAPIClientFromName("")
+	apiclient, err := juju.NewAPIClientFromName("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
@@ -201,9 +201,9 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	envName := coretesting.SampleCertName + "-2"
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, envName, defaultConfigStore(c))
-	apiclient, err := juju.NewAPIClientFromName(envName)
+	apiclient, err := juju.NewAPIClientFromName(envName, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	assertEnvironmentName(c, apiclient, envName)
@@ -248,7 +248,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Skip("not really possible now that there is no defined admin user")
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -520,7 +520,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -606,7 +606,7 @@ func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName s
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := configstore.NewMem()
@@ -677,7 +677,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -702,7 +702,7 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -723,7 +723,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	// We want to make sure that the code is using the bootstrap
 	// config rather than information from environments.yaml,
 	// even when there is an entry in environments.yaml
@@ -1299,10 +1299,6 @@ type EnvironInfoTest struct {
 
 var _ = gc.Suite(&EnvironInfoTest{})
 
-func (*EnvironInfoTest) TestNullInfo(c *gc.C) {
-	c.Assert(juju.EnvironInfoUserTag(nil), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
-}
-
 type fakeEnvironInfo struct {
 	configstore.EnvironInfo
 	user string
@@ -1310,11 +1306,6 @@ type fakeEnvironInfo struct {
 
 func (fake *fakeEnvironInfo) APICredentials() configstore.APICredentials {
 	return configstore.APICredentials{User: fake.user}
-}
-
-func (*EnvironInfoTest) TestEmptyUser(c *gc.C) {
-	info := &fakeEnvironInfo{}
-	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
 }
 
 func (*EnvironInfoTest) TestRealUser(c *gc.C) {

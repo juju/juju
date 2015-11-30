@@ -234,14 +234,12 @@ type fakeDebugLogSocket struct {
 	writes chan string
 }
 
-func (s *fakeDebugLogSocket) sendOk() error {
+func (s *fakeDebugLogSocket) sendOk() {
 	s.writes <- "ok"
-	return nil
 }
 
-func (s *fakeDebugLogSocket) sendError(err error) error {
+func (s *fakeDebugLogSocket) sendError(err error) {
 	s.writes <- fmt.Sprintf("err: %v", err)
-	return nil
 }
 
 func (s *fakeDebugLogSocket) Write(buf []byte) (int, error) {

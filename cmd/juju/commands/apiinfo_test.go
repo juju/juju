@@ -98,8 +98,9 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 		},
 	} {
 		c.Logf("test %v: %s", i, test.message)
-		command := &APIInfoCommand{}
-		err := testing.InitCommand(envcmd.Wrap(command), test.args)
+		command := &apiInfoCommand{}
+		wrappedCommand := envcmd.Wrap(command)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.refresh, gc.Equals, test.refresh)
@@ -212,8 +213,8 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 		},
 	} {
 		c.Logf("test %v: %v", i, test.args)
-		command := &APIInfoCommand{}
-		ctx, err := testing.RunCommand(c, envcmd.Wrap(command), test.args...)
+		command := newAPIInfoCommand()
+		ctx, err := testing.RunCommand(c, command, test.args...)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(testing.Stdout(ctx), gc.Equals, test.output)
@@ -245,8 +246,8 @@ func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
 		"- localhost:12345\n" +
 		"- 10.0.3.1:12345\n" +
 		"ca-cert: this is the cacert\n"
-	command := &APIInfoCommand{}
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(command))
+	command := newAPIInfoCommand()
+	ctx, err := testing.RunCommand(c, command)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(ctx), gc.Equals, expected)
 }
@@ -258,8 +259,8 @@ func (s *APIInfoSuite) TestEndpointError(c *gc.C) {
 	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{}, nil
 	})
-	command := &APIInfoCommand{}
-	_, err := testing.RunCommand(c, envcmd.Wrap(command))
+	command := newAPIInfoCommand()
+	_, err := testing.RunCommand(c, command)
 	c.Assert(err, gc.ErrorMatches, "oops, no endpoint")
 }
 
@@ -270,13 +271,13 @@ func (s *APIInfoSuite) TestCredentialsError(c *gc.C) {
 	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{}, fmt.Errorf("oops, no creds")
 	})
-	command := &APIInfoCommand{}
-	_, err := testing.RunCommand(c, envcmd.Wrap(command))
+	command := newAPIInfoCommand()
+	_, err := testing.RunCommand(c, command)
 	c.Assert(err, gc.ErrorMatches, "oops, no creds")
 }
 
 func (s *APIInfoSuite) TestNoEnvironment(c *gc.C) {
-	command := &APIInfoCommand{}
-	_, err := testing.RunCommand(c, envcmd.Wrap(command))
+	command := newAPIInfoCommand()
+	_, err := testing.RunCommand(c, command)
 	c.Assert(err, gc.ErrorMatches, `environment "erewhemos" not found`)
 }

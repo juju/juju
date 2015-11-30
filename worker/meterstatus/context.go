@@ -6,8 +6,9 @@ package meterstatus
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -60,7 +61,7 @@ func (ctx *limitedContext) UnitName() string {
 }
 
 // SetProcess implements runner.Context.
-func (ctx *limitedContext) SetProcess(process *os.Process) {}
+func (ctx *limitedContext) SetProcess(process context.HookProcess) {}
 
 // ActionData implements runner.Context.
 func (ctx *limitedContext) ActionData() (*context.ActionData, error) {
@@ -84,4 +85,9 @@ func (ctx *limitedContext) Id() string { return ctx.id }
 // Prepare implements runner.Context.
 func (ctx *limitedContext) Prepare() error {
 	return jujuc.ErrRestrictedContext
+}
+
+// Component implements runner.Context.
+func (ctx *limitedContext) Component(name string) (jujuc.ContextComponent, error) {
+	return nil, errors.NotFoundf("context component %q", name)
 }

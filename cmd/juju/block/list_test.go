@@ -21,7 +21,7 @@ type listCommandSuite struct {
 func (s *listCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
-	s.PatchValue(block.ListClient, func(p *block.ListCommand) (block.BlockListAPI, error) {
+	s.PatchValue(block.ListClient, func(_ *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 		return s.mockClient, nil
 	})
 }
@@ -29,7 +29,7 @@ func (s *listCommandSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&listCommandSuite{})
 
 func (s *listCommandSuite) TestListEmpty(c *gc.C) {
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}))
+	ctx, err := testing.RunCommand(c, block.NewListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
 destroy-environment  =off
@@ -40,7 +40,7 @@ all-changes          =off
 
 func (s *listCommandSuite) TestList(c *gc.C) {
 	s.mockClient.SwitchBlockOn(string(multiwatcher.BlockRemove), "Test this one")
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}))
+	ctx, err := testing.RunCommand(c, block.NewListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
 destroy-environment  =off
@@ -51,7 +51,7 @@ all-changes          =off
 
 func (s *listCommandSuite) TestListYaml(c *gc.C) {
 	s.mockClient.SwitchBlockOn(string(multiwatcher.BlockRemove), "Test this one")
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}), "--format", "yaml")
+	ctx, err := testing.RunCommand(c, block.NewListCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
 - block: destroy-environment
@@ -66,7 +66,7 @@ func (s *listCommandSuite) TestListYaml(c *gc.C) {
 
 func (s *listCommandSuite) TestListJson(c *gc.C) {
 	s.mockClient.SwitchBlockOn(string(multiwatcher.BlockRemove), "Test this one")
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}), "--format", "json")
+	ctx, err := testing.RunCommand(c, block.NewListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `[{"block":"destroy-environment","enabled":false},{"block":"remove-object","enabled":true,"message":"Test this one"},{"block":"all-changes","enabled":false}]
 `)

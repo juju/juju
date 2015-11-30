@@ -16,9 +16,11 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -60,6 +62,11 @@ import (
 //         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
+	// ConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be
+	// added to the suite's environment configuration.
+	ConfigAttrs map[string]interface{}
+
 	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
@@ -239,8 +246,17 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
 
-	versions := PreferredDefaultVersions(environ.Config(), version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"})
-	versions = append(versions, version.Current)
+	versions := PreferredDefaultVersions(environ.Config(), version.Binary{
+		Number: version.Current,
+		Arch:   "amd64",
+		Series: "precise",
+	})
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	versions = append(versions, current)
 
 	// Upload tools for both preferred and fake default series
 	s.DefaultToolsStorageDir = c.MkDir()
@@ -316,10 +332,18 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 // The preferred series is default-series if specified,
 // otherwise the latest LTS.
 func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
-	preferredVersion := version.Current
-	preferredVersion.Arch = "amd64"
+	preferredVersion := version.Binary{
+		Number: version.Current,
+		Arch:   "amd64",
+		Series: series.HostSeries(),
+	}
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
-	versions = append(versions, version.Current)
+	versions = append(versions, current)
 	s.AddToolsToState(c, versions...)
 }
 
@@ -397,11 +421,11 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 // and the revision number will be incremented before pushing.
 func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := charmrepo.Latest(repo, curl)
+		var err error
+		curl, _, err = repo.Resolve(curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
-		curl = curl.WithRevision(rev)
 	}
 	ch, err := repo.Get(curl)
 	if err != nil {
@@ -476,8 +500,12 @@ func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"admin-secret":  AdminSecret,
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 	}).Delete("name")
+	// Add any custom attributes required.
+	for attr, val := range s.ConfigAttrs {
+		attrs[attr] = val
+	}
 	whole := map[string]interface{}{
 		"environments": map[string]interface{}{
 			"dummyenv": attrs,
@@ -564,7 +592,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
 	repo, err := charmrepo.InferRepository(
-		curl.Reference(),
+		curl,
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
@@ -579,7 +607,7 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, nil, storage)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -587,7 +615,7 @@ func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *s
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Networks: networks})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -601,7 +629,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 		agent.AgentConfigParams{
 			Paths:             paths,
 			Tag:               tag,
-			UpgradedToVersion: version.Current.Number,
+			UpgradedToVersion: version.Current,
 			Password:          password,
 			Nonce:             "nonce",
 			StateAddresses:    s.MongoInfo(c).Addrs,

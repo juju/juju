@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -145,7 +146,12 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
-	err = machine.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -508,7 +514,9 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	// Set a current version that does not match the
 	// agent-version in the environ config.
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
-	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
+	s.PatchValue(&version.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
@@ -612,8 +620,12 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 2)
+
 	// create the error injection channel
-	errorInjectionChannel := make(chan error, 2)
+	errorInjectionChannel := make(chan error, 3)
 
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -624,7 +636,8 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 
 	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
 	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
-	// send the error message TWICE, because the provisioner will retry only ONCE
+	// send the error message three times, because the provisioner will retry twice as patched above.
+	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- destroyError
 
@@ -644,12 +657,16 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
-		break
+		return
 	}
-
+	c.Fatal("Test took too long to complete")
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetryableCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 2)
+
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 1)
 	c.Assert(errorInjectionChannel, gc.NotNil)
@@ -672,6 +689,10 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 1 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 1)
+
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 1)
 	c.Assert(errorInjectionChannel, gc.NotNil)
@@ -706,7 +727,6 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 	defer cleanup()
 
 	// send the error message once
-	// - instance creation should succeed
 	nonRetryableError := errors.New("some nonretryable error")
 	errorInjectionChannel <- nonRetryableError
 
@@ -726,8 +746,36 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
-		break
+		return
 	}
+	c.Fatal("Test took too long to complete")
+}
+
+func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
+	// Create the error injection channel and inject
+	// a retryable error
+	errorInjectionChannel := make(chan error, 1)
+
+	p := s.newEnvironProvisioner(c)
+	// Don't refer the stop.  We will manually stop and verify the result.
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	time.Sleep(coretesting.ShortWait)
+
+	stop(c, p)
+	statusInfo, err := m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
@@ -948,6 +996,19 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	_, err = s.State.AddSpace("space2", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add 1 subnet into space1, and 2 into space2.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
+	})
+
 	// Add and provision a machine with spaces specified.
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=space2,^space1",
@@ -972,11 +1033,12 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
-	cons := constraints.MustParse(
-		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
-	)
-	m, err := s.addMachineWithConstraints(cons)
+func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints(
+	c *gc.C,
+	cons constraints.Value,
+	expectedErrorStatus string,
+) {
+	machine, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the PA.
@@ -989,15 +1051,14 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	// Ensure machine error status was set.
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
+		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
 		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Equals, `cannot match subnets to zones: space "missing" not found`)
+		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
 
@@ -1018,6 +1079,25 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	defer stop(c, p)
 
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: space "missing" not found`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C) {
+	_, err := s.State.AddSpace("empty", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=empty",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: ` +
+		`cannot use space "empty" as deployment target: no subnets`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
@@ -1296,6 +1376,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
 
+	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
+
 	return provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
@@ -1307,6 +1389,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		auth,
 		imagemetadata.ReleasedStream,
 		true,
+		retryStrategy,
 	)
 }
 

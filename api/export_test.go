@@ -16,7 +16,7 @@ var (
 	SlideAddressToFront   = slideAddressToFront
 	BestVersion           = bestVersion
 	FacadeVersions        = &facadeVersions
-	NewHTTPClient         = &newHTTPClient
+	ConnectWebsocket      = connectWebsocket
 )
 
 // SetServerAddress allows changing the URL to the internal API server
@@ -29,16 +29,6 @@ func SetServerAddress(c *Client, scheme, addr string) {
 // ServerRoot is exported so that we can test the built URL.
 func ServerRoot(c *Client) string {
 	return c.st.serverRoot()
-}
-
-// PatchEnvironTag patches the value of the environment tag.
-// It returns a function that reverts the change.
-func PatchEnvironTag(st *State, envTag string) func() {
-	originalTag := st.environTag
-	st.environTag = envTag
-	return func() {
-		st.environTag = originalTag
-	}
 }
 
 // TestingStateParams is the parameters for NewTestingState, so that you can
@@ -55,8 +45,8 @@ type TestingStateParams struct {
 // NewTestingState creates an api.State object that can be used for testing. It
 // isn't backed onto an actual API server, so actual RPC methods can't be
 // called on it. But it can be used for testing general behavior.
-func NewTestingState(params TestingStateParams) *State {
-	st := &State{
+func NewTestingState(params TestingStateParams) Connection {
+	st := &state{
 		addr:              params.Address,
 		environTag:        params.EnvironTag,
 		hostPorts:         params.APIHostPorts,

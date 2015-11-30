@@ -512,7 +512,18 @@ type MachineStorageIdsWatchResults struct {
 
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
-	Error    string   `json:",omitempty"`
+	Error string `json:",omitempty"`
+
+	// ErrorCode holds the code associated with the error.
+	// Ideally, Error would hold an Error object and the
+	// code would be in that, but for backward compatibility,
+	// we cannot do that.
+	ErrorCode string `json:",omitempty"`
+
+	// ErrorInfo holds extra information associated with the error.
+	// Like ErrorCode, this should really be in an Error object.
+	ErrorInfo *ErrorInfo
+
 	CharmURL string   `json:",omitempty"`
 	Files    []string `json:",omitempty"`
 }

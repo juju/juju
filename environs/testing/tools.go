@@ -69,8 +69,10 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 	}
 	var versions []version.Binary
 	for _, arch := range arches {
-		v := version.Current
-		v.Arch = arch
+		v := version.Binary{
+			Number: version.Current,
+			Arch:   arch,
+		}
 		for _, series := range toolsLtsSeries {
 			v.Series = series
 			versions = append(versions, v)
@@ -221,8 +223,11 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries.Add(series.HostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
-		vers := version.Current
-		vers.Series = series
+		vers := version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series,
+		}
 		versions = append(versions, vers)
 	}
 	if _, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...); err != nil {
@@ -250,7 +255,11 @@ func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing fake tools")
-	toolsVersion := version.Current
+	toolsVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)

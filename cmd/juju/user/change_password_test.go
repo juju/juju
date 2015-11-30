@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
@@ -44,7 +43,7 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	changePasswordCommand := envcmd.WrapSystem(user.NewChangePasswordCommand(s.mockAPI, s.mockEnvironInfo))
+	changePasswordCommand, _ := user.NewChangePasswordCommand(s.mockAPI, s.mockEnvironInfo)
 	return testing.RunCommand(c, changePasswordCommand, args...)
 }
 
@@ -88,8 +87,8 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		command := &user.ChangePasswordCommand{}
-		err := testing.InitCommand(command, test.args)
+		wrappedCommand, command := user.NewChangePasswordCommand(nil, nil)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
 			c.Check(command.OutPath, gc.Equals, test.outPath)

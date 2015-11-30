@@ -39,7 +39,7 @@ func (s *OpenSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)

@@ -82,7 +82,7 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 	}
 	ver, err := checkToolsAvailability(cfg, finder)
 	if err != nil {
-		if errors.Cause(err) == coretools.ErrNoMatches {
+		if errors.IsNotFound(err) {
 			// No newer tools, so exit silently.
 			return nil
 		}

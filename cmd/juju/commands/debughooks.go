@@ -12,12 +12,17 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/cmd/envcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-// DebugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
-type DebugHooksCommand struct {
-	SSHCommand
+func newDebugHooksCommand() cmd.Command {
+	return envcmd.Wrap(&debugHooksCommand{})
+}
+
+// debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
+type debugHooksCommand struct {
+	sshCommand
 	hooks []string
 }
 
@@ -25,7 +30,7 @@ const debugHooksDoc = `
 Interactively debug a hook remotely on a service unit.
 `
 
-func (c *DebugHooksCommand) Info() *cmd.Info {
+func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
 		Args:    "<unit name> [hook names]",
@@ -34,7 +39,7 @@ func (c *DebugHooksCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DebugHooksCommand) Init(args []string) error {
+func (c *debugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("no unit name specified")
 	}
@@ -54,7 +59,7 @@ func (c *DebugHooksCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DebugHooksCommand) validateHooks() error {
+func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
@@ -94,7 +99,7 @@ func (c *DebugHooksCommand) validateHooks() error {
 // Run ensures c.Target is a unit, and resolves its address,
 // and connects to it via SSH to execute the debug-hooks
 // script.
-func (c *DebugHooksCommand) Run(ctx *cmd.Context) error {
+func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.apiClient, err = c.initAPIClient()
 	if err != nil {
@@ -110,5 +115,5 @@ func (c *DebugHooksCommand) Run(ctx *cmd.Context) error {
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script)
 	args := []string{fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
 	c.Args = args
-	return c.SSHCommand.Run(ctx)
+	return c.sshCommand.Run(ctx)
 }

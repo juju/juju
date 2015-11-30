@@ -200,7 +200,7 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
-	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Username())
+	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Canonical())
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {

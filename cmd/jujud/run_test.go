@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -179,8 +178,6 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
-	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
-
 	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	lock.Lock("juju-run test")
@@ -309,7 +306,10 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	default:
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(&mockRunner{c}, socketPath)
+	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
+		SocketPath:    socketPath,
+		CommandRunner: &mockRunner{c},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {

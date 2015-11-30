@@ -41,15 +41,15 @@ func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) 
 // OpenAPIState opens the API using the given information. The agent's
 // password is changed if the fallback password was used to connect to
 // the API.
-func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err error) {
+func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
-		return nil, nil, errors.New("API info not available")
+		return nil, errors.New("API info not available")
 	}
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer func() {
 		// NOTE(fwereade): we may close and overwrite st below,
@@ -63,23 +63,23 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err erro
 
 	tag := agentConfig.Tag()
 	entity, err := st.Agent().Entity(tag)
-	if err == nil && entity.Life() == params.Dead {
-		logger.Errorf("agent terminating - entity %q is dead", tag)
-		return nil, nil, worker.ErrTerminateAgent
-	}
 	if params.IsCodeUnauthorized(err) {
 		logger.Errorf("agent terminating due to error returned during entity lookup: %v", err)
-		return nil, nil, worker.ErrTerminateAgent
+		return nil, worker.ErrTerminateAgent
+	} else if err != nil {
+		return nil, err
 	}
-	if err != nil {
-		return nil, nil, err
+
+	if entity.Life() == params.Dead {
+		// The entity is Dead, so the password cannot (and should not) be updated.
+		return st, nil
 	}
 
 	if !usedOldPassword {
 		// Call set password with the current password.  If we've recently
 		// become a state server, this will fix up our credentials in mongo.
 		if err := entity.SetPassword(info.Password); err != nil {
-			return nil, nil, errors.Annotate(err, "can't reset agent password")
+			return nil, errors.Annotate(err, "can't reset agent password")
 		}
 	} else {
 		// We succeeded in connecting with the fallback
@@ -88,11 +88,11 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err erro
 		logger.Debugf("replacing insecure password")
 		newPassword, err := utils.RandomPassword()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		err = setAgentPassword(newPassword, info.Password, a, entity)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		// Reconnect to the API with the new password.
@@ -106,11 +106,11 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err erro
 		// untested way.
 		st, err = apiOpen(info, api.DialOpts{})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return st, entity, nil
+	return st, nil
 }
 
 func setAgentPassword(newPw, oldPw string, a agent.Agent, entity *apiagent.Entity) error {

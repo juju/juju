@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -33,6 +35,12 @@ type unitUpgraderSuite struct {
 }
 
 var _ = gc.Suite(&unitUpgraderSuite{})
+
+var current = version.Binary{
+	Number: version.Current,
+	Arch:   arch.HostArch(),
+	Series: series.HostSeries(),
+}
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -62,28 +70,27 @@ func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName s
 }
 
 func (s *unitUpgraderSuite) TestSetVersionWrongUnit(c *gc.C) {
-	err := s.st.SetVersion("unit-wordpress-42", version.Current)
+	err := s.st.SetVersion("unit-wordpress-42", current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersionNotUnit(c *gc.C) {
-	err := s.st.SetVersion("foo-42", version.Current)
+	err := s.st.SetVersion("foo-42", current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
-	cur := version.Current
 	agentTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetVersion(s.rawUnit.Tag().String(), cur)
+	err = s.st.SetVersion(s.rawUnit.Tag().String(), current)
 	c.Assert(err, jc.ErrorIsNil)
 	s.rawUnit.Refresh()
 	agentTools, err = s.rawUnit.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agentTools.Version, gc.Equals, cur)
+	c.Check(agentTools.Version, gc.Equals, current)
 }
 
 func (s *unitUpgraderSuite) TestToolsWrongUnit(c *gc.C) {
@@ -101,15 +108,14 @@ func (s *unitUpgraderSuite) TestToolsNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestTools(c *gc.C) {
-	cur := version.Current
-	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(cur)
+	s.rawMachine.SetAgentVersion(current)
 	// UnitUpgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
 	stateTools, err := s.st.Tools(s.rawUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stateTools.Version.Number, gc.DeepEquals, version.Current.Number)
+	c.Check(stateTools.Version.Number, gc.DeepEquals, current.Number)
 	c.Assert(stateTools.URL, gc.NotNil)
 }
 
@@ -146,15 +152,14 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
-	cur := version.Current
-	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(cur)
+	s.rawMachine.SetAgentVersion(current)
 	// UnitUpgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateVersion, gc.Equals, cur.Number)
+	c.Assert(stateVersion, gc.Equals, current.Number)
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersionWrongUnit(c *gc.C) {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/state/multiwatcher"
@@ -96,8 +95,8 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		addCmd := &machine.AddCommand{}
-		err := testing.InitCommand(addCmd, test.args)
+		wrappedCommand, addCmd := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(addCmd.Series, gc.Equals, test.series)
@@ -115,8 +114,8 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
-	return testing.RunCommand(c, envcmd.Wrap(add), args...)
+	add, _ := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+	return testing.RunCommand(c, add, args...)
 }
 
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
@@ -182,7 +181,7 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fakeAddMachine.addError = common.ErrOperationBlocked("TestBlockedError")
+	s.fakeAddMachine.addError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
@@ -251,7 +250,7 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 		} else {
 			results = append(results, params.AddMachinesResult{
 				Machine: string(i),
-				Error:   &params.Error{"something went wrong", "1"},
+				Error:   &params.Error{Message: "something went wrong", Code: "1"},
 			})
 		}
 		f.currentOp++

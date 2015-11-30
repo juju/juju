@@ -6,7 +6,6 @@ package collect
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -68,7 +67,7 @@ func (ctx *hookContext) addJujuUnitsMetric() error {
 }
 
 // SetProcess implements runner.Context.
-func (ctx *hookContext) SetProcess(process *os.Process) {}
+func (ctx *hookContext) SetProcess(process context.HookProcess) {}
 
 // ActionData implements runner.Context.
 func (ctx *hookContext) ActionData() (*context.ActionData, error) {
@@ -87,4 +86,9 @@ func (ctx *hookContext) Id() string { return ctx.id }
 // Prepare implements runner.Context.
 func (ctx *hookContext) Prepare() error {
 	return jujuc.ErrRestrictedContext
+}
+
+// Component implements runner.Context.
+func (ctx *hookContext) Component(name string) (jujuc.ContextComponent, error) {
+	return nil, errors.NotFoundf("context component %q", name)
 }

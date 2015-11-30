@@ -8,7 +8,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/feature"
 )
 
@@ -27,19 +26,19 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage environments",
 	})
-	environmentCmd.Register(envcmd.Wrap(&GetCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
+	environmentCmd.Register(newGetCommand())
+	environmentCmd.Register(newSetCommand())
+	environmentCmd.Register(newUnsetCommand())
 	environmentCmd.Register(&JenvCommand{})
-	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&EnvSetConstraintsCommand{}))
-	environmentCmd.Register(envcmd.Wrap(&EnvGetConstraintsCommand{}))
+	environmentCmd.Register(newRetryProvisioningCommand())
+	environmentCmd.Register(newEnvSetConstraintsCommand())
+	environmentCmd.Register(newEnvGetConstraintsCommand())
 
 	if featureflag.Enabled(feature.JES) {
-		environmentCmd.Register(envcmd.Wrap(&ShareCommand{}))
-		environmentCmd.Register(envcmd.Wrap(&UnshareCommand{}))
-		environmentCmd.Register(envcmd.Wrap(&UsersCommand{}))
-		environmentCmd.Register(envcmd.Wrap(&DestroyCommand{}))
+		environmentCmd.Register(newShareCommand())
+		environmentCmd.Register(newUnshareCommand())
+		environmentCmd.Register(newUsersCommand())
+		environmentCmd.Register(newDestroyCommand())
 	}
 	return environmentCmd
 }

@@ -10,9 +10,18 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const ShowCommandDoc = `
+func newShowCommand() cmd.Command {
+	cmd := &showCommand{}
+	cmd.newAPIFunc = func() (StorageShowAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
+}
+
+const showCommandDoc = `
 Show extended information about storage instances.
 Storage instances to display are specified by storage ids.
 
@@ -28,15 +37,16 @@ options:
 [space separated storage ids]
 `
 
-// ShowCommand attempts to release storage instance.
-type ShowCommand struct {
+// showCommand attempts to release storage instance.
+type showCommand struct {
 	StorageCommandBase
-	ids []string
-	out cmd.Output
+	ids        []string
+	out        cmd.Output
+	newAPIFunc func() (StorageShowAPI, error)
 }
 
 // Init implements Command.Init.
-func (c *ShowCommand) Init(args []string) (err error) {
+func (c *showCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
 		return errors.New("must specify storage id(s)")
 	}
@@ -45,23 +55,23 @@ func (c *ShowCommand) Init(args []string) (err error) {
 }
 
 // Info implements Command.Info.
-func (c *ShowCommand) Info() *cmd.Info {
+func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show",
 		Purpose: "shows storage instance",
-		Doc:     ShowCommandDoc,
+		Doc:     showCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
 // Run implements Command.Run.
-func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getStorageShowAPI(c)
+func (c *showCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
@@ -101,7 +111,7 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-func (c *ShowCommand) getStorageTags() ([]names.StorageTag, error) {
+func (c *showCommand) getStorageTags() ([]names.StorageTag, error) {
 	tags := make([]names.StorageTag, len(c.ids))
 	for i, id := range c.ids {
 		if !names.IsValidStorage(id) {
@@ -112,16 +122,8 @@ func (c *ShowCommand) getStorageTags() ([]names.StorageTag, error) {
 	return tags, nil
 }
 
-var (
-	getStorageShowAPI = (*ShowCommand).getStorageShowAPI
-)
-
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
 	Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error)
-}
-
-func (c *ShowCommand) getStorageShowAPI() (StorageShowAPI, error) {
-	return c.NewStorageAPI()
 }

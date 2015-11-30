@@ -60,6 +60,13 @@ func (s *SystemCommandSuite) TestSystemCommandInitExplicit(c *gc.C) {
 	testEnsureSystemName(c, "explicit", "--system", "explicit")
 }
 
+func (s *SystemCommandSuite) TestWrapWithoutFlags(c *gc.C) {
+	cmd := new(testSystemCommand)
+	wrapped := envcmd.WrapSystem(cmd, envcmd.SystemSkipFlags)
+	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
+}
+
 type testSystemCommand struct {
 	envcmd.SysCommandBase
 }

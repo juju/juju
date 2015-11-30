@@ -14,6 +14,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -191,7 +193,11 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Current
+	newVers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)
@@ -223,7 +229,11 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Current
+	newVers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,11 +277,10 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(conf.Tag().String())
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		st, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEntity.Tag(), gc.Equals, unit.Tag().String())
 	}
 	assertOpen()
 
@@ -299,16 +308,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password")
-	_, _, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-}
-
-func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
-	_, unit, conf, _ := s.primeAgent(c)
-	err := unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, _, err = apicaller.OpenAPIState(fakeConfAgent{conf: conf})
+	_, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -355,8 +355,12 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	vers := version.Current
-	vers.Minor = version.Current.Minor + 1
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	vers.Minor++
 	err := unit.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -377,7 +381,12 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			if agentTools.Version.Minor != version.Current.Minor {
 				continue
 			}
-			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			current := version.Binary{
+				Number: version.Current,
+				Arch:   arch.HostArch(),
+				Series: series.HostSeries(),
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, current)
 			done = true
 		}
 	}

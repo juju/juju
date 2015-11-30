@@ -142,7 +142,8 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			provider: "azure",
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
-				"location"},
+				"subscription-id", "tenant-id", "application-id", "application-key", "location",
+				"controller-resource-group", "storage-account-type"},
 		}, {
 			provider: "dummy",
 			expected: []string{
@@ -270,7 +271,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 func (s *envManagerSuite) TestCreateEnvironmentSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
-	args := s.createArgsForVersion(c, admin, version.Current.Number.String())
+	args := s.createArgsForVersion(c, admin, version.Current.String())
 	_, err := s.envmanager.CreateEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -279,10 +280,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 
-	bigger := version.Current.Number
+	bigger := version.Current
 	bigger.Minor += 1
 
-	smaller := version.Current.Number
+	smaller := version.Current
 	smaller.Minor -= 1
 
 	for i, test := range []struct {

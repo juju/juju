@@ -84,7 +84,7 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 }
 
 func (s *DestroySuite) TestSuccess(c *gc.C) {
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("somewhere", strings.NewReader("stuff"), 5)
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,7 +113,7 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 }
 
 func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("elsewhere", strings.NewReader("stuff"), 5)
 	c.Assert(err, jc.ErrorIsNil)

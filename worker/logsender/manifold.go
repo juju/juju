@@ -4,19 +4,18 @@
 package logsender
 
 import (
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
-	AgentName       string
-	APIInfoGateName string
-	LogSource       LogRecordCh
+	APICallerName string
+	LogSource     LogRecordCh
 }
 
 // Manifold returns a dependency manifold that runs a logger
@@ -24,8 +23,7 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
-			config.APIInfoGateName,
+			config.APICallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			if !feature.IsDbLogEnabled() {
@@ -33,15 +31,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrMissing
 			}
 
-			var gate gate.Waiter
-			if err := getResource(config.APIInfoGateName, &gate); err != nil {
+			var apiCaller base.APICaller
+			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			return New(config.LogSource, gate, agent), nil
+			return New(config.LogSource, logsender.NewAPI(apiCaller)), nil
 		},
 	}
 }

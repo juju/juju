@@ -11,9 +11,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const ListCommandDoc = `
+func newListImagesCommand() cmd.Command {
+	return envcmd.Wrap(&listImagesCommand{})
+}
+
+const listCommandDoc = `
 List information about image metadata stored in Juju environment.
 This list can be filtered using various filters as described below.
 
@@ -42,9 +47,9 @@ options:
    root storage type [provider specific], e.g. ebs
 `
 
-// ListImagesCommand returns stored image metadata.
-type ListImagesCommand struct {
-	CloudImageMetadataCommandBase
+// listImagesCommand returns stored image metadata.
+type listImagesCommand struct {
+	cloudImageMetadataCommandBase
 
 	out cmd.Output
 
@@ -57,7 +62,7 @@ type ListImagesCommand struct {
 }
 
 // Init implements Command.Init.
-func (c *ListImagesCommand) Init(args []string) (err error) {
+func (c *listImagesCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 {
 		result := []string{}
 		for _, one := range c.Series {
@@ -76,17 +81,17 @@ func (c *ListImagesCommand) Init(args []string) (err error) {
 }
 
 // Info implements Command.Info.
-func (c *ListImagesCommand) Info() *cmd.Info {
+func (c *listImagesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-images",
 		Purpose: "lists cloud image metadata used when choosing an image to start",
-		Doc:     ListCommandDoc,
+		Doc:     listCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListImagesCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CloudImageMetadataCommandBase.SetFlags(f)
+func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
 	f.StringVar(&c.Region, "region", "", "image metadata cloud region")
@@ -105,7 +110,7 @@ func (c *ListImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *ListImagesCommand) Run(ctx *cmd.Context) (err error) {
+func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := getImageMetadataListAPI(c)
 	if err != nil {
 		return err
@@ -134,7 +139,7 @@ func (c *ListImagesCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-var getImageMetadataListAPI = (*ListImagesCommand).getImageMetadataListAPI
+var getImageMetadataListAPI = (*listImagesCommand).getImageMetadataListAPI
 
 // MetadataListAPI defines the API methods that list image metadata command uses.
 type MetadataListAPI interface {
@@ -142,7 +147,7 @@ type MetadataListAPI interface {
 	List(stream, region string, series, arches []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
 }
 
-func (c *ListImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
+func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
 	return c.NewImageMetadataAPI()
 }
 

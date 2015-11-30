@@ -41,7 +41,7 @@ func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
 // OpenAPIWithoutLogin connects to the API and returns an api.State without
 // actually calling st.Login already. The returned strings are the "tag" and
 // "password" that we would have used to login.
-func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, string, string) {
+func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, string) {
 	info := s.APIInfo(c)
 	tag := info.Tag
 	password := info.Password
@@ -49,7 +49,7 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, string, strin
 	info.Password = ""
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	return apistate, tag.String(), password
+	return apistate, tag, password
 }
 
 func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
@@ -88,11 +88,11 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	envTag, err = apistate.EnvironTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(envTag, gc.Equals, env.EnvironTag())
-	// The server tag is also set, and since the environment is the
-	// state server environment, the uuid is the same.
-	srvTag, err := apistate.ServerTag()
+	// The controller tag is also set, and since the environment is the
+	// controller environment, the uuid is the same.
+	controllerTag, err := apistate.ControllerTag()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(srvTag, gc.Equals, env.EnvironTag())
+	c.Check(controllerTag, gc.Equals, env.EnvironTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

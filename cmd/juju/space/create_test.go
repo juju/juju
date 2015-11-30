@@ -72,13 +72,3 @@ func (s *CreateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.CheckCallNames(c, "CreateSpace", "Close")
 	s.api.CheckCall(c, 0, "CreateSpace", "foo", s.Strings("10.1.2.0/24"), true)
 }
-
-func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
-	s.command = space.NewCreateCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"myspace", "10.20.30.0/24",
-	)
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
-}

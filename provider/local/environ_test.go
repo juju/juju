@@ -116,7 +116,9 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,20 +181,20 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	c.Assert(err, jc.ErrorIsNil)
 	availableTools := coretools.List{&coretools.Tools{
 		Version: version.Binary{
-			Number: version.Current.Number,
+			Number: version.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		},
 		URL: "http://testing.invalid/tools.tar.gz",
 	}}
-	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		AvailableTools: availableTools,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.Tools = availableTools[0]
-	err = finalizer(ctx, icfg)
+	err = result.Finalize(ctx, icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return environ
 }

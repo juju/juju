@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
-	"github.com/juju/juju/cmd/juju/status"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -79,59 +78,6 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	}
 }
 
-type HasConnectionName interface {
-	ConnectionName() string
-}
-
-// assertEnvName asserts that the Command is using
-// the given environment name.
-// Since every command has a different type,
-// we use reflection to look at the value of the
-// Conn field in the value.
-func assertEnvName(c *gc.C, com cmd.Command, name string) {
-	i, ok := com.(HasConnectionName)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(i.ConnectionName(), gc.Equals, name)
-}
-
-// All members of EnvironmentInitTests are tested for the -environment and -e
-// flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func() (envcmd.EnvironCommand, []string){
-	func() (envcmd.EnvironCommand, []string) { return new(BootstrapCommand), nil },
-	func() (envcmd.EnvironCommand, []string) {
-		return new(DeployCommand), []string{"charm-name", "service-name"}
-	},
-	func() (envcmd.EnvironCommand, []string) { return new(status.StatusCommand), nil },
-}
-
-// TestEnvironmentInit tests that all commands which accept
-// the --environment variable initialise their
-// environment name correctly.
-func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
-	for i, cmdFunc := range EnvironmentInitTests {
-		c.Logf("test %d", i)
-		com, args := cmdFunc()
-		testInit(c, envcmd.Wrap(com), args, "")
-		assertEnvName(c, com, "peckham")
-
-		com, args = cmdFunc()
-		testInit(c, envcmd.Wrap(com), append(args, "-e", "walthamstow"), "")
-		assertEnvName(c, com, "walthamstow")
-
-		com, args = cmdFunc()
-		testInit(c, envcmd.Wrap(com), append(args, "--environment", "walthamstow"), "")
-		assertEnvName(c, com, "walthamstow")
-
-		// JUJU_ENV is the final place the environment can be overriden
-		com, args = cmdFunc()
-		oldenv := os.Getenv(osenv.JujuEnvEnvKey)
-		os.Setenv(osenv.JujuEnvEnvKey, "walthamstow")
-		testInit(c, envcmd.Wrap(com), args, "")
-		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
-		assertEnvName(c, com, "walthamstow")
-	}
-}
-
 var deployTests = []struct {
 	args []string
 	com  *DeployCommand
@@ -161,8 +107,8 @@ var deployTests = []struct {
 }
 
 func initExpectations(com *DeployCommand) {
-	if com.CharmName == "" {
-		com.CharmName = "charm-name"
+	if com.CharmOrBundle == "" {
+		com.CharmOrBundle = "charm-name"
 	}
 	if com.NumUnits == 0 {
 		com.NumUnits = 1
@@ -207,7 +153,7 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 
 	// missing args
 	_, err = initDeployCommand()
-	c.Assert(err, gc.ErrorMatches, "no charm specified")
+	c.Assert(err, gc.ErrorMatches, "no charm or bundle specified")
 
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
@@ -218,9 +164,9 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	// environment tested elsewhere
 }
 
-func initExposeCommand(args ...string) (*ExposeCommand, error) {
-	com := &ExposeCommand{}
-	return com, coretesting.InitCommand(com, args)
+func initExposeCommand(args ...string) (*exposeCommand, error) {
+	com := &exposeCommand{}
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
@@ -231,9 +177,9 @@ func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
 	// environment tested elsewhere
 }
 
-func initUnexposeCommand(args ...string) (*UnexposeCommand, error) {
-	com := &UnexposeCommand{}
-	return com, coretesting.InitCommand(com, args)
+func initUnexposeCommand(args ...string) (*unexposeCommand, error) {
+	com := &unexposeCommand{}
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {
@@ -244,8 +190,8 @@ func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {
 	// environment tested elsewhere
 }
 
-func initSSHCommand(args ...string) (*SSHCommand, error) {
-	com := &SSHCommand{}
+func initSSHCommand(args ...string) (*sshCommand, error) {
+	com := &sshCommand{}
 	return com, coretesting.InitCommand(com, args)
 }
 
@@ -255,8 +201,8 @@ func (*CmdSuite) TestSSHCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no target name specified")
 }
 
-func initSCPCommand(args ...string) (*SCPCommand, error) {
-	com := &SCPCommand{}
+func initSCPCommand(args ...string) (*scpCommand, error) {
+	com := &scpCommand{}
 	return com, coretesting.InitCommand(com, args)
 }
 
@@ -270,8 +216,8 @@ func (*CmdSuite) TestSCPCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
 }
 
-func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {
-	com := &RemoveUnitCommand{}
+func initRemoveUnitCommand(args ...string) (cmd.Command, error) {
+	com := newRemoveUnitCommand()
 	return com, coretesting.InitCommand(com, args)
 }
 

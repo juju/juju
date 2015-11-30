@@ -11,14 +11,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 const uploadDoc = `
 "upload" sends a backup archive file to remote storage.
 `
 
-// UploadCommand is the sub-command for uploading a backup archive.
-type UploadCommand struct {
+func newUploadCommand() cmd.Command {
+	return envcmd.Wrap(&uploadCommand{})
+}
+
+// uploadCommand is the sub-command for uploading a backup archive.
+type uploadCommand struct {
 	CommandBase
 	// Filename is where to find the archive to upload.
 	Filename string
@@ -29,13 +34,13 @@ type UploadCommand struct {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *UploadCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *uploadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ShowMeta, "verbose", false, "show the uploaded metadata")
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the new backup ID")
 }
 
 // Info implements Command.Info.
-func (c *UploadCommand) Info() *cmd.Info {
+func (c *uploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upload",
 		Args:    "<filename>",
@@ -45,7 +50,7 @@ func (c *UploadCommand) Info() *cmd.Info {
 }
 
 // Init implements Command.Init.
-func (c *UploadCommand) Init(args []string) error {
+func (c *uploadCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("backup filename not specified")
 	}
@@ -58,7 +63,7 @@ func (c *UploadCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *UploadCommand) Run(ctx *cmd.Context) error {
+func (c *uploadCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -98,7 +103,7 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *UploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataResult, error) {
+func (c *uploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataResult, error) {
 	// TODO(ericsnow) lp-1399722 This should be addressed.
 	// There is at least anecdotal evidence that we cannot use an API
 	// client for more than a single request. So we use a new client

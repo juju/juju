@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -35,9 +36,13 @@ will not be destroyed and will never be reconnected to the Juju system being
 destroyed.
 `
 
-// KillCommand kills the specified system.
-type KillCommand struct {
-	DestroyCommandBase
+func newKillCommand() cmd.Command {
+	return envcmd.WrapBase(&killCommand{})
+}
+
+// killCommand kills the specified system.
+type killCommand struct {
+	destroyCommandBase
 	// TODO (cherylj) If timeouts for dialing the API are added to new or
 	// existing commands later, the dialer should be pulled into a common
 	// base and made to be an interface rather than a function.
@@ -45,7 +50,7 @@ type KillCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *KillCommand) Info() *cmd.Info {
+func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill",
 		Args:    "<system name>",
@@ -55,22 +60,17 @@ func (c *KillCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *KillCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 // Init implements Command.Init.
-func (c *KillCommand) Init(args []string) error {
-	if c.apiDialerFunc == nil {
-		// This should never happen, but check here instead of panicking later.
-		return errors.New("no api dialer specified")
-	}
-
-	return c.DestroyCommandBase.Init(args)
+func (c *killCommand) Init(args []string) error {
+	return c.destroyCommandBase.Init(args)
 }
 
-func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemAPI, error) {
+func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
@@ -100,7 +100,11 @@ func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 }
 
 // Run implements Command.Run
-func (c *KillCommand) Run(ctx *cmd.Context) error {
+func (c *killCommand) Run(ctx *cmd.Context) error {
+	if c.apiDialerFunc == nil {
+		c.apiDialerFunc = c.NewAPIRoot
+	}
+
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open system info storage")
@@ -167,7 +171,7 @@ func (c *KillCommand) Run(ctx *cmd.Context) error {
 
 // killSystemViaClient attempts to kill the system using the client
 // endpoint for older juju systems which do not implement systemmanager.DestroySystem
-func (c *KillCommand) killSystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
+func (c *killCommand) killSystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
 		defer api.Close()

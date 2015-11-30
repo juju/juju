@@ -36,6 +36,11 @@ type Snapshot struct {
 	// hook execution errors.
 	ResolvedMode params.ResolvedMode
 
+	// RetryHookVersion increments each time a failed
+	// hook is meant to be retried if ResolvedMode is
+	// set to ResolvedNone.
+	RetryHookVersion int
+
 	// ConfigVersion is the last published version of
 	// the unit's config settings.
 	ConfigVersion int
@@ -55,6 +60,10 @@ type Snapshot struct {
 	// Actions is the list of pending actions to
 	// be peformed by this unit.
 	Actions []string
+
+	// Commands is the list of IDs of commands to be
+	// executed by this unit.
+	Commands []string
 }
 
 type RelationSnapshot struct {

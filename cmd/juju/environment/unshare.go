@@ -28,8 +28,12 @@ Examples:
      Deny local user "sam" access to the environment named "myenv"
  `
 
-// UnshareCommand unshares an environment with the given user(s).
-type UnshareCommand struct {
+func newUnshareCommand() cmd.Command {
+	return envcmd.Wrap(&unshareCommand{})
+}
+
+// unshareCommand unshares an environment with the given user(s).
+type unshareCommand struct {
 	envcmd.EnvCommandBase
 	cmd.CommandBase
 	envName string
@@ -39,7 +43,7 @@ type UnshareCommand struct {
 	Users []names.UserTag
 }
 
-func (c *UnshareCommand) Info() *cmd.Info {
+func (c *unshareCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unshare",
 		Args:    "<user> ...",
@@ -48,7 +52,7 @@ func (c *UnshareCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UnshareCommand) Init(args []string) (err error) {
+func (c *unshareCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return errors.New("no users specified")
 	}
@@ -63,7 +67,7 @@ func (c *UnshareCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *UnshareCommand) getAPI() (UnshareEnvironmentAPI, error) {
+func (c *unshareCommand) getAPI() (UnshareEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -77,7 +81,7 @@ type UnshareEnvironmentAPI interface {
 	UnshareEnvironment(...names.UserTag) error
 }
 
-func (c *UnshareCommand) Run(ctx *cmd.Context) error {
+func (c *unshareCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

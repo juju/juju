@@ -14,10 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
-	// TODO(dimitern): Don't ever import "." unless there's a GOOD
-	// reason to do it.
-	. "github.com/juju/juju/cmd/juju/common"
+	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/testing"
 )
@@ -101,8 +98,8 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *ConstraintsCommandsSuite) assertSet(c *gc.C, args ...string) {
-	command := NewSetConstraintsCommand(s.fake)
-	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(command), args...)
+	command := cmdcommon.NewSetConstraintsCommandWithAPI(s.fake)
+	rcode, rstdout, rstderr := runCmdLine(c, command, args...)
 
 	c.Assert(rcode, gc.Equals, 0)
 	c.Assert(rstdout, gc.Equals, "")
@@ -110,8 +107,8 @@ func (s *ConstraintsCommandsSuite) assertSet(c *gc.C, args ...string) {
 }
 
 func (s *ConstraintsCommandsSuite) assertSetBlocked(c *gc.C, args ...string) {
-	command := NewSetConstraintsCommand(s.fake)
-	rcode, _, _ := runCmdLine(c, envcmd.Wrap(command), args...)
+	command := cmdcommon.NewSetConstraintsCommandWithAPI(s.fake)
+	rcode, _, _ := runCmdLine(c, command, args...)
 
 	c.Assert(rcode, gc.Equals, 1)
 
@@ -144,7 +141,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestBlockSetEnviron(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetEnviron")
+	s.fake.err = common.OperationBlockedError("TestBlockSetEnviron")
 	// Set constraints.
 	s.assertSetBlocked(c, "mem=4G", "cpu-power=250")
 }
@@ -170,14 +167,14 @@ func (s *ConstraintsCommandsSuite) TestBlockSetService(c *gc.C) {
 	s.fake.addTestingService("svc")
 
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetService")
+	s.fake.err = common.OperationBlockedError("TestBlockSetService")
 	// Set constraints.
 	s.assertSetBlocked(c, "-s", "svc", "mem=4G", "cpu-power=250")
 }
 
 func (s *ConstraintsCommandsSuite) assertSetError(c *gc.C, code int, stderr string, args ...string) {
-	command := NewSetConstraintsCommand(s.fake)
-	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(command), args...)
+	command := cmdcommon.NewSetConstraintsCommandWithAPI(s.fake)
+	rcode, rstdout, rstderr := runCmdLine(c, command, args...)
 	c.Assert(rcode, gc.Equals, code)
 	c.Assert(rstdout, gc.Equals, "")
 	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")
@@ -191,8 +188,8 @@ func (s *ConstraintsCommandsSuite) TestSetErrors(c *gc.C) {
 }
 
 func (s *ConstraintsCommandsSuite) assertGet(c *gc.C, stdout string, args ...string) {
-	command := NewGetConstraintsCommand(s.fake)
-	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(command), args...)
+	command := cmdcommon.NewGetConstraintsCommandWithAPI(s.fake)
+	rcode, rstdout, rstderr := runCmdLine(c, command, args...)
 	c.Assert(rcode, gc.Equals, 0)
 	c.Assert(rstdout, gc.Equals, stdout)
 	c.Assert(rstderr, gc.Equals, "")
@@ -228,8 +225,8 @@ func (s *ConstraintsCommandsSuite) TestGetFormats(c *gc.C) {
 }
 
 func (s *ConstraintsCommandsSuite) assertGetError(c *gc.C, code int, stderr string, args ...string) {
-	command := NewGetConstraintsCommand(s.fake)
-	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(command), args...)
+	command := cmdcommon.NewGetConstraintsCommandWithAPI(s.fake)
+	rcode, rstdout, rstderr := runCmdLine(c, command, args...)
 	c.Assert(rcode, gc.Equals, code)
 	c.Assert(rstdout, gc.Equals, "")
 	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")
