@@ -411,7 +411,9 @@ class BootstrapManager:
     def __init__(self, temp_env_name, client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
                  keep_env, permanent, jes_enabled):
-        """Constructor.  Please see class document for argument descriptions.
+        """Constructor.
+
+        Please see see `BootstrapManager` for argument descriptions.
         """
         self.temp_env_name = temp_env_name
         self.client = client
