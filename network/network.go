@@ -90,14 +90,15 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceName holds the juju network space associated with this
-	// subnet. Can be empty if not supported.
-	SpaceName string
+	// SpaceProviderId holds the provider Id of the space associated with
+	// this subnet. Can be empty if not supported.
+	SpaceProviderId Id
 }
 
 type SpaceInfo struct {
-	Name  string
-	CIDRs []string
+	Name       string
+	ProviderId Id
+	Subnets    []SubnetInfo
 }
 type BySpaceName []SpaceInfo
 
