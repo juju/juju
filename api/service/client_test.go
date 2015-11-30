@@ -6,6 +6,7 @@ package service_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/common"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/storage"
-	"gopkg.in/juju/charm.v6-unstable"
 )
 
 type serviceSuite struct {
