@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -266,286 +267,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func uint64p(val uint64) *uint64 {
-	return &val
-}
-
-func stringp(val string) *string {
-	return &val
-}
-
-func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
-
-	snArgs := selectNodeArgs{
-		AvailabilityZones: []string{"foo", "bar"},
-		Constraints:       constraints.Value{},
-		IncludeNetworks:   nil,
-		ExcludeNetworks:   nil,
-	}
-
-	node, err := env.selectNode(snArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node, gc.NotNil)
-}
-
-func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
-	env := suite.makeEnviron()
-
-	snArgs := selectNodeArgs{
-		AvailabilityZones: []string{"foo", "bar"},
-		Constraints:       constraints.Value{},
-		IncludeNetworks:   nil,
-		ExcludeNetworks:   nil,
-	}
-
-	_, err := env.selectNode(snArgs)
-	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
-}
-
-func (suite *environSuite) TestAcquireNode(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
-
-	c.Check(err, jc.ErrorIsNil)
-	operations := suite.testMAASObject.TestServer.NodeOperations()
-	actions, found := operations["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Check(actions, gc.DeepEquals, []string{"acquire"})
-
-	// no "name" parameter should have been passed through
-	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
-	_, found = values["name"]
-	c.Assert(found, jc.IsFalse)
-}
-
-func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-
-	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil, nil)
-
-	c.Check(err, jc.ErrorIsNil)
-	operations := suite.testMAASObject.TestServer.NodeOperations()
-	actions, found := operations["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Check(actions, gc.DeepEquals, []string{"acquire"})
-
-	// no "name" parameter should have been passed through
-	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
-	nodeName := values.Get("name")
-	c.Assert(nodeName, gc.Equals, "host0")
-}
-
-func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(
-		`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic", "memory": 2048}`,
-	)
-	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
-
-	_, err := env.acquireNode("", "", constraints, nil, nil, nil)
-
-	c.Check(err, jc.ErrorIsNil)
-	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
-	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
-	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
-}
-
-func (suite *environSuite) TestParseTags(c *gc.C) {
-	tests := []struct {
-		about         string
-		input         []string
-		tags, notTags []string
-	}{{
-		about:   "nil input",
-		input:   nil,
-		tags:    []string{},
-		notTags: []string{},
-	}, {
-		about:   "empty input",
-		input:   []string{},
-		tags:    []string{},
-		notTags: []string{},
-	}, {
-		about:   "tag list with embedded spaces",
-		input:   []string{"   tag1  ", " tag2", " ^ not Tag 3  ", "  ", " ", "", "", " ^notTag4   "},
-		tags:    []string{"tag1", "tag2"},
-		notTags: []string{"notTag3", "notTag4"},
-	}, {
-		about:   "only positive tags",
-		input:   []string{"tag1", "tag2", "tag3"},
-		tags:    []string{"tag1", "tag2", "tag3"},
-		notTags: []string{},
-	}, {
-		about:   "only negative tags",
-		input:   []string{"^tag1", "^tag2", "^tag3"},
-		tags:    []string{},
-		notTags: []string{"tag1", "tag2", "tag3"},
-	}, {
-		about:   "both positive and negative tags",
-		input:   []string{"^tag1", "tag2", "^tag3", "tag4"},
-		tags:    []string{"tag2", "tag4"},
-		notTags: []string{"tag1", "tag3"},
-	}, {
-		about:   "single positive tag",
-		input:   []string{"tag1"},
-		tags:    []string{"tag1"},
-		notTags: []string{},
-	}, {
-		about:   "single negative tag",
-		input:   []string{"^tag1"},
-		tags:    []string{},
-		notTags: []string{"tag1"},
-	}}
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.about)
-		tags, notTags := parseTags(test.input)
-		c.Check(tags, jc.DeepEquals, test.tags)
-		c.Check(notTags, jc.DeepEquals, test.notTags)
-	}
-}
-
-func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, nil)
-
-	c.Check(err, jc.ErrorIsNil)
-	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
-	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
-}
-
-func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
-	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
-
-	_, err := env.acquireNode(
-		"", "",
-		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
-		nil, nil, nil,
-	)
-
-	c.Check(err, jc.ErrorIsNil)
-	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
-	nodeValues, found := requestValues["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
-	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
-}
-
-func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
-	for i, test := range []struct {
-		volumes  []volumeInfo
-		expected string
-	}{
-		{
-			nil,
-			"",
-		},
-		{
-			[]volumeInfo{{"volume-1", 1234, nil}},
-			"volume-1:1234",
-		},
-		{
-			[]volumeInfo{{"", 1234, []string{"tag1", "tag2"}}},
-			"1234(tag1,tag2)",
-		},
-		{
-			[]volumeInfo{{"volume-1", 1234, []string{"tag1", "tag2"}}},
-			"volume-1:1234(tag1,tag2)",
-		},
-		{
-			[]volumeInfo{
-				{"volume-1", 1234, []string{"tag1", "tag2"}},
-				{"volume-2", 4567, []string{"tag1", "tag3"}},
-			},
-			"volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
-		},
-	} {
-		c.Logf("test %d", i)
-		env := suite.makeEnviron()
-		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-		_, err := env.acquireNode("", "", constraints.Value{}, nil, nil, test.volumes)
-		c.Check(err, jc.ErrorIsNil)
-		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
-		nodeRequestValues, found := requestValues["node0"]
-		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
-		suite.testMAASObject.TestServer.Clear()
-	}
-}
-
-var testValues = []struct {
-	constraints    constraints.Value
-	expectedResult url.Values
-}{
-	{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
-	{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
-	{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
-	{constraints.Value{Tags: &[]string{"tag1", "tag2", "^tag3", "^tag4"}}, url.Values{"tags": {"tag1,tag2"}, "not_tags": {"tag3,tag4"}}},
-
-	// CpuPower is ignored.
-	{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
-
-	// RootDisk is ignored.
-	{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
-	{constraints.Value{Tags: &[]string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
-	{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: &[]string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
-}
-
-func (*environSuite) TestConvertConstraints(c *gc.C) {
-	for _, test := range testValues {
-		c.Check(convertConstraints(test.constraints), gc.DeepEquals, test.expectedResult)
-	}
-}
-
-var testNetworkValues = []struct {
-	includeNetworks []string
-	excludeNetworks []string
-	expectedResult  url.Values
-}{
-	{
-		nil,
-		nil,
-		url.Values{},
-	},
-	{
-		[]string{"included_net_1"},
-		nil,
-		url.Values{"networks": {"included_net_1"}},
-	},
-	{
-		nil,
-		[]string{"excluded_net_1"},
-		url.Values{"not_networks": {"excluded_net_1"}},
-	},
-	{
-		[]string{"included_net_1", "included_net_2"},
-		[]string{"excluded_net_1", "excluded_net_2"},
-		url.Values{
-			"networks":     {"included_net_1", "included_net_2"},
-			"not_networks": {"excluded_net_1", "excluded_net_2"},
-		},
-	},
-}
-
-func (*environSuite) TestConvertNetworks(c *gc.C) {
-	for _, test := range testNetworkValues {
-		var vals = url.Values{}
-		addNetworks(vals, test.includeNetworks, test.excludeNetworks)
-		c.Check(vals, gc.DeepEquals, test.expectedResult)
-	}
 }
 
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
@@ -1108,6 +829,21 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+}
+
+func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
@@ -1268,7 +1004,7 @@ func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"WLAN", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: Missing")
 }
 
 func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
@@ -1282,6 +1018,132 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
 		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
+func createSubnet(id uint, interfaceAndSpace uint) gomaasapi.CreateSubnet {
+	var s gomaasapi.CreateSubnet
+	s.DNSServers = []string{"192.168.1.2"}
+	s.Name = fmt.Sprintf("maas-eth%d", interfaceAndSpace)
+	s.Space = fmt.Sprintf("Space %d", interfaceAndSpace)
+	s.GatewayIP = fmt.Sprintf("192.168.%v.1", id)
+	s.CIDR = fmt.Sprintf("192.168.%v.0/24", id)
+	s.ID = id
+	return s
+}
+
+func createSubnetInfo(id, space, ipRange int) network.SubnetInfo {
+	return network.SubnetInfo{
+		CIDR:              fmt.Sprintf("192.168.%d.0/24", ipRange),
+		ProviderId:        network.Id(strconv.Itoa(id)),
+		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
+		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
+		SpaceProviderId:   network.Id(fmt.Sprintf("Space %d", space)),
+	}
+}
+
+func (suite *environSuite) addSubnet(c *gc.C, i, j uint, systemID string) {
+	out := bytes.Buffer{}
+	err := json.NewEncoder(&out).Encode(createSubnet(i, j))
+	c.Assert(err, jc.ErrorIsNil)
+	subnet := suite.testMAASObject.TestServer.NewSubnet(&out)
+
+	other := gomaasapi.AddressRange{}
+	other.Start = fmt.Sprintf("192.168.%d.139", i)
+	other.End = fmt.Sprintf("192.168.%d.149", i)
+	other.Purpose = []string{"not-the-dynamic-range"}
+	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, other)
+
+	ar := gomaasapi.AddressRange{}
+	ar.Start = fmt.Sprintf("192.168.%d.10", i)
+	ar.End = fmt.Sprintf("192.168.%d.138", i)
+	ar.Purpose = []string{"something", "dynamic-range"}
+	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, ar)
+	var nni gomaasapi.NodeNetworkInterface
+	nni.Name = subnet.Name
+	nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
+	suite.testMAASObject.TestServer.SetNodeNetworkLink(systemID, nni)
+}
+
+func (suite *environSuite) TestSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	for _, i := range []uint{1, 2, 3} {
+		suite.addSubnet(c, i, i, "node1")
+		suite.addSubnet(c, i+5, i, "node1")
+	}
+
+	spaces, err := suite.makeEnviron().Spaces()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSpaces := []network.SpaceInfo{{
+		ProviderId: "Space 1",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(1, 1, 1),
+			createSubnetInfo(2, 1, 6),
+		},
+	}, {
+		ProviderId: "Space 2",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(3, 2, 2),
+			createSubnetInfo(4, 2, 7),
+		},
+	}, {
+		ProviderId: "Space 3",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(5, 3, 3),
+			createSubnetInfo(6, 3, 8),
+		},
+	}}
+	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
+}
+
+func (suite *environSuite) TestSpacesNeedsSupportsSpaces(c *gc.C) {
+	_, err := suite.makeEnviron().Spaces()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []network.Id) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	systemID := "node1"
+	for i := 1; i <= numberOfSubnets; i++ {
+		// Put most, but not all, of the subnets on node1.
+		if i == 2 {
+			systemID = "node2"
+		} else {
+			systemID = "node1"
+		}
+		suite.addSubnet(c, uint(i), uint(i), systemID)
+	}
+
+	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), filters)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSubnets := []network.SubnetInfo{
+		createSubnetInfo(1, 1, 1),
+		createSubnetInfo(3, 3, 3),
+	}
+	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
+
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
+	suite.assertSpaces(c, 3, []network.Id{})
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
+	suite.assertSpaces(c, 4, []network.Id{"1", "3"})
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	for _, i := range []uint{1, 2} {
+		suite.addSubnet(c, i, i, "node1")
+	}
+
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3", "6"})
+	errorText := "failed to find the following subnets: 3, 6"
+	c.Assert(err, gc.ErrorMatches, errorText)
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
@@ -1386,7 +1248,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: bar")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {

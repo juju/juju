@@ -4483,3 +4483,142 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		c.Assert(docs, jc.DeepEquals, expected)
 	}
 }
+
+func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Service {
+	// Add an owner user.
+	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, jc.ErrorIsNil)
+	ownerTag := stateOwner.UserTag()
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a coule of test spaces, but notably NOT the default one.
+	_, err = s.state.AddSpace("db", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.AddSpace("apps", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add some testing charms for the services.
+	charms := []*Charm{
+		AddTestingCharm(c, s.state, "wordpress"),
+		AddTestingCharm(c, s.state, "mysql"),
+	}
+
+	// Add a few services using the charms above: with no bindings, with just
+	// defaults, and with explicitly given bindings. For the first case we need
+	// to manually remove the added default bindings.
+	wpBindings := map[string]string{
+		"db":  "db",
+		"url": "apps",
+	}
+	msBindings := map[string]string{
+		"server": "db",
+	}
+	services := []*Service{
+		AddTestingService(c, s.state, "wp-no-bindings", charms[0], ownerTag),
+		AddTestingService(c, s.state, "ms-no-bindings", charms[1], ownerTag),
+
+		AddTestingService(c, s.state, "wp-default-bindings", charms[0], ownerTag),
+		AddTestingService(c, s.state, "ms-default-bindings", charms[1], ownerTag),
+
+		AddTestingServiceWithBindings(c, s.state, "wp-given-bindings", charms[0], ownerTag, wpBindings),
+		AddTestingServiceWithBindings(c, s.state, "ms-given-bindings", charms[1], ownerTag, msBindings),
+	}
+
+	// Drop the added endpoint bindings doc directly for the first two services.
+	ops := []txn.Op{
+		removeEndpointBindingsOp(services[0].globalKey()),
+		removeEndpointBindingsOp(services[1].globalKey()),
+	}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return services
+}
+
+func (s *upgradesSuite) getServicesBindings(c *gc.C, services []*Service) map[string]map[string]string {
+	currentBindings := make(map[string]map[string]string, len(services))
+	for i := range services {
+		serviceName := services[i].Name()
+		readBindings, err := services[i].EndpointBindings()
+		if err != nil && !errors.IsNotFound(err) {
+			c.Fatalf("unexpected error getting service %q bindings: %v", serviceName, err)
+		}
+		serviceBindings := make(map[string]string, len(readBindings))
+		for key, value := range readBindings {
+			serviceBindings[key] = value
+		}
+		currentBindings[serviceName] = serviceBindings
+	}
+	return currentBindings
+}
+
+func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwice bool) {
+	services := s.setupAddDefaultEndpointBindingsToServices(c)
+	initialBindings := s.getServicesBindings(c, services)
+	wpAllDefaults := map[string]string{
+		"url":             network.DefaultSpace,
+		"logging-dir":     network.DefaultSpace,
+		"monitoring-port": network.DefaultSpace,
+		"db":              network.DefaultSpace,
+		"cache":           network.DefaultSpace,
+	}
+	msAllDefaults := map[string]string{
+		"server": network.DefaultSpace,
+	}
+	c.Assert(initialBindings, jc.DeepEquals, map[string]map[string]string{
+		"wp-no-bindings":      map[string]string{},
+		"wp-default-bindings": wpAllDefaults,
+		"wp-given-bindings": map[string]string{
+			"url":             "apps",
+			"logging-dir":     network.DefaultSpace,
+			"monitoring-port": network.DefaultSpace,
+			"db":              "db",
+			"cache":           network.DefaultSpace,
+		},
+
+		"ms-no-bindings":      map[string]string{},
+		"ms-default-bindings": msAllDefaults,
+		"ms-given-bindings": map[string]string{
+			"server": "db",
+		},
+	})
+
+	assertFinalBindings := func() {
+		finalBindings := s.getServicesBindings(c, services)
+		c.Assert(finalBindings, jc.DeepEquals, map[string]map[string]string{
+			"wp-no-bindings":      wpAllDefaults,
+			"wp-default-bindings": wpAllDefaults,
+			"wp-given-bindings": map[string]string{
+				"url":             "apps",
+				"logging-dir":     network.DefaultSpace,
+				"monitoring-port": network.DefaultSpace,
+				"db":              "db",
+				"cache":           network.DefaultSpace,
+			},
+
+			"ms-no-bindings":      msAllDefaults,
+			"ms-default-bindings": msAllDefaults,
+			"ms-given-bindings": map[string]string{
+				"server": "db",
+			},
+		})
+	}
+	err := AddDefaultEndpointBindingsToServices(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	assertFinalBindings()
+
+	if runTwice {
+		err = AddDefaultEndpointBindingsToServices(s.state)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("idempotency check failed!"))
+		assertFinalBindings()
+	}
+}
+
+func (s *upgradesSuite) TestAddDefaultEndpointBindingsToServices(c *gc.C) {
+	s.testAddDefaultEndpointBindingsToServices(c, false)
+}
+
+func (s *upgradesSuite) TestAddDefaultEndpointBindingsToServicesIdempotent(c *gc.C) {
+	s.testAddDefaultEndpointBindingsToServices(c, true)
+}
