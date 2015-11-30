@@ -234,7 +234,7 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 	}
 	logger.Infof("starting singular lease manager")
 	singularManager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: singularSecretary{st.environTag.String()},
+		Secretary: singularSecretary{st.environTag.Id()},
 		Client:    singularClient,
 		Clock:     clock,
 	})

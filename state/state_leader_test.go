@@ -49,6 +49,12 @@ func (s *LeadershipSuite) TestClaimValidatesUnitName(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
+func (s *LeadershipSuite) TestClaimValidateDuration(c *gc.C) {
+	err := s.claimer.ClaimLeadership("service", "u/0", 0)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease for 0: non-positive`)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
 func (s *LeadershipSuite) TestCheckValidatesServiceName(c *gc.C) {
 	token := s.checker.LeadershipCheck("not/a/service", "u/0")
 	err := token.Check(nil)

@@ -55,6 +55,7 @@ func (st *State) HackLeadership() {
 	// the shared component should successfully goose them all into shutting down,
 	// in parallel, of their own accord.)
 	st.leadershipManager.Kill()
+	st.singularManager.Kill()
 }
 
 // buildTxnWithLeadership returns a transaction source that combines the supplied source
@@ -97,9 +98,9 @@ func (leadershipSecretary) CheckHolder(name string) error {
 
 // CheckDuration is part of the lease.Secretary interface.
 func (leadershipSecretary) CheckDuration(duration time.Duration) error {
-	// We don't have any opinions on valid lease times at this level. The
-	// substrate will barf if we go <= 0; the apiserver won't relay requests
-	// outside [5s, 5m]; not much sense duplicating either condition here.
+	if duration <= 0 {
+		return errors.NewNotValid(nil, "non-positive")
+	}
 	return nil
 }
 
