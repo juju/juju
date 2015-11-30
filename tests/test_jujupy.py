@@ -438,6 +438,30 @@ class TestEnvJujuClient(ClientTest):
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
 
+    def test_create_environment_system(self):
+        self.do_create_environment(
+            'system', 'system create-environment', ('-s', 'foo'))
+
+    def test_create_environment_controller(self):
+        self.do_create_environment(
+            'controller', 'controller create-environment', ('-c', 'foo'))
+
+    def test_create_environment_hypenated_controller(self):
+        self.do_create_environment(
+            'destroy-controller', 'create-environment', ('-c', 'foo'))
+
+    def do_create_environment(self, jes_command, create_cmd,
+                              controller_option):
+        controller_client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
+        client = EnvJujuClient(SimpleEnvironment('bar'), None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+            with patch.object(client, 'juju') as juju_mock:
+                client.create_environment(controller_client, 'temp')
+        juju_mock.assert_called_once_with(
+            create_cmd, controller_option + ('bar', '--config', 'temp'),
+            include_e=False)
+
     def test_destroy_environment_non_sudo(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
@@ -479,6 +503,25 @@ class TestEnvJujuClient(ClientTest):
                 self.assertTrue(os.path.exists(jenv_path))
                 client.destroy_environment(delete_jenv=True)
                 self.assertFalse(os.path.exists(jenv_path))
+
+    def test_kill_controller_system(self):
+        self.do_kill_controller('system', 'system kill')
+
+    def test_kill_controller_controller(self):
+        self.do_kill_controller('controller', 'controller kill')
+
+    def test_kill_controller_hyphenated(self):
+        self.do_kill_controller('destroy-controller', 'destroy-controller')
+
+    def do_kill_controller(self, jes_command, kill_command):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+            with patch.object(client, 'juju') as juju_mock:
+                client.kill_controller()
+        juju_mock.assert_called_once_with(
+            kill_command, ('foo', '-y'), check=False, include_e=False,
+            timeout=600)
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
@@ -1245,7 +1288,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertEqual(
-                '%s kill' % DEFAULT_JES_COMMAND_2x, client.get_jes_command())
+                DEFAULT_JES_COMMAND_2x, client.get_jes_command())
         # Juju 1.26 uses the destroy-controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen(DEFAULT_JES_COMMAND_1x, None, 0)
@@ -1258,7 +1301,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertEqual(
-                '%s kill' % OPTIONAL_JES_COMMAND, client.get_jes_command())
+                OPTIONAL_JES_COMMAND, client.get_jes_command())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')

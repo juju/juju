@@ -132,6 +132,7 @@ class TestJES(unittest.TestCase):
             by_version_func):
         client = Mock()
         by_version_func.return_value = client
+        client.is_jes_enabled.side_effect = [False, True]
 
         env = SimpleEnvironment('env', {'type': 'any'})
         old_client = EnvJujuClient(env, None, '/a/path')
@@ -145,3 +146,24 @@ class TestJES(unittest.TestCase):
         self.assertEqual(call_args[1:], ('/a/path', False))
 
         client.enable_jes.assert_called_once_with()
+
+    @patch('assess_jes_deploy.EnvJujuClient.by_version')
+    def test_make_hosted_env_client_jes_by_default(
+            self,
+            by_version_func):
+        client = Mock()
+        by_version_func.return_value = client
+        client.is_jes_enabled.return_value = True
+
+        env = SimpleEnvironment('env', {'type': 'any'})
+        old_client = EnvJujuClient(env, None, '/a/path')
+        make_hosted_env_client(old_client, 'test')
+
+        self.assertEqual(by_version_func.call_count, 1)
+        call_args = by_version_func.call_args[0]
+        self.assertIsInstance(call_args[0], SimpleEnvironment)
+        self.assertEqual(call_args[0].environment, 'env-test')
+        self.assertEqual(call_args[0].config, {'type': 'any'})
+        self.assertEqual(call_args[1:], ('/a/path', False))
+
+        self.assertEqual(0, client.enable_jes.call_count)
