@@ -709,7 +709,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	network.InitializeFromConfig(e.Config())
+	network.SetPreferIPv6(e.Config().PreferIPv6())
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")

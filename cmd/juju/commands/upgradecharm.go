@@ -149,8 +149,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.SwitchURL == "" && c.CharmPath == "" {
 		// No new URL specified, but revision might have been.
-		curl := oldURL.WithRevision(c.Revision).Reference()
-		newRef = curl.String()
+		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
 	httpClient, err := c.HTTPClient()
@@ -203,7 +202,7 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
-		newRef, _ := charm.ParseReference(charmRef)
+		newRef, _ := charm.ParseURL(charmRef)
 		if newRef.Revision != -1 {
 			return nil, fmt.Errorf("already running specified charm %q", newURL)
 		}

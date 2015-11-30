@@ -82,6 +82,9 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
+	}, {
+		args: []string{"charm", "service", "--force"},
+		err:  `--force is only used with --series`,
 	},
 }
 
@@ -173,7 +176,15 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
 	err := runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty. Use --force to deploy the charm anyway.`)
+}
+
+func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
+	err := runDeploy(c, path, "--series", "quantal", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:quantal/multi-series-1")
+	s.AssertService(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
@@ -517,7 +528,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot retrieve charm "cs:~bob/trusty/wordpress6-47": cannot get archive: unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -692,6 +703,7 @@ type serviceInfo struct {
 	config      charm.Settings
 	constraints constraints.Value
 	exposed     bool
+	storage     map[string]state.StorageConstraints
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
@@ -708,11 +720,17 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 		}
 		constraints, err := service.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
+		storage, err := service.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(storage) == 0 {
+			storage = nil
+		}
 		deployed[service.Name()] = serviceInfo{
 			charm:       charm.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     service.IsExposed(),
+			storage:     storage,
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)

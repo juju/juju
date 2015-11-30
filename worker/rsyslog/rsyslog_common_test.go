@@ -26,6 +26,9 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
+	if testing.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519147")
+	}
 	coretesting.MgoTestPackage(t)
 }
 
