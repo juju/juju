@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 type exposedAPI bool
@@ -59,8 +60,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&agentcmd.UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
-	s.PatchValue(&agentcmd.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
 
 	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
@@ -102,7 +103,7 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		}
 		return nil
 	}
-	s.PatchValue(&agentcmd.PerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&upgradesteps.PerformUpgrade, fakePerformUpgrade)
 
 	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -157,7 +158,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
 		return true, nil
 	}
-	s.PatchValue(&agentcmd.IsMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
 
 	// Start the agent
 	agent := s.newAgent(c, machineA)

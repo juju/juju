@@ -103,6 +103,7 @@ import (
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 const bootstrapMachineId = "0"
@@ -279,7 +280,7 @@ func MachineAgentFactoryFn(
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
-			NewUpgradeWorkerContext(),
+			upgradesteps.NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			loopDeviceManager,
 			rootDir,
@@ -292,7 +293,7 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	upgradeWorkerContext *upgradeWorkerContext,
+	upgradeWorkerContext *upgradesteps.UpgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
@@ -322,7 +323,7 @@ type MachineAgent struct {
 	rootDir              string
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
-	upgradeWorkerContext *upgradeWorkerContext
+	upgradeWorkerContext *upgradesteps.UpgradeWorkerContext
 	workersStarted       chan struct{}
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
@@ -701,10 +702,10 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
-	// Run the agent upgrader and the upgrade-steps worker without waiting for
+	// Run the agent upgrader and the upgradesteps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
+	runner.StartWorker("upgradesteps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
@@ -917,12 +918,53 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st api.Connection,
+	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+		tag, ok := a.Tag().(names.MachineTag)
+		if !ok {
+			return nil, errors.New("agent's tag is not a machine tag")
+		}
+		machine, err := apiConn.Machiner().Machine(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return a.upgradeWorkerContext.Worker(a, apiConn, jobs, a.openStateForUpgrade, machine)
 	}
+}
+
+// openStateForUpgrade exists to be passed into the upgradesteps
+// worker. The upgradesteps worker opens state independently of the
+// state worker so that it isn't affected by the state worker's
+// lifetime. It ensures the MongoDB server is configured and started,
+// and then opens a state connection.
+//
+// TODO(mjs)- review the need for this once the dependency engine is
+// in use. Why can't upgradesteps depend on the main state connection?
+func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
+	agentConfig := a.CurrentConfig()
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return nil, nil, errors.New("no state info available")
+	}
+	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure storage is available during upgrades.
+	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	registerSimplestreamsDataSource(stor)
+
+	closer := func() {
+		unregisterSimplestreamsDataSource()
+		st.Close()
+	}
+	return st, closer, nil
 }
 
 func (a *MachineAgent) agentUpgraderWorkerStarter(
@@ -1713,18 +1755,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		}
 		return <-waitCh // Ensure worker has stopped before returning.
 	})
-}
-
-func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
-	tag := a.Tag().(names.MachineTag)
-	machine, err := apiState.Machiner().Machine(tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := machine.SetStatus(status, info, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
