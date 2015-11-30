@@ -31,7 +31,6 @@ or
 Examples:
     $ juju add-relation wordpress mysql
     $ juju add-relation wordpress local:/u/fred/db2
-    $ juju add-relation wordpress vendor:/u/ibm/hosted-db2
 
 `
 
