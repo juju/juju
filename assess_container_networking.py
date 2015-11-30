@@ -49,7 +49,7 @@ def clean_environment(client, services_only=False):
                     # containers on it. Normally a small pause and trying
                     # again is all that is needed to resolve this issue.
                     time.sleep(2)
-                    s = client.wait_for_started()
+                    client.wait_for_started()
                     client.juju('remove-machine', m)
 
         client.wait_for('machines-not-0', 'none')
