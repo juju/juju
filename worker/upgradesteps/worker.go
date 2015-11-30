@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -29,10 +30,9 @@ import (
 // like about how this worker is structured. Some things to fix when
 // time allows:
 //
-// 1. The UpgradeWorkerContext holds lots of stuff that is specific to
-// a single run of the worker. Create a separate struct for the worker
-// leaving only a few things in the context. Given the complexity of
-// the worker, using a SimplerWorker is probably not a good fit.
+// 1. The UpgradeWorkerContext holds lots of stuff that is specific to a
+// single run of the worker. Create a separate struct for the worker
+// leaving only a few things in the context.
 //
 // 2. upgradeMachineAgent should be replaced with agent.Agent.
 //
@@ -40,10 +40,7 @@ import (
 // NewUpgradeWorkerContext (so that InitializeUsingAgent can be
 // removed).
 //
-// 4. Using the Agent's Dying channel is dumb and ignoring the
-// worker's own tomb (the stop channel) is even worse!
-//
-// 5. The tests are internal tests and are too tightly coupled to the
+// 4. The tests are internal tests and are too tightly coupled to the
 // implementation.
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
@@ -51,7 +48,6 @@ var logger = loggo.GetLogger("juju.worker.upgradesteps")
 type upgradingMachineAgent interface {
 	CurrentConfig() agent.Config
 	ChangeConfig(agent.ConfigMutator) error
-	Dying() <-chan struct{}
 }
 
 // StatusSetter defines the single method required to set an agent's
@@ -91,6 +87,7 @@ func NewUpgradeWorkerContext() *UpgradeWorkerContext {
 // UpgradeWorkerContext holds the data used by the upgradesteps
 // worker.
 type UpgradeWorkerContext struct {
+	tomb                tomb.Tomb
 	UpgradeComplete     chan struct{}
 	fromVersion         version.Number
 	toVersion           version.Number
@@ -128,7 +125,6 @@ func (c *UpgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 		return nil
 	})
 }
-
 func (c *UpgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
 	apiConn api.Connection,
@@ -149,7 +145,21 @@ func (c *UpgradeWorkerContext) Worker(
 	c.tag = tag
 	c.machineId = tag.Id()
 
-	return worker.NewSimpleWorker(c.run), nil
+	go func() {
+		defer c.tomb.Done()
+		c.tomb.Kill(c.run())
+	}()
+	return c, nil
+}
+
+// Kill is part of the worker.Worker interface.
+func (c *UpgradeWorkerContext) Kill() {
+	c.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (c *UpgradeWorkerContext) Wait() error {
+	return c.tomb.Wait()
 }
 
 func (c *UpgradeWorkerContext) IsUpgradeRunning() bool {
@@ -174,7 +184,7 @@ func isAPILostDuringUpgrade(err error) bool {
 	return ok
 }
 
-func (c *UpgradeWorkerContext) run(stop <-chan struct{}) error {
+func (c *UpgradeWorkerContext) run() error {
 	if wrench.IsActive("machine-agent", "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
@@ -244,8 +254,6 @@ func (c *UpgradeWorkerContext) run(stop <-chan struct{}) error {
 	return nil
 }
 
-var agentTerminating = errors.New("machine agent is terminating")
-
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
 func (c *UpgradeWorkerContext) runUpgrades() error {
@@ -283,18 +291,18 @@ func (c *UpgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	// to run the upgrade steps.
 	logger.Infof("waiting for other state servers to be ready for upgrade")
 	if err := c.waitForOtherStateServers(info); err != nil {
-		if err == agentTerminating {
+		if err == tomb.ErrDying {
 			logger.Warningf(`stopped waiting for other state servers: %v`, err)
-		} else {
-			logger.Errorf(`aborted wait for other state servers: %v`, err)
-			// If master, trigger a rollback to the previous agent version.
-			if c.isMaster {
-				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
-					c.fromVersion)
-				if rollbackErr := c.st.SetEnvironAgentVersion(c.fromVersion); rollbackErr != nil {
-					logger.Errorf("rollback failed: %v", rollbackErr)
-					return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
-				}
+			return nil, err
+		}
+		logger.Errorf(`aborted wait for other state servers: %v`, err)
+		// If master, trigger a rollback to the previous agent version.
+		if c.isMaster {
+			logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+				c.fromVersion)
+			if rollbackErr := c.st.SetEnvironAgentVersion(c.fromVersion); rollbackErr != nil {
+				logger.Errorf("rollback failed: %v", rollbackErr)
+				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
 		}
 		return nil, errors.Annotate(err, "aborted wait for other state servers")
@@ -340,8 +348,8 @@ func (c *UpgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 				}
 			}
 			return errors.Errorf("timed out after %s", maxWait)
-		case <-c.agent.Dying():
-			return agentTerminating
+		case <-c.tomb.Dying():
+			return tomb.ErrDying
 		}
 
 	}

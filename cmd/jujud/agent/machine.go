@@ -374,12 +374,6 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
-// Dying returns the channel that can be used to see if the machine
-// agent is terminating.
-func (a *MachineAgent) Dying() <-chan struct{} {
-	return a.tomb.Dying()
-}
-
 // upgradeCertificateDNSNames ensure that the state server certificate
 // recorded in the agent config and also mongo server.pem contains the
 // DNSNames entires required by Juju/

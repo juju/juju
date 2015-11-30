@@ -308,28 +308,6 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	}})
 }
 
-func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
-	s.machineIsMaster = false
-	s.captureLogs(c)
-	attemptsP := s.countUpgradeAttempts(nil)
-
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
-	})
-	config := s.makeFakeConfig()
-	agent := NewFakeUpgradingMachineAgent(config)
-	close(agent.DyingCh)
-	workerErr, context, _ := s.runUpgradeWorkerUsingAgent(c, agent, multiwatcher.JobManageEnviron)
-
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 0)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
-	assertUpgradeNotComplete(c, context)
-	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.WARNING, "stopped waiting for other state servers: machine agent is terminating"},
-	})
-}
-
 func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	// This test checks what happens when an upgrade works on the
 	// first attempt on a master state server.
@@ -620,14 +598,12 @@ func (s *fakeConfigSetter) SetUpgradedToVersion(newVersion version.Number) {
 // MachineAgent functionality to support upgrades.
 func NewFakeUpgradingMachineAgent(confSetter agent.ConfigSetter) *fakeUpgradingMachineAgent {
 	return &fakeUpgradingMachineAgent{
-		config:  confSetter,
-		DyingCh: make(chan struct{}),
+		config: confSetter,
 	}
 }
 
 type fakeUpgradingMachineAgent struct {
-	config  agent.ConfigSetter
-	DyingCh chan struct{}
+	config agent.ConfigSetter
 }
 
 func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
@@ -636,10 +612,6 @@ func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
 
 func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
-}
-
-func (a *fakeUpgradingMachineAgent) Dying() <-chan struct{} {
-	return a.DyingCh
 }
 
 type StatusCall struct {
