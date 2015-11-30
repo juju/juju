@@ -62,7 +62,7 @@ func (r Remote) ID() string {
 // WithDefaults updates a copy of the remote with default values
 // where needed.
 func (r Remote) WithDefaults() (Remote, error) {
-	// Note that ri is a value receiver, so it is an implicit copy.
+	// Note that r is a value receiver, so it is an implicit copy.
 
 	if r.isLocal() {
 		return r.withLocalDefaults(), nil
