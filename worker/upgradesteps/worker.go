@@ -34,21 +34,14 @@ import (
 // single run of the worker. Create a separate struct for the worker
 // leaving only a few things in the context.
 //
-// 2. upgradeMachineAgent should be replaced with agent.Agent.
-//
-// 3. The work done by InitializeUsingAgent should probably be done in
+// 2. The work done by InitializeUsingAgent should probably be done in
 // NewUpgradeWorkerContext (so that InitializeUsingAgent can be
 // removed).
 //
-// 4. The tests are internal tests and are too tightly coupled to the
+// 3. The tests are internal tests and are too tightly coupled to the
 // implementation.
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
-
-type upgradingMachineAgent interface {
-	CurrentConfig() agent.Config
-	ChangeConfig(agent.ConfigMutator) error
-}
 
 // StatusSetter defines the single method required to set an agent's
 // status.
@@ -91,7 +84,7 @@ type UpgradeWorkerContext struct {
 	UpgradeComplete     chan struct{}
 	fromVersion         version.Number
 	toVersion           version.Number
-	agent               upgradingMachineAgent
+	agent               agent.Agent
 	apiConn             api.Connection
 	openStateForUpgrade func() (*state.State, func(), error)
 	machine             StatusSetter
@@ -106,7 +99,7 @@ type UpgradeWorkerContext struct {
 
 // InitialiseUsingAgent sets up a UpgradeWorkerContext from a machine agent instance.
 // It may update the agent's configuration.
-func (c *UpgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) error {
+func (c *UpgradeWorkerContext) InitializeUsingAgent(a agent.Agent) error {
 	if wrench.IsActive("machine-agent", "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
@@ -126,7 +119,7 @@ func (c *UpgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 	})
 }
 func (c *UpgradeWorkerContext) Worker(
-	agent upgradingMachineAgent,
+	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 	openStateForUpgrade func() (*state.State, func(), error),

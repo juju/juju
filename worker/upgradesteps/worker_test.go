@@ -103,7 +103,7 @@ func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 	// version.Current (so that we can see it change) but not to
 	// trigger upgrade steps.
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), makeBumpedCurrentVersion().Number)
-	agent := NewFakeUpgradingMachineAgent(config)
+	agent := NewFakeAgent(config)
 
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
@@ -123,7 +123,7 @@ func (s *UpgradeSuite) TestContextInitializeWhenUpgradeRequired(c *gc.C) {
 	// Set the agent's upgradedToVersion so that upgrade steps are required.
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
-	agent := NewFakeUpgradingMachineAgent(config)
+	agent := NewFakeAgent(config)
 
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
@@ -381,25 +381,13 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
 	error, *fakeConfigSetter, []StatusCall, *UpgradeWorkerContext,
 ) {
-	config := s.makeFakeConfig()
-	agent := NewFakeUpgradingMachineAgent(config)
-	err, context, machineStatus := s.runUpgradeWorkerUsingAgent(c, agent, jobs...)
-	return err, config, machineStatus.Calls, context
-}
-
-// Run just the upgradesteps worker with the fake machine agent
-// provided.
-func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
-	c *gc.C,
-	agent *fakeUpgradingMachineAgent,
-	jobs ...multiwatcher.MachineJob,
-) (error, *UpgradeWorkerContext, *testStatusSetter) {
 	s.setInstantRetryStrategy(c)
-	context := NewUpgradeWorkerContext()
+	config := s.makeFakeConfig()
 	machineStatus := &testStatusSetter{}
-	worker, err := context.Worker(agent, nil, jobs, s.openStateForUpgrade, machineStatus)
+	context := NewUpgradeWorkerContext()
+	worker, err := context.Worker(NewFakeAgent(config), nil, jobs, s.openStateForUpgrade, machineStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	return worker.Wait(), context, machineStatus
+	return worker.Wait(), config, machineStatus.Calls, context
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
@@ -593,24 +581,24 @@ func (s *fakeConfigSetter) SetUpgradedToVersion(newVersion version.Number) {
 	s.Version = newVersion
 }
 
-// NewFakeUpgradingMachineAgent returns a fakeUpgradingMachineAgent which implements
-// the upgradingMachineAgent interface. This provides enough
-// MachineAgent functionality to support upgrades.
-func NewFakeUpgradingMachineAgent(confSetter agent.ConfigSetter) *fakeUpgradingMachineAgent {
-	return &fakeUpgradingMachineAgent{
+// NewFakeAgent returns a fakeAgent which implements the agent.Agent
+// interface. This provides enough MachineAgent functionality to
+// support upgrades.
+func NewFakeAgent(confSetter agent.ConfigSetter) *fakeAgent {
+	return &fakeAgent{
 		config: confSetter,
 	}
 }
 
-type fakeUpgradingMachineAgent struct {
+type fakeAgent struct {
 	config agent.ConfigSetter
 }
 
-func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
+func (a *fakeAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+func (a *fakeAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
 }
 
