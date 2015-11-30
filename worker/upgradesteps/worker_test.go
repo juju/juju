@@ -103,7 +103,7 @@ func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 	// version.Current (so that we can see it change) but not to
 	// trigger upgrade steps.
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), makeBumpedCurrentVersion().Number)
-	agent := NewFakeUpgradingMachineAgent(config)
+	agent := NewFakeAgent(config)
 
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
@@ -123,7 +123,7 @@ func (s *UpgradeSuite) TestContextInitializeWhenUpgradeRequired(c *gc.C) {
 	// Set the agent's upgradedToVersion so that upgrade steps are required.
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
-	agent := NewFakeUpgradingMachineAgent(config)
+	agent := NewFakeAgent(config)
 
 	context := NewUpgradeWorkerContext()
 	context.InitializeUsingAgent(agent)
@@ -308,28 +308,6 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	}})
 }
 
-func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
-	s.machineIsMaster = false
-	s.captureLogs(c)
-	attemptsP := s.countUpgradeAttempts(nil)
-
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
-	})
-	config := s.makeFakeConfig()
-	agent := NewFakeUpgradingMachineAgent(config)
-	close(agent.DyingCh)
-	workerErr, context, _ := s.runUpgradeWorkerUsingAgent(c, agent, multiwatcher.JobManageEnviron)
-
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 0)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
-	assertUpgradeNotComplete(c, context)
-	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.WARNING, "stopped waiting for other state servers: machine agent is terminating"},
-	})
-}
-
 func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	// This test checks what happens when an upgrade works on the
 	// first attempt on a master state server.
@@ -403,25 +381,13 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
 	error, *fakeConfigSetter, []StatusCall, *UpgradeWorkerContext,
 ) {
-	config := s.makeFakeConfig()
-	agent := NewFakeUpgradingMachineAgent(config)
-	err, context, machineStatus := s.runUpgradeWorkerUsingAgent(c, agent, jobs...)
-	return err, config, machineStatus.Calls, context
-}
-
-// Run just the upgradesteps worker with the fake machine agent
-// provided.
-func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
-	c *gc.C,
-	agent *fakeUpgradingMachineAgent,
-	jobs ...multiwatcher.MachineJob,
-) (error, *UpgradeWorkerContext, *testStatusSetter) {
 	s.setInstantRetryStrategy(c)
-	context := NewUpgradeWorkerContext()
+	config := s.makeFakeConfig()
 	machineStatus := &testStatusSetter{}
-	worker, err := context.Worker(agent, nil, jobs, s.openStateForUpgrade, machineStatus)
+	context := NewUpgradeWorkerContext()
+	worker, err := context.Worker(NewFakeAgent(config), nil, jobs, s.openStateForUpgrade, machineStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	return worker.Wait(), context, machineStatus
+	return worker.Wait(), config, machineStatus.Calls, context
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
@@ -615,31 +581,25 @@ func (s *fakeConfigSetter) SetUpgradedToVersion(newVersion version.Number) {
 	s.Version = newVersion
 }
 
-// NewFakeUpgradingMachineAgent returns a fakeUpgradingMachineAgent which implements
-// the upgradingMachineAgent interface. This provides enough
-// MachineAgent functionality to support upgrades.
-func NewFakeUpgradingMachineAgent(confSetter agent.ConfigSetter) *fakeUpgradingMachineAgent {
-	return &fakeUpgradingMachineAgent{
-		config:  confSetter,
-		DyingCh: make(chan struct{}),
+// NewFakeAgent returns a fakeAgent which implements the agent.Agent
+// interface. This provides enough MachineAgent functionality to
+// support upgrades.
+func NewFakeAgent(confSetter agent.ConfigSetter) *fakeAgent {
+	return &fakeAgent{
+		config: confSetter,
 	}
 }
 
-type fakeUpgradingMachineAgent struct {
-	config  agent.ConfigSetter
-	DyingCh chan struct{}
+type fakeAgent struct {
+	config agent.ConfigSetter
 }
 
-func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
+func (a *fakeAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+func (a *fakeAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
-}
-
-func (a *fakeUpgradingMachineAgent) Dying() <-chan struct{} {
-	return a.DyingCh
 }
 
 type StatusCall struct {
