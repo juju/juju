@@ -196,6 +196,10 @@ var getEnvName = func(c *bootstrapCommand) string {
 	return c.ConnectionName()
 }
 
+var environFromName = func(ctx *cmd.Context, envName, action string, ensureNotBootstrapped func(environs.Environ) error) (environs.Environ, func(), error) {
+	return common.EnvironFromName(ctx, envName, action, ensureNotBootstrapped)
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package common
 
 import (
 	"github.com/juju/cmd"
@@ -17,6 +17,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
+
+var v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
 
 var _ = gc.Suite(&EnvironFromNameSuite{})
 
@@ -73,8 +75,6 @@ func (s *EnvironFromNameSuite) TestCleanup(c *gc.C) {
 	}
 	s.PatchValue(&environs.PrepareFromName, mockPrepare)
 
-	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
-
 	ctx := coretesting.Context(c)
 	envName := "peckham"
 	action := "Bootstrap"
@@ -84,7 +84,7 @@ func (s *EnvironFromNameSuite) TestCleanup(c *gc.C) {
 
 	// Simulation: prepare should fail and we should only clean up the
 	// jenv file. Any existing environment should not be destroyed.
-	_, cleanup, err := environFromName(ctx, envName, action, failer)
+	_, cleanup, err := EnvironFromName(ctx, envName, action, failer)
 
 	c.Check(err, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyedEnvRan, jc.IsFalse)
