@@ -386,6 +386,11 @@ def tear_down(client, jes_enabled):
 
 class BootstrapManager:
     """
+    Helper class for running juju tests.
+
+    Enables running tests on the manual provider and on MAAS systems, with
+    automatic cleanup, logging, etc.  See BootstrapManager.booted_context.
+
     :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
     :ivar client: an EnvJujuClient.
@@ -406,6 +411,8 @@ class BootstrapManager:
     def __init__(self, temp_env_name, client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
                  keep_env, permanent, jes_enabled):
+        """Constructor.  Please see class document for argument descriptions.
+        """
         self.temp_env_name = temp_env_name
         self.client = client
         self.bootstrap_host = bootstrap_host
