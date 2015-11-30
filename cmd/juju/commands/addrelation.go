@@ -95,7 +95,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if api.BestAPIVersion() < 2 {
 		if c.hasRemoteEndpoints {
 			// old client does not have cross-model capability.
-			return errors.NotSupportedf("add relation between %s remote service endpoints", c.Endpoints)
+			return errors.NotSupportedf("cannot add relation between %s: remote endpoints", c.Endpoints)
 		}
 	}
 	added, err := api.AddRelation(c.Endpoints...)

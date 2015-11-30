@@ -91,12 +91,12 @@ func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteServices(c *gc.C) {
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationToOneRemoteService(c *gc.C) {
 	err := s.runAddRelation(c, "servicename", "local:/u/user/servicename2")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("add relation between [servicename local:/u/user/servicename2] remote service endpoints not supported"))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [servicename local:/u/user/servicename2]: remote endpoints not supported"))
 }
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationAnyRemoteService(c *gc.C) {
 	err := s.runAddRelation(c, "local:/u/user/servicename2", "servicename")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("add relation between [local:/u/user/servicename2 servicename] remote service endpoints not supported"))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [local:/u/user/servicename2 servicename]: remote endpoints not supported"))
 }
 
 // AddRelationValidationSuite has input validation tests.
