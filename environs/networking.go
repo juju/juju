@@ -40,6 +40,11 @@ type Networking interface {
 	// SupportsSpaces returns whether the current environment supports spaces. The
 	// returned error satisfies errors.IsNotSupported(), unless a general API failure occurs.
 	SupportsSpaces() (bool, error)
+
+	// Spaces returns a slice of network.SpaceInfo with info, including
+	// details of all associated subnets, about all spaces known to the
+	// provider that have subnets available.
+	Spaces() ([]network.SpaceInfo, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
