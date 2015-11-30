@@ -83,7 +83,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
-	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
+	initLock, err := fslock.NewLock(s.initLockDir, "container-init", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
 
@@ -99,7 +99,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
-	runner := worker.NewRunner(allFatal, noImportance)
+	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)

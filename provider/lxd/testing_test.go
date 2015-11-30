@@ -8,6 +8,7 @@ package lxd
 import (
 	"crypto/tls"
 	"encoding/pem"
+	"os"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -88,6 +89,8 @@ var (
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
+	osPathOrig string
+
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
@@ -104,6 +107,19 @@ type BaseSuiteUnpatched struct {
 	//InstanceType  instances.InstanceType
 
 	Ports []network.PortRange
+}
+
+func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
+	s.osPathOrig = os.Getenv("PATH")
+	if s.osPathOrig == "" {
+		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
+		// bug in testing.IsolationSuite is causing $PATH to remain unset
+		// sometimes.  Once that is cleared up this special-case can go
+		// away.
+		s.osPathOrig =
+			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+	}
+	s.IsolationSuite.SetUpTest(c)
 }
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
@@ -147,17 +163,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Architecture: arch.AMD64,
 		NumCores:     1,
 		MemoryMB:     3750,
-		//RootDiskMB:   50000,
 	}
 	var archName string = arch.AMD64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
-	//var rootDiskMB uint64 = 50000
 	s.HWC = &instance.HardwareCharacteristics{
 		Arch:     &archName,
 		CpuCores: &numCores,
 		Mem:      &memoryMB,
-		//RootDisk: &rootDiskMB,
 	}
 
 	s.Metadata = map[string]string{ // userdata
@@ -177,11 +190,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
-		//Placement: "",
-		//DistributionGroup: nil,
 	}
-
-	//s.InstanceType = allInstanceTypes[0]
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -247,6 +256,15 @@ func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance 
 	return newInstance(raw, s.Env)
 }
 
+func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
+	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
+	defer restore()
+
+	running, err := lxdclient.IsRunningLocally()
+	c.Assert(err, jc.ErrorIsNil)
+	return running
+}
+
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
@@ -276,20 +294,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		policyProvider: s.Policy,
 	}
 	s.Env.base = s.Common
-
-	//s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
-	//	return s.StubConn, nil
-	//})
-	//s.PatchValue(&supportedArchitectures, s.StubCommon.SupportedArchitectures)
-	//s.PatchValue(&bootstrap, s.StubCommon.Bootstrap)
-	//s.PatchValue(&destroyEnv, s.StubCommon.Destroy)
-	//s.PatchValue(&availabilityZoneAllocations, s.StubCommon.AvailabilityZoneAllocations)
-	//s.PatchValue(&buildInstanceSpec, s.StubEnviron.BuildInstanceSpec)
-	//s.PatchValue(&getHardwareCharacteristics, s.StubEnviron.GetHardwareCharacteristics)
-	//s.PatchValue(&newRawInstance, s.StubEnviron.NewRawInstance)
-	//s.PatchValue(&findInstanceSpec, s.StubEnviron.FindInstanceSpec)
-	//s.PatchValue(&getInstances, s.StubEnviron.GetInstances)
-	//s.PatchValue(&imageMetadataFetch, s.StubImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {

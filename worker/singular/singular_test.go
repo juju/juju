@@ -172,6 +172,7 @@ func newRunner() worker.Runner {
 			return err == errFatal
 		},
 		func(err0, err1 error) bool { return true },
+		worker.RestartDelay,
 	)
 }
 
