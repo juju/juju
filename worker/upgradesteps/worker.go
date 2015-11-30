@@ -26,28 +26,7 @@ import (
 	"github.com/juju/juju/wrench"
 )
 
-// TODO(mjs) - For mainly historical reasons, there's a lot to not
-// like about how this worker is structured. Some things to fix when
-// time allows:
-//
-// 1. The UpgradeWorkerContext holds lots of stuff that is specific to a
-// single run of the worker. Create a separate struct for the worker
-// leaving only a few things in the context.
-//
-// 2. The work done by InitializeUsingAgent should probably be done in
-// NewUpgradeWorkerContext (so that InitializeUsingAgent can be
-// removed).
-//
-// 3. The tests are internal tests and are too tightly coupled to the
-// implementation.
-
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
-
-// StatusSetter defines the single method required to set an agent's
-// status.
-type StatusSetter interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
-}
 
 var (
 	PerformUpgrade = upgrades.PerformUpgrade // Allow patching
@@ -70,46 +49,26 @@ var (
 	UpgradeStartTimeoutSecondary = time.Hour * 4
 )
 
-// NewUpgradeWorkerContext returns a new UpgradeWorkerContext.
-func NewUpgradeWorkerContext() *UpgradeWorkerContext {
-	return &UpgradeWorkerContext{
-		UpgradeComplete: make(chan struct{}),
-	}
-}
+// NewChannel creates a channel to be used to synchronise workers
+// which need to start after upgrades have completed. If no upgrade
+// steps are required the channel is returned closed and the agent's
+// configuration is updated.
+//
+// The returned channel should be passed to NewWorker.
+func NewChannel(a agent.Agent) (chan struct{}, error) {
+	ch := make(chan struct{})
 
-// UpgradeWorkerContext holds the data used by the upgradesteps
-// worker.
-type UpgradeWorkerContext struct {
-	tomb                tomb.Tomb
-	UpgradeComplete     chan struct{}
-	fromVersion         version.Number
-	toVersion           version.Number
-	agent               agent.Agent
-	apiConn             api.Connection
-	openStateForUpgrade func() (*state.State, func(), error)
-	machine             StatusSetter
-	tag                 names.MachineTag
-	machineId           string
-	isMaster            bool
-	jobs                []multiwatcher.MachineJob
-	agentConfig         agent.Config
-	isStateServer       bool
-	st                  *state.State
-}
-
-// InitialiseUsingAgent sets up a UpgradeWorkerContext from a machine agent instance.
-// It may update the agent's configuration.
-func (c *UpgradeWorkerContext) InitializeUsingAgent(a agent.Agent) error {
 	if wrench.IsActive("machine-agent", "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
-		return nil
+		return ch, nil
 	}
-	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+
+	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
 				"have already been run.", version.Current)
-			close(c.UpgradeComplete)
+			close(ch)
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
@@ -117,51 +76,74 @@ func (c *UpgradeWorkerContext) InitializeUsingAgent(a agent.Agent) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }
-func (c *UpgradeWorkerContext) Worker(
+
+// StatusSetter defines the single method required to set an agent's
+// status.
+type StatusSetter interface {
+	SetStatus(status params.Status, info string, data map[string]interface{}) error
+}
+
+// NewWorker returns a new instance of the upgradesteps worker. It
+// will run any required steps to upgrade to the currently running
+// Juju version.
+func NewWorker(
+	upgradeComplete chan struct{},
 	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
-	openStateForUpgrade func() (*state.State, func(), error),
+	openState func() (*state.State, func(), error),
 	machine StatusSetter,
 ) (worker.Worker, error) {
-	c.agent = agent
-	c.apiConn = apiConn
-	c.jobs = jobs
-	c.openStateForUpgrade = openStateForUpgrade
-	c.machine = machine
-
 	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.New("machine agent's tag is not a MachineTag")
 	}
-	c.tag = tag
-	c.machineId = tag.Id()
-
+	w := &upgradesteps{
+		upgradeComplete: upgradeComplete,
+		agent:           agent,
+		apiConn:         apiConn,
+		jobs:            jobs,
+		openState:       openState,
+		machine:         machine,
+		tag:             tag,
+	}
 	go func() {
-		defer c.tomb.Done()
-		c.tomb.Kill(c.run())
+		defer w.tomb.Done()
+		w.tomb.Kill(w.run())
 	}()
-	return c, nil
+	return w, nil
+}
+
+type upgradesteps struct {
+	tomb            tomb.Tomb
+	upgradeComplete chan struct{}
+	agent           agent.Agent
+	apiConn         api.Connection
+	jobs            []multiwatcher.MachineJob
+	openState       func() (*state.State, func(), error)
+	machine         StatusSetter
+
+	fromVersion   version.Number
+	toVersion     version.Number
+	tag           names.MachineTag
+	isMaster      bool
+	isStateServer bool
+	st            *state.State
 }
 
 // Kill is part of the worker.Worker interface.
-func (c *UpgradeWorkerContext) Kill() {
-	c.tomb.Kill(nil)
+func (w *upgradesteps) Kill() {
+	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (c *UpgradeWorkerContext) Wait() error {
-	return c.tomb.Wait()
-}
-
-func (c *UpgradeWorkerContext) IsUpgradeRunning() bool {
-	select {
-	case <-c.UpgradeComplete:
-		return false
-	default:
-		return true
-	}
+func (w *upgradesteps) Wait() error {
+	return w.tomb.Wait()
 }
 
 type apiLostDuringUpgrade struct {
@@ -177,54 +159,52 @@ func isAPILostDuringUpgrade(err error) bool {
 	return ok
 }
 
-func (c *UpgradeWorkerContext) run() error {
+func (w *upgradesteps) run() error {
 	if wrench.IsActive("machine-agent", "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
 
 	select {
-	case <-c.UpgradeComplete:
+	case <-w.upgradeComplete:
 		// Our work is already done (we're probably being restarted
 		// because the API connection has gone down), so do nothing.
 		return nil
 	default:
 	}
 
-	c.agentConfig = c.agent.CurrentConfig()
-
-	c.fromVersion = c.agentConfig.UpgradedToVersion()
-	c.toVersion = version.Current
-	if c.fromVersion == c.toVersion {
-		logger.Infof("upgrade to %v already completed.", c.toVersion)
-		close(c.UpgradeComplete)
+	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
+	w.toVersion = version.Current
+	if w.fromVersion == w.toVersion {
+		logger.Infof("upgrade to %v already completed.", w.toVersion)
+		close(w.upgradeComplete)
 		return nil
 	}
 
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
-	for _, job := range c.jobs {
+	for _, job := range w.jobs {
 		if job == multiwatcher.JobManageEnviron {
-			c.isStateServer = true
+			w.isStateServer = true
 		}
 	}
 
 	// We need a *state.State for upgrades. We open it independently
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
-	if c.isStateServer {
+	if w.isStateServer {
 		var closer func()
 		var err error
-		if c.st, closer, err = c.openStateForUpgrade(); err != nil {
+		if w.st, closer, err = w.openState(); err != nil {
 			return err
 		}
 		defer closer()
 
-		if c.isMaster, err = IsMachineMaster(c.st, c.machineId); err != nil {
+		if w.isMaster, err = IsMachineMaster(w.st, w.tag.Id()); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	if err := c.runUpgrades(); err != nil {
+	if err := w.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
 		// state went away (possible mongo master change). Returning
 		// an error when the connection is lost will cause the agent
@@ -236,21 +216,21 @@ func (c *UpgradeWorkerContext) run() error {
 		if isAPILostDuringUpgrade(err) {
 			return err
 		}
-		c.reportUpgradeFailure(err, false)
+		w.reportUpgradeFailure(err, false)
 
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
-		logger.Infof("upgrade to %v completed successfully.", c.toVersion)
-		c.machine.SetStatus(params.StatusStarted, "", nil)
-		close(c.UpgradeComplete)
+		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
+		w.machine.SetStatus(params.StatusStarted, "", nil)
+		close(w.upgradeComplete)
 	}
 	return nil
 }
 
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
-func (c *UpgradeWorkerContext) runUpgrades() error {
-	upgradeInfo, err := c.prepareForUpgrade()
+func (w *upgradesteps) runUpgrades() error {
+	upgradeInfo, err := w.prepareForUpgrade()
 	if err != nil {
 		return err
 	}
@@ -259,23 +239,23 @@ func (c *UpgradeWorkerContext) runUpgrades() error {
 		return errors.New("wrench")
 	}
 
-	if err := c.agent.ChangeConfig(c.runUpgradeSteps); err != nil {
+	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
 		return err
 	}
 
-	if err := c.finaliseUpgrade(upgradeInfo); err != nil {
+	if err := w.finaliseUpgrade(upgradeInfo); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *UpgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
-	if !c.isStateServer {
+func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
+	if !w.isStateServer {
 		return nil, nil
 	}
 
 	logger.Infof("signalling that this state server is ready for upgrade")
-	info, err := c.st.EnsureUpgradeInfo(c.machineId, c.fromVersion, c.toVersion)
+	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,24 +263,24 @@ func (c *UpgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	// State servers need to wait for other state servers to be ready
 	// to run the upgrade steps.
 	logger.Infof("waiting for other state servers to be ready for upgrade")
-	if err := c.waitForOtherStateServers(info); err != nil {
+	if err := w.waitForOtherStateServers(info); err != nil {
 		if err == tomb.ErrDying {
 			logger.Warningf(`stopped waiting for other state servers: %v`, err)
 			return nil, err
 		}
 		logger.Errorf(`aborted wait for other state servers: %v`, err)
 		// If master, trigger a rollback to the previous agent version.
-		if c.isMaster {
+		if w.isMaster {
 			logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
-				c.fromVersion)
-			if rollbackErr := c.st.SetEnvironAgentVersion(c.fromVersion); rollbackErr != nil {
+				w.fromVersion)
+			if rollbackErr := w.st.SetEnvironAgentVersion(w.fromVersion); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
 		}
 		return nil, errors.Annotate(err, "aborted wait for other state servers")
 	}
-	if c.isMaster {
+	if w.isMaster {
 		logger.Infof("finished waiting - all state servers are ready to run upgrade steps")
 	} else {
 		logger.Infof("finished waiting - the master has completed its upgrade steps")
@@ -308,11 +288,11 @@ func (c *UpgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	return info, nil
 }
 
-func (c *UpgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo) error {
+func (w *upgradesteps) waitForOtherStateServers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
 	defer watcher.Stop()
 
-	maxWait := getUpgradeStartTimeout(c.isMaster)
+	maxWait := getUpgradeStartTimeout(w.isMaster)
 	timeout := time.After(maxWait)
 	for {
 		select {
@@ -320,7 +300,7 @@ func (c *UpgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 			if err := info.Refresh(); err != nil {
 				return errors.Trace(err)
 			}
-			if c.isMaster {
+			if w.isMaster {
 				if ready, err := info.AllProvisionedStateServersReady(); err != nil {
 					return errors.Trace(err)
 				} else if ready {
@@ -335,13 +315,13 @@ func (c *UpgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 				}
 			}
 		case <-timeout:
-			if c.isMaster {
+			if w.isMaster {
 				if err := info.Abort(); err != nil {
 					return errors.Annotate(err, "unable to abort upgrade")
 				}
 			}
 			return errors.Errorf("timed out after %s", maxWait)
-		case <-c.tomb.Dying():
+		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		}
 
@@ -354,52 +334,52 @@ func (c *UpgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 //
 // This function conforms to the agent.ConfigMutator type and is
 // designed to be called via a machine agent's ChangeConfig method.
-func (c *UpgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
+func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-	c.machine.SetStatus(params.StatusStarted, fmt.Sprintf("upgrading to %v", c.toVersion), nil)
+	w.machine.SetStatus(params.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
-	context := upgrades.NewContext(agentConfig, c.apiConn, c.st)
-	logger.Infof("starting upgrade from %v to %v for %q", c.fromVersion, c.toVersion, c.tag)
+	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
+	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
-	targets := jobsToTargets(c.jobs, c.isMaster)
+	targets := jobsToTargets(w.jobs, w.isMaster)
 	attempts := getUpgradeRetryStrategy()
 	for attempt := attempts.Start(); attempt.Next(); {
-		upgradeErr = PerformUpgrade(c.fromVersion, targets, context)
+		upgradeErr = PerformUpgrade(w.fromVersion, targets, context)
 		if upgradeErr == nil {
 			break
 		}
-		if cmdutil.ConnectionIsDead(logger, c.apiConn) {
+		if cmdutil.ConnectionIsDead(logger, w.apiConn) {
 			// API connection has gone away - abort!
 			return &apiLostDuringUpgrade{upgradeErr}
 		}
 		if attempt.HasNext() {
-			c.reportUpgradeFailure(upgradeErr, true)
+			w.reportUpgradeFailure(upgradeErr, true)
 		}
 	}
 	if upgradeErr != nil {
 		return upgradeErr
 	}
-	agentConfig.SetUpgradedToVersion(c.toVersion)
+	agentConfig.SetUpgradedToVersion(w.toVersion)
 	return nil
 }
 
-func (c *UpgradeWorkerContext) reportUpgradeFailure(err error, willRetry bool) {
+func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	retryText := "will retry"
 	if !willRetry {
 		retryText = "giving up"
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
-		c.fromVersion, c.toVersion, c.tag, retryText, err)
-	c.machine.SetStatus(params.StatusError,
-		fmt.Sprintf("upgrade to %v failed (%s): %v", c.toVersion, retryText, err), nil)
+		w.fromVersion, w.toVersion, w.tag, retryText, err)
+	w.machine.SetStatus(params.StatusError,
+		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
-func (c *UpgradeWorkerContext) finaliseUpgrade(info *state.UpgradeInfo) error {
-	if !c.isStateServer {
+func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
+	if !w.isStateServer {
 		return nil
 	}
 
-	if c.isMaster {
+	if w.isMaster {
 		// Tell other state servers that the master has completed its
 		// upgrade steps.
 		if err := info.SetStatus(state.UpgradeFinishing); err != nil {
@@ -407,7 +387,7 @@ func (c *UpgradeWorkerContext) finaliseUpgrade(info *state.UpgradeInfo) error {
 		}
 	}
 
-	if err := info.SetStateServerDone(c.machineId); err != nil {
+	if err := info.SetStateServerDone(w.tag.Id()); err != nil {
 		return errors.Annotate(err, "upgrade done but failed to synchronise")
 	}
 

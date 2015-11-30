@@ -32,6 +32,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// TODO(mjs) - these tests are too tightly coupled to the
+// implementation. They needn't be internal tests.
+
 type UpgradeSuite struct {
 	statetesting.StateSuite
 
@@ -97,7 +100,7 @@ func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 	return &count
 }
 
-func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
+func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *gc.C) {
 	// Set the agent's initial upgradedToVersion to almost the same as
 	// the current version. We want it to be different to
 	// version.Current (so that we can see it change) but not to
@@ -105,11 +108,11 @@ func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), makeBumpedCurrentVersion().Number)
 	agent := NewFakeAgent(config)
 
-	context := NewUpgradeWorkerContext()
-	context.InitializeUsingAgent(agent)
+	ch, err := NewChannel(agent)
+	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-context.UpgradeComplete:
+	case <-ch:
 		// Success
 	default:
 		c.Fatal("UpgradeComplete channel should be closed because no upgrade is required")
@@ -119,17 +122,17 @@ func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 
 }
 
-func (s *UpgradeSuite) TestContextInitializeWhenUpgradeRequired(c *gc.C) {
+func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
 	// Set the agent's upgradedToVersion so that upgrade steps are required.
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
 	agent := NewFakeAgent(config)
 
-	context := NewUpgradeWorkerContext()
-	context.InitializeUsingAgent(agent)
+	ch, err := NewChannel(agent)
+	c.Assert(err, jc.ErrorIsNil)
 
 	select {
-	case <-context.UpgradeComplete:
+	case <-ch:
 		c.Fatal("UpgradeComplete channel shouldn't be closed because upgrade is required")
 	default:
 		// Success
@@ -144,25 +147,17 @@ func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
 	c.Assert(retries.Min, gc.Equals, 5)
 }
 
-func (s *UpgradeSuite) TestIsUpgradeRunning(c *gc.C) {
-	context := NewUpgradeWorkerContext()
-	c.Assert(context.IsUpgradeRunning(), jc.IsTrue)
-
-	close(context.UpgradeComplete)
-	c.Assert(context.IsUpgradeRunning(), jc.IsFalse)
-}
-
 func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 	s.oldVersion.Number = version.Current // nothing to do
 
-	workerErr, config, _, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, _, doneCh := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, version.Current)
-	assertUpgradeComplete(c, context)
+	assertUpgradeComplete(c, doneCh)
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
@@ -176,7 +171,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	// The worker shouldn't return an error so that the worker and
 	// agent keep running.
@@ -188,7 +183,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 		s.makeExpectedStatusCalls(maxUpgradeRetries-1, fails, "boom"))
 	c.Assert(s.logWriter.Log(), jc.LogMatches,
 		s.makeExpectedUpgradeLogs(maxUpgradeRetries-1, "hostMachine", fails, "boom"))
-	assertUpgradeNotComplete(c, context)
+	assertUpgradeNotComplete(c, doneCh)
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
@@ -209,14 +204,14 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
 	c.Check(config.Version, gc.Equals, version.Current) // Upgrade finished
 	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(1, succeeds, "boom"))
 	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(1, "hostMachine", succeeds, "boom"))
-	assertUpgradeComplete(c, context)
+	assertUpgradeComplete(c, doneCh)
 }
 
 func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
@@ -235,7 +230,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	})
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(config.Version, gc.Equals, version.Current) // Upgrade almost finished
@@ -245,7 +240,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 		s.makeExpectedStatusCalls(0, fails, failReason))
 	c.Assert(s.logWriter.Log(), jc.LogMatches,
 		s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
-	assertUpgradeNotComplete(c, context)
+	assertUpgradeNotComplete(c, doneCh)
 }
 
 func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
@@ -259,12 +254,12 @@ func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
 	s.connectionDead = true // Make the connection to state appear to be dead
 	s.captureLogs(c)
 
-	workerErr, config, _, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, _, doneCh := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	assertUpgradeNotComplete(c, context)
+	assertUpgradeNotComplete(c, doneCh)
 }
 
 func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
@@ -282,12 +277,12 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	workerErr, config, statusCalls, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
-	assertUpgradeNotComplete(c, context)
+	assertUpgradeNotComplete(c, doneCh)
 
 	// The environment agent-version should still be the new version.
 	// It's up to the master to trigger the rollback.
@@ -346,14 +341,14 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current) // Upgrade finished
 	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, succeeds, ""))
 	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target, succeeds, ""))
-	assertUpgradeComplete(c, context)
+	assertUpgradeComplete(c, doneCh)
 
 	err = info.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -379,15 +374,17 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 // Run just the upgradesteps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
-	error, *fakeConfigSetter, []StatusCall, *UpgradeWorkerContext,
+	error, *fakeConfigSetter, []StatusCall, chan struct{},
 ) {
 	s.setInstantRetryStrategy(c)
 	config := s.makeFakeConfig()
-	machineStatus := &testStatusSetter{}
-	context := NewUpgradeWorkerContext()
-	worker, err := context.Worker(NewFakeAgent(config), nil, jobs, s.openStateForUpgrade, machineStatus)
+	agent := NewFakeAgent(config)
+	doneCh, err := NewChannel(agent)
 	c.Assert(err, jc.ErrorIsNil)
-	return worker.Wait(), config, machineStatus.Calls, context
+	machineStatus := &testStatusSetter{}
+	worker, err := NewWorker(doneCh, agent, nil, jobs, s.openStateForUpgrade, machineStatus)
+	c.Assert(err, jc.ErrorIsNil)
+	return worker.Wait(), config, machineStatus.Calls, doneCh
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
@@ -537,18 +534,18 @@ func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Numbe
 	c.Assert(agentVersion, gc.Equals, expected)
 }
 
-func assertUpgradeComplete(c *gc.C, context *UpgradeWorkerContext) {
+func assertUpgradeComplete(c *gc.C, doneCh chan struct{}) {
 	select {
-	case <-context.UpgradeComplete:
+	case <-doneCh:
 	default:
-		c.Error("UpgradeComplete channel is open but shouldn't be")
+		c.Error("upgrade channel is open but shouldn't be")
 	}
 }
 
-func assertUpgradeNotComplete(c *gc.C, context *UpgradeWorkerContext) {
+func assertUpgradeNotComplete(c *gc.C, doneCh chan struct{}) {
 	select {
-	case <-context.UpgradeComplete:
-		c.Error("UpgradeComplete channel is closed but shouldn't be")
+	case <-doneCh:
+		c.Error("upgrade channel is closed but shouldn't be")
 	default:
 	}
 }

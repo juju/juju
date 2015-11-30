@@ -280,7 +280,6 @@ func MachineAgentFactoryFn(
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
-			upgradesteps.NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			loopDeviceManager,
 			rootDir,
@@ -293,19 +292,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	upgradeWorkerContext *upgradesteps.UpgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
 ) *MachineAgent {
 	return &MachineAgent{
-		machineId:            machineId,
-		AgentConfigWriter:    agentConfWriter,
-		bufferedLogs:         bufferedLogs,
-		upgradeWorkerContext: upgradeWorkerContext,
-		workersStarted:       make(chan struct{}),
-		runner:               runner,
-		rootDir:              rootDir,
+		machineId:         machineId,
+		AgentConfigWriter: agentConfWriter,
+		bufferedLogs:      bufferedLogs,
+		workersStarted:    make(chan struct{}),
+		runner:            runner,
+		rootDir:           rootDir,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		loopDeviceManager:                loopDeviceManager,
 	}
@@ -323,7 +320,7 @@ type MachineAgent struct {
 	rootDir              string
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
-	upgradeWorkerContext *upgradesteps.UpgradeWorkerContext
+	upgradeComplete      chan struct{}
 	workersStarted       chan struct{}
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
@@ -439,11 +436,13 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 
-	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
-		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
+	if upgradeComplete, err := upgradesteps.NewChannel(a); err != nil {
+		return errors.Annotate(err, "error during creating upgrade completion channel")
+	} else {
+		a.upgradeComplete = upgradeComplete
 	}
-	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+	a.configChangedVal.Set(struct{}{})
 
 	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
@@ -924,7 +923,14 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return a.upgradeWorkerContext.Worker(a, apiConn, jobs, a.openStateForUpgrade, machine)
+		return upgradesteps.NewWorker(
+			a.upgradeComplete,
+			a,
+			apiConn,
+			jobs,
+			a.openStateForUpgrade,
+			machine,
+		)
 	}
 }
 
@@ -970,7 +976,7 @@ func (a *MachineAgent) agentUpgraderWorkerStarter(
 			st,
 			agentConfig,
 			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
+			a.isUpgradeRunning,
 			a.initialAgentUpgradeCheckComplete,
 		), nil
 	}
@@ -1417,7 +1423,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
+	if a.isUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1718,7 +1724,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []chan struct{}{
-			a.upgradeWorkerContext.UpgradeComplete,
+			a.upgradeComplete,
 			a.initialAgentUpgradeCheckComplete,
 		} {
 			select {
@@ -1804,6 +1810,15 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
+}
+
+func (a *MachineAgent) isUpgradeRunning() bool {
+	select {
+	case <-a.upgradeComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
