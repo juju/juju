@@ -135,16 +135,6 @@ func (c *Client) PrivateAddress(target string) (string, error) {
 	return results.PrivateAddress, err
 }
 
-// ServiceSetYAML sets configuration options on a service
-// given options in YAML format.
-func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := params.ServiceSetYAML{
-		ServiceName: service,
-		Config:      yaml,
-	}
-	return c.facade.FacadeCall("ServiceSetYAML", p, nil)
-}
-
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	var results params.ServiceGetResults
@@ -259,49 +249,6 @@ func (c *Client) ServiceDeployWithNetworks(
 		Networks:      networks,
 	}
 	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
-}
-
-// ServiceDeploy obtains the charm, either locally or from the charm store,
-// and deploys it.
-func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
-	params := params.ServiceDeploy{
-		ServiceName:   serviceName,
-		CharmUrl:      charmURL,
-		NumUnits:      numUnits,
-		ConfigYAML:    configYAML,
-		Constraints:   cons,
-		ToMachineSpec: toMachineSpec,
-	}
-	return c.facade.FacadeCall("ServiceDeploy", params, nil)
-}
-
-// ServiceUpdate updates the service attributes, including charm URL,
-// minimum number of units, settings and constraints.
-// TODO(frankban) deprecate redundant API calls that this supercedes.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	return c.facade.FacadeCall("ServiceUpdate", args, nil)
-}
-
-// ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
-	args := params.ServiceSetCharm{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		Force:       force,
-	}
-	return c.facade.FacadeCall("ServiceSetCharm", args, nil)
-}
-
-// ServiceGetCharmURL returns the charm URL the given service is
-// running at present.
-func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	result := new(params.StringResult)
-	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.facade.FacadeCall("ServiceGetCharmURL", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	return charm.ParseURL(result.Result)
 }
 
 // AddServiceUnits adds a given number of units to a service.

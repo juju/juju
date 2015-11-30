@@ -36,6 +36,11 @@ type Snapshot struct {
 	// hook execution errors.
 	ResolvedMode params.ResolvedMode
 
+	// RetryHookVersion increments each time a failed
+	// hook is meant to be retried if ResolvedMode is
+	// set to ResolvedNone.
+	RetryHookVersion int
+
 	// ConfigVersion is the last published version of
 	// the unit's config settings.
 	ConfigVersion int

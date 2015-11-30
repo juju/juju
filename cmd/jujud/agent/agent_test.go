@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"time"
-
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
@@ -58,25 +56,14 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	agenttesting.AgentSuite
-	oldRestartDelay time.Duration
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
-	s.oldRestartDelay = worker.RestartDelay
-	// We could use testing.ShortWait, but this thrashes quite
-	// a bit when some tests are restarting every 50ms for 10 seconds,
-	// so use a slightly more friendly delay.
-	worker.RestartDelay = 250 * time.Millisecond
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
 		return nil
 	})
-}
-
-func (s *AgentSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-	worker.RestartDelay = s.oldRestartDelay
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {

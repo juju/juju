@@ -32,12 +32,12 @@ type upgradingMachineAgent interface {
 }
 
 var (
-	upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching
+	PerformUpgrade = upgrades.PerformUpgrade // Allow patching
 
 	// The maximum time a master state server will wait for other
 	// state servers to come up and indicate they are ready to begin
 	// running upgrade steps.
-	upgradeStartTimeoutMaster = time.Minute * 15
+	UpgradeStartTimeoutMaster = time.Minute * 15
 
 	// The maximum time a secondary state server will wait for other
 	// state servers to come up and indicate they are ready to begin
@@ -49,7 +49,7 @@ var (
 	// This should get reduced when/if master re-elections are
 	// introduce in the case a master that failing to come up for
 	// upgrade.
-	upgradeStartTimeoutSecondary = time.Hour * 4
+	UpgradeStartTimeoutSecondary = time.Hour * 4
 )
 
 func NewUpgradeWorkerContext() *upgradeWorkerContext {
@@ -173,7 +173,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		}
 		defer c.st.Close()
 
-		if c.isMaster, err = isMachineMaster(c.st, c.machineId); err != nil {
+		if c.isMaster, err = IsMachineMaster(c.st, c.machineId); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -336,7 +336,7 @@ func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) e
 	targets := jobsToTargets(c.jobs, c.isMaster)
 	attempts := getUpgradeRetryStrategy()
 	for attempt := attempts.Start(); attempt.Next(); {
-		upgradeErr = upgradesPerformUpgrade(c.fromVersion, targets, context)
+		upgradeErr = PerformUpgrade(c.fromVersion, targets, context)
 		if upgradeErr == nil {
 			break
 		}
@@ -396,9 +396,9 @@ func getUpgradeStartTimeout(isMaster bool) time.Duration {
 	}
 
 	if isMaster {
-		return upgradeStartTimeoutMaster
+		return UpgradeStartTimeoutMaster
 	}
-	return upgradeStartTimeoutSecondary
+	return UpgradeStartTimeoutSecondary
 }
 
 var openStateForUpgrade = func(
@@ -420,7 +420,7 @@ var openStateForUpgrade = func(
 	return st, nil
 }
 
-var isMachineMaster = func(st *state.State, machineId string) (bool, error) {
+var IsMachineMaster = func(st *state.State, machineId string) (bool, error) {
 	if st == nil {
 		// If there is no state, we aren't a master.
 		return false, nil

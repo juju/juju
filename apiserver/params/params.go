@@ -237,6 +237,7 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
+// TODO(wallyworld) - deprecated, remove when GUI updated.
 // ServiceSetYAML holds the parameters for
 // a ServiceSetYAML command. Config contains the
 // configuration data in YAML format.
