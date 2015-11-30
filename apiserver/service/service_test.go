@@ -9,10 +9,12 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
@@ -542,6 +544,692 @@ func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.URL(), jc.DeepEquals, curl)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	result, err := s.serviceApi.ServiceGetCharmURL(params.ServiceGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
+}
+
+func (s *serviceSuite) TestClientServiceSetCharm(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that the charm is not marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.URL().String(), gc.Equals, curl.String())
+	c.Assert(force, jc.IsFalse)
+}
+
+func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) assertServiceSetCharm(c *gc.C, force bool) {
+	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    "cs:~who/precise/wordpress-3",
+		Force:       force,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that the charm is not marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
+}
+
+func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
+	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    "cs:~who/precise/wordpress-3",
+		Force:       force,
+	})
+	s.AssertBlocked(c, err, msg)
+}
+
+func (s *serviceSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
+	s.setupServiceSetCharm(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
+}
+
+func (s *serviceSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
+	s.setupServiceSetCharm(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
+}
+
+func (s *serviceSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
+	s.setupServiceSetCharm(c)
+	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
+	s.assertServiceSetCharmBlocked(c, false, "TestBlockChangesServiceSetCharm")
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmForce(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		Force:       true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that the charm is marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.URL().String(), gc.Equals, curl.String())
+	c.Assert(force, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestBlockServiceSetCharmForce(c *gc.C) {
+	s.setupServiceSetCharm(c)
+
+	// block all changes
+	s.BlockAllChanges(c, "TestBlockServiceSetCharmForce")
+	s.BlockRemoveObject(c, "TestBlockServiceSetCharmForce")
+	s.BlockDestroyEnvironment(c, "TestBlockServiceSetCharmForce")
+
+	s.assertServiceSetCharm(c, true)
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
+	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "badservice",
+		CharmUrl:    "cs:precise/wordpress-3",
+		Force:       true,
+	})
+	c.Assert(err, gc.ErrorMatches, `service "badservice" not found`)
+}
+
+func (s *serviceSuite) TestClientServiceAddCharmErrors(c *gc.C) {
+	for url, expect := range map[string]string{
+		"wordpress":                   "charm URL must include revision",
+		"cs:wordpress":                "charm URL must include revision",
+		"cs:precise/wordpress":        "charm URL must include revision",
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
+	} {
+		c.Logf("test %s", url)
+		err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+			URL: url,
+		})
+		c.Check(err, gc.ErrorMatches, expect)
+	}
+}
+
+type testModeCharmRepo struct {
+	*charmrepo.CharmStore
+	testMode bool
+}
+
+// WithTestMode returns a repository Interface where test mode is enabled.
+func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
+	return s.CharmStore.WithTestMode()
+}
+
+func (s *serviceSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+	repo := &testModeCharmRepo{}
+	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = s.Srv.URL
+		repo.CharmStore = charmrepo.NewCharmStore(p)
+		return repo
+	})
+	attrs := map[string]interface{}{"test-mode": true}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the store's test mode is enabled when calling ServiceDeploy.
+	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(repo.testMode, jc.IsTrue)
+
+	// Check that the store's test mode is enabled when calling ServiceSetCharm.
+	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+	})
+	c.Assert(repo.testMode, jc.IsTrue)
+
+	// Check that the store's test mode is enabled when calling AddCharm.
+	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
+	err = s.APIState.Client().AddCharm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo.testMode, jc.IsTrue)
+}
+
+func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse(args)
+	return curl, ch, cons
+}
+
+func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+			Constraints: mem4g,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
+}
+
+func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
+	_, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+			Constraints: mem4g,
+		}}})
+	s.AssertBlocked(c, err, msg)
+}
+
+func (s *serviceSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
+	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployPrincipal")
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
+}
+
+func (s *serviceSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
+	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployPrincipal")
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
+}
+
+func (s *serviceSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
+	curl, _, cons := s.setupServiceDeploy(c, "mem=4G")
+	s.BlockAllChanges(c, "TestBlockChangesServiceDeployPrincipal")
+	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, cons)
+}
+
+func (s *serviceSuite) TestClientServiceDeploySubordinate(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service-name",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service("service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestClientServiceDeployConfig(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service-name",
+			NumUnits:    1,
+			ConfigYAML:  "service-name:\n  username: fred",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service("service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := service.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
+}
+
+func (s *serviceSuite) TestClientServiceDeployConfigError(c *gc.C) {
+	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
+	// Can't be done cleanly until it's extracted similarly to Machiner.
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service-name",
+			NumUnits:    1,
+			ConfigYAML:  "service-name:\n  skill-level: fred",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
+	_, err = s.State.Service("service-name")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *serviceSuite) TestClientServiceDeployToMachine(c *gc.C) {
+	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service-name",
+			NumUnits:    1,
+			ConfigYAML:  "service-name:\n  username: fred",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service("service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsFalse)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
+
+	errs, err := s.APIState.UnitAssigner().AssignUnits([]names.UnitTag{names.NewUnitTag("service-name/0")})
+	c.Assert(errs, gc.DeepEquals, []error{nil})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
+}
+
+func (s *serviceSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:      "cs:precise/service-name-1",
+			ServiceName:   "service-name",
+			NumUnits:      1,
+			ToMachineSpec: "42",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot deploy "service-name" to machine 42: machine 42 not found`)
+
+	_, err = s.State.Service("service-name")
+	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
+}
+
+func (s *serviceSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    3,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(service.GetOwnerTag(), gc.Equals, s.authorizer.GetAuthTag().String())
+}
+
+func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			NumUnits:    1,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
+	s.deployServiceForUpdateTests(c)
+	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update the charm for the service.
+	args := params.ServiceUpdate{
+		ServiceName:   "service",
+		CharmUrl:      curl.String(),
+		ForceCharmUrl: forceCharmUrl,
+	}
+	err = s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the charm has been updated and and the force flag correctly set.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL().String(), gc.Equals, curl.String())
+	c.Assert(force, gc.Equals, forceCharmUrl)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
+	s.checkClientServiceUpdateSetCharm(c, false)
+}
+
+func (s *serviceSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUpdate")
+	s.checkClientServiceUpdateSetCharm(c, false)
+}
+
+func (s *serviceSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceUpdate")
+	s.checkClientServiceUpdateSetCharm(c, false)
+}
+
+func (s *serviceSuite) setupServiceUpdate(c *gc.C) string {
+	s.deployServiceForUpdateTests(c)
+	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	return curl.String()
+}
+
+func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
+	curl := s.setupServiceUpdate(c)
+	s.BlockAllChanges(c, "TestBlockChangeServiceUpdate")
+	// Update the charm for the service.
+	args := params.ServiceUpdate{
+		ServiceName:   "service",
+		CharmUrl:      curl,
+		ForceCharmUrl: false,
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
+}
+
+func (s *serviceSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
+	s.checkClientServiceUpdateSetCharm(c, true)
+}
+
+func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
+	curl := s.setupServiceUpdate(c)
+
+	// block all changes. Force should ignore block :)
+	s.BlockAllChanges(c, "TestBlockServiceUpdateForced")
+	s.BlockDestroyEnvironment(c, "TestBlockServiceUpdateForced")
+	s.BlockRemoveObject(c, "TestBlockServiceUpdateForced")
+
+	// Update the charm for the service.
+	args := params.ServiceUpdate{
+		ServiceName:   "service",
+		CharmUrl:      curl,
+		ForceCharmUrl: true,
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the charm has been updated and and the force flag correctly set.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL().String(), gc.Equals, curl)
+	c.Assert(force, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetCharmNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	args := params.ServiceUpdate{
+		ServiceName: "wordpress",
+		CharmUrl:    "cs:precise/wordpress-999999",
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Set minimum units for the service.
+	minUnits := 2
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		MinUnits:    &minUnits,
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the minimum number of units has been set.
+	c.Assert(service.Refresh(), gc.IsNil)
+	c.Assert(service.MinUnits(), gc.Equals, minUnits)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Set a negative minimum number of units for the service.
+	minUnits := -1
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		MinUnits:    &minUnits,
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot set minimum units for service "dummy": cannot set a negative minimum number of units`)
+
+	// Ensure the minimum number of units has not been set.
+	c.Assert(service.Refresh(), gc.IsNil)
+	c.Assert(service.MinUnits(), gc.Equals, 0)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Update settings for the service.
+	args := params.ServiceUpdate{
+		ServiceName:     "dummy",
+		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "s-title", "username": "s-user"}
+	obtained, err := service.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Update settings for the service.
+	args := params.ServiceUpdate{
+		ServiceName:  "dummy",
+		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
+	}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "y-title", "username": "y-user"}
+	obtained, err := service.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Update constraints for the service.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		Constraints: &cons,
+	}
+	err = s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateAllParams(c *gc.C) {
+	s.deployServiceForUpdateTests(c)
+	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update all the service attributes.
+	minUnits := 3
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.ServiceUpdate{
+		ServiceName:     "service",
+		CharmUrl:        curl.String(),
+		ForceCharmUrl:   true,
+		MinUnits:        &minUnits,
+		SettingsStrings: map[string]string{"blog-title": "string-title"},
+		SettingsYAML:    "service:\n  blog-title: yaml-title\n",
+		Constraints:     &cons,
+	}
+	err = s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the service has been correctly updated.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the charm.
+	ch, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL().String(), gc.Equals, curl.String())
+	c.Assert(force, jc.IsTrue)
+
+	// Check the minimum number of units.
+	c.Assert(service.MinUnits(), gc.Equals, minUnits)
+
+	// Check the settings: also ensure the YAML settings take precedence
+	// over strings ones.
+	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
+	obtainedSettings, err := service.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
+
+	// Check the constraints.
+	obtainedConstraints, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateNoParams(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// Calling ServiceUpdate with no parameters set is a no-op.
+	args := params.ServiceUpdate{ServiceName: "wordpress"}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateNoService(c *gc.C) {
+	err := s.serviceApi.ServiceUpdate(params.ServiceUpdate{})
+	c.Assert(err, gc.ErrorMatches, `"" is not a valid service name`)
+}
+
+func (s *serviceSuite) TestClientServiceUpdateInvalidService(c *gc.C) {
+	args := params.ServiceUpdate{ServiceName: "no-such-service"}
+	err := s.serviceApi.ServiceUpdate(args)
+	c.Assert(err, gc.ErrorMatches, `service "no-such-service" not found`)
 }
 
 type mockStorageProvider struct {

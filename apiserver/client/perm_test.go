@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
@@ -76,10 +77,6 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientServiceSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceSetYAML",
-		op:    opClientServiceSetYAML,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
 		about: "Client.ServiceGet",
 		op:    opClientServiceGet,
 		allow: []names.Tag{userAdmin, userOther},
@@ -96,19 +93,15 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientServiceUnexpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceDeploy",
-		op:    opClientServiceDeploy,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
 		about: "Client.ServiceDeployWithNetworks",
 		op:    opClientServiceDeployWithNetworks,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceUpdate",
+		about: "Service.ServiceUpdate",
 		op:    opClientServiceUpdate,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceSetCharm",
+		about: "Service.ServiceSetCharm",
 		op:    opClientServiceSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -260,14 +253,6 @@ func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceSetYAML(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
-	if err != nil {
-		return func() {}, err
-	}
-	return resetBlogTitle(c, st), nil
-}
-
 func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().ServiceGet("wordpress")
 	if err != nil {
@@ -335,14 +320,6 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 	}, nil
 }
 
-func opClientServiceDeploy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
-	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
-		err = nil
-	}
-	return func() {}, err
-}
-
 func opClientServiceDeployWithNetworks(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil)
 	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
@@ -359,7 +336,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
-	err := st.Client().ServiceUpdate(args)
+	err := service.NewClient(st).ServiceUpdate(args)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -367,7 +344,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
+	err := service.NewClient(st).ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
