@@ -421,6 +421,7 @@ class BootstrapManager:
 
     @contextmanager
     def maas_machines(self):
+        """Handle starting/stopping MAAS machines."""
         running_domains = dict()
         try:
             if self.client.env.config['type'] == 'maas' and self.machines:
@@ -443,6 +444,8 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
+            # Although this isn't MAAS-related, it was in this context in
+            # boot_context.
             logging.info(
                 'Juju command timings: {}'.format(
                     self.client.get_juju_timings()))
@@ -463,11 +466,15 @@ class BootstrapManager:
 
     @contextmanager
     def aws_machines(self):
-        if (
-                self.client.env.config['type'] != 'manual' or
-                self.bootstrap_host is not None):
-            yield self.bootstrap_host, []
-            return
+        """Handle starting/stopping AWS machines.
+
+        Machines are deliberately killed by tag so that any stray machines
+        from previous runs will be killed.
+        """
+        if (self.client.env.config['type'] != 'manual' or
+            self.bootstrap_host is not None):
+                yield self.bootstrap_host, []
+                return
         try:
             instances = run_instances(3, self.temp_env_name, self.series)
             new_bootstrap_host = instances[0][1]
@@ -479,6 +486,7 @@ class BootstrapManager:
 
     @contextmanager
     def bootstrap_context(self, bootstrap_host, machines):
+        """Context for bootstrapping a state server."""
         update_env(self.client.env, self.temp_env_name, series=self.series,
                    bootstrap_host=bootstrap_host,
                    agent_url=self.agent_url, agent_stream=self.agent_stream,
@@ -509,6 +517,11 @@ class BootstrapManager:
 
     @contextmanager
     def runtime_context(self, host, addable_machines):
+        """Context for running non-bootstrap operations.
+
+        If any manual machines need to be added, they will be added before
+        control is yielded.
+        """
         try:
             if host is None:
                 host = get_machine_dns_name(self.client, '0')
@@ -536,12 +549,26 @@ class BootstrapManager:
 
     @contextmanager
     def top_context(self):
+        """Context for running all juju operations in."""
         with self.maas_machines() as machines:
             with self.aws_machines() as (bootstrap_host, new_machines):
                 yield bootstrap_host, machines + new_machines
 
     @contextmanager
     def booted_context(self, upload_tools):
+        """Create a temporary environment in a context manager to run tests in.
+
+        Bootstrap a new environment from a temporary config that is suitable
+        to run tests in. Logs will be collected from the machines. The
+        environment will be destroyed when the test completes or there is an
+        unrecoverable error.
+
+        The temporary environment is created by updating a EnvJujuClient's
+        config with series, agent_url, agent_stream.
+
+        :param upload_tools: False or True to upload the local agent instead
+            of using streams.
+        """
         with self.top_context() as (bootstrap_host, machines):
             with self.bootstrap_context(bootstrap_host, machines):
                 self.client.bootstrap(upload_tools)
