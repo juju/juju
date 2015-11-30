@@ -471,10 +471,11 @@ class BootstrapManager:
         Machines are deliberately killed by tag so that any stray machines
         from previous runs will be killed.
         """
-        if (self.client.env.config['type'] != 'manual' or
-            self.bootstrap_host is not None):
-                yield self.bootstrap_host, []
-                return
+        if (
+                self.client.env.config['type'] != 'manual' or
+                self.bootstrap_host is not None):
+            yield self.bootstrap_host, []
+            return
         try:
             instances = run_instances(3, self.temp_env_name, self.series)
             new_bootstrap_host = instances[0][1]

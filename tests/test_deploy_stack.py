@@ -645,12 +645,12 @@ class TestDeployJob(FakeHomeTestCase):
 
     def test_region(self):
         with self.ds_cxt() as (client, bm_mock):
-                with patch('subprocess.Popen', autospec=True,
-                           return_value=FakePopen('', '', 0)):
-                    _deploy_job('foo', None, None, '', None, None, None, None,
-                                None, None, None, None, None, None, 0, False,
-                                False, 'region-foo')
-                    permanent = client.is_jes_enabled()
+            with patch('subprocess.Popen', autospec=True,
+                       return_value=FakePopen('', '', 0)):
+                _deploy_job('foo', None, None, '', None, None, None, None,
+                            None, None, None, None, None, None, 0, False,
+                            False, 'region-foo')
+                permanent = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
             'foo', client, None, None, None, None, None, 'region-foo', None,
             None, permanent, permanent)
