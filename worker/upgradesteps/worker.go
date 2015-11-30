@@ -111,7 +111,6 @@ func NewWorker(
 		openState:       openState,
 		machine:         machine,
 		tag:             tag,
-		machineId:       tag.Id(),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -132,7 +131,6 @@ type upgradesteps struct {
 	fromVersion   version.Number
 	toVersion     version.Number
 	tag           names.MachineTag
-	machineId     string
 	isMaster      bool
 	isStateServer bool
 	st            *state.State
@@ -201,7 +199,7 @@ func (w *upgradesteps) run() error {
 		}
 		defer closer()
 
-		if w.isMaster, err = IsMachineMaster(w.st, w.machineId); err != nil {
+		if w.isMaster, err = IsMachineMaster(w.st, w.tag.Id()); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -257,7 +255,7 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	}
 
 	logger.Infof("signalling that this state server is ready for upgrade")
-	info, err := w.st.EnsureUpgradeInfo(w.machineId, w.fromVersion, w.toVersion)
+	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -389,7 +387,7 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 		}
 	}
 
-	if err := info.SetStateServerDone(w.machineId); err != nil {
+	if err := info.SetStateServerDone(w.tag.Id()); err != nil {
 		return errors.Annotate(err, "upgrade done but failed to synchronise")
 	}
 
