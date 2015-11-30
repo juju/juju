@@ -134,7 +134,6 @@ type upgradesteps struct {
 	tag           names.MachineTag
 	machineId     string
 	isMaster      bool
-	agentConfig   agent.Config
 	isStateServer bool
 	st            *state.State
 }
@@ -175,9 +174,7 @@ func (w *upgradesteps) run() error {
 	default:
 	}
 
-	w.agentConfig = w.agent.CurrentConfig()
-
-	w.fromVersion = w.agentConfig.UpgradedToVersion()
+	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
 	w.toVersion = version.Current
 	if w.fromVersion == w.toVersion {
 		logger.Infof("upgrade to %v already completed.", w.toVersion)
