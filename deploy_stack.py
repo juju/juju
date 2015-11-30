@@ -508,13 +508,15 @@ class BootstrapManager:
                 raise
 
     @contextmanager
-    def runtime_context(self, host):
+    def runtime_context(self, host, addable_machines):
         try:
             if host is None:
                 host = get_machine_dns_name(self.client, '0')
             if host is None:
                 raise ValueError('Could not get machine 0 host')
             try:
+                if addable_machines is not None:
+                    self.client.add_ssh_machines(addable_machines)
                 yield
             except BaseException as e:
                 logging.exception(e)
@@ -543,7 +545,7 @@ class BootstrapManager:
         with self.top_context() as (bootstrap_host, machines):
             with self.bootstrap_context(bootstrap_host, machines):
                 self.client.bootstrap(upload_tools)
-            with self.runtime_context(bootstrap_host):
+            with self.runtime_context(bootstrap_host, machines):
                 yield machines
 
 
@@ -612,9 +614,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
     bs_manager = BootstrapManager(
         temp_env_name, client, bootstrap_host, machines, series, agent_url,
         agent_stream, region, log_dir, keep_env, permanent, permanent)
-    with bs_manager.booted_context(upload_tools) as addable_machines:
-        if addable_machines is not None:
-            client.add_ssh_machines(addable_machines)
+    with bs_manager.booted_context(upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
