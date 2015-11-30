@@ -5,9 +5,13 @@ package commands
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -16,13 +20,13 @@ import (
 )
 
 const addRelationDoc = `
-Add a relation between 2 local services or a local and a remote service.
-Adding a relation between two remote services is not supported.
+Add a relation between 2 local service endpoints or a local and a remote service endpoints.
+Adding a relation between two remote service endpoints is not supported.
 
-Services can be identified either by:
+Service endpoints can be identified either by:
     <service name>[:<relation name>]
 or
-    <remote service url>
+    <remote endpoint url>
 
 Examples:
     $ juju add-relation wordpress mysql
@@ -30,6 +34,8 @@ Examples:
     $ juju add-relation wordpress vendor:/u/ibm/hosted-db2
 
 `
+
+var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
 
 func newAddRelationCommand() cmd.Command {
 	addRelationCmd := &addRelationCommand{}
@@ -48,28 +54,39 @@ type addRelationCommand struct {
 	envcmd.EnvCommandBase
 	Endpoints []string
 
-	newAPIFunc func() (AddRelationAPI, error)
+	out                cmd.Output
+	hasRemoteEndpoints bool
+	newAPIFunc         func() (AddRelationAPI, error)
 }
 
 func (c *addRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-relation",
-		Args:    "<service 1> <service2>",
-		Purpose: "add a relation between two services",
+		Args:    "<endpoint 1> <endpoint 2>",
+		Purpose: "add a relation between two service endpoints",
 		Doc:     addRelationDoc,
 	}
 }
 
 func (c *addRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("a relation must involve two services")
+		return fmt.Errorf("a relation must involve two service endpoints")
 	}
 
+	if err := c.validateEndpoints(args); err != nil {
+		return err
+	}
 	c.Endpoints = args
 	return nil
 }
 
-func (c *addRelationCommand) Run(_ *cmd.Context) error {
+// SetFlags implements Command.SetFlags.
+func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+}
+
+func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -77,23 +94,68 @@ func (c *addRelationCommand) Run(_ *cmd.Context) error {
 	defer api.Close()
 
 	if api.BestAPIVersion() < 2 {
-		if c.hasRemoteServices() {
+		if c.hasRemoteEndpoints {
 			// old client does not have cross-model capability.
-			return errors.NotSupportedf("add relation between %v remote services", c.Endpoints)
+			return errors.NotSupportedf("add relation between %s remote service endpoints", c.Endpoints)
 		}
 	}
-	_, err = api.AddRelation(c.Endpoints...)
-	return block.ProcessBlockedError(err, block.BlockChange)
+	added, err := api.AddRelation(c.Endpoints...)
+	if blockedErr := block.ProcessBlockedError(err, block.BlockChange); blockedErr != nil {
+		return blockedErr
+	}
+	return c.out.Write(ctx, added)
 }
 
-// hasRemoteServices determines if any of the command arguments is a remote service.
-func (c *addRelationCommand) hasRemoteServices() bool {
-	for _, endpoint := range c.Endpoints {
+// validateEndpoints determines if all endpoints are valid.
+// Each endpoint is either from local service or remote.
+// If more than one remote endpoint are supplied, the input argument are considered invalid.
+func (c *addRelationCommand) validateEndpoints(all []string) error {
+	for _, endpoint := range all {
+		// We can only determine if this is a remote endpoint with 100%.
+		// If we cannot parse it, it may still be a valid local endpoint...
+		// so ignoring parsing error,
 		if _, err := crossmodel.ParseServiceURL(endpoint); err == nil {
-			return true
+			if c.hasRemoteEndpoints {
+				return errors.NotSupportedf("providing more than one remote endpoints")
+			}
+			c.hasRemoteEndpoints = true
+			continue
+		}
+		// at this stage, we are asuming that this could be a local endpoint
+		if err := validateLocalEndpoint(endpoint, ":"); err != nil {
+			return err
 		}
 	}
-	return false
+	return nil
+}
+
+// validateLocalEndpoint determines if given endpoint could be a valid
+func validateLocalEndpoint(endpoint string, sep string) error {
+	i := strings.Index(endpoint, sep)
+	serviceName := endpoint
+	if i != -1 {
+		// not a valid endpoint as sep either at the start or the end of the name
+		if i == 0 || i == len(endpoint)-1 {
+			return errors.NotValidf("endpoint %q", endpoint)
+		}
+
+		parts := strings.SplitN(endpoint, sep, -1)
+		if rightCount := len(parts) == 2; !rightCount {
+			// not valid if there are not exactly 2 parts.
+			return errors.NotValidf("endpoint %q", endpoint)
+		}
+
+		serviceName = parts[0]
+
+		if valid := localEndpointRegEx.MatchString(parts[1]); !valid {
+			return errors.NotValidf("endpoint %q", endpoint)
+		}
+	}
+
+	if valid := names.IsValidService(serviceName); !valid {
+		return errors.NotValidf("service name %q", serviceName)
+	}
+	return nil
 }
 
 // AddRelationAPI defines the API methods that can add relation between services.

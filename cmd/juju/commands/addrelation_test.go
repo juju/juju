@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -27,8 +28,12 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, newAddRelationCommand(), args...)
+	_, err := getContextFromAddRelationRun(c, args...)
 	return err
+}
+
+func getContextFromAddRelationRun(c *gc.C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommand(c, newAddRelationCommand(), args...)
 }
 
 var msWpAlreadyExists = `cannot add relation "wp:db ms:server": relation already exists`
@@ -37,28 +42,46 @@ var wpLgAlreadyExists = `cannot add relation "lg:logging-directory wp:logging-di
 var wpLgAlreadyExistsJuju = `cannot add relation "lg:info wp:juju-info": relation already exists`
 
 var addRelationTests = []struct {
-	args []string
-	err  string
+	args   []string
+	err    string
+	output string
 }{
 	{
 		args: []string{"rk", "ms"},
 		err:  "no relations found",
 	}, {
-		err: "a relation must involve two services",
+		err: "a relation must involve two service endpoints",
 	}, {
 		args: []string{"rk"},
-		err:  "a relation must involve two services",
+		err:  "a relation must involve two service endpoints",
 	}, {
 		args: []string{"rk:ring"},
-		err:  "a relation must involve two services",
+		err:  "a relation must involve two service endpoints",
 	}, {
 		args: []string{"ping:pong", "tic:tac", "icki:wacki"},
-		err:  "a relation must involve two services",
+		err:  "a relation must involve two service endpoints",
 	},
 
 	// Add a real relation, and check various ways of failing to re-add it.
 	{
 		args: []string{"ms", "wp"},
+		output: `
+endpoints:
+  ms:
+    name: server
+    role: provider
+    interface: mysql
+    optional: false
+    limit: 0
+    scope: global
+  wp:
+    name: db
+    role: requirer
+    interface: mysql
+    optional: false
+    limit: 1
+    scope: global
+`[1:],
 	}, {
 		args: []string{"ms", "wp"},
 		err:  msWpAlreadyExists,
@@ -79,6 +102,23 @@ var addRelationTests = []struct {
 	// Add a real relation using an implicit endpoint.
 	{
 		args: []string{"ms", "lg"},
+		output: `
+endpoints:
+  lg:
+    name: info
+    role: requirer
+    interface: juju-info
+    optional: false
+    limit: 1
+    scope: container
+  ms:
+    name: juju-info
+    role: provider
+    interface: juju-info
+    optional: false
+    limit: 0
+    scope: container
+`[1:],
 	}, {
 		args: []string{"ms", "lg"},
 		err:  msLgAlreadyExists,
@@ -99,6 +139,23 @@ var addRelationTests = []struct {
 	// Add a real relation using an explicit endpoint, avoiding the potential implicit one.
 	{
 		args: []string{"wp", "lg"},
+		output: `
+endpoints:
+  lg:
+    name: logging-directory
+    role: requirer
+    interface: logging
+    optional: false
+    limit: 1
+    scope: container
+  wp:
+    name: logging-dir
+    role: provider
+    interface: logging
+    optional: false
+    limit: 0
+    scope: container
+`[1:],
 	}, {
 		args: []string{"wp", "lg"},
 		err:  wpLgAlreadyExists,
@@ -119,6 +176,23 @@ var addRelationTests = []struct {
 	// Check we can still use the implicit endpoint if specified explicitly.
 	{
 		args: []string{"wp:juju-info", "lg"},
+		output: `
+endpoints:
+  lg:
+    name: info
+    role: requirer
+    interface: juju-info
+    optional: false
+    limit: 1
+    scope: container
+  wp:
+    name: juju-info
+    role: provider
+    interface: juju-info
+    optional: false
+    limit: 0
+    scope: container
+`[1:],
 	}, {
 		args: []string{"wp:juju-info", "lg"},
 		err:  wpLgAlreadyExistsJuju,
@@ -153,10 +227,12 @@ func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)
-		err := runAddRelation(c, t.args...)
+		context, err := getContextFromAddRelationRun(c, t.args...)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
+		obtained := testing.Stdout(context)
+		c.Assert(obtained, gc.Matches, t.output)
 	}
 }
 
