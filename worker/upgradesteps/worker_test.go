@@ -32,6 +32,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// TODO(mjs) - these tests are too tightly coupled to the
+// implementation. They needn't be internal tests.
+
 type UpgradeSuite struct {
 	statetesting.StateSuite
 

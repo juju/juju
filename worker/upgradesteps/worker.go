@@ -37,9 +37,6 @@ import (
 // 2. The work done by InitializeUsingAgent should probably be done in
 // NewUpgradeWorkerContext (so that InitializeUsingAgent can be
 // removed).
-//
-// 3. The tests are internal tests and are too tightly coupled to the
-// implementation.
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
 
@@ -118,6 +115,7 @@ func (c *UpgradeWorkerContext) InitializeUsingAgent(a agent.Agent) error {
 		return nil
 	})
 }
+
 func (c *UpgradeWorkerContext) Worker(
 	agent agent.Agent,
 	apiConn api.Connection,
