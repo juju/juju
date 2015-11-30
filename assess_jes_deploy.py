@@ -86,8 +86,6 @@ def jes_setup(args):
             permanent=True,
             region=args.region,
             ):
-        if args.machine is not None:
-            client.add_ssh_machines(args.machine)
         yield client, charm_prefix, base_env
 
 

@@ -116,8 +116,6 @@ class TestJES(unittest.TestCase):
             'some_url', 'devel', 'log/dir', True, False, permanent=True,
             region='region-foo')
 
-        add_ssh_machines_func.assert_called_once_with(client, ['0'])
-
         # Setup jes with a client that requires a call to enable_jes.
         with patch.object(expected_client, 'enable_jes'):
             with patch.object(expected_client, 'is_jes_enabled',
