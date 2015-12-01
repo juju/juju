@@ -106,6 +106,12 @@ func stateStepsFor125() []Step {
 			run: func(context Context) error {
 				return state.MigrateLastLoginAndLastConnection(context.State())
 			}},
+		&upgradeStep{
+			description: "sets an unknown unit status for missing unit statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingUnitStatus(context.State())
+			}},
 	}
 }
 
