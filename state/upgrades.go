@@ -2310,3 +2310,45 @@ func settingsDocNeedsMigration(doc bson.M) bool {
 	}
 	return true
 }
+
+// AddMissingUnitStatus sets an unknown unit status for missing unit statuses.
+func AddMissingUnitStatus(st *State) error {
+	var ops []txn.Op
+
+	services, err := st.AllServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, s := range services {
+		units, err := s.AllUnits()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, u := range units {
+			if _, err := u.Status(); err != nil {
+				if !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+
+				ops = append(ops, txn.Op{
+					C:      statusesC,
+					Id:     unitGlobalKey(u.Name()),
+					Assert: txn.DocMissing,
+					Insert: statusDoc{
+						Status:  StatusUnknown,
+						Updated: time.Now().Unix(),
+						EnvUUID: st.EnvironUUID(),
+					},
+				})
+			}
+		}
+	}
+
+	err = st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		return nil
+	}
+	return err
+}
