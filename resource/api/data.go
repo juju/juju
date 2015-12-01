@@ -3,10 +3,14 @@
 
 package api
 
+import (
+	"github.com/juju/names"
+)
+
 // ListSpecsArgs are the arguments for the ListSpecs endpoint.
 type ListSpecsArgs struct {
 	// Service identifies the tag for the service to list.
-	Service string
+	Service names.ServiceTag
 }
 
 // ListSpecsResults holds the results of the ListSpecs endpoint.

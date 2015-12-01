@@ -5,7 +5,6 @@ package server
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -24,11 +23,7 @@ type specFacade struct {
 func (f specFacade) ListSpecs(args api.ListSpecsArgs) (api.ListSpecsResults, error) {
 	var r api.ListSpecsResults
 
-	tag, err := names.ParseTag(args.Service)
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	service := tag.Id()
+	service := args.Service.Id()
 
 	specs, err := f.state.ListResourceSpecs(service)
 	if err != nil {

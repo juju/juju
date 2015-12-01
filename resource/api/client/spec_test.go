@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -60,12 +61,18 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListSpecs",
 		&api.ListSpecsArgs{
-			Service: "service-a-service",
+			Service: newServiceTag(c, "service-a-service"),
 		},
 		&api.ListSpecsResults{
 			Results: []api.ResourceSpec{s.apiSpec},
 		},
 	)
+}
+
+func newServiceTag(c *gc.C, service string) names.ServiceTag {
+	tag, err := names.ParseTag(service)
+	c.Assert(err, jc.ErrorIsNil)
+	return tag.(names.ServiceTag)
 }
 
 // TODO(ericsnow) Move this to a common testing package.

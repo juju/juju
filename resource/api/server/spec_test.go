@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +42,7 @@ func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: "service-a-service",
+		Service: newServiceTag(c, "service-a-service"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -59,23 +60,12 @@ func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: "service-a-service",
+		Service: newServiceTag(c, "service-a-service"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(apiSpecs, jc.DeepEquals, api.ListSpecsResults{})
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
-}
-
-func (s *specSuite) TestListSpecsBadTag(c *gc.C) {
-	facade := server.NewFacade(s.state)
-
-	_, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: "a-service",
-	})
-
-	c.Check(err, gc.NotNil)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *specSuite) TestListSpecsError(c *gc.C) {
@@ -84,11 +74,17 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	_, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: "service-a-service",
+		Service: newServiceTag(c, "service-a-service"),
 	})
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
+}
+
+func newServiceTag(c *gc.C, service string) names.ServiceTag {
+	tag, err := names.ParseTag(service)
+	c.Assert(err, jc.ErrorIsNil)
+	return tag.(names.ServiceTag)
 }
 
 type stubSpecState struct {

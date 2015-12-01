@@ -26,7 +26,7 @@ func (c specClient) ListSpecs(service string) ([]resource.Spec, error) {
 
 	var result api.ListSpecsResults
 	args := api.ListSpecsArgs{
-		Service: names.NewServiceTag(service).String(),
+		Service: names.NewServiceTag(service),
 	}
 	if err := c.FacadeCall("ListSpecs", &args, &result); err != nil {
 		return nil, errors.Trace(err)
