@@ -298,11 +298,38 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }, {
-	about:          "latest supported stable release",
+	about:          "upgrading from 1.18 needs 1.20.14.",
+	tools:          []string{"1.20.14-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.18.0",
+	args:           []string{"--version=1.22.1"},
+	expectErr:      "unsupported upgrade\n\nEnvironment must first be upgraded to 1.20.14.\n    juju upgrade-juju --version=1.20.14",
+}, {
+	about:          "latest supported stable release, skips 1.21",
 	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1-quantal-amd64",
 	agentVersion:   "1.20.14",
-	expectVersion:  "1.21.3",
+	expectVersion:  "1.22.1",
+}, {
+	about:          "1.21 is unsupported",
+	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.20.14",
+	args:           []string{"--version=1.21.3"},
+	expectErr:      "unsupported upgrade\n\nUpgrading to 1.21.3 is not supported. 1.21 and 1.23 are to be avoided.",
+}, {
+	about:          "latest supported stable release, skips 1.23",
+	tools:          []string{"1.23.3-quantal-amd64", "1.24.1-quantal-amd64"},
+	currentVersion: "1.24.1-quantal-amd64",
+	agentVersion:   "1.22.3",
+	expectVersion:  "1.24.1",
+}, {
+	about:          "1.23 is unsupported",
+	tools:          []string{"1.23.3-quantal-amd64", "1.24.1-quantal-amd64"},
+	currentVersion: "1.24.1-quantal-amd64",
+	agentVersion:   "1.22.3",
+	args:           []string{"--version=1.23.3"},
+	expectErr:      "unsupported upgrade\n\nUpgrading to 1.23.3 is not supported. 1.21 and 1.23 are to be avoided.",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -441,6 +468,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
+	s.PatchValue(&version.Current, version.MustParseBinary("1.4.6-quantal-amd64"))
 	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, jc.ErrorIsNil)
