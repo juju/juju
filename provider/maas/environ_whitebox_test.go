@@ -1348,7 +1348,7 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 		"GetMap of the response failed",
 		"no ip_addresses in response",
 		"unexpected ip_addresses in response",
-		"single IP in ip_addresses not a string",
+		"IP in ip_addresses not a string",
 	}
 	reserveIP := func(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
 		c.Check(deviceId, gc.Matches, "node-[a-f0-9]+")

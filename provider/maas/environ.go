@@ -93,14 +93,34 @@ func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, add
 	if err != nil {
 		return network.Address{}, errors.Annotatef(err, "failed to parse IP addresses")
 	}
-	if len(addresses) != 1 {
-		return network.Address{}, errors.Errorf("expected 1 sticky IP address for device %q, got: %v", deviceId, addresses)
+	if len(addresses) == 0 {
+		return network.Address{}, errors.Errorf(
+			"expected to find a sticky IP address for device %q: MAAS API response contains no IP addresses",
+			deviceId,
+		)
 	}
-	address, err := addresses[0].GetString()
-	if err != nil {
-		return network.Address{}, errors.Annotatef(err, "failed to parse reserved IP address for device %q", deviceId)
+	var firstAddress network.Address
+	for _, address := range addresses {
+		value, err := address.GetString()
+		if err != nil {
+			return network.Address{}, errors.Annotatef(err,
+				"failed to parse reserved IP address for device %q",
+				deviceId,
+			)
+		}
+		if ip := net.ParseIP(value); ip == nil {
+			return network.Address{}, errors.Annotatef(err,
+				"failed to parse reserved IP address %q for device %q",
+				value, deviceId,
+			)
+		}
+		if firstAddress.Value == "" {
+			// We only need the first address, but we're logging all we got.
+			firstAddress = network.NewAddress(value)
+		}
+		logger.Debugf("reserved address %q for device %q", value)
 	}
-	return network.NewAddress(address), nil
+	return firstAddress, nil
 }
 
 func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
