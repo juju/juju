@@ -1570,7 +1570,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		if err != nil {
 			return errors.Annotatef(
 				err,
-				"creating MAAS device for container %q with MAC address %q",
+				"failed creating MAAS device for container %q with MAC address %q",
 				hostname, macAddress,
 			)
 		}
@@ -1766,14 +1766,18 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		return nil, errors.Annotatef(err, "failed to get instance %q subnets", instId)
 	}
 
-	macToNetworkMap := make(map[string]networkDetails)
+	macToNetworksMap := make(map[string][]networkDetails)
 	for _, network := range networks {
 		macs, err := environ.listConnectedMacs(network)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, mac := range macs {
-			macToNetworkMap[mac] = network
+			if networks, found := macToNetworksMap[mac]; found {
+				macToNetworksMap[mac] = append(networks, network)
+			} else {
+				macToNetworksMap[mac] = append([]networkDetails(nil), network)
+			}
 		}
 	}
 
@@ -1791,18 +1795,20 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			MACAddress:    serial,
 			ConfigType:    network.ConfigDHCP,
 		}
-		details, ok := macToNetworkMap[serial]
-		if ok {
+		allDetails, ok := macToNetworksMap[serial]
+		if !ok {
+			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
+			continue
+		}
+		for _, details := range allDetails {
 			ifaceInfo.VLANTag = details.VLANTag
 			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
 			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
-		} else {
-			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
+			result = append(result, ifaceInfo)
 		}
-		result = append(result, ifaceInfo)
 	}
 	return result, nil
 }
@@ -2165,15 +2171,14 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)
 				}
+				if node.Disabled {
+					logger.Debugf("node %q skipping disabled network interface %q", inst.Id(), node.LogicalName)
+				}
 				interfaces[node.Serial] = ifaceInfo{
 					DeviceIndex:   index,
 					InterfaceName: node.LogicalName,
 					Disabled:      node.Disabled,
 				}
-				if node.Disabled {
-					logger.Debugf("node %q skipping disabled network interface %q", inst.Id(), node.LogicalName)
-				}
-
 			}
 			if err := processNodes(node.Children); err != nil {
 				return err

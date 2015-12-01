@@ -1238,6 +1238,14 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 			// this subnet has no allocatable IPs
 			continue
 		}
+		if sub.AllocatableIPLow != nil && sub.AllocatableIPLow.To4() == nil {
+			logger.Tracef("ignoring IPv6 subnet %q - allocating IPv6 addresses not yet supported", sub.ProviderId)
+			// Until we change the way we pick addresses, IPv6 subnets with
+			// their *huge* ranges (/64 being the default), there is no point in
+			// allowing such subnets (it won't even work as PickNewAddress()
+			// assumes IPv4 allocatable range anyway).
+			continue
+		}
 		ok, err := environ.SupportsAddressAllocation(sub.ProviderId)
 		if err == nil && ok {
 			subnetInfo = sub
