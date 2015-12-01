@@ -75,15 +75,32 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
-func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) error {
+func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
 	device := devices.GetSubObject(deviceId)
 	params := url.Values{}
 	if addr.Value != "" {
 		params.Add("requested_address", addr.Value)
 	}
-	_, err := device.CallPost("claim_sticky_ip_address", params)
-	return err
-
+	resp, err := device.CallPost("claim_sticky_ip_address", params)
+	if err != nil {
+		return network.Address{}, errors.Annotatef(err, "failed to reserve sticky IP address for device %q", deviceId)
+	}
+	respMap, err := resp.GetMap()
+	if err != nil {
+		return network.Address{}, errors.Annotate(err, "failed to parse response")
+	}
+	addresses, err := respMap["ip_addresses"].GetArray()
+	if err != nil {
+		return network.Address{}, errors.Annotatef(err, "failed to parse IP addresses")
+	}
+	if len(addresses) != 1 {
+		return network.Address{}, errors.Errorf("expected 1 sticky IP address for device %q, got: %v", deviceId, addresses)
+	}
+	address, err := addresses[0].GetString()
+	if err != nil {
+		return network.Address{}, errors.Annotatef(err, "failed to parse reserved IP address for device %q", deviceId)
+	}
+	return network.NewAddress(address), nil
 }
 
 func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
@@ -136,7 +153,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	if err != nil {
 		logger.Warningf("cannot get MAAS API capabilities: %v", err)
 	}
-	logger.Debugf("MAAS API capabilities: %v", capabilities.SortedValues())
+	logger.Tracef("MAAS API capabilities: %v", capabilities.SortedValues())
 	env.supportsDevices = capabilities.Contains(capDevices)
 	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
 	return env, nil
@@ -1542,11 +1559,14 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 			deviceID, hostname, macAddress, instId,
 		)
 		devices := environ.getMAASClient().GetSubObject("devices")
-		if err := reserveIPAddressOnDevice(devices, deviceID, network.Address{}); err != nil {
-			return errors.Annotatef(err, "reserving a sticky IP address for device %q", deviceID)
+		addr, err := ReserveIPAddressOnDevice(devices, deviceID, network.Address{})
+		if err != nil {
+			return errors.Trace(err)
 		}
-		logger.Infof("reserved sticky IP address for device %q representing container %q", deviceID, hostname)
-
+		logger.Infof(
+			"reserved sticky IP address %q for device %q representing container %q",
+			addr, deviceID, hostname,
+		)
 		return nil
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -1560,9 +1580,8 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		}
 
 		devices := client.GetSubObject("devices")
-		err = ReserveIPAddressOnDevice(devices, device, addr)
-		if err == nil {
-			logger.Infof("allocated address %q for instance %q on device %q", addr, instId, device)
+		if gotAddr, err := ReserveIPAddressOnDevice(devices, device, addr); err == nil {
+			logger.Infof("allocated address %q for instance %q on device %q (asked for address %q)", addr, instId, device, gotAddr)
 			return nil
 		}
 
