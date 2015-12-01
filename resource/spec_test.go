@@ -8,7 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -20,7 +20,7 @@ type specSuite struct {
 }
 
 func (specSuite) TestNewSpecUpload(c *gc.C) {
-	info := charm.ResourceInfo{
+	info := charmresource.Info{
 		Name:    "spam",
 		Type:    "file",
 		Path:    "spam.tgz",
@@ -38,7 +38,7 @@ func (specSuite) TestNewSpecUpload(c *gc.C) {
 }
 
 func (specSuite) TestNewSpecEmptyInfo(c *gc.C) {
-	var info charm.ResourceInfo
+	var info charmresource.Info
 	origin := resource.OriginUpload
 	revision := resource.NoRevision
 
@@ -51,7 +51,7 @@ func (specSuite) TestNewSpecEmptyInfo(c *gc.C) {
 }
 
 func (specSuite) TestNewSpecEmptyOrigin(c *gc.C) {
-	info := charm.ResourceInfo{
+	info := charmresource.Info{
 		Name:    "spam",
 		Type:    "file",
 		Path:    "spam.tgz",
@@ -66,7 +66,7 @@ func (specSuite) TestNewSpecEmptyOrigin(c *gc.C) {
 }
 
 func (specSuite) TestNewSpecUnknownOrigin(c *gc.C) {
-	info := charm.ResourceInfo{
+	info := charmresource.Info{
 		Name:    "spam",
 		Type:    "file",
 		Path:    "spam.tgz",

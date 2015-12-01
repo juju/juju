@@ -7,7 +7,7 @@ package resource
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/resource"
 )
 
 // TODO(ericsnow) Move the this file or something similar to the charm repo?
@@ -23,7 +23,7 @@ const NoRevision = ""
 // Spec describes one resource that a service uses.
 type Spec interface {
 	// Definition is the basic info about the resource.
-	Definition() charm.ResourceInfo
+	Definition() resource.Info
 
 	// Origin identifies where the resource should come from.
 	Origin() string
@@ -34,7 +34,7 @@ type Spec interface {
 }
 
 // NewSpec returns a new Spec for the given info.
-func NewSpec(info charm.ResourceInfo, origin, revision string) (Spec, error) {
+func NewSpec(info resource.Info, origin, revision string) (Spec, error) {
 	switch origin {
 	case OriginUpload:
 		// TODO(ericsnow) Fail if revision not NoRevision?
@@ -46,12 +46,12 @@ func NewSpec(info charm.ResourceInfo, origin, revision string) (Spec, error) {
 
 // UploadSpec defines an *uploaded* resource that a service expects.
 type UploadSpec struct {
-	charm.ResourceInfo
+	resource.Info
 }
 
 // Definition implements Spec.
-func (res UploadSpec) Definition() charm.ResourceInfo {
-	return res.ResourceInfo
+func (res UploadSpec) Definition() resource.Info {
+	return res.Info
 }
 
 // Origin implements Spec.

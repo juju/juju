@@ -5,7 +5,7 @@ package api
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -16,7 +16,7 @@ func ResourceSpec2API(r resource.Spec) ResourceSpec {
 	info := r.Definition()
 	return ResourceSpec{
 		Name:     info.Name,
-		Type:     info.Type,
+		Type:     info.Type.String(),
 		Path:     info.Path,
 		Comment:  info.Comment,
 		Origin:   r.Origin(),
@@ -27,12 +27,15 @@ func ResourceSpec2API(r resource.Spec) ResourceSpec {
 // API2ResourceSpec converts an API ResourceSpec info struct into
 // a resource.Spec.
 func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
-	info := charm.ResourceInfo{
+	rtype, _ := charmresource.ParseType(apiSpec.Type)
+	info := charmresource.Info{
 		Name:    apiSpec.Name,
-		Type:    apiSpec.Type,
+		Type:    rtype,
 		Path:    apiSpec.Path,
 		Comment: apiSpec.Comment,
 	}
+	// TODO(ericsnow) Call info.Validate()?
+
 	res, err := resource.NewSpec(info, apiSpec.Origin, apiSpec.Revision)
 	if err != nil {
 		return nil, errors.Trace(err)

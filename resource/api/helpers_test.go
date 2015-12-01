@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -21,7 +21,7 @@ type helpersSuite struct {
 
 func (helpersSuite) TestResourceSpec2API(c *gc.C) {
 	spec, err := resource.NewSpec(
-		charm.ResourceInfo{
+		charmresource.Info{
 			Name:    "spam",
 			Type:    "file",
 			Path:    "spam.tgz",
@@ -55,7 +55,7 @@ func (helpersSuite) TestAPI2ResourceSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected, err := resource.NewSpec(
-		charm.ResourceInfo{
+		charmresource.Info{
 			Name:    "spam",
 			Type:    "file",
 			Path:    "spam.tgz",

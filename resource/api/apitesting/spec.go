@@ -6,16 +6,16 @@ package apitesting
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
 
 func NewSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
-	info := charm.ResourceInfo{
+	info := charmresource.Info{
 		Name: name,
-		Type: charm.ResourceTypeFile,
+		Type: charmresource.TypeFile,
 		Path: name + ".tgz",
 	}
 	spec, err := resource.NewSpec(info, resource.OriginUpload, "")
