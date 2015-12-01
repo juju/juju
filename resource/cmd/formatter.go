@@ -37,7 +37,7 @@ func FormatSpec(spec resource.Spec) FormattedSpec {
 	info := spec.Definition()
 	return FormattedSpec{
 		Name:     info.Name,
-		Type:     info.Type,
+		Type:     info.Type.String(),
 		Path:     info.Path,
 		Comment:  info.Comment,
 		Origin:   spec.Origin(),
