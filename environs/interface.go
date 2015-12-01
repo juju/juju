@@ -185,11 +185,6 @@ type Firewaller interface {
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
 	Ports() ([]network.PortRange, error)
-
-	// Provider returns the EnvironProvider that created this Environ.
-	Provider() EnvironProvider
-
-	state.Prechecker
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
