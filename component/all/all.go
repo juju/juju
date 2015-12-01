@@ -22,7 +22,6 @@ type component interface {
 
 var components = []component{
 	&payloads{},
-	&resources{},
 }
 
 // RegisterForServer registers all the parts of the components with the
