@@ -20,8 +20,8 @@ type specClient struct {
 // ListSpecs calls the ListSpecs API server method with
 // the given service name.
 func (c specClient) ListSpecs(service string) ([]resource.Spec, error) {
-	if service == "" {
-		return nil, errors.New("missing service")
+	if !names.IsValidService(service) {
+		return nil, errors.Errorf("invalid service %q", service)
 	}
 
 	var result api.ListSpecsResults
