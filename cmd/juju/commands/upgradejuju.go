@@ -354,6 +354,10 @@ func (context *upgradeContext) validate() (err error) {
 		if nextVersion.Major == context.client.Major {
 			nextVersion.Minor += 1
 			nextVersion.Patch = 0
+			// Explicitly skip 1.21 and 1.23.
+			if nextVersion.Major == 1 && (nextVersion.Minor == 21 || nextVersion.Minor == 23) {
+				nextVersion.Minor += 1
+			}
 		} else {
 			nextVersion = context.client
 		}
@@ -385,6 +389,25 @@ func (context *upgradeContext) validate() (err error) {
 	}
 	if context.chosen == context.agent {
 		return errUpToDate
+	}
+
+	// If the client is on a version before 1.20, they must upgrade
+	// through 1.20.14.
+	if context.agent.Major == 1 && context.agent.Minor < 20 &&
+		(context.chosen.Major > 1 ||
+			(context.chosen.Major == 1 && context.chosen.Minor > 20)) {
+		return errors.New("unsupported upgrade\n\n" +
+			"Environment must first be upgraded to 1.20.14.\n" +
+			"    juju upgrade-juju --version=1.20.14")
+	}
+
+	// Skip 1.21 and 1.23 if the agents are not already on them.
+	if context.agent.Major == 1 && context.chosen.Major == 1 &&
+		context.agent.Minor != context.chosen.Minor &&
+		(context.chosen.Minor == 21 || context.chosen.Minor == 23) {
+		return errors.Errorf("unsupported upgrade\n\n"+
+			"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
+			context.chosen.String())
 	}
 
 	// Disallow major.minor version downgrades.
