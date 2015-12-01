@@ -96,7 +96,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	info.Addrs = []string{addr, addr, addr}
 	_, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
-	c.Assert(count, gc.Equals, int32(3))
+	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {
