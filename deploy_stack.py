@@ -384,6 +384,208 @@ def tear_down(client, jes_enabled):
         client.destroy_environment()
 
 
+class BootstrapManager:
+    """
+    Helper class for running juju tests.
+
+    Enables running tests on the manual provider and on MAAS systems, with
+    automatic cleanup, logging, etc.  See BootstrapManager.booted_context.
+
+    :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
+        job name.
+    :ivar client: an EnvJujuClient.
+    :ivar bootstrap_host: None, or the address of a manual or MAAS host to
+        bootstrap on.
+    :ivar machine: [] or a list of machines to use add to a manual env
+        before deploying services.
+    :ivar series: None or the default-series for the temp config.
+    :ivar agent_url: None or the agent-metadata-url for the temp config.
+    :ivar agent_stream: None or the agent-stream for the temp config.
+    :ivar log_dir: The path to the directory to store logs.
+    :ivar keep_env: False or True to not destroy the environment and keep
+        it alive to do an autopsy.
+    :ivar upload_tools: False or True to upload the local agent instead of
+        using streams.
+    """
+
+    def __init__(self, temp_env_name, client, bootstrap_host,
+                 machines, series, agent_url, agent_stream, region, log_dir,
+                 keep_env, permanent, jes_enabled):
+        """Constructor.
+
+        Please see see `BootstrapManager` for argument descriptions.
+        """
+        self.temp_env_name = temp_env_name
+        self.client = client
+        self.bootstrap_host = bootstrap_host
+        self.machines = machines
+        self.series = series
+        self.agent_url = agent_url
+        self.agent_stream = agent_stream
+        self.region = region
+        self.log_dir = log_dir
+        self.keep_env = keep_env
+        self.permanent = permanent
+        self.jes_enabled = jes_enabled
+
+    @contextmanager
+    def maas_machines(self):
+        """Handle starting/stopping MAAS machines."""
+        running_domains = dict()
+        try:
+            if self.client.env.config['type'] == 'maas' and self.machines:
+                for machine in self.machines:
+                    name, URI = machine.split('@')
+                    # Record already running domains, so we can warn that
+                    # we're deleting them following the test.
+                    if verify_libvirt_domain(URI, name,
+                                             LIBVIRT_DOMAIN_RUNNING):
+                        running_domains = {machine: True}
+                        logging.info("%s is already running" % name)
+                    else:
+                        running_domains = {machine: False}
+                        logging.info("Attempting to start %s at %s"
+                                     % (name, URI))
+                        status_msg = start_libvirt_domain(URI, name)
+                        logging.info("%s" % status_msg)
+                # No further handling of machines down the line is required.
+                yield []
+            else:
+                yield self.machines
+        finally:
+            # Although this isn't MAAS-related, it was in this context in
+            # boot_context.
+            logging.info(
+                'Juju command timings: {}'.format(
+                    self.client.get_juju_timings()))
+            dump_juju_timings(self.client, self.log_dir)
+            if self.client.env.config['type'] == 'maas' and not self.keep_env:
+                logging.info("Waiting for destroy-environment to complete")
+                time.sleep(90)
+                for machine, running in running_domains.items():
+                    name, URI = machine.split('@')
+                    if running:
+                        logging.warning(
+                            "%s at %s was running when deploy_job started."
+                            " Shutting it down to ensure a clean environment."
+                            % (name, URI))
+                    logging.info("Attempting to stop %s at %s" % (name, URI))
+                    status_msg = stop_libvirt_domain(URI, name)
+                    logging.info("%s" % status_msg)
+
+    @contextmanager
+    def aws_machines(self):
+        """Handle starting/stopping AWS machines.
+
+        Machines are deliberately killed by tag so that any stray machines
+        from previous runs will be killed.
+        """
+        if (
+                self.client.env.config['type'] != 'manual' or
+                self.bootstrap_host is not None):
+            yield self.bootstrap_host, []
+            return
+        try:
+            instances = run_instances(3, self.temp_env_name, self.series)
+            new_bootstrap_host = instances[0][1]
+            yield new_bootstrap_host, [i[1] for i in instances[1:]]
+        finally:
+            if self.keep_env:
+                return
+            destroy_job_instances(self.temp_env_name)
+
+    @contextmanager
+    def bootstrap_context(self, bootstrap_host, machines):
+        """Context for bootstrapping a state server."""
+        update_env(self.client.env, self.temp_env_name, series=self.series,
+                   bootstrap_host=bootstrap_host,
+                   agent_url=self.agent_url, agent_stream=self.agent_stream,
+                   region=self.region)
+        ssh_machines = list(machines)
+        if bootstrap_host is not None:
+            ssh_machines.append(bootstrap_host)
+        for machine in ssh_machines:
+            logging.info('Waiting for port 22 on %s' % machine)
+            wait_for_port(machine, 22, timeout=120)
+        juju_home = get_juju_home()
+        jenv_path = get_jenv_path(juju_home, self.client.env.environment)
+        ensure_deleted(jenv_path)
+        with temp_bootstrap_env(juju_home, self.client,
+                                permanent=self.permanent):
+            try:
+                yield
+            except:
+                # If run from a windows machine may not have ssh to get
+                # logs
+                if self.bootstrap_host is not None and _can_run_ssh():
+                    remote = remote_from_address(self.bootstrap_host,
+                                                 series=self.series)
+                    copy_remote_logs(remote, self.log_dir)
+                    archive_logs(self.log_dir)
+                tear_down(self.client, self.jes_enabled)
+                raise
+
+    @contextmanager
+    def runtime_context(self, host, addable_machines):
+        """Context for running non-bootstrap operations.
+
+        If any manual machines need to be added, they will be added before
+        control is yielded.
+        """
+        try:
+            if host is None:
+                host = get_machine_dns_name(self.client, '0')
+            if host is None:
+                raise ValueError('Could not get machine 0 host')
+            try:
+                if addable_machines is not None:
+                    self.client.add_ssh_machines(addable_machines)
+                yield
+            except BaseException as e:
+                logging.exception(e)
+                sys.exit(1)
+        finally:
+            safe_print_status(self.client)
+            if self.jes_enabled:
+                runtime_config = get_cache_path(self.client.juju_home)
+            else:
+                runtime_config = get_jenv_path(self.client.juju_home,
+                                               self.client.env.environment)
+            if host is not None:
+                dump_env_logs(self.client, host, self.log_dir,
+                              runtime_config=runtime_config)
+            if not self.keep_env:
+                tear_down(self.client, self.jes_enabled)
+
+    @contextmanager
+    def top_context(self):
+        """Context for running all juju operations in."""
+        with self.maas_machines() as machines:
+            with self.aws_machines() as (bootstrap_host, new_machines):
+                yield bootstrap_host, machines + new_machines
+
+    @contextmanager
+    def booted_context(self, upload_tools):
+        """Create a temporary environment in a context manager to run tests in.
+
+        Bootstrap a new environment from a temporary config that is suitable
+        to run tests in. Logs will be collected from the machines. The
+        environment will be destroyed when the test completes or there is an
+        unrecoverable error.
+
+        The temporary environment is created by updating a EnvJujuClient's
+        config with series, agent_url, agent_stream.
+
+        :param upload_tools: False or True to upload the local agent instead
+            of using streams.
+        """
+        with self.top_context() as (bootstrap_host, machines):
+            with self.bootstrap_context(bootstrap_host, machines):
+                self.client.bootstrap(upload_tools)
+            with self.runtime_context(bootstrap_host, machines):
+                yield machines
+
+
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
@@ -404,7 +606,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     :param bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
     :param machine: [] or a list of machines to use add to a manual env
-        before deploying services.
+        before deploying services.  This is mutated to indicate all machines,
+        including new instances, that have been manually added.
     :param series: None or the default-series for the temp config.
     :param agent_url: None or the agent-metadata-url for the temp config.
     :param agent_stream: None or the agent-stream for the temp config.
@@ -414,98 +617,14 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     :param upload_tools: False or True to upload the local agent instead of
         using streams.
     """
-    created_machines = False
-    running_domains = dict()
-    try:
-        if client.env.config['type'] == 'manual' and bootstrap_host is None:
-            instances = run_instances(3, temp_env_name, series)
-            created_machines = True
-            bootstrap_host = instances[0][1]
-            machines.extend(i[1] for i in instances[1:])
-        if client.env.config['type'] == 'maas' and machines:
-            for machine in machines:
-                name, URI = machine.split('@')
-                # Record already running domains, so they can be left running,
-                # when finished with the test.
-                if verify_libvirt_domain(URI, name, LIBVIRT_DOMAIN_RUNNING):
-                    running_domains = {machine: True}
-                    logging.info("%s is already running" % name)
-                else:
-                    running_domains = {machine: False}
-                    logging.info("Attempting to start %s at %s" % (name, URI))
-                    status_msg = start_libvirt_domain(URI, name)
-                    logging.info("%s" % status_msg)
-            # No further handling of machines down the line is required.
-            machines = []
-
-        update_env(client.env, temp_env_name, series=series,
-                   bootstrap_host=bootstrap_host, agent_url=agent_url,
-                   agent_stream=agent_stream, region=region)
-        try:
-            host = bootstrap_host
-            ssh_machines = [] + machines
-            if host is not None:
-                ssh_machines.append(host)
-            for machine in ssh_machines:
-                logging.info('Waiting for port 22 on %s' % machine)
-                wait_for_port(machine, 22, timeout=120)
-            juju_home = get_juju_home()
-            jenv_path = get_jenv_path(juju_home, client.env.environment)
-            ensure_deleted(jenv_path)
-            jes_enabled = client.is_jes_enabled()
-            with temp_bootstrap_env(juju_home, client, permanent=permanent):
-                try:
-                    client.bootstrap(upload_tools)
-                except:
-                    # If run from a windows machine may not have ssh to get
-                    # logs
-                    if host is not None and _can_run_ssh():
-                        remote = remote_from_address(host, series=series)
-                        copy_remote_logs(remote, log_dir)
-                        archive_logs(log_dir)
-                    tear_down(client, jes_enabled)
-                    raise
-            try:
-                if host is None:
-                    host = get_machine_dns_name(client, '0')
-                if host is None:
-                    raise ValueError('Could not get machine 0 host')
-                try:
-                    yield
-                except BaseException as e:
-                    logging.exception(e)
-                    sys.exit(1)
-            finally:
-                safe_print_status(client)
-                if jes_enabled:
-                    runtime_config = get_cache_path(client.juju_home)
-                else:
-                    runtime_config = get_jenv_path(client.juju_home,
-                                                   client.env.environment)
-                if host is not None:
-                    dump_env_logs(client, host, log_dir,
-                                  runtime_config=runtime_config)
-                if not keep_env:
-                    tear_down(client, jes_enabled)
-        finally:
-            if created_machines and not keep_env:
-                destroy_job_instances(temp_env_name)
-    finally:
-        logging.info(
-            'Juju command timings: {}'.format(client.get_juju_timings()))
-        dump_juju_timings(client, log_dir)
-        if client.env.config['type'] == 'maas' and not keep_env:
-            logging.info("Waiting for destroy-environment to complete")
-            time.sleep(90)
-            for machine, running in running_domains.items():
-                name, URI = machine.split('@')
-                if running:
-                    logging.warning("%s at %s was running when deploy_job "
-                                    "started. Shutting it down to ensure a "
-                                    "clean environment." % (name, URI))
-                logging.info("Attempting to stop %s at %s" % (name, URI))
-                status_msg = stop_libvirt_domain(URI, name)
-                logging.info("%s" % status_msg)
+    jes_enabled = client.is_jes_enabled()
+    bs_manager = BootstrapManager(
+        temp_env_name, client, bootstrap_host, machines, series,
+        agent_url, agent_stream, region, log_dir, keep_env, permanent,
+        jes_enabled)
+    with bs_manager.booted_context(upload_tools) as new_machines:
+        machines[:] = new_machines
+        yield
 
 
 def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
@@ -529,11 +648,10 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
     if use_jes:
         client.enable_jes()
     permanent = client.is_jes_enabled()
-    with boot_context(temp_env_name, client, bootstrap_host, machines,
-                      series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools, permanent=permanent, region=region):
-        if machines is not None:
-            client.add_ssh_machines(machines)
+    bs_manager = BootstrapManager(
+        temp_env_name, client, bootstrap_host, machines, series, agent_url,
+        agent_stream, region, log_dir, keep_env, permanent, permanent)
+    with bs_manager.booted_context(upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
