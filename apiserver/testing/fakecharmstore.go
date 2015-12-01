@@ -83,3 +83,7 @@ func (s *CharmStoreSuite) TearDownTest(c *gc.C) {
 func (s *CharmStoreSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
 	return testcharms.UploadCharm(c, s.Client, url, name)
 }
+
+func (s *CharmStoreSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
+	return testcharms.UploadCharmMultiSeries(c, s.Client, url, name)
+}

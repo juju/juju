@@ -947,7 +947,7 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.svc.SetCharm(sch, s.forced)
+	err = ctx.svc.SetCharm(sch, false, s.forced)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }

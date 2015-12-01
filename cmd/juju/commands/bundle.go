@@ -662,7 +662,7 @@ func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id s
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	if err := client.ServiceSetCharm(service, id, false); err != nil {
+	if err := client.ServiceSetCharm(service, id, false, false); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)

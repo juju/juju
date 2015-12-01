@@ -212,6 +212,7 @@ type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
 	ForceCharmUrl   bool
+	ForceSeries     bool
 	MinUnits        *int
 	SettingsStrings map[string]string
 	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
@@ -220,9 +221,10 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
-	ServiceName string
-	CharmUrl    string
-	Force       bool
+	ServiceName string `json:"servicename"`
+	CharmUrl    string `json:"charmurl"`
+	ForceUnits  bool   `json:"forceunits"`
+	ForceSeries bool   `json:"forceseries"`
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
