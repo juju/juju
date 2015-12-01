@@ -94,11 +94,11 @@ modify_network_config() {
 # with a space, if they could be discovered. The output is undefined
 # otherwise.
 get_gateway() {
-    $IP_CMD "$1" route list exact default | cut -d' ' -f3
+    $IP_CMD "$1" route list exact default | head -n1 | cut -d' ' -f3
 }
 
 get_primary_nic() {
-    $IP_CMD "$1" route list exact default | cut -d' ' -f5
+    $IP_CMD "$1" route list exact default | head -n1 | cut -d' ' -f5
 }
 
 # Display route table contents (IPv4 and IPv6), network devices, all

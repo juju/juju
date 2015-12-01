@@ -159,15 +159,15 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
-const noDevicesWarning = `
-WARNING: Using MAAS version older than 1.8.2: devices API support not detected!
+var noDevicesWarning = `
+Using MAAS version older than 1.8.2: devices API support not detected!
 
 Juju cannot guarantee resources allocated to containers, like DHCP
 leases or static IP addresses will be properly cleaned up when the
 container, its host, or the environment is destroyed.
 
 Juju recommends upgrading MAAS to version 1.8.2 or later.
-`
+`[1:]
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
