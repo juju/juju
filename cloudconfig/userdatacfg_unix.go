@@ -332,17 +332,17 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
-		w.conf.AddScripts(
-			// The bootstrapping is always run with debug on.
-			w.icfg.JujuTools() + "/jujud bootstrap-state" +
-				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
-				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
-				hardware +
-				cons +
-				metadataDir +
-				loggingOption,
-		)
+
+		// The bootstrapping is always run with debug on.
+		bootstrapCommand := w.icfg.JujuTools() + "/jujud bootstrap-state" +
+			" --data-dir " + shquote(w.icfg.DataDir) +
+			" --env-config " + shquote(base64yaml(w.icfg.Config)) +
+			" --instance-id " + shquote(string(w.icfg.InstanceId)) +
+			hardware +
+			cons +
+			metadataDir +
+			loggingOption
+		w.conf.AddScripts(bootstrapCommand)
 	}
 
 	return w.addMachineAgentToBoot()

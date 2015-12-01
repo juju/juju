@@ -31,7 +31,7 @@ var (
 	EnsureMongoServer = mongo.EnsureServer
 )
 
-// requiredError is useful when complaining about missing command-line options.
+// RequiredError is useful when complaining about missing command-line options.
 func RequiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
@@ -194,6 +194,8 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		Namespace:            agentConfig.Value(agent.Namespace),
 		OplogSize:            oplogSize,
 		SetNumaControlPolicy: numaCtlPolicy,
+
+		Version: agentConfig.MongoVersion(),
 	}
 	return params, nil
 }

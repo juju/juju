@@ -110,7 +110,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{

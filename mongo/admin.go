@@ -22,6 +22,7 @@ var (
 	processSignal = (*os.Process).Signal
 )
 
+// EnsureAdminUserParams holds the params to call EnsureAdminUser.
 type EnsureAdminUserParams struct {
 	// DialInfo specifies how to connect to the mongo server.
 	DialInfo *mgo.DialInfo
@@ -35,6 +36,9 @@ type EnsureAdminUserParams struct {
 	User string
 	// Password holds the password for the user to log in as.
 	Password string
+	// MongoVersion holds the version of mongo that we are supposed to be
+	// using.
+	MongoVersion Version
 }
 
 // EnsureAdminUser ensures that the specified user and password
@@ -87,7 +91,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Start mongod in --noauth mode.
 	logger.Debugf("starting mongo with --noauth")
-	cmd, err := noauthCommand(p.DataDir, p.Port)
+	cmd, err := noauthCommand(p.DataDir, p.Port, p.MongoVersion)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare mongod command: %v", err)
 	}

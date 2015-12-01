@@ -36,10 +36,175 @@ var (
 	// JujuMongodPath holds the default path to the juju-specific
 	// mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// JujuMongod26Path holds the default path for the transitional
+	// mongo 2.6 to be installed to upgrade to 3.
+	JujuMongod26Path = "/usr/lib/juju/mongo2.6/bin/mongod"
+	// JujuMongod30Path holds the default path for mongo 3.
+	JujuMongod30Path = "/usr/lib/juju/mongo3/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
 )
+
+// StorageEngine represents the storage used by mongo.
+type StorageEngine string
+
+const (
+	// MMAPIV2 is the default storage engine in mongo db up to 3.x
+	MMAPIV2 StorageEngine = "mmapiv2"
+	// WiredTiger is a storage type introduced in 3
+	WiredTiger StorageEngine = "wiredTiger"
+	// Upgrading is a special case where mongo is being upgraded.
+	Upgrading StorageEngine = "Upgrading"
+)
+
+// Version represents the major.minor version of the runnig mongo.
+type Version struct {
+	Major         int
+	Minor         int
+	Patch         string // supports variants like 1-alpha
+	StorageEngine StorageEngine
+}
+
+// NewerThan will return 1 if the passed version is older than
+// v, 0 if they are equal (or ver is a special case such as
+// Upgrading and -1 if ver is newer.
+func (v Version) NewerThan(ver Version) int {
+	if v == MongoUpgrade || ver == MongoUpgrade {
+		return 0
+	}
+	if v.Major > ver.Major {
+		return 1
+	}
+	if v.Major < ver.Major {
+		return -1
+	}
+	if v.Minor > ver.Minor {
+		return 1
+	}
+	if v.Minor < ver.Minor {
+		return -1
+	}
+	return 0
+}
+
+// NewVersion returns a mongo Version parsing the passed version string
+// or error if not possible.
+// A valid version string is of the form:
+// 1.2.patch/storage
+// major and minor are positive integers, patch is a string containing
+// any ascii character except / and storage is one of the above defined
+// StorageEngine. Only major is mandatory.
+// An alternative valid string is 0.0/Upgrading which represents that
+// mongo is being upgraded.
+func NewVersion(v string) (Version, error) {
+	version := Version{}
+	if v == "" {
+		return Mongo24, nil
+	}
+
+	parts := strings.SplitN(v, "/", 2)
+	if len(parts) == 0 {
+		return Version{}, errors.New("invalid version string")
+	}
+	if len(parts) == 2 {
+		switch StorageEngine(parts[1]) {
+		case MMAPIV2:
+			version.StorageEngine = MMAPIV2
+		case WiredTiger:
+			version.StorageEngine = WiredTiger
+		case Upgrading:
+			version.StorageEngine = Upgrading
+		}
+	}
+	vParts := strings.SplitN(parts[0], ".", 3)
+
+	if len(vParts) >= 1 {
+		i, err := strconv.Atoi(vParts[0])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, major is not an int")
+		}
+		version.Major = i
+	}
+	if len(vParts) >= 2 {
+		i, err := strconv.Atoi(vParts[1])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, minor is not an int")
+		}
+		version.Minor = i
+	}
+	if len(vParts) == 3 {
+		version.Patch = vParts[2]
+	}
+	return version, nil
+}
+
+// String serializes the version into a string.
+func (v Version) String() string {
+	s := fmt.Sprintf("%d.%d", v.Major, v.Minor)
+	if v.Patch != "" {
+		s = fmt.Sprintf("%s.%s", s, v.Patch)
+	}
+	if v.StorageEngine != "" {
+		s = fmt.Sprintf("%s/%s", s, v.StorageEngine)
+	}
+	return s
+}
+
+var (
+	// Mongo24 represents juju-mongodb 2.4.x
+	Mongo24 = Version{Major: 2,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
+	}
+	// Mongo26 represents juju-mongodb26 2.6.x
+	Mongo26 = Version{Major: 2,
+		Minor:         6,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
+	}
+	// Mongo30 represents juju-mongodb3 3.x.x
+	Mongo30 = Version{Major: 3,
+		Minor:         0,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
+	}
+	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
+	Mongo30wt = Version{Major: 3,
+		Minor:         0,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
+	// MongoUpgrade represents a sepacial case where an upgrade is in
+	// progress.
+	MongoUpgrade = Version{Major: 0,
+		Minor:         0,
+		Patch:         "Upgrading",
+		StorageEngine: Upgrading,
+	}
+)
+
+// BinariesAvailable returns true if the binaries for the
+// given Version of mongo are available.
+func BinariesAvailable(v Version) bool {
+	var path string
+	switch v {
+	case Mongo24:
+		path = JujuMongodPath
+
+	case Mongo26:
+		path = JujuMongod26Path
+	case Mongo30, Mongo30wt:
+		path = JujuMongod30Path
+	default:
+		return false
+	}
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
 
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
@@ -107,17 +272,42 @@ func GenerateSharedSecret() (string, error) {
 // Path returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
-func Path() (string, error) {
-	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath, nil
-	}
+func Path(version Version) (string, error) {
+	noVersion := Version{}
+	switch version {
+	case Mongo24, noVersion:
+		if _, err := os.Stat(JujuMongodPath); err == nil {
+			return JujuMongodPath, nil
+		}
 
-	path, err := exec.LookPath("mongod")
-	if err != nil {
-		logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+		path, err := exec.LookPath("mongod")
+		if err != nil {
+			logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+			return "", err
+		}
+		return path, nil
+
+	case Mongo26:
+		var err error
+		if _, err = os.Stat(JujuMongod26Path); err == nil {
+			return JujuMongod26Path, nil
+		}
+		logger.Infof("could not find %q ", JujuMongod26Path)
+		return "", err
+
+	case Mongo30, Mongo30wt:
+		var err error
+		if _, err = os.Stat(JujuMongod30Path); err == nil {
+			return JujuMongod30Path, nil
+		}
+		logger.Infof("could not find %q", JujuMongod30Path)
 		return "", err
 	}
-	return path, nil
+
+	logger.Infof("could not find a suitable binary for %q", version)
+	errMsg := fmt.Sprintf("no suitable binary for %q", version)
+	return "", errors.New(errMsg)
+
 }
 
 // EnsureServerParams is a parameter struct for EnsureServer.
@@ -159,6 +349,9 @@ type EnsureServerParams struct {
 	// SetNumaControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNumaControlPolicy bool
+
+	// Version is the mongod version to be used.
+	Version Version
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -198,7 +391,7 @@ func EnsureServer(args EnsureServerParams) error {
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mongoPath, err := Path()
+	mongoPath, err := Path(args.Version)
 	if err != nil {
 		return err
 	}
@@ -227,7 +420,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
+	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, args.Version, true)
 	svc, err := newService(ServiceName(args.Namespace), svcConf)
 	if err != nil {
 		return err
@@ -331,17 +524,17 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		}
 	}
 
-	mongoPkg := packageForSeries(operatingsystem)
+	mongoPkgs := packagesForSeries(operatingsystem)
 
-	pkgs := []string{mongoPkg}
+	pkgs := mongoPkgs
 	if numaCtl {
-		pkgs = []string{mongoPkg, numaCtlPkg}
-		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
+		pkgs = append(mongoPkgs, numaCtlPkg)
+		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
 	} else {
-		logger.Infof("installing %s", mongoPkg)
+		logger.Infof("installing %v", mongoPkgs)
 	}
 
-	for i, _ := range pkgs {
+	for i := range pkgs {
 		// apply release targeting if needed.
 		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
 			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
@@ -349,6 +542,17 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 
 		if err := pacman.Install(pkgs[i]); err != nil {
 			return err
+		}
+	}
+	optionals := optionalPackagesForSeries(operatingsystem)
+	for i := range optionals {
+		// apply release targeting if needed.
+		if pacconfer.IsCloudArchivePackage(optionals[i]) {
+			optionals[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(optionals[i]), " ")
+		}
+
+		if err := pacman.Install(optionals[i]); err != nil {
+			logger.Errorf("could not install package %q: %v", optionals[i], err)
 		}
 	}
 
@@ -378,26 +582,42 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 
 // packageForSeries returns the name of the mongo package for the series
 // of the machine that it is going to be running on.
-func packageForSeries(series string) string {
+func packagesForSeries(series string) []string {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
-		return "mongodb-server"
+		return []string{"mongodb-server"}
 	default:
 		// trusty and onwards
-		return "juju-mongodb"
+		return []string{"juju-mongodb"}
 	}
+}
+
+func optionalPackagesForSeries(series string) []string {
+	switch series {
+	case "precise", "quantal", "raring", "saucy", "centos7":
+		return []string{}
+	default:
+		return []string{"juju-mongodb2.6", "juju-mongodb3"}
+	}
+}
+
+// DbDir returns the dir where mongo storage is.
+func DbDir(dataDir string) string {
+	return filepath.Join(dataDir, "db")
 }
 
 // noauthCommand returns an os/exec.Cmd that may be executed to
 // run mongod without security.
-func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	dbDir := filepath.Join(dataDir, "db")
-	mongoPath, err := Path()
+	dbDir := DbDir(dataDir)
+	// Make this smarter, to guess mongo version.
+	mongoPath, err := Path(version)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(mongoPath,
+
+	args := []string{
 		"--noauth",
 		"--dbpath", dbDir,
 		"--sslOnNormalPorts",
@@ -405,10 +625,33 @@ func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "127.0.0.1",
 		"--port", fmt.Sprint(port),
-		"--noprealloc",
 		"--syslog",
-		"--smallfiles",
 		"--journal",
-	)
+		"--quiet",
+	}
+	if version == Mongo30wt {
+		args = append(args, "--storageEngine", "wiredTiger")
+
+	} else {
+		args = append(args, "--noprealloc", "--smallfiles")
+
+	}
+
+	cmd := exec.Command(mongoPath, args...)
+
 	return cmd, nil
+}
+
+// ReplicaSetInformation holds information about replicaset
+// components.
+type ReplicaSetInformation struct {
+	Master  replicaset.Member
+	Members []replicaset.Member
+	Config  replicaset.Config
+}
+
+// ReplicaSetInfo returns information describing the replicaset members
+// and configuration
+func ReplicaSetInfo(session *mgo.Session) (ReplicaSetInformation, error) {
+	return ReplicaSetInformation{}, nil
 }

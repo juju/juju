@@ -10,12 +10,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -799,4 +802,32 @@ type BundleChangesChange struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
+}
+
+// UpgradeMongoParams holds the arguments required to
+// enter upgrade mongo mode.
+type UpgradeMongoParams struct {
+	Target mongo.Version
+}
+
+// HAMember holds information that identifies one member
+// of HA.
+type HAMember struct {
+	Tag           string
+	PublicAddress network.Address
+	Series        string
+}
+
+// MongoUpgradeResults holds the results of an attempt
+// to enter upgrade mongo mode.
+type MongoUpgradeResults struct {
+	RsMembers []replicaset.Member
+	Master    HAMember
+	Members   []HAMember
+}
+
+// ResumeReplicationParams holds the members of a HA that
+// must be resumed.
+type ResumeReplicationParams struct {
+	Members []replicaset.Member
 }
