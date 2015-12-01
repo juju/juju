@@ -37,6 +37,7 @@ func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 		"add preferred addresses to machines",
 		"upgrade environment config",
 		"move lastlogin and last connection to their own collections",
+		"sets an unknown unit status for missing unit statuses",
 	}
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)
 }
