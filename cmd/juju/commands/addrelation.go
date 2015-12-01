@@ -24,12 +24,16 @@ Adding a relation between two remote service endpoints is not supported.
 
 Service endpoints can be identified either by:
     <service name>[:<relation name>]
+        where service name supplied without relation will be internally expanded to be well-formed
 or
     <remote endpoint url>
 
 Examples:
     $ juju add-relation wordpress mysql
+        where "wordpress" and "mysql" will be internally expanded to "wordpress:mysql" and "mysql:server" respectivelly
+
     $ juju add-relation wordpress local:/u/fred/db2
+        where "wordpress" will be internally expanded to "wordpress:db2"
 
 `
 
