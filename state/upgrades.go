@@ -2188,7 +2188,7 @@ func AddMissingUnitStatus(st *State) error {
 					Assert: txn.DocMissing,
 					Insert: statusDoc{
 						Status:  StatusUnknown,
-						Updated: time.Now().Unix(),
+						Updated: time.Now().UnixNano(),
 						EnvUUID: st.EnvironUUID(),
 					},
 				})
