@@ -1210,7 +1210,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
-		{URL: "something-invalid"},
+		{URL: "something-invalid!"},
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}

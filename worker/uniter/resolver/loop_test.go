@@ -51,13 +51,13 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		CharmURL: s.charmURL,
 	}
 	err := resolver.Loop(resolver.LoopConfig{
-		Resolver:       s.resolver,
-		Factory:        s.opFactory,
-		Watcher:        s.watcher,
-		Executor:       s.executor,
-		Abort:          s.abort,
-		OnIdle:         s.onIdle,
-		CharmDirLocker: &mockCharmDirLocker{},
+		Resolver:      s.resolver,
+		Factory:       s.opFactory,
+		Watcher:       s.watcher,
+		Executor:      s.executor,
+		Abort:         s.abort,
+		OnIdle:        s.onIdle,
+		CharmDirGuard: &mockCharmDirGuard{},
 	}, &localState)
 	return localState, err
 }

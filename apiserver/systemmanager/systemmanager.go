@@ -60,7 +60,7 @@ func NewSystemManagerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := st.IsSystemAdministrator(apiUser)
+	isAdmin, err := st.IsControllerAdministrator(apiUser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

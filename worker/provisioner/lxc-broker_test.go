@@ -190,6 +190,9 @@ func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, nil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
 		FuncName: "ContainerConfig",
 	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
@@ -311,6 +314,9 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, nil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
+	}, {
 		FuncName: "ContainerConfig",
 	}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
@@ -1162,4 +1168,12 @@ func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.Int
 		return nil, err
 	}
 	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
+}
+
+func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
+	f.MethodCall(f, "ReleaseContainerAddresses", tag)
+	if err := f.NextErr(); err != nil {
+		return err
+	}
+	return nil
 }

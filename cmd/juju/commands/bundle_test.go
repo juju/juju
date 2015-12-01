@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -24,8 +25,9 @@ import (
 
 // runDeployCommand executes the deploy command in order to deploy the given
 // charm or bundle. The deployment output and error are returned.
-func runDeployCommand(c *gc.C, id string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, newDeployCommand(), id)
+func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
+	args = append([]string{id}, args...)
+	ctx, err := coretesting.RunCommand(c, newDeployCommand(), args...)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 
@@ -58,6 +60,43 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
+		"wordpress": {charm: "cs:trusty/wordpress-47"},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"mysql/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql-storage")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
+	output, err := runDeployCommand(
+		c, "bundle/wordpress-with-mysql-storage",
+		"--storage", "mysql:logs=tmpfs,10G", // override logs
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/mysql-42
+service mysql deployed (charm: cs:trusty/mysql-42)
+added charm cs:trusty/wordpress-47
+service wordpress deployed (charm: cs:trusty/wordpress-47)
+related wordpress:db and mysql:server
+added mysql/0 unit to new machine
+added wordpress/0 unit to new machine
+deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"mysql": {
+			charm: "cs:trusty/mysql-42",
+			storage: map[string]state.StorageConstraints{
+				"data": state.StorageConstraints{Pool: "rootfs", Size: 50 * 1024, Count: 1},
+				"logs": state.StorageConstraints{Pool: "tmpfs", Size: 10 * 1024, Count: 1},
+			},
+		},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
@@ -208,7 +247,7 @@ var deployBundleErrorsTests = []struct {
                 charm: trusty/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot add charm "trusty/rails-42": cannot retrieve "cs:trusty/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "trusty/rails-42": cannot resolve URL "cs:trusty/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -291,7 +330,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: trusty
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
@@ -309,11 +348,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
                 to: [django]
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
-}
-
-func (s *deployRepoCharmStoreSuite) TestDeployBundleDirectoryError(c *gc.C) {
-	_, err := runDeployCommand(c, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "deployment of bundle directories not yet supported")
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
@@ -542,6 +576,66 @@ deployment of bundle "local:bundle/example-0" completed`
 		"up/0":        "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	content := `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: true
+    `
+	expectedServices := map[string]serviceInfo{
+		"wordpress": {
+			charm:   "cs:trusty/wordpress-42",
+			exposed: true,
+		},
+	}
+
+	// First deploy the bundle.
+	output, err := s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+added wordpress/0 unit to new machine
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy the same bundle again: no error is produced when the service
+	// is exposed again.
+	output, err = s.deployBundleYAML(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+service wordpress exposed
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
+
+	// Then deploy a bundle with the service unexposed, and check that the
+	// service is not unexposed.
+	output, err = s.deployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: wordpress-42
+                num_units: 1
+                expose: false
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/wordpress-42
+reusing service wordpress (charm: cs:trusty/wordpress-42)
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertServicesDeployed(c, expectedServices)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -52,10 +53,10 @@ type state struct {
 	// environTag holds the environment tag once we're connected
 	environTag string
 
-	// serverTag holds the server tag once we're connected.
+	// controllerTag holds the controller tag once we're connected.
 	// This is only set with newer apiservers where they are using
 	// the v1 login mechansim.
-	serverTag string
+	controllerTag string
 
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
@@ -80,11 +81,13 @@ type state struct {
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
 
-	// loggedIn holds whether the client has successfully logged in.
-	loggedIn bool
+	// loggedIn holds whether the client has successfully logged
+	// in. It's a int32 so that the atomic package can be used to
+	// access it safely.
+	loggedIn int32
 
 	// tag and password and nonce hold the cached login credentials.
-	// These are only valid if loggedIn is true.
+	// These are only valid if loggedIn is 1.
 	tag      string
 	password string
 	nonce    string
@@ -282,7 +285,7 @@ func tlsConfigForCACert(caCert string) (*tls.Config, error) {
 
 // ConnectStream implements Connection.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
-	if !st.loggedIn {
+	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
 	// We use the standard "macaraq" macaroon authentication dance here.
@@ -399,8 +402,8 @@ func (st *state) addCookiesToHeader(h http.Header) {
 // endpoint path and query parameters. Note that the caller
 // is responsible for ensuring that the path *is* prefixed with a slash.
 func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
-	if _, err := st.ServerTag(); err == nil {
-		// The server tag is set, so the agent version is >= 1.23,
+	if _, err := st.ControllerTag(); err == nil {
+		// The controller tag is set, so the agent version is >= 1.23,
 		// so we can use the environment endpoint.
 		envTag, err := st.EnvironTag()
 		if err != nil {
@@ -551,9 +554,9 @@ func (s *state) EnvironTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.environTag)
 }
 
-// ServerTag returns the tag of the server we are connected to.
-func (s *state) ServerTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.serverTag)
+// ControllerTag returns the tag of the server we are connected to.
+func (s *state) ControllerTag() (names.EnvironTag, error) {
+	return names.ParseEnvironTag(s.controllerTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect
@@ -597,4 +600,12 @@ func (s *state) BestFacadeVersion(facade string) int {
 // to login, prefixed with "<URI scheme>://" (usually https).
 func (s *state) serverRoot() string {
 	return s.serverScheme + "://" + s.serverRootAddress
+}
+
+func (s *state) isLoggedIn() bool {
+	return atomic.LoadInt32(&s.loggedIn) == 1
+}
+
+func (s *state) setLoggedIn() {
+	atomic.StoreInt32(&s.loggedIn, 1)
 }

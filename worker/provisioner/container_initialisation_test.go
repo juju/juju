@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -86,7 +87,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
-	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
+	initLock, err := fslock.NewLock(s.initLockDir, "container-init", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
 
@@ -104,7 +105,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
-	runner := worker.NewRunner(allFatal, noImportance)
+	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,13 +160,13 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 
 	// A stub worker callback to record what happens.
-	provisionerStarted := false
+	var provisionerStarted uint32
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
-		provisionerStarted = true
+		atomic.StoreUint32(&provisionerStarted, 1)
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -175,7 +176,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	<-s.aptCmdChan
 
 	// the container worker should have created the provisioner
-	c.Assert(provisionerStarted, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
@@ -215,10 +216,10 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
-	var called bool
+	var called uint32
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
-			called = true
+			atomic.StoreUint32(&called, 1)
 			c.Assert(arch, gc.Equals, expectArch)
 			result := version.Binary{
 				Number: v,
@@ -255,7 +256,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	s.createContainer(c, m, containerType)
 	<-s.aptCmdChan
-	c.Assert(called, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {

@@ -27,13 +27,14 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
@@ -103,14 +104,17 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/unitassigner"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 const bootstrapMachineId = "0"
 
 var (
-	logger     = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	logger       = loggo.GetLogger("juju.cmd.jujud")
+	retryDelay   = 3 * time.Second
+	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -271,15 +275,16 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	loopDeviceManager looputil.LoopDeviceManager,
+	rootDir string,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
-			NewUpgradeWorkerContext(),
-			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			loopDeviceManager,
+			rootDir,
 		)
 	}
 }
@@ -289,17 +294,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	rootDir string,
 ) *MachineAgent {
 	return &MachineAgent{
-		machineId:            machineId,
-		AgentConfigWriter:    agentConfWriter,
-		bufferedLogs:         bufferedLogs,
-		upgradeWorkerContext: upgradeWorkerContext,
-		workersStarted:       make(chan struct{}),
-		runner:               runner,
+		machineId:                   machineId,
+		AgentConfigWriter:           agentConfWriter,
+		bufferedLogs:                bufferedLogs,
+		workersStarted:              make(chan struct{}),
+		runner:                      runner,
+		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
 	}
@@ -310,13 +315,14 @@ func NewMachineAgent(
 type MachineAgent struct {
 	AgentConfigWriter
 
-	tomb                 tomb.Tomb
-	machineId            string
-	runner               worker.Runner
-	bufferedLogs         logsender.LogRecordCh
-	configChangedVal     voyeur.Value
-	upgradeWorkerContext *upgradeWorkerContext
-	workersStarted       chan struct{}
+	tomb             tomb.Tomb
+	machineId        string
+	runner           worker.Runner
+	rootDir          string
+	bufferedLogs     logsender.LogRecordCh
+	configChangedVal voyeur.Value
+	upgradeComplete  gate.Lock
+	workersStarted   chan struct{}
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
 	restoreMode bool
@@ -358,12 +364,6 @@ func (a *MachineAgent) Wait() error {
 func (a *MachineAgent) Stop() error {
 	a.runner.Kill()
 	return a.tomb.Wait()
-}
-
-// Dying returns the channel that can be used to see if the machine
-// agent is terminating.
-func (a *MachineAgent) Dying() <-chan struct{} {
-	return a.tomb.Dying()
 }
 
 // upgradeCertificateDNSNames ensure that the state server certificate
@@ -431,21 +431,24 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 
+	if upgradeComplete, err := upgradesteps.NewChannel(a); err != nil {
+		return errors.Annotate(err, "error during creating upgrade completion channel")
+	} else {
+		a.upgradeComplete = upgradeComplete
+	}
+	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+	a.configChangedVal.Set(struct{}{})
+
 	createEngine := a.makeEngineCreator(
-		a.upgradeWorkerContext.UpgradeComplete,
+		a.upgradeComplete,
 		a.initialUpgradeCheckComplete,
 		agentConfig.UpgradedToVersion(),
 	)
 
-	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
-		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
-	}
-	a.configChangedVal.Set(struct{}{})
-
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
-	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
-		return fmt.Errorf("cannot create juju run symlink: %v", err)
+	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
+		return err
 	}
 	a.runner.StartWorker("engine", createEngine)
 	a.runner.StartWorker("api", a.APIWorker)
@@ -781,7 +784,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if err != nil {
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
+
 	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	// Containers only have machine addresses, so we can't ignore them.
+	if names.IsContainerMachine(agentConfig.Tag().Id()) {
+		ignoreMachineAddresses = false
+	}
 	if ignoreMachineAddresses {
 		logger.Infof("machine addresses not used, only addresses from provider")
 	}
@@ -823,6 +831,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 		return w, nil
 	})
+
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		w, err := workerlogger.NewLogger(st.Logger(), agentConfig)
 		if err != nil {
@@ -988,12 +997,60 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st api.Connection,
+	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+		tag, ok := a.Tag().(names.MachineTag)
+		if !ok {
+			return nil, errors.New("agent's tag is not a machine tag")
+		}
+		machine, err := apiConn.Machiner().Machine(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return upgradesteps.NewWorker(
+			a.upgradeComplete,
+			a,
+			apiConn,
+			jobs,
+			a.openStateForUpgrade,
+			machine,
+		)
 	}
+}
+
+// openStateForUpgrade exists to be passed into the upgradesteps
+// worker. The upgradesteps worker opens state independently of the
+// state worker so that it isn't affected by the state worker's
+// lifetime. It ensures the MongoDB server is configured and started,
+// and then opens a state connection.
+//
+// TODO(mjs)- review the need for this once the dependency engine is
+// in use. Why can't upgradesteps depend on the main state connection?
+func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
+	agentConfig := a.CurrentConfig()
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return nil, nil, errors.New("no state info available")
+	}
+	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure storage is available during upgrades.
+	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	registerSimplestreamsDataSource(stor)
+
+	closer := func() {
+		unregisterSimplestreamsDataSource()
+		st.Close()
+	}
+	return st, closer, nil
 }
 
 // shouldWriteProxyFiles returns true, unless the supplied conf identifies the
@@ -1149,7 +1206,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobManageEnviron:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
-				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers), nil
+				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, worker.RestartDelay), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				w, err := peergrouperNew(st)
@@ -1356,6 +1413,12 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 
+	if machine.IsManager() {
+		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
+			return unitassigner.New(apiSt.UnitAssigner()), nil
+		})
+	}
+
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1498,7 +1561,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
+	if a.isUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1799,7 +1862,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []<-chan struct{}{
-			a.upgradeWorkerContext.UpgradeComplete.Unlocked(),
+			a.upgradeComplete.Unlocked(),
 			a.initialUpgradeCheckComplete.Unlocked(),
 		} {
 			select {
@@ -1832,18 +1895,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
-	tag := a.Tag().(names.MachineTag)
-	machine, err := apiState.Machiner().Machine(tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := machine.SetStatus(status, info, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // WorkersStarted returns a channel that's closed once all top level workers
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {
@@ -1854,14 +1905,58 @@ func (a *MachineAgent) Tag() names.Tag {
 	return names.NewMachineTag(a.machineId)
 }
 
-func (a *MachineAgent) createJujuRun(dataDir string) error {
-	// TODO do not remove the symlink if it already points
-	// to the right place.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := a.createSymlink(jujud, link)
+		if err != nil {
+			return errors.Annotatef(err, "failed to create %s symlink", link)
+		}
+	}
+	return nil
+}
+
+func (a *MachineAgent) createSymlink(target, link string) error {
+	fullLink := utils.EnsureBaseDir(a.rootDir, link)
+
+	currentTarget, err := symlink.Read(fullLink)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if err == nil {
+		// Link already in place - check it.
+		if currentTarget == target {
+			// Link already points to the right place - nothing to do.
+			return nil
+		}
+		// Link points to the wrong place - delete it.
+		if err := os.Remove(fullLink); err != nil {
+			return err
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)); err != nil {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
-	return symlink.New(jujud, JujuRun)
+	return symlink.New(target, fullLink)
+}
+
+func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
+	for _, link := range []string{jujuRun, jujuDumpLogs} {
+		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
+		if err != nil && !os.IsNotExist(err) {
+			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
+		}
+	}
+	return
+}
+
+func (a *MachineAgent) isUpgradeRunning() bool {
+	select {
+	case <-a.upgradeComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
@@ -1896,10 +1991,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		}
 	}
 
-	// Remove the juju-run symlink.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
-		errors = append(errors, err)
-	}
+	errors = append(errors, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
@@ -1931,7 +2023,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {
-	return worker.NewRunner(cmdutil.ConnectionIsFatal(logger, conns...), cmdutil.MoreImportant)
+	return worker.NewRunner(cmdutil.ConnectionIsFatal(logger, conns...), cmdutil.MoreImportant, worker.RestartDelay)
 }
 
 type MongoSessioner interface {

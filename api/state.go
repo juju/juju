@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
@@ -69,7 +70,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// If the server complains about an empty tag it may be that we are
 		// talking to an older server version that does not understand facades and
 		// expects a params.Creds request instead of a params.LoginRequest. We
-		// return a CodNotImplemented error to force login down to V1, which
+		// return a CodeNotImplemented error to force login down to V1, which
 		// supports older server logins. This may mask an actual empty tag in
 		// params.LoginRequest, but that would be picked up in loginV1. V1 will
 		// also produce a warning that we are ignoring an invalid API, so we do not
@@ -113,7 +114,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	}
 
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.EnvironTag, result.ServerTag, servers, result.Facades)
+	err = st.setLoginResult(tag, result.EnvironTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,7 +154,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	// one should have an environ tag set.
 
 	var environTag string
-	var serverTag string
+	var controllerTag string
 	var servers [][]network.HostPort
 	var facades []params.FacadeVersions
 	// For quite old servers, it is possible that they don't send down
@@ -166,22 +167,22 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.EnvironTag != "" {
 		environTag = result.LoginResultV1.EnvironTag
-		serverTag = result.LoginResultV1.ServerTag
+		controllerTag = result.LoginResultV1.ControllerTag
 		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, serverTag, servers, facades)
+	err = st.setLoginResult(tag, environTag, controllerTag, servers, facades)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
 	st.environTag = environTag
-	st.serverTag = serverTag
+	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)
 	if err != nil {
@@ -196,7 +197,8 @@ func (st *state) setLoginResult(tag names.Tag, environTag, serverTag string, ser
 	for _, facade := range facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
-	st.loggedIn = true
+
+	st.setLoggedIn()
 	return nil
 }
 
@@ -271,6 +273,12 @@ func (st *state) Client() *Client {
 // required by the machiner worker.
 func (st *state) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// UnitAssigner returns a version of the state that provides functionality
+// required by the unitassigner worker.
+func (st *state) UnitAssigner() unitassigner.API {
+	return unitassigner.New(st)
 }
 
 // Resumer returns a version of the state that provides functionality

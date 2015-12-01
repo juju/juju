@@ -14,34 +14,30 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type uniterResolver struct {
-	clearResolved   func() error
-	reportHookError func(hook.Info) error
-	fixDeployer     func() error
-
-	leadershipResolver resolver.Resolver
-	actionsResolver    resolver.Resolver
-	relationsResolver  resolver.Resolver
-	storageResolver    resolver.Resolver
+// ResolverConfig defines configuration for the uniter resolver.
+type ResolverConfig struct {
+	ClearResolved       func() error
+	ReportHookError     func(hook.Info) error
+	FixDeployer         func() error
+	StartRetryHookTimer func()
+	StopRetryHookTimer  func()
+	Leadership          resolver.Resolver
+	Actions             resolver.Resolver
+	Relations           resolver.Resolver
+	Storage             resolver.Resolver
+	Commands            resolver.Resolver
 }
 
-func newUniterResolver(
-	clearResolved func() error,
-	reportHookError func(hook.Info) error,
-	fixDeployer func() error,
-	leadershipResolver resolver.Resolver,
-	actionsResolver resolver.Resolver,
-	relationsResolver resolver.Resolver,
-	storageResolver resolver.Resolver,
-) *uniterResolver {
+type uniterResolver struct {
+	config                ResolverConfig
+	retryHookTimerStarted bool
+}
+
+// NewUniterResolver returns a new resolver.Resolver for the uniter.
+func NewUniterResolver(cfg ResolverConfig) resolver.Resolver {
 	return &uniterResolver{
-		clearResolved:      clearResolved,
-		reportHookError:    reportHookError,
-		fixDeployer:        fixDeployer,
-		leadershipResolver: leadershipResolver,
-		actionsResolver:    actionsResolver,
-		relationsResolver:  relationsResolver,
-		storageResolver:    storageResolver,
+		config:                cfg,
+		retryHookTimerStarted: false,
 	}
 }
 
@@ -71,22 +67,35 @@ func (s *uniterResolver) NextOp(
 	}
 
 	if localState.Kind == operation.Continue {
-		if err := s.fixDeployer(); err != nil {
+		if err := s.config.FixDeployer(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	op, err := s.leadershipResolver.NextOp(localState, remoteState, opFactory)
+	if s.retryHookTimerStarted && (localState.Kind != operation.RunHook || localState.Step != operation.Pending) {
+		// The hook-retry timer is running, but there is no pending
+		// hook operation. We're not in an error state, so stop the
+		// timer now to reset the backoff state.
+		s.config.StopRetryHookTimer()
+		s.retryHookTimerStarted = false
+	}
+
+	op, err := s.config.Leadership.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.actionsResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Actions.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.storageResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.config.Commands.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
+	}
+
+	op, err = s.config.Storage.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -133,7 +142,7 @@ func (s *uniterResolver) nextOpConflicted(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if remoteState.ResolvedMode != params.ResolvedNone {
-		if err := s.clearResolved(); err != nil {
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
@@ -152,7 +161,7 @@ func (s *uniterResolver) nextOpHookError(
 ) (operation.Operation, error) {
 
 	// Report the hook error.
-	if err := s.reportHookError(*localState.Hook); err != nil {
+	if err := s.config.ReportHookError(*localState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -163,14 +172,36 @@ func (s *uniterResolver) nextOpHookError(
 
 	switch remoteState.ResolvedMode {
 	case params.ResolvedNone:
+		if remoteState.RetryHookVersion > localState.RetryHookVersion {
+			// We've been asked to retry: clear the hook timer
+			// started state so we'll restart it if this fails.
+			//
+			// If the hook fails again, we'll re-enter this method
+			// with the retry hook versions equal and restart the
+			// timer. If the hook succeeds, we'll enter nextOp
+			// and stop the timer.
+			s.retryHookTimerStarted = false
+			return opFactory.NewRunHook(*localState.Hook)
+		}
+		if !s.retryHookTimerStarted {
+			// We haven't yet started a retry timer, so start one
+			// now. If we retry and fail, retryHookTimerStarted is
+			// cleared so that we'll still start it again.
+			s.config.StartRetryHookTimer()
+			s.retryHookTimerStarted = true
+		}
 		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
-		if err := s.clearResolved(); err != nil {
+		s.config.StopRetryHookTimer()
+		s.retryHookTimerStarted = false
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
-		if err := s.clearResolved(); err != nil {
+		s.config.StopRetryHookTimer()
+		s.retryHookTimerStarted = false
+		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewSkipHook(*localState.Hook)
@@ -186,12 +217,13 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
-		op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
+		op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
@@ -229,7 +261,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}

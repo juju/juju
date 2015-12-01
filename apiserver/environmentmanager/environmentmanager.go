@@ -71,7 +71,7 @@ func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := em.authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	isAdmin, err := em.state.IsControllerAdministrator(apiUser)
 	if err != nil {
 		return errors.Trace(err)
 	}

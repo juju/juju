@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/utils/ssh"
 )
 
 // detectionScript is the script to run on the remote machine to

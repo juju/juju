@@ -30,7 +30,7 @@ func (s *EnvironSuite) TestEnvironment(c *gc.C) {
 
 	expectedTag := names.NewEnvironTag(env.UUID())
 	c.Assert(env.Tag(), gc.Equals, expectedTag)
-	c.Assert(env.ServerTag(), gc.Equals, expectedTag)
+	c.Assert(env.ControllerTag(), gc.Equals, expectedTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
 	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -94,7 +94,7 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	assertEnvMatches := func(env *state.Environment) {
 		c.Assert(env.UUID(), gc.Equals, envTag.Id())
 		c.Assert(env.Tag(), gc.Equals, envTag)
-		c.Assert(env.ServerTag(), gc.Equals, s.envTag)
+		c.Assert(env.ControllerTag(), gc.Equals, s.envTag)
 		c.Assert(env.Owner(), gc.Equals, owner)
 		c.Assert(env.Name(), gc.Equals, "testing")
 		c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -129,7 +129,7 @@ func (s *EnvironSuite) TestStateServerEnvironment(c *gc.C) {
 
 	expectedTag := names.NewEnvironTag(env.UUID())
 	c.Assert(env.Tag(), gc.Equals, expectedTag)
-	c.Assert(env.ServerTag(), gc.Equals, expectedTag)
+	c.Assert(env.ControllerTag(), gc.Equals, expectedTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
 	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)

@@ -4,13 +4,11 @@
 package juju
 
 import (
-	stderrors "errors"
-	"fmt"
-
-	"gopkg.in/juju/charmrepo.v1"
+	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils/ssh"
 )
 
 // InitJujuHome initializes the charm cache, environs/config and utils/ssh packages
@@ -19,13 +17,12 @@ import (
 func InitJujuHome() error {
 	jujuHome := osenv.JujuHomeDir()
 	if jujuHome == "" {
-		return stderrors.New(
-			"cannot determine juju home, required environment variables are not set")
+		return errors.New("cannot determine juju home, required environment variables are not set")
 	}
 	osenv.SetJujuHome(jujuHome)
 	charmrepo.CacheDir = osenv.JujuHomePath("charmcache")
 	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
-		return fmt.Errorf("cannot load ssh client keys: %v", err)
+		return errors.Annotate(err, "cannot load ssh client keys")
 	}
 	return nil
 }
