@@ -19,7 +19,7 @@ import (
 )
 
 const addRelationDoc = `
-Add a relation between 2 local service endpoints or a local and a remote service endpoints.
+Add a relation between 2 local service endpoints or a local endpoint and a remote service endpoint.
 Adding a relation between two remote service endpoints is not supported.
 
 Service endpoints can be identified either by:
@@ -30,9 +30,9 @@ or
 
 Examples:
     $ juju add-relation wordpress mysql
-        where "wordpress" and "mysql" will be internally expanded to "wordpress:mysql" and "mysql:server" respectivelly
+        where "wordpress" and "mysql" will be internally expanded to "wordpress:mysql" and "mysql:server" respectively
 
-    $ juju add-relation wordpress local:/u/fred/db2
+    $ juju add-relation wordpress local:/u/fred/prod/db2
         where "wordpress" will be internally expanded to "wordpress:db2"
 
 `
