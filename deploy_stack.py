@@ -428,6 +428,17 @@ class BootstrapManager:
         self.permanent = permanent
         self.jes_enabled = jes_enabled
 
+    @classmethod
+    def from_args(cls, args):
+        env = SimpleEnvironment.from_config(args.env)
+        client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
+        jes_enabled = client.is_jes_enabled()
+        return cls(
+            args.temp_env_name, client, args.bootstrap_host, args.machine,
+            args.series, args.agent_url, args.agent_stream, args.region,
+            args.logs, args.keep_env, permanent=jes_enabled,
+            jes_enabled=jes_enabled)
+
     @contextmanager
     def maas_machines(self):
         """Handle starting/stopping MAAS machines."""
@@ -540,7 +551,9 @@ class BootstrapManager:
             try:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
-                yield
+                yield host
+            except GeneratorExit:
+                return
             except BaseException as e:
                 logging.exception(e)
                 sys.exit(1)
