@@ -77,6 +77,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -1494,19 +1495,20 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 func (s *MachineSuite) TestMongoUpgradeWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
-	newWorker := func(*state.State, string, func(mongo.Version, bool) error) worker.Worker {
+	newWorker := func(*state.State, string, mongoupgrader.StopMongo) (worker.Worker, error) {
 		close(started)
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newUpgradeMongoWorker, newWorker)
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for worker to be started.
+	s.State.StartSync()
 	select {
 	case <-started:
 	case <-time.After(coretesting.LongWait):

@@ -17,19 +17,21 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.mongoupgrader")
 
-type stopMongo func(mongo.Version, bool) error
+// StopMongo represents a function that can issue a stop
+// to a running mongo service.
+type StopMongo func(mongo.Version, bool) error
 
 // New returns a worker or err in case of failure.
 // this worker takes care of watching the state of machine's upgrade
 // mongo information and change agent conf accordingly.
-func New(st *state.State, machineID string, maybeStopMongo stopMongo) (worker.Worker, error) {
+func New(st *state.State, machineID string, maybeStopMongo StopMongo) (worker.Worker, error) {
 	upgradeWorker := func(stopch <-chan struct{}) error {
 		return upgradeMongoWatcher(st, stopch, machineID, maybeStopMongo)
 	}
 	return worker.NewSimpleWorker(upgradeWorker), nil
 }
 
-func upgradeMongoWatcher(st *state.State, stopch <-chan struct{}, machineID string, maybeStopMongo stopMongo) error {
+func upgradeMongoWatcher(st *state.State, stopch <-chan struct{}, machineID string, maybeStopMongo StopMongo) error {
 	m, err := st.Machine(machineID)
 	if err != nil {
 		return errors.Annotatef(err, "cannot start watcher for machine %q", machineID)

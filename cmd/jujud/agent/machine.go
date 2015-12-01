@@ -1356,16 +1356,21 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 // limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	if err := a.limitLoginsDuringMongoUpgrade(req); err != nil {
-		return err
-	}
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	return a.limitLoginsDuringUpgrade(req)
+	if err := a.limitLoginsDuringUpgrade(req); err != nil {
+		return err
+	}
+	return a.limitLoginsDuringMongoUpgrade(req)
 }
 
 func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+	// If upgrade is running we will not be able to lock AgentConfigWriter
+	// and it also means we are not upgrading mongo.
+	if a.upgradeWorkerContext.IsUpgradeRunning() {
+		return nil
+	}
 	cfg := a.AgentConfigWriter.CurrentConfig()
 	ver := cfg.MongoVersion()
 	if ver == mongo.MongoUpgrade {
