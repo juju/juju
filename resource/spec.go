@@ -33,28 +33,28 @@ func NewSpec(info resource.Info, origin Origin, revision string) (Spec, error) {
 	switch origin {
 	case OriginUpload:
 		// TODO(ericsnow) Fail if revision not NoRevision?
-		return &UploadSpec{info}, nil
+		return &uploadSpec{info}, nil
 	default:
 		return nil, errors.NotSupportedf("resource origin %q", origin)
 	}
 }
 
-// UploadSpec defines an *uploaded* resource that a service expects.
-type UploadSpec struct {
+// uploadSpec defines an *uploaded* resource that a service expects.
+type uploadSpec struct {
 	resource.Info
 }
 
 // Definition implements Spec.
-func (res UploadSpec) Definition() resource.Info {
+func (res uploadSpec) Definition() resource.Info {
 	return res.Info
 }
 
 // Origin implements Spec.
-func (res UploadSpec) Origin() Origin {
+func (res uploadSpec) Origin() Origin {
 	return OriginUpload
 }
 
 // Revision implements Spec.
-func (res UploadSpec) Revision() string {
+func (res uploadSpec) Revision() string {
 	return NoRevision
 }
