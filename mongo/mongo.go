@@ -354,39 +354,6 @@ type EnsureServerParams struct {
 	Version Version
 }
 
-// EnsureServiceInstalled is a convenience method to [re]create
-// the mongo service.
-func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool) error {
-	mongoPath, err := Path()
-	if err != nil {
-		return errors.Annotate(err, "cannot get mongo path")
-	}
-
-	dbDir := filepath.Join(dataDir, "db")
-
-	if oplogSizeMB == 0 {
-		var err error
-		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return err
-		}
-	}
-
-	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy)
-	svc, err := newService(ServiceName(namespace), svcConf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Remove(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := svc.Install(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
 // EnsureServer ensures that the MongoDB server is installed,
 // configured, and ready to run.
 //

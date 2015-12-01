@@ -1425,7 +1425,7 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
 	// If upgrade is running we will not be able to lock AgentConfigWriter
 	// and it also means we are not upgrading mongo.
-	if a.upgradeWorkerContext.IsUpgradeRunning() {
+	if a.isUpgradeRunning() {
 		return nil
 	}
 	cfg := a.AgentConfigWriter.CurrentConfig()

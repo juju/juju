@@ -43,11 +43,15 @@ func ensureMongoService(agentConfig agent.Config) error {
 		return errors.Errorf("agent config has no state serving info")
 	}
 
+	// TODO(perrito666) determine mongo version from dump.
 	err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		si.StatePort,
 		oplogSize,
-		numaCtlPolicy)
+		numaCtlPolicy,
+		mongo.Mongo24,
+		true,
+	)
 	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
 }
 

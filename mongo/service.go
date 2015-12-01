@@ -136,39 +136,6 @@ func ServiceName(namespace string) string {
 	return serviceName
 }
 
-// StopService will stop mongodb service.
-func StopService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return svc.Stop()
-}
-
-// StartService will start mongodb service.
-func StartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return svc.Start()
-}
-
-// ReStartService will stop and then start mongodb service.
-func ReStartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Stop(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Start(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func sslKeyPath(dataDir string) string {
 	return filepath.Join(dataDir, "server.pem")
 }
