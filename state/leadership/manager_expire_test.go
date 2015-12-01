@@ -35,7 +35,10 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *coretesting.Clock) {})
+	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *coretesting.Clock) {
+		//XXX WTF
+		time.Sleep(coretesting.ShortWait)
+	})
 }
 
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
@@ -141,6 +144,8 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
+
+		waitAlarms(c, clock, 1)
 		clock.Advance(almostSeconds(63))
 	})
 }
@@ -168,6 +173,8 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
+
+		waitAlarms(c, clock, 1)
 		clock.Advance(63 * time.Second)
 	})
 }
@@ -195,6 +202,8 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
+
+		waitAlarms(c, clock, 1)
 		clock.Advance(almostSeconds(63))
 	})
 }
@@ -228,6 +237,8 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.ClaimLeadership("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
+
+		waitAlarms(c, clock, 1)
 		clock.Advance(63 * time.Second)
 	})
 }
@@ -277,8 +288,17 @@ func (s *ExpireLeadershipSuite) TestExpire_Multiple(c *gc.C) {
 		expectDirty: true,
 	}
 	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
+		wait := make(chan error)
+		go func() {
+			wait <- manager.Wait()
+		}()
+
 		clock.Advance(5 * time.Second)
-		err := manager.Wait()
-		c.Check(err, gc.ErrorMatches, "what is this\\?")
+		select {
+		case err := <-wait:
+			c.Check(err, gc.ErrorMatches, "what is this\\?")
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("manager never stopped")
+		}
 	})
 }

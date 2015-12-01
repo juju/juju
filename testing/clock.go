@@ -17,39 +17,15 @@ type Clock struct {
 	now            time.Time
 	alarms         []alarm
 	currentAlarmID int
+	notifyAlarms   chan struct{}
 }
-
-// timerClock gives timer access to some of clock's internals.
-type timerClock interface {
-	reset(id int, d time.Duration) bool
-	stop(id int) bool
-}
-
-// Timer implements a mock clock.Timer for testing purposes.
-type Timer struct {
-	ID    int
-	clock timerClock
-}
-
-// Reset is part of the clock.Timer interface
-func (t *Timer) Reset(d time.Duration) bool {
-	return t.clock.reset(t.ID, d)
-}
-
-// Stop is part of the clock.Timer interface
-func (t *Timer) Stop() bool {
-	return t.clock.stop(t.ID)
-}
-
-// stoppedTimer is a noop implementation for timer
-type stoppedTimer struct{}
-
-func (stoppedTimer) Reset(time.Duration) bool { return false }
-func (stoppedTimer) Stop() bool               { return false }
 
 // NewClock returns a new clock set to the supplied time.
 func NewClock(now time.Time) *Clock {
-	return &Clock{now: now}
+	return &Clock{
+		now:          now,
+		notifyAlarms: make(chan struct{}, 1024),
+	}
 }
 
 // Now is part of the clock.Clock interface.
@@ -61,6 +37,7 @@ func (clock *Clock) Now() time.Time {
 
 // After is part of the clock.Clock interface.
 func (clock *Clock) After(d time.Duration) <-chan time.Time {
+	defer clock.notifyAlarm()
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	notify := make(chan time.Time, 1)
@@ -74,6 +51,7 @@ func (clock *Clock) After(d time.Duration) <-chan time.Time {
 
 // AfterFunc is part of the clock.Clock interface.
 func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	defer clock.notifyAlarm()
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	if d <= 0 {
@@ -101,6 +79,14 @@ func (clock *Clock) Advance(d time.Duration) {
 	clock.alarms = clock.alarms[rung:]
 }
 
+// Alarms returns a channel on which you can read one value for every call to
+// After and AfterFunc; and for every successful Timer.Reset backed by this
+// clock. It might not be elegant but it's necessary when testing time logic
+// that runs on a goroutine other than that of the test.
+func (clock *Clock) Alarms() <-chan struct{} {
+	return clock.notifyAlarms
+}
+
 // reset is a bridge method for timer. It basically
 // implements clock.Timer, but it needs access to clock's internals
 // so the access is somewhat restricted
@@ -110,6 +96,7 @@ func (clock *Clock) reset(id int, d time.Duration) bool {
 
 	for i, alarm := range clock.alarms {
 		if id == alarm.ID {
+			defer clock.notifyAlarm()
 			clock.alarms[i].time = clock.now.Add(d)
 			sort.Sort(byTime(clock.alarms))
 			return true
@@ -148,18 +135,20 @@ func (clock *Clock) setAlarm(t time.Time, trigger func()) int {
 	return alarm.ID
 }
 
+// notifyAlarm sends a value on the channel exposed by Alarms().
+func (clock *Clock) notifyAlarm() {
+	select {
+	case clock.notifyAlarms <- struct{}{}:
+	default:
+		panic("alarm notification buffer full")
+	}
+}
+
 // alarm records the time at which we're expected to execute trigger.
 type alarm struct {
 	ID      int
 	time    time.Time
 	trigger func()
-}
-
-// removeFromSlice removes item at the specified index from the slice
-// It exists to make the append train clearer
-// This doesn't check that index is valid, so the caller needs to check that.
-func removeFromSlice(sl []alarm, index int) []alarm {
-	return append(sl[:index], sl[index+1:]...)
 }
 
 // byTime is used to sort alarms by time.
@@ -168,3 +157,41 @@ type byTime []alarm
 func (a byTime) Len() int           { return len(a) }
 func (a byTime) Less(i, j int) bool { return a[i].time.Before(a[j].time) }
 func (a byTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// timerClock exposes Clock capabilities to Timer.
+type timerClock interface {
+	reset(id int, d time.Duration) bool
+	stop(id int) bool
+}
+
+// Timer implements a mock clock.Timer for testing purposes.
+type Timer struct {
+	ID    int
+	clock timerClock
+}
+
+// Reset is part of the clock.Timer interface
+func (t *Timer) Reset(d time.Duration) bool {
+	return t.clock.reset(t.ID, d)
+}
+
+// Stop is part of the clock.Timer interface
+func (t *Timer) Stop() bool {
+	return t.clock.stop(t.ID)
+}
+
+// stoppedTimer is a noop implementation for timer
+type stoppedTimer struct{}
+
+// Reset is part of the clock.Timer interface
+func (stoppedTimer) Reset(time.Duration) bool { return false }
+
+// Stop is part of the clock.Timer interface
+func (stoppedTimer) Stop() bool { return false }
+
+// removeFromSlice removes item at the specified index from the slice
+// It exists to make the append train clearer
+// This doesn't check that index is valid, so the caller needs to check that.
+func removeFromSlice(sl []alarm, index int) []alarm {
+	return append(sl[:index], sl[index+1:]...)
+}

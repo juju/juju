@@ -38,12 +38,17 @@ func NewManager(config ManagerConfig) (ManagerWorker, error) {
 		// unwrap tomb.ErrDying in order to function correctly.
 		manager.kill(manager.loop())
 	}()
+	select {
+	case <-manager.tomb.Dying():
+	case <-manager.setup.Dead():
+	}
 	return manager, nil
 }
 
 // manager implements ManagerWorker.
 type manager struct {
-	tomb tomb.Tomb
+	tomb  tomb.Tomb
+	setup tomb.Tomb
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
@@ -202,21 +207,27 @@ func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
 // expect at least one lease to be ready to expire. If no leases are known,
 // it will return nil.
 func (manager *manager) nextExpiry() <-chan time.Time {
-	var nextExpiry *time.Time
+	select {
+	case <-manager.setup.Dead():
+	default:
+		defer manager.setup.Done()
+	}
+
+	var nextExpiry time.Time
 	for _, info := range manager.config.Client.Leases() {
-		if nextExpiry != nil {
-			if info.Expiry.After(*nextExpiry) {
+		if !nextExpiry.IsZero() {
+			if info.Expiry.After(nextExpiry) {
 				continue
 			}
 		}
-		nextExpiry = &info.Expiry
+		nextExpiry = info.Expiry
 	}
-	if nextExpiry == nil {
+	if nextExpiry.IsZero() {
 		logger.Tracef("no leases recorded; never waking for expiry")
 		return nil
 	}
-	logger.Tracef("waking to expire leases at %s", *nextExpiry)
-	return clock.Alarm(manager.config.Clock, *nextExpiry)
+	logger.Tracef("waking to expire leases at %s", nextExpiry)
+	return clock.Alarm(manager.config.Clock, nextExpiry)
 }
 
 // expire will attempt to expire all leases that may have expired. There might
