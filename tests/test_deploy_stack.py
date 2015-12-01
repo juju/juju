@@ -23,6 +23,7 @@ from deploy_stack import (
     assess_juju_run,
     assess_upgrade,
     boot_context,
+    BootstrapManager,
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
@@ -755,6 +756,35 @@ class TestTestUpgrade(FakeHomeTestCase):
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
         wfv_mock.assert_called_once_with('1.38', 1200)
+
+
+class TestBootstrapManager(FakeHomeTestCase):
+
+    def test_from_args(self):
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host='example.org', machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs='pine', keep_env=True)
+        with patch.object(SimpleEnvironment, 'from_config') as fc_mock:
+            with patch.object(EnvJujuClient, 'by_version') as bv_mock:
+                bs_manager = BootstrapManager.from_args(args)
+        fc_mock.assert_called_once_with('foo')
+        bv_mock.assert_called_once_with(fc_mock.return_value, 'bar',
+                                        debug=True)
+        self.assertEqual('baz', bs_manager.temp_env_name)
+        self.assertIs(bv_mock.return_value, bs_manager.client)
+        self.assertEqual('example.org', bs_manager.bootstrap_host)
+        self.assertEqual(['example.com'], bs_manager.machines)
+        self.assertEqual('angsty', bs_manager.series)
+        self.assertEqual('qux', bs_manager.agent_url)
+        self.assertEqual('escaped', bs_manager.agent_stream)
+        self.assertEqual('eu-west-northwest-5', bs_manager.region)
+        self.assertIs(True, bs_manager.keep_env)
+        self.assertEqual('pine', bs_manager.log_dir)
+        jes_enabled = bs_manager.client.is_jes_enabled.return_value
+        self.assertEqual(jes_enabled, bs_manager.permanent)
+        self.assertEqual(jes_enabled, bs_manager.jes_enabled)
 
 
 class TestBootContext(FakeHomeTestCase):
