@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/state"
@@ -73,15 +74,15 @@ func (s *specSuite) TestListResourceSpecBadNewSpec(c *gc.C) {
 
 func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
 	var specs []resource.Spec
-	resources := make(map[string]charm.Resource)
+	resources := make(map[string]charmresource.Resource)
 	for _, name := range names {
-		info := charm.ResourceInfo{
+		info := charmresource.Info{
 			Name: name,
-			Type: charm.ResourceTypeFile,
+			Type: charmresource.TypeFile,
 			Path: name + ".tgz",
 		}
-		res := charm.Resource{
-			ResourceInfo: info,
+		res := charmresource.Resource{
+			Info: info,
 		}
 
 		spec, err := resource.NewSpec(info, resource.OriginUpload, "")

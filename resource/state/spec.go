@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -45,10 +46,10 @@ func metadata(raw rawSpecState, serviceID string) (*charm.Meta, error) {
 	return meta, nil
 }
 
-func newSpec(res charm.Resource) (resource.Spec, error) {
+func newSpec(res charmresource.Resource) (resource.Spec, error) {
 	// TODO(ericsnow) For now uploads are the only supported origin.
 	// Once that changes, this code will need to adjust.
-	spec, err := resource.NewSpec(res.ResourceInfo, resource.OriginUpload, "")
+	spec, err := resource.NewSpec(res.Info, resource.OriginUpload, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
