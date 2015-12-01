@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package provisioner_test
 
 import (
 	"fmt"
@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/provisioner"
 )
 
 type metadataSuite struct {
@@ -30,7 +30,7 @@ var _ = gc.Suite(&metadataSuite{})
 func (s *metadataSuite) TestMetadataNone(c *gc.C) {
 	env, ic, _ := s.setupSimpleStreamData(c, nil)
 
-	metadata, info, err := common.FindImageMetadata(env, ic, false)
+	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
 	c.Assert(err, gc.ErrorMatches, ".*not found.*")
 	c.Assert(info, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 0)
@@ -40,7 +40,7 @@ func (s *metadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	arch := "ppc64el"
 	env, ic, setupInfo := s.setupSimpleStreamData(c, []string{arch})
 
-	metadata, info, err := common.FindImageMetadata(env, ic, false)
+	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, setupInfo)
 	c.Assert(metadata, gc.DeepEquals, []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
@@ -65,7 +65,7 @@ func (s *metadataSuite) TestMetadataFromState(c *gc.C) {
 	}
 	s.patchMetadataAPI(c, "", stored)
 
-	metadata, info, err := common.FindImageMetadata(env, ic, false)
+	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This should have pulled image metadata from state server
@@ -80,7 +80,7 @@ func (s *metadataSuite) TestMetadataStateError(c *gc.C) {
 	msg := "fail"
 	s.patchMetadataAPI(c, msg)
 
-	metadata, info, err := common.FindImageMetadata(env, ic, false)
+	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
 	// should have logged it and proceeded to get metadata from prev search path
 	// so not expecting any odd behaviour
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,7 +107,7 @@ func (s *metadataSuite) patchMetadataAPI(c *gc.C, errMsg string, m ...params.Clo
 		})
 	mockAPI := apimetadata.NewClient(apiCaller)
 
-	s.PatchValue(common.MetadataAPI, func(env environs.Environ) (*apimetadata.Client, error) {
+	s.PatchValue(provisioner.MetadataAPI, func(env environs.Environ) (*apimetadata.Client, error) {
 		return mockAPI, nil
 	})
 	s.AddCleanup(func(*gc.C) {
