@@ -13,13 +13,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -119,8 +119,8 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
-	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
+	f.Var(common.NewSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
+	f.Var(common.NewSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
@@ -172,31 +172,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-type seriesValue struct {
-	*cmd.StringsValue
-}
-
-// newSeriesValue is used to create the type passed into the gnuflag.FlagSet Var function.
-func newSeriesValue(defaultValue []string, target *[]string) *seriesValue {
-	v := seriesValue{(*cmd.StringsValue)(target)}
-	*(v.StringsValue) = defaultValue
-	return &v
-}
-
-// Implements gnuflag.Value Set.
-func (v *seriesValue) Set(s string) error {
-	if err := v.StringsValue.Set(s); err != nil {
-		return err
-	}
-	for _, name := range *(v.StringsValue) {
-		if !charm.IsValidSeries(name) {
-			v.StringsValue = nil
-			return fmt.Errorf("invalid series name %q", name)
-		}
-	}
-	return nil
-}
-
 // bootstrap functionality that Run calls to support cleaner testing
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
@@ -219,6 +194,10 @@ var getBootstrapFuncs = func() BootstrapInterface {
 
 var getEnvName = func(c *bootstrapCommand) string {
 	return c.ConnectionName()
+}
+
+var environFromName = func(ctx *cmd.Context, envName, action string, ensureNotBootstrapped func(environs.Environ) error) (environs.Environ, func(), error) {
+	return common.EnvironFromName(ctx, envName, action, ensureNotBootstrapped)
 }
 
 // Run connects to the environment specified on the command line and bootstraps
