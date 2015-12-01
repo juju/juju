@@ -8,15 +8,15 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
 
 func NewSpec(c *gc.C, name, suffix, comment string) resource.Spec {
-	info := charm.ResourceInfo{
+	info := charmresource.Info{
 		Name:    name,
-		Type:    charm.ResourceTypeFile,
+		Type:    charmresource.TypeFile,
 		Path:    name + suffix,
 		Comment: comment,
 	}
