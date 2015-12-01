@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
