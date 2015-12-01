@@ -597,6 +597,42 @@ def fake_EnvJujuClient(env, path=None, debug=None):
     return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
 
 
+class FakeBootstrapManager:
+
+    def __init__(self, client):
+        self.client = client
+        self.entered_top = False
+        self.exited_top = False
+        self.entered_bootstrap = False
+        self.exited_bootstrap = False
+        self.entered_runtime = False
+        self.exited_runtime = False
+
+    @contextmanager
+    def top_context(self):
+        try:
+            self.entered_top = True
+            yield 'foo', ['bar']
+        finally:
+            self.exited_top = True
+
+    @contextmanager
+    def bootstrap_context(self, bootstrap_host, machines):
+        try:
+            self.entered_bootstrap = True
+            yield
+        finally:
+            self.exited_bootstrap = True
+
+    @contextmanager
+    def runtime_context(self, bootstrap_host, machines):
+        try:
+            self.entered_runtime = True
+            yield
+        finally:
+            self.exited_runtime = True
+
+
 class TestDeployJob(FakeHomeTestCase):
 
     @contextmanager

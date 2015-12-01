@@ -12,6 +12,7 @@ from jujupy import (
     )
 from quickstart_deploy import QuickstartTest
 from tests import use_context
+from tests.test_deploy_stack import FakeBootstrapManager
 from utility import temp_dir
 
 
@@ -96,3 +97,68 @@ class TestQuickstartTest(TestCase):
             with patch('deploy_stack.tear_down'):
                 with patch('deploy_stack.dump_env_logs'):
                     steps.close()
+
+    def test_iter_steps_context(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        bs_manager = FakeBootstrapManager(client)
+        quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
+        step_iter = quickstart.iter_steps()
+        self.assertIs(False, bs_manager.entered_top)
+        self.assertIs(False, bs_manager.exited_top)
+        self.assertIs(False, bs_manager.entered_bootstrap)
+        self.assertIs(False, bs_manager.exited_bootstrap)
+        with patch.object(client, 'quickstart') as quickstart_mock:
+            step_iter.next()
+        quickstart_mock.assert_called_once_with('/tmp/bundle.yaml')
+        self.assertIs(True, bs_manager.entered_top)
+        self.assertIs(True, bs_manager.entered_bootstrap)
+        self.assertIs(False, bs_manager.exited_bootstrap)
+        self.assertIs(False, bs_manager.entered_runtime)
+        self.assertIs(False, bs_manager.exited_runtime)
+        step_iter.next()
+        self.assertIs(True, bs_manager.exited_bootstrap)
+        self.assertIs(True, bs_manager.entered_runtime)
+        self.assertIs(False, bs_manager.exited_runtime)
+        with patch.object(client, 'wait_for_deploy_started') as wfds_mock:
+            step_iter.next()
+        wfds_mock.assert_called_once_with(2)
+        self.assertIs(False, bs_manager.exited_runtime)
+        with patch.object(client, 'wait_for_started') as wfs_mock:
+            step_iter.next()
+        wfs_mock.assert_called_once_with(3600)
+        self.assertIs(False, bs_manager.exited_runtime)
+        with self.assertRaises(StopIteration):
+            step_iter.next()
+        self.assertIs(True, bs_manager.exited_runtime)
+        self.assertIs(True, bs_manager.exited_top)
+
+    def test_iter_steps_quickstart_fail(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        bs_manager = FakeBootstrapManager(client)
+        quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
+        step_iter = quickstart.iter_steps()
+        with patch.object(client, 'quickstart', side_effect=Exception):
+            with self.assertRaises(Exception):
+                step_iter.next()
+        self.assertIs(False, bs_manager.entered_runtime)
+        self.assertIs(True, bs_manager.exited_bootstrap)
+        self.assertIs(True, bs_manager.exited_top)
+
+    def test_iter_steps_wait_fail(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        bs_manager = FakeBootstrapManager(client)
+        quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
+        step_iter = quickstart.iter_steps()
+        with patch.object(client, 'quickstart'):
+            step_iter.next()
+        step_iter.next()
+        with patch.object(client, 'wait_for_deploy_started',
+                          side_effect=Exception):
+            with self.assertRaises(Exception):
+                step_iter.next()
+        self.assertIs(True, bs_manager.exited_runtime)
+        self.assertIs(True, bs_manager.exited_bootstrap)
+        self.assertIs(True, bs_manager.exited_top)
