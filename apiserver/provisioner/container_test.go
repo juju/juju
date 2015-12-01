@@ -191,6 +191,47 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 	}, "")
 }
 
+func (s *prepareSuite) TestErrorWithNoFeatureFlagAndBrokenAllocate(c *gc.C) {
+	s.breakEnvironMethods(c, "AllocateAddress")
+	s.SetFeatureFlags() // clear the flags.
+	// Use the special "i-alloc-" prefix to force the dummy provider to allow
+	// AllocateAddress run without the feature flag.
+	container := s.newCustomAPI(c, "i-alloc-me", true, false)
+	args := s.makeArgs(container)
+	expectedError := &params.Error{
+		Message: `failed to allocate an address for "0/lxc/0": dummy.AllocateAddress is broken`,
+	}
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
+			{Error: expectedError},
+		},
+	}, "")
+}
+
+func (s *prepareSuite) TestErrorWithNoFeatureFlagAllocateSuccess(c *gc.C) {
+	s.SetFeatureFlags()
+	s.breakEnvironMethods(c)
+	// Use the special "i-alloc-" prefix to force the dummy provider to allow
+	// AllocateAddress run without the feature flag, which simulates a MAAS 1.8+
+	// environment where without the flag we still try calling AllocateAddress
+	// for the device we created for the container.
+	container := s.newCustomAPI(c, "i-alloc-me", true, false)
+	args := s.makeArgs(container)
+	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
+		DeviceIndex:   0,
+		InterfaceName: "eth0",
+		ConfigType:    "dhcp",
+		MACAddress:    "regex:" + regexpMACAddress,
+		ProviderId:    "juju-private",
+		NetworkName:   "juju-private",
+	}}), "")
+
+	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
+		loggo.INFO,
+		`reserved address for container "0/lxc/0" with MAC address ".+" \(using DHCP\)`,
+	}})
+}
+
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
 	container := s.newAPI(c, false, true)
 	args := s.makeArgs(container)
