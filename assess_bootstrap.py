@@ -5,15 +5,18 @@ from argparse import ArgumentParser
 import logging
 import os.path
 
-from deploy_stack import update_env
+from deploy_stack import (
+    BootstrapManager,
+    tear_down,
+    )
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
-    temp_bootstrap_env,
     )
 from utility import (
     configure_logging,
     scoped_environ,
+    temp_dir,
 )
 
 
@@ -26,21 +29,22 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
         os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
         client = EnvJujuClient.by_version(SimpleEnvironment.from_config(env),
                                           juju, debug)
+    jes_enabled = client.is_jes_enabled()
     if temp_env_name is None:
         temp_env_name = client.env.environment
-    update_env(client.env, temp_env_name, region=region)
-    with temp_bootstrap_env(client.juju_home, client):
-        client.destroy_environment()
-        try:
-            client.bootstrap()
-        except:
-            client.destroy_environment()
-            raise
-    try:
-        client.get_status(1)
-        log.info('Environment successfully bootstrapped.')
-    finally:
-        client.destroy_environment()
+    with temp_dir() as log_dir:
+        bs_manager = BootstrapManager(
+            temp_env_name, client, region=region, permanent=jes_enabled,
+            jes_enabled=jes_enabled, log_dir=log_dir, bootstrap_host=None,
+            machines=[], series=None, agent_url=None, agent_stream=None,
+            keep_env=False)
+        with bs_manager.top_context() as (bootstrap_host, machines):
+            with bs_manager.bootstrap_context(bootstrap_host, machines):
+                tear_down(client, jes_enabled)
+                client.bootstrap()
+            with bs_manager.runtime_context(bootstrap_host, machines):
+                client.get_status(1)
+                log.info('Environment successfully bootstrapped.')
 
 
 def parse_args(argv=None):
