@@ -316,7 +316,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "1.22.1-quantal-amd64",
 	agentVersion:   "1.20.14",
 	args:           []string{"--version=1.21.3"},
-	expectErr:      "unsupported upgrade\n\nUpgrading to 1.21.3 is not supported. 1.21 and 1.23 are to be avoided.",
+	expectErr:      "unsupported upgrade\n\nUpgrading to 1.21.3 is not supported. Please upgrade to the latest 1.25 release.",
 }, {
 	about:          "latest supported stable release, skips 1.23",
 	tools:          []string{"1.23.3-quantal-amd64", "1.24.1-quantal-amd64"},
@@ -329,7 +329,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "1.24.1-quantal-amd64",
 	agentVersion:   "1.22.3",
 	args:           []string{"--version=1.23.3"},
-	expectErr:      "unsupported upgrade\n\nUpgrading to 1.23.3 is not supported. 1.21 and 1.23 are to be avoided.",
+	expectErr:      "unsupported upgrade\n\nUpgrading to 1.23.3 is not supported. Please upgrade to the latest 1.25 release.",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {

@@ -406,7 +406,7 @@ func (context *upgradeContext) validate() (err error) {
 		context.agent.Minor != context.chosen.Minor &&
 		(context.chosen.Minor == 21 || context.chosen.Minor == 23) {
 		return errors.Errorf("unsupported upgrade\n\n"+
-			"Upgrading to %s is not supported. 1.21 and 1.23 are to be avoided.",
+			"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
 			context.chosen.String())
 	}
 
