@@ -650,3 +650,16 @@ type MeterStatusResult struct {
 type MeterStatusResults struct {
 	Results []MeterStatusResult
 }
+
+// SingularClaim represents a request for exclusive model administration access
+// on the part of some controller.
+type SingularClaim struct {
+	ModelTag      string        `json:"ModelTag"`
+	ControllerTag string        `json:"ControllerTag"`
+	Duration      time.Duration `json:"Duration"`
+}
+
+// SingularClaims holds any number of SingularClaim~s.
+type SingularClaims struct {
+	Claims []SingularClaim `json:"Claims"`
+}
