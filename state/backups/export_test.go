@@ -26,7 +26,7 @@ var (
 	FinishMeta           = &finishMeta
 	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
-	RunCommand           = &runCommand
+	RunCommand           = &runCommandFn
 	ReplaceableFolders   = &replaceableFolders
 )
 

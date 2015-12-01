@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -28,7 +27,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = utils.RunCommand
+var runCommandFn = runCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -153,7 +152,7 @@ func (md *mongoDumper) options(dumpDir string) []string {
 
 func (md *mongoDumper) dump(dumpDir string) error {
 	options := md.options(dumpDir)
-	if err := runCommand(md.binPath, options...); err != nil {
+	if err := runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error dumping databases")
 	}
 	return nil
@@ -238,6 +237,22 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
+// placeNewMongoService wraps placeNewMongo with the proper service stopping
+// and starting before dumping the new mongo db, it is mainly to easy testing
+// of placeNewMongo.
+func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
+	err := mongo.StopService("")
+	if err != nil {
+		return errors.Annotate(err, "failed to stop mongo")
+	}
+
+	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
+		return errors.Annotate(err, "cannot place new mongo")
+	}
+	err = mongo.StartService("")
+	return errors.Annotate(err, "failed to start mongo")
+}
+
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
@@ -250,20 +265,11 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	err = runCommand("initctl", "stop", mongo.ServiceName(""))
-	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
-	}
 
-	err = runCommand(mongoRestore, mgoRestoreArgs...)
+	err = runCommandFn(mongoRestore, mgoRestoreArgs...)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
-	}
-
-	err = runCommand("initctl", "start", mongo.ServiceName(""))
-	if err != nil {
-		return errors.Annotate(err, "failed to start mongo")
 	}
 
 	return nil

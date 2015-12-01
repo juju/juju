@@ -4,6 +4,8 @@
 package remotestate_test
 
 import (
+	"sync/atomic"
+
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -14,14 +16,18 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
-type mockNotifyWatcher struct {
-	changes chan struct{}
-	stopped bool
+type stoppable struct {
+	stopped uint32
 }
 
-func (w *mockNotifyWatcher) Stop() error {
-	w.stopped = true
+func (s *stoppable) Stop() error {
+	atomic.StoreUint32(&s.stopped, 1)
 	return nil
+}
+
+type mockNotifyWatcher struct {
+	changes chan struct{}
+	stoppable
 }
 
 func (*mockNotifyWatcher) Err() error {
@@ -34,12 +40,7 @@ func (w *mockNotifyWatcher) Changes() <-chan struct{} {
 
 type mockStringsWatcher struct {
 	changes chan []string
-	stopped bool
-}
-
-func (w *mockStringsWatcher) Stop() error {
-	w.stopped = true
-	return nil
+	stoppable
 }
 
 func (*mockStringsWatcher) Err() error {
@@ -52,12 +53,7 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockRelationUnitsWatcher struct {
 	changes chan multiwatcher.RelationUnitsChange
-	stopped bool
-}
-
-func (w *mockRelationUnitsWatcher) Stop() error {
-	w.stopped = true
-	return nil
+	stoppable
 }
 
 func (*mockRelationUnitsWatcher) Err() error {
@@ -70,12 +66,7 @@ func (w *mockRelationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsCh
 
 type mockStorageAttachmentWatcher struct {
 	changes chan struct{}
-	stopped bool
-}
-
-func (w *mockStorageAttachmentWatcher) Stop() error {
-	w.stopped = true
-	return nil
+	stoppable
 }
 
 func (*mockStorageAttachmentWatcher) Err() error {

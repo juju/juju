@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("Service", 1, NewAPI)
+	common.RegisterStandardFacade("Service", 2, NewAPI)
 }
 
 // Service defines the methods on the service API end point.
@@ -231,4 +231,99 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// ServiceUpdate updates the service attributes, including charm URL,
+// minimum number of units, settings and constraints.
+// All parameters in params.ServiceUpdate except the service name are optional.
+func (api *API) ServiceUpdate(args params.ServiceUpdate) error {
+	if !args.ForceCharmUrl {
+		if err := api.check.ChangeAllowed(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	svc, err := api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	// Set the charm for the given service.
+	if args.CharmUrl != "" {
+		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceCharmUrl); err != nil {
+			return err
+		}
+	}
+	// Set the minimum number of units for the given service.
+	if args.MinUnits != nil {
+		if err = svc.SetMinUnits(*args.MinUnits); err != nil {
+			return err
+		}
+	}
+	// Set up service's settings.
+	if args.SettingsYAML != "" {
+		if err = serviceSetSettingsYAML(svc, args.SettingsYAML); err != nil {
+			return err
+		}
+	} else if len(args.SettingsStrings) > 0 {
+		if err = ServiceSetSettingsStrings(svc, args.SettingsStrings); err != nil {
+			return err
+		}
+	}
+	// Update service's constraints.
+	if args.Constraints != nil {
+		return svc.SetConstraints(*args.Constraints)
+	}
+	return nil
+}
+
+// ServiceSetCharm sets the charm for a given service.
+func (api *API) ServiceSetCharm(args params.ServiceSetCharm) error {
+	// when forced units in error, don't block
+	if !args.Force {
+		if err := api.check.ChangeAllowed(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	service, err := api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return api.serviceSetCharm(service, args.CharmUrl, args.Force)
+}
+
+// serviceSetCharm sets the charm for the given service.
+func (api *API) serviceSetCharm(service *state.Service, url string, forceUnits bool) error {
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return err
+	}
+	sch, err := api.state.Charm(curl)
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(sch, forceUnits)
+}
+
+// serviceSetSettingsYAML updates the settings for the given service,
+// taking the configuration from a YAML string.
+func serviceSetSettingsYAML(service *state.Service, settings string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsYAML([]byte(settings), service.Name())
+	if err != nil {
+		return err
+	}
+	return service.UpdateConfigSettings(changes)
+}
+
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error) {
+	service, err := api.state.Service(args.ServiceName)
+	if err != nil {
+		return params.StringResult{}, err
+	}
+	charmURL, _ := service.CharmURL()
+	return params.StringResult{Result: charmURL.String()}, nil
 }

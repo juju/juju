@@ -4,7 +4,7 @@
 package meterstatus_test
 
 import (
-	"fmt"
+	"sync"
 	"time"
 
 	"github.com/juju/names"
@@ -18,11 +18,11 @@ import (
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/api/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type ManifoldSuite struct {
@@ -30,8 +30,7 @@ type ManifoldSuite struct {
 
 	stub *testing.Stub
 
-	dataDir  string
-	oldLcAll string
+	dataDir string
 
 	manifoldConfig meterstatus.ManifoldConfig
 	manifold       dependency.Manifold
@@ -46,15 +45,20 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 
 	s.manifoldConfig = meterstatus.ManifoldConfig{
-		AgentName:       "agent-name",
-		APICallerName:   "apicaller-name",
-		MachineLockName: "machine-lock-name",
+		AgentName:               "agent-name",
+		APICallerName:           "apicaller-name",
+		MachineLockName:         "machine-lock-name",
+		NewHookRunner:           meterstatus.NewHookRunner,
+		NewMeterStatusAPIClient: msapi.NewClient,
+
+		NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
+		NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 	}
 	s.manifold = meterstatus.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
 
 	locksDir := c.MkDir()
-	lock, err := fslock.NewLock(locksDir, "machine-lock")
+	lock, err := fslock.NewLock(locksDir, "machine-lock", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dummyResources = dt.StubResources{
@@ -76,7 +80,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "apicaller-name", "machine-lock-name",
+		"agent-name", "machine-lock-name",
 	} {
 		testResources := dt.StubResources{}
 		for k, v := range s.dummyResources {
@@ -94,29 +98,45 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 }
 
 type PatchedManifoldSuite struct {
-	ManifoldSuite
-
-	msClient *stubMeterStatusClient
+	coretesting.BaseSuite
+	msClient       *stubMeterStatusClient
+	manifoldConfig meterstatus.ManifoldConfig
+	stub           *testing.Stub
+	dummyResources dt.StubResources
 }
 
 func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
-	s.ManifoldSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
+	s.stub = &testing.Stub{}
 	s.msClient = &stubMeterStatusClient{stub: s.stub, changes: make(chan struct{})}
-	s.PatchValue(meterstatus.NewMeterStatusClient,
-		func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
-			return s.msClient
-		})
-	s.PatchValue(meterstatus.NewRunner,
-		func(_ runner.Context, _ context.Paths) runner.Runner {
-			return &stubRunner{stub: s.stub}
-		})
+	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
+		return s.msClient
+	}
+	newHookRunner := func(_ names.UnitTag, _ *fslock.Lock, _ agent.Config) meterstatus.HookRunner {
+		return &stubRunner{stub: s.stub}
+	}
+
+	s.manifoldConfig = meterstatus.ManifoldConfig{
+		AgentName:               "agent-name",
+		APICallerName:           "apicaller-name",
+		MachineLockName:         "machine-lock-name",
+		NewHookRunner:           newHookRunner,
+		NewMeterStatusAPIClient: newMSClient,
+	}
 }
 
-// TestStatusWorkerStarts ensures that the manifold correctly sets up the worker.
+// TestStatusWorkerStarts ensures that the manifold correctly sets up the connected worker.
 func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
+	var called bool
+	s.manifoldConfig.NewConnectedStatusWorker = func(cfg meterstatus.ConnectedConfig) (worker.Worker, error) {
+		called = true
+		return meterstatus.NewConnectedStatusWorker(cfg)
+	}
+	manifold := meterstatus.Manifold(s.manifoldConfig)
 	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	worker, err := manifold.Start(getResource)
+	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	worker.Kill()
@@ -125,135 +145,24 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus")
 }
 
-// TestStatusWorkerStarts ensures that the manifold correctly sets up the worker.
-func (s *PatchedManifoldSuite) TestStatusWorkerDoesNotRerunNoChange(c *gc.C) {
+// TestInactiveWorker ensures that the manifold correctly sets up the isolated worker.
+func (s *PatchedManifoldSuite) TestIsolatedWorker(c *gc.C) {
+	delete(s.dummyResources, "apicaller-name")
+	var called bool
+	s.manifoldConfig.NewIsolatedStatusWorker = func(cfg meterstatus.IsolatedConfig) (worker.Worker, error) {
+		called = true
+		return meterstatus.NewIsolatedStatusWorker(cfg)
+	}
+	manifold := meterstatus.Manifold(s.manifoldConfig)
 	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	worker, err := manifold.Start(getResource)
+	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
-
-	running := make(chan struct{})
-	meterstatus.PatchInit(worker, func() { close(running) })
-
-	select {
-	case <-running:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for signal")
-	}
-
-	s.msClient.changes <- struct{}{}
-
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus", "MeterStatus")
-}
-
-func (s *PatchedManifoldSuite) TestStatusWorkerRunsHookOnChanges(c *gc.C) {
-	getResource := dt.StubGetResource(s.dummyResources)
-
-	worker, err := s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-
-	running := make(chan struct{})
-	meterstatus.PatchInit(worker, func() { close(running) })
-
-	select {
-	case <-running:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for signal")
-	}
-	s.msClient.changes <- struct{}{}
-	s.msClient.code = "RED"
-
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus", "MeterStatus", "RunHook")
-
-}
-
-func (s *PatchedManifoldSuite) TestStatusWorkerHandlesHookMissingError(c *gc.C) {
-	s.stub.SetErrors(context.NewMissingHookError("meter-status-changed"))
-
-	getResource := dt.StubGetResource(s.dummyResources)
-
-	worker, err := s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-
-	running := make(chan struct{})
-	meterstatus.PatchInit(worker, func() { close(running) })
-
-	select {
-	case <-running:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for signal")
-	}
-
 	worker.Kill()
 	err = worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus")
-}
-
-func (s *PatchedManifoldSuite) TestStatusWorkerHandlesRandomHookError(c *gc.C) {
-	s.stub.SetErrors(fmt.Errorf("blah"))
-
-	getResource := dt.StubGetResource(s.dummyResources)
-
-	worker, err := s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-
-	running := make(chan struct{})
-	meterstatus.PatchInit(worker, func() { close(running) })
-
-	select {
-	case <-running:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for signal")
-	}
-
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus")
-}
-
-func (s *PatchedManifoldSuite) TestStatusWorkerDoesNotRerunAfterRestart(c *gc.C) {
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-
-	s.msClient.changes <- struct{}{}
-
-	// Kill worker.
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Restart it.
-	worker, err = s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-
-	running := make(chan struct{})
-	meterstatus.PatchInit(worker, func() { close(running) })
-
-	select {
-	case <-running:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for signal")
-	}
-
-	worker.Kill()
-	err = worker.Wait()
-
-	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus", "MeterStatus", "MeterStatus", "WatchMeterStatus")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type dummyAgent struct {
@@ -289,12 +198,40 @@ func (dummyAPICaller) BestFacadeVersion(facade string) int {
 }
 
 type stubMeterStatusClient struct {
+	sync.RWMutex
 	stub    *testing.Stub
 	changes chan struct{}
 	code    string
 }
 
+func newStubMeterStatusClient(stub *testing.Stub) *stubMeterStatusClient {
+	changes := make(chan struct{})
+	return &stubMeterStatusClient{stub: stub, changes: changes}
+}
+
+func (s *stubMeterStatusClient) SignalStatus(codes ...string) {
+	if len(codes) == 0 {
+		codes = []string{s.code}
+	}
+	for _, code := range codes {
+		s.SetStatus(code)
+		select {
+		case s.changes <- struct{}{}:
+		case <-time.After(coretesting.LongWait):
+			panic("timed out signaling meter status change")
+		}
+	}
+}
+
+func (s *stubMeterStatusClient) SetStatus(code string) {
+	s.Lock()
+	defer s.Unlock()
+	s.code = code
+}
+
 func (s *stubMeterStatusClient) MeterStatus() (string, string, error) {
+	s.RLock()
+	defer s.RUnlock()
 	s.stub.MethodCall(s, "MeterStatus")
 	if s.code == "" {
 		return "GREEN", "", nil
@@ -324,9 +261,17 @@ func (s *stubMeterStatusClient) Err() error {
 type stubRunner struct {
 	runner.Runner
 	stub *testing.Stub
+	ran  chan struct{}
 }
 
-func (r *stubRunner) RunHook(name string) error {
-	r.stub.MethodCall(r, "RunHook", name)
+func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) error {
+	r.stub.MethodCall(r, "RunHook", code, info)
+	if r.ran != nil {
+		select {
+		case r.ran <- struct{}{}:
+		case <-time.After(coretesting.LongWait):
+			panic("timed out signaling hook run")
+		}
+	}
 	return r.stub.NextErr()
 }

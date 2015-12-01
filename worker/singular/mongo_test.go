@@ -174,10 +174,9 @@ func (a *agent) mongoWorker() (worker.Worker, error) {
 		localHostPort: a.hostPort,
 		session:       session,
 	}
-	runner := worker.NewRunner(
-		connectionIsFatal(mc),
-		func(err0, err1 error) bool { return true },
-	)
+
+	fn := func(err0, err1 error) bool { return true }
+	runner := worker.NewRunner(connectionIsFatal(mc), fn, worker.RestartDelay)
 	singularRunner, err := singular.New(runner, mc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start singular runner: %v", err)
