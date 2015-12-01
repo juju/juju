@@ -17,7 +17,11 @@ import (
 )
 
 func newAddCommand() cmd.Command {
-	return envcmd.Wrap(&addCommand{})
+	cmd := &addCommand{}
+	cmd.newAPIFunc = func() (StorageAddAPI, error) {
+		return cmd.NewStorageAPI()
+	}
+	return envcmd.Wrap(cmd)
 }
 
 const (
@@ -83,7 +87,7 @@ type addCommand struct {
 	// storageCons is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
 	storageCons map[string]storage.Constraints
-	api         StorageAddAPI
+	newAPIFunc  func() (StorageAddAPI, error)
 }
 
 // Init implements Command.Init.
@@ -114,14 +118,11 @@ func (c *addCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *addCommand) Run(ctx *cmd.Context) (err error) {
-	api := c.api
-	if api == nil {
-		api, err = c.NewStorageAPI()
-		if err != nil {
-			return err
-		}
-		defer api.Close()
+	api, err := c.newAPIFunc()
+	if err != nil {
+		return err
 	}
+	defer api.Close()
 
 	storages := c.createStorageAddParams()
 	results, err := api.AddToUnit(storages)

@@ -484,11 +484,19 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.Sta
 	return config, nil
 }
 
+// BaseDir returns the directory containing the data directories for
+// all the agents.
+func BaseDir(dataDir string) string {
+	// Note: must use path, not filepath, as this function is
+	// (indirectly) used by the client on Windows.
+	return path.Join(dataDir, "agents")
+}
+
 // Dir returns the agent-specific data directory.
 func Dir(dataDir string, tag names.Tag) string {
 	// Note: must use path, not filepath, as this
 	// function is used by the client on Windows.
-	return path.Join(dataDir, "agents", tag.String())
+	return path.Join(BaseDir(dataDir), tag.String())
 }
 
 // ConfigPath returns the full path to the agent config file.

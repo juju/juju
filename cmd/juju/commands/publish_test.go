@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/bzr"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
@@ -110,11 +110,6 @@ func (s *PublishSuite) TestEmpty(c *gc.C) {
 func (s *PublishSuite) TestFrom(c *gc.C) {
 	_, err := testing.RunCommandInDir(c, newPublishCommand(), []string{"--from", s.dir, "cs:precise/wordpress"}, c.MkDir())
 	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
-}
-
-func (s *PublishSuite) TestMissingSeries(c *gc.C) {
-	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

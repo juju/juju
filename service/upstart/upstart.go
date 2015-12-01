@@ -48,21 +48,33 @@ func IsRunning() (bool, error) {
 		return true, nil
 	}
 
-	msg := fmt.Sprintf("exec %q failed", initctlPath)
-	if os.IsNotExist(err) {
-		// Executable could not be found, go 1.3 and later
+	if isCmdNotFoundErr(err) {
 		return false, nil
-	}
-	if execErr, ok := err.(*exec.Error); ok {
-		// Executable could not be found, go 1.2
-		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
-			return false, nil
-		}
 	}
 	// Note: initctl will fail if upstart is installed but not running.
 	// The error message will be:
 	//   Name "com.ubuntu.Upstart" does not exist
-	return false, errors.Annotatef(err, msg)
+	return false, errors.Annotatef(err, "exec %q failed", initctlPath)
+}
+
+// isCmdNotFoundErr returns true if the provided error indicates that the
+// command passed to exec.LookPath or exec.Command was not found.
+func isCmdNotFoundErr(err error) bool {
+	err = errors.Cause(err)
+	if os.IsNotExist(err) {
+		// Executable could not be found, go 1.3 and later
+		return true
+	}
+	if err == exec.ErrNotFound {
+		return true
+	}
+	if execErr, ok := err.(*exec.Error); ok {
+		// Executable could not be found, go 1.2
+		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
+			return true
+		}
+	}
+	return false
 }
 
 // ListServices returns the name of all installed services on the

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -239,6 +239,7 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
+// TODO(wallyworld) - deprecated, remove when GUI updated.
 // ServiceSetYAML holds the parameters for
 // a ServiceSetYAML command. Config contains the
 // configuration data in YAML format.
@@ -414,7 +415,7 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.

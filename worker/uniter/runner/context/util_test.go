@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -43,6 +45,7 @@ type HookContextSuite struct {
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 	storage  *runnertesting.StorageContextAccessor
+	clock    *coretesting.Clock
 
 	st             api.Connection
 	uniter         *uniter.State
@@ -111,6 +114,8 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+
+	s.clock = coretesting.NewClock(time.Time{})
 }
 
 func (s *HookContextSuite) GetContext(
@@ -195,7 +200,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		env.Name(), relid, remote, relctxs, apiAddrs,
 		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
-		runnertesting.NewRealPaths(c))
+		runnertesting.NewRealPaths(c), s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -218,7 +223,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs,
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
-		paths)
+		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -384,4 +389,8 @@ func (MockEnvPaths) GetJujucSocket() string {
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
+}
+
+func (MockEnvPaths) ComponentDir(name string) string {
+	return filepath.Join("path-to-base-dir", name)
 }

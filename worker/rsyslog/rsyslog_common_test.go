@@ -105,7 +105,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
-	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
+	c.Assert(rsyslog.SyslogTargets(), gc.HasLen, 2)
 	s.mu.Lock()
 	tags := s.dialTags
 	s.mu.Unlock()
@@ -134,7 +134,7 @@ func (s *RsyslogSuite) TestNoNamespace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
-	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
+	c.Assert(rsyslog.SyslogTargets(), gc.HasLen, 2)
 	s.mu.Lock()
 	tags := s.dialTags
 	s.mu.Unlock()

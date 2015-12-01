@@ -18,7 +18,8 @@ const (
 	JujuStateServer = JujuTagPrefix + "is-state"
 
 	// JujuUnitsDeployed is the tag name used for identifying
-	// the units deployed to a machine instance.
+	// the units deployed to a machine instance. The value is
+	// a space-separated list of the unit names.
 	JujuUnitsDeployed = JujuTagPrefix + "units-deployed"
 
 	// JujuStorageInstance is the tag name used for identifying
