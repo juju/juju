@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -53,7 +52,6 @@ type addRelationCommand struct {
 	envcmd.EnvCommandBase
 	Endpoints []string
 
-	out                cmd.Output
 	hasRemoteEndpoints bool
 	newAPIFunc         func() (AddRelationAPI, error)
 }
@@ -79,12 +77,6 @@ func (c *addRelationCommand) Init(args []string) error {
 	return nil
 }
 
-// SetFlags implements Command.SetFlags.
-func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
-}
-
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	api, err := c.newAPIFunc()
 	if err != nil {
@@ -98,11 +90,8 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 			return errors.NotSupportedf("cannot add relation between %s: remote endpoints", c.Endpoints)
 		}
 	}
-	added, err := api.AddRelation(c.Endpoints...)
-	if blockedErr := block.ProcessBlockedError(err, block.BlockChange); blockedErr != nil {
-		return blockedErr
-	}
-	return c.out.Write(ctx, added)
+	_, err = api.AddRelation(c.Endpoints...)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // validateEndpoints determines if all endpoints are valid.
