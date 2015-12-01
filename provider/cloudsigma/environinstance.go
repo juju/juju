@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
@@ -22,11 +21,18 @@ import (
 //
 
 var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
-	matchingImages, _, err := common.FindImageMetadata(env, ic, false)
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}
 
+	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(matchingImages) == 0 {
+		return nil, errors.New("no matching image meta data")
+	}
 	return matchingImages[0], nil
 }
 
