@@ -12,11 +12,6 @@ import (
 
 // TODO(ericsnow) Move the this file or something similar to the charm repo?
 
-// These are the valid resource origins.
-const (
-	OriginUpload = "upload"
-)
-
 // NoRevision indicates that the spec does not have a revision specified.
 const NoRevision = ""
 
@@ -26,7 +21,7 @@ type Spec interface {
 	Definition() resource.Info
 
 	// Origin identifies where the resource should come from.
-	Origin() string
+	Origin() Origin
 
 	// Revision is the desired revision of the resource. It returns ""
 	// for origins that do not support revisions.
@@ -34,7 +29,7 @@ type Spec interface {
 }
 
 // NewSpec returns a new Spec for the given info.
-func NewSpec(info resource.Info, origin, revision string) (Spec, error) {
+func NewSpec(info resource.Info, origin Origin, revision string) (Spec, error) {
 	switch origin {
 	case OriginUpload:
 		// TODO(ericsnow) Fail if revision not NoRevision?
@@ -55,7 +50,7 @@ func (res UploadSpec) Definition() resource.Info {
 }
 
 // Origin implements Spec.
-func (res UploadSpec) Origin() string {
+func (res UploadSpec) Origin() Origin {
 	return OriginUpload
 }
 
