@@ -6,11 +6,9 @@ package ec2
 import (
 	"fmt"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/common"
 )
 
 // signedImageDataOnly is defined here to allow tests to override the content.
@@ -46,7 +44,8 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(e environs.Environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(
+	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 
 	// If the instance type is set, don't also set a default CPU power
 	// as this is implied.
@@ -61,7 +60,7 @@ func findInstanceSpec(e environs.Environ, stream string, ic *instances.InstanceC
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
-	matchingImages, _, err := common.FindImageMetadata(e, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}

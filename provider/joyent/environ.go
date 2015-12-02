@@ -103,14 +103,15 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	}
 	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := env.Region()
-	if err != nil {
-		return nil, err
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   cfg.Region(),
+		Endpoint: cfg.SdcUrl(),
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 		Stream:    cfg.ImageStream(),
 	})
+	var err error
 	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
 	return env.supportedArchitectures, err
 }

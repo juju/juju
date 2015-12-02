@@ -494,9 +494,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
-
 	arches := args.Tools.Arches()
-	spec, err := findInstanceSpec(e, e.Config().ImageStream(), &instances.InstanceConstraint{
+	sources, err := environs.ImageMetadataSources(e)
+	if err != nil {
+		return nil, err
+	}
+
+	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
