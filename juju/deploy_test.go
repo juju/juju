@@ -85,6 +85,22 @@ func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
+func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
+	f := &fakeDeployer{State: s.State}
+
+	_, err := juju.DeployService(f,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Series:      "aseries",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Series, gc.Equals, "aseries")
+}
+
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{

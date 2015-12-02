@@ -1094,6 +1094,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 
 type AddServiceArgs struct {
 	Name        string
+	Series      string
 	Owner       string
 	Charm       *Charm
 	Networks    []string
@@ -1145,7 +1146,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	series := args.Charm.URL().Series
+	series := args.Series
+	if series == "" {
+		series = args.Charm.URL().Series
+	}
+	// Should not happen, but just in case.
+	if series == "" {
+		return nil, errors.New("series is empty")
+	}
 
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)

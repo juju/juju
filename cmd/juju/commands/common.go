@@ -108,6 +108,15 @@ func environFromNameProductionFunc(
 	return env, cleanup, err
 }
 
+type resolveCharmStoreEntityParams struct {
+	urlStr          string
+	requestedSeries string
+	forceSeries     bool
+	csParams        charmrepo.NewCharmStoreParams
+	repoPath        string
+	conf            *config.Config
+}
+
 // resolveCharmStoreEntityURL resolves the given charm or bundle URL string
 // by looking it up in the appropriate charm repository.
 // If it is a charm store URL, the given csParams will
@@ -115,41 +124,46 @@ func environFromNameProductionFunc(
 // If it is a local charm or bundle URL, the local charm repository at
 // the given repoPath will be used. The given configuration
 // will be used to add any necessary attributes to the repo
-// and to resolve the default series if possible.
+// and to return the charm's supported series if possible.
 //
 // resolveCharmStoreEntityURL also returns the charm repository holding
 // the charm or bundle.
-func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
-	ref, err := charm.ParseURL(urlStr)
+func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL, []string, charmrepo.Interface, error) {
+	url, err := charm.ParseURL(args.urlStr)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	repo, err := charmrepo.InferRepository(ref, csParams, repoPath)
+	repo, err := charmrepo.InferRepository(url, args.csParams, args.repoPath)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	repo = config.SpecializeCharmRepo(repo, conf)
-	if ref.Series == "" {
-		if defaultSeries, ok := conf.DefaultSeries(); ok {
-			ref.Series = defaultSeries
+	repo = config.SpecializeCharmRepo(repo, args.conf)
+
+	if url.Schema == "local" && url.Series == "" {
+		if defaultSeries, ok := args.conf.DefaultSeries(); ok {
+			url.Series = defaultSeries
+		}
+		if url.Series == "" {
+			possibleURL := *url
+			possibleURL.Series = config.LatestLtsSeries()
+			logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+			return nil, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
 		}
 	}
-	if ref.Schema == "local" && ref.Series == "" {
-		possibleURL := *ref
-		possibleURL.Series = config.LatestLtsSeries()
-		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
-		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
-	}
-	// TODO(wallyworld) - charm store does not yet support returning the
-	// supported series for a charm.
-	ref, _, err = repo.Resolve(ref)
+	resultUrl, supportedSeries, err := repo.Resolve(url)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	if ref.Series == "" {
-		return nil, nil, errors.New("resolved charm URL has no series")
+	return resultUrl, supportedSeries, repo, nil
+}
+
+func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
+	for _, series := range supportedSeries {
+		if series == requestedSeries {
+			return true
+		}
 	}
-	return ref, repo, nil
+	return false
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the

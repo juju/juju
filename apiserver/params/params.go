@@ -195,6 +195,7 @@ type ServicesDeploy struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
+	Series        string
 	CharmUrl      string
 	NumUnits      int
 	Config        map[string]string

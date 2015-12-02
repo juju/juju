@@ -159,6 +159,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 	_, err = jjj.DeployService(st,
 		jjj.DeployServiceParams{
 			ServiceName: args.ServiceName,
+			Series:      args.Series,
 			// TODO(dfc) ServiceOwner should be a tag
 			ServiceOwner:   owner,
 			Charm:          ch,
