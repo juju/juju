@@ -21,25 +21,25 @@ var _ = gc.Suite(&specSuite{})
 type specSuite struct {
 	testing.IsolationSuite
 
-	stub  *testing.Stub
-	state *stubSpecState
+	stub   *testing.Stub
+	lister *stubSpecLister
 }
 
 func (s *specSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.state = &stubSpecState{stub: s.stub}
+	s.lister = &stubSpecLister{stub: s.stub}
 }
 
 func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 	spec1, apiSpec1 := newSpec(c, "spam")
 	spec2, apiSpec2 := newSpec(c, "eggs")
-	s.state.ReturnSpecs = []resource.Spec{
+	s.lister.ReturnSpecs = []resource.Spec{
 		spec1,
 		spec2,
 	}
-	facade := server.NewFacade(s.state)
+	facade := server.NewFacade(s.lister)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
 		Entities: []params.Entity{{
@@ -62,7 +62,7 @@ func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 }
 
 func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
-	facade := server.NewFacade(s.state)
+	facade := server.NewFacade(s.lister)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
 		Entities: []params.Entity{{
@@ -82,7 +82,7 @@ func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
 func (s *specSuite) TestListSpecsError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade := server.NewFacade(s.state)
+	facade := server.NewFacade(s.lister)
 
 	results, err := facade.ListSpecs(api.ListSpecsArgs{
 		Entities: []params.Entity{{
@@ -121,13 +121,13 @@ func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
 	return spec, apiSpec
 }
 
-type stubSpecState struct {
+type stubSpecLister struct {
 	stub *testing.Stub
 
 	ReturnSpecs []resource.Spec
 }
 
-func (s *stubSpecState) ListResourceSpecs(service string) ([]resource.Spec, error) {
+func (s *stubSpecLister) ListResourceSpecs(service string) ([]resource.Spec, error) {
 	s.stub.AddCall("ListResourceSpecs", service)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

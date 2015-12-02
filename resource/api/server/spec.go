@@ -8,13 +8,13 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
-type specState interface {
+type specLister interface {
 	// ListResourceSpecs returns the resource specs for the given service.
 	ListResourceSpecs(service string) ([]resource.Spec, error)
 }
 
 type specFacade struct {
-	state specState
+	lister specLister
 }
 
 // ListSpecs returns the list of resource specs for the given service.
@@ -29,7 +29,7 @@ func (f specFacade) ListSpecs(args api.ListSpecsArgs) (api.SpecsResults, error) 
 			continue
 		}
 
-		specs, err := f.state.ListResourceSpecs(service)
+		specs, err := f.lister.ListResourceSpecs(service)
 		if err != nil {
 			api.SetResultError(&r.Results[i], err)
 			continue

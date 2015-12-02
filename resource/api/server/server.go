@@ -12,9 +12,9 @@ var logger = loggo.GetLogger("juju.resource.api.server")
 // Version is the version number of the current Facade.
 const Version = 1
 
-// State is the functionality of Juju's state needed for the resources API.
-type State interface {
-	specState
+// DataStore is the functionality of Juju's state needed for the resources API.
+type DataStore interface {
+	specLister
 }
 
 // Facade is the public API facade for resources.
@@ -23,8 +23,8 @@ type Facade struct {
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(st State) *Facade {
+func NewFacade(data DataStore) *Facade {
 	return &Facade{
-		specFacade: &specFacade{st},
+		specFacade: &specFacade{data},
 	}
 }
