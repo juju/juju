@@ -70,6 +70,10 @@ type LocalState struct {
 	// for which an update-status hook has been committed.
 	UpdateStatusVersion int
 
+	// RetryHookVersion is the version of hook-retries from
+	// remotestate.Snapshot for which a hook has been retried.
+	RetryHookVersion int
+
 	// ConfigVersion is the version of config from remotestate.Snapshot
 	// for which a config-changed hook has been committed.
 	ConfigVersion int

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -69,16 +68,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:       AgentName,
-			APIInfoGateName: APIInfoGateName,
+			AgentName: AgentName,
 		}),
-
-		// This manifold is used to coordinate between the api caller and the
-		// log sender, which share the API credentials that the API caller may
-		// update. To avoid surprising races, the log sender waits for the api
-		// caller to unblock this, indicating that any password dance has been
-		// completed and the log-sender can now connect without confusion.
-		APIInfoGateName: gate.Manifold(),
 
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
@@ -128,7 +119,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and the agent to be restarted running the new tools. We should only
 		// need one of these in a consolidated agent, but we'll need to be
 		// careful about behavioural differences, and interactions with the
-		// upgrade-steps worker.
+		// upgradesteps worker.
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,
@@ -200,7 +191,6 @@ const (
 	AgentName                = "agent"
 	APIAdddressUpdaterName   = "api-address-updater"
 	APICallerName            = "api-caller"
-	APIInfoGateName          = "api-info-gate"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"
 	LogSenderName            = "log-sender"

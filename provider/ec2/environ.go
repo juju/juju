@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -201,7 +200,7 @@ func (e *environ) Storage() envstorage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
 }
 
@@ -470,16 +469,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
+	var zoneInstances []common.AvailabilityZoneInstances
 	if len(availabilityZones) == 0 {
-		var group []instance.Id
 		var err error
+		var group []instance.Id
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
 				return nil, err
 			}
 		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
+		zoneInstances, err = availabilityZoneAllocations(e, group)
 		if err != nil {
 			return nil, err
 		}
@@ -489,29 +489,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if len(availabilityZones) == 0 {
 			return nil, errors.New("failed to determine availability zones")
 		}
-	}
-
-	// If spaces= constraints is also set, then filter availabilityZones to only
-	// contain zones matching the space's subnets' zones
-	if len(args.SubnetsToZones) > 0 {
-		// find all the available zones that match the subnets that match our
-		// space/subnet constraints
-		zonesSet := set.NewStrings(availabilityZones...)
-		subnetZones := set.NewStrings()
-
-		for _, zones := range args.SubnetsToZones {
-			for _, zone := range zones {
-				subnetZones.Add(zone)
-			}
-		}
-
-		if len(zonesSet.Intersection(subnetZones).SortedValues()) == 0 {
-			return nil, errors.Errorf(
-				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
-				availabilityZones)
-		}
-
-		availabilityZones = zonesSet.Intersection(subnetZones).SortedValues()
 	}
 
 	if args.InstanceConfig.HasNetworks() {
@@ -557,29 +534,86 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
-	var instResp *ec2.RunInstancesResp
 
 	blockDeviceMappings := getBlockDeviceMappings(args.Constraints, args.InstanceConfig.Series)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
-	for _, availZone := range availabilityZones {
-		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
-			AvailZone: availZone,
-			// TODO: SubnetId: <a subnet in the AZ that conforms to our constraints>
-			ImageId:             spec.Image.Id,
-			MinCount:            1,
-			MaxCount:            1,
-			UserData:            userData,
-			InstanceType:        spec.InstanceType.Name,
-			SecurityGroups:      groups,
-			BlockDeviceMappings: blockDeviceMappings,
-		})
-		if isZoneConstrainedError(err) {
-			logger.Infof("%q is constrained, trying another availability zone", availZone)
+	// If --constraints spaces=foo was passed, the provisioner will populate
+	// args.SubnetsToZones map. In AWS a subnet can span only one zone, so here
+	// we build the reverse map zonesToSubnets, which we will use to below in
+	// the RunInstance loop to provide an explicit subnet ID, rather than just
+	// AZ. This ensures instances in the same group (units of a service or all
+	// instances when adding a machine manually) will still be evenly
+	// distributed across AZs, but only within subnets of the space constraint.
+	//
+	// TODO(dimitern): This should be done in a provider-independant way.
+	zonesToSubnets := make(map[string]string, len(args.SubnetsToZones))
+	var spaceSubnetIDs []string
+	for subnetID, zones := range args.SubnetsToZones {
+		// EC2-specific: subnets can only be in a single zone, hence the
+		// zones slice will always contain exactly one element when
+		// SubnetsToZones is populated.
+		zone := zones[0]
+		sid := string(subnetID)
+		zonesToSubnets[zone] = sid
+		spaceSubnetIDs = append(spaceSubnetIDs, sid)
+	}
+
+	// TODO(dimitern): For the network model MVP we only respect the
+	// first positive (a.k.a. "included") space specified in the
+	// constraints. Once we support any given list of positive or
+	// negative (prefixed with "^") spaces, fix this approach.
+	var spaceName string
+	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 0 {
+		spaceName = spaces[0]
+	}
+
+	var instResp *ec2.RunInstancesResp
+	commonRunArgs := &ec2.RunInstances{
+		MinCount:            1,
+		MaxCount:            1,
+		UserData:            userData,
+		InstanceType:        spec.InstanceType.Name,
+		SecurityGroups:      groups,
+		BlockDeviceMappings: blockDeviceMappings,
+		ImageId:             spec.Image.Id,
+	}
+
+	for _, zone := range availabilityZones {
+		runArgs := commonRunArgs
+
+		if subnetID, found := zonesToSubnets[zone]; found {
+			// Use SubnetId explicitly here so the instance ends up in the
+			// right space.
+			runArgs.SubnetId = subnetID
+		} else if spaceName != "" {
+			// Ignore AZs not matching any subnet of the space in constraints.
+			logger.Infof(
+				"skipping zone %q: not associated with any of space %q's subnets %q",
+				zone, spaceName, strings.Join(spaceSubnetIDs, ", "),
+			)
+			continue
 		} else {
+			// No space constraint specified, just use the usual zone
+			// distribution without an explicit SubnetId.
+			runArgs.AvailZone = zone
+		}
+
+		instResp, err = runInstances(e.ec2(), runArgs)
+		if err == nil {
 			break
 		}
+		if runArgs.SubnetId != "" && isSubnetConstrainedError(err) {
+			subID := runArgs.SubnetId
+			logger.Infof("%q (in zone %q) is constrained, try another subnet", subID, zone)
+			continue
+		} else if !isZoneConstrainedError(err) {
+			// Something else went wrong - bail out.
+			break
+		}
+		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
 	}
@@ -591,7 +625,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
-	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
+	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
+	logger.Infof("started instance %q in AZ %q, subnet %q", inst.Id(), instAZ, instSubnet)
 
 	// Tag instance, for accounting and identification.
 	instanceName := resourceName(
@@ -906,7 +941,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _ string) (err error) {
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1503,6 +1538,26 @@ func isZoneConstrainedError(err error) bool {
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
 		case "VolumeTypeNotAvailableInZone":
+			return true
+		}
+	}
+	return false
+}
+
+// isSubnetConstrainedError reports whether or not the error indicates
+// RunInstances failed due to the specified VPC subnet ID being constrained for
+// the instance type being provisioned, or is otherwise unusable for the
+// specific request made.
+func isSubnetConstrainedError(err error) bool {
+	switch err := err.(type) {
+	case *ec2.Error:
+		switch err.Code {
+		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
+			// Subnet and/or VPC general limits reached.
+			return true
+		case "InvalidSubnetID.NotFound":
+			// This shouldn't happen, as we validate the subnet IDs, but it can
+			// happen if the user manually deleted the subnet outside of Juju.
 			return true
 		}
 	}

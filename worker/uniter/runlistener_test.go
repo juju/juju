@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/runcommands"
 )
 
 type ListenerSuite struct {
@@ -38,7 +39,10 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
-	listener, err := uniter.NewRunListener(&mockRunner{c}, s.socketPath)
+	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
+		SocketPath:    s.socketPath,
+		CommandRunner: &mockRunner{c},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
@@ -52,11 +56,7 @@ func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c
 		c.Skip("bug 1403084: Current named pipes implementation does not support this")
 	}
 	s.NewRunListener(c)
-
-	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listener, gc.NotNil)
-	c.Assert(listener.Close(), jc.ErrorIsNil)
+	s.NewRunListener(c)
 }
 
 func (s *ListenerSuite) TestClientCall(c *gc.C) {
@@ -79,6 +79,38 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
 	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
 	c.Assert(result.Code, gc.Equals, 42)
+}
+
+type ChannelCommandRunnerSuite struct {
+	testing.BaseSuite
+	abort          chan struct{}
+	commands       runcommands.Commands
+	commandChannel chan string
+	runner         *uniter.ChannelCommandRunner
+}
+
+var _ = gc.Suite(&ChannelCommandRunnerSuite{})
+
+func (s *ChannelCommandRunnerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.abort = make(chan struct{}, 1)
+	s.commands = runcommands.NewCommands()
+	s.commandChannel = make(chan string, 1)
+	runner, err := uniter.NewChannelCommandRunner(uniter.ChannelCommandRunnerConfig{
+		Abort:          s.abort,
+		Commands:       s.commands,
+		CommandChannel: s.commandChannel,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.runner = runner
+}
+
+func (s *ChannelCommandRunnerSuite) TestCommandsAborted(c *gc.C) {
+	close(s.abort)
+	_, err := s.runner.RunCommands(uniter.RunCommandsArgs{
+		Commands: "some-command",
+	})
+	c.Assert(err, gc.ErrorMatches, "command execution aborted")
 }
 
 type mockRunner struct {

@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/juju/cmd"
@@ -32,7 +31,7 @@ import (
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -94,12 +93,6 @@ var (
 	_ = gc.Suite(&MachineWithCharmsSuite{})
 	_ = gc.Suite(&mongoSuite{})
 )
-
-func TestPackage(t *testing.T) {
-	// TODO(waigani) 2014-03-19 bug 1294458
-	// Refactor to use base suites
-	coretesting.MgoTestPackage(t)
-}
 
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
@@ -267,6 +260,7 @@ var perEnvSingularWorkers = []string{
 	"charm-revision-updater",
 	"instancepoller",
 	"firewaller",
+	"unitassigner",
 }
 
 const initialMachinePassword = "machine-password-1234567890"

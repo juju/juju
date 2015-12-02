@@ -469,7 +469,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic(err.Error())
 	}
 	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
@@ -1337,7 +1337,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 
 func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
 	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	return lock
 }
@@ -1437,15 +1437,19 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
-		c.Assert(err, jc.ErrorIsNil)
+		// Don't use asserts in go routines.
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
 		defer client.Close()
 
 		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, args, &result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result.Code, gc.Equals, 0)
-		c.Check(string(result.Stdout), gc.Equals, "")
-		c.Check(string(result.Stderr), gc.Equals, "")
+		if c.Check(err, jc.ErrorIsNil) {
+			c.Check(result.Code, gc.Equals, 0)
+			c.Check(string(result.Stdout), gc.Equals, "")
+			c.Check(string(result.Stderr), gc.Equals, "")
+		}
 	}()
 }
 

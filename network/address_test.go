@@ -342,7 +342,7 @@ var selectPublicTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -441,7 +441,7 @@ var selectInternalTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -593,7 +593,7 @@ var selectInternalMachineTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -674,7 +674,7 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalHostPorts(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()

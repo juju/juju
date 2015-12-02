@@ -41,7 +41,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.AgentName,
 		unit.APIAdddressUpdaterName,
 		unit.APICallerName,
-		unit.APIInfoGateName,
 		unit.LeadershipTrackerName,
 		unit.LoggingConfigUpdaterName,
 		unit.LogSenderName,

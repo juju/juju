@@ -11,16 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	"github.com/juju/juju/utils"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
-
-func init() {
-	utils.Must(components.RegisterForServer())
-}
 
 type baseSuite struct {
 	jujuctesting.ContextSuite
