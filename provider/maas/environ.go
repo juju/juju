@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"net"
@@ -13,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/juju/errors"
@@ -118,7 +116,7 @@ func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, add
 			// We only need the first address, but we're logging all we got.
 			firstAddress = network.NewAddress(value)
 		}
-		logger.Debugf("reserved address %q for device %q", value)
+		logger.Debugf("reserved address %q for device %q", value, deviceId)
 	}
 	return firstAddress, nil
 }
@@ -1185,90 +1183,17 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
-const modifyEtcNetworkInterfaces = `isDHCP() {
-    grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
-    return $?
-}
-
-isStatic() {
-    grep -q "iface ${PRIMARY_IFACE} inet static" {{.Config}}
-    return $?
-}
-
-unAuto() {
-    # Remove the line auto starting the primary interface. \s*$ matches
-    # whitespace and the end of the line to avoid mangling aliases.
-    grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
-    sed -i "s/auto ${PRIMARY_IFACE}\s*$//" {{.Config}}
-}
-
-# Change the config to make $PRIMARY_IFACE manual instead of DHCP,
-# then create the bridge and enslave $PRIMARY_IFACE into it.
-if isDHCP; then
-    sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}}
-    cat >> {{.Config}} << EOF
-
-# Primary interface (defining the default route)
-iface ${PRIMARY_IFACE} inet manual
-
-# Bridge to use for LXC/KVM containers
-auto {{.Bridge}}
-iface {{.Bridge}} inet dhcp
-    bridge_ports ${PRIMARY_IFACE}
-EOF
-    # Make the primary interface not auto-starting.
-    unAuto
-elif isStatic
-then
-    sed -i "s/iface ${PRIMARY_IFACE} inet static/iface {{.Bridge}} inet static\n    bridge_ports ${PRIMARY_IFACE}/" {{.Config}}
-    sed -i "s/auto ${PRIMARY_IFACE}\s*$/auto {{.Bridge}}/" {{.Config}}
-    cat >> {{.Config}} << EOF
-
-# Primary interface (defining the default route)
-iface ${PRIMARY_IFACE} inet manual
-EOF
-fi`
-
-const bridgeConfigTemplate = `
-# In case we already created the bridge, don't do it again.
-grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
-
-# Discover primary interface at run-time using the default route (if set)
-PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
-
-# If $PRIMARY_IFACE is empty, there's nothing to do.
-[ -z "$PRIMARY_IFACE" ] && exit 0
-
-# Bring down the primary interface while /e/n/i still matches the live config.
-# Will bring it back up within a bridge after updating /e/n/i.
-ifdown -v ${PRIMARY_IFACE}
-
-# Log the contents of /etc/network/interfaces prior to modifying
-echo "Contents of /etc/network/interfaces before changes"
-cat /etc/network/interfaces
-{{.Script}}
-# Log the contents of /etc/network/interfaces after modifying
-echo "Contents of /etc/network/interfaces after changes"
-cat /etc/network/interfaces
-
-ifup -v {{.Bridge}}
-`
-
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() (string, error) {
-	parsedTemplate := template.Must(
-		template.New("BridgeConfig").Parse(bridgeScriptMain),
-	)
-	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
-		"Config": "/etc/network/interfaces",
-		"Bridge": instancecfg.DefaultBridgeName,
-	})
-	if err != nil {
-		return "", errors.Annotate(err, "bridge config template error")
-	}
-	return bridgeScriptBase + buf.String(), nil
+	eni := "/etc/network/interfaces"
+	script := fmt.Sprintf("%s\npython -c %q --backup-filename=%q --filename=%q --bridge-name=%q\n",
+		bridgeScriptPythonBashDef,
+		"$python_script",
+		eni+"-orig",
+		eni,
+		instancecfg.DefaultBridgeName)
+	return script, nil
 }
 
 func renderEtcNetworkInterfacesScript() (string, error) {
