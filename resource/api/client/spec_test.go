@@ -53,7 +53,8 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	specs, err := cl.ListSpecs("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected, _ := api.API2ResourceSpec(s.apiSpec)
+	expected, err := api.API2ResourceSpec(s.apiSpec)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(specs, jc.DeepEquals, []resource.Spec{
 		expected,
 	})
