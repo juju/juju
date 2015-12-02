@@ -11,6 +11,37 @@ import (
 	"github.com/juju/utils/clock"
 )
 
+// timerClock exposes the underlying Clock's capabilities to a Timer.
+type timerClock interface {
+	reset(id int, d time.Duration) bool
+	stop(id int) bool
+}
+
+// Timer implements a mock clock.Timer for testing purposes.
+type Timer struct {
+	ID    int
+	clock timerClock
+}
+
+// Reset is part of the clock.Timer interface.
+func (t *Timer) Reset(d time.Duration) bool {
+	return t.clock.reset(t.ID, d)
+}
+
+// Stop is part of the clock.Timer interface.
+func (t *Timer) Stop() bool {
+	return t.clock.stop(t.ID)
+}
+
+// stoppedTimer is a no-op implementation of clock.Timer.
+type stoppedTimer struct{}
+
+// Reset is part of the clock.Timer interface.
+func (stoppedTimer) Reset(time.Duration) bool { return false }
+
+// Stop is part of the clock.Timer interface.
+func (stoppedTimer) Stop() bool { return false }
+
 // Clock implements a mock clock.Clock for testing purposes.
 type Clock struct {
 	mu             sync.Mutex
@@ -20,7 +51,10 @@ type Clock struct {
 	notifyAlarms   chan struct{}
 }
 
-// NewClock returns a new clock set to the supplied time.
+// NewClock returns a new clock set to the supplied time. If your SUT needs to
+// call After, AfterFunc, or Timer.Reset more than 1024 times: (1) you have
+// probably written a bad test; and (2) you'll need to read from the Alarms
+// chan to keep the buffer clear.
 func NewClock(now time.Time) *Clock {
 	return &Clock{
 		now:          now,
@@ -68,28 +102,27 @@ func (clock *Clock) Advance(d time.Duration) {
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	clock.now = clock.now.Add(d)
-	rung := 0
+	triggered := 0
 	for _, alarm := range clock.alarms {
 		if clock.now.Before(alarm.time) {
 			break
 		}
 		alarm.trigger()
-		rung++
+		triggered++
 	}
-	clock.alarms = clock.alarms[rung:]
+	clock.alarms = clock.alarms[triggered:]
 }
 
 // Alarms returns a channel on which you can read one value for every call to
 // After and AfterFunc; and for every successful Timer.Reset backed by this
-// clock. It might not be elegant but it's necessary when testing time logic
+// Clock. It might not be elegant but it's necessary when testing time logic
 // that runs on a goroutine other than that of the test.
 func (clock *Clock) Alarms() <-chan struct{} {
 	return clock.notifyAlarms
 }
 
-// reset is a bridge method for timer. It basically
-// implements clock.Timer, but it needs access to clock's internals
-// so the access is somewhat restricted
+// reset is the underlying implementation of clock.Timer.Reset, which may be
+// called by any Timer backed by this Clock.
 func (clock *Clock) reset(id int, d time.Duration) bool {
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
@@ -105,9 +138,8 @@ func (clock *Clock) reset(id int, d time.Duration) bool {
 	return false
 }
 
-// stop is a bridge method for timer. It basically
-// implements clock.Timer, but it needs access to clock's internals
-// so the access is somewhat restricted
+// stop is the underlying implementation of clock.Timer.Reset, which may be
+// called by any Timer backed by this Clock.
 func (clock *Clock) stop(id int) bool {
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
@@ -157,37 +189,6 @@ type byTime []alarm
 func (a byTime) Len() int           { return len(a) }
 func (a byTime) Less(i, j int) bool { return a[i].time.Before(a[j].time) }
 func (a byTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-
-// timerClock exposes Clock capabilities to Timer.
-type timerClock interface {
-	reset(id int, d time.Duration) bool
-	stop(id int) bool
-}
-
-// Timer implements a mock clock.Timer for testing purposes.
-type Timer struct {
-	ID    int
-	clock timerClock
-}
-
-// Reset is part of the clock.Timer interface
-func (t *Timer) Reset(d time.Duration) bool {
-	return t.clock.reset(t.ID, d)
-}
-
-// Stop is part of the clock.Timer interface
-func (t *Timer) Stop() bool {
-	return t.clock.stop(t.ID)
-}
-
-// stoppedTimer is a noop implementation for timer
-type stoppedTimer struct{}
-
-// Reset is part of the clock.Timer interface
-func (stoppedTimer) Reset(time.Duration) bool { return false }
-
-// Stop is part of the clock.Timer interface
-func (stoppedTimer) Stop() bool { return false }
 
 // removeFromSlice removes item at the specified index from the slice
 // It exists to make the append train clearer

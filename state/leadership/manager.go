@@ -38,17 +38,12 @@ func NewManager(config ManagerConfig) (ManagerWorker, error) {
 		// unwrap tomb.ErrDying in order to function correctly.
 		manager.kill(manager.loop())
 	}()
-	select {
-	case <-manager.tomb.Dying():
-	case <-manager.setup.Dead():
-	}
 	return manager, nil
 }
 
 // manager implements ManagerWorker.
 type manager struct {
-	tomb  tomb.Tomb
-	setup tomb.Tomb
+	tomb tomb.Tomb
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
@@ -207,12 +202,6 @@ func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
 // expect at least one lease to be ready to expire. If no leases are known,
 // it will return nil.
 func (manager *manager) nextExpiry() <-chan time.Time {
-	select {
-	case <-manager.setup.Dead():
-	default:
-		defer manager.setup.Done()
-	}
-
 	var nextExpiry time.Time
 	for _, info := range manager.config.Client.Leases() {
 		if !nextExpiry.IsZero() {

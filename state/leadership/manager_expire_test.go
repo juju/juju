@@ -35,10 +35,7 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *coretesting.Clock) {
-		//XXX WTF
-		time.Sleep(coretesting.ShortWait)
-	})
+	fix.RunTest(c, func(_ leadership.ManagerWorker, _ *coretesting.Clock) {})
 }
 
 func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture(c *gc.C) {
