@@ -9,10 +9,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/apitesting"
 	"github.com/juju/juju/resource/api/server"
 )
 
@@ -33,8 +33,8 @@ func (s *specSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *specSuite) TestListSpecsOkay(c *gc.C) {
-	spec1, apiSpec1 := apitesting.NewSpec(c, "spam")
-	spec2, apiSpec2 := apitesting.NewSpec(c, "eggs")
+	spec1, apiSpec1 := newSpec(c, "spam")
+	spec2, apiSpec2 := newSpec(c, "eggs")
 	s.state.ReturnSpecs = []resource.Spec{
 		spec1,
 		spec2,
@@ -79,6 +79,25 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
+}
+
+func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
+	info := charmresource.Info{
+		Name: name,
+		Type: charmresource.TypeFile,
+		Path: name + ".tgz",
+	}
+	spec, err := resource.NewSpec(info, resource.OriginUpload, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiSpec := api.ResourceSpec{
+		Name:   name,
+		Type:   "file",
+		Path:   name + ".tgz",
+		Origin: "upload",
+	}
+
+	return spec, apiSpec
 }
 
 func newServiceTag(c *gc.C, service string) names.ServiceTag {
