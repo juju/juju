@@ -21,12 +21,7 @@ type archSuite struct {
 
 var _ = gc.Suite(&archSuite{})
 
-func setupMetadata(c *gc.C, s coretesting.FakeJujuHomeSuite, arches []string) (environs.Environ, simplestreams.CloudSpec) {
-	env, spec, _ := setupMetadataWithDataSource(c, s, "SupportedArchitectures", arches)
-	return env, spec
-}
-
-func setupMetadataWithDataSource(c *gc.C, s coretesting.FakeJujuHomeSuite, dsId string, arches []string) (environs.Environ, simplestreams.CloudSpec, string) {
+func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, simplestreams.CloudSpec) {
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 	env := &mockEnviron{
 		config: configGetter(c),
@@ -59,19 +54,19 @@ func setupMetadataWithDataSource(c *gc.C, s coretesting.FakeJujuHomeSuite, dsId 
 	err = imagemetadata.MergeAndWriteMetadata("precise", images, &cloudSpec, stor)
 	c.Assert(err, jc.ErrorIsNil)
 
-    fileURL := "file://" + metadataDir + "/images"
-	environs.RegisterImageDataSourceFunc(dsId, func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource(dsId, fileURL, false, simplestreams.DEFAULT_CLOUD_DATA), nil
+	id := "SupportedArchitectures"
+	environs.RegisterImageDataSourceFunc(id, func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false, simplestreams.DEFAULT_CLOUD_DATA), nil
 	})
 	s.AddCleanup(func(*gc.C) {
-		environs.UnregisterImageDataSourceFunc(dsId)
+		environs.UnregisterImageDataSourceFunc(id)
 	})
 
-	return env, cloudSpec, fileURL
+	return env, cloudSpec
 }
 
 func (s *archSuite) TestSupportedArchitecturesNone(c *gc.C) {
-	env, cloudSpec := setupMetadata(c, s.FakeJujuHomeSuite, nil)
+	env, cloudSpec := s.setupMetadata(c, nil)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 	})
@@ -81,7 +76,7 @@ func (s *archSuite) TestSupportedArchitecturesNone(c *gc.C) {
 }
 
 func (s *archSuite) TestSupportedArchitecturesOne(c *gc.C) {
-	env, cloudSpec := setupMetadata(c, s.FakeJujuHomeSuite, []string{"ppc64el"})
+	env, cloudSpec := s.setupMetadata(c, []string{"ppc64el"})
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 	})
@@ -91,7 +86,7 @@ func (s *archSuite) TestSupportedArchitecturesOne(c *gc.C) {
 }
 
 func (s *archSuite) TestSupportedArchitecturesMany(c *gc.C) {
-	env, cloudSpec := setupMetadata(c, s.FakeJujuHomeSuite, []string{"ppc64el", "amd64"})
+	env, cloudSpec := s.setupMetadata(c, []string{"ppc64el", "amd64"})
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 	})
