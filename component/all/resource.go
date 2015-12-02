@@ -78,7 +78,7 @@ func (st resourceState) CharmMetadata(serviceID string) (*charm.Meta, error) {
 // resourcesApiClient adds a Close() method to the resources public API client.
 type resourcesAPIClient struct {
 	*client.Client
-	closeFunc func() error
+	closeConnFunc func() error
 }
 
 // Close implements io.Closer.
@@ -92,8 +92,8 @@ func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
 
 	cl := &resourcesAPIClient{
-		Client:    client.NewClient(caller),
-		closeFunc: apiCaller.Close,
+		Client:        client.NewClient(caller),
+		closeConnFunc: apiCaller.Close,
 	}
 
 	return cl, nil
