@@ -6,13 +6,17 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
@@ -29,6 +33,7 @@ type upgradeCharmCommand struct {
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
 	SwitchURL   string
+	CharmPath   string
 	Revision    int // defaults to -1 (latest)
 }
 
@@ -37,18 +42,28 @@ When no flags are set, the service's charm will be upgraded to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision flag.
 
-If the charm came from a local repository, its path will be assumed to be
-$JUJU_REPOSITORY unless overridden by --repository.
+If the charm was not originally deployed from a repository, but from a path,
+then a path will need to be supplied to allow an updated copy of the charm
+to be located.
 
-The local repository behaviour is tuned specifically to the workflow of a charm
-author working on a single client machine; use of local repositories from
+If the charm came from a local repository, its path will be assumed to be
+$JUJU_REPOSITORY unless overridden by --repository. Note that deploying from
+a local repository is deprecated in favour of deploying from a path.
+
+Deploying from a path or local repository is intended to suit the workflow of a charm
+author working on a single client machine; use of this deployment method from
 multiple clients is not supported and may lead to confusing behaviour. Each
 local charm gets uploaded with the revision specified in the charm, if possible,
 otherwise it gets a unique revision (highest in state + 1).
 
-The --switch flag allows you to replace the charm with an entirely different
-one. The new charm's URL and revision are inferred as they would be when running
-a deploy command.
+When deploying from a path, the --path flag is used to specify the location from
+which to load the updated charm. Note that the directory containing the charm must
+match what was originally used to deploy the charm as a superficial check that the
+updated charm is compatible.
+
+When using a local repository, the --switch flag allows you to replace the charm
+with an entirely different one. The new charm's URL and revision are inferred as
+they would be when running a deploy command.
 
 Please note that --switch is dangerous, because juju only has limited
 information with which to determine compatibility; the operation will succeed,
@@ -60,6 +75,11 @@ participating in.
 have the same types.
 
 The new charm may add new relations and configuration settings.
+
+--switch and --path are mutually exclusive.
+
+--path and --revision are mutually exclusive. The revision of the updated charm
+is determined by the contents of the charm at the specified path.
 
 --switch and --revision are mutually exclusive. To specify a given revision
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
@@ -83,6 +103,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
+	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
 }
 
@@ -101,7 +122,21 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	if c.SwitchURL != "" && c.Revision != -1 {
 		return fmt.Errorf("--switch and --revision are mutually exclusive")
 	}
+	if c.CharmPath != "" && c.Revision != -1 {
+		return fmt.Errorf("--path and --revision are mutually exclusive")
+	}
+	if c.SwitchURL != "" && c.CharmPath != "" {
+		return fmt.Errorf("--switch and --path are mutually exclusive")
+	}
 	return nil
+}
+
+func (c *upgradeCharmCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
 }
 
 // Run connects to the specified environment and starts the charm
@@ -112,25 +147,24 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	oldURL, err := client.ServiceGetCharmURL(c.ServiceName)
+
+	serviceClient, err := c.newServiceAPIClient()
 	if err != nil {
 		return err
 	}
 
-	conf, err := service.GetClientConfig(client)
+	oldURL, err := serviceClient.ServiceGetCharmURL(c.ServiceName)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
-	var newRef *charm.Reference
-	if c.SwitchURL != "" {
-		newRef, err = charm.ParseReference(c.SwitchURL)
-		if err != nil {
-			return err
-		}
-	} else {
+	newRef := c.SwitchURL
+	if newRef == "" {
+		newRef = c.CharmPath
+	}
+	if c.SwitchURL == "" && c.CharmPath == "" {
 		// No new URL specified, but revision might have been.
-		newRef = oldURL.WithRevision(c.Revision).Reference()
+		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
 	httpClient, err := c.HTTPClient()
@@ -138,30 +172,75 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	csClient := newCharmStoreClient(httpClient)
-	newURL, repo, err := resolveCharmStoreEntityURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
+
+	addedURL, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
 	if err != nil {
-		return errors.Trace(err)
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
+	return block.ProcessBlockedError(serviceClient.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
+}
+
+// addCharm interprets the new charmRef and adds the specified charm if the new charm is different
+// to what's already deployed as specified by oldURL.
+func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *cmd.Context,
+	client *api.Client, csClient *csClient,
+) (*charm.URL, error) {
+	// Charm may have been supplied via a path reference.
+	ch, newURL, err := charmrepo.NewCharmAtPath(charmRef, oldURL.Series)
+	if err == nil {
+		_, newName := filepath.Split(charmRef)
+		if newName != oldURL.Name {
+			return nil, fmt.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
+		}
+		return client.AddLocalCharm(newURL, ch)
+	}
+	if _, ok := err.(*charmrepo.NotFoundError); ok {
+		return nil, errors.Errorf("no charm found at %q", charmRef)
+	}
+	// If we get a "not exists" or invalid path error then we attempt to interpret
+	// the supplied charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
+		return nil, err
+	}
+
+	// Charm has been supplied as a URL so we resolve and deploy using the store.
+	conf, err := service.GetClientConfig(client)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(wallyworld) - check supported series of new charm.
+	newURL, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:          charmRef,
+		requestedSeries: oldURL.Series,
+		forceSeries:     c.Force,
+		csParams:        csClient.params,
+		repoPath:        ctx.AbsPath(c.RepoPath),
+		conf:            conf,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
+		newRef, _ := charm.ParseURL(charmRef)
 		if newRef.Revision != -1 {
-			return fmt.Errorf("already running specified charm %q", newURL)
+			return nil, fmt.Errorf("already running specified charm %q", newURL)
 		}
 		if newURL.Schema == "cs" {
 			// No point in trying to upgrade a charm store charm when
 			// we just determined that's the latest revision
 			// available.
-			return fmt.Errorf("already running latest charm %q", newURL)
+			return nil, fmt.Errorf("already running latest charm %q", newURL)
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, newURL, repo, csClient)
+	addedURL, err := addCharmFromURL(client, newURL, repo, csClient)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		return nil, err
 	}
 	ctx.Infof("Added charm %q to the environment.", addedURL)
-
-	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
+	return addedURL, nil
 }

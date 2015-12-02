@@ -6,7 +6,7 @@
 package backups
 
 import (
-	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -154,7 +154,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	}
 
 	logger.Infof("restarting replicaset")
-	memberHostPort := fmt.Sprintf("%s:%d", args.PrivateAddress, ssi.StatePort)
+	memberHostPort := net.JoinHostPort(args.PrivateAddress, strconv.Itoa(ssi.StatePort))
 	err = resetReplicaSet(dialInfo, memberHostPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot reset replicaSet")

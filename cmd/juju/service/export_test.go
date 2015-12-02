@@ -10,9 +10,10 @@ import (
 )
 
 // NewSetCommand returns a SetCommand with the api provided as specified.
-func NewSetCommandWithAPI(api SetServiceAPI) cmd.Command {
+func NewSetCommandWithAPI(clientAPI ClientAPI, serviceAPI ServiceAPI) cmd.Command {
 	return envcmd.Wrap(&setCommand{
-		api: api,
+		clientApi:  clientAPI,
+		serviceApi: serviceAPI,
 	})
 }
 

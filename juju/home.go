@@ -6,7 +6,7 @@ package juju
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/juju/osenv"
 )

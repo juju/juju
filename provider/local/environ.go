@@ -90,9 +90,9 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	if err := ensureNotRoot(); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 
 	// Make sure there are tools available for the
@@ -101,7 +101,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 
 	cfg, err := env.Config().Apply(map[string]interface{}{
@@ -113,9 +113,15 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 	if err != nil {
 		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
-		return "", "", nil, err
+		return nil, err
 	}
-	return arch.HostArch(), series.HostSeries(), env.finishBootstrap, nil
+
+	result := &environs.BootstrapResult{
+		Arch:     arch.HostArch(),
+		Series:   series.HostSeries(),
+		Finalize: env.finishBootstrap,
+	}
+	return result, nil
 }
 
 // finishBootstrap converts the machine config to cloud-config,

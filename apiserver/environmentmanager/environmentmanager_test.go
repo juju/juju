@@ -142,7 +142,8 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			provider: "azure",
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
-				"location"},
+				"subscription-id", "tenant-id", "application-id", "application-key", "location",
+				"controller-resource-group", "storage-account-type"},
 		}, {
 			provider: "dummy",
 			expected: []string{

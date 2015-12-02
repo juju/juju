@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -69,8 +69,8 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertCharm(c, service, s.charm.URL())
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
-	s.assertMachines(c, service, constraints.Value{})
 	c.Assert(service.GetOwnerTag(), gc.Equals, s.AdminUserTag(c).String())
+	s.assertMachines(c, service, constraints.Value{})
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
@@ -83,6 +83,22 @@ func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
+}
+
+func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
+	f := &fakeDeployer{State: s.State}
+
+	_, err := juju.DeployService(f,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Series:      "aseries",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Series, gc.Equals, "aseries")
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
@@ -131,10 +147,10 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
-	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
-	c.Assert(err, jc.ErrorIsNil)
+	f := &fakeDeployer{State: s.State}
+
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	service, err := juju.DeployService(s.State,
+	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName: "bob",
 			Charm:       s.charm,
@@ -142,8 +158,11 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 			NumUnits:    2,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, service, serviceCons)
-	s.assertMachines(c, service, constraints.MustParse("mem=2G cpu-cores=2"), "0", "1")
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.NumUnits, gc.Equals, 2)
 }
 
 func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C) {
@@ -161,13 +180,10 @@ func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
-	c.Assert(err, jc.ErrorIsNil)
+	f := &fakeDeployer{State: s.State}
+
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	service, err := juju.DeployService(s.State,
+	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName:   "bob",
 			Charm:         s.charm,
@@ -176,19 +192,20 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 			ToMachineSpec: "0",
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, service, serviceCons)
-	s.assertMachines(c, service, constraints.Value{}, "0")
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.NumUnits, gc.Equals, 1)
+	c.Assert(f.args.Placement, gc.HasLen, 1)
+	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: instance.MachineScope, Directive: "0"})
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	envCons := constraints.MustParse("mem=2G")
-	err = s.State.SetEnvironConstraints(envCons)
-	c.Assert(err, jc.ErrorIsNil)
+	f := &fakeDeployer{State: s.State}
+
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	service, err := juju.DeployService(s.State,
+	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName:   "bob",
 			Charm:         s.charm,
@@ -197,79 +214,60 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			ToMachineSpec: fmt.Sprintf("%s:0", instance.LXC),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, service, serviceCons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-
-	// The newly created container will use the constraints.
-	id, err := units[0].AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err = s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	machineCons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	unitCons, err := units[0].Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineCons, gc.DeepEquals, *unitCons)
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.NumUnits, gc.Equals, 1)
+	c.Assert(f.args.Placement, gc.HasLen, 1)
+	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXC), Directive: "0"})
 }
 
 func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
-	c.Assert(err, jc.ErrorIsNil)
+	f := &fakeDeployer{State: s.State}
+
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	service, err := juju.DeployService(s.State,
+	placement := []*instance.Placement{
+		{Scope: s.State.EnvironUUID(), Directive: "valid"},
+		{Scope: "#", Directive: "0"},
+		{Scope: "lxc", Directive: "1"},
+		{Scope: "lxc", Directive: ""},
+	}
+	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
-			ServiceName: "bob",
-			Charm:       s.charm,
-			Constraints: serviceCons,
-			NumUnits:    3,
-			Placement: []*instance.Placement{
-				{Scope: s.State.EnvironUUID(), Directive: "valid"},
-				{Scope: "#", Directive: "0"},
-				{Scope: "lxc", Directive: "1"},
-			},
+			ServiceName:   "bob",
+			Charm:         s.charm,
+			Constraints:   serviceCons,
+			NumUnits:      4,
+			Placement:     placement,
 			ToMachineSpec: "will be ignored",
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, service, serviceCons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 3)
 
-	// Check each of the newly added units.
-	s.assertAssignedUnit(c, units[0], "1", constraints.MustParse("mem=2G cpu-cores=2"))
-	s.assertAssignedUnit(c, units[1], "0", constraints.Value{})
-	s.assertAssignedUnit(c, units[2], "1/lxc/0", constraints.MustParse("mem=2G cpu-cores=2"))
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.NumUnits, gc.Equals, 4)
+	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
-	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
-	c.Assert(err, jc.ErrorIsNil)
+	f := &fakeDeployer{State: s.State}
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	service, err := juju.DeployService(s.State,
+	placement := []*instance.Placement{{Scope: s.State.EnvironUUID(), Directive: "valid"}}
+	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName: "bob",
 			Charm:       s.charm,
 			Constraints: serviceCons,
 			NumUnits:    3,
-			Placement: []*instance.Placement{
-				{Scope: s.State.EnvironUUID(), Directive: "valid"},
-			},
+			Placement:   placement,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, service, serviceCons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 3)
-
-	// Check each of the newly added units.
-	s.assertAssignedUnit(c, units[0], "0", constraints.MustParse("mem=2G cpu-cores=2"))
-	s.assertAssignedUnit(c, units[1], "1", constraints.MustParse("mem=2G cpu-cores=2"))
-	s.assertAssignedUnit(c, units[2], "2", constraints.MustParse("mem=2G cpu-cores=2"))
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.NumUnits, gc.Equals, 3)
+	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
 func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string, cons constraints.Value) {
@@ -304,6 +302,19 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, len(expectIds))
+	// first manually tell state to assign all the units
+	for _, unit := range units {
+		id := unit.Tag().Id()
+		res, err := s.State.AssignStagedUnits([]string{id})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(res[0].Error, jc.ErrorIsNil)
+		c.Assert(res[0].Unit, gc.Equals, id)
+	}
+
+	// refresh the list of units from state
+	units, err = service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, len(expectIds))
 	unseenIds := set.NewStrings(expectIds...)
 	for _, unit := range units {
 		id, err := unit.AssignedMachineId()
@@ -316,4 +327,14 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 		c.Assert(cons, gc.DeepEquals, expectCons)
 	}
 	c.Assert(unseenIds, gc.DeepEquals, set.NewStrings())
+}
+
+type fakeDeployer struct {
+	*state.State
+	args state.AddServiceArgs
+}
+
+func (f *fakeDeployer) AddService(args state.AddServiceArgs) (*state.Service, error) {
+	f.args = args
+	return nil, nil
 }

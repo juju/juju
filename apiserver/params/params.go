@@ -195,6 +195,7 @@ type ServicesDeploy struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
+	Series        string
 	CharmUrl      string
 	NumUnits      int
 	Config        map[string]string
@@ -236,6 +237,7 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
+// TODO(wallyworld) - deprecated, remove when GUI updated.
 // ServiceSetYAML holds the parameters for
 // a ServiceSetYAML command. Config contains the
 // configuration data in YAML format.
@@ -411,7 +413,7 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.

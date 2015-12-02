@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -35,7 +36,10 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
+	if jujutesting.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1517632")
+	}
 	coretesting.MgoTestPackage(t)
 }
 
@@ -856,6 +860,46 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		vols := expected.Results[1].Result.Volumes
 		vols[0], vols[1] = vols[1], vols[0]
 	}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutStateServerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(c *gc.C) {
+	// Add an empty space.
+	_, err := s.State.AddSpace("empty", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consEmptySpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=empty")
+	consMissingSpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=missing")
+	templates := []state.MachineTemplate{{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: consEmptySpace,
+		Placement:   "valid",
+	}, {
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: consMissingSpace,
+		Placement:   "valid",
+	}}
+	placementMachines, err := s.State.AddMachines(templates...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(placementMachines, gc.HasLen, 2)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachines[0].Tag().String()},
+		{Tag: placementMachines[1].Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedErrorEmptySpace := `cannot match subnets to zones: ` +
+		`cannot use space "empty" as deployment target: no subnets`
+	expectedErrorMissingSpace := `cannot match subnets to zones: ` +
+		`space "missing"` // " not found" will be appended by NotFoundError helper below.
+	expected := params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{
+		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
+		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
+	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
