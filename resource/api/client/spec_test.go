@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -46,7 +47,7 @@ func (s *SpecSuite) SetUpTest(c *gc.C) {
 
 func (s *SpecSuite) TestListSpecsOkay(c *gc.C) {
 	expected, apiResult := newSpecResult(c, "a-service", "spam")
-	s.facade.APIResults["a-service"] = apiResult
+	s.facade.apiResults["a-service"] = apiResult
 
 	cl := client.NewClient(s.facade)
 
@@ -74,9 +75,9 @@ func (s *SpecSuite) TestListSpecsOkay(c *gc.C) {
 
 func (s *SpecSuite) TestListSpecsBulk(c *gc.C) {
 	expected1, apiResult1 := newSpecResult(c, "a-service", "spam")
-	s.facade.APIResults["a-service"] = apiResult1
+	s.facade.apiResults["a-service"] = apiResult1
 	expected2, apiResult2 := newSpecResult(c, "other-service", "eggs", "ham")
-	s.facade.APIResults["other-service"] = apiResult2
+	s.facade.apiResults["other-service"] = apiResult2
 
 	cl := client.NewClient(s.facade)
 
@@ -140,7 +141,7 @@ func (s *SpecSuite) TestListSpecsServiceNotFound(c *gc.C) {
 }
 
 func (s *SpecSuite) TestListSpecsServiceEmpty(c *gc.C) {
-	s.facade.APIResults["a-service"] = api.ResourceSpecsResult{}
+	s.facade.apiResults["a-service"] = api.ResourceSpecsResult{}
 
 	cl := client.NewClient(s.facade)
 
@@ -291,18 +292,18 @@ func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
 	return spec, apiSpec
 }
 
-// TODO(ericsnow) Move this to a common testing package.
-
 type stubFacade struct {
-	stub         *testing.Stub
-	APIResults   map[string]api.ResourceSpecsResult
-	FacadeCallFn func(name string, params, response interface{}) error
+	basetesting.StubFacadeCaller
+
+	apiResults map[string]api.ResourceSpecsResult
 }
 
 func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 	s := &stubFacade{
-		stub:       stub,
-		APIResults: make(map[string]api.ResourceSpecsResult),
+		StubFacadeCaller: basetesting.StubFacadeCaller{
+			Stub: stub,
+		},
+		apiResults: make(map[string]api.ResourceSpecsResult),
 	}
 
 	s.FacadeCallFn = func(_ string, args, response interface{}) error {
@@ -317,7 +318,7 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 			c.Assert(err, jc.ErrorIsNil)
 			service := tag.Id()
 
-			apiResult, ok := s.APIResults[service]
+			apiResult, ok := s.apiResults[service]
 			if !ok {
 				apiResult.Error = &params.Error{
 					Message: fmt.Sprintf("service %q not found", service),
@@ -332,21 +333,9 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 	return s
 }
 
-func (s *stubFacade) FacadeCall(request string, params, response interface{}) error {
-	s.stub.AddCall("FacadeCall", request, params, response)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if s.FacadeCallFn != nil {
-		return s.FacadeCallFn(request, params, response)
-	}
-	return nil
-}
-
 func (s *stubFacade) Close() error {
-	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
+	s.Stub.AddCall("Close")
+	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
