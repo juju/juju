@@ -1,10 +1,3 @@
-// This file is auto generated. Edits will be lost.
-
-package maas
-
-//go:generate make -q
-
-const bridgeScriptPythonBashDef = `python_script=$(cat <<'PYTHON_SCRIPT'
 #!/usr/bin/env python
 
 # Copyright 2015 Canonical Ltd.
@@ -349,5 +342,3 @@ if not ifup(args.bridge_name):
 print_shell_cmd("ifconfig -a")
 print_shell_cmd("ip route show")
 print_shell_cmd("brctl show")
-PYTHON_SCRIPT
-)`
