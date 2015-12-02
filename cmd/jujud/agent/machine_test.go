@@ -920,7 +920,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
-	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
+	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
@@ -935,7 +935,7 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	}
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageEnviron, a, done)
-	c.Assert(a.isAgentUpgradePending(), jc.IsFalse)
+	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsFalse)
 }
 
 var fastDialOpts = api.DialOpts{

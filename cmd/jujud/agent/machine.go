@@ -351,7 +351,11 @@ func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
 }
 
-func (a *MachineAgent) isAgentUpgradePending() bool {
+func (a *MachineAgent) isUpgradeRunning() bool {
+	return !a.upgradeComplete.IsUnlocked()
+}
+
+func (a *MachineAgent) isInitialUpgradeCheckPending() bool {
 	return !a.initialUpgradeCheckComplete.IsUnlocked()
 }
 
@@ -429,15 +433,14 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
-	agentConfig := a.CurrentConfig()
-
 	if upgradeComplete, err := upgradesteps.NewLock(a); err != nil {
 		return errors.Annotate(err, "error during creating upgrade completion channel")
 	} else {
 		a.upgradeComplete = upgradeComplete
 	}
-	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	a.configChangedVal.Set(struct{}{})
+
+	agentConfig := a.CurrentConfig()
 
 	createEngine := a.makeEngineCreator(
 		a.upgradeComplete,
@@ -1415,7 +1418,7 @@ func (a *MachineAgent) startEnvWorkers(
 
 	if machine.IsManager() {
 		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
-			return unitassigner.New(apiSt.UnitAssigner()), nil
+			return unitassigner.New(apiSt.UnitAssigner())
 		})
 	}
 
@@ -1561,7 +1564,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.isUpgradeRunning() || a.isAgentUpgradePending() {
+	if a.isUpgradeRunning() || a.isInitialUpgradeCheckPending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1948,15 +1951,6 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
-}
-
-func (a *MachineAgent) isUpgradeRunning() bool {
-	select {
-	case <-a.upgradeComplete:
-		return false
-	default:
-		return true
-	}
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
