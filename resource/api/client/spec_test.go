@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -53,7 +54,13 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	specs, err := cl.ListSpecs("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected, err := api.API2ResourceSpec(s.apiSpec)
+	info := charmresource.Info{
+		Name:    "spam",
+		Type:    charmresource.TypeFile,
+		Path:    "spam.tgz",
+		Comment: "you need it",
+	}
+	expected, err := resource.NewSpec(info, resource.OriginUpload, resource.NoRevision)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(specs, jc.DeepEquals, []resource.Spec{
 		expected,
