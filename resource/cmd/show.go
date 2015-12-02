@@ -17,8 +17,11 @@ import (
 
 // ShowAPI has the API methods needed by ShowCommand.
 type ShowAPI interface {
+	// ListSpecs lists the resource specs for each of the given services.
 	ListSpecs(services ...string) ([]resource.SpecsResult, error)
-	io.Closer
+
+	// Close closes the client.
+	Close() error
 }
 
 // ShowCommand implements the show-resources command.
