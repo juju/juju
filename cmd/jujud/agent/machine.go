@@ -431,7 +431,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 
-	if upgradeComplete, err := upgradesteps.NewChannel(a); err != nil {
+	if upgradeComplete, err := upgradesteps.NewLock(a); err != nil {
 		return errors.Annotate(err, "error during creating upgrade completion channel")
 	} else {
 		a.upgradeComplete = upgradeComplete
