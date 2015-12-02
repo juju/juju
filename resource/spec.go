@@ -6,6 +6,8 @@
 package resource
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/resource"
 )
@@ -16,45 +18,31 @@ import (
 const NoRevision = ""
 
 // Spec describes one resource that a service uses.
-type Spec interface {
+type Spec struct {
 	// Definition is the basic info about the resource.
-	Definition() resource.Info
+	Definition resource.Info
 
 	// Origin identifies where the resource should come from.
-	Origin() Origin
+	Origin Origin
 
 	// Revision is the desired revision of the resource. It returns ""
 	// for origins that do not support revisions.
-	Revision() string
+	Revision string
 }
 
-// NewSpec returns a new Spec for the given info.
-func NewSpec(info resource.Info, origin Origin, revision string) (Spec, error) {
-	switch origin {
-	case OriginUpload:
-		// TODO(ericsnow) Fail if revision not NoRevision?
-		return &uploadSpec{info}, nil
-	default:
-		return nil, errors.NotSupportedf("resource origin %q", origin)
+// Validate ensures that the spec is valid.
+func (s Spec) Validate() error {
+	if err := s.Definition.Validate(); err != nil {
+		return errors.NewNotValid(err, "")
 	}
-}
 
-// uploadSpec defines an *uploaded* resource that a service expects.
-type uploadSpec struct {
-	resource.Info
-}
-
-// Definition implements Spec.
-func (res uploadSpec) Definition() resource.Info {
-	return res.Info
-}
-
-// Origin implements Spec.
-func (res uploadSpec) Origin() Origin {
-	return OriginUpload
-}
-
-// Revision implements Spec.
-func (res uploadSpec) Revision() string {
-	return NoRevision
+	switch s.Origin {
+	case OriginUpload:
+		if s.Revision != "" {
+			return errors.NewNotValid(nil, `"upload" specs don't have revisions`)
+		}
+		return nil
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("resource origin %q", s.Origin))
+	}
 }

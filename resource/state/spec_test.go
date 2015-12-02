@@ -81,14 +81,16 @@ func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
 			Type: charmresource.TypeFile,
 			Path: name + ".tgz",
 		}
+
+		spec := resource.Spec{
+			Definition: info,
+			Origin:     resource.OriginUpload,
+		}
+		specs = append(specs, spec)
+
 		res := charmresource.Resource{
 			Info: info,
 		}
-
-		spec, err := resource.NewSpec(info, resource.OriginUpload, "")
-		c.Assert(err, jc.ErrorIsNil)
-
-		specs = append(specs, spec)
 		resources[info.Name] = res
 	}
 	return specs, &charm.Meta{

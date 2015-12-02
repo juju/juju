@@ -19,63 +19,64 @@ type specSuite struct {
 	testing.IsolationSuite
 }
 
-func (specSuite) TestNewSpecUpload(c *gc.C) {
-	info := charmresource.Info{
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need it",
+func (specSuite) TestValidateUploadOkay(c *gc.C) {
+	spec := resource.Spec{
+		Definition: charmresource.Info{
+			Name:    "spam",
+			Type:    charmresource.TypeFile,
+			Path:    "spam.tgz",
+			Comment: "you need it",
+		},
+		Origin:   resource.OriginUpload,
+		Revision: resource.NoRevision,
 	}
-	origin := resource.OriginUpload
-	revision := resource.NoRevision
 
-	spec, err := resource.NewSpec(info, origin, revision)
-	c.Assert(err, jc.ErrorIsNil)
+	err := spec.Validate()
 
-	c.Check(spec.Definition(), jc.DeepEquals, info)
-	c.Check(spec.Origin(), gc.Equals, origin)
-	c.Check(spec.Revision(), gc.Equals, revision)
+	c.Check(err, jc.ErrorIsNil)
 }
 
-func (specSuite) TestNewSpecEmptyInfo(c *gc.C) {
-	var info charmresource.Info
-	origin := resource.OriginUpload
-	revision := resource.NoRevision
+func (specSuite) TestValidateUploadHasRevision(c *gc.C) {
+	spec := resource.Spec{
+		Definition: charmresource.Info{
+			Name: "spam",
+			Type: charmresource.TypeFile,
+			Path: "spam.tgz",
+		},
+		Origin:   resource.OriginUpload,
+		Revision: "???",
+	}
 
-	spec, err := resource.NewSpec(info, origin, revision)
-	c.Assert(err, jc.ErrorIsNil)
+	err := spec.Validate()
 
-	c.Check(spec.Definition(), jc.DeepEquals, info)
-	c.Check(spec.Origin(), gc.Equals, origin)
-	c.Check(spec.Revision(), gc.Equals, revision)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `.*don't have revisions.*`)
 }
 
-func (specSuite) TestNewSpecEmptyOrigin(c *gc.C) {
-	info := charmresource.Info{
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need it",
+func (specSuite) TestValidateUnknownOrigin(c *gc.C) {
+	spec := resource.Spec{
+		Definition: charmresource.Info{
+			Name: "spam",
+			Type: charmresource.TypeFile,
+			Path: "spam.tgz",
+		},
+		Origin:   resource.OriginUnknown,
+		Revision: resource.NoRevision,
 	}
-	revision := resource.NoRevision
 
-	_, err := resource.NewSpec(info, "", revision)
+	err := spec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `.*origin.*`)
 }
 
-func (specSuite) TestNewSpecUnknownOrigin(c *gc.C) {
-	info := charmresource.Info{
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need it",
+func (specSuite) TestValidateEmptyInfo(c *gc.C) {
+	spec := resource.Spec{
+		Origin:   resource.OriginUpload,
+		Revision: resource.NoRevision,
 	}
-	revision := resource.NoRevision
 
-	_, err := resource.NewSpec(info, "<bogus>", revision)
+	err := spec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
-	c.Check(err, gc.ErrorMatches, `.*origin.*`)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }

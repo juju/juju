@@ -13,20 +13,22 @@ import (
 // ResourceSpec2API converts a resource.Spec into
 // a ResourceSpec struct.
 func ResourceSpec2API(r resource.Spec) ResourceSpec {
-	info := r.Definition()
+	info := r.Definition
 	return ResourceSpec{
 		Name:     info.Name,
 		Type:     info.Type.String(),
 		Path:     info.Path,
 		Comment:  info.Comment,
-		Origin:   r.Origin().String(),
-		Revision: r.Revision(),
+		Origin:   r.Origin.String(),
+		Revision: r.Revision,
 	}
 }
 
 // API2ResourceSpec converts an API ResourceSpec info struct into
 // a resource.Spec.
 func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
+	var spec resource.Spec
+
 	rtype, _ := charmresource.ParseType(apiSpec.Type)
 	info := charmresource.Info{
 		Name:    apiSpec.Name,
@@ -34,16 +36,18 @@ func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 		Path:    apiSpec.Path,
 		Comment: apiSpec.Comment,
 	}
-	// TODO(ericsnow) Call info.Validate()?
+	spec.Definition = info
 
 	origin, ok := resource.ParseOrigin(apiSpec.Origin)
 	if !ok {
-		return nil, errors.Trace(origin.Validate())
+		return spec, errors.Trace(origin.Validate())
 	}
+	spec.Origin = origin
 
-	res, err := resource.NewSpec(info, origin, apiSpec.Revision)
-	if err != nil {
-		return nil, errors.Trace(err)
+	spec.Revision = apiSpec.Revision
+
+	if err := spec.Validate(); err != nil {
+		return spec, errors.Trace(err)
 	}
-	return res, nil
+	return spec, nil
 }

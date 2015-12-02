@@ -108,7 +108,12 @@ func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
 		Type: charmresource.TypeFile,
 		Path: name + ".tgz",
 	}
-	spec, err := resource.NewSpec(info, resource.OriginUpload, "")
+	spec := resource.Spec{
+		Definition: info,
+		Origin:     resource.OriginUpload,
+		Revision:   resource.NoRevision,
+	}
+	err := spec.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiSpec := api.ResourceSpec{

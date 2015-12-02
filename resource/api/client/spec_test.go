@@ -63,7 +63,12 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 		Path:    "spam.tgz",
 		Comment: "you need it",
 	}
-	expected, err := resource.NewSpec(info, resource.OriginUpload, resource.NoRevision)
+	expected := resource.Spec{
+		Definition: info,
+		Origin:     resource.OriginUpload,
+		Revision:   resource.NoRevision,
+	}
+	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(specs, jc.DeepEquals, [][]resource.Spec{{
 		expected,
