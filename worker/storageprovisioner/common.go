@@ -13,13 +13,14 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/watcher"
 )
 
 // storageEntityLife queries the lifecycle state of each specified
 // storage entity (volume or filesystem), and then partitions the
 // tags by them.
 func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []names.Tag, _ error) {
-	lifeResults, err := ctx.life.Life(tags)
+	lifeResults, err := ctx.config.Life.Life(tags)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
@@ -47,7 +48,7 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 	alive, dying, dead []params.MachineStorageId, _ error,
 ) {
-	lifeResults, err := ctx.life.AttachmentLife(ids)
+	lifeResults, err := ctx.config.Life.AttachmentLife(ids)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
@@ -76,7 +77,7 @@ func removeEntities(ctx *context, tags []names.Tag) error {
 		return nil
 	}
 	logger.Debugf("removing entities: %v", tags)
-	errorResults, err := ctx.life.Remove(tags)
+	errorResults, err := ctx.config.Life.Remove(tags)
 	if err != nil {
 		return errors.Annotate(err, "removing storage entities")
 	}
@@ -93,7 +94,7 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	errorResults, err := ctx.life.RemoveAttachments(ids)
+	errorResults, err := ctx.config.Life.RemoveAttachments(ids)
 	if err != nil {
 		return errors.Annotate(err, "removing attachments")
 	}
@@ -112,7 +113,7 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 // the status fails the error is logged but otherwise ignored.
 func setStatus(ctx *context, statuses []params.EntityStatusArgs) {
 	if len(statuses) > 0 {
-		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
+		if err := ctx.config.Status.SetStatus(statuses); err != nil {
 			logger.Errorf("failed to set status: %v", err)
 		}
 	}
@@ -186,4 +187,15 @@ func sourceParams(providerType storage.ProviderType, sourceName, baseStorageDir 
 		return nil, nil, errors.Annotate(err, "getting config")
 	}
 	return provider, sourceConfig, nil
+}
+
+func copyMachineStorageIds(src []watcher.MachineStorageId) []params.MachineStorageId {
+	dst := make([]params.MachineStorageId, len(src))
+	for i, msid := range src {
+		dst[i] = params.MachineStorageId{
+			MachineTag:    msid.MachineTag,
+			AttachmentTag: msid.AttachmentTag,
+		}
+	}
+	return dst
 }

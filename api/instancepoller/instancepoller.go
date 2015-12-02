@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const instancePollerFacade = "InstancePoller"
@@ -44,7 +45,7 @@ func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
 	return &Machine{api.facade, tag, life}, nil
 }
 
-var newStringsWatcher = watcher.NewStringsWatcher
+var newStringsWatcher = apiwatcher.NewStringsWatcher
 
 // WatchEnvironMachines return a StringsWatcher reporting waiting for the
 // environment configuration to change.

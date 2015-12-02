@@ -5,8 +5,6 @@
 package instancepoller
 
 import (
-	"errors"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -15,39 +13,13 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&updaterSuite{})
 
 type updaterSuite struct {
 	coretesting.BaseSuite
-}
-
-func (*updaterSuite) TestStopsWatcher(c *gc.C) {
-	context := &testUpdaterContext{
-		dyingc: make(chan struct{}),
-	}
-	expectErr := errors.New("some error")
-	watcher := &testMachinesWatcher{
-		changes: make(chan []string),
-		err:     expectErr,
-	}
-	done := make(chan error)
-	go func() {
-		done <- watchMachinesLoop(context, watcher)
-	}()
-	close(context.dyingc)
-	select {
-	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, ".*"+expectErr.Error())
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
-	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
@@ -116,7 +88,6 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
@@ -172,10 +143,10 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
-	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
 type testUpdaterContext struct {
+	updaterContext
 	newMachineContextFunc func() machineContext
 	getMachineFunc        func(tag names.MachineTag) (machine, error)
 	dyingc                chan struct{}
@@ -193,21 +164,20 @@ func (context *testUpdaterContext) dying() <-chan struct{} {
 	return context.dyingc
 }
 
+func (context *testUpdaterContext) errDying() error {
+	return nil
+}
+
 type testMachinesWatcher struct {
-	stopped bool
+	watcher.StringsWatcher
 	changes chan []string
 	err     error
 }
 
-func (w *testMachinesWatcher) Changes() <-chan []string {
+func (w *testMachinesWatcher) Changes() watcher.StringsChannel {
 	return w.changes
 }
 
-func (w *testMachinesWatcher) Stop() error {
-	w.stopped = true
-	return w.err
-}
-
-func (w *testMachinesWatcher) Err() error {
+func (w *testMachinesWatcher) Wait() error {
 	return w.err
 }

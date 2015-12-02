@@ -6,10 +6,11 @@ package apiaddressupdater
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -39,17 +40,27 @@ type APIAddressSetter interface {
 
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
 // API addresses and then sets them on the APIAddressSetter.
-func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) worker.Worker {
-	return worker.NewNotifyWorker(&APIAddressUpdater{
+// TODO(fwereade): this should have a config struct, and some validation.
+func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) (worker.Worker, error) {
+	handler := &APIAddressUpdater{
 		addresser: addresser,
 		setter:    setter,
+	}
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: handler,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
+// SetUp is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
 	return c.addresser.WatchAPIHostPorts()
 }
 
+// Handle is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	addresses, err := c.addresser.APIHostPorts()
 	if err != nil {
@@ -78,6 +89,7 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	return nil
 }
 
+// TearDown is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) TearDown() error {
 	return nil
 }

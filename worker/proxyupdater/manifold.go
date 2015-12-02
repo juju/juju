@@ -26,5 +26,5 @@ func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO(fwereade): This shouldn't be an "environment" facade, it
 	// should be specific to the proxyupdater, and be watching for
 	// *proxy settings* changes, not just watching the "environment".
-	return New(environment.NewFacade(apiCaller), false), nil
+	return New(environment.NewFacade(apiCaller), false)
 }

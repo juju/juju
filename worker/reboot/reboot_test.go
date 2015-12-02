@@ -44,8 +44,6 @@ type rebootSuite struct {
 
 var _ = gc.Suite(&rebootSuite{})
 
-var _ worker.NotifyWatchHandler = (*reboot.Reboot)(nil)
-
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	template := state.MachineTemplate{

@@ -9,8 +9,9 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an reboot worker's view of the state.
@@ -41,7 +42,7 @@ func (st *State) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 		return nil, result.Error
 	}
 
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
