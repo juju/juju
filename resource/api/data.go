@@ -76,20 +76,20 @@ func NewSpecsResult(tagStr string) (SpecsResult, string) {
 // ResourceSpec contains the definition for a resource.
 type ResourceSpec struct {
 	// Name identifies the resource.
-	Name string
+	Name string `json:"name"`
 
 	// Type is the name of the resource type.
-	Type string
+	Type string `json:"type"`
 
 	// Path is where the resource will be stored.
-	Path string
+	Path string `json:"path"`
 
 	// Comment contains user-facing info about the resource.
-	Comment string
+	Comment string `json:"comment,omitempty"`
 
 	// Origin is where the resource will come from.
-	Origin string
+	Origin string `json:"origin"`
 
 	// Revision is the desired revision, if applicable.
-	Revision string
+	Revision string `json:"revision"`
 }
