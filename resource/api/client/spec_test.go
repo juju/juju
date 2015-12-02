@@ -46,8 +46,7 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 		typedResponse, ok := response.(*api.ResourceSpecsResults)
 		c.Assert(ok, gc.Equals, true)
 		typedResponse.Results = append(typedResponse.Results, api.ResourceSpecsResult{
-			Entity: params.Entity{Tag: "service-a-service"},
-			Specs:  []api.ResourceSpec{s.apiSpec},
+			Specs: []api.ResourceSpec{s.apiSpec},
 		})
 		return nil
 	}
@@ -83,8 +82,7 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 		},
 		&api.ResourceSpecsResults{
 			Results: []api.ResourceSpecsResult{{
-				Entity: params.Entity{Tag: "service-a-service"},
-				Specs:  []api.ResourceSpec{s.apiSpec},
+				Specs: []api.ResourceSpec{s.apiSpec},
 			}},
 		},
 	)

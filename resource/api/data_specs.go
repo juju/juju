@@ -40,7 +40,6 @@ type ResourceSpecsResults struct {
 // ResourceSpecsResult holds the specs that result from an API call
 // for a single service.
 type ResourceSpecsResult struct {
-	params.Entity
 	params.ErrorResult
 
 	// Specs is the list of specs for the service.

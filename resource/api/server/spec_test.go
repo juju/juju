@@ -50,7 +50,6 @@ func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 
 	c.Check(apiSpecs, jc.DeepEquals, api.ResourceSpecsResults{
 		Results: []api.ResourceSpecsResult{{
-			Entity: params.Entity{Tag: "service-a-service"},
 			Specs: []api.ResourceSpec{
 				apiSpec1,
 				apiSpec2,
@@ -73,7 +72,7 @@ func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
 
 	c.Check(apiSpecs, jc.DeepEquals, api.ResourceSpecsResults{
 		Results: []api.ResourceSpecsResult{{
-			Entity: params.Entity{Tag: "service-a-service"},
+			Specs: nil,
 		}},
 	})
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
@@ -93,7 +92,6 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, api.ResourceSpecsResults{
 		Results: []api.ResourceSpecsResult{{
-			Entity: params.Entity{Tag: "service-a-service"},
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",
 			}},
