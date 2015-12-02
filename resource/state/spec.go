@@ -38,14 +38,6 @@ func (st specState) ListResourceSpecs(serviceID string) ([]resource.Spec, error)
 	return specs, nil
 }
 
-func metadata(raw rawSpecState, serviceID string) (*charm.Meta, error) {
-	meta, err := raw.CharmMetadata(serviceID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return meta, nil
-}
-
 func newSpec(res charmresource.Resource, serviceID string) (resource.Spec, error) {
 	// TODO(ericsnow) For now uploads are the only supported origin.
 	// Once that changes, this code will need to adjust.
