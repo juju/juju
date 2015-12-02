@@ -41,7 +41,11 @@ func (c resources) registerPublicFacade() {
 	)
 }
 
-func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, _ common.Authorizer) (*server.Facade, error) {
+func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+
 	rst := state.NewState(&resourceState{raw: st})
 	return server.NewFacade(rst), nil
 }
