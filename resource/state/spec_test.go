@@ -68,9 +68,7 @@ func (s *specSuite) TestListResourceSpecCharmMetadataError(c *gc.C) {
 	s.stub.CheckCallNames(c, "CharmMetadata")
 }
 
-func (s *specSuite) TestListResourceSpecBadNewSpec(c *gc.C) {
-	c.Skip("for now there is no way for newSpec to fail")
-}
+// TODO(ericsnow) Once there is a way for newSpec() to fail, add a test.
 
 func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
 	var specs []resource.Spec
