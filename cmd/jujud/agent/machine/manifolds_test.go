@@ -41,7 +41,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"agent",
 		"termination",
 		"api-caller",
-		"api-info-gate",
 		"upgrade-steps-gate",
 		"upgrade-check-gate",
 		"upgrader",
