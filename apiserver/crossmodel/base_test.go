@@ -8,19 +8,19 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/model/crossmodel"
 )
 
 const (
-	addOfferBackendCall           = "AddOffer"
-	listOffersBackendCall         = "ListOffers"
-	listRemoteServicesBackendCall = "ListRemoteServices"
+	addOfferBackendCall            = "AddOffer"
+	listOfferedServicesBackendCall = "ListOfferedServices"
+	listDirectoryOffersBackendCall = "ListDirectoryOffers"
 )
 
 type baseCrossmodelSuite struct {
@@ -36,17 +36,15 @@ type baseCrossmodelSuite struct {
 	serviceBackend *mockServiceBackend
 }
 
-func (s *baseCrossmodelSuite) addService(c *gc.C, name string) crossmodel.ServiceOffer {
+func (s *baseCrossmodelSuite) addService(c *gc.C, name string) crossmodel.OfferedService {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, name, ch)
 
-	cfg, _ := s.State.EnvironConfig()
-	return crossmodel.ServiceOffer{
-		ServiceName:        name,
-		ServiceDescription: ch.Meta().Description,
-		SourceLabel:        cfg.Name(),
-		SourceEnvUUID:      s.State.EnvironUUID(),
-		Endpoints:          []charm.Relation{},
+	return crossmodel.OfferedService{
+		ServiceName: name,
+		CharmName:   ch.Meta().Name,
+		Endpoints:   map[string]string{"db": "db"},
+		Description: ch.Meta().Description,
 	}
 }
 
@@ -65,22 +63,22 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 type mockServiceBackend struct {
 	jtesting.Stub
 
-	addOffer           func(offer crossmodel.ServiceOffer) error
-	listOffers         func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
-	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error)
+	addOffer            func(offer crossmodel.OfferedService) error
+	listOfferedServices func(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error)
+	listDirectoryOffers func(filter params.OfferFilters) (params.ServiceOfferResults, error)
 }
 
-func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
+func (m *mockServiceBackend) AddOffer(offer crossmodel.OfferedService) error {
 	m.MethodCall(m, addOfferBackendCall, offer)
 	return m.addOffer(offer)
 }
 
-func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	m.MethodCall(m, listOffersBackendCall, filters)
-	return m.listOffers(filters...)
+func (m *mockServiceBackend) ListOfferedServices(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
+	m.MethodCall(m, listOfferedServicesBackendCall, filter)
+	return m.listOfferedServices(filter...)
 }
 
-func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
-	m.MethodCall(m, listRemoteServicesBackendCall, filters)
-	return m.listRemoteServices(filters...)
+func (m *mockServiceBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+	m.MethodCall(m, listDirectoryOffersBackendCall, filter)
+	return m.listDirectoryOffers(filter)
 }

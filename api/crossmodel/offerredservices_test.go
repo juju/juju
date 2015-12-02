@@ -65,6 +65,8 @@ func (s *offeredServicesSuite) TestOfferedServices(c *gc.C) {
 		{
 			ServiceURL:  "local:/u/user/servicename",
 			ServiceName: "service",
+			CharmName:   "charm",
+			Description: "description",
 			Endpoints:   map[string]string{"foo": "bar"},
 			Registered:  true,
 		},

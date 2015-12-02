@@ -7,14 +7,18 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type stateAccessor interface {
+type stateAccess interface {
+	Service(name string) (service *state.Service, err error)
+
+	EnvironUUID() string
+
 	WatchOfferedServices() state.StringsWatcher
 }
 
-type storageStateShim struct {
-	*state.State
+var getStateAccess = func(st *state.State) stateAccess {
+	return stateShim{st}
 }
 
-var getState = func(st *state.State) stateAccessor {
-	return storageStateShim{st}
+type stateShim struct {
+	*state.State
 }

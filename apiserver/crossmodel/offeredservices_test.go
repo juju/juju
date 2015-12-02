@@ -106,12 +106,16 @@ func (s *offeredServicesSuite) TestListOffers(c *gc.C) {
 	s.offers["local:/u/user/servicename"] = jujucrossmodel.OfferedService{
 		ServiceURL:  "local:/u/user/servicename",
 		ServiceName: "service",
+		CharmName:   "charm",
+		Description: "description",
 		Registered:  true,
 		Endpoints:   map[string]string{"foo": "bar"},
 	}
 	s.offers["local:/u/user/anothername"] = jujucrossmodel.OfferedService{
 		ServiceURL:  "local:/u/user/anothername",
 		ServiceName: "service2",
+		CharmName:   "charm2",
+		Description: "description2",
 		Registered:  true,
 		Endpoints:   map[string]string{"db": "db"},
 	}
@@ -129,6 +133,8 @@ func (s *offeredServicesSuite) TestListOffersNoneFound(c *gc.C) {
 	s.offers["local:/u/user/servicename"] = jujucrossmodel.OfferedService{
 		ServiceURL:  "local:/u/user/servicename",
 		ServiceName: "service",
+		CharmName:   "charm",
+		Description: "description",
 		Registered:  true,
 		Endpoints:   map[string]string{"foo": "bar"},
 	}

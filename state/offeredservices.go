@@ -26,6 +26,12 @@ type offeredServiceDoc struct {
 	// ServiceName is the name of the service.
 	ServiceName string `bson:"servicename"`
 
+	// CharmName is the name of the charm usd to deploy the service.
+	CharmName string `bson:"charmname"`
+
+	// Description is the description of the service.
+	Description string `bson:"description"`
+
 	// Endpoints is the collection of endpoint names offered (internal->published).
 	// The map allows for advertised endpoint names to be aliased.
 	Endpoints map[string]string `bson:"endpoints"`
@@ -142,6 +148,8 @@ func (s *offeredServices) makeOfferedServiceDoc(offer crossmodel.OfferedService)
 		DocID:       offer.ServiceURL,
 		URL:         offer.ServiceURL,
 		ServiceName: offer.ServiceName,
+		CharmName:   offer.CharmName,
+		Description: offer.Description,
 		Registered:  true,
 	}
 	eps := make(map[string]string, len(offer.Endpoints))
@@ -156,6 +164,9 @@ func (s *offeredServices) makeFilterTerm(filterTerm crossmodel.OfferedServiceFil
 	var filter bson.D
 	if filterTerm.ServiceName != "" {
 		filter = append(filter, bson.DocElem{"servicename", filterTerm.ServiceName})
+	}
+	if filterTerm.CharmName != "" {
+		filter = append(filter, bson.DocElem{"charmname", filterTerm.CharmName})
 	}
 	if filterTerm.Registered != nil {
 		filter = append(filter, bson.DocElem{"registered", *filterTerm.Registered})
@@ -202,6 +213,8 @@ func (s *offeredServices) makeServiceOffer(doc offeredServiceDoc) crossmodel.Off
 	offer := crossmodel.OfferedService{
 		ServiceURL:  doc.URL,
 		ServiceName: doc.ServiceName,
+		CharmName:   doc.CharmName,
+		Description: doc.Description,
 		Registered:  doc.Registered,
 	}
 	offer.Endpoints = make(map[string]string, len(doc.Endpoints))

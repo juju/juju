@@ -117,10 +117,11 @@ type ShowFilter struct {
 }
 
 // OfferedService represents attributes for an offered service.
-// TODO(wallyworld) - consolidate this with the CLI when possible.
 type OfferedService struct {
 	ServiceURL  string            `json:"serviceurl"`
 	ServiceName string            `json:"servicename"`
+	CharmName   string            `json:"charmname"`
+	Description string            `json:"description"`
 	Registered  bool              `json:"registered"`
 	Endpoints   map[string]string `json:"endpoints"`
 }

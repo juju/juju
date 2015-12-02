@@ -38,6 +38,7 @@ func init() {
 	gc.Suite(&dumpLogsCommandSuite{})
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&upgradeSuite{})
+	gc.Suite(&crossmodelSuite{})
 }
 
 func TestPackage(t *stdtesting.T) {

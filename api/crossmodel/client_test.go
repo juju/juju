@@ -122,9 +122,9 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
 
-			args, ok := a.([]string)
+			args, ok := a.(params.ShowFilter)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args, gc.DeepEquals, []string{url})
+			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.RemoteServiceResults); ok {
 				points.Results = []params.RemoteServiceResult{
@@ -166,9 +166,9 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
 
-			args, ok := a.([]string)
+			args, ok := a.(params.ShowFilter)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args, gc.DeepEquals, []string{url})
+			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.RemoteServiceResults); ok {
 				points.Results = []params.RemoteServiceResult{
@@ -208,9 +208,9 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
 
-			args, ok := a.([]string)
+			args, ok := a.(params.ShowFilter)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args, gc.DeepEquals, []string{url})
+			c.Assert(args.URLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.RemoteServiceResults); ok {
 				points.Results = []params.RemoteServiceResult{

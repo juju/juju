@@ -60,7 +60,7 @@ type offerCommand struct {
 	CrossModelCommandBase
 	newAPIFunc func() (OfferAPI, error)
 
-	// Service stores service tag.
+	// Service stores service name.
 	Service string
 
 	// Endpoints stores a list of endpoints that are being offered.
@@ -154,7 +154,7 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 	if !names.IsValidService(serviceName) {
 		return errors.NotValidf(`service name %q`, serviceName)
 	}
-	c.Service = names.NewServiceTag(serviceName).String()
+	c.Service = serviceName
 
 	endpoints := strings.SplitN(parts[1], ",", -1)
 	if len(endpoints) < 1 || endpoints[0] == "" {
@@ -162,5 +162,13 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 	}
 
 	c.Endpoints = endpoints
+	if c.URL == "" {
+		// TODO (wallyworld) - do this serverside after results struct is changed
+		cred, err := c.ConnectionCredentials()
+		if err != nil {
+			return err
+		}
+		c.URL = fmt.Sprintf("local:/u/%s/%s/%s", cred.User, c.EnvName(), serviceName)
+	}
 	return nil
 }
