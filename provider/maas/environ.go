@@ -118,7 +118,7 @@ func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, add
 			// We only need the first address, but we're logging all we got.
 			firstAddress = network.NewAddress(value)
 		}
-		logger.Debugf("reserved address %q for device %q", value)
+		logger.Debugf("reserved address %q for device %q", value, deviceId)
 	}
 	return firstAddress, nil
 }
