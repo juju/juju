@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
 )
 
@@ -49,26 +50,26 @@ var (
 	UpgradeStartTimeoutSecondary = time.Hour * 4
 )
 
-// NewChannel creates a channel to be used to synchronise workers
-// which need to start after upgrades have completed. If no upgrade
-// steps are required the channel is returned closed and the agent's
-// configuration is updated.
+// NewLock creates a gate.Lock to be used to synchronise workers which
+// need to start after upgrades have completed. If no upgrade steps
+// are required the Lock is unlocked and the version in agent's
+// configuration is updated to the currently running version.
 //
-// The returned channel should be passed to NewWorker.
-func NewChannel(a agent.Agent) (chan struct{}, error) {
-	ch := make(chan struct{})
+// The returned Lock should be passed to NewWorker.
+func NewLock(a agent.Agent) (gate.Lock, error) {
+	lock := gate.NewLock()
 
 	if wrench.IsActive("machine-agent", "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
-		return ch, nil
+		return lock, nil
 	}
 
 	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
 				"have already been run.", version.Current)
-			c.UpgradeComplete.Unlock()
+			lock.Unlock()
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
@@ -79,7 +80,7 @@ func NewChannel(a agent.Agent) (chan struct{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ch, nil
+	return lock, nil
 }
 
 // StatusSetter defines the single method required to set an agent's
@@ -92,7 +93,7 @@ type StatusSetter interface {
 // will run any required steps to upgrade to the currently running
 // Juju version.
 func NewWorker(
-	upgradeComplete chan struct{},
+	upgradeComplete gate.Lock,
 	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
@@ -121,7 +122,7 @@ func NewWorker(
 
 type upgradesteps struct {
 	tomb            tomb.Tomb
-	upgradeComplete chan struct{}
+	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
@@ -164,17 +165,17 @@ func (w *upgradesteps) run() error {
 		return nil // Make the worker stop
 	}
 
-	if c.UpgradeComplete.IsUnlocked() {
+	if w.upgradeComplete.IsUnlocked() {
 		// Our work is already done (we're probably being restarted
 		// because the API connection has gone down), so do nothing.
 		return nil
 	}
 
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
-	c.toVersion = version.Current
-	if c.fromVersion == c.toVersion {
-		logger.Infof("upgrade to %v already completed.", c.toVersion)
-		c.UpgradeComplete.Unlock()
+	w.toVersion = version.Current
+	if w.fromVersion == w.toVersion {
+		logger.Infof("upgrade to %v already completed.", w.toVersion)
+		w.upgradeComplete.Unlock()
 		return nil
 	}
 
@@ -220,7 +221,7 @@ func (w *upgradesteps) run() error {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
 		w.machine.SetStatus(params.StatusStarted, "", nil)
-		c.UpgradeComplete.Unlock()
+		w.upgradeComplete.Unlock()
 	}
 	return nil
 }
