@@ -505,10 +505,7 @@ func (svc *backingRemoteService) updated(st *State, store *multiwatcherStore, id
 	}
 	serviceStatus, err := service.Status()
 	if err != nil {
-		logger.Warningf("reading remote service status for key %s: %v", key, err)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "reading service status for key %s", key)
+		return errors.Annotatef(err, "reading remote service status for key %s", key)
 	}
 	info.Status = multiwatcher.StatusInfo{
 		Current: multiwatcher.Status(serviceStatus.Status),
