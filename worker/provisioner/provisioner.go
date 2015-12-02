@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -195,7 +194,7 @@ func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	if err := p.catacomb.Add(environWatcher); err != nil {
 		return errors.Trace(err)
@@ -207,14 +206,14 @@ func (p *environProvisioner) loop() error {
 		if err == environ.ErrWaitAborted {
 			return p.catacomb.ErrDying()
 		}
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
 
 	harvestMode := p.environ.Config().ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return utils.LoggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)

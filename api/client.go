@@ -4,8 +4,6 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
@@ -138,16 +135,6 @@ func (c *Client) PrivateAddress(target string) (string, error) {
 	return results.PrivateAddress, err
 }
 
-// ServiceSetYAML sets configuration options on a service
-// given options in YAML format.
-func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := params.ServiceSetYAML{
-		ServiceName: service,
-		Config:      yaml,
-	}
-	return c.facade.FacadeCall("ServiceSetYAML", p, nil)
-}
-
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	var results params.ServiceGetResults
@@ -262,49 +249,6 @@ func (c *Client) ServiceDeployWithNetworks(
 		Networks:      networks,
 	}
 	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
-}
-
-// ServiceDeploy obtains the charm, either locally or from the charm store,
-// and deploys it.
-func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
-	params := params.ServiceDeploy{
-		ServiceName:   serviceName,
-		CharmUrl:      charmURL,
-		NumUnits:      numUnits,
-		ConfigYAML:    configYAML,
-		Constraints:   cons,
-		ToMachineSpec: toMachineSpec,
-	}
-	return c.facade.FacadeCall("ServiceDeploy", params, nil)
-}
-
-// ServiceUpdate updates the service attributes, including charm URL,
-// minimum number of units, settings and constraints.
-// TODO(frankban) deprecate redundant API calls that this supercedes.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	return c.facade.FacadeCall("ServiceUpdate", args, nil)
-}
-
-// ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
-	args := params.ServiceSetCharm{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		Force:       force,
-	}
-	return c.facade.FacadeCall("ServiceSetCharm", args, nil)
-}
-
-// ServiceGetCharmURL returns the charm URL the given service is
-// running at present.
-func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	result := new(params.StringResult)
-	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.facade.FacadeCall("ServiceGetCharmURL", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	return charm.ParseURL(result.Result)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -695,8 +639,8 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Maca
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.Reference{*ref}}
+func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.URL{*ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -712,64 +656,35 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
-	// Prepare the upload request.
-	query := fmt.Sprintf("binaryVersion=%s&series=%s",
-		vers,
-		strings.Join(additionalSeries, ","),
-	)
+func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
+	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
 
-	endpoint, err := c.st.apiEndpoint("/tools", query)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	req, err := http.NewRequest("POST", endpoint.String(), r)
+	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
-	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
 
-	// Send the request.
-
-	// BUG(dimitern) 2013-12-17 bug #1261780
-	// Due to issues with go 1.1.2, fixed later, we cannot use a
-	// regular TLS client with the CACert here, because we get "x509:
-	// cannot validate certificate for 127.0.0.1 because it doesn't
-	// contain any IP SANs". Once we use a later go version, this
-	// should be changed to connect to the API server with a regular
-	// HTTP+TLS enabled client, using the CACert (possily cached, like
-	// the tag and password) passed in api.Open()'s info argument.
-	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	httpClient, err := c.st.HTTPClient()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload tools")
+		return nil, errors.Trace(err)
 	}
-	defer resp.Body.Close()
-
-	// Now parse the response & return.
-	body, err := ioutil.ReadAll(resp.Body)
+	var resp params.ToolsResult
+	err = httpClient.Do(req, r, &resp)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read tools upload response")
-	}
-	if resp.StatusCode != http.StatusOK {
-		// TODO (2015/09/15, bug #1499277) parse as JSON not as text.
-		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
-		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, params.CodeOperationBlocked) {
-			// Operation Blocked errors must contain correct error code and message.
-			return nil, &params.Error{Code: params.CodeOperationBlocked, Message: message}
+		msg := err.Error()
+		if params.ErrCode(err) == "" && strings.Contains(msg, params.CodeOperationBlocked) {
+			// We're probably talking to an old version of the API server
+			// that doesn't provide error codes.
+			// See https://bugs.launchpad.net/juju-core/+bug/1499277
+			err = &params.Error{
+				Code:    params.CodeOperationBlocked,
+				Message: msg,
+			}
 		}
-		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, message)
+		return nil, errors.Trace(err)
 	}
-
-	var jsonResponse params.ToolsResult
-	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshal upload response")
-	}
-	if err := jsonResponse.Error; err != nil {
-		return nil, errors.Annotate(err, "error uploading tools")
-	}
-	return jsonResponse.Tools, nil
+	return resp.Tools, nil
 }
 
 // APIHostPorts returns a slice of network.HostPort for each API server.

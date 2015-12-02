@@ -57,11 +57,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:       agentName,
-			APIInfoGateName: apiInfoGateName,
+			AgentName: agentName,
 		}),
-
-		apiInfoGateName: gate.Manifold(),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has

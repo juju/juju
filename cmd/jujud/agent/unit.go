@@ -85,7 +85,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay)
 
 	if !a.logToStdErr {
 		if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -123,7 +123,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 
 	// Sometimes there are upgrade steps that are needed for each unit.
 	// There are plans afoot to unify the unit and machine agents. When

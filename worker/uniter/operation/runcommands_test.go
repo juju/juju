@@ -109,10 +109,10 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 
 		newState, err := op.Execute(operation.State{})
 		c.Assert(newState, gc.IsNil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
 		c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 		c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 101})
-		c.Assert(*sendResponse.gotErr, gc.Equals, operation.ErrNeedsReboot)
+		c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
 	}
 }
 
@@ -133,7 +133,7 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(newState, gc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "sneh")
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.IsNil)
 	c.Assert(*sendResponse.gotErr, gc.ErrorMatches, "sneh")

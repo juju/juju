@@ -148,6 +148,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			quickStart{},
 			asyncRunCommands{echoUnitNameToFile("run.output")},
 			verifyFile{testFile("run.output"), "juju run u/0\r\n"},
+			waitContextWaitGroup{},
 		), ut(
 			"run commands: waits for lock",
 			quickStart{},
@@ -156,6 +157,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			verifyNoFile{testFile("wait.output")},
 			releaseHookSyncLock,
 			verifyFile{testFile("wait.output"), "juju run u/0\r\n"},
+			waitContextWaitGroup{},
 		),
 	})
 }

@@ -18,6 +18,7 @@ const (
 // ContainerTypes is used to validate add-machine arguments.
 var ContainerTypes []ContainerType = []ContainerType{
 	LXC,
+	// LXD is also added under Go 1.3+.
 	KVM,
 }
 

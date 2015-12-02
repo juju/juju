@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/cinder"
+	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
@@ -396,28 +397,42 @@ type openstackStorage interface {
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 }
 
+type endpointResolver interface {
+	EndpointsForRegion(region string) identity.ServiceURLs
+}
+
+func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, error) {
+	endpointMap := client.EndpointsForRegion(region)
+	// The cinder openstack charm appends 'v2' to the type for the v2 api.
+	endpoint, ok := endpointMap["volumev2"]
+	if !ok {
+		logger.Debugf(`endpoint "volumev2" not found for %q region, trying "volume"`, region)
+		endpoint, ok = endpointMap["volume"]
+		if !ok {
+			return nil, errors.Errorf(`endpoint "volume" not found for %q region`, region)
+		}
+	}
+	return url.Parse(endpoint)
+}
+
 func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage, error) {
 	ecfg, err := providerInstance.newConfig(environConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authClient := authClient(ecfg)
-	if err := authClient.Authenticate(); err != nil {
+	client := authClient(ecfg)
+	if err := client.Authenticate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	endpoint, ok := authClient.EndpointsForRegion(ecfg.region())["volume"]
-	if !ok {
-		return nil, errors.Errorf("volume endpoint not found for %q endpoint", ecfg.region())
-	}
-	endpointUrl, err := url.Parse(endpoint)
+	endpointUrl, err := getVolumeEndpointURL(client, ecfg.region())
 	if err != nil {
-		return nil, errors.Annotate(err, "error parsing endpoint")
+		return nil, errors.Annotate(err, "getting volume endpoint")
 	}
 
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)},
-		novaClient{nova.New(authClient)},
+		cinderClient{cinder.Basic(endpointUrl, client.TenantId(), client.Token)},
+		novaClient{nova.New(client)},
 	}, nil
 }
 

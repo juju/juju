@@ -7,11 +7,9 @@ package backups
 
 import (
 	"bytes"
-	"fmt"
+	"net"
 	"os"
-	"path"
-	"path/filepath"
-	"strings"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -19,18 +17,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/symlink"
+	"github.com/juju/utils/ssh"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -42,10 +38,11 @@ const restoreUserHome = "/home/ubuntu/"
 // values, this is required after a mongo restore.
 // In case of failure returns error.
 func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
-	params := peergrouper.InitiateMongoParams{dialInfo,
-		memberHostPort,
-		dialInfo.Username,
-		dialInfo.Password,
+	params := peergrouper.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: memberHostPort,
+		User:           dialInfo.Username,
+		Password:       dialInfo.Password,
 	}
 	return peergrouper.InitiateMongoServer(params, true)
 }
@@ -65,15 +62,34 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		return nil, errors.Errorf("cannot get state serving info to dial")
 	}
 	info := mongo.Info{
-		Addrs:  []string{fmt.Sprintf("%s:%d", privateAddr, ssi.StatePort)},
+		Addrs:  []string{net.JoinHostPort(privateAddr, strconv.Itoa(ssi.StatePort))},
 		CACert: conf.CACert(),
 	}
 	dialInfo, err := mongo.DialInfo(info, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce a dial info")
 	}
-	dialInfo.Username = "admin"
-	dialInfo.Password = conf.OldPassword()
+	oldPassword := conf.OldPassword()
+	if oldPassword != "" {
+		dialInfo.Username = "admin"
+		dialInfo.Password = conf.OldPassword()
+	} else {
+		dialInfo.Username = conf.Tag().String()
+		// TODO(perrito) we might need an accessor for the actual state password
+		// just in case it ever changes from the same as api password.
+		apiInfo, ok := conf.APIInfo()
+		if ok {
+			dialInfo.Password = apiInfo.Password
+			logger.Infof("using API password to access state server.")
+		} else {
+			// There seems to be no way to reach this inconsistence other than making a
+			// backup on a machine where these fields are corrupted and even so I find
+			// no reasonable way to reach this state, yet since APIInfo has it as a
+			// possibility I prefer to handle it, we cannot recover from this since
+			// it would mean that the agent.conf is corrupted.
+			return nil, errors.New("cannot obtain password to access the state server")
+		}
+	}
 	return dialInfo, nil
 }
 
@@ -89,8 +105,7 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 	// TODO(perrito666): Take the Machine id from an autoritative source
 	err = session.DB("juju").C("machines").Update(
 		bson.M{"machineid": oldMachineId},
-		bson.M{"$set": bson.M{"instanceid": string(newInstId),
-			"machineid": newMachineId}},
+		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
@@ -201,6 +216,8 @@ do
 	status  jujud-$agent| grep -q "^jujud-$agent stop" > /dev/null
 	if [ $? -eq 0 ]; then
 		initctl start jujud-$agent
+                systemctl stop jujud-$agent
+                systemctl start jujud-$agent
 	fi
 done
 `))
@@ -245,28 +262,4 @@ func runViaSSH(addr string, script string) error {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
 	return nil
-}
-
-// updateBackupMachineTag updates the paths that are stored in the backup
-// to the current machine. This path is tied, among other factors, to the
-// machine tag.
-// Eventually this will change: when backups hold relative paths.
-func updateBackupMachineTag(oldTag, newTag names.Tag) error {
-	oldTagString := oldTag.String()
-	newTagString := newTag.String()
-
-	if oldTagString == newTagString {
-		return nil
-	}
-	oldTagPath := path.Join(agent.DefaultPaths.DataDir, oldTagString)
-	newTagPath := path.Join(agent.DefaultPaths.DataDir, newTagString)
-
-	oldToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, oldTagString)
-	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
-
-	os.Rename(oldTagPath, newTagPath)
-	newToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, newTagString)
-	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
-	err = symlink.Replace(newToolsDir, newToolsPath)
-	return errors.Annotatef(err, "cannot set the new tools path")
 }

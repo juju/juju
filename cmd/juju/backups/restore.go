@@ -33,6 +33,7 @@ type restoreCommand struct {
 	filename    string
 	backupId    string
 	bootstrap   bool
+	uploadTools bool
 }
 
 var restoreDoc = `
@@ -71,6 +72,7 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "provide the name of the backup to be restored.")
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload tools if bootstraping a new machine.")
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -170,7 +172,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	}
 
 	cons := c.constraints
-	args := bootstrap.BootstrapParams{Constraints: cons}
+	args := bootstrap.BootstrapParams{Constraints: cons, UploadTools: c.uploadTools}
 	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
