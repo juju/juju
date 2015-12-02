@@ -308,7 +308,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(
 	_, err := s.deployBundleYAML(c, `
         services:
             wp:
-                charm: trusty/wordpress-42
+                charm: trusty/wordpress
                 num_units: 1
                 to: ["bad:1"]
         machines:
@@ -517,7 +517,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	output, err := s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 options:
                     blog-title: these are the voyages
@@ -542,7 +542,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 options:
                     blog-title: new title
@@ -583,7 +583,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	content := `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 expose: true
     `
@@ -624,7 +624,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 expose: false
     `)
@@ -683,7 +683,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             pgres:
                 charm: trusty/postgres-2
@@ -735,7 +735,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             varnish:
                 charm: trusty/varnish
@@ -750,7 +750,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             varnish:
                 charm: trusty/varnish

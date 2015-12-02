@@ -76,15 +76,52 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
-func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) error {
+func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
 	device := devices.GetSubObject(deviceId)
 	params := url.Values{}
 	if addr.Value != "" {
 		params.Add("requested_address", addr.Value)
 	}
-	_, err := device.CallPost("claim_sticky_ip_address", params)
-	return err
-
+	resp, err := device.CallPost("claim_sticky_ip_address", params)
+	if err != nil {
+		return network.Address{}, errors.Annotatef(err, "failed to reserve sticky IP address for device %q", deviceId)
+	}
+	respMap, err := resp.GetMap()
+	if err != nil {
+		return network.Address{}, errors.Annotate(err, "failed to parse response")
+	}
+	addresses, err := respMap["ip_addresses"].GetArray()
+	if err != nil {
+		return network.Address{}, errors.Annotatef(err, "failed to parse IP addresses")
+	}
+	if len(addresses) == 0 {
+		return network.Address{}, errors.Errorf(
+			"expected to find a sticky IP address for device %q: MAAS API response contains no IP addresses",
+			deviceId,
+		)
+	}
+	var firstAddress network.Address
+	for _, address := range addresses {
+		value, err := address.GetString()
+		if err != nil {
+			return network.Address{}, errors.Annotatef(err,
+				"failed to parse reserved IP address for device %q",
+				deviceId,
+			)
+		}
+		if ip := net.ParseIP(value); ip == nil {
+			return network.Address{}, errors.Annotatef(err,
+				"failed to parse reserved IP address %q for device %q",
+				value, deviceId,
+			)
+		}
+		if firstAddress.Value == "" {
+			// We only need the first address, but we're logging all we got.
+			firstAddress = network.NewAddress(value)
+		}
+		logger.Debugf("reserved address %q for device %q", value, deviceId)
+	}
+	return firstAddress, nil
 }
 
 func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
@@ -137,21 +174,21 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	if err != nil {
 		logger.Warningf("cannot get MAAS API capabilities: %v", err)
 	}
-	logger.Debugf("MAAS API capabilities: %v", capabilities.SortedValues())
+	logger.Tracef("MAAS API capabilities: %v", capabilities.SortedValues())
 	env.supportsDevices = capabilities.Contains(capDevices)
 	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
 	return env, nil
 }
 
-const noDevicesWarning = `
-WARNING: Using MAAS version older than 1.8.2: devices API support not detected!
+var noDevicesWarning = `
+Using MAAS version older than 1.8.2: devices API support not detected!
 
 Juju cannot guarantee resources allocated to containers, like DHCP
 leases or static IP addresses will be properly cleaned up when the
 container, its host, or the environment is destroyed.
 
 Juju recommends upgrading MAAS to version 1.8.2 or later.
-`
+`[1:]
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -1204,7 +1241,7 @@ const bridgeConfigTemplate = `
 grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
 
 # Discover primary interface at run-time using the default route (if set)
-PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+PRIMARY_IFACE=$(ip route list exact 0/0 | head -n1 | egrep -o 'dev [^ ]+' | cut -b5-)
 
 # If $PRIMARY_IFACE is empty, there's nothing to do.
 [ -z "$PRIMARY_IFACE" ] && exit 0
@@ -1553,7 +1590,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		if err != nil {
 			return errors.Annotatef(
 				err,
-				"creating MAAS device for container %q with MAC address %q",
+				"failed creating MAAS device for container %q with MAC address %q",
 				hostname, macAddress,
 			)
 		}
@@ -1562,11 +1599,14 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 			deviceID, hostname, macAddress, instId,
 		)
 		devices := environ.getMAASClient().GetSubObject("devices")
-		if err := reserveIPAddressOnDevice(devices, deviceID, network.Address{}); err != nil {
-			return errors.Annotatef(err, "reserving a sticky IP address for device %q", deviceID)
+		addr, err := ReserveIPAddressOnDevice(devices, deviceID, network.Address{})
+		if err != nil {
+			return errors.Trace(err)
 		}
-		logger.Infof("reserved sticky IP address for device %q representing container %q", deviceID, hostname)
-
+		logger.Infof(
+			"reserved sticky IP address %q for device %q representing container %q",
+			addr, deviceID, hostname,
+		)
 		return nil
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -1580,9 +1620,8 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		}
 
 		devices := client.GetSubObject("devices")
-		err = ReserveIPAddressOnDevice(devices, device, addr)
-		if err == nil {
-			logger.Infof("allocated address %q for instance %q on device %q", addr, instId, device)
+		if gotAddr, err := ReserveIPAddressOnDevice(devices, device, addr); err == nil {
+			logger.Infof("allocated address %q for instance %q on device %q (asked for address %q)", addr, instId, device, gotAddr)
 			return nil
 		}
 
@@ -1747,14 +1786,18 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		return nil, errors.Annotatef(err, "failed to get instance %q subnets", instId)
 	}
 
-	macToNetworkMap := make(map[string]networkDetails)
+	macToNetworksMap := make(map[string][]networkDetails)
 	for _, network := range networks {
 		macs, err := environ.listConnectedMacs(network)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, mac := range macs {
-			macToNetworkMap[mac] = network
+			if networks, found := macToNetworksMap[mac]; found {
+				macToNetworksMap[mac] = append(networks, network)
+			} else {
+				macToNetworksMap[mac] = append([]networkDetails(nil), network)
+			}
 		}
 	}
 
@@ -1772,18 +1815,20 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			MACAddress:    serial,
 			ConfigType:    network.ConfigDHCP,
 		}
-		details, ok := macToNetworkMap[serial]
-		if ok {
+		allDetails, ok := macToNetworksMap[serial]
+		if !ok {
+			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
+			continue
+		}
+		for _, details := range allDetails {
 			ifaceInfo.VLANTag = details.VLANTag
 			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
 			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
-		} else {
-			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
+			result = append(result, ifaceInfo)
 		}
-		result = append(result, ifaceInfo)
 	}
 	return result, nil
 }
@@ -2139,15 +2184,14 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)
 				}
+				if node.Disabled {
+					logger.Debugf("node %q skipping disabled network interface %q", inst.Id(), node.LogicalName)
+				}
 				interfaces[node.Serial] = ifaceInfo{
 					DeviceIndex:   index,
 					InterfaceName: node.LogicalName,
 					Disabled:      node.Disabled,
 				}
-				if node.Disabled {
-					logger.Debugf("node %q skipping disabled network interface %q", inst.Id(), node.LogicalName)
-				}
-
 			}
 			if err := processNodes(node.Children); err != nil {
 				return err
