@@ -41,6 +41,6 @@ func FormatSpec(spec resource.Spec) FormattedSpec {
 		Path:     info.Path,
 		Comment:  info.Comment,
 		Origin:   spec.Origin.String(),
-		Revision: spec.Revision,
+		Revision: spec.Revision.String(),
 	}
 }

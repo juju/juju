@@ -20,7 +20,7 @@ func ResourceSpec2API(r resource.Spec) ResourceSpec {
 		Path:     info.Path,
 		Comment:  info.Comment,
 		Origin:   r.Origin.String(),
-		Revision: r.Revision,
+		Revision: r.Revision.String(),
 	}
 }
 
@@ -44,7 +44,11 @@ func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 	}
 	spec.Origin = origin
 
-	spec.Revision = apiSpec.Revision
+	rev, ok := resource.ParseRevision(apiSpec.Revision)
+	if !ok {
+		return spec, errors.Trace(origin.Validate())
+	}
+	spec.Revision = rev
 
 	if err := spec.Validate(); err != nil {
 		return spec, errors.Trace(err)
