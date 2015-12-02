@@ -39,7 +39,7 @@ type serviceSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	serviceApi *service.API
+	serviceApi service.Service
 	service    *state.Service
 	authorizer apiservertesting.FakeAuthorizer
 }
