@@ -263,6 +263,10 @@ func (s *ExpireLeadershipSuite) TestExpire_Multiple(c *gc.C) {
 				Holder: "vvvvvv/2",
 				Expiry: offset(time.Second), // would expire, but errors first.
 			},
+			"worgen": lease.Info{
+				Holder: "worgen/2",
+				Expiry: offset(time.Minute), // verifies absence of loop-var bug.
+			},
 		},
 		expectCalls: []call{{
 			method: "ExpireLease",

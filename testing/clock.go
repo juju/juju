@@ -190,9 +190,7 @@ func (a byTime) Len() int           { return len(a) }
 func (a byTime) Less(i, j int) bool { return a[i].time.Before(a[j].time) }
 func (a byTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-// removeFromSlice removes item at the specified index from the slice
-// It exists to make the append train clearer
-// This doesn't check that index is valid, so the caller needs to check that.
+// removeFromSlice removes item at the specified index from the slice.
 func removeFromSlice(sl []alarm, index int) []alarm {
 	return append(sl[:index], sl[index+1:]...)
 }
