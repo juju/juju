@@ -128,6 +128,21 @@ func (w *RemoteStateWatcher) ClearResolvedMode() {
 	w.mu.Unlock()
 }
 
+func (w *RemoteStateWatcher) CommandCompleted(completed string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, id := range w.current.Commands {
+		if id != completed {
+			continue
+		}
+		w.current.Commands = append(
+			w.current.Commands[:i],
+			w.current.Commands[i+1:]...,
+		)
+		break
+	}
+}
+
 func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	// TODO(axw) move this logic.

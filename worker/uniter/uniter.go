@@ -187,7 +187,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	)
 
 	retryHookChan := make(chan struct{}, 1)
-
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
 		Min:    retryTimeMin,
 		Max:    retryTimeMax,
@@ -204,13 +203,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		},
 		Clock: u.clock,
 	})
-	u.addCleanup(func() error {
+	defer func() {
 		// Stop any send that might be pending
 		// before closing the channel
 		retryHookTimer.Reset()
 		close(retryHookChan)
-		return nil
-	})
+	}()
 
 	restartWatcher := func() error {
 		watcherMu.Lock()
@@ -438,7 +436,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	runnerFactory, err := runner.NewFactory(
 		u.st, u.paths, contextFactory,
@@ -463,7 +461,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
 	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
-		Abort:          u.tomb.Dying(),
+		Abort:          u.catacomb.Dying(),
 		Commands:       u.commands,
 		CommandChannel: u.commandChannel,
 	})
@@ -488,12 +486,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	return nil
 }
 
-// Kill is part of the worker.Worker interface.
 func (u *Uniter) Kill() {
 	u.catacomb.Kill(nil)
 }
 
-// Wait is part of the worker.Worker interface.
 func (u *Uniter) Wait() error {
 	return u.catacomb.Wait()
 }
@@ -514,86 +510,9 @@ func (u *Uniter) operationState() operation.State {
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We could
-	// address this by:
-	//  1) implementing an operation to encapsulate the relations.Update call
-	//  2) (quick+dirty) mutex runOperation until we can
-	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
-	//     that replaces them) such that they're handled and prioritised like
-	//     every other operation.
-	logger.Tracef("run commands: %s", args.Commands)
-
-	type responseInfo struct {
-		response *exec.ExecResponse
-		err      error
-	}
-	responseChan := make(chan responseInfo, 1)
-	sendResponse := func(response *exec.ExecResponse, err error) {
-		responseChan <- responseInfo{response, err}
-	}
-
-	commandArgs := operation.CommandArgs{
-		Commands:        args.Commands,
-		RelationId:      args.RelationId,
-		RemoteUnitName:  args.RemoteUnitName,
-		ForceRemoteUnit: args.ForceRemoteUnit,
-	}
-	err = u.runOperation(func(f operation.Factory) (operation.Operation, error) {
-		return f.NewCommands(commandArgs, sendResponse)
-	})
-	if err == nil {
-		select {
-		case response := <-responseChan:
-			results, err = response.response, response.err
-		default:
-			err = errors.New("command response never sent")
-		}
-	}
-	if errors.Cause(err) == operation.ErrNeedsReboot {
-		u.catacomb.Kill(worker.ErrRebootMachine)
-		err = nil
-	}
-	if err != nil {
-		u.catacomb.Kill(err)
-	}
-	return results, err
-}
-
-// creator exists primarily to make the implementation of the Mode funcs more
-// readable -- the general pattern is to switch to get a creator func (which
-// doesn't allow for the possibility of error) and then to pass the chosen
-// creator down to runOperation (which can then consistently create and run
-// all the operations in the same way).
-type creator func(factory operation.Factory) (operation.Operation, error)
-
-// runOperation uses the uniter's operation factory to run the supplied creation
-// func, and then runs the resulting operation.
-//
-// This has a number of advantages over having mode funcs use the factory and
-// executor directly:
-//   * it cuts down on duplicated code in the mode funcs, making the logic easier
-//     to parse
-//   * it narrows the (conceptual) interface exposed to the mode funcs -- one day
-//     we might even be able to use a (real) interface and maybe even approach a
-//     point where we can run direct unit tests(!) on the modes themselves.
-//   * it opens a path to fixing RunCommands -- all operation creation and
-//     execution is done in a single place, and it's much easier to force those
-//     onto a single thread.
-//       * this can't be done quite yet, though, because relation changes are
-//         not yet encapsulated in operations, and that needs to happen before
-//         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator) (err error) {
-	errorMessage := "creating operation to run"
-	defer func() {
-		reportAgentError(u, errorMessage, err)
-	}()
-	op, err := creator(u.operationFactory)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create operation")
-	}
-	errorMessage = op.String()
-	return u.operationExecutor.Run(op)
+	// TODO(axw) drop this when we move the run-listener to an independent
+	// worker. This exists purely for the tests.
+	return u.runListener.RunCommands(args)
 }
 
 // acquireExecutionLock acquires the machine-level execution lock, and
@@ -603,7 +522,7 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 	logger.Debugf("lock: %v", message)
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's catacomb into account.
-	checkTomb := func() error {
+	checkCatacomb := func() error {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
@@ -612,7 +531,7 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 		}
 	}
 	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
-	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+	if err := u.hookLock.LockWithFunc(message, checkCatacomb); err != nil {
 		return nil, err
 	}
 	return func() error {
