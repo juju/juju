@@ -84,13 +84,21 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 	s.stub.SetErrors(failure)
 	facade := server.NewFacade(s.state)
 
-	_, err := facade.ListSpecs(api.ListSpecsArgs{
+	results, err := facade.ListSpecs(api.ListSpecsArgs{
 		Entities: []params.Entity{{
 			Tag: "service-a-service",
 		}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(results, jc.DeepEquals, api.SpecsResults{
+		Results: []api.SpecsResult{{
+			Entity: params.Entity{Tag: "service-a-service"},
+			ErrorResult: params.ErrorResult{Error: &params.Error{
+				Message: "<failure>",
+			}},
+		}},
+	})
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
 }
 

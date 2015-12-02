@@ -3,7 +3,7 @@
 
 package api
 
-// TODO(ericsnow) Eliminate the dependence on apiserver/params if possible.
+// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -71,6 +72,11 @@ func NewSpecsResult(tagStr string) (SpecsResult, string) {
 	}
 
 	return result, tag.Id()
+}
+
+// SetResultError sets the error on the result.
+func SetResultError(result *SpecsResult, err error) {
+	result.Error = common.ServerError(err)
 }
 
 // ResourceSpec contains the definition for a resource.

@@ -4,8 +4,6 @@
 package server
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -33,7 +31,8 @@ func (f specFacade) ListSpecs(args api.ListSpecsArgs) (api.SpecsResults, error) 
 
 		specs, err := f.state.ListResourceSpecs(service)
 		if err != nil {
-			return r, errors.Trace(err)
+			api.SetResultError(&r.Results[i], err)
+			continue
 		}
 
 		var apiSpecs []api.ResourceSpec
