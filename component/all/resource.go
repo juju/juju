@@ -23,21 +23,21 @@ import (
 
 type resources struct{}
 
-func (c resources) registerForServer() error {
-	c.registerPublicFacade()
+func (r resources) registerForServer() error {
+	r.registerPublicFacade()
 	return nil
 }
 
-func (c resources) registerForClient() error {
-	c.registerPublicCommands()
+func (r resources) registerForClient() error {
+	r.registerPublicCommands()
 	return nil
 }
 
-func (c resources) registerPublicFacade() {
+func (r resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
-		c.newPublicFacade,
+		r.newPublicFacade,
 	)
 }
 
@@ -67,8 +67,8 @@ type resourcesAPIClient struct {
 	closeFunc func() error
 }
 
-func (c resourcesAPIClient) Close() error {
-	return c.closeFunc()
+func (client resourcesAPIClient) Close() error {
+	return client.closeFunc()
 }
 
 func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient, error) {
@@ -82,21 +82,21 @@ func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient
 	return cl, nil
 }
 
-func (c resources) registerPublicCommands() {
+func (r resources) registerPublicCommands() {
 	if !markRegistered(resource.ComponentName, "public-commands") {
 		return
 	}
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		return cmd.NewShowCommand(c.newShowAPIClient)
+		return cmd.NewShowCommand(r.newShowAPIClient)
 	})
 }
 
-func (c resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
+func (r resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
 	apiCaller, err := command.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return c.newAPIClient(apiCaller)
+	return r.newAPIClient(apiCaller)
 }
