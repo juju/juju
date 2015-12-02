@@ -36,7 +36,8 @@ func (c specClient) ListSpecs(service string) ([]resource.Spec, error) {
 	for i, apiSpec := range result.Results {
 		spec, err := api.API2ResourceSpec(apiSpec)
 		if err != nil {
-			// We should never see this happen; we control the input safely.
+			// This could happen if the server is misbehaving
+			// or non-conforming.
 			return nil, errors.Trace(err)
 		}
 		specs[i] = spec
