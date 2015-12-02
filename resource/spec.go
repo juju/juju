@@ -62,3 +62,19 @@ func (s Spec) Validate() error {
 
 	return nil
 }
+
+// SpecsResult holds the results of a request that returned the set
+// of resource specs for a service.
+type SpecsResult struct {
+	// Service is the ID of the associated service.
+	Service string
+
+	// TODO(ericsnow) Identify the charm too?
+
+	// Specs is the list of associated resource specs.
+	Specs []Spec
+
+	// Error is the error that happened while handling the request,
+	// if any.
+	Error error
+}
