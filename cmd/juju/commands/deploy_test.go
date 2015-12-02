@@ -912,3 +912,50 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }
+
+type ParseSuite struct {
+}
+
+var _ = gc.Suite(&ParseSuite{})
+
+func (s *ParseSuite) TestBindParseEmpty(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: ""}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{})
+}
+
+func (s *ParseSuite) TestBindParseOK(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: "foo@a, bar@b"}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{{"foo", "a"}, {"bar", "b"}})
+}
+
+func (s *ParseSuite) TestBindParseNoRelation(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: "@default"}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{{"", "default"}})
+}
+
+func (s *ParseSuite) TestBindParseNoSpace(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: "foo@"}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, gc.ErrorMatches, ".*Space name cannot be empty.")
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{})
+}
+
+func (s *ParseSuite) TestBindParseNoAt(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: "foo"}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, gc.ErrorMatches, ".*Could not find '@'.")
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{})
+}
+
+func (s *ParseSuite) TestBindParseBadList(c *gc.C) {
+	deploy := &DeployCommand{BindToSpace: "foo@bar@baz"}
+	bindings, err := ParseBind(deploy)
+	c.Assert(err, gc.ErrorMatches, ".*Found multiple @ in binding.*")
+	c.Assert(bindings, jc.DeepEquals, []SpaceBinding{})
+}
