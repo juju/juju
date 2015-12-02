@@ -199,10 +199,7 @@ type RemoteServiceInfo struct {
 	Name       string
 	ServiceURL string
 	Life       Life
-	Endpoints  []Endpoint
-	// TODO(axw) Description, Icon. These would normally be part of a
-	// charm, but remote services do not have this information currently.
-	// TODO(axw) Status? Needs status in the remote service model too.
+	Status     StatusInfo
 }
 
 // EntityId returns a unique identifier for a remote service across

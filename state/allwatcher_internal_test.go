@@ -287,16 +287,16 @@ func addTestingRemoteService(
 
 	rs, err := st.AddRemoteService(name, url, relations)
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := make([]multiwatcher.Endpoint, len(relations))
-	for i, r := range relations {
-		endpoints[i] = multiwatcher.Endpoint{name, r}
-	}
 	return rs, multiwatcher.RemoteServiceInfo{
 		EnvUUID:    st.EnvironUUID(),
 		Name:       name,
 		ServiceURL: url,
 		Life:       multiwatcher.Life(rs.Life().String()),
-		Endpoints:  endpoints,
+		Status: multiwatcher.StatusInfo{
+			Current: "unknown",
+			Message: "waiting for remote connection",
+			Data:    map[string]interface{}{},
+		},
 	}
 }
 
@@ -390,6 +390,10 @@ func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			entities[i] = serviceInfo
 		}
+		if remoteServiceInfo, ok := entity.(*multiwatcher.RemoteServiceInfo); ok {
+			substNilSinceTimeForStatus(c, &remoteServiceInfo.Status)
+			entities[i] = remoteServiceInfo
+		}
 	}
 }
 
@@ -457,7 +461,9 @@ func (s *allWatcherStateSuite) TestRemoveRemoteService(c *gc.C) {
 	defer tw.Stop()
 
 	// We should see the initial remote service entity.
-	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
+	deltas := tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &remoteServiceInfo,
 	}})
 
@@ -1559,6 +1565,9 @@ func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 		} else if serviceInfo, ok := delta.Entity.(*multiwatcher.ServiceInfo); ok {
 			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			delta.Entity = serviceInfo
+		} else if remoteServiceInfo, ok := delta.Entity.(*multiwatcher.RemoteServiceInfo); ok {
+			substNilSinceTimeForStatus(c, &remoteServiceInfo.Status)
+			delta.Entity = remoteServiceInfo
 		}
 		deltas[i] = delta
 	}
@@ -2966,35 +2975,18 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			// Currently the only change we can make to a remote
-			// service is to destroy it.
-			//
-			// We must add a relation to the remote service, and
-			// a unit to the relation, so that the relation is not
-			// removed and thus the remote service is not removed
-			// upon destroying.
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			mysql, remoteServiceInfo := addTestingRemoteService(
 				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
 			)
-
-			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
-			c.Assert(err, jc.ErrorIsNil)
-			rel, err := st.AddRelation(eps[0], eps[1])
-			c.Assert(err, jc.ErrorIsNil)
-
-			wu, err := wordpress.AddUnit()
-			c.Assert(err, jc.ErrorIsNil)
-			wru, err := rel.Unit(wu)
-			c.Assert(err, jc.ErrorIsNil)
-			err = wru.EnterScope(nil)
-			c.Assert(err, jc.ErrorIsNil)
-
-			err = mysql.Destroy()
+			err := mysql.SetStatus(StatusActive, "running", map[string]interface{}{"foo": "bar"})
 			c.Assert(err, jc.ErrorIsNil)
 			initialRemoteServiceInfo := remoteServiceInfo
-			remoteServiceInfo.Life = "dying"
 
+			remoteServiceInfo.Status = multiwatcher.StatusInfo{
+				Current: "active",
+				Message: "running",
+				Data:    map[string]interface{}{"foo": "bar"},
+			}
 			return changeTestCase{
 				about:           "remote service is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},

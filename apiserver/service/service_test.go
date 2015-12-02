@@ -46,8 +46,6 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-var _ service.Service = (*service.API)(nil)
-
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)

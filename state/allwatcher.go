@@ -491,17 +491,30 @@ func (svc *backingRemoteService) updated(st *State, store *multiwatcherStore, id
 	if svc.Name == "" {
 		return errors.Errorf("remote service name is not set")
 	}
-	stateEndpoints := remoteEndpointDocsToEndpoints(svc.Name, svc.Endpoints)
-	endpoints := make([]multiwatcher.Endpoint, len(stateEndpoints))
-	for i, ep := range stateEndpoints {
-		endpoints[i] = multiwatcher.Endpoint{ep.ServiceName, ep.Relation}
-	}
 	info := &multiwatcher.RemoteServiceInfo{
 		EnvUUID:    st.EnvironUUID(),
 		Name:       svc.Name,
 		ServiceURL: svc.URL,
-		Endpoints:  endpoints,
 		Life:       multiwatcher.Life(svc.Life.String()),
+	}
+	// Fetch the status.
+	key := remoteServiceGlobalKey(svc.Name)
+	service, err := st.RemoteService(svc.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	serviceStatus, err := service.Status()
+	if err != nil {
+		logger.Warningf("reading remote service status for key %s: %v", key, err)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "reading service status for key %s", key)
+	}
+	info.Status = multiwatcher.StatusInfo{
+		Current: multiwatcher.Status(serviceStatus.Status),
+		Message: serviceStatus.Message,
+		Data:    normaliseStatusData(serviceStatus.Data),
+		Since:   serviceStatus.Since,
 	}
 	if store.Get(info.EntityId()) == nil {
 		logger.Debugf("new remote service %q added to backing state", svc.Name)
