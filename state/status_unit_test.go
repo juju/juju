@@ -98,7 +98,7 @@ func (s *UnitStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *UnitStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 

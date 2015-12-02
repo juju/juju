@@ -110,7 +110,7 @@ func (s *remoteServiceSuite) TestSetStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(*firstTime, *status.Since), jc.IsTrue)
 }
 
-func (s *remoteServiceSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *remoteServiceSuite) TestGetSetStatusNotFound(c *gc.C) {
 	err := s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 

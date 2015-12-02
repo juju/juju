@@ -406,12 +406,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 		info.Constraints = c
 		needConfig = true
-		// Fetch the status.
-		service, err := st.Service(svc.Name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		serviceStatus, err := service.Status()
+		serviceStatus, err := getStatus(st, key, "service")
 		if err != nil {
 			logger.Warningf("reading service status for key %s: %v", key, err)
 		}
@@ -497,21 +492,22 @@ func (svc *backingRemoteService) updated(st *State, store *multiwatcherStore, id
 		ServiceURL: svc.URL,
 		Life:       multiwatcher.Life(svc.Life.String()),
 	}
-	// Fetch the status.
-	key := remoteServiceGlobalKey(svc.Name)
-	service, err := st.RemoteService(svc.Name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	serviceStatus, err := service.Status()
-	if err != nil {
-		return errors.Annotatef(err, "reading remote service status for key %s", key)
-	}
-	info.Status = multiwatcher.StatusInfo{
-		Current: multiwatcher.Status(serviceStatus.Status),
-		Message: serviceStatus.Message,
-		Data:    normaliseStatusData(serviceStatus.Data),
-		Since:   serviceStatus.Since,
+	oldInfo := store.Get(info.EntityId())
+	if oldInfo == nil {
+		logger.Debugf("new remote service %q added to backing state", svc.Name)
+		// Fetch the status.
+		key := remoteServiceGlobalKey(svc.Name)
+		serviceStatus, err := getStatus(st, key, "remote service")
+		if err != nil {
+			return errors.Annotatef(err, "reading remote service status for key %s", key)
+		}
+		info.Status = multiwatcher.StatusInfo{
+			Current: multiwatcher.Status(serviceStatus.Status),
+			Message: serviceStatus.Message,
+			Data:    normaliseStatusData(serviceStatus.Data),
+			Since:   serviceStatus.Since,
+		}
+		logger.Debugf("service status %#v", info.Status)
 	}
 	if store.Get(info.EntityId()) == nil {
 		logger.Debugf("new remote service %q added to backing state", svc.Name)
@@ -680,6 +676,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		}
 		info0 = &newInfo
 	case *multiwatcher.ServiceInfo:
+		newInfo := *info
+		newInfo.Status.Current = multiwatcher.Status(s.Status)
+		newInfo.Status.Message = s.StatusInfo
+		newInfo.Status.Data = normaliseStatusData(s.StatusData)
+		newInfo.Status.Since = unixNanoToTime(s.Updated)
+		info0 = &newInfo
+	case *multiwatcher.RemoteServiceInfo:
 		newInfo := *info
 		newInfo.Status.Current = multiwatcher.Status(s.Status)
 		newInfo.Status.Message = s.StatusInfo
@@ -1012,6 +1015,11 @@ func backingEntityIdForGlobalKey(envUUID, key string) (multiwatcher.EntityId, bo
 		}).EntityId(), true
 	case 's':
 		return (&multiwatcher.ServiceInfo{
+			EnvUUID: envUUID,
+			Name:    id,
+		}).EntityId(), true
+	case 'c':
+		return (&multiwatcher.RemoteServiceInfo{
 			EnvUUID: envUUID,
 			Name:    id,
 		}).EntityId(), true

@@ -55,7 +55,7 @@ func newRemoteService(st *State, doc *remoteServiceDoc) *RemoteService {
 // remoteServiceGlobalKey returns the global database key for the
 // remote service with the given name.
 func remoteServiceGlobalKey(svcName string) string {
-	return "rs#" + svcName
+	return "c#" + svcName
 }
 
 // globalKey returns the global database key for the remote service.

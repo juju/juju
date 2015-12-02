@@ -86,7 +86,7 @@ func (s *ServiceStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *ServiceStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
 	err := s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 

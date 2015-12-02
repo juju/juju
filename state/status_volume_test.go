@@ -137,7 +137,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c, state.StatusAttaching)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
 	s.obliterateVolume(c, s.volume.VolumeTag())
 
 	err := s.volume.SetStatus(state.StatusAttaching, "not really", nil)

@@ -112,7 +112,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *StatusUnitAgentSuite) TestGetSetStatusNotFound(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 

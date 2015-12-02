@@ -2975,24 +2975,69 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 			}
 		},
 		func(c *gc.C, st *State) changeTestCase {
+			// Currently the only change we can make to a remote
+			// service is to destroy it.
+			//
+			// We must add a relation to the remote service, and
+			// a unit to the relation, so that the relation is not
+			// removed and thus the remote service is not removed
+			// upon destroying.
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			mysql, remoteServiceInfo := addTestingRemoteService(
 				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
 			)
-			err := mysql.SetStatus(StatusActive, "running", map[string]interface{}{"foo": "bar"})
+
+			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
+			c.Assert(err, jc.ErrorIsNil)
+			rel, err := st.AddRelation(eps[0], eps[1])
+			c.Assert(err, jc.ErrorIsNil)
+
+			wu, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			wru, err := rel.Unit(wu)
+			c.Assert(err, jc.ErrorIsNil)
+			err = wru.EnterScope(nil)
+			c.Assert(err, jc.ErrorIsNil)
+
+			err = mysql.Destroy()
 			c.Assert(err, jc.ErrorIsNil)
 			initialRemoteServiceInfo := remoteServiceInfo
-
-			remoteServiceInfo.Status = multiwatcher.StatusInfo{
-				Current: "active",
-				Message: "running",
-				Data:    map[string]interface{}{"foo": "bar"},
-			}
+			remoteServiceInfo.Life = "dying"
+			remoteServiceInfo.Status = multiwatcher.StatusInfo{}
 			return changeTestCase{
 				about:           "remote service is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},
 				change: watcher.Change{
 					C:  "remoteservices",
 					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			mysql, remoteServiceInfo := addTestingRemoteService(
+				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+			)
+			err := setStatus(st, setStatusParams{
+				badge:     "remote service",
+				globalKey: mysql.globalKey(),
+				status:    "active",
+				message:   "running",
+				rawData:   map[string]interface{}{"foo": "bar"},
+			})
+			c.Assert(err, jc.ErrorIsNil)
+			initialRemoteServiceInfo := remoteServiceInfo
+			remoteServiceInfo.Status = multiwatcher.StatusInfo{
+				Current: "active",
+				Message: "running",
+				Data:    map[string]interface{}{"foo": "bar"},
+			}
+			return changeTestCase{
+				about:           "remote service status is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID(mysql.globalKey()),
 				},
 				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
 			}
