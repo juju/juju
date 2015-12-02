@@ -5,12 +5,12 @@ package client_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
@@ -43,9 +43,12 @@ func (s *specSuite) SetUpTest(c *gc.C) {
 
 func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.ListSpecsResults)
+		typedResponse, ok := response.(*api.SpecsResults)
 		c.Assert(ok, gc.Equals, true)
-		typedResponse.Results = append(typedResponse.Results, s.apiSpec)
+		typedResponse.Results = append(typedResponse.Results, api.SpecsResult{
+			Entity: params.Entity{Tag: "service-a-service"},
+			Specs:  []api.ResourceSpec{s.apiSpec},
+		})
 		return nil
 	}
 
@@ -62,25 +65,24 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	}
 	expected, err := resource.NewSpec(info, resource.OriginUpload, resource.NoRevision)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(specs, jc.DeepEquals, []resource.Spec{
+	c.Check(specs, jc.DeepEquals, [][]resource.Spec{{
 		expected,
-	})
+	}})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListSpecs",
 		&api.ListSpecsArgs{
-			Service: newServiceTag(c, "service-a-service"),
+			Entities: []params.Entity{{
+				Tag: "service-a-service",
+			}},
 		},
-		&api.ListSpecsResults{
-			Results: []api.ResourceSpec{s.apiSpec},
+		&api.SpecsResults{
+			Results: []api.SpecsResult{{
+				Entity: params.Entity{Tag: "service-a-service"},
+				Specs:  []api.ResourceSpec{s.apiSpec},
+			}},
 		},
 	)
-}
-
-func newServiceTag(c *gc.C, service string) names.ServiceTag {
-	tag, err := names.ParseTag(service)
-	c.Assert(err, jc.ErrorIsNil)
-	return tag.(names.ServiceTag)
 }
 
 // TODO(ericsnow) Move this to a common testing package.

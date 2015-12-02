@@ -5,12 +5,12 @@ package server_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
@@ -42,15 +42,20 @@ func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: newServiceTag(c, "service-a-service"),
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(apiSpecs, jc.DeepEquals, api.ListSpecsResults{
-		Results: []api.ResourceSpec{
-			apiSpec1,
-			apiSpec2,
-		},
+	c.Check(apiSpecs, jc.DeepEquals, api.SpecsResults{
+		Results: []api.SpecsResult{{
+			Entity: params.Entity{Tag: "service-a-service"},
+			Specs: []api.ResourceSpec{
+				apiSpec1,
+				apiSpec2,
+			},
+		}},
 	})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "ListResourceSpecs", "a-service")
@@ -60,11 +65,17 @@ func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	apiSpecs, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: newServiceTag(c, "service-a-service"),
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(apiSpecs, jc.DeepEquals, api.ListSpecsResults{})
+	c.Check(apiSpecs, jc.DeepEquals, api.SpecsResults{
+		Results: []api.SpecsResult{{
+			Entity: params.Entity{Tag: "service-a-service"},
+		}},
+	})
 	s.stub.CheckCallNames(c, "ListResourceSpecs")
 }
 
@@ -74,7 +85,9 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 	facade := server.NewFacade(s.state)
 
 	_, err := facade.ListSpecs(api.ListSpecsArgs{
-		Service: newServiceTag(c, "service-a-service"),
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
 	})
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -98,12 +111,6 @@ func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
 	}
 
 	return spec, apiSpec
-}
-
-func newServiceTag(c *gc.C, service string) names.ServiceTag {
-	tag, err := names.ParseTag(service)
-	c.Assert(err, jc.ErrorIsNil)
-	return tag.(names.ServiceTag)
 }
 
 type stubSpecState struct {

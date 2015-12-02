@@ -13,11 +13,11 @@ import (
 type stubClient struct {
 	stub *testing.Stub
 
-	ReturnListSpecs []resource.Spec
+	ReturnListSpecs [][]resource.Spec
 }
 
-func (s *stubClient) ListSpecs(serviceID string) ([]resource.Spec, error) {
-	s.stub.AddCall("ListSpecs", serviceID)
+func (s *stubClient) ListSpecs(serviceIDs ...string) ([][]resource.Spec, error) {
+	s.stub.AddCall("ListSpecs", serviceIDs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

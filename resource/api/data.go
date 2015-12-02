@@ -3,20 +3,74 @@
 
 package api
 
+// TODO(ericsnow) Eliminate the dependence on apiserver/params if possible.
+
 import (
+	"fmt"
+
+	"github.com/juju/errors"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // ListSpecsArgs are the arguments for the ListSpecs endpoint.
-type ListSpecsArgs struct {
-	// Service identifies the tag for the service to list.
-	Service names.ServiceTag
+type ListSpecsArgs params.Entities
+
+// NewListSpecsArgs returns the arguments for the ListSpecs endpoint.
+func NewListSpecsArgs(services ...string) (ListSpecsArgs, error) {
+	var args ListSpecsArgs
+	for _, service := range services {
+		if !names.IsValidService(service) {
+			return args, errors.Errorf("invalid service %q", service)
+		}
+
+		args.Entities = append(args.Entities, params.Entity{
+			Tag: names.NewServiceTag(service).String(),
+		})
+	}
+	return args, nil
 }
 
-// ListSpecsResults holds the results of the ListSpecs endpoint.
-type ListSpecsResults struct {
+// SpecsResults holds the specs that result from a bulk API call.
+type SpecsResults struct {
 	// Results is the list of resource results.
-	Results []ResourceSpec
+	Results []SpecsResult
+}
+
+// SpecsResults holds the specs that result from a singular API call.
+type SpecsResult struct {
+	params.Entity
+	params.ErrorResult
+
+	Specs []ResourceSpec
+}
+
+// NewSpecsResult produces a SpecsResult for the given service tag. The
+// corresponding service ID is also returned. If any error results, it
+// is stored in the Error field of the result.
+func NewSpecsResult(tagStr string) (SpecsResult, string) {
+	var result SpecsResult
+	result.Tag = tagStr
+
+	if !names.IsValidService(tagStr) {
+		result.Error = &params.Error{
+			Message: fmt.Sprintf("invalid service tag %q", tagStr),
+			Code:    params.CodeBadRequest,
+		}
+		return result, ""
+	}
+
+	tag, err := names.ParseTag(tagStr)
+	if err != nil {
+		result.Error = &params.Error{
+			Message: fmt.Sprintf("unexpectedly failed to parse service tag %q", tagStr),
+			Code:    params.CodeBadRequest,
+		}
+		return result, ""
+	}
+
+	return result, tag.Id()
 }
 
 // ResourceSpec contains the definition for a resource.

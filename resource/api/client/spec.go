@@ -5,7 +5,6 @@ package client
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -19,28 +18,37 @@ type specClient struct {
 
 // ListSpecs calls the ListSpecs API server method with
 // the given service name.
-func (c specClient) ListSpecs(service string) ([]resource.Spec, error) {
-	if !names.IsValidService(service) {
-		return nil, errors.Errorf("invalid service %q", service)
-	}
-
-	var result api.ListSpecsResults
-	args := api.ListSpecsArgs{
-		Service: names.NewServiceTag(service),
-	}
-	if err := c.FacadeCall("ListSpecs", &args, &result); err != nil {
+func (c specClient) ListSpecs(services ...string) ([][]resource.Spec, error) {
+	args, err := api.NewListSpecsArgs(services...)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	specs := make([]resource.Spec, len(result.Results))
-	for i, apiSpec := range result.Results {
-		spec, err := api.API2ResourceSpec(apiSpec)
-		if err != nil {
-			// This could happen if the server is misbehaving
-			// or non-conforming.
-			return nil, errors.Trace(err)
-		}
-		specs[i] = spec
+	var apiResults api.SpecsResults
+	if err := c.FacadeCall("ListSpecs", &args, &apiResults); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return specs, nil
+
+	var results [][]resource.Spec
+	var errs []error
+	for _, apiResult := range apiResults.Results {
+		errs = append(errs, apiResult.Error)
+		if apiResult.Error != nil {
+			results = append(results, nil)
+			continue
+		}
+
+		specs := make([]resource.Spec, len(apiResult.Specs))
+		for i, apiSpec := range apiResult.Specs {
+			spec, err := api.API2ResourceSpec(apiSpec)
+			if err != nil {
+				// This could happen if the server is misbehaving
+				// or non-conforming.
+				return nil, errors.Trace(err)
+			}
+			specs[i] = spec
+		}
+		results = append(results, specs)
+	}
+	return results, nil
 }

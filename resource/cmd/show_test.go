@@ -64,7 +64,7 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs...)
+	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs)
 
 	command := cmd.NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "a-service")
@@ -79,7 +79,7 @@ music    upload -   mp3 of your backing vocals
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCallNames(c, "newAPIClient", "ListSpecs", "Close")
 	s.stub.CheckCall(c, 0, "newAPIClient", command)
-	s.stub.CheckCall(c, 1, "ListSpecs", "a-service")
+	s.stub.CheckCall(c, 1, "ListSpecs", []string{"a-service"})
 }
 
 func (s *ShowSuite) TestNoResources(c *gc.C) {
@@ -100,7 +100,7 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 		cmd.NewSpec(c, "website", ".tgz", ".tgz of your website"),
 		cmd.NewSpec(c, "music", ".mp3", "mp3 of your backing vocals"),
 	}
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs...)
+	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs)
 
 	formats := map[string]string{
 		"tabular": `
