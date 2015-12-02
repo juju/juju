@@ -6,8 +6,6 @@ package api
 // TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -54,26 +52,17 @@ type ResourceSpecsResult struct {
 // is stored in the Error field of the result.
 func NewResourceSpecsResult(tagStr string) (ResourceSpecsResult, string) {
 	var result ResourceSpecsResult
-	result.Tag = tagStr
 
-	if !names.IsValidService(tagStr) {
-		result.Error = &params.Error{
-			Message: fmt.Sprintf("invalid service tag %q", tagStr),
-			Code:    params.CodeBadRequest,
-		}
-		return result, ""
-	}
-
-	tag, err := names.ParseTag(tagStr)
+	serviceID, err := ServiceTag2ID(tagStr)
 	if err != nil {
 		result.Error = &params.Error{
-			Message: fmt.Sprintf("unexpectedly failed to parse service tag %q", tagStr),
+			Message: err.Error(),
 			Code:    params.CodeBadRequest,
 		}
 		return result, ""
 	}
 
-	return result, tag.Id()
+	return result, serviceID
 }
 
 // SetResultError sets the error on the result.

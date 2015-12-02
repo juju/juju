@@ -5,10 +5,28 @@ package api
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
+
+// ServiceTag2ID converts the provided tag into a service ID.
+func ServiceTag2ID(tagStr string) (string, error) {
+	kind, err := names.TagKind(tagStr)
+	if err != nil {
+		return "", errors.Annotatef(err, "could not determine tag type from %q", tagStr)
+	}
+	if kind != names.ServiceTagKind {
+		return "", errors.Errorf("expected service tag, got %q", tagStr)
+	}
+
+	tag, err := names.ParseTag(tagStr)
+	if err != nil {
+		return "", errors.Errorf("invalid service tag %q", tagStr)
+	}
+	return tag.Id(), nil
+}
 
 // ResourceSpec2API converts a resource.Spec into
 // a ResourceSpec struct.
