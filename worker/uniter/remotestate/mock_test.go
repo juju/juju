@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
