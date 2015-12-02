@@ -103,6 +103,7 @@ import (
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 const bootstrapMachineId = "0"
@@ -279,7 +280,6 @@ func MachineAgentFactoryFn(
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
-			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			loopDeviceManager,
 			rootDir,
@@ -292,19 +292,17 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
 ) *MachineAgent {
 	return &MachineAgent{
-		machineId:            machineId,
-		AgentConfigWriter:    agentConfWriter,
-		bufferedLogs:         bufferedLogs,
-		upgradeWorkerContext: upgradeWorkerContext,
-		workersStarted:       make(chan struct{}),
-		runner:               runner,
-		rootDir:              rootDir,
+		machineId:         machineId,
+		AgentConfigWriter: agentConfWriter,
+		bufferedLogs:      bufferedLogs,
+		workersStarted:    make(chan struct{}),
+		runner:            runner,
+		rootDir:           rootDir,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		loopDeviceManager:                loopDeviceManager,
 	}
@@ -322,7 +320,7 @@ type MachineAgent struct {
 	rootDir              string
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
-	upgradeWorkerContext *upgradeWorkerContext
+	upgradeComplete      chan struct{}
 	workersStarted       chan struct{}
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
@@ -371,12 +369,6 @@ func (a *MachineAgent) Wait() error {
 func (a *MachineAgent) Stop() error {
 	a.runner.Kill()
 	return a.tomb.Wait()
-}
-
-// Dying returns the channel that can be used to see if the machine
-// agent is terminating.
-func (a *MachineAgent) Dying() <-chan struct{} {
-	return a.tomb.Dying()
 }
 
 // upgradeCertificateDNSNames ensure that the state server certificate
@@ -444,11 +436,13 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 
-	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
-		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
+	if upgradeComplete, err := upgradesteps.NewChannel(a); err != nil {
+		return errors.Annotate(err, "error during creating upgrade completion channel")
+	} else {
+		a.upgradeComplete = upgradeComplete
 	}
-	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+	a.configChangedVal.Set(struct{}{})
 
 	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
@@ -701,10 +695,10 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
-	// Run the agent upgrader and the upgrade-steps worker without waiting for
+	// Run the agent upgrader and the upgradesteps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
+	runner.StartWorker("upgradesteps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
@@ -917,12 +911,60 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st api.Connection,
+	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+		tag, ok := a.Tag().(names.MachineTag)
+		if !ok {
+			return nil, errors.New("agent's tag is not a machine tag")
+		}
+		machine, err := apiConn.Machiner().Machine(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return upgradesteps.NewWorker(
+			a.upgradeComplete,
+			a,
+			apiConn,
+			jobs,
+			a.openStateForUpgrade,
+			machine,
+		)
 	}
+}
+
+// openStateForUpgrade exists to be passed into the upgradesteps
+// worker. The upgradesteps worker opens state independently of the
+// state worker so that it isn't affected by the state worker's
+// lifetime. It ensures the MongoDB server is configured and started,
+// and then opens a state connection.
+//
+// TODO(mjs)- review the need for this once the dependency engine is
+// in use. Why can't upgradesteps depend on the main state connection?
+func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
+	agentConfig := a.CurrentConfig()
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return nil, nil, errors.New("no state info available")
+	}
+	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure storage is available during upgrades.
+	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	registerSimplestreamsDataSource(stor)
+
+	closer := func() {
+		unregisterSimplestreamsDataSource()
+		st.Close()
+	}
+	return st, closer, nil
 }
 
 func (a *MachineAgent) agentUpgraderWorkerStarter(
@@ -934,7 +976,7 @@ func (a *MachineAgent) agentUpgraderWorkerStarter(
 			st,
 			agentConfig,
 			a.previousAgentVersion,
-			a.upgradeWorkerContext.IsUpgradeRunning,
+			a.isUpgradeRunning,
 			a.initialAgentUpgradeCheckComplete,
 		), nil
 	}
@@ -1381,7 +1423,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
-	if a.upgradeWorkerContext.IsUpgradeRunning() || a.isAgentUpgradePending() {
+	if a.isUpgradeRunning() || a.isAgentUpgradePending() {
 		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -1682,7 +1724,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []chan struct{}{
-			a.upgradeWorkerContext.UpgradeComplete,
+			a.upgradeComplete,
 			a.initialAgentUpgradeCheckComplete,
 		} {
 			select {
@@ -1713,18 +1755,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		}
 		return <-waitCh // Ensure worker has stopped before returning.
 	})
-}
-
-func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
-	tag := a.Tag().(names.MachineTag)
-	machine, err := apiState.Machiner().Machine(tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := machine.SetStatus(status, info, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
@@ -1780,6 +1810,15 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
+}
+
+func (a *MachineAgent) isUpgradeRunning() bool {
+	select {
+	case <-a.upgradeComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,

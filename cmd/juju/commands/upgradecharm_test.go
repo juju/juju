@@ -101,7 +101,7 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:trusty/blah": charm not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:blah": charm or bundle not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
@@ -389,13 +389,13 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {

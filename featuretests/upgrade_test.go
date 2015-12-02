@@ -1,7 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// These tests check
+// These tests check aspects of upgrade behaviour of the machine agent
+// as a whole.
 
 package featuretests
 
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 type exposedAPI bool
@@ -59,8 +61,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion.Minor = 16
 
 	// Don't wait so long in tests.
-	s.PatchValue(&agentcmd.UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
-	s.PatchValue(&agentcmd.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
+	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
 
 	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
@@ -71,6 +73,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
+
 	// Create machine agent to upgrade
 	machine, machine0Conf := s.makeStateAgentVersion(c, s.oldVersion)
 
@@ -102,7 +106,7 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		}
 		return nil
 	}
-	s.PatchValue(&agentcmd.PerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&upgradesteps.PerformUpgrade, fakePerformUpgrade)
 
 	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -127,6 +131,7 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
+
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//
@@ -157,7 +162,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
 		return true, nil
 	}
-	s.PatchValue(&agentcmd.IsMachineMaster, fakeIsMachineMaster)
+	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
 
 	// Start the agent
 	agent := s.newAgent(c, machineA)
