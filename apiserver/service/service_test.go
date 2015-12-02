@@ -39,14 +39,12 @@ type serviceSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	serviceApi *service.API
+	serviceApi service.Service
 	service    *state.Service
 	authorizer apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-var _ service.Service = (*service.API)(nil)
 
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)

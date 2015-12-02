@@ -131,7 +131,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
 	s.obliterateFilesystem(c, s.filesystem.FilesystemTag())
 
 	err := s.filesystem.SetStatus(state.StatusAttaching, "not really", nil)

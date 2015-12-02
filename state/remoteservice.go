@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/model/crossmodel"
@@ -49,6 +50,17 @@ func newRemoteService(st *State, doc *remoteServiceDoc) *RemoteService {
 		doc: *doc,
 	}
 	return svc
+}
+
+// remoteServiceGlobalKey returns the global database key for the
+// remote service with the given name.
+func remoteServiceGlobalKey(svcName string) string {
+	return "c#" + svcName
+}
+
+// globalKey returns the global database key for the remote service.
+func (s *RemoteService) globalKey() string {
+	return remoteServiceGlobalKey(s.doc.Name)
 }
 
 // IsRemote returns true for a remote service.
@@ -185,8 +197,28 @@ func (s *RemoteService) removeOps(asserts bson.D) []txn.Op {
 			Assert: asserts,
 			Remove: true,
 		},
+		removeStatusOp(s.st, s.globalKey()),
 	}
 	return ops
+}
+
+// Status returns the status of the remote service.
+func (s *RemoteService) Status() (StatusInfo, error) {
+	return getStatus(s.st, s.globalKey(), "remote service")
+}
+
+// SetStatus sets the status for the service.
+func (s *RemoteService) SetStatus(status Status, info string, data map[string]interface{}) error {
+	if !ValidWorkloadStatus(status) {
+		return errors.Errorf("cannot set invalid status %q", status)
+	}
+	return setStatus(s.st, setStatusParams{
+		badge:     "remote service",
+		globalKey: s.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // Endpoints returns the service's currently available relation endpoints.
@@ -297,6 +329,13 @@ func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) 
 	svcDoc.Endpoints = eps
 	svc := newRemoteService(st, svcDoc)
 
+	statusDoc := statusDoc{
+		EnvUUID:    st.EnvironUUID(),
+		Status:     StatusUnknown,
+		StatusInfo: "waiting for remote connection",
+		Updated:    time.Now().UnixNano(),
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -319,6 +358,7 @@ func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) 
 		}
 		ops := []txn.Op{
 			env.assertAliveOp(),
+			createStatusOp(st, svc.globalKey(), statusDoc),
 			{
 				C:      remoteServicesC,
 				Id:     serviceID,

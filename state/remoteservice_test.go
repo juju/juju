@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -62,6 +63,63 @@ func (s *remoteServiceSuite) assertServiceRelations(c *gc.C, svc *state.Service,
 	sort.Strings(relKeys)
 	c.Assert(relKeys, gc.DeepEquals, expectedKeys)
 	return rels
+}
+
+func (s *remoteServiceSuite) TestInitialStatus(c *gc.C) {
+	status, err := s.service.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Since, gc.NotNil)
+	status.Since = nil
+	c.Assert(status, gc.DeepEquals, state.StatusInfo{
+		Status:  state.StatusUnknown,
+		Message: "waiting for remote connection",
+		Data:    map[string]interface{}{},
+	})
+}
+
+func (s *remoteServiceSuite) TestStatus(c *gc.C) {
+	err := s.service.SetStatus(state.StatusMaintenance, "busy", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err := s.State.RemoteService("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := svc.Status()
+	c.Assert(status.Since, gc.NotNil)
+	status.Since = nil
+	c.Assert(status, gc.DeepEquals, state.StatusInfo{
+		Status:  state.StatusMaintenance,
+		Message: "busy",
+		Data:    map[string]interface{}{"foo": "bar"},
+	})
+}
+
+func (s *remoteServiceSuite) TestSetStatusSince(c *gc.C) {
+	now := time.Now()
+	err := s.service.SetStatus(state.StatusMaintenance, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := s.service.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	firstTime := status.Since
+	c.Assert(firstTime, gc.NotNil)
+	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
+
+	// Setting the same status a second time also updates the timestamp.
+	err = s.service.SetStatus(state.StatusMaintenance, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, err = s.service.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(timeBeforeOrEqual(*firstTime, *status.Since), jc.IsTrue)
+}
+
+func (s *remoteServiceSuite) TestGetSetStatusNotFound(c *gc.C) {
+	err := s.service.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.service.SetStatus(state.StatusActive, "not really", nil)
+	c.Check(err, gc.ErrorMatches, `cannot set status: remote service not found`)
+
+	statusInfo, err := s.service.Status()
+	c.Check(err, gc.ErrorMatches, `cannot get status: remote service not found`)
+	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
 }
 
 func (s *remoteServiceSuite) TestTag(c *gc.C) {

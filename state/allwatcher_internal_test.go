@@ -287,16 +287,16 @@ func addTestingRemoteService(
 
 	rs, err := st.AddRemoteService(name, url, relations)
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := make([]multiwatcher.Endpoint, len(relations))
-	for i, r := range relations {
-		endpoints[i] = multiwatcher.Endpoint{name, r}
-	}
 	return rs, multiwatcher.RemoteServiceInfo{
 		EnvUUID:    st.EnvironUUID(),
 		Name:       name,
 		ServiceURL: url,
 		Life:       multiwatcher.Life(rs.Life().String()),
-		Endpoints:  endpoints,
+		Status: multiwatcher.StatusInfo{
+			Current: "unknown",
+			Message: "waiting for remote connection",
+			Data:    map[string]interface{}{},
+		},
 	}
 }
 
@@ -390,6 +390,10 @@ func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			entities[i] = serviceInfo
 		}
+		if remoteServiceInfo, ok := entity.(*multiwatcher.RemoteServiceInfo); ok {
+			substNilSinceTimeForStatus(c, &remoteServiceInfo.Status)
+			entities[i] = remoteServiceInfo
+		}
 	}
 }
 
@@ -457,7 +461,9 @@ func (s *allWatcherStateSuite) TestRemoveRemoteService(c *gc.C) {
 	defer tw.Stop()
 
 	// We should see the initial remote service entity.
-	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
+	deltas := tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &remoteServiceInfo,
 	}})
 
@@ -1559,6 +1565,9 @@ func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 		} else if serviceInfo, ok := delta.Entity.(*multiwatcher.ServiceInfo); ok {
 			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			delta.Entity = serviceInfo
+		} else if remoteServiceInfo, ok := delta.Entity.(*multiwatcher.RemoteServiceInfo); ok {
+			substNilSinceTimeForStatus(c, &remoteServiceInfo.Status)
+			delta.Entity = remoteServiceInfo
 		}
 		deltas[i] = delta
 	}
@@ -2994,13 +3003,35 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 			c.Assert(err, jc.ErrorIsNil)
 			initialRemoteServiceInfo := remoteServiceInfo
 			remoteServiceInfo.Life = "dying"
-
+			remoteServiceInfo.Status = multiwatcher.StatusInfo{}
 			return changeTestCase{
 				about:           "remote service is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},
 				change: watcher.Change{
 					C:  "remoteservices",
 					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			mysql, remoteServiceInfo := addTestingRemoteService(
+				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+			)
+			err := mysql.SetStatus(StatusActive, "running", map[string]interface{}{"foo": "bar"})
+			c.Assert(err, jc.ErrorIsNil)
+			initialRemoteServiceInfo := remoteServiceInfo
+			remoteServiceInfo.Status = multiwatcher.StatusInfo{
+				Current: "active",
+				Message: "running",
+				Data:    map[string]interface{}{"foo": "bar"},
+			}
+			return changeTestCase{
+				about:           "remote service status is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialRemoteServiceInfo},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID(mysql.globalKey()),
 				},
 				expectContents: []multiwatcher.EntityInfo{&remoteServiceInfo},
 			}

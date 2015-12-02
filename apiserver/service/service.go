@@ -31,7 +31,15 @@ func init() {
 
 // Service defines the methods on the service API end point.
 type Service interface {
+	// SetMetricCredentials sets credentials on the service.
 	SetMetricCredentials(args params.ServiceMetricCredentials) (params.ErrorResults, error)
+
+	// ServicesDeploy fetches the charms from the charm store and deploys them.
+	ServicesDeploy(args params.ServicesDeploy) (params.ErrorResults, error)
+
+	// ServicesDeployWithPlacement fetches the charms from the charm store and deploys them
+	// using the specified placement directives.
+	ServicesDeployWithPlacement(args params.ServicesDeploy) (params.ErrorResults, error)
 }
 
 // API implements the service interface and is the concrete
@@ -47,7 +55,7 @@ func NewAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*API, error) {
+) (Service, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
