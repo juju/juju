@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
