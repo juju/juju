@@ -24,7 +24,7 @@ func (c specClient) ListSpecs(services ...string) ([][]resource.Spec, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var apiResults api.SpecsResults
+	var apiResults api.ResourceSpecsResults
 	if err := c.FacadeCall("ListSpecs", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}

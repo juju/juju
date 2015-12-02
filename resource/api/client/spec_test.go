@@ -43,9 +43,9 @@ func (s *specSuite) SetUpTest(c *gc.C) {
 
 func (s *specSuite) TestListSpecOkay(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.SpecsResults)
+		typedResponse, ok := response.(*api.ResourceSpecsResults)
 		c.Assert(ok, gc.Equals, true)
-		typedResponse.Results = append(typedResponse.Results, api.SpecsResult{
+		typedResponse.Results = append(typedResponse.Results, api.ResourceSpecsResult{
 			Entity: params.Entity{Tag: "service-a-service"},
 			Specs:  []api.ResourceSpec{s.apiSpec},
 		})
@@ -81,8 +81,8 @@ func (s *specSuite) TestListSpecOkay(c *gc.C) {
 				Tag: "service-a-service",
 			}},
 		},
-		&api.SpecsResults{
-			Results: []api.SpecsResult{{
+		&api.ResourceSpecsResults{
+			Results: []api.ResourceSpecsResult{{
 				Entity: params.Entity{Tag: "service-a-service"},
 				Specs:  []api.ResourceSpec{s.apiSpec},
 			}},

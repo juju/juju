@@ -22,12 +22,12 @@ type specFacade struct {
 }
 
 // ListSpecs returns the list of resource specs for the given service.
-func (f specFacade) ListSpecs(args api.ListSpecsArgs) (api.SpecsResults, error) {
-	var r api.SpecsResults
-	r.Results = make([]api.SpecsResult, len(args.Entities))
+func (f specFacade) ListSpecs(args api.ListSpecsArgs) (api.ResourceSpecsResults, error) {
+	var r api.ResourceSpecsResults
+	r.Results = make([]api.ResourceSpecsResult, len(args.Entities))
 
 	for i, e := range args.Entities {
-		result, service := api.NewSpecsResult(e.Tag)
+		result, service := api.NewResourceSpecsResult(e.Tag)
 		r.Results[i] = result
 		if result.Error != nil {
 			continue

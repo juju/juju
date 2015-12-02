@@ -33,15 +33,15 @@ func NewListSpecsArgs(services ...string) (ListSpecsArgs, error) {
 	return args, nil
 }
 
-// SpecsResults holds the specs that result from a bulk API call.
-type SpecsResults struct {
+// ResourceSpecsResults holds the specs that result from a bulk API call.
+type ResourceSpecsResults struct {
 	// Results is the list of resource results.
-	Results []SpecsResult
+	Results []ResourceSpecsResult
 }
 
-// SpecsResult holds the specs that result from an API call
+// ResourceSpecsResult holds the specs that result from an API call
 // for a single service.
-type SpecsResult struct {
+type ResourceSpecsResult struct {
 	params.Entity
 	params.ErrorResult
 
@@ -49,11 +49,11 @@ type SpecsResult struct {
 	Specs []ResourceSpec
 }
 
-// NewSpecsResult produces a SpecsResult for the given service tag. The
+// NewResourceSpecsResult produces a SpecsResult for the given service tag. The
 // corresponding service ID is also returned. If any error results, it
 // is stored in the Error field of the result.
-func NewSpecsResult(tagStr string) (SpecsResult, string) {
-	var result SpecsResult
+func NewResourceSpecsResult(tagStr string) (ResourceSpecsResult, string) {
+	var result ResourceSpecsResult
 	result.Tag = tagStr
 
 	if !names.IsValidService(tagStr) {
@@ -77,7 +77,7 @@ func NewSpecsResult(tagStr string) (SpecsResult, string) {
 }
 
 // SetResultError sets the error on the result.
-func SetResultError(result *SpecsResult, err error) {
+func SetResultError(result *ResourceSpecsResult, err error) {
 	result.Error = common.ServerError(err)
 }
 

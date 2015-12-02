@@ -48,8 +48,8 @@ func (s *specSuite) TestListSpecsOkay(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(apiSpecs, jc.DeepEquals, api.SpecsResults{
-		Results: []api.SpecsResult{{
+	c.Check(apiSpecs, jc.DeepEquals, api.ResourceSpecsResults{
+		Results: []api.ResourceSpecsResult{{
 			Entity: params.Entity{Tag: "service-a-service"},
 			Specs: []api.ResourceSpec{
 				apiSpec1,
@@ -71,8 +71,8 @@ func (s *specSuite) TestListSpecsEmpty(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(apiSpecs, jc.DeepEquals, api.SpecsResults{
-		Results: []api.SpecsResult{{
+	c.Check(apiSpecs, jc.DeepEquals, api.ResourceSpecsResults{
+		Results: []api.ResourceSpecsResult{{
 			Entity: params.Entity{Tag: "service-a-service"},
 		}},
 	})
@@ -91,8 +91,8 @@ func (s *specSuite) TestListSpecsError(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.SpecsResults{
-		Results: []api.SpecsResult{{
+	c.Check(results, jc.DeepEquals, api.ResourceSpecsResults{
+		Results: []api.ResourceSpecsResult{{
 			Entity: params.Entity{Tag: "service-a-service"},
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",
