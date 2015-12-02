@@ -33,13 +33,12 @@ func (c resources) registerForClient() error {
 	return nil
 }
 
-func (c resources) registerPublicFacade() error {
+func (c resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
 		c.newPublicFacade,
 	)
-	return nil
 }
 
 func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, _ common.Authorizer) (*server.Facade, error) {
