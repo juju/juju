@@ -193,9 +193,9 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 
 func (s *prepareSuite) TestErrorWithNoFeatureFlagAndBrokenAllocate(c *gc.C) {
 	s.breakEnvironMethods(c, "AllocateAddress")
-	s.SetFeatureFlags() // clear the flags.
+	s.SetFeatureFlags()
 	// Use the special "i-alloc-" prefix to force the dummy provider to allow
-	// AllocateAddress run without the feature flag.
+	// AllocateAddress to run without the feature flag.
 	container := s.newCustomAPI(c, "i-alloc-me", true, false)
 	args := s.makeArgs(container)
 	expectedError := &params.Error{
@@ -212,9 +212,9 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlagAllocateSuccess(c *gc.C) {
 	s.SetFeatureFlags()
 	s.breakEnvironMethods(c)
 	// Use the special "i-alloc-" prefix to force the dummy provider to allow
-	// AllocateAddress run without the feature flag, which simulates a MAAS 1.8+
-	// environment where without the flag we still try calling AllocateAddress
-	// for the device we created for the container.
+	// AllocateAddress to run without the feature flag, which simulates a MAAS
+	// 1.8+ environment where without the flag we still try calling
+	// AllocateAddress for the device we created for the container.
 	container := s.newCustomAPI(c, "i-alloc-me", true, false)
 	args := s.makeArgs(container)
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
