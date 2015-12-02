@@ -12,6 +12,9 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
+	if testing.GOVERSION == 1.5 {
+		t.Skip("skipping package under Go version 1.5, see LP 1520380")
+	}
 	if testing.RaceEnabled {
 		t.Skip("skipping package under -race, see LP 1519097")
 	}
