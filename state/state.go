@@ -73,10 +73,14 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
+	// leadershipManager keeps track of units' service leadership leases
+	// within this environment.
 	leadershipManager *lease.Manager
-	singularManager   *lease.Manager
+	// singularManager keeps track of which controller machine is responsible
+	// for managing this state's environment.
+	singularManager *lease.Manager
 
 	// mu guards allManager, allEnvManager & allEnvWatcherBacking
 	mu                   sync.Mutex
