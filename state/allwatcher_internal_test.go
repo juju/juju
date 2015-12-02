@@ -3018,13 +3018,7 @@ func testChangeRemoteServices(c *gc.C, owner names.UserTag, runChangeTests func(
 			mysql, remoteServiceInfo := addTestingRemoteService(
 				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
 			)
-			err := setStatus(st, setStatusParams{
-				badge:     "remote service",
-				globalKey: mysql.globalKey(),
-				status:    "active",
-				message:   "running",
-				rawData:   map[string]interface{}{"foo": "bar"},
-			})
+			err := mysql.SetStatus(StatusActive, "running", map[string]interface{}{"foo": "bar"})
 			c.Assert(err, jc.ErrorIsNil)
 			initialRemoteServiceInfo := remoteServiceInfo
 			remoteServiceInfo.Status = multiwatcher.StatusInfo{

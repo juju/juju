@@ -358,6 +358,7 @@ func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) 
 		}
 		ops := []txn.Op{
 			env.assertAliveOp(),
+			createStatusOp(st, svc.globalKey(), statusDoc),
 			{
 				C:      remoteServicesC,
 				Id:     serviceID,
@@ -368,7 +369,6 @@ func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) 
 				Id:     serviceID,
 				Assert: txn.DocMissing,
 			},
-			createStatusOp(st, svc.globalKey(), statusDoc),
 		}
 		return ops, nil
 	}
