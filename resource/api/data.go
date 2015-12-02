@@ -39,11 +39,13 @@ type SpecsResults struct {
 	Results []SpecsResult
 }
 
-// SpecsResults holds the specs that result from a singular API call.
+// SpecsResult holds the specs that result from an API call
+// for a single service.
 type SpecsResult struct {
 	params.Entity
 	params.ErrorResult
 
+	// Specs is the list of specs for the service.
 	Specs []ResourceSpec
 }
 

@@ -8,12 +8,16 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
+// specLister is the portion of Juju's "state" needed for specFacade.
 type specLister interface {
 	// ListResourceSpecs returns the resource specs for the given service.
 	ListResourceSpecs(service string) ([]resource.Spec, error)
 }
 
+// specFacade is the portion of the resources facade dealing
+// with resource specs.
 type specFacade struct {
+	// lister is the data source for the facade.
 	lister specLister
 }
 
