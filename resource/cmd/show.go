@@ -17,7 +17,7 @@ import (
 
 // ShowAPI has the API methods needed by ShowCommand.
 type ShowAPI interface {
-	ListSpecs(services ...string) ([][]resource.Spec, error)
+	ListSpecs(services ...string) ([]resource.SpecsResult, error)
 	io.Closer
 }
 
@@ -95,9 +95,11 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	var specs []resource.Spec
 	if len(results) == 1 {
-		specs = results[0]
+		// TODO(ericsnow) Handle results[0].Error?
+		specs = results[0].Specs
 	}
 
 	// Note that we do not worry about c.CompatVersion for show-resources...

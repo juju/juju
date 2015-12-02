@@ -64,7 +64,10 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs)
+	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, resource.SpecsResult{
+		Service: "a-service",
+		Specs:   specs,
+	})
 
 	command := cmd.NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "a-service")
@@ -100,7 +103,10 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 		cmd.NewSpec(c, "website", ".tgz", ".tgz of your website"),
 		cmd.NewSpec(c, "music", ".mp3", "mp3 of your backing vocals"),
 	}
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, specs)
+	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, resource.SpecsResult{
+		Service: "a-service",
+		Specs:   specs,
+	})
 
 	formats := map[string]string{
 		"tabular": `
