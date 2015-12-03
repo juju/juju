@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -35,7 +36,10 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
+	if jujutesting.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1517632")
+	}
 	coretesting.MgoTestPackage(t)
 }
 

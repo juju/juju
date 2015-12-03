@@ -53,7 +53,7 @@ var _ rpc.ErrorCoder = (*Error)(nil)
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{Message: %q, Code:  %q}", e.Code, e.Message)
+	return fmt.Sprintf("&params.Error{Message: %q, Code: %q}", e.Message, e.Code)
 }
 
 // The Code constants hold error codes for some kinds of error.

@@ -1094,6 +1094,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 
 type AddServiceArgs struct {
 	Name        string
+	Series      string
 	Owner       string
 	Charm       *Charm
 	Networks    []string
@@ -1145,7 +1146,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	series := args.Charm.URL().Series
+	series := args.Series
+	if series == "" {
+		series = args.Charm.URL().Series
+	}
+	// Should not happen, but just in case.
+	if series == "" {
+		return nil, errors.New("series is empty")
+	}
 
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
@@ -1225,7 +1233,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
+		unit, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1401,7 +1409,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {

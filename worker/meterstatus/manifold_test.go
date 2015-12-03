@@ -58,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 
 	locksDir := c.MkDir()
-	lock, err := fslock.NewLock(locksDir, "machine-lock")
+	lock, err := fslock.NewLock(locksDir, "machine-lock", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dummyResources = dt.StubResources{

@@ -16,12 +16,14 @@ import (
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 )
 
 // deploymentLogger is used to notify clients about the bundle deployment
@@ -34,11 +36,20 @@ type deploymentLogger interface {
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
-func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger) error {
-	if err := data.Verify(func(s string) error {
+func deployBundle(
+	data *charm.BundleData, client *api.Client, serviceDeployer *serviceDeployer,
+	csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger,
+	bundleStorage map[string]map[string]storage.Constraints,
+) error {
+	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
-	}); err != nil {
+	}
+	verifyStorage := func(s string) error {
+		_, err := storage.ParseConstraints(s)
+		return err
+	}
+	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 
@@ -65,11 +76,19 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 	}
 	defer watcher.Stop()
 
+	serviceClient, err := serviceDeployer.newServiceAPIClient()
+	if err != nil {
+		return errors.Annotate(err, "cannot get service client")
+	}
+
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
 		changes:         changes,
 		results:         make(map[string]string, numChanges),
 		client:          client,
+		serviceClient:   serviceClient,
+		serviceDeployer: serviceDeployer,
+		bundleStorage:   bundleStorage,
 		csclient:        csclient,
 		repoPath:        repoPath,
 		conf:            conf,
@@ -126,6 +145,15 @@ type bundleHandler struct {
 	results map[string]string
 	// client is used to interact with the environment.
 	client *api.Client
+	// serviceClient is used to interact with services.
+	serviceClient *apiservice.Client
+	// serviceDeployer is used to deploy services.
+	serviceDeployer *serviceDeployer
+	// bundleStorage contains a mapping of service-specific storage
+	// constraints. For each service, the storage constraints in the
+	// map will replace or augment the storage constraints specified
+	// in the bundle itself.
+	bundleStorage map[string]map[string]storage.Constraints
 	// csclient is used to retrieve charms from the charm store.
 	csclient *csClient
 	// repoPath is used to retrieve charms from a local repository.
@@ -153,7 +181,12 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
-	url, repo, err := resolveCharmStoreEntityURL(p.Charm, h.csclient.params, h.repoPath, h.conf)
+	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:   p.Charm,
+		csParams: h.csclient.params,
+		repoPath: h.repoPath,
+		conf:     h.conf,
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -189,9 +222,32 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for service")
 	}
+	storageConstraints := h.bundleStorage[p.Service]
+	if len(p.Storage) > 0 {
+		if storageConstraints == nil {
+			storageConstraints = make(map[string]storage.Constraints)
+		}
+		for k, v := range p.Storage {
+			if _, ok := storageConstraints[k]; ok {
+				// Storage constraints overridden
+				// on the command line.
+				continue
+			}
+			cons, err := storage.ParseConstraints(v)
+			if err != nil {
+				return errors.Annotate(err, "invalid storage constraints")
+			}
+			storageConstraints[k] = cons
+		}
+	}
 	// Deploy the service.
-	numUnits, toMachineSpec := 0, ""
-	if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err == nil {
+	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
+		charmURL:    ch,
+		serviceName: p.Service,
+		configYAML:  configYAML,
+		constraints: cons,
+		storage:     storageConstraints,
+	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
 		return nil
 	} else if !isErrServiceExists(err) {
@@ -201,12 +257,15 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	// charm is compatible with the one declared in the bundle. If it is,
 	// reuse the existing service or upgrade to a specified revision.
 	// Exit with an error otherwise.
-	if err := upgradeCharm(h.client, h.log, p.Service, ch); err != nil {
+	if err := upgradeCharm(h.serviceClient, h.log, p.Service, ch); err != nil {
 		return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
 	}
 	// Update service configuration.
 	if configYAML != "" {
-		if err := h.client.ServiceSetYAML(p.Service, configYAML); err != nil {
+		if err := h.serviceClient.ServiceUpdate(params.ServiceUpdate{
+			ServiceName:  p.Service,
+			SettingsYAML: configYAML,
+		}); err != nil {
 			// This should never happen as possible errors are already returned
 			// by the ServiceDeploy call above.
 			return errors.Annotatef(err, "cannot update options for service %q", p.Service)
@@ -587,7 +646,7 @@ func resolve(placeholder string, results map[string]string) string {
 // If the service is already deployed using the given charm id, do nothing.
 // This function returns an error if the existing charm and the target one are
 // incompatible, meaning an upgrade from one to the other is not allowed.
-func upgradeCharm(client *api.Client, log deploymentLogger, service, id string) error {
+func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id string) error {
 	existing, err := client.ServiceGetCharmURL(service)
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve info for service %q", service)

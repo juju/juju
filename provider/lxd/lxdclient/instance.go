@@ -43,12 +43,10 @@ func splitConfigKey(key string) (string, string) {
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
 var AliveStatuses = []string{
-	//StatusOK,
-	//StatusPending,
+	// TODO(ericsnow) Also support StatusOK, StatusPending, and StatusThawed?
 	StatusStarting,
 	StatusStarted,
 	StatusRunning,
-	//StatusThawed,
 }
 
 // InstanceSpec holds all the information needed to create a new LXD
@@ -56,6 +54,13 @@ var AliveStatuses = []string{
 type InstanceSpec struct {
 	// Name is the "name" of the instance.
 	Name string
+
+	// Image is the name of the image to use.
+	Image string
+
+	// ImageRemote identifies the remote to use for images. By default
+	// the client's remote is used.
+	ImageRemote string
 
 	// Profiles are the names of the container profiles to apply to the
 	// new container, in order.
@@ -68,6 +73,7 @@ type InstanceSpec struct {
 	// Metadata is the instance metadata.
 	Metadata map[string]string
 
+	// TODO(ericsnow) Other possible fields:
 	// Disks
 	// Networks
 	// Metadata
@@ -94,7 +100,6 @@ func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
 		Name:            name,
 		Profiles:        spec.Profiles,
 		Status:          shared.ContainerStatus{},
-		//Userdata:        []byte{},
 	}
 }
 

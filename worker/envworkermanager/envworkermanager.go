@@ -4,6 +4,8 @@
 package envworkermanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -27,13 +29,14 @@ func NewEnvWorkerManager(
 	st InitialState,
 	startEnvWorker envWorkersCreator,
 	dyingEnvWorker envWorkersCreator,
+	delay time.Duration,
 ) worker.Worker {
 	m := &envWorkerManager{
 		st:             st,
 		startEnvWorker: startEnvWorker,
 		dyingEnvWorker: dyingEnvWorker,
 	}
-	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, delay)
 	go func() {
 		defer m.tomb.Done()
 		m.tomb.Kill(m.loop())

@@ -119,7 +119,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and the agent to be restarted running the new tools. We should only
 		// need one of these in a consolidated agent, but we'll need to be
 		// careful about behavioural differences, and interactions with the
-		// upgrade-steps worker.
+		// upgradesteps worker.
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,

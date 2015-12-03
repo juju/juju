@@ -3,7 +3,7 @@
 
 // +build windows
 
-package container
+package filelock
 
 import "fmt"
 

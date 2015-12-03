@@ -5,8 +5,9 @@ package featuretests
 
 import (
 	"flag"
-	"testing"
+	stdtesting "testing"
 
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -36,8 +37,12 @@ func init() {
 	gc.Suite(&cmdSubnetSuite{})
 	gc.Suite(&undertakerSuite{})
 	gc.Suite(&dumpLogsCommandSuite{})
+	gc.Suite(&upgradeSuite{})
 }
 
-func Test(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
+	if testing.RaceEnabled {
+		t.Skip("skipping package under -race, see LP 1519183")
+	}
 	coretesting.MgoTestPackage(t)
 }
