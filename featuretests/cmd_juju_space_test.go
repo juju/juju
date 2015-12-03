@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -42,7 +43,7 @@ func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate stri
 		ids[i] = fmt.Sprintf(cidrTemplate, i)
 		infos[i] = state.SubnetInfo{
 			// ProviderId it needs to be unique in state.
-			ProviderId:       fmt.Sprintf("sub-%d", rand.Int()),
+			ProviderId:       network.Id(fmt.Sprintf("sub-%d", rand.Int())),
 			CIDR:             ids[i],
 			SpaceName:        space,
 			AvailabilityZone: "zone1",
