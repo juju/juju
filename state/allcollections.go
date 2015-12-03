@@ -328,7 +328,15 @@ func allCollections() collectionSchema {
 				Key: []string{"env-uuid", "globalkey"},
 			}},
 		},
-		spacesC: {},
+		spacesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"env-uuid", "providerid"},
+				// Not always present; but, if present, must be unique; hence
+				// both unique and sparse.
+				Unique: true,
+				Sparse: true,
+			}},
+		},
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {},

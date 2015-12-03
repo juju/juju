@@ -10,6 +10,7 @@ import (
 
 	cmdsubnet "github.com/juju/juju/cmd/juju/subnet"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -122,7 +123,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.10.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
-	c.Assert(subnet.ProviderId(), gc.Equals, "dummy-private")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-private"))
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
 }
 
@@ -146,7 +147,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.20.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
-	c.Assert(subnet.ProviderId(), gc.Equals, "dummy-public")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-public"))
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
 }
 
