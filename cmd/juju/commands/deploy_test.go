@@ -918,13 +918,13 @@ type ParseBindSuite struct {
 
 var _ = gc.Suite(&ParseBindSuite{})
 
-var bindErrPrefix = "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
+const bindErrPrefix = "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
 
 func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: ""}
 	bindings, err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, []binding{})
+	c.Assert(bindings, gc.IsNil)
 }
 
 func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
@@ -945,14 +945,14 @@ func (s *ParseBindSuite) TestBindParseNoAt(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: "foo"}
 	bindings, err := deploy.parseBind()
 	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Could not find '@'.")
-	c.Assert(bindings, jc.DeepEquals, []binding{})
+	c.Assert(bindings, gc.IsNil)
 }
 
 func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: "foo@bar@baz"}
 	bindings, err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Found multiple @ in binding. Did you forget to comma-separate the binding list?")
-	c.Assert(bindings, jc.DeepEquals, []binding{})
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Found multiple @ in binding. Did you forget to space-separate the binding list?")
+	c.Assert(bindings, gc.IsNil)
 }
 
 func (s *ParseBindSuite) TestBindParseDoc(c *gc.C) {
@@ -966,5 +966,5 @@ func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: "rel1@spa#ce1"}
 	bindings, err := deploy.parseBind()
 	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Space name invalid.")
-	c.Assert(bindings, jc.DeepEquals, []binding{})
+	c.Assert(bindings, gc.IsNil)
 }
