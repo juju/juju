@@ -428,17 +428,11 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
-	env := resetJujuHome(c, "devenv")
-	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	const envName = "devenv"
+	s.patchVersionAndSeries(c, envName)
 
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
 	currentEnv, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
