@@ -1387,7 +1387,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 
 func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo) (*state.Subnet, error) {
 	stateSubnetInfo := state.SubnetInfo{
-		ProviderId:        string(subnetInfo.ProviderId),
+		ProviderId:        subnetInfo.ProviderId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AllocatableIPHigh: subnetInfo.AllocatableIPHigh.String(),
@@ -1490,7 +1490,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 			logger.Warningf(warningPrefix + "no availability zone(s) set")
 			continue
 		}
-		subnetsToZones[providerId] = []string{zone}
+		subnetsToZones[string(providerId)] = []string{zone}
 	}
 	return subnetsToZones, nil
 }
