@@ -118,9 +118,9 @@ func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
-	_, err := s.State.AddSpace("db", nil, false)
+	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("client", nil, true)
+	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
@@ -155,9 +155,9 @@ func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
 	// This test ensures if special characters appear in endpoint names of the
 	// charm metadata, they are properly escaped before saving to mongo, and
 	// unescaped when read back.
-	_, err := s.State.AddSpace("client", nil, true)
+	_, err := s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("db", nil, false)
+	_, err = s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	initialBindings := map[string]string{
@@ -733,9 +733,9 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		"kludge":  network.DefaultSpace,
 		"cluster": network.DefaultSpace,
 	})
-	_, err = s.State.AddSpace("db", nil, true)
+	_, err = s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("admin", nil, false)
+	_, err = s.State.AddSpace("admin", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updateBindings := func(updatesMap bson.M) {
@@ -2251,9 +2251,9 @@ func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
-	_, err := s.State.AddSpace("db", nil, true)
+	_, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("ha", nil, false)
+	_, err = s.State.AddSpace("ha", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bindings := map[string]string{
@@ -2275,7 +2275,7 @@ func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
-	_, err := s.State.AddSpace("db", nil, true)
+	_, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
