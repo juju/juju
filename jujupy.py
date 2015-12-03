@@ -167,6 +167,22 @@ class EnvJujuClient:
                     return cmd
         raise JESNotSupported()
 
+    def enable_jes(self):
+        """Enable JES if JES is optional.
+
+        Specifically implemented by the clients that optionally support JES.
+        This version raises either JESByDefault or JESNotSupported.
+
+        :raises: JESByDefault when JES is always enabled; Juju has the
+            'destroy-controller' command.
+        :raises: JESNotSupported when JES is not supported; Juju does not have
+            the 'system kill' command when the JES feature flag is set.
+        """
+        if self.is_jes_enabled():
+            raise JESByDefault()
+        else:
+            raise JESNotSupported()
+
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -808,6 +824,29 @@ def bootstrap_from_env(juju_home, client):
 def quickstart_from_env(juju_home, client, bundle):
     with temp_bootstrap_env(juju_home, client):
         client.quickstart(bundle)
+
+
+def tear_down(client, jes_enabled, try_jes=False):
+    """Tear down a JES or non-JES environment.
+
+    JES environments are torn down via 'controller kill' or 'system kill',
+    and non-JES environments are torn down via 'destroy-environment --force.'
+    """
+    disable_jes = False
+    if try_jes and not jes_enabled:
+        try:
+            client.enable_jes()
+        except JESNotSupported:
+            pass
+        else:
+            jes_enabled = True
+            disable_jes = True
+    if jes_enabled:
+        client.kill_controller()
+        if disable_jes:
+            client.disable_jes()
+    else:
+        client.destroy_environment()
 
 
 def uniquify_local(env):

@@ -14,6 +14,7 @@ from textwrap import dedent
 
 from mock import (
     call,
+    MagicMock,
     Mock,
     patch,
 )
@@ -49,6 +50,7 @@ from jujupy import (
     parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
+    tear_down,
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
@@ -229,6 +231,58 @@ class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
         client._use_jes = True
         env = client._shell_environ()
         self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+
+
+class TestTearDown(TestCase):
+
+    def test_tear_down_no_jes(self):
+        client = MagicMock()
+        tear_down(client, False)
+        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(0, client.kill_controller.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_jes(self):
+        client = MagicMock()
+        tear_down(client, True)
+        client.kill_controller.assert_called_once_with()
+        self.assertEqual(0, client.destroy_environment.call_count)
+        self.assertEqual(0, client.enable_jes.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_try_jes(self):
+
+        def check_jes():
+            client.enable_jes.assert_called_once_with()
+            self.assertEqual(0, client.disable_jes.call_count)
+
+        client = MagicMock()
+        client.kill_controller.side_effect = check_jes
+
+        tear_down(client, jes_enabled=False, try_jes=True)
+        client.kill_controller.assert_called_once_with()
+        client.disable_jes.assert_called_once_with()
+
+    def test_tear_down_jes_try_jes(self):
+        client = MagicMock()
+        tear_down(client, jes_enabled=True, try_jes=True)
+        client.kill_controller.assert_called_once_with()
+        self.assertEqual(0, client.destroy_environment.call_count)
+        self.assertEqual(0, client.enable_jes.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_try_jes_not_supported(self):
+
+        def check_jes():
+            client.enable_jes.assert_called_once_with()
+
+        client = MagicMock()
+        client.enable_jes.side_effect = JESNotSupported
+        client.destroy_environment.side_effect = check_jes
+
+        tear_down(client, jes_enabled=False, try_jes=True)
+        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(0, client.disable_jes.call_count)
 
 
 class FakePopen(object):

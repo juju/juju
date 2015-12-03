@@ -32,6 +32,7 @@ from jujupy import (
     get_machine_dns_name,
     jes_home_path,
     SimpleEnvironment,
+    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -372,18 +373,6 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['region'] = region
 
 
-def tear_down(client, jes_enabled):
-    """Tear down a JES or non-JES environment.
-
-    JES environments are torn down via 'controller kill' or 'system kill',
-    and non-JES environments are torn down via 'destroy-environment --force.'
-    """
-    if jes_enabled:
-        client.kill_controller()
-    else:
-        client.destroy_environment()
-
-
 class BootstrapManager:
     """
     Helper class for running juju tests.
@@ -521,7 +510,9 @@ class BootstrapManager:
         jenv_path = get_jenv_path(self.client.juju_home,
                                   self.client.env.environment)
         if os.path.isfile(jenv_path):
-            tear_down(self.client, self.jes_enabled)
+            # An existing .jenv implies JES was not used, because when JES is
+            # enabled, cache.yaml is enabled.
+            tear_down(self.client, self.jes_enabled, try_jes=False)
             torn_down = True
         else:
             torn_down = False
@@ -530,7 +521,7 @@ class BootstrapManager:
                                 permanent=self.permanent):
             try:
                 if not torn_down:
-                    tear_down(self.client, self.jes_enabled)
+                    tear_down(self.client, self.jes_enabled, try_jes=True)
                 yield
             except:
                 # If run from a windows machine may not have ssh to get

@@ -842,7 +842,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, None, [], None, None, None, None,
             client.juju_home, False, False, False)
 
-        def check_config(client_, jes_enabled):
+        def check_config(client_, jes_enabled, try_jes=False):
             jenv_path = get_jenv_path(client.juju_home, 'foobar')
             self.assertFalse(os.path.exists(jenv_path))
             environments_path = get_environments_path(client.juju_home)
@@ -852,7 +852,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context(None, []):
-                td_mock.assert_called_once_with(client, False)
+                td_mock.assert_called_once_with(client, False, try_jes=True)
 
     def test_bootstrap_context_tear_down_jenv(self):
         client = self.make_client()
@@ -866,8 +866,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, None, [], None, None, None, None,
             client.juju_home, False, False, False)
 
-        def check_config(client_, jes_enabled):
-            jenv_path = get_jenv_path(client.juju_home, 'foobar')
+        def check_config(client_, jes_enabled, try_jes=False):
             self.assertTrue(os.path.isfile(jenv_path))
             environments_path = get_environments_path(client.juju_home)
             self.assertFalse(os.path.exists(environments_path))
@@ -876,7 +875,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context(None, []):
-                td_mock.assert_called_once_with(client, False)
+                td_mock.assert_called_once_with(client, False, try_jes=False)
 
 
 class TestBootContext(FakeHomeTestCase):
@@ -901,14 +900,20 @@ class TestBootContext(FakeHomeTestCase):
         if jes:
             output = jes
             help_index = 1
+            po_count = 3
         else:
             output = ''
-            help_index = None
+            help_index = 0
+            po_count = 2
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'), call_index=help_index)
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'), call_index=help_index +
+            1)
+        self.assertEqual(po_count, po_mock.call_count)
         if jes:
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'cache.yaml')
@@ -1031,7 +1036,10 @@ class TestBootContext(FakeHomeTestCase):
             ), 1)
         self.assertEqual(2, call_mock.call_count)
         assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'))
+            'juju', '--show-log', 'help', 'commands'), 0)
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'), 1)
+        self.assertEqual(2, po_mock.call_count)
 
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
