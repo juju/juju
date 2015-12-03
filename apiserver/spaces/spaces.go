@@ -34,7 +34,7 @@ type Backing interface {
 	EnvironConfig() (*config.Config, error)
 
 	// AddSpace creates a space.
-	AddSpace(name string, subnetIds []string, public bool) error
+	AddSpace(name, providerId string, subnetIds []string, public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]common.BackingSpace, error)
@@ -105,8 +105,8 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 		subnets = append(subnets, subnetTag.Id())
 	}
 
-	// Add the validated space
-	err = api.backing.AddSpace(spaceTag.Id(), subnets, args.Public)
+	// Add the validated space.
+	err = api.backing.AddSpace(spaceTag.Id(), "", subnets, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}

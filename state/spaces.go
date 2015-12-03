@@ -21,11 +21,12 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID    string `bson:"_id"`
-	EnvUUID  string `bson:"env-uuid"`
-	Life     Life   `bson:"life"`
-	Name     string `bson:"name"`
-	IsPublic bool   `bson:"is-public"`
+	DocID      string `bson:"_id"`
+	EnvUUID    string `bson:"env-uuid"`
+	Life       Life   `bson:"life"`
+	Name       string `bson:"name"`
+	IsPublic   bool   `bson:"is-public"`
+	ProviderId string `bson:"providerid,omitempty"`
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
@@ -46,6 +47,12 @@ func (s *Space) String() string {
 // Name returns the name of the Space.
 func (s *Space) Name() string {
 	return s.doc.Name
+}
+
+// ProviderId returns the provider id of the space. This will be the empty
+// string except on substrates that directly support spaces.
+func (s *Space) ProviderId() string {
+	return s.doc.ProviderId
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -70,7 +77,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 }
 
 // AddSpace creates and returns a new space.
-func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
+func (st *State) AddSpace(name string, providerId string, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
 		return nil, errors.NewNotValid(nil, "invalid space name")
@@ -78,11 +85,12 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
-		DocID:    spaceID,
-		EnvUUID:  st.EnvironUUID(),
-		Life:     Alive,
-		Name:     name,
-		IsPublic: isPublic,
+		DocID:      spaceID,
+		EnvUUID:    st.EnvironUUID(),
+		Life:       Alive,
+		Name:       name,
+		ProviderId: providerId,
+		IsPublic:   isPublic,
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 

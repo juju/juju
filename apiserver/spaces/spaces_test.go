@@ -123,7 +123,9 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
 	}
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, p.Subnets, p.Public))
+
+	// AddSpace from the api always uses an empty ProviderId.
+	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, "", p.Subnets, p.Public))
 
 	if p.Error == "" || p.MakesCall {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)

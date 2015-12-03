@@ -483,8 +483,8 @@ func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.Ba
 	return fs, nil
 }
 
-func (sb *StubBacking) AddSpace(name string, subnets []string, public bool) error {
-	sb.MethodCall(sb, "AddSpace", name, subnets, public)
+func (sb *StubBacking) AddSpace(name, providerId string, subnets []string, public bool) error {
+	sb.MethodCall(sb, "AddSpace", name, providerId, subnets, public)
 	if err := sb.NextErr(); err != nil {
 		return err
 	}
