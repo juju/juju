@@ -116,8 +116,9 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(wallyworld) - list with filters when supported
-	ctx, err := testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+	_, err = testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
 		"local:/u/me/varnish", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.DeepEquals, "varnish")
+	// TODO(wallyworld) - checkout output when backend worker is implemented.
+	// c.Assert(ctx.Stdout.(*bytes.Buffer).String(), jc.DeepEquals, "varnish")
 }
