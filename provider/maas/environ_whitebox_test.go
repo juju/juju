@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -1142,8 +1143,12 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 	}
 
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3", "6"})
-	errorText := "failed to find the following subnets: 3, 6"
-	c.Assert(err, gc.ErrorMatches, errorText)
+	errorRe := regexp.MustCompile("failed to find the following subnets: (\\d), (\\d)$")
+	errorText := err.Error()
+	c.Assert(errorRe.MatchString(errorText), jc.IsTrue)
+	matches := errorRe.FindStringSubmatch(errorText)
+	c.Assert(matches, gc.HasLen, 3)
+	c.Assert(matches[1:], jc.SameContents, []string{"3", "6"})
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
