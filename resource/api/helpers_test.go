@@ -27,7 +27,7 @@ func (helpersSuite) TestResourceSpec2API(c *gc.C) {
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
-		Origin:   resource.OriginUpload,
+		Origin:   resource.OriginKindUpload,
 		Revision: resource.NoRevision,
 	}
 	err := spec.Validate()
@@ -62,7 +62,7 @@ func (helpersSuite) TestAPI2ResourceSpec(c *gc.C) {
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
-		Origin:   resource.OriginUpload,
+		Origin:   resource.OriginKindUpload,
 		Revision: resource.NoRevision,
 	}
 	err = expected.Validate()

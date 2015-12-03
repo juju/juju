@@ -108,7 +108,7 @@ func newSpec(c *gc.C, name string) (resource.Spec, api.ResourceSpec) {
 	}
 	spec := resource.Spec{
 		Definition: info,
-		Origin:     resource.OriginUpload,
+		Origin:     resource.OriginKindUpload,
 		Revision:   resource.NoRevision,
 	}
 	err := spec.Validate()

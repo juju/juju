@@ -9,34 +9,34 @@ import (
 
 // TODO(ericsnow) Would origins make sense in the charm metadata?
 
-// These are the valid resource origins.
+// These are the valid kinds of resource origin.
 const (
-	OriginUnknown Origin = ""
-	OriginUpload  Origin = "upload"
+	OriginKindUnknown OriginKind = ""
+	OriginKindUpload             = "upload"
 )
 
-var knownOrigins = map[Origin]bool{
-	OriginUpload: true,
+var knownOriginKinds = map[OriginKind]bool{
+	OriginKindUpload: true,
 }
 
-// Origin identifies the type of a resource origin.
-type Origin string
+// OriginKind identifies the kind of a resource origin.
+type OriginKind string
 
-// ParseOrigin converts the provided string into an Origin. If it is
-// not a known origin then false is returned.
-func ParseOrigin(value string) (Origin, bool) {
-	o := Origin(value)
-	return o, knownOrigins[o]
+// ParseOriginKind converts the provided string into an OriginKind.
+// If it is not a known origin kind then false is returned.
+func ParseOriginKind(value string) (OriginKind, bool) {
+	o := OriginKind(value)
+	return o, knownOriginKinds[o]
 }
 
-// String returns the printable representation of the origin.
-func (o Origin) String() string {
+// String returns the printable representation of the origin kind.
+func (o OriginKind) String() string {
 	return string(o)
 }
 
 // Validate ensures that the origin is correct.
-func (o Origin) Validate() error {
-	if !knownOrigins[o] {
+func (o OriginKind) Validate() error {
+	if !knownOriginKinds[o] {
 		return errors.NewNotValid(nil, "unknown origin")
 	}
 	return nil

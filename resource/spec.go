@@ -14,8 +14,8 @@ import (
 
 // TODO(ericsnow) Move the this file or something similar to the charm repo?
 
-var revisionTypes = map[Origin]RevisionType{
-	OriginUpload: RevisionTypeNone,
+var revisionTypes = map[OriginKind]RevisionType{
+	OriginKindUpload: RevisionTypeNone,
 }
 
 // Spec describes one resource that a service uses.
@@ -27,8 +27,8 @@ type Spec struct {
 	// Definition is the basic info about the resource.
 	Definition resource.Info
 
-	// Origin identifies where the resource should come from.
-	Origin Origin
+	// Origin identifies the kind of source the resource should come from.
+	Origin OriginKind
 
 	// Revision is the desired revision of the resource. It returns ""
 	// for origins that do not support revisions.
@@ -42,7 +42,7 @@ func (s Spec) Validate() error {
 	}
 
 	switch s.Origin {
-	case OriginUpload:
+	case OriginKindUpload:
 		if s.Revision != NoRevision {
 			return errors.NewNotValid(nil, `"upload" specs don't have revisions`)
 		}

@@ -22,7 +22,7 @@ func NewSpec(c *gc.C, name, suffix, comment string) resource.Spec {
 	}
 	spec := resource.Spec{
 		Definition: info,
-		Origin:     resource.OriginUpload,
+		Origin:     resource.OriginKindUpload,
 	}
 	err := spec.Validate()
 	c.Assert(err, jc.ErrorIsNil)

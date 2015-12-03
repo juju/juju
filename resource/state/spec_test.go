@@ -82,7 +82,7 @@ func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
 
 		spec := resource.Spec{
 			Definition: info,
-			Origin:     resource.OriginUpload,
+			Origin:     resource.OriginKindUpload,
 		}
 		specs = append(specs, spec)
 

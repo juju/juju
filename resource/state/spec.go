@@ -43,7 +43,7 @@ func newSpec(res charmresource.Resource, serviceID string) (resource.Spec, error
 	// Once that changes, this code will need to adjust.
 	spec := resource.Spec{
 		Definition: res.Info,
-		Origin:     resource.OriginUpload,
+		Origin:     resource.OriginKindUpload,
 	}
 	if err := spec.Validate(); err != nil {
 		return spec, errors.Annotatef(err, "invalid charm metadata for service %q", serviceID)

@@ -59,7 +59,7 @@ func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 	}
 	spec.Definition = info
 
-	origin, ok := resource.ParseOrigin(apiSpec.Origin)
+	origin, ok := resource.ParseOriginKind(apiSpec.Origin)
 	if !ok {
 		return spec, errors.Trace(origin.Validate())
 	}

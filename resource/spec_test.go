@@ -27,7 +27,7 @@ func (specSuite) TestValidateUploadOkay(c *gc.C) {
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
-		Origin:   resource.OriginUpload,
+		Origin:   resource.OriginKindUpload,
 		Revision: resource.NoRevision,
 	}
 
@@ -43,7 +43,7 @@ func (specSuite) TestValidateUploadHasRevision(c *gc.C) {
 			Type: charmresource.TypeFile,
 			Path: "spam.tgz",
 		},
-		Origin:   resource.OriginUpload,
+		Origin:   resource.OriginKindUpload,
 		Revision: "???",
 	}
 
@@ -60,7 +60,7 @@ func (specSuite) TestValidateUnknownOrigin(c *gc.C) {
 			Type: charmresource.TypeFile,
 			Path: "spam.tgz",
 		},
-		Origin:   resource.OriginUnknown,
+		Origin:   resource.OriginKindUnknown,
 		Revision: resource.NoRevision,
 	}
 
@@ -72,7 +72,7 @@ func (specSuite) TestValidateUnknownOrigin(c *gc.C) {
 
 func (specSuite) TestValidateEmptyInfo(c *gc.C) {
 	spec := resource.Spec{
-		Origin:   resource.OriginUpload,
+		Origin:   resource.OriginKindUpload,
 		Revision: resource.NoRevision,
 	}
 
