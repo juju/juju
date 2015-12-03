@@ -17,11 +17,12 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -37,19 +38,29 @@ type DeployCommand struct {
 	// or a bundle name.
 	CharmOrBundle string
 	Series        string
-	ServiceName   string
-	Config        cmd.FileVar
-	Constraints   constraints.Value
-	Networks      string // TODO(dimitern): Drop this in a follow-up and fix docs.
-	BumpRevision  bool   // Remove this once the 1.16 support is dropped.
-	RepoPath      string // defaults to JUJU_REPOSITORY
+
+	// Force is used to allow a charm to be deployed onto a machine
+	// running an unsupported series.
+	Force bool
+
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
+	RepoPath     string // defaults to JUJU_REPOSITORY
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
 	//
 	// Storage is a map of storage constraints, keyed on the storage name
 	// defined in charm storage metadata.
-	Storage    map[string]storage.Constraints
+	Storage map[string]storage.Constraints
+
+	// BundleStorage maps service names to maps of storage constraints keyed on
+	// the storage name defined in that service's charm storage metadata.
+	BundleStorage map[string]map[string]storage.Constraints
+
 	AfterSteps []DeployStep
 }
 
@@ -79,6 +90,12 @@ Charms may also be deployed from a user specified path. In this case, the
 path to the charm is specified along with an optional series.
 
    juju deploy /path/to/charm --series trusty
+
+If series is not specified, the charm's default series is used. The default series
+for a charm is the first one specified in the charm metadata. If the specified series
+is not supported by the charm, this results in an error, unless --force is used.
+
+   juju deploy /path/to/charm --series wily --force
 
 Deploying using a local repository is supported but deprecated.
 In this case, when the default-series is not specified in the
@@ -190,13 +207,17 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
-	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
 	for _, step := range c.AfterSteps {
 		step.SetFlags(f)
 	}
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	if c.Force && c.Series == "" && c.PlacementSpec == "" {
+		return errors.New("--force is only used with --series")
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsValidService(args[1]) {
@@ -223,6 +244,8 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
+	deployer := serviceDeployer{ctx, c.newServiceAPIClient}
+
 	// We may have been given a local bundle file.
 	bundlePath := c.CharmOrBundle
 	bundleData, err := charmrepo.ReadBundleFile(bundlePath)
@@ -237,12 +260,12 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// If not a bundle then maybe a local charm.
 	if err != nil {
 		// Charm may have been supplied via a path reference.
-		ch, curl, charmErr := charmrepo.NewCharmAtPath(c.CharmOrBundle, c.Series)
+		ch, curl, charmErr := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
 		if charmErr == nil {
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
-			return c.deployCharm(curl, ctx, client)
+			return c.deployCharm(curl, curl.Series, ctx, client, &deployer)
 		}
 		// We check for several types of known error which indicate
 		// that the supplied reference was indeed a path but there was
@@ -251,7 +274,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			return charmErr
 		}
 		if charm.IsUnsupportedSeriesError(charmErr) {
-			return charmErr
+			return errors.Errorf("%v. Use --force to deploy the charm anyway.", charmErr)
 		}
 		err = charmErr
 	}
@@ -281,10 +304,21 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 
 	var charmOrBundleURL *charm.URL
 	var repo charmrepo.Interface
+	var supportedSeries []string
 	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
 	if bundleData == nil {
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		charmOrBundleURL, repo, err = resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
+		charmOrBundleURL, supportedSeries, repo, err = resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+			urlStr:          c.CharmOrBundle,
+			requestedSeries: c.Series,
+			forceSeries:     c.Force,
+			csParams:        csClient.params,
+			repoPath:        repoPath,
+			conf:            conf,
+		})
+		if charm.IsUnsupportedSeriesError(err) {
+			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -300,22 +334,95 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	// Handle a bundle.
 	if bundleData != nil {
-		if err := deployBundle(bundleData, client, csClient, repoPath, conf, ctx); err != nil {
+		if err := deployBundle(
+			bundleData, client, &deployer, csClient,
+			repoPath, conf, ctx, c.BundleStorage,
+		); err != nil {
 			return errors.Trace(err)
 		}
 		ctx.Infof("deployment of bundle %q completed", bundlePath)
 		return nil
 	}
 	// Handle a charm.
+	// Get the series to use.
+	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
+	if charm.IsUnsupportedSeriesError(err) {
+		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+	}
+	// Store the charm in state.
 	curl, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "storing charm for URL %q", charmOrBundleURL)
 	}
 	ctx.Infof("Added charm %q to the environment.", curl)
-	return c.deployCharm(curl, ctx, client)
+	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
+	return c.deployCharm(curl, series, ctx, client, &deployer)
 }
 
-func (c *DeployCommand) deployCharm(curl *charm.URL, ctx *cmd.Context, client *api.Client) error {
+const (
+	msgUserRequestedSeries = "with the user specified series %q"
+	msgSingleCharmSeries   = "with the charm series %q"
+	msgDefaultCharmSeries  = "with the default charm metadata series %q"
+	msgDefaultModelSeries  = "with the configured model default series %q"
+	msgLatestLTSSeries     = "with the latest LTS series %q"
+)
+
+// charmSeries determine what series to use with a charm.
+// Order of preference is:
+// - user requested when deploying
+// - default from charm metadata supported series
+// - model default
+// - charm store default
+func charmSeries(
+	requestedSeries, seriesFromCharm string,
+	supportedSeries []string,
+	force bool,
+	conf *config.Config,
+) (string, string, error) {
+	// User has requested a series and we have a new charm with series in metadata.
+	if requestedSeries != "" && seriesFromCharm == "" {
+		if !force && !isSeriesSupported(requestedSeries, supportedSeries) {
+			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, supportedSeries)
+		}
+		return requestedSeries, msgUserRequestedSeries, nil
+	}
+
+	// User has requested a series and it's an old charm for a single series.
+	if seriesFromCharm != "" {
+		if !force && requestedSeries != "" && requestedSeries != seriesFromCharm {
+			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, []string{seriesFromCharm})
+		}
+		if requestedSeries != "" {
+			return requestedSeries, msgUserRequestedSeries, nil
+		}
+		return seriesFromCharm, msgSingleCharmSeries, nil
+	}
+
+	// Use charm default.
+	if len(supportedSeries) > 0 {
+		return supportedSeries[0], msgDefaultCharmSeries, nil
+	}
+
+	// Use model default supported series.
+	if defaultSeries, ok := conf.DefaultSeries(); ok {
+		if !force && !isSeriesSupported(defaultSeries, supportedSeries) {
+			return "", "", charm.NewUnsupportedSeriesError(defaultSeries, supportedSeries)
+		}
+		return defaultSeries, msgDefaultModelSeries, nil
+	}
+
+	// Use latest LTS.
+	latestLtsSeries := config.LatestLtsSeries()
+	if !force && !isSeriesSupported(latestLtsSeries, supportedSeries) {
+		return "", "", charm.NewUnsupportedSeriesError(latestLtsSeries, supportedSeries)
+	}
+	return latestLtsSeries, msgLatestLTSSeries, nil
+}
+
+func (c *DeployCommand) deployCharm(
+	curl *charm.URL, series string, ctx *cmd.Context,
+	client *api.Client, deployer *serviceDeployer,
+) error {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -349,49 +456,19 @@ func (c *DeployCommand) deployCharm(curl *charm.URL, ctx *cmd.Context, client *a
 		}
 	}
 
-	// If storage or placement is specified, we attempt to use a new API on the service facade.
-	if len(c.Storage) > 0 || len(c.Placement) > 0 {
-		notSupported := errors.New("cannot deploy charms with storage or placement: not supported by the API server")
-		serviceClient, err := c.newServiceAPIClient()
-		if err != nil {
-			return notSupported
-		}
-		defer serviceClient.Close()
-		for i, p := range c.Placement {
-			if p.Scope == "env-uuid" {
-				p.Scope = serviceClient.EnvironmentUUID()
-			}
-			c.Placement[i] = p
-		}
-		err = serviceClient.ServiceDeploy(
-			curl.String(),
-			serviceName,
-			numUnits,
-			string(configYAML),
-			c.Constraints,
-			c.PlacementSpec,
-			c.Placement,
-			[]string{},
-			c.Storage,
-		)
-		if params.IsCodeNotImplemented(err) {
-			return notSupported
-		}
-		return err
-	}
-
-	if len(c.Networks) > 0 {
-		ctx.Infof("use of --networks is deprecated and is ignored. Please use spaces to manage placement within networks")
-	}
-
-	if err := client.ServiceDeploy(
+	if err := deployer.serviceDeploy(serviceDeployParams{
 		curl.String(),
 		serviceName,
+		series,
 		numUnits,
 		string(configYAML),
 		c.Constraints,
-		c.PlacementSpec); err != nil {
-		return errors.Trace(err)
+		c.PlacementSpec,
+		c.Placement,
+		c.Networks,
+		c.Storage,
+	}); err != nil {
+		return err
 	}
 
 	state, err := c.NewAPIRoot()
@@ -416,6 +493,65 @@ func (c *DeployCommand) deployCharm(curl *charm.URL, ctx *cmd.Context, client *a
 		}
 	}
 	return err
+}
+
+type serviceDeployParams struct {
+	charmURL      string
+	serviceName   string
+	series        string
+	numUnits      int
+	configYAML    string
+	constraints   constraints.Value
+	placementSpec string
+	placement     []*instance.Placement
+	networks      string
+	storage       map[string]storage.Constraints
+}
+
+type serviceDeployer struct {
+	ctx                 *cmd.Context
+	newServiceAPIClient func() (*apiservice.Client, error)
+}
+
+func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
+	curl, err := charm.ParseURL(args.charmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
+		return err
+	}
+	if serviceClient.BestAPIVersion() < 1 {
+		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 1.24 or later")
+	}
+	if serviceClient.BestAPIVersion() < 2 && curl.Series == "" {
+		return errors.Errorf("cannot deploy charms without series until the API server is upgraded to Juju 2.0 or later")
+	}
+	if len(args.networks) > 0 {
+		c.ctx.Infof(
+			"use of --networks is deprecated and is ignored. " +
+				"Please use spaces to manage placement within networks",
+		)
+	}
+	for i, p := range args.placement {
+		if p.Scope == "env-uuid" {
+			p.Scope = serviceClient.EnvironmentUUID()
+		}
+		args.placement[i] = p
+	}
+	return serviceClient.ServiceDeploy(
+		args.charmURL,
+		args.serviceName,
+		args.series,
+		args.numUnits,
+		args.configYAML,
+		args.constraints,
+		args.placementSpec,
+		args.placement,
+		[]string{},
+		args.storage,
+	)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
@@ -446,11 +582,7 @@ func (s *metricsCredentialsAPIImpl) SetMetricCredentials(serviceName string, dat
 
 // Close closes the api connection
 func (s *metricsCredentialsAPIImpl) Close() error {
-	err := s.api.Close()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = s.state.Close()
+	err := s.state.Close()
 	if err != nil {
 		return errors.Trace(err)
 	}

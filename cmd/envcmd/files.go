@@ -142,7 +142,7 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 	// NOTE: any reading or writing from the directory should be done with a
 	// fslock to make sure we have a consistent read or write.  Also worth
 	// noting, we should use a very short timeout.
-	lock, err := fslock.NewLock(osenv.JujuHome(), lockName)
+	lock, err := fslock.NewLock(osenv.JujuHome(), lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

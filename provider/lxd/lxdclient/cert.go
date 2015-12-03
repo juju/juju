@@ -65,6 +65,13 @@ func (cert Cert) WithDefaults() (Cert, error) {
 	return cert, nil
 }
 
+func (cert *Cert) isZero() bool {
+	if cert == nil {
+		return true
+	}
+	return len(cert.CertPEM) == 0 && len(cert.KeyPEM) == 0
+}
+
 // Validate ensures that the cert is valid.
 func (cert Cert) Validate() error {
 	if len(cert.CertPEM) == 0 {

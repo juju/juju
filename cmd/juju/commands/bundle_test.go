@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -24,8 +25,9 @@ import (
 
 // runDeployCommand executes the deploy command in order to deploy the given
 // charm or bundle. The deployment output and error are returned.
-func runDeployCommand(c *gc.C, id string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, newDeployCommand(), id)
+func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
+	args = append([]string{id}, args...)
+	ctx, err := coretesting.RunCommand(c, newDeployCommand(), args...)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 
@@ -58,6 +60,43 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
+		"wordpress": {charm: "cs:trusty/wordpress-47"},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"mysql/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql-storage")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
+	output, err := runDeployCommand(
+		c, "bundle/wordpress-with-mysql-storage",
+		"--storage", "mysql:logs=tmpfs,10G", // override logs
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/mysql-42
+service mysql deployed (charm: cs:trusty/mysql-42)
+added charm cs:trusty/wordpress-47
+service wordpress deployed (charm: cs:trusty/wordpress-47)
+related wordpress:db and mysql:server
+added mysql/0 unit to new machine
+added wordpress/0 unit to new machine
+deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"mysql": {
+			charm: "cs:trusty/mysql-42",
+			storage: map[string]state.StorageConstraints{
+				"data": state.StorageConstraints{Pool: "rootfs", Size: 50 * 1024, Count: 1},
+				"logs": state.StorageConstraints{Pool: "tmpfs", Size: 10 * 1024, Count: 1},
+			},
+		},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
@@ -208,7 +247,7 @@ var deployBundleErrorsTests = []struct {
                 charm: trusty/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot add charm "trusty/rails-42": cannot retrieve "cs:trusty/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "trusty/rails-42": cannot resolve URL "cs:trusty/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -269,7 +308,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(
 	_, err := s.deployBundleYAML(c, `
         services:
             wp:
-                charm: trusty/wordpress-42
+                charm: trusty/wordpress
                 num_units: 1
                 to: ["bad:1"]
         machines:
@@ -478,7 +517,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	output, err := s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 options:
                     blog-title: these are the voyages
@@ -503,7 +542,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 options:
                     blog-title: new title
@@ -544,7 +583,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	content := `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 expose: true
     `
@@ -585,7 +624,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.deployBundleYAML(c, `
         services:
             wordpress:
-                charm: wordpress-42
+                charm: wordpress
                 num_units: 1
                 expose: false
     `)
@@ -644,7 +683,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             pgres:
                 charm: trusty/postgres-2
@@ -696,7 +735,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             varnish:
                 charm: trusty/varnish
@@ -711,7 +750,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: wordpress
                 num_units: 1
             mysql:
-                charm: mysql-1
+                charm: mysql
                 num_units: 1
             varnish:
                 charm: trusty/varnish

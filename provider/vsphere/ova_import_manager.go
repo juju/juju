@@ -20,8 +20,6 @@ import (
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
 	"golang.org/x/net/context"
-
-	"github.com/juju/juju/juju/osenv"
 )
 
 /*
@@ -57,7 +55,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		return nil, errors.Trace(err)
 	}
 
-	basePath, err := ioutil.TempDir(osenv.JujuHome(), "")
+	basePath, err := ioutil.TempDir("", "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

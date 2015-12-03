@@ -1338,6 +1338,34 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	c.Assert(mac, gc.Equals, "foo")
 }
 
+func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
+	suite.SetFeatureFlags()
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["devices-management"]}`)
+	testInstance := suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+
+	responses := []string{
+		"claim_sticky_ip_address failed",
+		"GetMap of the response failed",
+		"no ip_addresses in response",
+		"unexpected ip_addresses in response",
+		"IP in ip_addresses not a string",
+	}
+	reserveIP := func(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
+		c.Check(deviceId, gc.Matches, "node-[a-f0-9]+")
+		c.Check(addr, jc.DeepEquals, network.Address{})
+		nextError := responses[0]
+		return network.Address{}, errors.New(nextError)
+	}
+	suite.PatchValue(&ReserveIPAddressOnDevice, reserveIP)
+
+	for len(responses) > 0 {
+		err := env.AllocateAddress(testInstance.Id(), network.AnySubnet, network.Address{}, "mac-address", "hostname")
+		c.Check(err, gc.ErrorMatches, responses[0])
+		responses = responses[1:]
+	}
+}
+
 func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
 	devicesURL := "/api/1.0/devices/?op=list"
 	resp, err := http.Get(suite.testMAASObject.TestServer.Server.URL + devicesURL)
