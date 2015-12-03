@@ -1,7 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// These tests check
+// These tests check aspects of upgrade behaviour of the machine agent
+// as a whole.
 
 package featuretests
 
@@ -72,6 +73,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1446885")
+
 	// Create machine agent to upgrade
 	machine, machine0Conf := s.makeStateAgentVersion(c, s.oldVersion)
 
@@ -128,6 +131,7 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
+
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//

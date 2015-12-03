@@ -1110,7 +1110,12 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 // given instance on the given subnet.
 func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
-		return errors.NotSupportedf("address allocation")
+		// Any instId starting with "i-alloc-" when the feature flag is off will
+		// still work, in order to be able to test MAAS 1.8+ environment where
+		// we can use devices for containers.
+		if !strings.HasPrefix(string(instId), "i-alloc-") {
+			return errors.NotSupportedf("address allocation")
+		}
 	}
 
 	if err := env.checkBroken("AllocateAddress"); err != nil {
