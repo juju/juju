@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
@@ -579,6 +581,25 @@ func constructStartInstanceParams(
 		}
 	}
 
+	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
+	for i, metadata := range provisioningInfo.ImageMetadata {
+		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
+			Id:          metadata.ImageId,
+			Arch:        metadata.Arch,
+			RegionAlias: metadata.Region,
+			RegionName:  metadata.Region,
+			Storage:     metadata.RootStorageType,
+			Stream:      metadata.Stream,
+			VirtType:    metadata.VirtType,
+		}
+		v, err := series.SeriesVersion(metadata.Series)
+		if err != nil {
+			logger.Warningf("could not determine version for image id %s: %v", metadata.ImageId, err)
+			continue
+		}
+		possibleImageMetadata[i].Version = v
+	}
+
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
@@ -587,6 +608,7 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }
 

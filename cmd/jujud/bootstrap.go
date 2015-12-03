@@ -441,11 +441,11 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
 	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
-	return storeImageMetadataFromFiles(st, env, []simplestreams.DataSource{datasource})
+	return storeImageMetadataFromFiles(st, env, datasource)
 }
 
 // storeImageMetadataFromFiles puts image metadata found in sources into state.
-func storeImageMetadataFromFiles(st *state.State, env environs.Environ, sources []simplestreams.DataSource) error {
+func storeImageMetadataFromFiles(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); ok {
@@ -458,15 +458,15 @@ func storeImageMetadataFromFiles(st *state.State, env environs.Environ, sources 
 		imageConstraint.CloudSpec = cloud
 	}
 
-	existingMetadata, info, err := imagemetadata.Fetch(sources, imageConstraint, false)
+	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot read image metadata")
 	}
-	return storeImageMetadataInState(st, info, existingMetadata)
+	return storeImageMetadataInState(st, info.Source, source.Priority(), existingMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
-func storeImageMetadataInState(st *state.State, info *simplestreams.ResolveInfo, existingMetadata []*imagemetadata.ImageMetadata) error {
+func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
@@ -479,9 +479,9 @@ func storeImageMetadataInState(st *state.State, info *simplestreams.ResolveInfo,
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
-				Source:          info.Source,
+				Source:          source,
 			},
-			datasource.Priority(),
+			priority,
 			one.Id,
 		}
 		s, err := seriesFromVersion(one.Version)
