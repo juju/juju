@@ -14,9 +14,8 @@ var logger = loggo.GetLogger("juju.resource.api.client")
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
 
 // FacadeCaller has the api/base.FacadeCaller methods needed for the component.
-type FacadeCallCloser interface {
+type FacadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
-	Close() error
 }
 
 // Client is the public client for the resources API facade.
@@ -26,10 +25,10 @@ type Client struct {
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(caller FacadeCallCloser) *Client {
+func NewClient(caller FacadeCaller, closer io.Closer) *Client {
 	return &Client{
 		// Add the sub-client here.
-		Closer:     caller,
+		Closer:     closer,
 	}
 }
 

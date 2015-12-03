@@ -40,9 +40,10 @@ func NewUploadCommand(newAPIClient func(c *UploadCommand) (UploadAPI, error)) *U
 	return cmd
 }
 
-var UploadDoc = `
+const UploadDoc = `
 This command uploads a file from your local disk to the juju controller to be
-used as a resource for a service.`[1:]
+used as a resource for a service.
+`
 
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -54,11 +55,11 @@ func (c *UploadCommand) Info() *cmd.Info {
 }
 
 func (c *UploadCommand) Init(args []string) error {
-	if len(args) == 0 {
+	switch len(args) {
+	case 0:
 		return errors.New("missing service name")
-	}
-	if len(args) < 2 {
-		return errors.New("missing resource")
+	case 1:
+		return errors.New("no resource specified")
 	}
 	c.service = args[0]
 

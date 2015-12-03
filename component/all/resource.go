@@ -4,8 +4,6 @@
 package all
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -120,8 +118,8 @@ func (r resources) registerPublicCommands() {
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(
-			func(c *cmd.UploadCommand) (cmd.UploadAPI, error) {
-				return newClient(c)
+			func(cmd *cmd.UploadCommand) (cmd.UploadAPI, error) {
+				return r.newClient(cmd)
 			})
 
 	})
@@ -131,20 +129,12 @@ type apicommand interface {
 	NewAPIRoot() (api.Connection, error)
 }
 
-func (c resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
+func (resources) newClient(command apicommand) (*client.Client, error) {
 	apiCaller, err := command.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
 
-	callCloser := struct {
-		base.FacadeCaller
-		io.Closer
-	}{
-		FacadeCaller: caller,
-		Closer:       apiCaller,
-	}
-
-	return c.newAPIClient(apiCaller)
+	return client.NewClient(caller, apiCaller), nil
 }
