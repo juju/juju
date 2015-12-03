@@ -33,8 +33,7 @@ func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (c
 	return env.(*maasEnviron).newCloudinitConfig(hostname, iface, series)
 }
 
-var RenderEtcNetworkInterfacesScriptBase = renderEtcNetworkInterfacesScriptBase
-var RenderEtcNetworkInterfacesScriptFull = renderEtcNetworkInterfacesScriptFull
+var RenderEtcNetworkInterfacesScript = renderEtcNetworkInterfacesScript
 
 var indexData = `
 {
