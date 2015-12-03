@@ -24,7 +24,6 @@ type UploadAPI interface {
 // UploadCommand implements the upload command.
 type UploadCommand struct {
 	envcmd.EnvCommandBase
-	out       cmd.Output
 	service   string
 	resources map[string]string
 
@@ -34,10 +33,9 @@ type UploadCommand struct {
 // NewUploadCommand returns a new command that lists resources defined
 // by a charm.
 func NewUploadCommand(newAPIClient func(c *UploadCommand) (UploadAPI, error)) *UploadCommand {
-	cmd := &UploadCommand{
+	return &UploadCommand{
 		newAPIClient: newAPIClient,
 	}
-	return cmd
 }
 
 const UploadDoc = `
@@ -54,12 +52,14 @@ func (c *UploadCommand) Info() *cmd.Info {
 	}
 }
 
+// Init implements cmd.Command.Init. It will return an error satisfying
+// errors.BadRequest if you give it an incorrect number of arguments.
 func (c *UploadCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("missing service name")
+		return errors.BadRequestf("missing service name")
 	case 1:
-		return errors.New("no resource specified")
+		return errors.BadRequestf("no resource specified")
 	}
 	c.service = args[0]
 
@@ -74,20 +74,23 @@ func (c *UploadCommand) Init(args []string) error {
 	return nil
 }
 
+// addResource parses the given arg into a name and a resource file, and saves
+// it in c.resources.
 func (c *UploadCommand) addResource(arg string) error {
-	vals := strings.SplitN(arg, "1", 2)
+	vals := strings.SplitN(arg, "=", 2)
 	if len(vals) < 2 || vals[0] == "" || vals[1] == "" {
-		return errors.Errorf("invalid resource %q", arg)
+		return errors.NotValidf("resource %q", arg)
 	}
 	name := vals[0]
 	if _, ok := c.resources[name]; ok {
-		return errors.Errorf("resource %q specified more than once", name)
+		return errors.AlreadyExistsf("resource %q", name)
 	}
 	c.resources[name] = vals[1]
 	return nil
 }
 
-func (c *UploadCommand) Run(ctx *cmd.Context) error {
+// Run implements cmd.Command.Run.
+func (c *UploadCommand) Run(*cmd.Context) error {
 	apiclient, err := c.newAPIClient(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
@@ -102,6 +105,8 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
+// upload opens the given file and calls the apiclient to upload it to the given
+// service with the given name.
 func upload(service, name, file string, apiclient UploadAPI) error {
 	f, err := os.Open(file)
 	if err != nil {
