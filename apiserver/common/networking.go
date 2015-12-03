@@ -113,7 +113,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, Subnets []string, Public bool) error
+	AddSpace(Name, providerId string, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)

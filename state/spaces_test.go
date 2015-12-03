@@ -64,8 +64,9 @@ func (s *SpacesSuite) assertNoSpace(c *gc.C, name string) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isPublic bool) {
+func assertSpace(c *gc.C, space *state.Space, name, providerId string, subnets []string, isPublic bool) {
 	c.Assert(space.Name(), gc.Equals, name)
+	c.Assert(space.ProviderId(), gc.Equals, providerId)
 	actualSubnets, err := space.Subnets()
 	c.Assert(err, jc.ErrorIsNil)
 	actualSubnetIds := make([]string, len(actualSubnets))
@@ -82,19 +83,20 @@ func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isP
 
 func (s *SpacesSuite) TestAddSpace(c *gc.C) {
 	name := "my-space"
+	providerId := "My Space"
 	subnets := []string{"1.1.1.0/24"}
 	isPublic := false
 	s.addSubnets(c, subnets)
 
-	space, err := s.State.AddSpace(name, subnets, isPublic)
+	space, err := s.State.AddSpace(name, providerId, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, providerId, subnets, isPublic)
 
 	// We should get the same space back from the database
 	id := space.ID()
 	space, err = s.State.Space(name)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, providerId, subnets, isPublic)
 	c.Assert(id, gc.Equals, space.ID())
 }
 
@@ -106,13 +108,13 @@ func (s *SpacesSuite) TestAddSpaceManySubnets(c *gc.C) {
 
 	space, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, "", subnets, isPublic)
 
 	// We should get the same space back from the database
 	id := space.ID()
 	space, err = s.State.Space(name)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, "", subnets, isPublic)
 	c.Assert(id, gc.Equals, space.ID())
 }
 
@@ -134,13 +136,13 @@ func (s *SpacesSuite) TestAddSpaceDuplicateSpace(c *gc.C) {
 
 	space, err := s.State.AddSpace(name, subnets, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, "", subnets, isPublic)
 
 	// We should get the same space back from the database
 	id := space.ID()
 	space, err = s.State.Space(name)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, "", subnets, isPublic)
 	c.Assert(id, gc.Equals, space.ID())
 
 	// Trying to add the same space again should fail
@@ -150,7 +152,7 @@ func (s *SpacesSuite) TestAddSpaceDuplicateSpace(c *gc.C) {
 	// The space should still be there
 	space, err = s.State.Space(name)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSpace(c, space, name, subnets, isPublic)
+	assertSpace(c, space, name, "", subnets, isPublic)
 	c.Assert(id, gc.Equals, space.ID())
 }
 
