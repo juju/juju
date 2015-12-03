@@ -2804,7 +2804,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	err = state.SetEnvLifeDying(st, st.EnvironUUID())
+	err = state.SetEnvLifeDead(st, st.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveAllEnvironDocs()
