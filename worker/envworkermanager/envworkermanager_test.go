@@ -298,22 +298,13 @@ func (s *suite) TestFatalErrorKillsEnvWorkerManager(c *gc.C) {
 }
 
 func (s *suite) TestNonFatalErrorCausesRunnerRestart(c *gc.C) {
-	s.PatchValue(&worker.RestartDelay, time.Millisecond)
-	otherSt := s.makeEnvironment(c)
-
 	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
-	destroyEnvironment(c, otherSt)
-	runners := s.seeRunnersStart(c, 3)
-	runner0 := runners[0]
-	dyingRunner := runners[2]
+	runner0 := s.seeRunnersStart(c, 1)[0]
 
 	runner0.tomb.Kill(errors.New("trivial"))
 	runner0.tomb.Done()
-	s.seeRunnersStart(c, 1)
 
-	dyingRunner.tomb.Kill(errors.New("trivial"))
-	dyingRunner.tomb.Done()
 	s.seeRunnersStart(c, 1)
 }
 
