@@ -113,7 +113,7 @@ func (s *SpacesSuite) TestAddSpaceUnique(c *gc.C) {
 	assertSpace(c, space, name, providerId, subnets, isPublic)
 
 	_, err = s.State.AddSpace("different", providerId, subnets, isPublic)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `adding space "different": ProviderId "My Space" not unique`)
 }
 
 func (s *SpacesSuite) TestAddSpaceManySubnets(c *gc.C) {

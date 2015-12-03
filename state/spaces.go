@@ -126,7 +126,13 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	} else if err != nil {
 		return nil, err
 	}
-	return newSpace, nil
+	// if the ProviderId was not unique adding the subnet can fail
+	// without an error. Refreshing catches this.
+	err = newSpace.Refresh()
+	if err == nil {
+		return newSpace, nil
+	}
+	return nil, errors.Errorf("ProviderId %q not unique", providerId)
 }
 
 // Space returns a space from state that matches the provided name. An error
