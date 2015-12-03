@@ -83,7 +83,7 @@ type resourcesAPIClient struct {
 
 // Close implements io.Closer.
 func (client resourcesAPIClient) Close() error {
-	return client.closeFunc()
+	return client.closeConnFunc()
 }
 
 // newAPIClient builds a new resources public API client from
