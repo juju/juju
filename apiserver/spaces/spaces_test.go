@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/spaces"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -125,7 +126,7 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	}
 
 	// AddSpace from the api always uses an empty ProviderId.
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, "", p.Subnets, p.Public))
+	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public))
 
 	if p.Error == "" || p.MakesCall {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
