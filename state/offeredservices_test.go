@@ -25,6 +25,8 @@ func (s *offeredServicesSuite) createDefaultOffer(c *gc.C) crossmodel.OfferedSer
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/service",
 		ServiceName: "mysql",
+		CharmName:   "charm",
+		Description: "description",
 		Endpoints:   eps,
 		Registered:  true,
 	}
@@ -56,6 +58,8 @@ func (s *offeredServicesSuite) TestAddServiceOffer(c *gc.C) {
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/service",
 		ServiceName: "mysql",
+		CharmName:   "charm",
+		Description: "description",
 		Endpoints:   eps,
 	}
 	err := offered.AddOffer(offer)
@@ -124,6 +128,7 @@ func (s *offeredServicesSuite) createOffedService(c *gc.C, name string) crossmod
 	offers := state.NewOfferedServices(s.State)
 	offer := crossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/" + name,
+		CharmName:   name + "charm",
 		ServiceName: name,
 		Endpoints:   eps,
 	}
@@ -143,7 +148,7 @@ func (s *offeredServicesSuite) TestListOffersAll(c *gc.C) {
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
-func (s *offeredServicesSuite) TestListOffersOneFilter(c *gc.C) {
+func (s *offeredServicesSuite) TestListOffersServiceNameFilter(c *gc.C) {
 	offeredServices := state.NewOfferedServices(s.State)
 	offer := s.createOffedService(c, "offer1")
 	s.createOffedService(c, "offer2")
@@ -151,6 +156,20 @@ func (s *offeredServicesSuite) TestListOffersOneFilter(c *gc.C) {
 	offers, err := offeredServices.ListOffers(crossmodel.OfferedServiceFilter{
 		ServiceURL:  "local:/u/me/offer1",
 		ServiceName: "offer1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *offeredServicesSuite) TestListOffersCharmNameFilter(c *gc.C) {
+	offeredServices := state.NewOfferedServices(s.State)
+	offer := s.createOffedService(c, "offer1")
+	s.createOffedService(c, "offer2")
+	s.createOffedService(c, "offer3")
+	offers, err := offeredServices.ListOffers(crossmodel.OfferedServiceFilter{
+		ServiceURL: "local:/u/me/offer1",
+		CharmName:  "offer1charm",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 1)

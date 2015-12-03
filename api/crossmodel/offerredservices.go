@@ -80,6 +80,8 @@ func MakeOfferedServiceFromParams(offer params.OfferedService) crossmodel.Offere
 	return crossmodel.OfferedService{
 		ServiceURL:  offer.ServiceURL,
 		ServiceName: offer.ServiceName,
+		CharmName:   offer.CharmName,
+		Description: offer.Description,
 		Registered:  offer.Registered,
 		Endpoints:   eps,
 	}

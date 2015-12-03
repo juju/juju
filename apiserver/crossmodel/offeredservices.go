@@ -25,7 +25,7 @@ type OfferedServiceLister interface {
 
 // OfferedServiceAPI is a facade used to access offered services.
 type OfferedServiceAPI struct {
-	st              stateAccessor
+	st              stateAccess
 	offeredServices OfferedServiceLister
 	resources       *common.Resources
 	authorizer      common.Authorizer
@@ -33,7 +33,7 @@ type OfferedServiceAPI struct {
 
 // createServiceDirectoryAPI returns a new cross model API facade.
 func createOfferedServiceAPI(
-	st stateAccessor,
+	st stateAccess,
 	offeredServiceLister OfferedServiceLister,
 	resources *common.Resources,
 	authorizer common.Authorizer,
@@ -55,7 +55,7 @@ func newOfferedServiceAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*OfferedServiceAPI, error) {
-	return createOfferedServiceAPI(getState(st), state.NewOfferedServices(st), resources, authorizer)
+	return createOfferedServiceAPI(getStateAccess(st), state.NewOfferedServices(st), resources, authorizer)
 }
 
 // WatchOfferedServices creates a watcher to listen to changes to the offered services.
@@ -93,6 +93,8 @@ func (s *OfferedServiceAPI) OfferedServices(filter params.OfferedServiceQueryPar
 		offers[i].Result = params.OfferedService{
 			ServiceURL:  offerResults[0].ServiceURL,
 			ServiceName: offerResults[0].ServiceName,
+			CharmName:   offerResults[0].CharmName,
+			Description: offerResults[0].Description,
 			Registered:  offerResults[0].Registered,
 			Endpoints:   offerResults[0].Endpoints,
 		}

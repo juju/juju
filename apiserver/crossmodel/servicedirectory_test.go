@@ -54,7 +54,7 @@ func (s *serviceDirectorySuite) constructServiceDirectory() *mockServiceDirector
 
 func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 	s.authoriser = testing.FakeAuthorizer{
-		EnvironManager: true,
+		Tag: names.NewUserTag("testuser"),
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -73,9 +73,7 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *serviceDirectorySuite) TestUnauthorised(c *gc.C) {
-	s.authoriser = testing.FakeAuthorizer{
-		EnvironManager: false,
-	}
+	s.authoriser = testing.FakeAuthorizer{}
 	_, err := crossmodel.CreateServiceOffersAPI(nil, s.resources, s.authoriser)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }

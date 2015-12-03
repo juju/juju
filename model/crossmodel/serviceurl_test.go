@@ -24,11 +24,15 @@ var urlTests = []struct {
 	url    *crossmodel.ServiceURL
 }{{
 	s:   "local:/u/user/servicename",
-	url: &crossmodel.ServiceURL{"local", "user", "servicename"},
+	url: &crossmodel.ServiceURL{"local", "user", "", "servicename"},
 }, {
 	s:     "u/user/servicename",
-	url:   &crossmodel.ServiceURL{"local", "user", "servicename"},
+	url:   &crossmodel.ServiceURL{"local", "user", "", "servicename"},
 	exact: "local:/u/user/servicename",
+}, {
+	s:     "u/user/prod/servicename",
+	url:   &crossmodel.ServiceURL{"local", "user", "prod", "servicename"},
+	exact: "local:/u/user/prod/servicename",
 }, {
 	s:   "local:service",
 	err: `service URL has invalid form, missing "/u/<user>": $URL`,
@@ -57,7 +61,7 @@ var urlTests = []struct {
 	s:   ":foo",
 	err: `cannot parse service URL: $URL`,
 }, {
-	s:   "local:/u/fred/prod/db2",
+	s:   "local:/u/fred/prod/foo/db2",
 	err: `service URL has invalid form: $URL`,
 }}
 

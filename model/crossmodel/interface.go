@@ -72,9 +72,20 @@ type OfferedService struct {
 	// ServiceURL is the URL where the service can be located.
 	ServiceURL string
 
+	// CharmName is the name of the charm used to deploy the offered service.
+	CharmName string
+
 	// Endpoints is the collection of endpoint names offered (internal->published).
 	// The map allows for advertised endpoint names to be aliased.
 	Endpoints map[string]string
+
+	// Description is a description of the service, which by default comes
+	// from the charm metadata.
+	Description string
+
+	// Icon is an icon to display when browsing the service, which by default
+	// comes from the charm.
+	Icon []byte
 
 	// Registered is true if this offer is to be registered with
 	// the relevant service directory.
@@ -86,6 +97,9 @@ type OfferedService struct {
 type OfferedServiceFilter struct {
 	// ServiceName is the service name.
 	ServiceName string
+
+	// CharmName is the name of the charm of the service.
+	CharmName string
 
 	// ServiceURL is the URl where the service can be located.
 	ServiceURL string

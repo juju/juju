@@ -4,6 +4,9 @@
 package crossmodel_test
 
 import (
+	"errors"
+
+	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/model/crossmodel"
@@ -50,6 +53,22 @@ type mockState struct {
 
 func (m *mockState) WatchOfferedServices() state.StringsWatcher {
 	return m.watchOfferedServices()
+}
+
+func (m *mockState) Service(name string) (service *state.Service, err error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockState) EnvironUUID() string {
+	return "uuid"
+}
+
+func (m *mockState) EnvironTag() names.EnvironTag {
+	return names.NewEnvironTag("uuid")
+}
+
+func (m *mockState) EnvironName() (string, error) {
+	return "prod", nil
 }
 
 type mockStringsWatcher struct {

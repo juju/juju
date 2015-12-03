@@ -21,6 +21,10 @@ type ServiceURL struct {
 	// User is the user whose namespace in which the offer is made.
 	User string
 
+	// EnvironmentName is the name of the environment providing the exported endpoints.
+	// It is only used for local URLs.
+	EnvironmentName string
+
 	// ServiceName is the name of the service providing the exported endpoints.
 	ServiceName string
 }
@@ -29,6 +33,9 @@ func (u *ServiceURL) path() string {
 	var parts []string
 	if u.User != "" {
 		parts = append(parts, "u", u.User)
+	}
+	if u.Directory == "local" && u.EnvironmentName != "" {
+		parts = append(parts, u.EnvironmentName)
 	}
 	parts = append(parts, u.ServiceName)
 	return strings.Join(parts, "/")
@@ -46,6 +53,7 @@ var supportedURLDirectories = []string{
 // ParseServiceURL parses the specified URL string into a ServiceURL.
 // The URL string is of one of the forms:
 //  local:/u/<user>/<servicename>
+//  local:/u/<user>/<envname>/<servicename>
 //  <vendor>:/u/<user>/<servicename>
 func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	url, err := gourl.Parse(urlStr)
@@ -65,7 +73,7 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 	urlPath := strings.Trim(url.Path, "/")
 	parts := strings.Split(urlPath, "/")
-	if len(parts) < 1 || len(parts) > 3 {
+	if len(parts) < 1 || len(parts) > 4 {
 		return nil, fmt.Errorf("service URL has invalid form: %q", urlStr)
 	}
 
@@ -82,10 +90,23 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	if len(parts) < 3 {
 		return nil, fmt.Errorf("service URL has invalid form, missing service name: %q", urlStr)
 	}
-	if !names.IsValidService(parts[2]) {
+
+	// Figure out what URL parts we have.
+	envPart := -1
+	servicePart := 2
+	if len(parts) == 4 {
+		envPart = 2
+		servicePart = 3
+	}
+
+	if envPart > 0 {
+		result.EnvironmentName = parts[envPart]
+	}
+
+	if !names.IsValidService(parts[servicePart]) {
 		return nil, errors.NotValidf("service name %q", parts[2])
 	}
-	result.ServiceName = parts[2]
+	result.ServiceName = parts[servicePart]
 	return &result, nil
 }
 

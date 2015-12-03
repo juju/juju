@@ -8,4 +8,5 @@ var (
 	CreateServiceOffersAPI  = createServiceOffersAPI
 	CreateOfferedServiceAPI = createOfferedServiceAPI
 	NewServiceAPIFactory    = newServiceAPIFactory
+	GetStateAccess          = getStateAccess
 )

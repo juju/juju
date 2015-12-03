@@ -72,12 +72,12 @@ func (s *offerSuite) TestOfferDataErred(c *gc.C) {
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
 	s.args = []string{"tst:db"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", nil)
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", nil)
 }
 
 func (s *offerSuite) TestOfferWithURL(c *gc.C) {
 	s.args = []string{"tst:db", "/u/user/offer"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "/u/user/offer", nil)
+	s.assertOfferOutput(c, "tst", []string{"db"}, "/u/user/offer", nil)
 }
 
 func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
@@ -87,22 +87,22 @@ func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
 
 func (s *offerSuite) TestOfferToUser(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", []string{"user-blah"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah"})
 }
 
 func (s *offerSuite) TestOfferToUsers(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah,fluff"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", []string{"user-blah", "user-fluff"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah", "user-fluff"})
 }
 
 func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
 	s.args = []string{"tst:db,admin"}
-	s.assertOfferOutput(c, "service-tst", []string{"db", "admin"}, "", nil)
+	s.assertOfferOutput(c, "tst", []string{"db", "admin"}, "local:/u/user-test/testing/tst", nil)
 }
 
 func (s *offerSuite) TestOfferAllArgs(c *gc.C) {
 	s.args = []string{"tst:db", "/u/user/offer", "--to", "blah"}
-	s.assertOfferOutput(c, "service-tst", []string{"db"}, "/u/user/offer", []string{"user-blah"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "/u/user/offer", []string{"user-blah"})
 }
 
 func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService string, endpoints []string, url string, users []string) {

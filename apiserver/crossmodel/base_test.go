@@ -8,19 +8,19 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
-	apicrossmodel "github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/model/crossmodel"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 )
 
 const (
-	addOfferBackendCall           = "AddOffer"
-	listOffersBackendCall         = "ListOffers"
-	listRemoteServicesBackendCall = "ListRemoteServices"
+	addOfferBackendCall            = "AddOffer"
+	listOfferedServicesBackendCall = "ListOfferedServices"
+	listDirectoryOffersBackendCall = "ListDirectoryOffers"
 )
 
 type baseCrossmodelSuite struct {
@@ -31,22 +31,21 @@ type baseCrossmodelSuite struct {
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
-	api *apicrossmodel.API
+	api *crossmodel.API
 
 	serviceBackend *mockServiceBackend
 }
 
-func (s *baseCrossmodelSuite) addService(c *gc.C, name string) crossmodel.ServiceOffer {
+func (s *baseCrossmodelSuite) addService(c *gc.C, name string) jujucrossmodel.OfferedService {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, name, ch)
 
-	cfg, _ := s.State.EnvironConfig()
-	return crossmodel.ServiceOffer{
-		ServiceName:        name,
-		ServiceDescription: ch.Meta().Description,
-		SourceLabel:        cfg.Name(),
-		SourceEnvUUID:      s.State.EnvironUUID(),
-		Endpoints:          []charm.Relation{},
+	return jujucrossmodel.OfferedService{
+		ServiceURL:  "local:/u/me/" + name,
+		ServiceName: name,
+		CharmName:   ch.Meta().Name,
+		Endpoints:   map[string]string{"db": "db"},
+		Description: ch.Meta().Description,
 	}
 }
 
@@ -58,29 +57,29 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.serviceBackend = &mockServiceBackend{}
 
 	var err error
-	s.api, err = apicrossmodel.CreateAPI(s.serviceBackend, s.State, s.resources, s.authorizer)
+	s.api, err = crossmodel.CreateAPI(s.serviceBackend, crossmodel.GetStateAccess(s.State), s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockServiceBackend struct {
 	jtesting.Stub
 
-	addOffer           func(offer crossmodel.ServiceOffer) error
-	listOffers         func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
-	listRemoteServices func(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error)
+	addOffer            func(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error
+	listOfferedServices func(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error)
+	listDirectoryOffers func(filter params.OfferFilters) (params.ServiceOfferResults, error)
 }
 
-func (m *mockServiceBackend) AddOffer(offer crossmodel.ServiceOffer) error {
+func (m *mockServiceBackend) AddOffer(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error {
 	m.MethodCall(m, addOfferBackendCall, offer)
-	return m.addOffer(offer)
+	return m.addOffer(offer, offerParams)
 }
 
-func (m *mockServiceBackend) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
-	m.MethodCall(m, listOffersBackendCall, filters)
-	return m.listOffers(filters...)
+func (m *mockServiceBackend) ListOfferedServices(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error) {
+	m.MethodCall(m, listOfferedServicesBackendCall, filter)
+	return m.listOfferedServices(filter...)
 }
 
-func (m *mockServiceBackend) ListRemoteServices(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.RemoteService, error) {
-	m.MethodCall(m, listRemoteServicesBackendCall, filters)
-	return m.listRemoteServices(filters...)
+func (m *mockServiceBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+	m.MethodCall(m, listDirectoryOffersBackendCall, filter)
+	return m.listDirectoryOffers(filter)
 }
