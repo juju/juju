@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/model/crossmodel"
-	"gopkg.in/juju/charm.v6-unstable"
 )
 
 type crossmodelSuite struct {
@@ -29,13 +29,30 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	serviceName := "test"
 	expectedOffer := s.addService(c, serviceName)
 	one := params.RemoteServiceOffer{
+		ServiceURL:  "local:/u/me/test",
 		ServiceName: serviceName,
 		Endpoints:   []string{"db"},
 	}
 	all := params.RemoteServiceOffers{[]params.RemoteServiceOffer{one}}
+	expectedOfferParams := params.AddServiceOffer{
+		ServiceOffer: params.ServiceOffer{
+			ServiceURL:         "local:/u/me/test",
+			SourceEnvironTag:   "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			SourceLabel:        "dummyenv",
+			ServiceName:        "test",
+			ServiceDescription: "A pretty popular blog engine",
+			Endpoints: []params.RemoteEndpoint{
+				{Name: "db",
+					Role:      "requirer",
+					Interface: "mysql",
+					Limit:     1,
+					Scope:     "global",
+				},
+			}}}
 
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService, offerParams params.AddServiceOffer) error {
 		c.Assert(offer, gc.DeepEquals, expectedOffer)
+		c.Assert(offerParams, gc.DeepEquals, expectedOfferParams)
 		return nil
 	}
 
@@ -56,7 +73,7 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 
 	msg := "fail"
 
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService, offerParams params.AddServiceOffer) error {
 		return errors.New(msg)
 	}
 
