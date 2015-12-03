@@ -518,10 +518,10 @@ class BootstrapManager:
         for machine in ssh_machines:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
-        juju_home = get_juju_home()
-        jenv_path = get_jenv_path(juju_home, self.client.env.environment)
+        jenv_path = get_jenv_path(self.client.juju_home,
+                                  self.client.env.environment)
         ensure_deleted(jenv_path)
-        with temp_bootstrap_env(juju_home, self.client,
+        with temp_bootstrap_env(self.client.juju_home, self.client,
                                 permanent=self.permanent):
             try:
                 yield
