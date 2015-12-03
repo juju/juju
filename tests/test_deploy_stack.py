@@ -797,6 +797,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                 assess_upgrade(old_client, '/bar/juju')
         wfv_mock.assert_called_once_with('1.38', 1200)
 
+
 class TestBootstrapManager(FakeHomeTestCase):
 
     def test_from_args(self):

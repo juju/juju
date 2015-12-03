@@ -167,6 +167,14 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             1)
         self.assertEqual(po_mock.call_count, 2)
 
+    def test_disable_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        client._use_jes = True
+        client.disable_jes()
+        self.assertIs(False, client._use_jes)
+
     def test__shell_environ_jes(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
@@ -995,8 +1003,7 @@ class TestEnvJujuClient(ClientTest):
                 return action
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        with patch(output_real, get_juju_output_fake):
+        with patch.object(client, 'get_juju_output', get_juju_output_fake):
             client.wait_for_version('1.17.2')
 
     def test_wait_for_version_raises_non_connection_error(self):
@@ -1012,8 +1019,7 @@ class TestEnvJujuClient(ClientTest):
                 return action
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        with patch(output_real, get_juju_output_fake):
+        with patch.object(client, 'get_juju_output', get_juju_output_fake):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')
 

@@ -756,6 +756,9 @@ class EnvJujuClient26(EnvJujuClient):
             self._use_jes = False
             raise JESNotSupported()
 
+    def disable_jes(self):
+        self._use_jes = False
+
     def enable_container_address_allocation(self):
         self._use_container_address_allocation = True
 
