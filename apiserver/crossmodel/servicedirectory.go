@@ -42,7 +42,7 @@ func createServiceOffersAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
-	if !authorizer.AuthEnvironManager() && !authorizer.AuthClient() {
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 

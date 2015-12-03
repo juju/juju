@@ -155,15 +155,17 @@ func (api *API) makeOfferedServiceParams(p params.RemoteServiceOffer) (jujucross
 func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, error) {
 	urls := filter.URLs
 	results := make([]params.RemoteServiceResult, len(urls))
+	// Record errors for each URL for later.
+	errorsByURL := make(map[string]error)
 
 	// Group the filter URL terms by directory name so that the
 	// service directory API for each named directory can be used
 	// via a bulk call.
 	urlsByDirectory := make(map[string][]string)
-	for i, urlstr := range filter.URLs {
+	for _, urlstr := range filter.URLs {
 		url, err := jujucrossmodel.ParseServiceURL(urlstr)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			errorsByURL[urlstr] = err
 			continue
 		}
 		urlsByDirectory[url.Directory] = append(urlsByDirectory[url.Directory], urlstr)
@@ -179,11 +181,14 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 			filters.Filters[i] = params.OfferFilter{ServiceURL: url}
 		}
 		offers, err := api.backend.ListDirectoryOffers(filters)
-		if err != nil {
-			return params.RemoteServiceResults{}, err
+		if err == nil && offers.Error != nil {
+			err = offers.Error
 		}
-		if offers.Error != nil {
-			return params.RemoteServiceResults{}, err
+		if err != nil {
+			for _, url := range urls {
+				errorsByURL[url] = err
+			}
+			continue
 		}
 		for _, offer := range offers.Offers {
 			foundOffers[offer.ServiceURL] = offer
@@ -193,12 +198,12 @@ func (api *API) Show(filter params.ShowFilter) (params.RemoteServiceResults, err
 	// We have the offers keyed on URL, sort out the not found URLs
 	// from the supplied filter arguments.
 	for i, one := range urls {
+		if err, ok := errorsByURL[one]; ok {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
 		foundOffer, ok := foundOffers[one]
 		if !ok {
-			if results[i].Error != nil {
-				// This means that url was invalid and the error was inserted above
-				continue
-			}
 			results[i].Error = common.ServerError(errors.NotFoundf("offer for remote service url %v", one))
 			continue
 		}

@@ -127,8 +127,9 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	}
 
 	found, err := s.api.Show(filter)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
