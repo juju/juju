@@ -1970,9 +1970,9 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	// Add extra spaces to use in bindings.
-	_, err := s.State.AddSpace("db", nil, false)
+	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("client", nil, true)
+	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Specify some bindings, but not all when adding the service.
@@ -2002,9 +2002,9 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	charm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 	// Add extra spaces to use in bindings.
-	_, err := s.State.AddSpace("db", nil, false)
+	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("client", nil, true)
+	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {

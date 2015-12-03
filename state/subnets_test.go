@@ -53,6 +53,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 	subnetFromDB, err := s.State.Subnet("192.168.1.0/24")
 	c.Assert(err, jc.ErrorIsNil)
 	assertSubnet(subnetFromDB)
+	c.Assert(1, gc.Equals, 2)
 }
 
 func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
