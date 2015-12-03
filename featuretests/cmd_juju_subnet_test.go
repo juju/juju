@@ -26,7 +26,7 @@ func (s *cmdSubnetSuite) AddSubnet(c *gc.C, info state.SubnetInfo) *state.Subnet
 }
 
 func (s *cmdSubnetSuite) AddSpace(c *gc.C, name string, ids []string, public bool) *state.Space {
-	space, err := s.State.AddSpace(name, ids, public)
+	space, err := s.State.AddSpace(name, "", ids, public)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, name)
 	subnets, err := space.Subnets()
