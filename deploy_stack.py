@@ -520,10 +520,17 @@ class BootstrapManager:
             wait_for_port(machine, 22, timeout=120)
         jenv_path = get_jenv_path(self.client.juju_home,
                                   self.client.env.environment)
+        if os.path.isfile(jenv_path):
+            tear_down(self.client, self.jes_enabled)
+            torn_down = True
+        else:
+            torn_down = False
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.juju_home, self.client,
                                 permanent=self.permanent):
             try:
+                if not torn_down:
+                    tear_down(self.client, self.jes_enabled)
                 yield
             except:
                 # If run from a windows machine may not have ssh to get
