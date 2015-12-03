@@ -1501,7 +1501,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	// collection is migrated to using environment UUIDs. The
 	// migration step expects the openedPorts collection to be pre-env
 	// UUID migration.
-	err = s.state.runRawTransaction([]txn.Op{{
+	err = s.state.runTransaction([]txn.Op{{
 		C:      openedPortsC,
 		Id:     portsGlobalKey("2", network.DefaultPublic),
 		Assert: txn.DocMissing,
@@ -1649,6 +1649,7 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 		c.Assert(machines[i].Refresh(), gc.IsNil)
 		allMachinePorts, err := machines[i].AllPorts()
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(allMachinePorts, gc.HasLen, 1)
 		for _, ports := range allMachinePorts {
 			allPortRanges := ports.AllPortRanges()
 			switch i {
@@ -1710,8 +1711,6 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
-	s.patchPortOptFuncs()
-
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1730,8 +1729,6 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
-	s.patchPortOptFuncs()
-
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1753,104 +1750,6 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
-}
-
-// patchPortOptsFuncs patches addPortsDocOps, updatePortsDocOps and setPortsDocOps
-// to accommodate pre 1.22 schema during multihop upgrades. It returns a func
-// which restores original behaviour.
-func (s *upgradesSuite) patchPortOptFuncs() {
-	s.PatchValue(
-		&GetPorts,
-		func(st *State, machineId, networkName string) (*Ports, error) {
-			openedPorts, closer := st.getRawCollection(openedPortsC)
-			defer closer()
-
-			var doc portsDoc
-			key := portsGlobalKey(machineId, networkName)
-			err := openedPorts.FindId(key).One(&doc)
-			if err != nil {
-				doc.MachineID = machineId
-				doc.NetworkName = networkName
-				p := Ports{st, doc, false}
-				if err == mgo.ErrNotFound {
-					return nil, errors.NotFoundf(p.String())
-				}
-				return nil, errors.Annotatef(err, "cannot get %s", p.String())
-			}
-
-			return &Ports{st, doc, false}, nil
-		})
-
-	s.PatchValue(
-		&GetOrCreatePorts,
-		func(st *State, machineId, networkName string) (*Ports, error) {
-			ports, err := GetPorts(st, machineId, networkName)
-			if errors.IsNotFound(err) {
-				doc := portsDoc{
-					MachineID:   machineId,
-					NetworkName: networkName,
-				}
-				ports = &Ports{st, doc, true}
-				upgradesLogger.Debugf(
-					"created ports for machine %q, network %q",
-					machineId, networkName,
-				)
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return ports, nil
-		})
-
-	s.PatchValue(
-		&addPortsDocOps,
-		func(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
-			pDoc.Ports = ports
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     st.docID(pDoc.MachineID),
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
-				Assert: portsAssert,
-				Insert: pDoc,
-			}}
-		})
-
-	s.PatchValue(
-		&updatePortsDocOps,
-		func(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     st.docID(pDoc.MachineID),
-				Assert: notDeadDoc,
-			}, {
-				C:      unitsC,
-				Id:     portRange.UnitName,
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
-				Assert: portsAssert,
-				Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
-			}}
-		},
-	)
-
-	s.PatchValue(
-		&setPortsDocOps,
-		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     st.docID(pDoc.MachineID),
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
-				Assert: portsAssert,
-				Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
-			}}
-		})
 }
 
 func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {

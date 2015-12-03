@@ -184,6 +184,14 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if machinePorts.areNew {
+		doc := machinePorts.doc
+		ops = append(ops, txn.Op{
+			C:      openedPortsC,
+			Id:     doc.DocID,
+			Insert: &doc,
+		})
+	}
 	return ops, machinePorts, nil
 }
 
@@ -343,7 +351,7 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 		skippedRanges += filteredRanges
 
 		migratedPorts, migratedRanges, ops := finishUnitMigrationOps(
-			unit, rangesToMigrate, machinePorts.GlobalKey(), ops,
+			unit, rangesToMigrate, machinePorts.doc.DocID, ops,
 		)
 
 		if err = st.runRawTransaction(ops); err != nil {
