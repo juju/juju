@@ -4,10 +4,12 @@
 package all
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	coreapi "github.com/juju/juju/api"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
@@ -115,7 +117,34 @@ func (r resources) registerPublicCommands() {
 		// TODO(ericsnow) finish!
 		return nil, errors.Errorf("not implemented")
 	}
+
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		return cmd.NewShowCommand(newShowAPIClient)
+		return cmd.NewUploadCommand(
+			func(c *cmd.UploadCommand) (cmd.UploadAPI, error) {
+				return newClient(c)
+			})
+
 	})
+}
+
+type apicommand interface {
+	NewAPIRoot() (api.Connection, error)
+}
+
+func (c resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
+	apiCaller, err := command.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
+
+	callCloser := struct {
+		base.FacadeCaller
+		io.Closer
+	}{
+		FacadeCaller: caller,
+		Closer:       apiCaller,
+	}
+
+	return c.newAPIClient(apiCaller)
 }
