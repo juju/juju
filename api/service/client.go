@@ -126,7 +126,7 @@ func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
 }
 
 // ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceUnits bool) error {
+func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceSeries, forceUnits bool) error {
 	if c.BestAPIVersion() < 2 {
 		return base.OldAgentError("ServiceSetCharm", "2.0")
 	}
@@ -134,7 +134,8 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceUnits
 	args := params.ServiceSetCharm{
 		ServiceName: serviceName,
 		CharmUrl:    charmUrl,
-		Force:       forceUnits,
+		ForceSeries: forceSeries,
+		ForceUnits:  forceUnits,
 	}
 	return c.FacadeCall("ServiceSetCharm", args, nil)
 }
