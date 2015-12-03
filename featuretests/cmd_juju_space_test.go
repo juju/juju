@@ -52,7 +52,7 @@ func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate stri
 }
 
 func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool) *state.Space {
-	space, err := s.State.AddSpace(name, ids, public)
+	space, err := s.State.AddSpace(name, "", ids, public)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, name)
 	subnets, err := space.Subnets()
