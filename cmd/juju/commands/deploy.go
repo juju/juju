@@ -50,7 +50,7 @@ type DeployCommand struct {
 	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
-	BindToSpace  string
+	BindToSpaces string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -211,7 +211,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
-	f.StringVar(&c.BindToSpace, "bind", "", "Configure service endpoints bindings to spaces")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configure service endpoint bindings to spaces")
 	for _, step := range c.AfterSteps {
 		step.SetFlags(f)
 	}
@@ -395,7 +395,7 @@ func (c *DeployCommand) deployCharm(
 		c.Placement,
 		c.Networks,
 		c.Storage,
-		c.BindToSpace,
+		c.BindToSpaces,
 	}); err != nil {
 		return err
 	}
@@ -424,8 +424,8 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
-// SpaceBinding binds a relation to be deployed into a space
-type SpaceBinding struct {
+// binding binds a relation to be deployed into a space
+type binding struct {
 	relation string
 	space    string
 }
@@ -433,31 +433,31 @@ type SpaceBinding struct {
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name@space-name
 // * @space-name
-// * The above in a comma separated list to specify multiple bindings,
-//   e.g. "rel1@space1, rel2@space2, @space3"
-func (c *DeployCommand) parseBind() (bindings []SpaceBinding, err error) {
-	if c.BindToSpace == "" {
-		return []SpaceBinding{}, nil
+// * The above in a space separated list to specify multiple bindings,
+//   e.g. "rel1@space1 rel2@space2 @space3"
+func (c *DeployCommand) parseBind() (bindings []binding, err error) {
+	if c.BindToSpaces == "" {
+		return nil, nil
 	}
 
-	for _, s := range strings.Split(c.BindToSpace, ",") {
+	for _, s := range strings.Split(c.BindToSpaces, " ") {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
 
-		e := "--bind must be in the form '[<relation-name>]@<space>'. "
+		e := "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
 		v := strings.Split(s, "@")
 		switch len(v) {
 		case 1:
-			return []SpaceBinding{}, errors.New(e + "Could not find '@'.")
+			return nil, errors.New(e + "Could not find '@'.")
 		case 2:
-			if v[1] == "" {
-				return []SpaceBinding{}, errors.New(e + "Space name cannot be empty.")
+			if names.IsValidSpace(v[1]) == false {
+				return nil, errors.New(e + "Space name invalid.")
 			}
-			bindings = append(bindings, SpaceBinding{v[0], v[1]})
+			bindings = append(bindings, binding{v[0], v[1]})
 		default:
-			return []SpaceBinding{}, errors.New(e + "Found multiple @ in binding. Did you forget to comma-separate the binding list?")
+			return nil, errors.New(e + "Found multiple @ in binding. Did you forget to comma-separate the binding list?")
 		}
 	}
 	return bindings, nil
@@ -473,7 +473,7 @@ type serviceDeployParams struct {
 	placement     []*instance.Placement
 	networks      string
 	storage       map[string]storage.Constraints
-	bindToSpace   string
+	bindToSpaces  string
 }
 
 type serviceDeployer struct {

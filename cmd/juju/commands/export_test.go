@@ -25,7 +25,3 @@ func NewDestroyEnvironmentCommand() (cmd.Command, *DestroyEnvironmentCommand) {
 		envcmd.EnvAllowEmpty,
 	), &DestroyEnvironmentCommand{command}
 }
-
-func ParseBind(c *DeployCommand) ([]SpaceBinding, error) {
-	return c.parseBind()
-}
