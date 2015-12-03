@@ -531,12 +531,12 @@ func (c *DeployCommand) parseBind() (bindings []binding, err error) {
 		case 1:
 			return nil, errors.New(e + "Could not find '@'.")
 		case 2:
-			if names.IsValidSpace(v[1]) == false {
+			if !names.IsValidSpace(v[1]) {
 				return nil, errors.New(e + "Space name invalid.")
 			}
 			bindings = append(bindings, binding{v[0], v[1]})
 		default:
-			return nil, errors.New(e + "Found multiple @ in binding. Did you forget to comma-separate the binding list?")
+			return nil, errors.New(e + "Found multiple @ in binding. Did you forget to space-separate the binding list?")
 		}
 	}
 	return bindings, nil
