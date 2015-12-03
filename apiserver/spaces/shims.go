@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -29,7 +30,7 @@ func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
 }
 
-func (s *subnetShim) ProviderId() string {
+func (s *subnetShim) ProviderId() network.Id {
 	return s.subnet.ProviderId()
 }
 
@@ -87,7 +88,7 @@ func (s *stateShim) EnvironConfig() (*config.Config, error) {
 	return s.st.EnvironConfig()
 }
 
-func (s *stateShim) AddSpace(name, providerId string, subnetIds []string, public bool) error {
+func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
 	_, err := s.st.AddSpace(name, providerId, subnetIds, public)
 	return err
 }

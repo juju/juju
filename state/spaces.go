@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -51,8 +52,8 @@ func (s *Space) Name() string {
 
 // ProviderId returns the provider id of the space. This will be the empty
 // string except on substrates that directly support spaces.
-func (s *Space) ProviderId() string {
-	return s.doc.ProviderId
+func (s *Space) ProviderId() network.Id {
+	return network.Id(s.doc.ProviderId)
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -77,7 +78,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 }
 
 // AddSpace creates and returns a new space.
-func (st *State) AddSpace(name string, providerId string, subnets []string, isPublic bool) (newSpace *Space, err error) {
+func (st *State) AddSpace(name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
 		return nil, errors.NewNotValid(nil, "invalid space name")
@@ -89,7 +90,7 @@ func (st *State) AddSpace(name string, providerId string, subnets []string, isPu
 		EnvUUID:    st.EnvironUUID(),
 		Life:       Alive,
 		Name:       name,
-		ProviderId: providerId,
+		ProviderId: string(providerId),
 		IsPublic:   isPublic,
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}

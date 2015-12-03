@@ -18,7 +18,7 @@ import (
 type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
-	ProviderId() string
+	ProviderId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -42,7 +42,7 @@ type BackingSubnet interface {
 //   empty for MAAS as zones are orthogonal to networks).
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -113,7 +113,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name, providerId string, Subnets []string, Public bool) error
+	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
