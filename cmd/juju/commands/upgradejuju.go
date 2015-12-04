@@ -100,9 +100,6 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 		if err != nil {
 			return err
 		}
-		if vers.Major != version.Current.Major {
-			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-		}
 		if c.UploadTools && vers.Build != 0 {
 			// TODO(fwereade): when we start taking versions from actual built
 			// code, we should disable --version when used with --upload-tools.
@@ -170,7 +167,41 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	context, err := c.initVersions(client, cfg)
+
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return fmt.Errorf("incomplete environment configuration")
+	}
+
+	// Do not allow an upgrade if the agent is on a greater major version than the CLI.
+	if agentVersion.Major > version.Current.Major {
+		return fmt.Errorf("cannot upgrade a %s environment with a %s client", agentVersion, version.Current.Number)
+	}
+
+	if c.Version.Major > agentVersion.Major {
+		// We can only upgrade a major version if we're currently on 1.25.2 or later
+		// and we're going to 2.0.x, and the version was explicitly requested.
+		if agentVersion.Major != 1 {
+			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
+		}
+		retErr := false
+		if c.Version.Major > 2 || c.Version.Minor > 0 {
+			ctx.Infof("Upgrades to %s must first go through juju 2.0.", c.Version)
+			retErr = true
+		}
+		if agentVersion.Minor < 25 || (agentVersion.Minor == 25 && agentVersion.Patch < 2) {
+			ctx.Infof("Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.")
+			retErr = true
+		}
+		if retErr {
+			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
+		}
+	} else if c.Version != version.Zero && c.Version.Major < agentVersion.Major {
+		return fmt.Errorf("cannot upgrade to version incompatible with CLI")
+	}
+
+	context, err := c.initVersions(client, cfg, agentVersion)
 	if err != nil {
 		return err
 	}
@@ -242,17 +273,16 @@ func (c *UpgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config) (*upgradeContext, error) {
-	agent, ok := cfg.AgentVersion()
-	if !ok {
-		// Can't happen. In theory.
-		return nil, fmt.Errorf("incomplete environment configuration")
-	}
-	if c.Version == agent {
+func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config, agentVersion version.Number) (*upgradeContext, error) {
+	if c.Version == agentVersion {
 		return nil, errUpToDate
 	}
-	clientVersion := version.Current.Number
-	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
+
+	filterVersion := version.Current.Number
+	if c.Version != version.Zero {
+		filterVersion = c.Version
+	}
+	findResult, err := client.FindTools(filterVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -264,15 +294,15 @@ func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		if !c.UploadTools {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
-			if c.Version == version.Zero && agent.Major == clientVersion.Major {
+			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
 				return nil, errUpToDate
 			}
 			return nil, err
 		}
 	}
 	return &upgradeContext{
-		agent:     agent,
-		client:    clientVersion,
+		agent:     agentVersion,
+		client:    version.Current.Number,
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
