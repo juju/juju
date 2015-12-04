@@ -143,7 +143,8 @@ class SSHRemote(_Remote):
         self._ensure_address()
         args = ["scp", "-rC"]
         args.extend(self._ssh_opts)
-        args.extend(["{}:{}".format(self.address, f) for f in source_globs])
+        address = utility.as_literal_address(self.address)
+        args.extend(["{}:{}".format(address, f) for f in source_globs])
         args.append(destination_dir)
         self._run_subprocess(args)
 

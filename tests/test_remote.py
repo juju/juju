@@ -222,6 +222,24 @@ class TestRemote(tests.FakeHomeTestCase):
             mock_run.call_args[0][0],
             r'.*"C:\\logs\\[*]","%APPDATA%\\[*].log".*')
 
+    def test_copy_ipv6(self):
+        remote = remote_from_address("2001:db8::34")
+        self.assertEqual(remote.address, "2001:db8::34")
+        dest = "/local/path"
+        with patch.object(remote, "_run_subprocess") as mock_run:
+            remote.copy(dest, ["/var/log/*", "~/.config"])
+        mock_run.assert_called_once_with([
+            "scp",
+            "-rC",
+            "-o", "User ubuntu",
+            "-o", "UserKnownHostsFile /dev/null",
+            "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
+            "[2001:db8::34]:/var/log/*",
+            "[2001:db8::34]:~/.config",
+            "/local/path",
+        ])
+
     def test_run_cmd(self):
         env = SimpleEnvironment("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)

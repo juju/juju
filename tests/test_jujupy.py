@@ -2434,7 +2434,7 @@ class TestGetMachineDNSName(TestCase):
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
         host = get_machine_dns_name(fake_client, '0')
-        self.assertEqual(host, "[2001:db8::3]")
+        self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
         self.assertEqual(
             self.log_stream.getvalue(),
@@ -2444,8 +2444,9 @@ class TestGetMachineDNSName(TestCase):
         status = Status.from_text(self.machine_0_ipv6)
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
-        with patch('jujupy.socket', wraps=socket) as wrapped_socket:
+        with patch('utility.socket', wraps=socket) as wrapped_socket:
             del wrapped_socket.inet_pton
             host = get_machine_dns_name(fake_client, '0')
         self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(self.log_stream.getvalue(), "")
