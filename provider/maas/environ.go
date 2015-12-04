@@ -709,6 +709,7 @@ func (environ *maasEnviron) acquireNode(
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
+		logger.Tracef("calling acquire with params: %+v", acquireParams)
 		result, err = client.CallPost("acquire", acquireParams)
 		if err == nil {
 			break
@@ -1706,6 +1707,11 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
+	}
+	// Skip IPv6 subnets until we can handle them correctly.
+	if ip.To4() == nil && ip.To16() != nil {
+		logger.Debugf("ignoring static IP range for IPv6 subnet %q", cidr)
+		return nil, nil, nil
 	}
 
 	// TODO(mfoord): needs updating to work with IPv6 as well.
