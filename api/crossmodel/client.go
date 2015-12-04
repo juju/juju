@@ -42,11 +42,11 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 	return out.Results, nil
 }
 
-// ServiceOfferForURL returns offered remote service details for a given URL.
-func (c *Client) ServiceOfferForURL(url string) (params.ServiceOffer, error) {
+// ServiceOffer returns offered remote service details for a given URL.
+func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
 	found := params.ServiceOffersResults{}
 
-	err := c.facade.FacadeCall("ServiceOffersForURLs", params.ServiceURLs{[]string{url}}, &found)
+	err := c.facade.FacadeCall("ServiceOffers", params.ServiceURLs{[]string{url}}, &found)
 	if err != nil {
 		return params.ServiceOffer{}, errors.Trace(err)
 	}

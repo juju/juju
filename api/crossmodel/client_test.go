@@ -120,7 +120,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffersForURLs")
+			c.Check(request, gc.Equals, "ServiceOffers")
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
@@ -138,7 +138,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOfferForURL(url)
+	found, err := client.ServiceOffer(url)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(called, jc.IsTrue)
@@ -164,7 +164,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffersForURLs")
+			c.Check(request, gc.Equals, "ServiceOffers")
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
@@ -177,7 +177,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOfferForURL(url)
+	found, err := client.ServiceOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
@@ -206,7 +206,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffersForURLs")
+			c.Check(request, gc.Equals, "ServiceOffers")
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
@@ -228,7 +228,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOfferForURL(url)
+	found, err := client.ServiceOffer(url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
 	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
 
@@ -246,12 +246,12 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffersForURLs")
+			c.Check(request, gc.Equals, "ServiceOffers")
 
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOfferForURL(url)
+	found, err := client.ServiceOffer(url)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
 }

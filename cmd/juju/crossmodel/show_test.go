@@ -134,7 +134,7 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ServiceOfferForURL(url string) (params.ServiceOffer, error) {
+func (s mockShowAPI) ServiceOffer(url string) (params.ServiceOffer, error) {
 	if s.msg != "" {
 		return params.ServiceOffer{}, errors.New(s.msg)
 	}

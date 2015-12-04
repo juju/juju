@@ -101,7 +101,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer}}, nil
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
 		params.ServiceOffersResults{[]params.ServiceOfferResult{
@@ -125,7 +125,7 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 		return params.ServiceOfferResults{}, errors.New(msg)
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -140,7 +140,7 @@ func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 		return params.ServiceOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
@@ -155,7 +155,7 @@ func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		return params.ServiceOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`service URL has invalid form: %q`, urls[0]))
@@ -171,7 +171,7 @@ func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 		return params.ServiceOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
@@ -207,7 +207,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer, anOffer2}}, nil
 	}
 
-	found, err := s.api.ServiceOffersForURLs(filter)
+	found, err := s.api.ServiceOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals, params.ServiceOffersResults{
 		[]params.ServiceOfferResult{

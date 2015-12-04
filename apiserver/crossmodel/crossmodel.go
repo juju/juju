@@ -151,8 +151,8 @@ func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucross
 	return offer, offerParams, nil
 }
 
-// ServiceOffersForURLs gets details about remote services that match given URLs.
-func (api *API) ServiceOffersForURLs(filter params.ServiceURLs) (params.ServiceOffersResults, error) {
+// ServiceOffers gets details about remote services that match given URLs.
+func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersResults, error) {
 	urls := filter.URLs
 	results := make([]params.ServiceOfferResult, len(urls))
 	// Record errors for each URL for later.

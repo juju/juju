@@ -127,7 +127,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	data, err := formatOfferedServiceDetailss(valid)
+	data, err := formatOfferedServiceDetails(valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found services")
 	}
@@ -161,7 +161,7 @@ type ListServiceItem struct {
 
 type directoryServices map[string]ListServiceItem
 
-func formatOfferedServiceDetailss(all []crossmodel.OfferedServiceDetails) (map[string]directoryServices, error) {
+func formatOfferedServiceDetails(all []crossmodel.OfferedServiceDetails) (map[string]directoryServices, error) {
 	directories := make(map[string]directoryServices)
 	for _, one := range all {
 		url, err := crossmodel.ParseServiceURL(one.ServiceURL)
