@@ -174,8 +174,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return fmt.Errorf("incomplete environment configuration")
 	}
 
-	// Don't try to upgrade if the agent is on a different
-	// major release.
+	// Do not allow an upgrade if the agent is on a greater major version than the CLI.
 	if agentVersion.Major > version.Current.Major {
 		return fmt.Errorf("cannot upgrade a %s environment with a %s client", agentVersion, version.Current.Number)
 	}
@@ -188,11 +187,11 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		retErr := false
 		if c.Version.Major > 2 || c.Version.Minor > 0 {
-			ctx.Infof("upgrades to %s must first go through juju 2.0", c.Version)
+			ctx.Infof("Upgrades to %s must first go through juju 2.0.", c.Version)
 			retErr = true
 		}
 		if agentVersion.Minor < 25 || (agentVersion.Minor == 25 && agentVersion.Patch < 2) {
-			ctx.Infof("upgrades to juju 2.0 must first go through juju 1.25.2 or higher")
+			ctx.Infof("Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.")
 			retErr = true
 		}
 		if retErr {

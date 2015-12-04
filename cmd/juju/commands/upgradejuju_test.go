@@ -748,7 +748,7 @@ func (s *UpgradeJujuSuite) TestMinimumVersionForMajorUpgrade(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "upgrades to juju 2.0 must first go through juju 1.25.2 or higher\n")
+		c.Assert(output, gc.Equals, "Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.\n")
 	}
 }
 
@@ -770,7 +770,7 @@ func (s *UpgradeJujuSuite) TestMajorVersionRestriction(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "upgrades to "+vers+" must first go through juju 2.0\n")
+		c.Assert(output, gc.Equals, "Upgrades to "+vers+" must first go through juju 2.0.\n")
 	}
 }
 
@@ -790,8 +790,8 @@ func (s *UpgradeJujuSuite) TestMinFromAndMaxToMajorVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
 
 	output := coretesting.Stderr(ctx)
-	c.Assert(output, gc.Equals, "upgrades to 2.1.4 must first go through juju 2.0\n"+
-		"upgrades to juju 2.0 must first go through juju 1.25.2 or higher\n")
+	c.Assert(output, gc.Equals, "Upgrades to 2.1.4 must first go through juju 2.0.\n"+
+		"Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.\n")
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
