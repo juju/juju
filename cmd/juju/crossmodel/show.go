@@ -88,7 +88,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.Show(c.url)
+	found, err := api.ServiceOfferForURL(c.url)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	Show(url string) (params.ServiceOffer, error)
+	ServiceOfferForURL(url string) (params.ServiceOffer, error)
 }
 
 // ShowRemoteService defines the serialization behaviour of remote service.

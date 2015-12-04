@@ -110,8 +110,8 @@ type RemoteServiceResults struct {
 	Results []RemoteServiceResult `json:"results,omitempty"`
 }
 
-// ShowFilter is a filter used to select remote services via show call.
-type ShowFilter struct {
+// ServiceURLs is a filter used to select remote services via show call.
+type ServiceURLs struct {
 	// URLs contains collection of urls for services that are to be shown.
 	URLs []string `json:"urls,omitempty"`
 }
@@ -144,8 +144,8 @@ type OfferedServiceQueryParams struct {
 	ServiceUrls []string
 }
 
-// ListEndpointsServiceItem is a service found during a request to list remote services.
-type ListEndpointsServiceItem struct {
+// ListOffersResult is a service found during a request to list remote services.
+type ListOffersResult struct {
 	// ServiceURL may contain user supplied service url.
 	ServiceURL string `json:"serviceurl,omitempty"`
 
@@ -159,50 +159,50 @@ type ListEndpointsServiceItem struct {
 	UsersCount int `json:"userscount,omitempty"`
 
 	// Endpoints is a list of charm relations that this remote service offered.
-	Endpoints []charm.Relation `json:"endpoints"`
+	Endpoints []RemoteEndpoint `json:"endpoints"`
 }
 
-// ListEndpointsServiceItemResult is a result of listing a remote service.
-type ListEndpointsServiceItemResult struct {
+// ListOffersFilterResult is a result of listing a remote service.
+type ListOffersFilterResult struct {
 	// Result contains remote service information.
-	Result *ListEndpointsServiceItem `json:"result,omitempty"`
+	Result *ListOffersResult `json:"result,omitempty"`
 
 	// Error contains error related to this item.
 	Error *Error `json:"error,omitempty"`
 }
 
-// ListEndpointsItemsResult is a result of listing remote service offers
+// ListOffersFilterResults is a result of listing remote service offers
 // for a service directory.
-type ListEndpointsItemsResult struct {
+type ListOffersFilterResults struct {
 	// Error contains error related to this directory.
 	Error *Error `json:"error,omitempty"`
 
 	// Result contains collection of remote service item results for this directory.
-	Result []ListEndpointsServiceItemResult `json:"result,omitempty"`
+	Result []ListOffersFilterResult `json:"result,omitempty"`
 }
 
-// ListEndpointsItemsResults is a result of listing remote service offers
+// ListOffersResults is a result of listing remote service offers
 // for service directories.
-type ListEndpointsItemsResults struct {
+type ListOffersResults struct {
 	// Results contains collection of remote directories results.
-	Results []ListEndpointsItemsResult `json:"results,omitempty"`
+	Results []ListOffersFilterResults `json:"results,omitempty"`
 }
 
-// ListEndpointsFilters has sets of filters that
+// ListOffersFilters has sets of filters that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListEndpointsFilters struct {
-	Filters []ListEndpointsFilter `json:"filters,omitempty"`
+type ListOffersFilters struct {
+	Filters []ListOffersFilter `json:"filters,omitempty"`
 }
 
-// ListEndpointsFilter has a set of filter terms that
+// ListOffersFilter has a set of filter terms that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListEndpointsFilter struct {
-	FilterTerms []ListEndpointsFilterTerm `json:"filterterms,omitempty"`
+type ListOffersFilter struct {
+	FilterTerms []ListOffersFilterTerm `json:"filterterms,omitempty"`
 }
 
-// ListEndpointsFilterTerm has filter criteria that
+// ListOffersFilterTerm has filter criteria that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListEndpointsFilterTerm struct {
+type ListOffersFilterTerm struct {
 	// ServiceURL is url for remote service.
 	// This may be a part of valid URL.
 	ServiceURL string `json:"serviceurl,omitempty"`

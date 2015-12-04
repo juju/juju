@@ -7,9 +7,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
-// ListEndpointsService represents a remote service used when vendor
+// OfferedServiceDetails represents a remote service used when vendor
 // lists their own services.
-type ListEndpointsService struct {
+type OfferedServiceDetails struct {
 	// ServiceName is the service name.
 	ServiceName string
 
@@ -20,16 +20,17 @@ type ListEndpointsService struct {
 	CharmName string
 
 	// Endpoints are the charm endpoints supported by the service.
+	// TODO(wallyworld) - do not use charm.Relation here
 	Endpoints []charm.Relation
 
 	// ConnectedCount are the number of users that are consuming the service.
 	ConnectedCount int
 }
 
-// ListEndpointsServiceResult is a result of listing a remote service.
-type ListEndpointsServiceResult struct {
+// ListOffersResult is a result of listing a remote service.
+type ListOffersResult struct {
 	// Result contains remote service information.
-	Result *ListEndpointsService
+	Result *OfferedServiceDetails
 
 	// Error contains error related to this item.
 	Error error

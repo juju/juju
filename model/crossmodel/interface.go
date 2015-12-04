@@ -135,21 +135,21 @@ type OfferedServices interface {
 	RemoveOffer(url string) error
 }
 
-// RemoteServiceFilter represents a remote service filter.
-type RemoteServiceFilter struct {
+// ListOffersFilter represents a filter used to list offered services.
+type ListOffersFilter struct {
 	// ServiceURL is the URl where the service can be located.
 	// This can contain a part of URL.
 	ServiceURL string
 
 	// Endpoint contains an endpoint filter criteria.
-	Endpoint RemoteEndpointFilter
+	Endpoint EndpointFilterTerm
 
 	// CharmName is a name of a charm for remote service.
 	CharmName string
 }
 
 // RemoteEndpoint represents a remote endpoint filter.
-type RemoteEndpointFilter struct {
+type EndpointFilterTerm struct {
 	// Name is an endpoint name.
 	Name string
 
