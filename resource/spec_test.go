@@ -45,7 +45,7 @@ func (SpecSuite) TestValidateUploadHasRevision(c *gc.C) {
 		},
 		Origin: resource.OriginKindUpload,
 		Revision: resource.Revision{
-			Type:  resource.RevisionType("<date>"),
+			Type:  resource.RevisionTypeDate,
 			Value: "2012-01-01",
 		},
 	}
