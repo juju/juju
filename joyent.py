@@ -7,18 +7,11 @@ from datetime import (
     datetime,
     timedelta,
 )
-from HTMLParser import HTMLParser
 import json
 import os
 import pprint
-from requests import (
-    Request,
-    Session,
-)
-import re
 import subprocess
 import sys
-from textwrap import dedent
 from time import sleep
 import urllib2
 
@@ -39,28 +32,6 @@ echo -n "date:" {0} |
 """
 
 OLD_MACHINE_AGE = 12
-
-JOYENT_PROCS = "ps ax -eo pid,etime,command | grep joyent | grep juju"
-STUCK_MACHINES_PATH = os.path.join(
-    os.environ['HOME'], '.config/juju-release-tools/joyent-stuck-machines')
-SUPPORT_HOST = 'https://help.joyent.com/'
-EMAIL_FIELD_NAME = 'email'
-SUBJECT_FIELD_NAME = 'ticket[subject]'
-DESCRIPTION_FIELD_NAME = 'comment[value]'
-SEVERITY_FIELD_NAME = 'ticket[fields][20980657]'
-IP_ADDRESS_FIELD_NAME = 'ticket[fields][20915658]'
-COMMENT_BODY_FIELD_NAME = 'a_comment_body'
-# Form fields that are expected to exist in Joyent's support request form.
-# The first five fields are hidden fields.
-EXPECTED_FIELDS = set((
-    'utf8', 'authenticity_token', 'ticket[ticket_form_id]', 'comment[uploads]',
-    'ticket[via_followup_source_id]', EMAIL_FIELD_NAME, SUBJECT_FIELD_NAME,
-    DESCRIPTION_FIELD_NAME, SEVERITY_FIELD_NAME, IP_ADDRESS_FIELD_NAME,
-    COMMENT_BODY_FIELD_NAME))
-
-
-class SupportRequestError(Exception):
-    pass
 
 
 class DeleteRequest(urllib2.Request):
@@ -85,48 +56,6 @@ class PutRequest(urllib2.Request):
 
     def get_method(self):
         return "PUT"
-
-
-class FormParser(HTMLParser):
-
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self.form_opened = False
-        self.hidden_fields = {}
-        self.visible_fields = []
-        self.importance_field_opened = False
-        self.importance_field_values = []
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if tag == 'form':
-            if attrs.get('name') == 'ticketform':
-                self.form_opened = True
-                self.post_url = attrs['action']
-            return
-        if not self.form_opened:
-            return
-        if tag in ('input', 'textarea'):
-            if attrs.get('type') == 'hidden':
-                self.hidden_fields[attrs['name']] = attrs.get('value')
-            else:
-                self.visible_fields.append(attrs['name'])
-        elif tag == 'select':
-            if attrs['name'] == SEVERITY_FIELD_NAME:
-                self.visible_fields.append(attrs['name'])
-                self.importance_field_opened = True
-            else:
-                print(
-                    "Warning: Found unexpected <select> field in Joyent's "
-                    "support form: {}".format(attrs['name']))
-        elif tag == 'option' and self.importance_field_opened:
-            self.importance_field_values.append(attrs['value'])
-
-    def handle_endtag(self, tag):
-        if tag == 'form':
-            self.form_opened = False
-        elif tag == 'select':
-            self.importance_field_opened = False
 
 
 def parse_iso_date(string):
@@ -286,90 +215,25 @@ class Client:
         if not self.dry_run:
             headers, content = self._request(path, method='DELETE')
 
-    def send_stuck_machine_support_request(
-            self, machine_id, machine_address, contact_mail_address):
-        if self.dry_run:
-            return
-        session = Session()
-        req = Request('GET', SUPPORT_HOST + 'anonymous_requests/new')
-        resp = session.send(session.prepare_request(req))
-        if resp.status_code != 200:
-            raise SupportRequestError(
-                'Got {} HTTP status reading the support form page'.format(
-                    resp.status_code))
-        parser = FormParser()
-        parser.feed(resp.text)
-        found_fields = set(parser.hidden_fields)
-        found_fields.update(set(parser.visible_fields))
-        if found_fields != EXPECTED_FIELDS:
-            print(
-                "Warning: Found field names differ from expected field names.")
-            print("  not expected: {}".format(
-                found_fields.difference(EXPECTED_FIELDS)))
-            print("  missing: {}".format(
-                EXPECTED_FIELDS.difference(found_fields)))
-        if 'sev-2' not in parser.importance_field_values:
-            print("Warning: Expected severity 'sev-2' not found in form data.")
-
-        form_data = parser.hidden_fields
-        form_data[EMAIL_FIELD_NAME] = contact_mail_address
-        form_data[SUBJECT_FIELD_NAME] = 'Machine stuck in provisioning state'
-        form_data[DESCRIPTION_FIELD_NAME] = dedent("""\
-            Please delete the machine {} which is stuck in provisioning.
-
-            Thank you
-        """).format(machine_id)
-        form_data[SEVERITY_FIELD_NAME] = 'sev-2'
-        form_data[IP_ADDRESS_FIELD_NAME] = machine_address
-        # A text field that is visibly hidden.
-        form_data[COMMENT_BODY_FIELD_NAME] = ''
-
-        req = Request(
-            'POST', SUPPORT_HOST + parser.post_url, data=form_data)
-        resp = session.send(session.prepare_request(req))
-        if resp.status_code != 200:
-            raise SupportRequestError(
-                'Server response to support form POST: {}'.format(
-                    resp.status_code))
-        with open('joyent-form-response.html', 'w') as f:
-            f.write(resp.text.encode('utf-8'))
-        mo = re.search('<div id="error">(.*?)</div>', resp.text)
-        if mo is not None:
-            raise SupportRequestError(
-                'Server sent error message: {}'.format(mo.group(1)))
-        print("Deletion request for {} ({}) submitted.".format(
-            machine_id, machine_address))
-        if resp.text.find("You're almost done creating your request") < 0:
-            print(
-                "Warning: could not find the expected confirmation message "
-                "in the support server's response.")
-
-    def request_deletion(self, current_stuck, contact_mail_address):
-        if os.path.exists(STUCK_MACHINES_PATH):
-            with open(STUCK_MACHINES_PATH) as stuck_file:
-                known_stuck_ids = set(json.load(stuck_file))
-        else:
-            known_stuck_ids = set()
-        current_stuck_ids = set(machine['id'] for machine in current_stuck)
-        new_stuck_ids = current_stuck_ids.difference(known_stuck_ids)
-        if new_stuck_ids:
-            new_stuck_machines = [
-                machine for machine in current_stuck
-                if machine['id'] in new_stuck_ids]
-            for machine in new_stuck_machines:
-                machine_id = machine['id']
-                machine_address = machine.get('primaryIp')
-                if not machine_address:
-                    machine_address = 'n/a'
-                if not self.dry_run:
-                    self.send_stuck_machine_support_request(
-                        machine_id, machine_address, contact_mail_address)
-        stuck_machines_dir = os.path.split(STUCK_MACHINES_PATH)[0]
-        if not self.dry_run:
-            if not os.path.exists(stuck_machines_dir):
-                os.makedirs(stuck_machines_dir)
-            with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
-                json.dump(list(current_stuck_ids), stuck_file)
+    def attempt_deletion(self, current_stuck):
+        all_success = True
+        for machine_id in current_stuck:
+            if self.verbose:
+                print("Attempting to delete {} stuck in provisioning.".format(
+                      machine_id))
+            if not self.dry_run:
+                try:
+                    # Officially the we cannot delete non-stopped machines,
+                    # but using the UI, we can delete machines stuck in
+                    # provisioning or stopping, so we try.
+                    self.delete_machine(machine_id)
+                    if self.verbose:
+                        print("Deleted {}".format(machine_id))
+                except:
+                    print('Delete stuck machine {} using the UI.'.format(
+                          machine_id))
+                    all_success = False
+        return all_success
 
     def _delete_running_machine(self, machine_id):
         self.stop_machine(machine_id)
@@ -385,7 +249,7 @@ class Client:
             print("stopped")
         self.delete_machine(machine_id)
 
-    def delete_old_machines(self, old_age, contact_mail_address):
+    def delete_old_machines(self, old_age):
         machines = self._list_machines()
         now = datetime.utcnow()
         current_stuck = []
@@ -405,7 +269,7 @@ class Client:
                 if not self.dry_run:
                     self._delete_running_machine(machine_id)
         if not self.dry_run and current_stuck:
-            self.request_deletion(current_stuck, contact_mail_address)
+            self.attempt_deletion(current_stuck)
 
 
 def parse_args(argv=None):
@@ -444,9 +308,6 @@ def parse_args(argv=None):
     parser_delete_old_machine.add_argument(
         '-o', '--old-age', default=OLD_MACHINE_AGE, type=int,
         help='Set old machine age to n hours.')
-    parser_delete_old_machine.add_argument(
-        "contact_mail_address",
-        help="Email address used in the Joyent support form")
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
     parser_list_tags.add_argument('machine_id', help='The machine id.')
@@ -483,7 +344,7 @@ def main(argv):
     elif args.command == 'list-objects':
         client.list_objects(args.path, deep=args.recursive)
     elif args.command == 'delete-old-machines':
-        client.delete_old_machines(args.old_age, args.contact_mail_address)
+        client.delete_old_machines(args.old_age)
     elif args.command == 'delete-old-objects':
         client.delete_old_objects(args.path, args.old_age)
     else:
