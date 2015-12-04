@@ -4,18 +4,20 @@
 package rackspace
 
 import (
-	"github.com/juju/errors"
+	"io/ioutil"
+	"os"
 	"time"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/ssh"
 )
 
 type environ struct {
@@ -34,14 +36,16 @@ func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
+var waitSSH = common.WaitSSH
+
 // StartInstance implements environs.Environ.
 func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	os, err := series.GetOSFromSeries(args.Tools.OneSeries())
+	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	fwmode := e.Config().FirewallMode()
-	if os == jujuos.Windows && fwmode != config.FwNone {
+	if osString == jujuos.Windows && fwmode != config.FwNone {
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
@@ -49,105 +53,33 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	r.Instance = environInstance{Instance: r.Instance}
 	if fwmode != config.FwNone {
-		err = e.connectToSsh(args, r.Instance)
+		interrupted := make(chan os.Signal, 1)
+		timeout := config.SSHTimeoutOpts{
+			Timeout:        time.Minute * 5,
+			RetryDelay:     time.Second * 5,
+			AddressesDelay: time.Second * 20,
+		}
+		addr, err := waitSSH(ioutil.Discard, interrupted, ssh.DefaultClient, common.GetCheckNonceCommand(args.InstanceConfig), &common.RefreshableInstance{r.Instance, e}, timeout)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		client := newInstanceConfigurator(addr)
+		apiPort := 0
+		if isStateServer(args.InstanceConfig) {
+			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		}
+		err = client.DropAllPorts([]int{apiPort, 22}, addr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	return r, errors.Trace(err)
+	return r, nil
 }
 
 var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
-// connectToSsh creates new InstanceConfigurator and calls  DropAllPorts method.
-// In order to do this it needs to wait until ip address becomes avaliable.
-// Dropiing all ports is required  to implement firewall functionality: by default all ports should be closed,
-// and only when we  expose some service, we will open all required ports.
-func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.Instance) error {
-	// trying to connect several times, because instance can be not avaliable yet
-	var lastError error
-	var publicAddr string
-	var apiPort int
-	var client common.InstanceConfigurator
-	for i := 0; i < 10; i++ {
-		logger.Debugf("Trying to connect to new instance.")
-		addresses, err := inst.Addresses()
-		if err != nil {
-			logger.Debugf(err.Error())
-			lastError = err
-			goto Sleep
-		}
-		publicAddr = ""
-		for _, addr := range addresses {
-			if addr.Scope == network.ScopePublic && addr.Type == network.IPv4Address {
-				publicAddr = addr.Value
-				break
-			}
-		}
-		if publicAddr == "" {
-			goto Sleep
-		}
-		apiPort = 0
-		if isStateServer(args.InstanceConfig) {
-			apiPort = args.InstanceConfig.StateServingInfo.APIPort
-		}
-		client = newInstanceConfigurator(publicAddr)
-		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
-		if err != nil {
-			logger.Debugf(err.Error())
-			lastError = err
-			goto Sleep
-		} else {
-			return nil
-		}
-	Sleep:
-
-		time.Sleep(5 * time.Second)
-	}
-	return errors.Trace(lastError)
-}
-
-// AllInstances implements environs.Environ.
-func (e environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := e.Environ.AllInstances()
-	res, err := e.convertInstances(instances, err)
-	return res, errors.Trace(err)
-}
-
-func (e environ) convertInstances(instances []instance.Instance, err error) ([]instance.Instance, error) {
-	if err != nil {
-		return nil, err
-	}
-
-	res := make([]instance.Instance, 0)
-	for _, inst := range instances {
-		res = append(res, environInstance{inst})
-	}
-	return res, nil
-}
-
-// Instances implements environs.Environ.
-func (e environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	instances, err := e.Environ.Instances(ids)
-	res, err := e.convertInstances(instances, err)
-	return res, errors.Trace(err)
-}
-
-// OpenPorts implements environs.Environ.
-func (e environ) OpenPorts(ports []network.PortRange) error {
-	return errors.Trace(errors.NotSupportedf("OpenPorts"))
-}
-
-// ClosePorts implements environs.Environ.
-func (e environ) ClosePorts(ports []network.PortRange) error {
-	return errors.Trace(errors.NotSupportedf("ClosePorts"))
-}
-
-// Ports implements environs.Environ.
-func (e environ) Ports() ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotSupportedf("Ports"))
-}
-
 // Provider implements environs.Environ.
 func (e environ) Provider() environs.EnvironProvider {
-	return &providerInstance
+	return providerInstance
 }
