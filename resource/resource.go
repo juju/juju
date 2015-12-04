@@ -15,6 +15,7 @@ var originRevisionTypes = map[OriginKind]RevisionType{
 	OriginKindUpload: RevisionTypeDate,
 }
 
+// Resource defines a single resource within Juju state.
 type Resource struct {
 	Spec Spec
 
@@ -23,6 +24,9 @@ type Resource struct {
 
 	// Revision is the actual revision of the resource.
 	Revision Revision
+
+	// Fingerprint is the MD5 checksum for the resource blob.
+	Fingerprint string
 }
 
 // Validate ensures that the spec is valid.
@@ -45,6 +49,10 @@ func (res Resource) Validate() error {
 	revType := res.Revision.Type
 	if originRevisionTypes[res.Origin.Kind] != revType {
 		return errors.NewNotValid(nil, fmt.Sprintf("resource origin %q does not support revision type %q", res.Origin, revType))
+	}
+
+	if res.Fingerprint == "" {
+		return errors.NewNotValid(nil, "missing fingerprint")
 	}
 
 	return nil

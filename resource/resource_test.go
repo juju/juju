@@ -39,6 +39,7 @@ func (ResourceSuite) TestValidateUploadOkay(c *gc.C) {
 			Type:  resource.RevisionTypeDate,
 			Value: "2015-02-12",
 		},
+		Fingerprint: "deadbeef",
 	}
 
 	err := res.Validate()
@@ -64,6 +65,7 @@ func (ResourceSuite) TestValidateBadSpec(c *gc.C) {
 			Type:  resource.RevisionTypeDate,
 			Value: "2015-02-12",
 		},
+		Fingerprint: "deadbeef",
 	}
 
 	err := res.Validate()
@@ -90,6 +92,7 @@ func (ResourceSuite) TestValidateBadOrigin(c *gc.C) {
 			Type:  resource.RevisionTypeDate,
 			Value: "2015-02-12",
 		},
+		Fingerprint: "deadbeef",
 	}
 
 	err := res.Validate()
@@ -115,7 +118,8 @@ func (ResourceSuite) TestValidateBadRevision(c *gc.C) {
 			Kind:  resource.OriginKindUpload,
 			Value: "a-user",
 		},
-		Revision: resource.Revision{},
+		Revision:    resource.Revision{},
+		Fingerprint: "deadbeef",
 	}
 
 	err := res.Validate()
@@ -139,11 +143,42 @@ func (ResourceSuite) TestValidateUploadNoRevision(c *gc.C) {
 			Kind:  resource.OriginKindUpload,
 			Value: "a-user",
 		},
-		Revision: resource.NoRevision,
+		Revision:    resource.NoRevision,
+		Fingerprint: "deadbeef",
 	}
 
 	err := res.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `.*origin.*does not support revision type.*`)
+}
+
+func (ResourceSuite) TestValidateBadFingerprint(c *gc.C) {
+	c.Assert(resource.Revision{}.Validate(), gc.NotNil)
+
+	res := resource.Resource{
+		Spec: resource.Spec{
+			Definition: charmresource.Info{
+				Name: "spam",
+				Type: charmresource.TypeFile,
+				Path: "spam.tgz",
+			},
+			Origin:   resource.OriginKindUpload,
+			Revision: resource.NoRevision,
+		},
+		Origin: resource.Origin{
+			Kind:  resource.OriginKindUpload,
+			Value: "a-user",
+		},
+		Revision: resource.Revision{
+			Type:  resource.RevisionTypeDate,
+			Value: "2015-02-12",
+		},
+		Fingerprint: "",
+	}
+
+	err := res.Validate()
+
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `.*missing fingerprint.*`)
 }
