@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -34,7 +35,7 @@ type Backing interface {
 	EnvironConfig() (*config.Config, error)
 
 	// AddSpace creates a space.
-	AddSpace(name string, subnetIds []string, public bool) error
+	AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]common.BackingSpace, error)
@@ -105,8 +106,8 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 		subnets = append(subnets, subnetTag.Id())
 	}
 
-	// Add the validated space
-	err = api.backing.AddSpace(spaceTag.Id(), subnets, args.Public)
+	// Add the validated space.
+	err = api.backing.AddSpace(spaceTag.Id(), "", subnets, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +128,7 @@ func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
 	return params.Subnet{
 		CIDR:       cidr,
 		VLANTag:    vlantag,
-		ProviderId: providerid,
+		ProviderId: string(providerid),
 		Zones:      zones,
 		Status:     status,
 		SpaceTag:   spaceTag.String(),
