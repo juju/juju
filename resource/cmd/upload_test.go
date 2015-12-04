@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"io"
+
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -18,6 +20,7 @@ type UploadSuite struct {
 
 	stub   *testing.Stub
 	client *StubClient
+	file   *stubFile
 }
 
 func (s *UploadSuite) SetUpTest(c *gc.C) {
@@ -25,15 +28,25 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.client = &StubClient{Stub: s.stub}
+	s.file = &stubFile{stub: s.stub}
 }
 
-func (s *UploadSuite) newAPIClient(c *ShowCommand) (ShowAPI, error) {
-	s.stub.AddCall("newAPIClient", c)
+func (s *UploadSuite) NewClient(c *UploadCommand) (UploadClient, error) {
+	s.stub.AddCall("NewClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return s.client, nil
+}
+
+func (s *UploadSuite) OpenResource(path string) (io.ReadCloser, error) {
+	s.stub.AddCall("OpenResource", path)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.file, nil
 }
 
 func (*UploadSuite) TestAddResource(c *gc.C) {
@@ -98,11 +111,57 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "upload",
-		Args:    "service-name",
+		Args:    "service name=file [name2=file2 ...]",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
 used as a resource for a service.
 `,
 	})
+}
+
+func (s *UploadSuite) TestRun(c *gc.C) {
+	u := UploadCommand{
+		UploadDeps: UploadDeps{
+			NewClient:    s.NewClient,
+			OpenResource: s.OpenResource,
+		},
+		resources: map[string]string{"foo": "bar", "baz": "bat"},
+		service:   "svc",
+	}
+
+	err := u.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkCall(c, s.stub, "OpenResource", [][]interface{}{
+		{"bar"},
+		{"bat"},
+	})
+	checkCall(c, s.stub, "Upload", [][]interface{}{
+		{"svc", "foo", s.file},
+		{"svc", "baz", s.file},
+	})
+}
+
+// checkCall checks that the given function has been called exactly len(args)
+// times, and that the args passed to the Nth call match args[N].
+func checkCall(c *gc.C, stub *testing.Stub, funcname string, args [][]interface{}) {
+	var actual [][]interface{}
+	for _, call := range stub.Calls() {
+		if call.FuncName == funcname {
+			actual = append(actual, call.Args)
+		}
+	}
+	c.Assert(actual, jc.DeepEquals, args)
+}
+
+type stubFile struct {
+	// No one actually tries to read from this during tests.
+	io.Reader
+	stub *testing.Stub
+}
+
+func (s *stubFile) Close() error {
+	s.stub.AddCall("FileClose")
+	return errors.Trace(s.stub.NextErr())
 }

@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -23,6 +25,11 @@ func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubCharmStore) Upload(service, name string, resource io.Reader) error {
+	s.stub.AddCall("Upload", service, name, resource)
+	return errors.Trace(s.stub.NextErr())
 }
 
 func (s *stubCharmStore) Close() error {

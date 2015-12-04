@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -15,30 +14,34 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// UploadAPI has the API methods needed by UploadCommand.
-type UploadAPI interface {
+// UploadClient has the API client methods needed by UploadCommand.
+type UploadClient interface {
 	Upload(service, name string, resource io.Reader) error
 	Close() error
 }
 
+// UploadDeps is a type that contains external functions that Upload depends on
+// to function.
+type UploadDeps struct {
+	NewClient    func(c *UploadCommand) (UploadClient, error)
+	OpenResource func(path string) (io.ReadCloser, error)
+}
+
 // UploadCommand implements the upload command.
 type UploadCommand struct {
+	UploadDeps
 	envcmd.EnvCommandBase
 	service   string
 	resources map[string]string
-
-	newAPIClient func(c *UploadCommand) (UploadAPI, error)
 }
 
 // NewUploadCommand returns a new command that lists resources defined
 // by a charm.
-func NewUploadCommand(newAPIClient func(c *UploadCommand) (UploadAPI, error)) *UploadCommand {
-	return &UploadCommand{
-		newAPIClient: newAPIClient,
-	}
+func NewUploadCommand(deps UploadDeps) *UploadCommand {
+	return &UploadCommand{UploadDeps: deps}
 }
 
-const UploadDoc = `
+const uploadDoc = `
 This command uploads a file from your local disk to the juju controller to be
 used as a resource for a service.
 `
@@ -46,9 +49,9 @@ used as a resource for a service.
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upload",
-		Args:    "service-name",
+		Args:    "service name=file [name2=file2 ...]",
 		Purpose: "upload a file as a resource for a service",
-		Doc:     UploadDoc,
+		Doc:     uploadDoc,
 	}
 }
 
@@ -91,14 +94,14 @@ func (c *UploadCommand) addResource(arg string) error {
 
 // Run implements cmd.Command.Run.
 func (c *UploadCommand) Run(*cmd.Context) error {
-	apiclient, err := c.newAPIClient(c)
+	apiclient, err := c.NewClient(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 
 	for name, file := range c.resources {
-		if err := upload(c.service, name, file, apiclient); err != nil {
+		if err := c.upload(c.service, name, file, apiclient); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -107,11 +110,11 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // service with the given name.
-func upload(service, name, file string, apiclient UploadAPI) error {
-	f, err := os.Open(file)
+func (c *UploadCommand) upload(service, name, file string, client UploadClient) error {
+	f, err := c.OpenResource(file)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	return apiclient.Upload(service, name, f)
+	return client.Upload(service, name, f)
 }
