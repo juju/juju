@@ -72,7 +72,7 @@ func (s *OfferedServiceAPI) WatchOfferedServices() (params.StringsWatchResult, e
 }
 
 // OfferedServices returns the offered services matching the query parameters.
-func (s *OfferedServiceAPI) OfferedServices(filter params.OfferedServiceQueryParams) (params.OfferedServiceResults, error) {
+func (s *OfferedServiceAPI) OfferedServices(filter params.ServiceURLs) (params.OfferedServiceResults, error) {
 	offers := make([]params.OfferedServiceResult, len(filter.ServiceUrls))
 	for i, url := range filter.ServiceUrls {
 		offerResults, err := s.offeredServices.ListOffers(crossmodel.OfferedServiceFilter{

@@ -23,7 +23,7 @@ type ListSuite struct {
 
 	mockAPI *mockListAPI
 
-	services  []model.ListEndpointsServiceResult
+	services  []model.OfferedServiceDetailsResult
 	endpoints []charm.Relation
 }
 
@@ -37,12 +37,12 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleProvider},
 	}
 
-	s.services = []model.ListEndpointsServiceResult{
+	s.services = []model.OfferedServiceDetailsResult{
 		{Result: s.createServiceItem("hosted-db2", "local", 0)},
 	}
 
 	s.mockAPI = &mockListAPI{
-		list: func(filters ...model.RemoteServiceFilter) ([]model.ListEndpointsServiceResult, error) {
+		list: func(filters ...model.OfferedServiceFilter) ([]model.OfferedServiceDetailsResult, error) {
 			return s.services, nil
 		},
 	}
@@ -51,7 +51,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 func (s *ListSuite) TestListError(c *gc.C) {
 	msg := "fail api"
 
-	s.mockAPI.list = func(filters ...model.RemoteServiceFilter) ([]model.ListEndpointsServiceResult, error) {
+	s.mockAPI.list = func(filters ...model.OfferedServiceFilter) ([]model.OfferedServiceDetailsResult, error) {
 		return nil, errors.New(msg)
 	}
 
@@ -60,7 +60,7 @@ func (s *ListSuite) TestListError(c *gc.C) {
 }
 
 func (s *ListSuite) TestListFormatError(c *gc.C) {
-	s.services = append(s.services, model.ListEndpointsServiceResult{Result: s.createServiceItem("zdi^%", "different_store", 33)})
+	s.services = append(s.services, model.OfferedServiceDetailsResult{Result: s.createServiceItem("zdi^%", "different_store", 33)})
 
 	_, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
@@ -68,8 +68,8 @@ func (s *ListSuite) TestListFormatError(c *gc.C) {
 
 func (s *ListSuite) TestListDirectories(c *gc.C) {
 	// Insert in random order to check sorting.
-	s.services = append(s.services, model.ListEndpointsServiceResult{Result: s.createServiceItem("zdiff-db2", "differentstore", 33)})
-	s.services = append(s.services, model.ListEndpointsServiceResult{Result: s.createServiceItem("adiff-db2", "vendor", 23)})
+	s.services = append(s.services, model.OfferedServiceDetailsResult{Result: s.createServiceItem("zdiff-db2", "differentstore", 33)})
+	s.services = append(s.services, model.OfferedServiceDetailsResult{Result: s.createServiceItem("adiff-db2", "vendor", 23)})
 
 	s.assertValidList(
 		c,
@@ -96,7 +96,7 @@ adiff-db2  db2    23         vendor  /u/fred/adiff-db2  log       http       pro
 
 func (s *ListSuite) TestListWithErrors(c *gc.C) {
 	msg := "here is the error"
-	s.services = append(s.services, model.ListEndpointsServiceResult{Error: errors.New(msg)})
+	s.services = append(s.services, model.OfferedServiceDetailsResult{Error: errors.New(msg)})
 
 	s.assertValidList(
 		c,
@@ -136,8 +136,8 @@ local:
 	)
 }
 
-func (s *ListSuite) createServiceItem(name, store string, count int) *model.ListEndpointsService {
-	return &model.ListEndpointsService{
+func (s *ListSuite) createServiceItem(name, store string, count int) *model.OfferedServiceDetails {
+	return &model.OfferedServiceDetails{
 		ServiceName:    name,
 		ServiceURL:     fmt.Sprintf("%s:%s%s", store, "/u/fred/", name),
 		CharmName:      "db2",
@@ -162,13 +162,13 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 }
 
 type mockListAPI struct {
-	list func(filters ...model.RemoteServiceFilter) ([]model.ListEndpointsServiceResult, error)
+	list func(filters ...model.OfferedServiceFilter) ([]model.OfferedServiceDetailsResult, error)
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List(filters ...model.RemoteServiceFilter) ([]model.ListEndpointsServiceResult, error) {
+func (s mockListAPI) ListOffers(filters ...model.OfferedServiceFilter) ([]model.OfferedServiceDetailsResult, error) {
 	return s.list(filters...)
 }

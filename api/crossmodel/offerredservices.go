@@ -42,7 +42,7 @@ func (s *offeredServicesAPI) OfferedServices(serviceUrls ...string) (map[string]
 	if len(serviceUrls) == 0 {
 		return nil, nil, errors.New("no service urls specified")
 	}
-	var queryParams params.OfferedServiceQueryParams
+	var queryParams params.ServiceURLs
 	queryParams.ServiceUrls = make([]string, len(serviceUrls))
 	for i, url := range serviceUrls {
 		queryParams.ServiceUrls[i] = url

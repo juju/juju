@@ -5,14 +5,12 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/model/crossmodel"
 )
-
-var logger = loggo.GetLogger("juju.api.crossmodel")
 
 // Client allows access to the cross model management API end points.
 type Client struct {
@@ -28,8 +26,8 @@ func NewClient(st base.APICallCloser) *Client {
 
 // Offer prepares service's endpoints for consumption.
 func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
-	offers := []params.RemoteServiceOffer{
-		params.RemoteServiceOffer{
+	offers := []params.ServiceOfferParams{
+		params.ServiceOfferParams{
 			ServiceName:        service,
 			ServiceDescription: desc,
 			Endpoints:          endpoints,
@@ -38,17 +36,17 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.RemoteServiceOffers{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall("Offer", params.ServiceOffersParams{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
 }
 
-// Show returns offered remote service details for a given URL.
-func (c *Client) Show(url string) (params.ServiceOffer, error) {
-	found := params.RemoteServiceResults{}
+// ServiceOffer returns offered remote service details for a given URL.
+func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
+	found := params.ServiceOffersResults{}
 
-	err := c.facade.FacadeCall("Show", params.ShowFilter{[]string{url}}, &found)
+	err := c.facade.FacadeCall("ServiceOffers", params.ServiceURLs{[]string{url}}, &found)
 	if err != nil {
 		return params.ServiceOffer{}, errors.Trace(err)
 	}
@@ -65,19 +63,19 @@ func (c *Client) Show(url string) (params.ServiceOffer, error) {
 	return theOne.Result, nil
 }
 
-// List gets all remote services that have been offered from this Juju model.
+// ListOffers gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
-	paramsFilters := params.ListEndpointsFilters{
-		Filters: []params.ListEndpointsFilter{
-			{FilterTerms: []params.ListEndpointsFilterTerm{}},
+	paramsFilters := params.OfferedServiceFilters{
+		Filters: []params.OfferedServiceFilter{
+			{FilterTerms: []params.OfferedServiceFilterTerm{}},
 		},
 	}
 
-	out := params.ListEndpointsItemsResults{}
+	out := params.ListOffersResults{}
 
-	err := c.facade.FacadeCall("List", paramsFilters, &out)
+	err := c.facade.FacadeCall("ListOffers", paramsFilters, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,20 +95,30 @@ func (c *Client) List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.L
 	return convertListResultsToModel(theOne.Result), nil
 }
 
-func convertListResultsToModel(items []params.ListEndpointsServiceItemResult) []crossmodel.ListEndpointsServiceResult {
-	result := make([]crossmodel.ListEndpointsServiceResult, len(items))
+func convertListResultsToModel(items []params.OfferedServiceDetailsResult) []crossmodel.OfferedServiceDetailsResult {
+	result := make([]crossmodel.OfferedServiceDetailsResult, len(items))
 	for i, one := range items {
 		if one.Error != nil {
 			result[i].Error = one.Error
 			continue
 		}
 		remoteService := one.Result
-		result[i].Result = &crossmodel.ListEndpointsService{
+		eps := make([]charm.Relation, len(remoteService.Endpoints))
+		for i, ep := range remoteService.Endpoints {
+			eps[i] = charm.Relation{
+				Name:      ep.Name,
+				Role:      ep.Role,
+				Interface: ep.Interface,
+				Scope:     ep.Scope,
+				Limit:     ep.Limit,
+			}
+		}
+		result[i].Result = &crossmodel.OfferedServiceDetails{
 			ServiceName:    remoteService.ServiceName,
 			ServiceURL:     remoteService.ServiceURL,
 			CharmName:      remoteService.CharmName,
 			ConnectedCount: remoteService.UsersCount,
-			Endpoints:      remoteService.Endpoints,
+			Endpoints:      eps,
 		}
 	}
 	return result

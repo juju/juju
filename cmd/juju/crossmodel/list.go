@@ -16,7 +16,7 @@ import (
 )
 
 const listCommandDoc = `
-List information about remote services' endpoints that have been shared.
+List information about services' endpoints that have been shared.
 
 options:
 -o, --output (= "")
@@ -34,12 +34,12 @@ options:
        - charm
 
 Examples:
-    $ juju list-endpoints
-    $ juju list-endpoints vendor:
-    $ juju list-endpoints --url vendor:/u/ibm
-    $ juju list-endpoints --interface db2
+    $ juju list-offers
+    $ juju list-offers vendor:
+    $ juju list-offers --url vendor:/u/ibm
+    $ juju list-offers --interface db2
 
-    $ juju list-endpoints --interface db2
+    $ juju list-offers --interface db2
     LOCAL
     APPLICATION           CHARM  INTERFACES   CONNECTED  STORE  URL 
     fred/prod/hosted-db2  db2    db2, log     23         local  /u/fred/prod/hosted-db2 
@@ -59,7 +59,7 @@ type listCommand struct {
 
 	newAPIFunc func() (ListAPI, error)
 
-	filters []crossmodel.RemoteServiceFilter
+	filters []crossmodel.OfferedServiceFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -80,7 +80,7 @@ func (c *listCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-endpoints",
+		Name:    "list-offers",
 		Purpose: "lists shared endpoints",
 		Doc:     listCommandDoc,
 	}
@@ -107,13 +107,13 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	// TODO (anastasiamac 2015-11-17) add input filters
-	offeredServices, err := api.List(c.filters...)
+	offeredServices, err := api.ListOffers(c.filters...)
 	if err != nil {
 		return err
 	}
 
 	// Filter out valid output, if any...
-	valid := []crossmodel.ListEndpointsService{}
+	valid := []crossmodel.OfferedServiceDetails{}
 	for _, service := range offeredServices {
 		if service.Error != nil {
 			fmt.Fprintf(ctx.Stderr, "%v\n", service.Error)
@@ -127,7 +127,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	data, err := formatListEndpointsServices(valid)
+	data, err := formatOfferedServiceDetails(valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found services")
 	}
@@ -138,7 +138,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	List(filters ...crossmodel.RemoteServiceFilter) ([]crossmodel.ListEndpointsServiceResult, error)
+	ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.
@@ -161,7 +161,7 @@ type ListServiceItem struct {
 
 type directoryServices map[string]ListServiceItem
 
-func formatListEndpointsServices(all []crossmodel.ListEndpointsService) (map[string]directoryServices, error) {
+func formatOfferedServiceDetails(all []crossmodel.OfferedServiceDetails) (map[string]directoryServices, error) {
 	directories := make(map[string]directoryServices)
 	for _, one := range all {
 		url, err := crossmodel.ParseServiceURL(one.ServiceURL)
@@ -182,7 +182,7 @@ func formatListEndpointsServices(all []crossmodel.ListEndpointsService) (map[str
 	return directories, nil
 }
 
-func convertServiceToListItem(url *crossmodel.ServiceURL, service crossmodel.ListEndpointsService) ListServiceItem {
+func convertServiceToListItem(url *crossmodel.ServiceURL, service crossmodel.OfferedServiceDetails) ListServiceItem {
 	item := ListServiceItem{
 		CharmName: service.CharmName,
 		// TODO (anastasiamac 2-15-11-20) what is the difference between store and directory.
