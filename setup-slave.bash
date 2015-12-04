@@ -29,6 +29,11 @@ if [[ -n \$(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
         sudo mv /var/lib/lxc /var/lib/lxc.old
         sudo ln -s /mnt/lxc /var/lib/lxc
     fi
+    if [[ ! -d /mnt/lxc && -d /var/lib/lxd ]]; then
+        sudo cp -rp /var/lib/lxd /mnt
+        sudo mv /var/lib/lxd /var/lib/lxd.old
+        sudo ln -s /mnt/lxd /var/lib/lxd
+    fi
 fi
 EOT
 
