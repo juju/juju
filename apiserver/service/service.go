@@ -103,6 +103,13 @@ func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.
 	return result, nil
 }
 
+// ServicesDeployWithBindings fetches the charms from the charm store and deploys them
+// using the specified placement directives and saving the specified space bindings.
+func (api *API) ServicesDeployWithBindings(args params.ServicesDeploy) (params.ErrorResults, error) {
+	// TODO(dooferlad): save those space bindings
+	return api.ServicesDeployWithPlacement(args)
+}
+
 // DeployService fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new service facade.

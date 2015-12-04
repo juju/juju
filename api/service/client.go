@@ -72,24 +72,34 @@ func (c *Client) ServiceDeploy(
 	placement []*instance.Placement,
 	networks []string,
 	storage map[string]storage.Constraints,
+	bindings map[string]string,
 ) error {
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName:   serviceName,
-			Series:        series,
-			CharmUrl:      charmURL,
-			NumUnits:      numUnits,
-			ConfigYAML:    configYAML,
-			Constraints:   cons,
-			ToMachineSpec: toMachineSpec,
-			Placement:     placement,
-			Networks:      networks,
-			Storage:       storage,
+			ServiceName:           serviceName,
+			Series:                series,
+			CharmUrl:              charmURL,
+			NumUnits:              numUnits,
+			ConfigYAML:            configYAML,
+			Constraints:           cons,
+			ToMachineSpec:         toMachineSpec,
+			Placement:             placement,
+			Networks:              networks,
+			Storage:               storage,
+			SpaceRelationBindings: bindings,
 		}},
 	}
 	var results params.ErrorResults
 	var err error
-	if len(placement) > 0 {
+	if len(bindings) > 0 {
+		err = c.FacadeCall("ServicesDeployWithBindings", args, &results)
+		if err != nil {
+			if params.IsCodeNotImplemented(err) {
+				return errors.Errorf("unsupported --bind parameter")
+			}
+			return err
+		}
+	} else if len(placement) > 0 {
 		err = c.FacadeCall("ServicesDeployWithPlacement", args, &results)
 		if err != nil {
 			if params.IsCodeNotImplemented(err) {
