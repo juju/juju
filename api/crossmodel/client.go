@@ -26,8 +26,8 @@ func NewClient(st base.APICallCloser) *Client {
 
 // Offer prepares service's endpoints for consumption.
 func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
-	offers := []params.RemoteServiceOffer{
-		params.RemoteServiceOffer{
+	offers := []params.ServiceOfferParams{
+		params.ServiceOfferParams{
 			ServiceName:        service,
 			ServiceDescription: desc,
 			Endpoints:          endpoints,
@@ -36,7 +36,7 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.RemoteServiceOffers{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall("Offer", params.ServiceOffersParams{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
@@ -44,9 +44,9 @@ func (c *Client) Offer(service string, endpoints []string, url string, users []s
 
 // ServiceOfferForURL returns offered remote service details for a given URL.
 func (c *Client) ServiceOfferForURL(url string) (params.ServiceOffer, error) {
-	found := params.RemoteServiceResults{}
+	found := params.ServiceOffersResults{}
 
-	err := c.facade.FacadeCall("ListRemoteServices", params.ServiceURLs{[]string{url}}, &found)
+	err := c.facade.FacadeCall("ServiceOffersForURLs", params.ServiceURLs{[]string{url}}, &found)
 	if err != nil {
 		return params.ServiceOffer{}, errors.Trace(err)
 	}
@@ -65,7 +65,7 @@ func (c *Client) ServiceOfferForURL(url string) (params.ServiceOffer, error) {
 
 // ListOffers gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.ListOffersResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.OfferedServiceDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
 	paramsFilters := params.ListOffersFilters{
 		Filters: []params.ListOffersFilter{
@@ -95,8 +95,8 @@ func (c *Client) ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmode
 	return convertListResultsToModel(theOne.Result), nil
 }
 
-func convertListResultsToModel(items []params.ListOffersFilterResult) []crossmodel.ListOffersResult {
-	result := make([]crossmodel.ListOffersResult, len(items))
+func convertListResultsToModel(items []params.ListOffersFilterResult) []crossmodel.OfferedServiceDetailsResult {
+	result := make([]crossmodel.OfferedServiceDetailsResult, len(items))
 	for i, one := range items {
 		if one.Error != nil {
 			result[i].Error = one.Error

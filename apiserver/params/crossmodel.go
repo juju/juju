@@ -70,8 +70,8 @@ type RemoteEndpoint struct {
 	Scope     charm.RelationScope `json:"scope"`
 }
 
-// RemoteServiceOffer is used to offer remote service.
-type RemoteServiceOffer struct {
+// ServiceOfferParams is used to offer remote service.
+type ServiceOfferParams struct {
 	// ServiceURL may contain user supplied service url.
 	ServiceURL string `json:"serviceurl,omitempty"`
 
@@ -90,13 +90,13 @@ type RemoteServiceOffer struct {
 	AllowedUserTags []string `json:"allowedusers"`
 }
 
-// RemoteServiceOffers contains a collection of offers to allow adding offers in bulk.
-type RemoteServiceOffers struct {
-	Offers []RemoteServiceOffer `json:"offers"`
+// ServiceOffersParams contains a collection of offers to allow adding offers in bulk.
+type ServiceOffersParams struct {
+	Offers []ServiceOfferParams `json:"offers"`
 }
 
-// RemoteServiceResult is a result of listing a remote service offer.
-type RemoteServiceResult struct {
+// ServiceOfferResult is a result of listing a remote service offer.
+type ServiceOfferResult struct {
 	// Result contains service offer information.
 	Result ServiceOffer `json:"result"`
 
@@ -104,10 +104,10 @@ type RemoteServiceResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// RemoteServiceResults is a result of listing remote service offers.
-type RemoteServiceResults struct {
+// ServiceOffersResults is a result of listing remote service offers.
+type ServiceOffersResults struct {
 	// Result contains collection of remote service results.
-	Results []RemoteServiceResult `json:"results,omitempty"`
+	Results []ServiceOfferResult `json:"results,omitempty"`
 }
 
 // ServiceURLs is a filter used to select remote services via show call.
@@ -144,8 +144,8 @@ type OfferedServiceQueryParams struct {
 	ServiceUrls []string
 }
 
-// ListOffersResult is a service found during a request to list remote services.
-type ListOffersResult struct {
+// OfferedServiceDetailsResult is a service found during a request to list remote services.
+type OfferedServiceDetailsResult struct {
 	// ServiceURL may contain user supplied service url.
 	ServiceURL string `json:"serviceurl,omitempty"`
 
@@ -165,7 +165,7 @@ type ListOffersResult struct {
 // ListOffersFilterResult is a result of listing a remote service.
 type ListOffersFilterResult struct {
 	// Result contains remote service information.
-	Result *ListOffersResult `json:"result,omitempty"`
+	Result *OfferedServiceDetailsResult `json:"result,omitempty"`
 
 	// Error contains error related to this item.
 	Error *Error `json:"error,omitempty"`

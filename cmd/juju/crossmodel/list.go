@@ -138,7 +138,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.ListOffersResult, error)
+	ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.OfferedServiceDetailsResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.

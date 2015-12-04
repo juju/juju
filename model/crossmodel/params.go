@@ -27,8 +27,8 @@ type OfferedServiceDetails struct {
 	ConnectedCount int
 }
 
-// ListOffersResult is a result of listing a remote service.
-type ListOffersResult struct {
+// OfferedServiceDetailsResult is a result of listing a remote service.
+type OfferedServiceDetailsResult struct {
 	// Result contains remote service information.
 	Result *OfferedServiceDetails
 

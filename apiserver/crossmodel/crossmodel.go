@@ -64,7 +64,7 @@ func NewAPI(
 }
 
 // Offer makes service endpoints available for consumption.
-func (api *API) Offer(all params.RemoteServiceOffers) (params.ErrorResults, error) {
+func (api *API) Offer(all params.ServiceOffersParams) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 	for i, one := range all.Offers {
 		offer, serviceOfferParams, err := api.makeOfferedServiceParams(one)
@@ -84,7 +84,7 @@ func (api *API) Offer(all params.RemoteServiceOffers) (params.ErrorResults, erro
 
 // makeOfferedServiceParams is a helper function that translates from a params
 // structure into data structures needed for subsequent processing.
-func (api *API) makeOfferedServiceParams(p params.RemoteServiceOffer) (jujucrossmodel.OfferedService, params.ServiceOffer, error) {
+func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucrossmodel.OfferedService, params.ServiceOffer, error) {
 	service, err := api.access.Service(p.ServiceName)
 	if err != nil {
 		return jujucrossmodel.OfferedService{}, params.ServiceOffer{}, errors.Annotatef(err, "getting offered service %v", p.ServiceName)
@@ -151,10 +151,10 @@ func (api *API) makeOfferedServiceParams(p params.RemoteServiceOffer) (jujucross
 	return offer, offerParams, nil
 }
 
-// ListRemoteServices gets details about remote services that match given URLs.
-func (api *API) ListRemoteServices(filter params.ServiceURLs) (params.RemoteServiceResults, error) {
+// ServiceOffersForURLs gets details about remote services that match given URLs.
+func (api *API) ServiceOffersForURLs(filter params.ServiceURLs) (params.ServiceOffersResults, error) {
 	urls := filter.URLs
-	results := make([]params.RemoteServiceResult, len(urls))
+	results := make([]params.ServiceOfferResult, len(urls))
 	// Record errors for each URL for later.
 	errorsByURL := make(map[string]error)
 
@@ -209,7 +209,7 @@ func (api *API) ListRemoteServices(filter params.ServiceURLs) (params.RemoteServ
 		}
 		results[i].Result = foundOffer
 	}
-	return params.RemoteServiceResults{results}, nil
+	return params.ServiceOffersResults{results}, nil
 }
 
 // ListOffers gets all remote services that have been offered from this Juju model.
@@ -276,7 +276,7 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.L
 			Scope:     ep.Scope,
 		}
 	}
-	result := params.ListOffersResult{
+	result := params.OfferedServiceDetailsResult{
 		Endpoints:   eps,
 		CharmName:   ch.Meta().Name,
 		ServiceName: remote.ServiceName,
