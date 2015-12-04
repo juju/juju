@@ -184,6 +184,14 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if machinePorts.areNew {
+		doc := machinePorts.doc
+		ops = append(ops, txn.Op{
+			C:      openedPortsC,
+			Id:     doc.DocID,
+			Insert: &doc,
+		})
+	}
 	return ops, machinePorts, nil
 }
 
@@ -310,6 +318,11 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	for _, uDoc := range unitSlice {
 		unit := &Unit{st: st, doc: uDoc}
 		upgradesLogger.Infof("migrating ports for unit %q", unit)
+		if len(uDoc.Ports) == 0 {
+			upgradesLogger.Infof("no ports to migrate for unit %q", unit)
+			continue
+		}
+
 		upgradesLogger.Debugf("raw ports for unit %q: %v", unit, uDoc.Ports)
 
 		skippedRanges, mergedRanges, validRanges := validateUnitPorts(st, unit)
@@ -343,25 +356,21 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 		skippedRanges += filteredRanges
 
 		migratedPorts, migratedRanges, ops := finishUnitMigrationOps(
-			unit, rangesToMigrate, machinePorts.GlobalKey(), ops,
+			unit, rangesToMigrate, machinePorts.doc.DocID, ops,
 		)
 
 		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
 		}
 
-		if len(uDoc.Ports) > 0 {
-			totalPorts := len(uDoc.Ports)
-			upgradesLogger.Infof(
-				"unit %q's ports (ranges) migrated: total %d(%d); ok %d(%d); skipped %d(%d)",
-				unit,
-				totalPorts, len(mergedRanges),
-				migratedPorts, migratedRanges,
-				totalPorts-migratedPorts, skippedRanges,
-			)
-		} else {
-			upgradesLogger.Infof("no ports to migrate for unit %q", unit)
-		}
+		totalPorts := len(uDoc.Ports)
+		upgradesLogger.Infof(
+			"unit %q's ports (ranges) migrated: total %d(%d); ok %d(%d); skipped %d(%d)",
+			unit,
+			totalPorts, len(mergedRanges),
+			migratedPorts, migratedRanges,
+			totalPorts-migratedPorts, skippedRanges,
+		)
 	}
 	upgradesLogger.Infof("legacy unit ports migrated to machine port ranges")
 
