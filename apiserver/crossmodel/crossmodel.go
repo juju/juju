@@ -153,7 +153,7 @@ func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucross
 
 // ServiceOffers gets details about remote services that match given URLs.
 func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersResults, error) {
-	urls := filter.URLs
+	urls := filter.ServiceUrls
 	results := make([]params.ServiceOfferResult, len(urls))
 	// Record errors for each URL for later.
 	errorsByURL := make(map[string]error)
@@ -162,7 +162,7 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 	// service directory API for each named directory can be used
 	// via a bulk call.
 	urlsByDirectory := make(map[string][]string)
-	for _, urlstr := range filter.URLs {
+	for _, urlstr := range filter.ServiceUrls {
 		url, err := jujucrossmodel.ParseServiceURL(urlstr)
 		if err != nil {
 			errorsByURL[urlstr] = err
@@ -214,10 +214,10 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 
 // ListOffers gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (api *API) ListOffers(args params.ListOffersFilters) (params.ListOffersResults, error) {
+func (api *API) ListOffers(args params.OfferedServiceFilters) (params.ListOffersResults, error) {
 
 	// This func constructs individual set of filters.
-	filters := func(aSet params.ListOffersFilter) []jujucrossmodel.OfferedServiceFilter {
+	filters := func(aSet params.OfferedServiceFilter) []jujucrossmodel.OfferedServiceFilter {
 		result := make([]jujucrossmodel.OfferedServiceFilter, len(aSet.FilterTerms))
 		for i, filter := range aSet.FilterTerms {
 			result[i] = constructOfferedServiceFilter(filter)
@@ -226,8 +226,8 @@ func (api *API) ListOffers(args params.ListOffersFilters) (params.ListOffersResu
 	}
 
 	// This func converts results for a filters set to params.
-	convertToParams := func(offered []jujucrossmodel.OfferedService) []params.ListOffersFilterResult {
-		results := make([]params.ListOffersFilterResult, len(offered))
+	convertToParams := func(offered []jujucrossmodel.OfferedService) []params.OfferedServiceDetailsResult {
+		results := make([]params.OfferedServiceDetailsResult, len(offered))
 		for i, one := range offered {
 			results[i] = api.getOfferedService(one)
 		}
@@ -247,15 +247,15 @@ func (api *API) ListOffers(args params.ListOffersFilters) (params.ListOffersResu
 	return params.ListOffersResults{found}, nil
 }
 
-func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.ListOffersFilterResult {
+func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.OfferedServiceDetailsResult {
 	service, err := api.access.Service(remote.ServiceName)
 	if err != nil {
-		return params.ListOffersFilterResult{Error: common.ServerError(err)}
+		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
 	}
 
 	ch, _, err := service.Charm()
 	if err != nil {
-		return params.ListOffersFilterResult{Error: common.ServerError(err)}
+		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
 	}
 	var epNames []string
 	for name, _ := range remote.Endpoints {
@@ -263,7 +263,7 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.L
 	}
 	charmEps, err := getServiceEndpoints(service, epNames)
 	if err != nil {
-		return params.ListOffersFilterResult{Error: common.ServerError(err)}
+		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
 	}
 
 	eps := make([]params.RemoteEndpoint, len(charmEps))
@@ -276,7 +276,7 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.L
 			Scope:     ep.Scope,
 		}
 	}
-	result := params.OfferedServiceDetailsResult{
+	result := params.OfferedServiceDetails{
 		Endpoints:   eps,
 		CharmName:   ch.Meta().Name,
 		ServiceName: remote.ServiceName,
@@ -284,7 +284,7 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.L
 		// TODO (wallyworld) - find connected users count
 		//UsersCount: 0,
 	}
-	return params.ListOffersFilterResult{Result: &result}
+	return params.OfferedServiceDetailsResult{Result: &result}
 }
 
 func constructOfferedServiceFilter(filter params.ListOffersFilterTerm) jujucrossmodel.OfferedServiceFilter {

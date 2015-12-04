@@ -65,10 +65,10 @@ func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
 
 // ListOffers gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.OfferedServiceDetailsResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
-	paramsFilters := params.ListOffersFilters{
-		Filters: []params.ListOffersFilter{
+	paramsFilters := params.OfferedServiceFilters{
+		Filters: []params.OfferedServiceFilter{
 			{FilterTerms: []params.ListOffersFilterTerm{}},
 		},
 	}
@@ -95,7 +95,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmode
 	return convertListResultsToModel(theOne.Result), nil
 }
 
-func convertListResultsToModel(items []params.ListOffersFilterResult) []crossmodel.OfferedServiceDetailsResult {
+func convertListResultsToModel(items []params.OfferedServiceDetailsResult) []crossmodel.OfferedServiceDetailsResult {
 	result := make([]crossmodel.OfferedServiceDetailsResult, len(items))
 	for i, one := range items {
 		if one.Error != nil {

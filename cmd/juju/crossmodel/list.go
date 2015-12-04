@@ -59,7 +59,7 @@ type listCommand struct {
 
 	newAPIFunc func() (ListAPI, error)
 
-	filters []crossmodel.ListOffersFilter
+	filters []crossmodel.OfferedServiceFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -138,7 +138,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ListOffersFilter) ([]crossmodel.OfferedServiceDetailsResult, error)
+	ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.

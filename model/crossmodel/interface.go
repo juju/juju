@@ -101,12 +101,15 @@ type OfferedServiceFilter struct {
 	// CharmName is the name of the charm of the service.
 	CharmName string
 
-	// ServiceURL is the URl where the service can be located.
+	// ServiceURL is the URL where the service can be located.
 	ServiceURL string
 
 	// Registered, if non-nil, returns only the offered services
 	// that are registered or not.
 	Registered *bool
+
+	// Endpoint contains an endpoint filter criteria.
+	Endpoint EndpointFilterTerm
 }
 
 // RegisteredFilter is a helper function for creating an offered service filter.
@@ -133,19 +136,6 @@ type OfferedServices interface {
 
 	// Remove removes the service offer at the specified URL.
 	RemoveOffer(url string) error
-}
-
-// ListOffersFilter represents a filter used to list offered services.
-type ListOffersFilter struct {
-	// ServiceURL is the URl where the service can be located.
-	// This can contain a part of URL.
-	ServiceURL string
-
-	// Endpoint contains an endpoint filter criteria.
-	Endpoint EndpointFilterTerm
-
-	// CharmName is a name of a charm for remote service.
-	CharmName string
 }
 
 // RemoteEndpoint represents a remote endpoint filter.

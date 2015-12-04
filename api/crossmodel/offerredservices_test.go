@@ -32,7 +32,7 @@ func offeredServicesCaller(c *gc.C, offers []params.OfferedService, err string) 
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "OfferedServices")
 
-			args, ok := a.(params.OfferedServiceQueryParams)
+			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
 
 			url := args.ServiceUrls[0]

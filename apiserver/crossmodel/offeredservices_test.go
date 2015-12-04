@@ -119,7 +119,7 @@ func (s *offeredServicesSuite) TestListOffers(c *gc.C) {
 		Registered:  true,
 		Endpoints:   map[string]string{"db": "db"},
 	}
-	results, err := s.api.OfferedServices(params.OfferedServiceQueryParams{
+	results, err := s.api.OfferedServices(params.ServiceURLs{
 		ServiceUrls: []string{"local:/u/user/servicename"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +138,7 @@ func (s *offeredServicesSuite) TestListOffersNoneFound(c *gc.C) {
 		Registered:  true,
 		Endpoints:   map[string]string{"foo": "bar"},
 	}
-	results, err := s.api.OfferedServices(params.OfferedServiceQueryParams{
+	results, err := s.api.OfferedServices(params.ServiceURLs{
 		ServiceUrls: []string{"local:/u/user/bogus"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

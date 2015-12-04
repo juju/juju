@@ -229,8 +229,8 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
-var emptyFilterSet = params.ListOffersFilters{
-	Filters: []params.ListOffersFilter{
+var emptyFilterSet = params.OfferedServiceFilters{
+	Filters: []params.OfferedServiceFilter{
 		{FilterTerms: []params.ListOffersFilterTerm{}},
 	},
 }
@@ -256,7 +256,7 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.serviceBackend.CheckCallNames(c, listOfferedServicesBackendCall)
 
-	expectedService := params.OfferedServiceDetailsResult{
+	expectedService := params.OfferedServiceDetails{
 		CharmName:   "wordpress",
 		UsersCount:  0,
 		ServiceName: serviceName,
@@ -266,7 +266,7 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 	c.Assert(found, jc.DeepEquals,
 		params.ListOffersResults{
 			Results: []params.ListOffersFilterResults{{
-				Result: []params.ListOffersFilterResult{
+				Result: []params.OfferedServiceDetailsResult{
 					{Result: &expectedService},
 				}},
 			},

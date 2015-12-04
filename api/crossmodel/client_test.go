@@ -124,7 +124,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URLs, gc.DeepEquals, []string{url})
+			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ServiceOffersResults); ok {
 				points.Results = []params.ServiceOfferResult{
@@ -168,7 +168,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URLs, gc.DeepEquals, []string{url})
+			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ServiceOffersResults); ok {
 				points.Results = []params.ServiceOfferResult{
@@ -210,7 +210,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 			args, ok := a.(params.ServiceURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.URLs, gc.DeepEquals, []string{url})
+			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ServiceOffersResults); ok {
 				points.Results = []params.ServiceOfferResult{
@@ -278,14 +278,14 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			c.Check(request, gc.Equals, "ListOffers")
 
 			called = true
-			args, ok := a.(params.ListOffersFilters)
+			args, ok := a.(params.OfferedServiceFilters)
 			c.Assert(ok, jc.IsTrue)
 			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
 			c.Assert(args.Filters, gc.HasLen, 1)
 
 			if results, ok := result.(*params.ListOffersResults); ok {
 
-				validItem := params.OfferedServiceDetailsResult{
+				validItem := params.OfferedServiceDetails{
 					ServiceURL:  url,
 					ServiceName: serviceName,
 					CharmName:   charmName,
@@ -294,7 +294,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 				}
 
 				validDir := params.ListOffersFilterResults{
-					Result: []params.ListOffersFilterResult{
+					Result: []params.OfferedServiceDetailsResult{
 						{Result: &validItem},
 						{Error: common.ServerError(errors.New(msg))},
 					}}
@@ -306,7 +306,7 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.ListOffers(model.ListOffersFilter{})
+	results, err := client.ListOffers(model.OfferedServiceFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, []model.OfferedServiceDetailsResult{
@@ -342,7 +342,7 @@ func (s *crossmodelMockSuite) TestListMultipleResults(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.ListOffers(model.ListOffersFilter{})
+	_, err := client.ListOffers(model.OfferedServiceFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
 	c.Assert(called, jc.IsTrue)
 }
@@ -371,7 +371,7 @@ func (s *crossmodelMockSuite) TestListDirectoryError(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.ListOffers(model.ListOffersFilter{})
+	_, err := client.ListOffers(model.OfferedServiceFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -391,7 +391,7 @@ func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.ListOffers(model.ListOffersFilter{})
+	results, err := client.ListOffers(model.OfferedServiceFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

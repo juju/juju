@@ -113,7 +113,7 @@ type ServiceOffersResults struct {
 // ServiceURLs is a filter used to select remote services via show call.
 type ServiceURLs struct {
 	// URLs contains collection of urls for services that are to be shown.
-	URLs []string `json:"urls,omitempty"`
+	ServiceUrls []string `json:"serviceurls,omitempty"`
 }
 
 // OfferedService represents attributes for an offered service.
@@ -138,14 +138,8 @@ type OfferedServiceResults struct {
 	Results []OfferedServiceResult
 }
 
-// OfferedServiceQueryParams is used to specify the URLs
-// for which we want to load offered service details.
-type OfferedServiceQueryParams struct {
-	ServiceUrls []string
-}
-
-// OfferedServiceDetailsResult is a service found during a request to list remote services.
-type OfferedServiceDetailsResult struct {
+// OfferedServiceDetails is a service found during a request to list remote services.
+type OfferedServiceDetails struct {
 	// ServiceURL may contain user supplied service url.
 	ServiceURL string `json:"serviceurl,omitempty"`
 
@@ -162,10 +156,10 @@ type OfferedServiceDetailsResult struct {
 	Endpoints []RemoteEndpoint `json:"endpoints"`
 }
 
-// ListOffersFilterResult is a result of listing a remote service.
-type ListOffersFilterResult struct {
+// OfferedServiceDetailsResult is a result of listing a remote service.
+type OfferedServiceDetailsResult struct {
 	// Result contains remote service information.
-	Result *OfferedServiceDetailsResult `json:"result,omitempty"`
+	Result *OfferedServiceDetails `json:"result,omitempty"`
 
 	// Error contains error related to this item.
 	Error *Error `json:"error,omitempty"`
@@ -178,7 +172,7 @@ type ListOffersFilterResults struct {
 	Error *Error `json:"error,omitempty"`
 
 	// Result contains collection of remote service item results for this directory.
-	Result []ListOffersFilterResult `json:"result,omitempty"`
+	Result []OfferedServiceDetailsResult `json:"result,omitempty"`
 }
 
 // ListOffersResults is a result of listing remote service offers
@@ -188,15 +182,15 @@ type ListOffersResults struct {
 	Results []ListOffersFilterResults `json:"results,omitempty"`
 }
 
-// ListOffersFilters has sets of filters that
+// OfferedServiceFilters has sets of filters that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListOffersFilters struct {
-	Filters []ListOffersFilter `json:"filters,omitempty"`
+type OfferedServiceFilters struct {
+	Filters []OfferedServiceFilter `json:"filters,omitempty"`
 }
 
-// ListOffersFilter has a set of filter terms that
+// OfferedServiceFilter has a set of filter terms that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListOffersFilter struct {
+type OfferedServiceFilter struct {
 	FilterTerms []ListOffersFilterTerm `json:"filterterms,omitempty"`
 }
 
