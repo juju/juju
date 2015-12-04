@@ -24,11 +24,19 @@ const (
 	RevisionTypeNone    RevisionType = "no revision"
 )
 
+var revisionTypes = map[RevisionType]func(string) bool{
+	RevisionTypeNone: func(s string) bool { return len(s) == 0 },
+}
+
 // RevisionType identifies a type of resource revision (e.g. date, int).
 type RevisionType string
 
-var revisionTypes = map[RevisionType]func(string) bool{
-	RevisionTypeNone: func(s string) bool { return len(s) == 0 },
+// Validate ensures that the revision type is correct.
+func (rt RevisionType) Validate() error {
+	if _, ok := revisionTypes[rt]; !ok {
+		return errors.NewNotValid(nil, "unknown revision type")
+	}
+	return nil
 }
 
 // NoRevision indicates that the spec does not have a revision specified.
@@ -71,6 +79,10 @@ func (rev Revision) String() string {
 
 // Validate ensures that the revision is correct.
 func (rev Revision) Validate() error {
+	if err := rev.Type.Validate(); err != nil {
+		return errors.Annotate(err, "bad revision type")
+	}
+
 	match := revisionTypes[rev.Type]
 	if !match(rev.Value) {
 		msg := fmt.Sprintf("invalid value %q for revision type %s", rev.Value, rev.Type)
