@@ -186,7 +186,9 @@ func (st *State) CleanupOldMetrics() error {
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})
-	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	if err == nil {
+		metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	}
 	return errors.Trace(err)
 }
 
