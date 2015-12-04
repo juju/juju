@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 )
 
@@ -14,28 +16,47 @@ import (
 // uploaded resources. Additionally, specs for uploaded resources do not
 // have any revision.
 
+// TODO(ericsnow) Type -> Kind.
+
 // These are the recognized revision types (except for unknown).
 const (
 	RevisionTypeUnknown RevisionType = ""
-	RevisionTypeNone                 = "no revision"
+	RevisionTypeNone    RevisionType = "no revision"
 )
 
 // RevisionType identifies a type of resource revision (e.g. date, int).
 type RevisionType string
 
+var revisionTypes = map[RevisionType]func(string) bool{
+	RevisionTypeNone: func(s string) bool { return len(s) == 0 },
+}
+
 // NoRevision indicates that the spec does not have a revision specified.
-const NoRevision Revision = ""
+var NoRevision Revision = Revision{
+	Type:  RevisionTypeNone,
+	Value: "",
+}
 
 // Revision identifies a resouce revision.
-type Revision string
+type Revision struct {
+	Type RevisionType
+
+	Value string
+}
 
 // ParseRevision converts the provided value into a Revision. If it
-// cannot be converted then an error is returned.
+// cannot be converted then false is returned.
 func ParseRevision(value string) (Revision, error) {
-	if value == "" {
-		return NoRevision, nil
+	rev := Revision{
+		Value: value,
 	}
-	rev := Revision(value)
+
+	for rt, match := range revisionTypes {
+		if match(value) {
+			rev.Type = rt
+			return rev, nil
+		}
+	}
 
 	if err := rev.Validate(); err != nil {
 		return rev, errors.Trace(err)
@@ -45,22 +66,15 @@ func ParseRevision(value string) (Revision, error) {
 
 // String returns the printable representation of the revision.
 func (rev Revision) String() string {
-	return string(rev)
-}
-
-// Type returns the revision's type.
-func (rev Revision) Type() RevisionType {
-	if rev == NoRevision {
-		return RevisionTypeNone
-	}
-
-	return RevisionTypeUnknown
+	return rev.Value
 }
 
 // Validate ensures that the revision is correct.
 func (rev Revision) Validate() error {
-	if rev.Type() == RevisionTypeUnknown {
-		return errors.NewNotValid(nil, "unrecognized revision type")
+	match := revisionTypes[rev.Type]
+	if !match(rev.Value) {
+		msg := fmt.Sprintf("invalid value %q for revision type %s", rev.Value, rev.Type)
+		return errors.NewNotValid(nil, msg)
 	}
 
 	return nil
