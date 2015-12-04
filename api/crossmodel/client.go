@@ -5,11 +5,11 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/model/crossmodel"
-	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // Client allows access to the cross model management API end points.
@@ -69,7 +69,7 @@ func (c *Client) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]cross
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
 	paramsFilters := params.OfferedServiceFilters{
 		Filters: []params.OfferedServiceFilter{
-			{FilterTerms: []params.ListOffersFilterTerm{}},
+			{FilterTerms: []params.OfferedServiceFilterTerm{}},
 		},
 	}
 

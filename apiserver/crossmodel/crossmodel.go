@@ -287,7 +287,7 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.O
 	return params.OfferedServiceDetailsResult{Result: &result}
 }
 
-func constructOfferedServiceFilter(filter params.ListOffersFilterTerm) jujucrossmodel.OfferedServiceFilter {
+func constructOfferedServiceFilter(filter params.OfferedServiceFilterTerm) jujucrossmodel.OfferedServiceFilter {
 	return jujucrossmodel.OfferedServiceFilter{
 		ServiceURL: filter.ServiceURL,
 		CharmName:  filter.CharmName,

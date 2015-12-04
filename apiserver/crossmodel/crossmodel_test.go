@@ -231,7 +231,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 
 var emptyFilterSet = params.OfferedServiceFilters{
 	Filters: []params.OfferedServiceFilter{
-		{FilterTerms: []params.ListOffersFilterTerm{}},
+		{FilterTerms: []params.OfferedServiceFilterTerm{}},
 	},
 }
 

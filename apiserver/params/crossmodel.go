@@ -191,12 +191,12 @@ type OfferedServiceFilters struct {
 // OfferedServiceFilter has a set of filter terms that
 // are used by a vendor to query remote services that the vendor has offered.
 type OfferedServiceFilter struct {
-	FilterTerms []ListOffersFilterTerm `json:"filterterms,omitempty"`
+	FilterTerms []OfferedServiceFilterTerm `json:"filterterms,omitempty"`
 }
 
-// ListOffersFilterTerm has filter criteria that
+// OfferedServiceFilterTerm has filter criteria that
 // are used by a vendor to query remote services that the vendor has offered.
-type ListOffersFilterTerm struct {
+type OfferedServiceFilterTerm struct {
 	// ServiceURL is url for remote service.
 	// This may be a part of valid URL.
 	ServiceURL string `json:"serviceurl,omitempty"`
