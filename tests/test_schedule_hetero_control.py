@@ -137,6 +137,20 @@ class CalculateJobs(TestCase):
         self.assertItemsEqual(jobs, expected[:6])
         self.assertItemsEqual(jobs_schedule_all, expected)
 
+    def test_calculate_jobs_ignore_1_26(self):
+        with temp_dir() as root:
+            release_path = os.path.join(root, 'old-juju', '1.20.11')
+            os.makedirs(release_path)
+            candidate_path = os.path.join(root, 'candidate', '1.24')
+            os.makedirs(candidate_path)
+            make_build_var_file(candidate_path, '1.24.3')
+            candidate_path_2 = os.path.join(root, 'candidate', '1.26')
+            os.makedirs(candidate_path_2)
+            make_build_var_file(candidate_path_2, '1.26-aloha1')
+            jobs = list(calculate_jobs(root))
+        expected = self.make_jobs('1.24.3', '1.20.11', '1.24')
+        self.assertItemsEqual(jobs, expected)
+
     def test_calculate_jobs_osx(self):
         with temp_dir() as root:
             release_path = os.path.join(root, 'old-juju', '1.20.11')
