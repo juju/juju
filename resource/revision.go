@@ -61,8 +61,10 @@ var NoRevision Revision = Revision{
 
 // Revision identifies a resouce revision.
 type Revision struct {
+	// TYpe is the kind of revision.
 	Type RevisionType
 
+	// Value is the revision value.
 	Value string
 }
 
