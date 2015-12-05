@@ -4,25 +4,39 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.resource.state")
 
+// Persistence is the state persistence functionality needed for resources.
+type Persistence interface {
+	resourcePersistence
+}
+
 // RawState defines the functionality needed from state.State for resources.
 type RawState interface {
-	// TODO(ericsnow) Add sub-interfaces here.
+	// Persistence exposes the state data persistence needed for resources.
+	Persistence() (Persistence, error)
 }
 
 // State exposes the state functionality needed for resources.
 type State struct {
-	// TODO(ericsnow) Embed sub-structs here.
+	*resourceState
 }
 
 // NewState returns a new State for the given raw Juju state.
-func NewState(raw RawState) *State {
+func NewState(raw RawState) (*State, error) {
 	logger.Tracef("wrapping state for resources")
-	return &State{
-	// TODO(ericsnow) Add sub-structs here.
+
+	persist, err := raw.Persistence()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	st := &State{
+		resourceState: &resourceState{persist},
+	}
+	return st, nil
 }
