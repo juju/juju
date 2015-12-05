@@ -189,7 +189,7 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 			panic(err)
 		}
 	} else if req.Method == "GET" {
-		cURL := req.URL.Query().Get("charm")
+		cURL := req.URL.Query().Get("charm-url")
 		c.AddCall("DefaultPlan", cURL)
 		rErr := c.NextErr()
 		if rErr != nil {

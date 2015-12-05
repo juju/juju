@@ -115,21 +115,38 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
+func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
+	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
+}
+
+func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
+	ch := testcharms.Repo.CharmDir(name)
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+	curl := charm.MustParseURL("cs:" + ident)
+	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
+	c.Assert(err, jc.ErrorIsNil)
+	return sch
+}
+
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, name, ch, owner, nil, nil)
+	return addTestingService(c, st, "", name, ch, owner, nil, nil)
+}
+
+func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Service {
+	return addTestingService(c, st, series, name, ch, owner, nil, nil)
 }
 
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, name, ch, owner, networks, nil)
+	return addTestingService(c, st, "", name, ch, owner, networks, nil)
 }
 
 func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
-	return addTestingService(c, st, name, ch, owner, nil, storage)
+	return addTestingService(c, st, "", name, ch, owner, nil, storage)
 }
 
-func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
+func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
+	service, err := st.AddService(AddServiceArgs{Name: name, Series: series, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
