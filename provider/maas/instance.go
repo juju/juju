@@ -20,6 +20,11 @@ type maasInstance struct {
 
 var _ instance.Instance = (*maasInstance)(nil)
 
+// Override for testing.
+var resolveHostnames = func(addrs []network.Address) []network.Address {
+	return network.ResolvableHostnames(addrs)
+}
+
 func (mi *maasInstance) String() string {
 	hostname, err := mi.hostname()
 	if err != nil {
@@ -70,7 +75,7 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	// Although we would prefer a DNS name there's no point
 	// returning unresolvable names because activities like 'juju
 	// ssh 0' will instantly fail.
-	return network.ResolvableHostnames(addrs), nil
+	return resolveHostnames(addrs), nil
 }
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
