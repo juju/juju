@@ -16,13 +16,6 @@ type instanceTest struct {
 	providerSuite
 }
 
-// These unit tests have a hostname of '-testing.invalid'. We forcibly
-// want an invalid hostname so that good and bad resolvers fail to
-// resolve this name. Bad resolvers positively resolve
-// "testing.invalid" but adding a leading "-" ensures name resolution
-// failure. Note: name resolution takes place in Addresses() and for
-// the tests the name should always fail to resolve.
-
 var _ = gc.Suite(&instanceTest{})
 
 func (s *instanceTest) TestId(c *gc.C) {
@@ -57,7 +50,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 
 func (s *instanceTest) TestAddresses(c *gc.C) {
 	jsonValue := `{
-			"hostname": "-testing.invalid",
+			"hostname": "testing.invalid",
 			"system_id": "system_id",
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
@@ -79,7 +72,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 	// Older MAAS versions do not have ip_addresses returned, for these
 	// just the DNS name should be returned without error.
 	jsonValue := `{
-		"hostname": "-testing.invalid",
+		"hostname": "testing.invalid",
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -92,7 +85,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 	jsonValue := `{
-		"hostname": "-testing.invalid",
+		"hostname": "testing.invalid",
 		"system_id": "system_id",
 		"ip_addresses": "incompatible"
 		}`
@@ -105,7 +98,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 
 func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 	jsonValue := `{
-		"hostname": "-testing.invalid",
+		"hostname": "testing.invalid",
 		"system_id": "system_id",
 		"ip_addresses": [42]
 		}`
