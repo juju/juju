@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -40,6 +41,9 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	})
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
+	})
+	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
+		return addrs
 	})
 }
 
