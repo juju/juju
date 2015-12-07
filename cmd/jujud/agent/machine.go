@@ -438,7 +438,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	} else {
 		a.upgradeComplete = upgradeComplete
 	}
-	a.configChangedVal.Set(struct{}{})
 
 	agentConfig := a.CurrentConfig()
 
