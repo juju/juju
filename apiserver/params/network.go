@@ -564,3 +564,15 @@ type Space struct {
 	Subnets []Subnet `json:"Subnets"`
 	Error   *Error   `json:"Error,omitempty"`
 }
+
+// DiscoverSpacesResults holds the list of all provider spaces.
+type DiscoverSpacesResults struct {
+	Results []ProviderSpace `json:"Results"`
+}
+
+// ProviderSpace holds the information about a single space and its associated subnets.
+type ProviderSpace struct {
+	ProviderId string   `json:"Name"`
+	Subnets    []Subnet `json:"Subnets"`
+	Error      *Error   `json:"Error,omitempty"`
+}
