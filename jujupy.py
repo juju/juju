@@ -115,8 +115,7 @@ def make_client(juju_path, debug, env_name, temp_env_name):
     if temp_env_name is not None:
         env.environment = temp_env_name
         env.config['name'] = temp_env_name
-    full_path = os.path.join(juju_path, 'juju')
-    return EnvJujuClient.by_version(env, full_path, debug)
+    return EnvJujuClient.by_version(env, juju_path, debug)
 
 
 class CannotConnectEnv(subprocess.CalledProcessError):
