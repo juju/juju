@@ -844,6 +844,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             client.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
+            self.assertEqual(0, client.is_jes_enabled.call_count)
             jenv_path = get_jenv_path(client.juju_home, 'foobar')
             self.assertFalse(os.path.exists(jenv_path))
             environments_path = get_environments_path(client.juju_home)
@@ -868,6 +869,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             client.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
+            self.assertEqual(0, client.is_jes_enabled.call_count)
             self.assertTrue(os.path.isfile(jenv_path))
             environments_path = get_environments_path(client.juju_home)
             self.assertFalse(os.path.exists(environments_path))
@@ -887,6 +889,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             None, client.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
+            self.assertEqual(0, client.is_jes_enabled.call_count)
+            tear_down_client.is_jes_enabled.assert_called_once_with()
             jenv_path = get_jenv_path(client.juju_home, 'foobar')
             self.assertFalse(os.path.exists(jenv_path))
             environments_path = get_environments_path(client.juju_home)
@@ -901,7 +905,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def test_bootstrap_context_tear_down_client_jenv(self):
         client = self.make_client()
-        bootstrap_client = self.make_client()
+        tear_down_client = self.make_client()
         initial_home = client.juju_home
         jenv_path = get_jenv_path(client.juju_home, 'foobar')
         os.makedirs(os.path.dirname(jenv_path))
@@ -909,11 +913,13 @@ class TestBootstrapManager(FakeHomeTestCase):
             pass
 
         bs_manager = BootstrapManager(
-            'foobar', client, bootstrap_client,
+            'foobar', client, tear_down_client,
             None, [], None, None, None, None, client.juju_home, False, False,
             False)
 
         def check_config(client_, jes_enabled, try_jes=False):
+            self.assertEqual(0, client.is_jes_enabled.call_count)
+            tear_down_client.is_jes_enabled.assert_called_once_with()
             self.assertTrue(os.path.isfile(jenv_path))
             environments_path = get_environments_path(client.juju_home)
             self.assertFalse(os.path.exists(environments_path))
@@ -922,7 +928,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context(None, []):
-                td_mock.assert_called_once_with(bootstrap_client, False,
+                td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
 

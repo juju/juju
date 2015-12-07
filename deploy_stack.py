@@ -495,6 +495,13 @@ class BootstrapManager:
                 return
             destroy_job_instances(self.temp_env_name)
 
+    def tear_down(self, try_jes=False):
+        if self.tear_down_client == self.client:
+            jes_enabled = self.jes_enabled
+        else:
+            jes_enabled = self.tear_down_client.is_jes_enabled()
+        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+
     @contextmanager
     def bootstrap_context(self, bootstrap_host, machines):
         """Context for bootstrapping a state server."""
@@ -513,7 +520,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            tear_down(self.tear_down_client, self.jes_enabled, try_jes=False)
+            self.tear_down(try_jes=False)
             torn_down = True
         else:
             torn_down = False
@@ -522,8 +529,7 @@ class BootstrapManager:
                                 permanent=self.permanent):
             try:
                 if not torn_down:
-                    tear_down(self.tear_down_client, self.jes_enabled,
-                              try_jes=True)
+                    self.tear_down(try_jes=True)
                 yield
             except:
                 # If run from a windows machine may not have ssh to get
@@ -533,7 +539,7 @@ class BootstrapManager:
                                                  series=self.series)
                     copy_remote_logs(remote, self.log_dir)
                     archive_logs(self.log_dir)
-                tear_down(self.tear_down_client, self.jes_enabled)
+                self.tear_down()
                 raise
 
     @contextmanager
@@ -568,7 +574,7 @@ class BootstrapManager:
                 dump_env_logs(self.client, host, self.log_dir,
                               runtime_config=runtime_config)
             if not self.keep_env:
-                tear_down(self.tear_down_client, self.jes_enabled)
+                self.tear_down(self.jes_enabled)
 
     @contextmanager
     def top_context(self):
