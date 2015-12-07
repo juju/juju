@@ -30,8 +30,8 @@ func NewSetCommandForTest(api SetEnvironmentAPI) cmd.Command {
 	return envcmd.Wrap(cmd)
 }
 
-// NewUnsetCommand returns an UnsetCommand with the api provided as specified.
-func NewUnsetCommand(api UnsetEnvironmentAPI) cmd.Command {
+// NewUnsetCommandForTest returns an UnsetCommand with the api provided as specified.
+func NewUnsetCommandForTest(api UnsetEnvironmentAPI) cmd.Command {
 	cmd := &unsetCommand{
 		api: api,
 	}

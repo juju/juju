@@ -25,7 +25,7 @@ func NewSuperCommand() cmd.Command {
 	})
 	environmentCmd.Register(NewGetCommand())
 	environmentCmd.Register(NewSetCommand())
-	environmentCmd.Register(newUnsetCommand())
+	environmentCmd.Register(NewUnsetCommand())
 	environmentCmd.Register(&JenvCommand{})
 	environmentCmd.Register(newRetryProvisioningCommand())
 	environmentCmd.Register(newEnvSetConstraintsCommand())
