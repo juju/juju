@@ -153,7 +153,7 @@ class TestParseArgs(TestCase):
     def test_parse_args(self):
         args = parse_args(['b', 'c', 'd', 'e', 'machine'])
         self.assertEqual(args, Namespace(
-            agent='machine', env='b', juju_bin='c', logs='d',
+            agent='machine', env='b', juju_bin='c/juju', logs='d',
             temp_env_name='e', debug=False, agent_stream=None, agent_url=None,
             bootstrap_host=None, machine=[], keep_env=False,
             region=None, series=None, upload_tools=False, verbose=20))

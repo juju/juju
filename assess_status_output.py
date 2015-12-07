@@ -8,7 +8,6 @@ from jujupy import (
 )
 from deploy_stack import (
     boot_context,
-    prepare_environment,
 )
 from utility import add_basic_testing_arguments
 
@@ -143,8 +142,6 @@ def main():
     with boot_context(args.temp_env_name, client, args.bootstrap_host,
                       args.machine, series, args.agent_url, args.agent_stream,
                       log_dir, args.keep_env, args.upload_tools):
-        prepare_environment(
-            client, already_bootstrapped=True, machines=args.machine)
 
         client.get_status(60)
         client.juju("deploy", ('local:trusty/statusstresser',))

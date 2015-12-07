@@ -77,12 +77,14 @@ class ErrJujuPath(Exception):
     """An exception for an invalid juju binary path."""
 
 
-class enforce_juju_path(argparse.Action):
-    """Enforces that a path ending with juju is given"""
+class handle_juju_path(argparse.Action):
+    """Allow a directory or the full juju binary path to be given."""
     def __call__(self, parser, namespace, values, option_string=None):
-        if not values.endswith('/juju'):
+        if values == '':
             raise ErrJujuPath(
-                "%s: The full path to the juju binary is required." % values)
+                "The full path to the juju binary is required.")
+        if not values.endswith('/juju'):
+            values = os.path.join(values, 'juju')
         setattr(namespace, self.dest, values)
 
 
@@ -250,7 +252,7 @@ def add_basic_testing_arguments(parser, using_jes=False):
     for p_arg in positional_args:
         name, help_txt = p_arg
         if name == 'juju_bin':
-            parser.add_argument(name, action=enforce_juju_path, help=help_txt)
+            parser.add_argument(name, action=handle_juju_path, help=help_txt)
         else:
             parser.add_argument(name, help=help_txt)
     parser.add_argument('--debug', action='store_true',

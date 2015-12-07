@@ -1003,7 +1003,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             keep_env=False,
             logs='baz',
             machine=[],
-            juju_bin='bar',
+            juju_bin='bar/juju',
             series=None,
             upgrade=False,
             verbose=logging.INFO,
