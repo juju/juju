@@ -260,6 +260,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"share-environment",
 	"show-user", // alias for "user info"
 	"space",
 	"ssh",

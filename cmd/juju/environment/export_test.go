@@ -50,8 +50,8 @@ type ShareCommand struct {
 	*shareCommand
 }
 
-// NewShareCommand returns a ShareCommand with the api provided as specified.
-func NewShareCommand(api ShareEnvironmentAPI) (cmd.Command, *ShareCommand) {
+// NewShareCommandForTest returns a ShareCommand with the api provided as specified.
+func NewShareCommandForTest(api ShareEnvironmentAPI) (cmd.Command, *ShareCommand) {
 	cmd := &shareCommand{
 		api: api,
 	}

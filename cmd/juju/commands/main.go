@@ -197,6 +197,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(environment.NewUnsetCommand())
 	r.Register(environment.NewRetryProvisioningCommand())
 
+	r.Register(environment.NewShareCommand())
+
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
 
