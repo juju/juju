@@ -828,10 +828,12 @@ def quickstart_from_env(juju_home, client, bundle):
 
 @contextmanager
 def maybe_jes(client, jes_enabled, try_jes):
-    """If JES is desired and not enabled, enable it for this context.
+    """If JES is desired and not enabled, try to enable it for this context.
 
     JES will be in its previous state after exiting this context.
     If jes_enabled is True or try_jes is False, the context is a no-op.
+    If enable_jes() raises JESNotSupported, JES will not be enabled in the
+    context.
 
     The with value is True if JES is enabled in the context.
     """
