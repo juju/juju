@@ -709,6 +709,7 @@ func (environ *maasEnviron) acquireNode(
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
+		logger.Tracef("calling acquire with params: %+v", acquireParams)
 		result, err = client.CallPost("acquire", acquireParams)
 		if err == nil {
 			break
@@ -1707,6 +1708,11 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	// Skip IPv6 subnets until we can handle them correctly.
+	if ip.To4() == nil && ip.To16() != nil {
+		logger.Debugf("ignoring static IP range for IPv6 subnet %q", cidr)
+		return nil, nil, nil
+	}
 
 	// TODO(mfoord): needs updating to work with IPv6 as well.
 	lowBound, err := network.IPv4ToDecimal(ip)
@@ -1791,19 +1797,26 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 // subnetsWithSpaces uses the MAAS 1.9+ API to fetch subnet information
 // including space name.
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	inst, err := environ.getInstance(instId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	nodeId, err := environ.nodeIdFromInstance(inst)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var nodeId string
+	if instId != instance.UnknownId {
+		inst, err := environ.getInstance(instId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		nodeId, err = environ.nodeIdFromInstance(inst)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("instance %q has subnets %v", instId, subnets)
+	if instId != instance.UnknownId {
+		logger.Debugf("instance %q has subnets %v", instId, subnets)
+	} else {
+		logger.Debugf("found subnets %v", instId, subnets)
+	}
 
 	return subnets, nil
 }
@@ -1856,13 +1869,23 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 	return subnetInfo, nil
 }
 
-// filteredSubnets fetches subnets, filtering by nodeId and optionally a slice
-// of subnetIds. If subnetIds is empty then all subnets for that node are
-// fetched.
+// filteredSubnets fetches subnets, filtering optionally by nodeId and/or a
+// slice of subnetIds. If subnetIds is empty then all subnets for that node are
+// fetched. If nodeId is empty, all subnets are returned (filtering by subnetIds
+// first, if set).
 func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	jsonNets, err := environ.subnetsFromNode(nodeId)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var jsonNets []gomaasapi.JSONObject
+	var err error
+	if nodeId != "" {
+		jsonNets, err = environ.subnetsFromNode(nodeId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		jsonNets, err = environ.fetchAllSubnets()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	subnetIdSet := make(map[string]bool)
 	for _, netId := range subnetIds {
@@ -1916,10 +1939,10 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 	return inst, nil
 }
 
-// Spaces returns all the spaces, that have subnets, known to the provider.
-// Space name is not filled in as the provider doesn't know the juju name for
-// the space.
-func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+// fetchAllSubnets calls the MAAS subnets API to get all subnets and returns the
+// JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
+// error satisfying errors.IsNotSupported will be returned.
+func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 	ok, err := environ.SupportsSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1933,7 +1956,14 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	jsonNets, err := json.GetArray()
+	return json.GetArray()
+}
+
+// Spaces returns all the spaces, that have subnets, known to the provider.
+// Space name is not filled in as the provider doesn't know the juju name for
+// the space.
+func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+	jsonNets, err := environ.fetchAllSubnets()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1972,14 +2002,17 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	if ok {
 		return environ.subnetsWithSpaces(instId, subnetIds)
 	}
-	// At some point in the future an empty subnetIds may mean "fetch all subnets"
-	// but until that functionality is needed it's an error.
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnetIds must not be empty")
+	// When not using MAAS API with spaces support, we require both instance ID
+	// and list of subnet IDs, that's due to the limitations of the old API.
+	if instId == instance.UnknownId {
+		return nil, errors.Errorf("instance ID is required")
 	}
 	inst, err := environ.getInstance(instId)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if len(subnetIds) == 0 {
+		return nil, errors.Errorf("subnet IDs must not be empty")
 	}
 	// The MAAS API get networks call returns named subnets, not physical networks,
 	// so we save the data from this call into a variable called subnets.
