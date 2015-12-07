@@ -195,9 +195,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(environment.NewGetCommand())
 	r.Register(environment.NewSetCommand())
 	r.Register(environment.NewUnsetCommand())
-
-	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
+	r.Register(environment.NewRetryProvisioningCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())

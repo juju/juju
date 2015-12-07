@@ -227,7 +227,6 @@ var commandNames = []string{
 	"enable-user",  // alias for "user enable"
 	"ensure-availability",
 	"env", // alias for switch
-	"environment",
 	"expose",
 	"generate-config", // alias for init
 	"get",

@@ -38,8 +38,8 @@ func NewUnsetCommandForTest(api UnsetEnvironmentAPI) cmd.Command {
 	return envcmd.Wrap(cmd)
 }
 
-// NewRetryProvisioningCommand returns a RetryProvisioningCommand with the api provided as specified.
-func NewRetryProvisioningCommand(api RetryProvisioningAPI) cmd.Command {
+// NewRetryProvisioningCommandForTest returns a RetryProvisioningCommand with the api provided as specified.
+func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 	cmd := &retryProvisioningCommand{
 		api: api,
 	}

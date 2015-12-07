@@ -23,11 +23,6 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage environments",
 	})
-	environmentCmd.Register(NewGetCommand())
-	environmentCmd.Register(NewSetCommand())
-	environmentCmd.Register(NewUnsetCommand())
-	environmentCmd.Register(&JenvCommand{})
-	environmentCmd.Register(newRetryProvisioningCommand())
 	environmentCmd.Register(newEnvSetConstraintsCommand())
 	environmentCmd.Register(newEnvGetConstraintsCommand())
 	environmentCmd.Register(newShareCommand())
