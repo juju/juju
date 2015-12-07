@@ -56,7 +56,7 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 
 	// Add a compatible charm and force it.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
-	err = s.mysql.SetCharm(sch, true)
+	err = s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,13 +67,52 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
+	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
+
+	err := s.mysql.SetCharm(chDifferentSeries, true, false)
+	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
+}
+
+func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
+
+	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
+	err := svc.SetCharm(chDifferentSeries, false, false)
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
+}
+
+func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
+
+	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
+	err := svc.SetCharm(chDifferentSeries, true, false)
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err = s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err = svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2-8")
+}
+
+func (s *ServiceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
+
+	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
+	err := svc.SetCharm(chDifferentSeries, true, false)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, OS "Ubuntu" not supported by charm`)
+}
+
 func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
-	err := s.mysql.SetCharm(logging, false)
+	err := s.mysql.SetCharm(logging, false, false)
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's subordinacy")
 
 	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
-	err = s.mysql.SetCharm(othermysql, false)
+	err = s.mysql.SetCharm(othermysql, false, false)
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
 }
 
@@ -164,14 +203,14 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 	revno := 2
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	svc := s.AddTestingService(c, "fakemysql", ms)
-	err := svc.SetCharm(ms, false)
+	err := svc.SetCharm(ms, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
 		c.Logf("test %d: %s", i, t.summary)
 
 		newCh := s.AddMetaCharm(c, "mysql", t.meta, revno+i+1)
-		err = svc.SetCharm(newCh, false)
+		err = svc.SetCharm(newCh, false, false)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -187,13 +226,13 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno := 2
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
 	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
-	err := providerSvc.SetCharm(providerCharm, false)
+	err := providerSvc.SetCharm(providerCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerSvc := s.AddTestingService(c, "myrequirer", requirerCharm)
-	err = requirerSvc.SetCharm(requirerCharm, false)
+	err = requirerSvc.SetCharm(requirerCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
@@ -203,9 +242,9 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
-	err = providerSvc.SetCharm(baseCharm, false)
+	err = providerSvc.SetCharm(baseCharm, false, false)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
-	err = requirerSvc.SetCharm(baseCharm, false)
+	err = requirerSvc.SetCharm(baseCharm, false, false)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
@@ -287,7 +326,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
-		err = svc.SetCharm(newCh, false)
+		err = svc.SetCharm(newCh, false, false)
 		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
@@ -324,7 +363,7 @@ func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
-	err = s.mysql.SetCharm(sch, true)
+	err = s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -373,7 +412,7 @@ func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
 		assertLife(c, s.mysql, state.Dead)
 	}).Check()
 
-	err := s.mysql.SetCharm(sch, true)
+	err := s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -383,7 +422,7 @@ func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.mysql)
-	err = s.mysql.SetCharm(sch, true)
+	err = s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -396,7 +435,7 @@ func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		assertRemoved(c, s.mysql)
 	}).Check()
 
-	err := s.mysql.SetCharm(sch, true)
+	err := s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -411,7 +450,7 @@ func (s *ServiceSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 		assertLife(c, s.mysql, state.Dying)
 	}).Check()
 
-	err := s.mysql.SetCharm(sch, true)
+	err := s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 }
@@ -427,7 +466,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
 
-				err = s.mysql.SetCharm(sch, false)
+				err = s.mysql.SetCharm(sch, false, false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -452,7 +491,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		},
 	).Check()
 
-	err := s.mysql.SetCharm(sch, true)
+	err := s.mysql.SetCharm(sch, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -460,7 +499,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	revno := 2 // revno 1 is used by SetUpSuite
 	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
-	err := s.mysql.SetCharm(oldCh, false)
+	err := s.mysql.SetCharm(oldCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
@@ -471,7 +510,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		nil, // Ensure there will be a retry.
 	).Check()
 
-	err = s.mysql.SetCharm(newCh, true)
+	err = s.mysql.SetCharm(newCh, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -491,7 +530,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 				c.Assert(err, jc.ErrorIsNil)
 				unit2, err := s.mysql.AddUnit()
 				c.Assert(err, jc.ErrorIsNil)
-				err = s.mysql.SetCharm(newCh, false)
+				err = s.mysql.SetCharm(newCh, false, false)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
@@ -503,7 +542,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 				// settings as well.
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value1"})
 				c.Assert(err, jc.ErrorIsNil)
-				err = s.mysql.SetCharm(oldCh, false)
+				err = s.mysql.SetCharm(oldCh, false, false)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -531,13 +570,13 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 				// SetCharm has refreshed its cached settings for oldCh
 				// and newCh. Change them again to trigger another
 				// attempt.
-				err := s.mysql.SetCharm(newCh, false)
+				err := s.mysql.SetCharm(newCh, false, false)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value3"})
 				c.Assert(err, jc.ErrorIsNil)
-				err = s.mysql.SetCharm(oldCh, false)
+				err = s.mysql.SetCharm(oldCh, false, false)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
@@ -572,7 +611,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 		},
 	).Check()
 
-	err := s.mysql.SetCharm(newCh, true)
+	err := s.mysql.SetCharm(newCh, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -682,7 +721,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Changing to the same charm does not change the refcount.
-	err := svc.SetCharm(oldCh, false)
+	err := svc.SetCharm(oldCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
@@ -691,13 +730,13 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// settings to be decremented, while newCh's settings is
 	// incremented. Consequently, because oldCh's refcount is 0, the
 	// settings doc will be removed.
-	err = svc.SetCharm(newCh, false)
+	err = svc.SetCharm(newCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertSettingsRef(c, s.State, svcName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
-	err = svc.SetCharm(oldCh, false)
+	err = svc.SetCharm(oldCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
@@ -781,11 +820,11 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// No relations joined yet.
 	s.assertServiceRelations(c, s.mysql)
 
-	err := s.mysql.SetCharm(oldCh, false)
+	err := s.mysql.SetCharm(oldCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServiceRelations(c, s.mysql, "mysql:cluster")
 
-	err = s.mysql.SetCharm(newCh, false)
+	err = s.mysql.SetCharm(newCh, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertServiceRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
@@ -975,7 +1014,7 @@ func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
 	s1, err := s.State.Service(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.SetCharm(s.charm, true)
+	err = s.mysql.SetCharm(s.charm, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testch, force, err := s1.Charm()
@@ -1715,7 +1754,7 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 	// Make two changes, check one event.
 	err = service.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.SetCharm(s.charm, true)
+	err = service.SetCharm(s.charm, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -1910,7 +1949,7 @@ func (s *ServiceSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) error 
 	oldCh := s.AddMetaCharm(c, "mysql", oldMeta, 2)
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 	svc := s.AddTestingService(c, "test", oldCh)
-	return svc.SetCharm(newCh, false)
+	return svc.SetCharm(newCh, false, false)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {

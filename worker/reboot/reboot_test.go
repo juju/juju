@@ -75,7 +75,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
 
-	lock, err := fslock.NewLock(c.MkDir(), "fake")
+	lock, err := fslock.NewLock(c.MkDir(), "fake", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	s.lock = lock
 }

@@ -4,11 +4,3 @@
 package network
 
 var NetLookupIP = &netLookupIP
-
-func SetPreferIPv6(value bool) {
-	globalPreferIPv6 = value
-}
-
-func GetPreferIPv6() bool {
-	return globalPreferIPv6
-}

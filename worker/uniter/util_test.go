@@ -469,7 +469,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic(err.Error())
 	}
 	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
@@ -947,7 +947,7 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.svc.SetCharm(sch, s.forced)
+	err = ctx.svc.SetCharm(sch, false, s.forced)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
@@ -1337,7 +1337,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 
 func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
 	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	return lock
 }

@@ -198,7 +198,8 @@ func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string,
 	for _, facade := range facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
-	st.loggedIn = true
+
+	st.setLoggedIn()
 	return nil
 }
 

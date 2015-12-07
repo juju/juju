@@ -118,7 +118,6 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"tags=foo",
 		"mem=3",
 		"instance-type=some-type",
-		"container=lxd",
 		"cpu-cores=2",
 		"cpu-power=250",
 	}, " "))
@@ -158,16 +157,6 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	_, err = validator.Validate(cons)
 
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
-}
-
-func (s *environPolSuite) TestConstraintsValidatorVocabContainerKnown(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cons := constraints.MustParse("container=lxd")
-	_, err = validator.Validate(cons)
-
-	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {

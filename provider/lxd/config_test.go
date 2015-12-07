@@ -309,6 +309,11 @@ var newConfigTests = []configTestSpec{{
 }}
 
 func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
+	// TODO(ericsnow) Move to a functional suite.
+	if !s.IsRunningLocally(c) {
+		c.Skip("LXD not running locally")
+	}
+
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -411,6 +416,11 @@ func (s *configSuite) TestValidateChange(c *gc.C) {
 }
 
 func (s *configSuite) TestSetConfig(c *gc.C) {
+	// TODO(ericsnow) Move to a functional suite.
+	if !s.IsRunningLocally(c) {
+		c.Skip("LXD not running locally")
+	}
+
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 

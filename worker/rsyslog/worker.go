@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -36,7 +37,9 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
 	logDir         = agent.DefaultPaths.LogDir
-	syslogTargets  = []*rsyslog.Writer{}
+
+	syslogTargetsLock sync.Mutex // locks syslogTargets
+	syslogTargets     []*rsyslog.Writer
 )
 
 // RsyslogMode describes how to configure rsyslog.
@@ -213,7 +216,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			// No port was found
 			host = j
 		}
-		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
+		target := net.JoinHostPort(host, strconv.Itoa(h.syslogConfig.Port))
 		namespace := h.syslogConfig.Namespace
 		if namespace != "" {
 			namespace = "-" + namespace
@@ -243,7 +246,9 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 		}
 	}
 	// record new targets
+	syslogTargetsLock.Lock()
 	syslogTargets = newLoggers
+	syslogTargetsLock.Unlock()
 	return nil
 }
 

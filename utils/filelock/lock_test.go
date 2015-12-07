@@ -3,7 +3,7 @@
 
 // +build !windows
 
-package container_test
+package filelock_test
 
 import (
 	"fmt"
@@ -12,23 +12,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/filelock"
 )
 
-type flockSuite struct {
-	testing.IsolationSuite
-}
+type flockSuite struct{}
 
 var _ = gc.Suite(&flockSuite{})
-
-func (s *flockSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-}
 
 // This test also happens to test that locks can get created when the
 // lock directory doesn't exist.
@@ -40,7 +33,7 @@ func (s *flockSuite) TestValidNamesLockDir(c *gc.C) {
 		"longer-with.special-characters",
 	} {
 		dir := c.MkDir()
-		_, err := container.NewLock(dir, name)
+		_, err := filelock.NewLock(dir, name)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -58,7 +51,7 @@ func (s *flockSuite) TestInvalidNames(c *gc.C) {
 		"no:colon",
 	} {
 		dir := c.MkDir()
-		_, err := container.NewLock(dir, name)
+		_, err := filelock.NewLock(dir, name)
 		c.Assert(err, gc.ErrorMatches, "Invalid lock name .*")
 	}
 }
@@ -67,28 +60,28 @@ func (s *flockSuite) TestNewLockWithExistingDir(c *gc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = container.NewLock(dir, "special")
+	_, err = filelock.NewLock(dir, "special")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *flockSuite) TestLockBlocks(c *gc.C) {
 
 	dir := c.MkDir()
-	lock1, err := container.NewLock(dir, "testing")
+	lock1, err := filelock.NewLock(dir, "testing")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), jc.IsFalse)
-	lock2, err := container.NewLock(dir, "testing")
+	c.Assert(filelock.IsLocked(lock1), jc.IsFalse)
+	lock2, err := filelock.NewLock(dir, "testing")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock2), jc.IsFalse)
+	c.Assert(filelock.IsLocked(lock2), jc.IsFalse)
 
 	acquired := make(chan struct{})
 	err = lock1.Lock("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), jc.IsTrue)
+	c.Assert(filelock.IsLocked(lock1), jc.IsTrue)
 
 	go func() {
 		lock2.Lock("")
-		c.Assert(container.IsLocked(lock2), jc.IsTrue)
+		c.Assert(filelock.IsLocked(lock2), jc.IsTrue)
 		acquired <- struct{}{}
 		close(acquired)
 	}()
@@ -103,7 +96,7 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 
 	err = lock1.Unlock()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), jc.IsFalse)
+	c.Assert(filelock.IsLocked(lock1), jc.IsFalse)
 
 	select {
 	case <-acquired:
@@ -115,15 +108,15 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 
 func (s *flockSuite) TestUnlock(c *gc.C) {
 	dir := c.MkDir()
-	lock, err := container.NewLock(dir, "testing")
+	lock, err := filelock.NewLock(dir, "testing")
 	c.Assert(err, jc.ErrorIsNil)
 	err = lock.Lock("test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock), jc.IsTrue)
+	c.Assert(filelock.IsLocked(lock), jc.IsTrue)
 
 	err = lock.Unlock()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock), jc.IsFalse)
+	c.Assert(filelock.IsLocked(lock), jc.IsFalse)
 }
 
 func (s *flockSuite) TestStress(c *gc.C) {
@@ -141,7 +134,7 @@ func (s *flockSuite) TestStress(c *gc.C) {
 
 	var stress = func(name string) {
 		defer func() { done <- struct{}{} }()
-		lock, err := container.NewLock(dir, "testing")
+		lock, err := filelock.NewLock(dir, "testing")
 		if err != nil {
 			c.Errorf("Failed to create a new lock")
 			return
