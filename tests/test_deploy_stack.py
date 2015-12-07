@@ -693,8 +693,8 @@ class TestDeployJob(FakeHomeTestCase):
                             False, 'region-foo')
                 permanent = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
-            'foo', client, None, None, None, None, None, 'region-foo', None,
-            None, permanent, permanent)
+            'foo', client, client, None, None, None, None, None, 'region-foo',
+            None, None, permanent, permanent)
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
@@ -814,6 +814,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                                         debug=True)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(bv_mock.return_value, bs_manager.client)
+        self.assertIs(bv_mock.return_value, bs_manager.tear_down_client)
         self.assertEqual('example.org', bs_manager.bootstrap_host)
         self.assertEqual(['example.com'], bs_manager.machines)
         self.assertEqual('angsty', bs_manager.series)
@@ -839,7 +840,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         client = self.make_client()
         initial_home = client.juju_home
         bs_manager = BootstrapManager(
-            'foobar', client, None, [], None, None, None, None,
+            'foobar', client, client, None, [], None, None, None, None,
             client.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
@@ -863,7 +864,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             pass
 
         bs_manager = BootstrapManager(
-            'foobar', client, None, [], None, None, None, None,
+            'foobar', client, client, None, [], None, None, None, None,
             client.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
@@ -876,6 +877,53 @@ class TestBootstrapManager(FakeHomeTestCase):
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context(None, []):
                 td_mock.assert_called_once_with(client, False, try_jes=False)
+
+    def test_bootstrap_context_tear_down_client(self):
+        client = self.make_client()
+        tear_down_client = self.make_client()
+        initial_home = client.juju_home
+        bs_manager = BootstrapManager(
+            'foobar', client, tear_down_client, None, [], None, None, None,
+            None, client.juju_home, False, False, False)
+
+        def check_config(client_, jes_enabled, try_jes=False):
+            jenv_path = get_jenv_path(client.juju_home, 'foobar')
+            self.assertFalse(os.path.exists(jenv_path))
+            environments_path = get_environments_path(client.juju_home)
+            self.assertTrue(os.path.isfile(environments_path))
+            self.assertNotEqual(initial_home, client.juju_home)
+
+        with patch('deploy_stack.tear_down',
+                   side_effect=check_config) as td_mock:
+            with bs_manager.bootstrap_context(None, []):
+                td_mock.assert_called_once_with(tear_down_client,
+                                                False, try_jes=True)
+
+    def test_bootstrap_context_tear_down_client_jenv(self):
+        client = self.make_client()
+        bootstrap_client = self.make_client()
+        initial_home = client.juju_home
+        jenv_path = get_jenv_path(client.juju_home, 'foobar')
+        os.makedirs(os.path.dirname(jenv_path))
+        with open(jenv_path, 'w'):
+            pass
+
+        bs_manager = BootstrapManager(
+            'foobar', client, bootstrap_client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+
+        def check_config(client_, jes_enabled, try_jes=False):
+            self.assertTrue(os.path.isfile(jenv_path))
+            environments_path = get_environments_path(client.juju_home)
+            self.assertFalse(os.path.exists(environments_path))
+            self.assertEqual(initial_home, client.juju_home)
+
+        with patch('deploy_stack.tear_down',
+                   side_effect=check_config) as td_mock:
+            with bs_manager.bootstrap_context(None, []):
+                td_mock.assert_called_once_with(bootstrap_client, False,
+                                                try_jes=False)
 
 
 class TestBootContext(FakeHomeTestCase):

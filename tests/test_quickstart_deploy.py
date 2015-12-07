@@ -18,7 +18,7 @@ from utility import temp_dir
 
 def make_bootstrap_manager(client, log_dir='log_dir'):
     return BootstrapManager(
-        'env', client, None, [], 'series', 'agent_url',
+        'env', client, client, None, [], 'series', 'agent_url',
         'agent_stream', 'region', log_dir, 'keep_env', 'permanent',
         'jes_enabled')
 

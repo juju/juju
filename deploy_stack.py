@@ -397,7 +397,7 @@ class BootstrapManager:
         using streams.
     """
 
-    def __init__(self, temp_env_name, client, bootstrap_host,
+    def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
                  keep_env, permanent, jes_enabled):
         """Constructor.
@@ -406,6 +406,7 @@ class BootstrapManager:
         """
         self.temp_env_name = temp_env_name
         self.client = client
+        self.tear_down_client = tear_down_client
         self.bootstrap_host = bootstrap_host
         self.machines = machines
         self.series = series
@@ -423,9 +424,9 @@ class BootstrapManager:
         client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
         jes_enabled = client.is_jes_enabled()
         return cls(
-            args.temp_env_name, client, args.bootstrap_host, args.machine,
-            args.series, args.agent_url, args.agent_stream, args.region,
-            args.logs, args.keep_env, permanent=jes_enabled,
+            args.temp_env_name, client, client, args.bootstrap_host,
+            args.machine, args.series, args.agent_url, args.agent_stream,
+            args.region, args.logs, args.keep_env, permanent=jes_enabled,
             jes_enabled=jes_enabled)
 
     @contextmanager
@@ -512,7 +513,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            tear_down(self.client, self.jes_enabled, try_jes=False)
+            tear_down(self.tear_down_client, self.jes_enabled, try_jes=False)
             torn_down = True
         else:
             torn_down = False
@@ -521,7 +522,8 @@ class BootstrapManager:
                                 permanent=self.permanent):
             try:
                 if not torn_down:
-                    tear_down(self.client, self.jes_enabled, try_jes=True)
+                    tear_down(self.tear_down_client, self.jes_enabled,
+                              try_jes=True)
                 yield
             except:
                 # If run from a windows machine may not have ssh to get
@@ -531,7 +533,7 @@ class BootstrapManager:
                                                  series=self.series)
                     copy_remote_logs(remote, self.log_dir)
                     archive_logs(self.log_dir)
-                tear_down(self.client, self.jes_enabled)
+                tear_down(self.tear_down_client, self.jes_enabled)
                 raise
 
     @contextmanager
@@ -566,7 +568,7 @@ class BootstrapManager:
                 dump_env_logs(self.client, host, self.log_dir,
                               runtime_config=runtime_config)
             if not self.keep_env:
-                tear_down(self.client, self.jes_enabled)
+                tear_down(self.tear_down_client, self.jes_enabled)
 
     @contextmanager
     def top_context(self):
@@ -630,7 +632,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     """
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
-        temp_env_name, client, bootstrap_host, machines, series,
+        temp_env_name, client, client, bootstrap_host, machines, series,
         agent_url, agent_stream, region, log_dir, keep_env, permanent,
         jes_enabled)
     with bs_manager.booted_context(upload_tools) as new_machines:
@@ -660,8 +662,9 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         client.enable_jes()
     permanent = client.is_jes_enabled()
     bs_manager = BootstrapManager(
-        temp_env_name, client, bootstrap_host, machines, series, agent_url,
-        agent_stream, region, log_dir, keep_env, permanent, permanent)
+        temp_env_name, client, client, bootstrap_host, machines, series,
+        agent_url, agent_stream, region, log_dir, keep_env, permanent,
+        permanent)
     with bs_manager.booted_context(upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
