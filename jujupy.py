@@ -281,8 +281,7 @@ class EnvJujuClient:
         else:
             controller_option = ('-c', controller_client.env.environment)
         self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
-                self.env.environment, '--config', config_file),
-            include_e=False)
+            self.env.environment, '--config', config_file), include_e=False)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
