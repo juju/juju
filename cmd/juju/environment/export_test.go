@@ -22,8 +22,8 @@ func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
 	return envcmd.Wrap(cmd)
 }
 
-// NewSetCommand returns a SetCommand with the api provided as specified.
-func NewSetCommand(api SetEnvironmentAPI) cmd.Command {
+// NewSetCommandForTest returns a SetCommand with the api provided as specified.
+func NewSetCommandForTest(api SetEnvironmentAPI) cmd.Command {
 	cmd := &setCommand{
 		api: api,
 	}

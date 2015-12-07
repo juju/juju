@@ -193,10 +193,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Mangage environment
 	r.Register(environment.NewGetCommand())
+	r.Register(environment.NewSetCommand())
 
 	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
-	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))

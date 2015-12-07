@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newSetCommand() cmd.Command {
+func NewSetCommand() cmd.Command {
 	return envcmd.Wrap(&setCommand{})
 }
 
@@ -33,10 +33,11 @@ can be passed on as command line arguments.
 
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set",
+		Name:    "set-environment",
 		Args:    "key=[value] ...",
 		Purpose: "replace environment values",
 		Doc:     strings.TrimSpace(setEnvHelpDoc),
+		Aliases: []string{"set-env"},
 	}
 }
 

@@ -24,7 +24,7 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "manage environments",
 	})
 	environmentCmd.Register(NewGetCommand())
-	environmentCmd.Register(newSetCommand())
+	environmentCmd.Register(NewSetCommand())
 	environmentCmd.Register(newUnsetCommand())
 	environmentCmd.Register(&JenvCommand{})
 	environmentCmd.Register(newRetryProvisioningCommand())
