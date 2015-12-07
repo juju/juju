@@ -2,51 +2,22 @@ from argparse import Namespace
 import os
 from unittest import TestCase
 
-from mock import patch
+from mock import (
+    MagicMock,
+    patch,
+    )
 
 from assess_heterogeneous_control import (
     assess_heterogeneous,
-    dumping_env,
     get_clients,
     parse_args,
     )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
     _temp_env,
     )
-from utility import (
-    temp_dir,
-)
 
 
 __metaclass__ = type
-
-
-class TestDumping_env(TestCase):
-
-    def test_dumping_env_exception(self):
-        client = EnvJujuClient(SimpleEnvironment('env'), '5', '4')
-        with temp_dir() as log_dir:
-            with patch.object(client, 'destroy_environment') as de_mock:
-                with patch('assess_heterogeneous_control.dump_env_logs',
-                           autospec=True) as logs_mock:
-                    with self.assertRaises(ValueError):
-                        with dumping_env(client, 'a-hostname', log_dir):
-                            raise ValueError
-        logs_mock.assert_called_once_with(client, 'a-hostname', log_dir)
-        de_mock.assert_called_once_with()
-
-    def test_dumping_env_success(self):
-        client = EnvJujuClient(SimpleEnvironment('env'), '5', '4')
-        with temp_dir() as log_dir:
-            with patch.object(client, 'destroy_environment') as de_mock:
-                with patch('assess_heterogeneous_control.dump_env_logs',
-                           autospec=True) as logs_mock:
-                    with dumping_env(client, 'a-hostname', log_dir):
-                        pass
-        logs_mock.assert_called_once_with(client, 'a-hostname', log_dir)
-        self.assertEqual(de_mock.call_count, 0)
 
 
 class TestParseArgs(TestCase):
@@ -95,13 +66,10 @@ class TestGetClients(TestCase):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', lambda x: boo[x]):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
-                                                       'qux', True, 'quxx',
-                                                       'nif', 'glo')
+                                                       True, 'quxx')
         self.assertEqual(initial.env, other.env)
         self.assertEqual(initial.env, released.env)
-        self.assertEqual(initial.env.config['tools-metadata-url'], 'quxx')
-        self.assertEqual(initial.env.config['agent-stream'], 'nif')
-        self.assertEqual(initial.env.config['default-series'], 'glo')
+        self.assertNotIn('tools-metadata-url', initial.env.config)
         self.assertEqual(initial.full_path, os.path.abspath('foo'))
         self.assertEqual(other.full_path, os.path.abspath('bar'))
         self.assertEqual(released.full_path, '/usr/bun/juju')
@@ -110,27 +78,31 @@ class TestGetClients(TestCase):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', return_value='1.18.73'):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
-                                                       'qux', True, None,
-                                                       None, None)
+                                                       True, None)
         self.assertTrue('tools-metadata-url' not in initial.env.config)
-        self.assertTrue('agent-stream' not in initial.env.config)
-        self.assertTrue('default-series' not in initial.env.config)
 
 
 class TestAssessHeterogeneous(TestCase):
 
+    @patch('assess_heterogeneous_control.BootstrapManager')
     @patch('assess_heterogeneous_control.test_control_heterogeneous',
            autospec=True)
     @patch('assess_heterogeneous_control.get_clients', autospec=True)
-    def test_assess_heterogeneous(self, ah_mock, ch_mock):
-        ah_mock.return_value = (
-            'initial_client', 'other_client', 'released_client')
+    def test_assess_heterogeneous(self, gc_mock, ch_mock, bm_mock):
+        initial = MagicMock()
+        gc_mock.return_value = (
+            initial, 'other_client', 'released_client')
         assess_heterogeneous(
             'initial', 'other', 'base_env', 'environment_name', 'log_dir',
             False, False, 'agent_url', 'agent_stream', 'series')
-        ah_mock.assert_called_once_with(
-            'initial', 'other', 'base_env', 'environment_name', False,
-            'agent_url', 'agent_stream', 'series')
+        gc_mock.assert_called_once_with(
+            'initial', 'other', 'base_env', False, 'agent_url')
+        is_jes_enabled = initial.is_jes_enabled.return_value
+        bm_mock.assert_called_once_with(
+            'environment_name', initial, 'released_client',
+            agent_stream='agent_stream', agent_url='agent_url',
+            bootstrap_host=None, jes_enabled=is_jes_enabled, keep_env=False,
+            log_dir='log_dir', machines=[], permanent=is_jes_enabled,
+            region=None, series='series')
         ch_mock.assert_called_once_with(
-            'initial_client', 'other_client', 'released_client',
-            'log_dir', False)
+            bm_mock.return_value, 'other_client', False)
