@@ -247,7 +247,7 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	err := m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
 }
@@ -325,6 +325,28 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MachineSuite) TestDestroyOps(c *gc.C) {
+	m := s.Factory.MakeMachine(c, nil)
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.NotNil)
+}
+
+func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
+	// s.Factory does not allow us to make a manager machine, so we grab one
+	// from State ...
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), jc.GreaterThan, 0)
+	m := machines[0]
+	c.Assert(m.IsManager(), jc.IsTrue)
+
+	// ... and assert that we cannot get the destroy ops for it.
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(ops, gc.IsNil)
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
