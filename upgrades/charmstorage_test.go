@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -18,6 +19,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 )
 
@@ -48,6 +50,7 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dummyCharm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "dummy", dummyCharm)
 	dummyCharmURL, err := stor.URL("somewhere")
 	c.Assert(err, jc.ErrorIsNil)
 	url, err := url.Parse(dummyCharmURL)
@@ -64,7 +67,7 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageLocalstorage(c *gc.C) 
 
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 	url := &url.URL{Scheme: "https", Host: "localhost:8040", Path: "/somewhere"}
-	c.Assert(err, jc.ErrorIsNil)
+	s.AddTestingService(c, "dummy", dummyCharm)
 	s.bundleURLs[dummyCharm.URL().String()] = url
 
 	s.testMigrateCharmStorage(c, dummyCharm.URL(), &mockAgentConfig{
@@ -119,7 +122,8 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageIdempotency(c *gc.C) {
 	s.PatchValue(upgrades.CharmStoragePath, func(ch *state.Charm) string {
 		return "alreadyset"
 	})
-	s.AddTestingCharm(c, "dummy")
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "dummy", dummyCharm)
 	var called bool
 	s.PatchValue(upgrades.StateAddCharmStoragePaths, func(st *state.State, storagePaths map[*charm.URL]string) error {
 		c.Assert(storagePaths, gc.HasLen, 0)
@@ -129,4 +133,37 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageIdempotency(c *gc.C) {
 	err := upgrades.MigrateCharmStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *migrateCharmStorageSuite) TestMigrateCharmUnused(c *gc.C) {
+	s.AddTestingCharm(c, "dummy") // used by nothing
+	ch2 := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name:     "mysql",
+		Revision: "1",
+	}) // used by unit, not service
+	ch3 := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name:     "mysql",
+		Revision: "2",
+	}) // used by service, not unit
+	mysql := s.AddTestingService(c, "mysql", ch2)
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Service:     mysql,
+		SetCharmURL: true,
+	})
+	err := mysql.SetCharm(ch3, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expect := make(set.Strings)
+	expect.Add(ch2.URL().String())
+	expect.Add(ch3.URL().String())
+	s.PatchValue(upgrades.CharmStoragePath, func(ch *state.Charm) string {
+		curl := ch.URL().String()
+		c.Check(curl, jc.Satisfies, expect.Contains)
+		expect.Remove(curl)
+		return "alreadyset"
+	})
+
+	err = upgrades.MigrateCharmStorage(s.State, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expect, gc.HasLen, 0) // emptied by CharmStoragePath
 }
