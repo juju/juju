@@ -12,6 +12,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -836,7 +838,7 @@ func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management", "network-deployment-ubuntu"]}`)
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
@@ -981,42 +983,344 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
-func (suite *environSuite) TestSubnets(c *gc.C) {
+func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
 	testInstance := suite.createSubnets(c, false)
 
-	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
+	subnetsInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.SubnetInfo{
-		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
-		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
-	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+	expectedInfo := []network.SubnetInfo{{
+		CIDR:              "192.168.2.1/24",
+		ProviderId:        "LAN",
+		VLANTag:           42,
+		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
+		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
+	}, {
+		CIDR:              "192.168.3.1/24",
+		ProviderId:        "Virt",
+		AllocatableIPLow:  nil,
+		AllocatableIPHigh: nil,
+		VLANTag:           0,
+	}, {
+		CIDR:              "192.168.1.1/24",
+		ProviderId:        "WLAN",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
+		AllocatableIPHigh: net.ParseIP("192.168.1.255"),
+	}}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }
 
-func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
+func (suite *environSuite) TestSubnetsWithInstanceIdNoSubnetIdsWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
 	testInstance := suite.createSubnets(c, false)
-	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+	env := suite.makeEnviron()
+	_, err := env.Subnets(testInstance.Id(), []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "subnet IDs must not be empty")
+
+	_, err = env.Subnets(testInstance.Id(), nil)
+	c.Assert(err, gc.ErrorMatches, "subnet IDs must not be empty")
 }
 
-func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
+func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIdsWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	suite.createSubnets(c, false)
+	_, err := suite.makeEnviron().Subnets(instance.UnknownId, []network.Id{"LAN", "Virt", "WLAN"})
+	c.Assert(err, gc.ErrorMatches, "instance ID is required")
+}
+
+func (suite *environSuite) TestSubnetsNoInstaceIdNoSubnetIdsWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+	_, err := env.Subnets(instance.UnknownId, nil)
+	c.Assert(err, gc.ErrorMatches, "instance ID is required")
+}
+
+func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIdsWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	suite.createSubnets(c, false)
+	env := suite.makeEnviron()
+	_, err := env.Subnets("invalid", []network.Id{"anything"})
+	c.Assert(err, gc.ErrorMatches, `instance "invalid" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = env.Subnets("invalid", nil)
+	c.Assert(err, gc.ErrorMatches, `instance "invalid" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	var subnetIDs []network.Id
+	var uintIDs []uint
+	for _, i := range []uint{1, 2, 3} {
+		id := suite.addSubnet(c, i, i, "node1")
+		subnetIDs = append(subnetIDs, network.Id(fmt.Sprintf("%v", id)))
+		uintIDs = append(uintIDs, id)
+		suite.addSubnet(c, i+5, i, "node2")
+		suite.addSubnet(c, i+10, i, "") // not linked to a node
+	}
+	testInstance := suite.getInstance("node1")
+	env := suite.makeEnviron()
+
+	subnetsInfo, err := env.Subnets(testInstance.Id(), subnetIDs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInfo := []network.SubnetInfo{
+		createSubnetInfo(uintIDs[0], 1, 1),
+		createSubnetInfo(uintIDs[1], 2, 2),
+		createSubnetInfo(uintIDs[2], 3, 3),
+	}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+
+	subnetsInfo, err = env.Subnets(testInstance.Id(), subnetIDs[1:])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo[1:])
+}
+
+func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIdsWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	id1 := suite.addSubnet(c, 1, 1, "node1")
+	id2 := suite.addSubnet(c, 2, 2, "node1")
+	suite.addSubnet(c, 3, 2, "")      // not linked to a node
+	suite.addSubnet(c, 4, 2, "node2") // linked to another node
+	testInstance := suite.getInstance("node1")
+	env := suite.makeEnviron()
+
+	subnetsInfo, err := env.Subnets(testInstance.Id(), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInfo := []network.SubnetInfo{
+		createSubnetInfo(id1, 1, 1),
+		createSubnetInfo(id2, 2, 2),
+	}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+
+	subnetsInfo, err = env.Subnets(testInstance.Id(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIdsWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.addSubnet(c, 1, 1, "node1")
+	suite.addSubnet(c, 2, 2, "node2")
+
+	_, err := suite.makeEnviron().Subnets("invalid", []network.Id{"anything"})
+	c.Assert(err, gc.ErrorMatches, `instance "invalid" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIdsWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	id1 := suite.addSubnet(c, 1, 1, "node1")
+	id2 := suite.addSubnet(c, 2, 2, "node2")
+	subnetIDs := []network.Id{
+		network.Id(fmt.Sprintf("%v", id1)),
+		network.Id(fmt.Sprintf("%v", id2)),
+	}
+
+	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, subnetIDs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInfo := []network.SubnetInfo{
+		createSubnetInfo(id1, 1, 1),
+		createSubnetInfo(id2, 2, 2),
+	}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIdsWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	id1 := suite.addSubnet(c, 1, 1, "node1")
+	id2 := suite.addSubnet(c, 2, 2, "node2")
+	env := suite.makeEnviron()
+
+	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInfo := []network.SubnetInfo{
+		createSubnetInfo(id1, 1, 1),
+		createSubnetInfo(id2, 2, 2),
+	}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+
+	subnetsInfo, err = env.Subnets(instance.UnknownId, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnetsMissingSubnetWhenSpacesNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
 	testInstance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"WLAN", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: Missing")
+}
+
+func (suite *environSuite) TestSubnetsMissingSubnetWhenSpacesAreSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.getInstance("node1")
+	suite.addSubnet(c, 1, 1, "node1")
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "2"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: 2")
 }
 
 func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 	testInstance := suite.createSubnets(c, true)
 
-	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
+	subnetsInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.SubnetInfo{
-		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
-		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
-	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+	expectedInfo := []network.SubnetInfo{{
+		CIDR:              "192.168.2.1/24",
+		ProviderId:        "LAN",
+		VLANTag:           42,
+		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
+		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
+	}, {
+		CIDR:              "192.168.3.1/24",
+		ProviderId:        "Virt",
+		AllocatableIPLow:  nil,
+		AllocatableIPHigh: nil,
+		VLANTag:           0,
+	}, {
+		CIDR:              "192.168.1.1/24",
+		ProviderId:        "WLAN",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
+		AllocatableIPHigh: net.ParseIP("192.168.1.255"),
+	}}
+	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
+}
+
+func createSubnet(ipRange, spaceAndNICID uint) gomaasapi.CreateSubnet {
+	var s gomaasapi.CreateSubnet
+	s.DNSServers = []string{"192.168.1.2"}
+	s.Name = fmt.Sprintf("maas-eth%d", spaceAndNICID)
+	s.Space = fmt.Sprintf("Space %d", spaceAndNICID)
+	s.GatewayIP = fmt.Sprintf("192.168.%v.1", ipRange)
+	s.CIDR = fmt.Sprintf("192.168.%v.0/24", ipRange)
+	return s
+}
+
+func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
+	return network.SubnetInfo{
+		CIDR:              fmt.Sprintf("192.168.%d.0/24", ipRange),
+		ProviderId:        network.Id(strconv.Itoa(int(subnetID))),
+		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
+		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
+		SpaceProviderId:   network.Id(fmt.Sprintf("Space %d", spaceID)),
+	}
+}
+
+func (suite *environSuite) addSubnet(c *gc.C, ipRange, spaceAndNICID uint, systemID string) uint {
+	out := bytes.Buffer{}
+	err := json.NewEncoder(&out).Encode(createSubnet(ipRange, spaceAndNICID))
+	c.Assert(err, jc.ErrorIsNil)
+	subnet := suite.testMAASObject.TestServer.NewSubnet(&out)
+	c.Assert(err, jc.ErrorIsNil)
+
+	other := gomaasapi.AddressRange{}
+	other.Start = fmt.Sprintf("192.168.%d.139", ipRange)
+	other.End = fmt.Sprintf("192.168.%d.149", ipRange)
+	other.Purpose = []string{"not-the-dynamic-range"}
+	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, other)
+
+	ar := gomaasapi.AddressRange{}
+	ar.Start = fmt.Sprintf("192.168.%d.10", ipRange)
+	ar.End = fmt.Sprintf("192.168.%d.138", ipRange)
+	ar.Purpose = []string{"something", "dynamic-range"}
+	suite.testMAASObject.TestServer.AddFixedAddressRange(subnet.ID, ar)
+	if systemID != "" {
+		var nni gomaasapi.NodeNetworkInterface
+		nni.Name = subnet.Name
+		nni.Links = append(nni.Links, gomaasapi.NetworkLink{uint(1), "auto", subnet})
+		suite.testMAASObject.TestServer.SetNodeNetworkLink(systemID, nni)
+	}
+	return subnet.ID
+}
+
+func (suite *environSuite) TestSpaces(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	for _, i := range []uint{1, 2, 3} {
+		suite.addSubnet(c, i, i, "node1")
+		suite.addSubnet(c, i+5, i, "node1")
+	}
+
+	spaces, err := suite.makeEnviron().Spaces()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSpaces := []network.SpaceInfo{{
+		ProviderId: "Space 1",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(1, 1, 1),
+			createSubnetInfo(2, 1, 6),
+		},
+	}, {
+		ProviderId: "Space 2",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(3, 2, 2),
+			createSubnetInfo(4, 2, 7),
+		},
+	}, {
+		ProviderId: "Space 3",
+		Subnets: []network.SubnetInfo{
+			createSubnetInfo(5, 3, 3),
+			createSubnetInfo(6, 3, 8),
+		},
+	}}
+	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
+}
+
+func (suite *environSuite) TestSpacesNeedsSupportsSpaces(c *gc.C) {
+	_, err := suite.makeEnviron().Spaces()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []network.Id) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	systemID := "node1"
+	for i := 1; i <= numberOfSubnets; i++ {
+		// Put most, but not all, of the subnets on node1.
+		if i == 2 {
+			systemID = "node2"
+		} else {
+			systemID = "node1"
+		}
+		suite.addSubnet(c, uint(i), uint(i), systemID)
+	}
+
+	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), filters)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedSubnets := []network.SubnetInfo{
+		createSubnetInfo(1, 1, 1),
+		createSubnetInfo(3, 3, 3),
+	}
+	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
+
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
+	suite.assertSpaces(c, 3, []network.Id{})
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
+	suite.assertSpaces(c, 4, []network.Id{"1", "3"})
+}
+
+func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	testInstance := suite.createSubnets(c, false)
+	for _, i := range []uint{1, 2} {
+		suite.addSubnet(c, i, i, "node1")
+	}
+
+	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3", "6"})
+	errorRe := regexp.MustCompile("failed to find the following subnets: (\\d), (\\d)$")
+	errorText := err.Error()
+	c.Assert(errorRe.MatchString(errorText), jc.IsTrue)
+	matches := errorRe.FindStringSubmatch(errorText)
+	c.Assert(matches, gc.HasLen, 3)
+	c.Assert(matches[1:], jc.SameContents, []string{"3", "6"})
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
@@ -1149,7 +1453,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: bar")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {

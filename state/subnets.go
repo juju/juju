@@ -18,7 +18,7 @@ import (
 // SubnetInfo describes a single subnet.
 type SubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -59,9 +59,9 @@ type subnetDoc struct {
 	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
 	VLANTag           int    `bson:"vlantag,omitempty"`
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
-	IsPublic          bool   `bson:"is-public",omitempty`
+	IsPublic          bool   `bson:"is-public,omitempty"`
 	// TODO(dooferlad 2015-08-03): add an upgrade step to insert IsPublic=false
-	SpaceName string `bson:"space-name",omitempty`
+	SpaceName string `bson:"space-name,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -144,8 +144,8 @@ func (s *Subnet) Remove() (err error) {
 }
 
 // ProviderId returns the provider-specific id of the subnet.
-func (s *Subnet) ProviderId() string {
-	return s.doc.ProviderId
+func (s *Subnet) ProviderId() network.Id {
+	return network.Id(s.doc.ProviderId)
 }
 
 // CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).

@@ -6,6 +6,7 @@ package subnets
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -30,7 +31,7 @@ func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
 }
 
-func (s *subnetShim) ProviderId() string {
+func (s *subnetShim) ProviderId() network.Id {
 	return s.subnet.ProviderId()
 }
 

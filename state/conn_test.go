@@ -67,6 +67,10 @@ func (s *ConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state
 	return state.AddTestingServiceWithStorage(c, s.State, name, ch, s.Owner, storage)
 }
 
+func (s *ConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
+	return state.AddTestingServiceWithBindings(c, s.State, name, ch, s.Owner, bindings)
+}
+
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
