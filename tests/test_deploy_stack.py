@@ -883,7 +883,6 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client(self):
         client = self.make_client()
         tear_down_client = self.make_client()
-        initial_home = client.juju_home
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client, None, [], None, None, None,
             None, client.juju_home, False, False, False)
@@ -891,11 +890,6 @@ class TestBootstrapManager(FakeHomeTestCase):
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             tear_down_client.is_jes_enabled.assert_called_once_with()
-            jenv_path = get_jenv_path(client.juju_home, 'foobar')
-            self.assertFalse(os.path.exists(jenv_path))
-            environments_path = get_environments_path(client.juju_home)
-            self.assertTrue(os.path.isfile(environments_path))
-            self.assertNotEqual(initial_home, client.juju_home)
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
@@ -906,7 +900,6 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client_jenv(self):
         client = self.make_client()
         tear_down_client = self.make_client()
-        initial_home = client.juju_home
         jenv_path = get_jenv_path(client.juju_home, 'foobar')
         os.makedirs(os.path.dirname(jenv_path))
         with open(jenv_path, 'w'):
@@ -920,16 +913,30 @@ class TestBootstrapManager(FakeHomeTestCase):
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             tear_down_client.is_jes_enabled.assert_called_once_with()
-            self.assertTrue(os.path.isfile(jenv_path))
-            environments_path = get_environments_path(client.juju_home)
-            self.assertFalse(os.path.exists(environments_path))
-            self.assertEqual(initial_home, client.juju_home)
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context(None, []):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
+
+    def test_tear_down_sets_home(self):
+        client = self.make_client()
+        client.juju_home = 'foobar'
+        tear_down_client = self.make_client()
+        tear_down_client.juju_home = 'barfoo'
+        bs_manager = BootstrapManager(
+            'foobar', client, tear_down_client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+
+        def check_home(foo, bar, try_jes):
+            self.assertEqual(client.juju_home, tear_down_client.juju_home)
+
+        with patch('deploy_stack.tear_down', autospec=True,
+                   side_effect=check_home):
+            bs_manager.tear_down()
+        self.assertEqual('barfoo', tear_down_client.juju_home)
 
 
 class TestBootContext(FakeHomeTestCase):

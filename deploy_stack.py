@@ -496,11 +496,16 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
+        old_home = self.tear_down_client.juju_home
         if self.tear_down_client == self.client:
             jes_enabled = self.jes_enabled
         else:
             jes_enabled = self.tear_down_client.is_jes_enabled()
-        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+            self.tear_down_client.juju_home = self.client.juju_home
+        try:
+            tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+        finally:
+            self.tear_down_client.juju_home = old_home
 
     @contextmanager
     def bootstrap_context(self, bootstrap_host, machines):
