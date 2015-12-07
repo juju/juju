@@ -14,8 +14,8 @@ var (
 	NewEnvSetConstraintsCommand = newEnvSetConstraintsCommand
 )
 
-// NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommand(api GetEnvironmentAPI) cmd.Command {
+// NewGetCommandForTest returns a GetCommand with the api provided as specified.
+func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
 	cmd := &getCommand{
 		api: api,
 	}

@@ -192,9 +192,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 
 	// Mangage environment
+	r.Register(environment.NewGetCommand())
+
 	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
-	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
 	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
