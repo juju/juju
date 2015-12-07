@@ -16,6 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
@@ -29,7 +30,8 @@ func newUpgradeCharmCommand() cmd.Command {
 type upgradeCharmCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
-	Force       bool
+	ForceUnits  bool
+	ForceSeries bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
 	SwitchURL   string
 	CharmPath   string
@@ -60,6 +62,11 @@ which to load the updated charm. Note that the directory containing the charm mu
 match what was originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
 
+If the new version of a charm does not explicitly support the service's series, the
+upgrade is disallowed unless the --force-series flag is used. This option should be
+used with caution since using a charm on a machine running an unsupported series may
+cause unexpected behavior.
+
 When using a local repository, the --switch flag allows you to replace the charm
 with an entirely different one. The new charm's URL and revision are inferred as
 they would be when running a deploy command.
@@ -84,7 +91,7 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force flag is not generally recommended; units upgraded while in an
+Use of the --force-units flag is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
 `
@@ -99,7 +106,8 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 }
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
+	f.BoolVar(&c.ForceUnits, "force-units", false, "upgrade all units immediately, even if in error state")
+	f.BoolVar(&c.ForceSeries, "force-series", false, "upgrade even if series of deployed services are not supported by the new charm")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
@@ -130,6 +138,14 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *upgradeCharmCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -138,7 +154,13 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	oldURL, err := client.ServiceGetCharmURL(c.ServiceName)
+
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
+		return err
+	}
+
+	oldURL, err := serviceClient.ServiceGetCharmURL(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -149,8 +171,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.SwitchURL == "" && c.CharmPath == "" {
 		// No new URL specified, but revision might have been.
-		curl := oldURL.WithRevision(c.Revision).Reference()
-		newRef = curl.String()
+		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
 	httpClient, err := c.HTTPClient()
@@ -164,7 +185,9 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
+	return block.ProcessBlockedError(
+		serviceClient.ServiceSetCharm(c.ServiceName, addedURL.String(), c.ForceSeries, c.ForceUnits),
+		block.BlockChange)
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
@@ -173,7 +196,7 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 	client *api.Client, csClient *csClient,
 ) (*charm.URL, error) {
 	// Charm may have been supplied via a path reference.
-	ch, newURL, err := charmrepo.NewCharmAtPath(charmRef, oldURL.Series)
+	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, oldURL.Series, c.ForceSeries)
 	if err == nil {
 		_, newName := filepath.Split(charmRef)
 		if newName != oldURL.Name {
@@ -196,14 +219,31 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 
-	newURL, repo, err := resolveCharmStoreEntityURL(charmRef, csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	newURL, supportedSeries, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:          charmRef,
+		requestedSeries: oldURL.Series,
+		forceSeries:     c.ForceSeries,
+		csParams:        csClient.params,
+		repoPath:        ctx.AbsPath(c.RepoPath),
+		conf:            conf,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if !c.ForceSeries && oldURL.Series != "" && newURL.Series == "" && !isSeriesSupported(oldURL.Series, supportedSeries) {
+		series := []string{"no series"}
+		if len(supportedSeries) > 0 {
+			series = supportedSeries
+		}
+		return nil, errors.Errorf(
+			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
+			oldURL.Series, series,
+		)
 	}
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
-		newRef, _ := charm.ParseReference(charmRef)
+		newRef, _ := charm.ParseURL(charmRef)
 		if newRef.Revision != -1 {
 			return nil, fmt.Errorf("already running specified charm %q", newURL)
 		}
@@ -220,8 +260,5 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 	ctx.Infof("Added charm %q to the environment.", addedURL)
-	if err := client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force); err != nil {
-		return nil, err
-	}
 	return addedURL, nil
 }

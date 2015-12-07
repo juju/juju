@@ -3,12 +3,23 @@
 
 package rsyslog
 
+import (
+	rsyslog "github.com/juju/syslog"
+)
+
 var (
 	RestartRsyslog          = &restartRsyslog
 	LogDir                  = &logDir
 	RsyslogConfDir          = &rsyslogConfDir
 	LookupUser              = &lookupUser
 	DialSyslog              = &dialSyslog
-	SyslogTargets           = &syslogTargets
 	NewRsyslogConfigHandler = newRsyslogConfigHandler
 )
+
+func SyslogTargets() []*rsyslog.Writer {
+	syslogTargetsLock.Lock()
+	targets := make([]*rsyslog.Writer, len(syslogTargets))
+	copy(targets, syslogTargets)
+	syslogTargetsLock.Unlock()
+	return targets
+}

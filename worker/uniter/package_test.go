@@ -6,9 +6,9 @@ package uniter_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	testing.MgoTestPackage(t)
 }
