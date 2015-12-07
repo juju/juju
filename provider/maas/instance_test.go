@@ -58,6 +58,8 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	inst := maasInstance{&obj}
 
 	expected := []network.Address{
+		network.NewScopedAddress("testing.invalid", network.ScopePublic),
+		network.NewScopedAddress("testing.invalid", network.ScopeCloudLocal),
 		network.NewAddress("1.2.3.4"),
 		network.NewAddress("fe80::d806:dbff:fe23:1199"),
 	}
@@ -80,7 +82,10 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, []network.Address{})
+	c.Check(addr, gc.DeepEquals, []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
+	})
 }
 
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
