@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"io/ioutil"
+	"path/filepath"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -108,6 +110,35 @@ func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 	s.TestDataSuite.TearDownSuite(c)
 	s.LocalLiveSimplestreamsSuite.TearDownSuite(c)
+}
+
+func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
+	origKey := imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	defer func() {
+		imagemetadata.SetSigningPublicKey(origKey)
+	}()
+	ds, err := imagemetadata.OfficialDataSources("daily")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ds, gc.HasLen, 2)
+	url, err := ds[0].URL("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "https://streams.canonical.com/juju/images/daily/")
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
+
+	url, err = ds[1].URL("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
+	c.Assert(ds[1].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
+}
+
+func (s *simplestreamsSuite) TestPublicKeyEnvVar(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte(sstesting.SignedMetadataPublicKey), 0755)
+	s.PatchEnvironment("JUJU_IMAGESTREAMS_PUBLICKEY", path)
+	ds, err := imagemetadata.OfficialDataSources("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ds, gc.HasLen, 2)
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
 }
 
 var fetchTests = []struct {

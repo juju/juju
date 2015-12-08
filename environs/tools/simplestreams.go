@@ -236,7 +236,6 @@ func Fetch(
 			FilterFunc:      appendMatchingTools,
 			MirrorContentId: ToolsContentId(cons.Stream),
 			ValueTemplate:   ToolsMetadata{},
-			PublicKey:       simplestreamsToolsPublicKey,
 		},
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)

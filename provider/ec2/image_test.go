@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
@@ -23,6 +24,7 @@ type specSuite struct {
 
 func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	UseTestImageData(TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)

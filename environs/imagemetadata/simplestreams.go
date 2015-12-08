@@ -8,10 +8,16 @@ package imagemetadata
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sort"
 
+	"github.com/juju/utils"
+
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
 
@@ -93,19 +99,67 @@ p7vH1ewg+vd9ySST0+OkWXYpbMOIARfBKyrGM3nu
 `
 
 const (
-	// The location where Ubuntu cloud image metadata is published for
+	// The legacy location where Ubuntu cloud image metadata is published for
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
+
+	// The location where Ubuntu cloud image metadata is published for
+	// public consumption.
+	UbuntuStreamsImagesURL = "https://streams.canonical.com/juju/images"
+
 	// The path where released image metadata is found.
 	ReleasedImagesPath = "releases"
 )
 
 // This needs to be a var so we can override it for testing and in bootstrap.
-var DefaultBaseURL = UbuntuCloudImagesURL
+var (
+	//
+	DefaultBaseURL    = UbuntuCloudImagesURL
+	DefaultNewBaseURL = UbuntuStreamsImagesURL
+)
 
-// PrivateMetadataDir is a directory possibly containing private image
-// metadata, used during bootstrap.
-var PrivateMetadataDir string
+// OfficialDataSources returns the simplestreams datasources where official
+// image metadata can be found.
+func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
+	var result []simplestreams.DataSource
+
+	// New images metadata for centos and windows and existing clouds.
+	defaultURL, err := ImageMetadataURL(DefaultNewBaseURL, stream)
+	if err != nil {
+		return nil, err
+	}
+	if defaultURL != "" {
+		publicKey := simplestreamsImagesPublicKey
+		signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyEnvKey)
+		if signingKeyFile != "" {
+			path, err := utils.NormalizePath(signingKeyFile)
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
+			}
+			b, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, errors.Annotatef(err, "invalid public key file: %s", path)
+			}
+			publicKey = string(b)
+		}
+		result = append(
+			result,
+			simplestreams.NewURLSignedDataSource("default cloud images", defaultURL, publicKey, utils.VerifySSLHostnames))
+	}
+
+	// Fallback to image metadata for existing clouds.
+	defaultLegacyURL, err := ImageMetadataURL(DefaultBaseURL, stream)
+	if err != nil {
+		return nil, err
+	}
+	if defaultLegacyURL != "" {
+		result = append(
+			result,
+			simplestreams.NewURLSignedDataSource("default legacy cloud images", defaultLegacyURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+	}
+
+	return result, nil
+}
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
@@ -199,7 +253,6 @@ func Fetch(
 			DataType:      ImageIds,
 			FilterFunc:    appendMatchingImages,
 			ValueTemplate: ImageMetadata{},
-			PublicKey:     simplestreamsImagesPublicKey,
 		},
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)

@@ -38,6 +38,10 @@ const (
 	// This includes args and output.
 	// Default is 1.
 	JujuCLIVersion = "JUJU_CLI_VERSION"
+
+	// JujuImageStreamsPublicKeyEnvKey is a file containing the public
+	// key used to sign image simplestreams metadata.
+	JujuImageStreamsPublicKeyEnvKey = "JUJU_IMAGESTREAMS_PUBLICKEY"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.
