@@ -20,6 +20,7 @@ import yaml
 
 from deploy_stack import (
     archive_logs,
+    assess_juju_relations,
     assess_juju_run,
     assess_upgrade,
     boot_context,
@@ -526,8 +527,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
 
 class TestDeployDummyStack(FakeHomeTestCase):
 
-    @patch('deploy_stack.check_token')
-    def test_deploy_dummy_stack_sets_centos_constraints(self, ct_mock):
+    def test_deploy_dummy_stack_sets_centos_constraints(self):
         env = SimpleEnvironment('foo', {'type': 'maas'})
         client = EnvJujuClient(env, None, '/foo/juju')
         with patch('subprocess.check_call', autospec=True) as cc_mock:
@@ -538,7 +538,22 @@ class TestDeployDummyStack(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client,
                          ('juju', '--show-log', 'set-constraints', '-e', 'foo',
                           'tags=MAAS_NIC_1'), 0)
-        self.assertEqual(ct_mock.call_count, 1)
+
+    def test_assess_juju_relations(self):
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, '/foo/juju')
+        with patch.object(client, 'get_juju_output', side_effect='fake-token',
+                          autospec=True):
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    with patch('deploy_stack.check_token',
+                               autospec=True) as ct_mock:
+                        assess_juju_relations(client)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
+            'token=fake-token'), 0)
+        ct_mock.assert_called_once_with(client, 'fake-token')
 
     def test_deploy_dummy_stack(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
@@ -570,21 +585,16 @@ class TestDeployDummyStack(FakeHomeTestCase):
             'juju', '--show-log', 'deploy', '-e', 'foo', 'bar-dummy-source'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
-            'token=fake-token'), 1)
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'foo', 'bar-dummy-sink'), 2)
+            'juju', '--show-log', 'deploy', '-e', 'foo', 'bar-dummy-sink'), 1)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-relation', '-e', 'foo',
-            'dummy-source', 'dummy-sink'), 3)
+            'dummy-source', 'dummy-sink'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'expose', '-e', 'foo', 'dummy-sink'), 4)
-        self.assertEqual(cc_mock.call_count, 5)
+            'juju', '--show-log', 'expose', '-e', 'foo', 'dummy-sink'), 3)
+        self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
                 call('status'),
-                call('status'),
-                call('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT, timeout=120),
             ],
             gjo_mock.call_args_list)
 
@@ -658,11 +668,13 @@ class TestDeployJob(FakeHomeTestCase):
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
-                with patch('subprocess.Popen', autospec=True,
-                           return_value=FakePopen('', '', 0)):
-                    _deploy_job('foo', None, None, '', None, None, None,
-                                'log', None, None, None, None, None, None,
-                                1, False, False, None)
+                with patch('deploy_stack.assess_juju_relations',
+                           autospec=True):
+                    with patch('subprocess.Popen', autospec=True,
+                               return_value=FakePopen('', '', 0)):
+                        _deploy_job('foo', None, None, '', None, None, None,
+                                    'log', None, None, None, None, None, None,
+                                    1, False, False, None)
         self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
@@ -673,21 +685,25 @@ class TestDeployJob(FakeHomeTestCase):
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
-                with patch('subprocess.Popen', autospec=True,
-                           return_value=FakePopen('', '', 0)):
-                    _deploy_job('foo', None, None, '', None, None, None, None,
-                                None, None, None, None, None, None, 0, False,
-                                False, None)
+                with patch('deploy_stack.assess_juju_relations',
+                           autospec=True):
+                    with patch('subprocess.Popen', autospec=True,
+                               return_value=FakePopen('', '', 0)):
+                        _deploy_job('foo', None, None, '', None, None, None,
+                                    None, None, None, None, None, None, None,
+                                    0, False, False, None)
         self.assertEqual(bc_mock.call_count, 0)
 
     def test_region(self):
         with self.ds_cxt() as (client, bm_mock):
-            with patch('subprocess.Popen', autospec=True,
-                       return_value=FakePopen('', '', 0)):
-                _deploy_job('foo', None, None, '', None, None, None, None,
-                            None, None, None, None, None, None, 0, False,
-                            False, 'region-foo')
-                permanent = client.is_jes_enabled()
+            with patch('deploy_stack.assess_juju_relations',
+                       autospec=True):
+                with patch('subprocess.Popen', autospec=True,
+                           return_value=FakePopen('', '', 0)):
+                    _deploy_job('foo', None, None, '', None, None, None, None,
+                                None, None, None, None, None, None, 0, False,
+                                False, 'region-foo')
+                    permanent = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
             'foo', client, None, None, None, None, None, 'region-foo', None,
             None, permanent, permanent)
@@ -770,15 +786,11 @@ class TestTestUpgrade(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
             '1.38'), 0)
-        assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
-            'token=FAKETOKEN'), 1)
-        self.assertEqual(cc_mock.call_count, 2)
+        self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
         assert_juju_call(self, co_mock, new_client, self.STATUS, 2)
-        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 3)
-        self.assertEqual(co_mock.call_count, 4)
+        self.assertEqual(co_mock.call_count, 3)
 
     def test_mass_timeout(self):
         config = {'type': 'foo'}

@@ -76,8 +76,6 @@ def deploy_dummy_stack(client, charm_prefix):
     if charm_prefix.startswith("local:centos") and client.env.maas:
         client.juju('set-constraints', ('tags=MAAS_NIC_1',))
     client.deploy(charm_prefix + 'dummy-source')
-    token = get_random_string()
-    client.juju('set', ('dummy-source', 'token=%s' % token))
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
@@ -90,6 +88,11 @@ def deploy_dummy_stack(client, charm_prefix):
         client.wait_for_started(3600)
     else:
         client.wait_for_started()
+
+
+def assess_juju_relations(client):
+    token = get_random_string()
+    client.juju('set', ('dummy-source', 'token=%s' % token))
     check_token(client, token)
 
 
@@ -299,7 +302,7 @@ def assess_juju_run(client):
     return responses
 
 
-def assess_upgrade(old_client, juju_path, skip_juju_run=False):
+def assess_upgrade(old_client, juju_path):
     client = EnvJujuClient.by_version(old_client.env, juju_path,
                                       old_client.debug)
     upgrade_juju(client)
@@ -308,11 +311,6 @@ def assess_upgrade(old_client, juju_path, skip_juju_run=False):
     else:
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
-    if not skip_juju_run:
-        assess_juju_run(client)
-    token = get_random_string()
-    client.juju('set', ('dummy-source', 'token=%s' % token))
-    check_token(client, token)
 
 
 def upgrade_juju(client):
@@ -679,12 +677,16 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_prefix)
+        assess_juju_relations(client)
         skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
         if not skip_juju_run:
             assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path, skip_juju_run)
+            assess_upgrade(client, juju_path)
+            assess_juju_relations(client)
+            if not skip_juju_run:
+                assess_juju_run(client)
 
 
 def safe_print_status(client):

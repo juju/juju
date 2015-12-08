@@ -55,7 +55,8 @@ class TestRunDeployer(TestCase):
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd=None, debug=False,
                                    bundle_path='', bundle_name='',
-                                   verbose=logging.INFO, region=None)):
+                                   verbose=logging.INFO, region=None,
+                                   upgrade=False)):
                         with patch(
                                 'run_deployer.EnvJujuClient.deployer') as dm:
                             with patch('run_deployer.check_health') as hm:
@@ -76,7 +77,8 @@ class TestRunDeployer(TestCase):
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd='/tmp/check', debug=False,
                                    bundle_path='', bundle_name='',
-                                   verbose=logging.INFO, region=None)):
+                                   verbose=logging.INFO, region=None,
+                                   upgrade=False)):
                         with patch('run_deployer.EnvJujuClient.deployer'):
                             with patch('run_deployer.check_health') as hm:
                                 run_deployer()
