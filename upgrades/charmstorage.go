@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent"
@@ -40,10 +41,10 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 	if err != nil {
 		return err
 	}
-	usedCharms := make(map[charm.URL]bool)
+	usedCharms := make(set.Strings)
 	for _, service := range services {
 		url, _ := service.CharmURL()
-		usedCharms[*url] = true
+		usedCharms.Add(url.String())
 
 		units, err := service.AllUnits()
 		if err != nil {
@@ -51,7 +52,7 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 		}
 		for _, unit := range units {
 			if url, ok := unit.CharmURL(); ok {
-				usedCharms[*url] = true
+				usedCharms.Add(url.String())
 			}
 		}
 	}
@@ -78,7 +79,7 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 			continue
 		}
 		curl := ch.URL()
-		if !usedCharms[*curl] {
+		if !usedCharms.Contains(curl.String()) {
 			logger.Debugf("skipping %s, not used by any service or unit", ch.URL())
 			continue
 		}
