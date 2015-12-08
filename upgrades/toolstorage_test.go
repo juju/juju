@@ -78,6 +78,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 }
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
+	fakeToolsStorage := s.installFakeToolsStorage()
 	stor := s.Environ.(environs.EnvironStorage).Storage()
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
 	// Overwrite one of the tools archives with junk, so the hash does not match.
@@ -88,16 +89,26 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
-	c.Assert(err, gc.ErrorMatches, "failed to fetch 1.2.3-precise-amd64 tools: hash mismatch")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(migrateToolsVersions[1], jc.Satisfies, fakeToolsStorage.contains)
+	c.Assert(fakeToolsStorage.stored, gc.HasLen, 1)
+}
+
+func (s *migrateToolsStorageSuite) TestMigrateToolsStorageMissing(c *gc.C) {
+	fakeToolsStorage := s.installFakeToolsStorage()
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
+	// Remove one of the tools archives (but not the metadata).
+	err := stor.Remove(envtools.StorageName(migrateToolsVersions[0], "releases"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(migrateToolsVersions[1], jc.Satisfies, fakeToolsStorage.contains)
+	c.Assert(fakeToolsStorage.stored, gc.HasLen, 1)
 }
 
 func (s *migrateToolsStorageSuite) testMigrateToolsStorage(c *gc.C, agentConfig agent.Config, tools []*coretools.Tools) {
-	fakeToolsStorage := &fakeToolsStorage{
-		stored: make(map[version.Binary]toolstorage.Metadata),
-	}
-	s.PatchValue(upgrades.StateToolsStorage, func(*state.State) (toolstorage.StorageCloser, error) {
-		return fakeToolsStorage, nil
-	})
+	fakeToolsStorage := s.installFakeToolsStorage()
 	err := upgrades.MigrateToolsStorage(s.State, agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeToolsStorage.stored, gc.DeepEquals, map[version.Binary]toolstorage.Metadata{
@@ -114,6 +125,16 @@ func (s *migrateToolsStorageSuite) testMigrateToolsStorage(c *gc.C, agentConfig 
 	})
 }
 
+func (s *migrateToolsStorageSuite) installFakeToolsStorage() *fakeToolsStorage {
+	fakeToolsStorage := &fakeToolsStorage{
+		stored: make(map[version.Binary]toolstorage.Metadata),
+	}
+	s.PatchValue(upgrades.StateToolsStorage, func(*state.State) (toolstorage.StorageCloser, error) {
+		return fakeToolsStorage, nil
+	})
+	return fakeToolsStorage
+}
+
 type fakeToolsStorage struct {
 	toolstorage.Storage
 	stored map[version.Binary]toolstorage.Metadata
@@ -126,4 +147,9 @@ func (s *fakeToolsStorage) Close() error {
 func (s *fakeToolsStorage) AddTools(r io.Reader, meta toolstorage.Metadata) error {
 	s.stored[meta.Version] = meta
 	return nil
+}
+
+func (s *fakeToolsStorage) contains(v version.Binary) bool {
+	_, ok := s.stored[v]
+	return ok
 }
