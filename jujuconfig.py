@@ -82,7 +82,7 @@ def default_env():
 
 def translate_to_env(current_env):
     """Translate openstack settings to environment variables."""
-    if current_env['type'] != 'openstack':
+    if current_env['type'] not in ('openstack', 'rackspace'):
         raise Exception('Not an openstack environment. (type: %s)' %
                         current_env['type'])
     # Region doesn't follow the mapping for other vars.
@@ -134,6 +134,7 @@ def describe_substrate(config):
     try:
         return {
             'ec2': 'AWS',
+            'rackspace': 'Rackspace',
             'joyent': 'Joyent',
             'azure': 'Azure',
             'maas': 'MAAS',
