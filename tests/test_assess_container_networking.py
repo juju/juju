@@ -1,8 +1,12 @@
+from copy import deepcopy
+from contextlib import contextmanager
+from unittest import TestCase
+
 from mock import (
     patch,
     Mock,
 )
-from unittest import TestCase
+
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
@@ -10,8 +14,8 @@ from jujupy import (
 )
 
 import assess_container_networking as jcnet
-from copy import deepcopy
-from contextlib import contextmanager
+from tests import parse_error
+
 
 __metaclass__ = type
 
@@ -162,6 +166,68 @@ class TestContainerNetworking(TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
+    def assert_ssh(self, args, machine, cmd):
+        self.assertEqual(args, [('ssh', machine, cmd), ])
+
+    def test_parse_args(self):
+        # Test a simple command line that should work
+        cmdline = ['env', 'juju_bin', 'logs', 'ten']
+        args = jcnet.parse_args(cmdline)
+        self.assertEqual(args.machine_type, None)
+        self.assertEqual(args.juju_bin, 'juju_bin')
+        self.assertEqual(args.env, 'env')
+        self.assertEqual(args.logs, 'logs')
+        self.assertEqual(args.temp_env_name, 'ten')
+        self.assertEqual(args.debug, False)
+        self.assertEqual(args.upload_tools, False)
+        self.assertEqual(args.clean_environment, False)
+
+        # check the optional arguments
+        opts = ['--machine-type', jcnet.KVM_MACHINE, '--debug',
+                '--upload-tools', '--clean-environment']
+        args = jcnet.parse_args(cmdline + opts)
+        self.assertEqual(args.machine_type, jcnet.KVM_MACHINE)
+        self.assertEqual(args.debug, True)
+        self.assertEqual(args.upload_tools, True)
+        self.assertEqual(args.clean_environment, True)
+
+        # Now check that we can only set machine_type to kvm or lxc
+        opts = ['--machine-type', jcnet.LXC_MACHINE]
+        args = jcnet.parse_args(cmdline + opts)
+        self.assertEqual(args.machine_type, jcnet.LXC_MACHINE)
+
+        # Set up an error (bob is invalid)
+        opts = ['--machine-type', 'bob']
+        with parse_error(self) as stderr:
+            jcnet.parse_args(cmdline + opts)
+        self.assertRegexpMatches(
+            stderr.getvalue(),
+            ".*error: argument --machine-type: invalid choice: 'bob'.*")
+
+    def test_ssh(self):
+        machine, addr = '0', 'foobar'
+        with patch.object(self.client, 'get_juju_output',
+                          autospec=True) as ssh_mock:
+            jcnet.ssh(self.client, machine, addr)
+            self.assertEqual(1, ssh_mock.call_count)
+            self.assert_ssh(ssh_mock.call_args, machine, addr)
+
+    def test_find_network(self):
+        machine, addr = '0', '1.1.1.1'
+        self.assertRaisesRegexp(
+            ValueError, "Unable to find route to '1.1.1.1'",
+            jcnet.find_network, self.client, machine, addr)
+
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3\n'
+            '1.1.1.0/24 dev eth3  proto kernel  scope link  src 1.1.1.22',
+        ])
+        self.juju_mock.commands = []
+        jcnet.find_network(self.client, machine, addr)
+        self.assertItemsEqual(self.juju_mock.commands,
+                              [('ssh', (
+                               machine, 'ip route show to match ' + addr))])
+
     def test_clean_environment(self):
         self.juju_mock.add_machine('1')
         self.juju_mock.add_machine('2')
@@ -229,3 +295,92 @@ class TestContainerNetworking(TestCase):
                     '1': ['1/kvm/0']},
         }
         self.assertDictEqual(containers, expected)
+
+    def test_test_network_traffic(self):
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {targets[0]: {'dns-name': '0-dns-name'}}}}})
+
+        with patch('assess_container_networking.get_random_string',
+                   lambda *args, **kw: 'hello'):
+
+            self.juju_mock.set_ssh_output(['', '', 'hello'])
+            jcnet.assess_network_traffic(self.client, targets)
+
+            self.juju_mock.reset_calls()
+            self.juju_mock.set_ssh_output(['', '', 'fail'])
+            self.assertRaisesRegexp(
+                ValueError, "Wrong or missing message: 'fail'",
+                jcnet.assess_network_traffic, self.client, targets)
+
+    def test_test_address_range(self):
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {
+                targets[0]: {'dns-name': 'lxc0-dns-name'},
+                targets[1]: {'dns-name': 'lxc1-dns-name'},
+            },
+            'dns-name': '0-dns-name',
+        }}})
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3',
+            '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
+            'global eth3\       valid_lft forever preferred_lft forever',
+            '192.168.0.0/24',
+        ])
+
+        jcnet.assess_address_range(self.client, targets)
+
+    def test_test_address_range_fail(self):
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {
+                targets[0]: {'dns-name': 'lxc0-dns-name'},
+                targets[1]: {'dns-name': 'lxc1-dns-name'},
+            },
+            'dns-name': '0-dns-name',
+        }}})
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3',
+            '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
+            'global eth3\       valid_lft forever preferred_lft forever',
+            '192.168.0.0/24',
+            '192.168.1.0/24',
+            '192.168.2.0/24',
+            '192.168.3.0/24',
+        ])
+
+        self.assertRaisesRegexp(
+            ValueError, '0/lxc/0 \S+ not on the same subnet as 0 \S+',
+            jcnet.assess_address_range, self.client, targets)
+
+    def test_test_internet_connection(self):
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {
+                targets[0]: {'dns-name': 'lxc0-dns-name'},
+                targets[1]: {'dns-name': 'lxc1-dns-name'},
+            },
+            'dns-name': '0-dns-name',
+        }}})
+
+        # Can ping default route
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3', 0,
+            'default via 192.168.0.1 dev eth3', 0])
+        jcnet.assess_internet_connection(self.client, targets)
+
+        # Can't ping default route
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3', 1])
+        self.juju_mock.reset_calls()
+        self.assertRaisesRegexp(
+            ValueError, "0/lxc/0 unable to ping default route",
+            jcnet.assess_internet_connection, self.client, targets)
+
+        # Can't find default route
+        self.juju_mock.set_ssh_output(['', 1])
+        self.juju_mock.reset_calls()
+        self.assertRaisesRegexp(
+            ValueError, "Default route not found",
+            jcnet.assess_internet_connection, self.client, targets)

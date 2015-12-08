@@ -6,8 +6,7 @@ import logging
 import os
 import subprocess
 from time import sleep
-
-from utility import temp_dir
+import urlparse
 
 from boto import ec2
 from boto.exception import EC2ResponseError
@@ -19,6 +18,7 @@ from jujuconfig import (
 )
 from utility import (
     print_now,
+    temp_dir,
     until_timeout,
 )
 
@@ -395,7 +395,7 @@ class MAASAccount:
 
     def __init__(self, profile, url, oauth):
         self.profile = profile
-        self.url = url + 'api/1.0/'
+        self.url = urlparse.urljoin(url, 'api/1.0/')
         self.oauth = oauth
 
     @classmethod
