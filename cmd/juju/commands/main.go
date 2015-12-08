@@ -199,6 +199,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	r.Register(environment.NewShareCommand())
 	r.Register(environment.NewUnshareCommand())
+	r.Register(environment.NewUsersCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())

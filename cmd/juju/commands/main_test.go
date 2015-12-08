@@ -242,7 +242,8 @@ var commandNames = []string{
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
-	"list-users",  // alias for "user list"
+	"list-shares",
+	"list-users", // alias for "user list"
 	"login",
 	"machine",
 	"publish",

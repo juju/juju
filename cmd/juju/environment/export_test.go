@@ -70,8 +70,8 @@ func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareC
 	return envcmd.Wrap(cmd), &UnshareCommand{cmd}
 }
 
-// NewUsersCommand returns a UsersCommand with the api provided as specified.
-func NewUsersCommand(api UsersAPI) cmd.Command {
+// NewUsersCommandForTest returns a UsersCommand with the api provided as specified.
+func NewUsersCommandForTest(api UsersAPI) cmd.Command {
 	cmd := &usersCommand{
 		api: api,
 	}
