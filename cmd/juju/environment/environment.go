@@ -25,7 +25,6 @@ func NewSuperCommand() cmd.Command {
 	})
 	environmentCmd.Register(newEnvSetConstraintsCommand())
 	environmentCmd.Register(newEnvGetConstraintsCommand())
-	environmentCmd.Register(newUnshareCommand())
 	environmentCmd.Register(newUsersCommand())
 	environmentCmd.Register(newDestroyCommand())
 	return environmentCmd

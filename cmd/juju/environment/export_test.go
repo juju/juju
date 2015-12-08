@@ -62,8 +62,8 @@ type UnshareCommand struct {
 	*unshareCommand
 }
 
-// NewUnshareCommand returns an unshareCommand with the api provided as specified.
-func NewUnshareCommand(api UnshareEnvironmentAPI) (cmd.Command, *UnshareCommand) {
+// NewUnshareCommandForTest returns an unshareCommand with the api provided as specified.
+func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareCommand) {
 	cmd := &unshareCommand{
 		api: api,
 	}

@@ -279,6 +279,7 @@ var commandNames = []string{
 	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
+	"unshare-environment",
 	"upgrade-charm",
 	"upgrade-juju",
 	"user",
