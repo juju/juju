@@ -18,7 +18,7 @@ from utility import temp_dir
 
 def make_bootstrap_manager(client, log_dir='log_dir'):
     return BootstrapManager(
-        'env', client, None, [], 'series', 'agent_url',
+        'env', client, client, None, [], 'series', 'agent_url',
         'agent_stream', 'region', log_dir, 'keep_env', 'permanent',
         'jes_enabled')
 
@@ -72,8 +72,9 @@ class TestQuickstartTest(TestCase):
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
-            # Test first yield
-            step = steps.next()
+            with patch('deploy_stack.tear_down'):
+                # Test first yield
+                step = steps.next()
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)

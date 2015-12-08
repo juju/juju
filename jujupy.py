@@ -167,6 +167,22 @@ class EnvJujuClient:
                     return cmd
         raise JESNotSupported()
 
+    def enable_jes(self):
+        """Enable JES if JES is optional.
+
+        Specifically implemented by the clients that optionally support JES.
+        This version raises either JESByDefault or JESNotSupported.
+
+        :raises: JESByDefault when JES is always enabled; Juju has the
+            'destroy-controller' command.
+        :raises: JESNotSupported when JES is not supported; Juju does not have
+            the 'system kill' command when the JES feature flag is set.
+        """
+        if self.is_jes_enabled():
+            raise JESByDefault()
+        else:
+            raise JESNotSupported()
+
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -756,6 +772,9 @@ class EnvJujuClient26(EnvJujuClient):
             self._use_jes = False
             raise JESNotSupported()
 
+    def disable_jes(self):
+        self._use_jes = False
+
     def enable_container_address_allocation(self):
         self._use_container_address_allocation = True
 
@@ -805,6 +824,48 @@ def bootstrap_from_env(juju_home, client):
 def quickstart_from_env(juju_home, client, bundle):
     with temp_bootstrap_env(juju_home, client):
         client.quickstart(bundle)
+
+
+@contextmanager
+def maybe_jes(client, jes_enabled, try_jes):
+    """If JES is desired and not enabled, try to enable it for this context.
+
+    JES will be in its previous state after exiting this context.
+    If jes_enabled is True or try_jes is False, the context is a no-op.
+    If enable_jes() raises JESNotSupported, JES will not be enabled in the
+    context.
+
+    The with value is True if JES is enabled in the context.
+    """
+
+    class JESUnwanted(Exception):
+        """Non-error.  Used to avoid enabling JES if not wanted."""
+
+    try:
+        if not try_jes or jes_enabled:
+            raise JESUnwanted
+        client.enable_jes()
+    except (JESNotSupported, JESUnwanted):
+        yield jes_enabled
+        return
+    else:
+        try:
+            yield True
+        finally:
+            client.disable_jes()
+
+
+def tear_down(client, jes_enabled, try_jes=False):
+    """Tear down a JES or non-JES environment.
+
+    JES environments are torn down via 'controller kill' or 'system kill',
+    and non-JES environments are torn down via 'destroy-environment --force.'
+    """
+    with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:
+        if jes_enabled:
+            client.kill_controller()
+        else:
+            client.destroy_environment()
 
 
 def uniquify_local(env):

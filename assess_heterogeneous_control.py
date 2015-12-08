@@ -7,56 +7,18 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
-from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
-    get_machine_dns_name,
     SimpleEnvironment,
-    temp_bootstrap_env,
     until_timeout,
     )
 from deploy_stack import (
+    BootstrapManager,
     check_token,
-    dump_env_logs,
     get_random_string,
-    update_env,
     )
 from jujuci import add_credential_args
 from utility import configure_logging
-
-
-def bootstrap_client(client, upload_tools):
-    """Bootstrap using a client and its environment.
-
-    Any stale environment is destroyed, first.
-    The machine's DNS name or IP address is returned.
-    If bootstrapping fails, the environment is forcibly torn down.
-    """
-    juju_home = get_juju_home()
-    try:
-        with temp_bootstrap_env(juju_home, client):
-            client.bootstrap(upload_tools=upload_tools)
-        return get_machine_dns_name(client, '0')
-    except:
-        client.destroy_environment()
-        raise
-
-
-@contextmanager
-def dumping_env(client, host, log_dir):
-    """Provide a context that always has its logs dumped at the end.
-
-    If an exception is encountered, the environment is destroyed after
-    dumping logs.
-    """
-    try:
-        try:
-            yield
-        finally:
-            dump_env_logs(client, host, log_dir)
-    except:
-        client.destroy_environment()
-        raise
 
 
 def prepare_dummy_env(client):
@@ -70,12 +32,9 @@ def prepare_dummy_env(client):
     return token
 
 
-def get_clients(initial, other, base_env, environment_name, debug,
-                agent_url, agent_stream, series):
+def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
     environment = SimpleEnvironment.from_config(base_env)
-    update_env(environment, environment_name, series=series,
-               agent_url=agent_url, agent_stream=agent_stream)
     if agent_url is None:
         environment.config.pop('tools-metadata-url', None)
     initial_client = EnvJujuClient.by_version(environment, initial,
@@ -97,18 +56,36 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     environment on and environment_name is the new name for the environment.
     """
     initial_client, other_client, released_client = get_clients(
-        initial, other, base_env, environment_name, debug, agent_url,
-        agent_stream, series)
-    test_control_heterogeneous(initial_client, other_client, released_client,
-                               log_dir, upload_tools)
+        initial, other, base_env, debug, agent_url)
+    jes_enabled = initial_client.is_jes_enabled()
+    bs_manager = BootstrapManager(
+        environment_name, initial_client, released_client,
+        bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
+        agent_stream=agent_stream, region=None, log_dir=log_dir,
+        keep_env=False, permanent=jes_enabled, jes_enabled=jes_enabled)
+    test_control_heterogeneous(bs_manager, other_client, upload_tools)
 
 
-def test_control_heterogeneous(initial, other, released, log_dir,
-                               upload_tools):
+@contextmanager
+def run_context(bs_manager, other, upload_tools):
+    try:
+        bs_manager.keep_env = True
+        with bs_manager.booted_context(upload_tools):
+            yield
+        # Test clean shutdown of an environment.
+        juju_with_fallback(other, bs_manager.tear_down_client,
+                           'destroy-environment',
+                           (other.env.environment, '-y'), include_e=False)
+    except:
+        bs_manager.tear_down()
+        raise
+
+
+def test_control_heterogeneous(bs_manager, other, upload_tools):
     """Test if one binary can control an environment set up by the other."""
-    released.destroy_environment()
-    host = bootstrap_client(initial, upload_tools)
-    with dumping_env(released, host, log_dir):
+    initial = bs_manager.client
+    released = bs_manager.tear_down_client
+    with run_context(bs_manager, other, upload_tools):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
         if sys.platform != "win32":
@@ -163,9 +140,6 @@ def test_control_heterogeneous(initial, other, released, log_dir,
         wait_until_removed(other, lxc_machine)
         other.juju('remove-machine', (lxc_holder,))
         wait_until_removed(other, lxc_holder)
-    # Test clean shutdown of an environment.
-    juju_with_fallback(other, released, 'destroy-environment',
-                       (other.env.environment, '-y'), include_e=False)
 
 
 def juju_with_fallback(other, released, command, args, include_e=True):
