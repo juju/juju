@@ -4,7 +4,9 @@ from datetime import (
     datetime,
     timedelta,
 )
+import logging
 import os
+import socket
 import StringIO
 import subprocess
 import sys
@@ -12,6 +14,7 @@ from textwrap import dedent
 
 from mock import (
     call,
+    MagicMock,
     Mock,
     patch,
 )
@@ -24,6 +27,8 @@ from jujuconfig import (
 )
 from jujupy import (
     CannotConnectEnv,
+    DEFAULT_JES_COMMAND_1x,
+    DEFAULT_JES_COMMAND_2x,
     EnvJujuClient,
     EnvJujuClient22,
     EnvJujuClient24,
@@ -33,6 +38,7 @@ from jujupy import (
     GroupReporter,
     get_cache_path,
     get_local_root,
+    get_machine_dns_name,
     get_timeout_path,
     jes_home_path,
     JESByDefault,
@@ -40,9 +46,11 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     make_client,
     make_jes_home,
+    OPTIONAL_JES_COMMAND,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
+    tear_down,
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
@@ -116,8 +124,9 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.26-foobar', 'path')
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, '', 0)
         with patch('subprocess.Popen', autospec=True,
-                   return_value=FakePopen('controller', '', 0)) as po_mock:
+                   return_value=fake_popen) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
@@ -147,7 +156,8 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             '1.25-foobar', 'path')
         # The help output will change when the jes feature flag is set.
         with patch('subprocess.Popen', autospec=True, side_effect=[
-                FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
+                FakePopen('', '', 0),
+                FakePopen(OPTIONAL_JES_COMMAND, '', 0)]) as po_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
         assert_juju_call(
@@ -158,6 +168,14 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             1)
         self.assertEqual(po_mock.call_count, 2)
+
+    def test_disable_jes(self):
+        client = self.client_class(
+            SimpleEnvironment('baz', {}),
+            '1.25-foobar', 'path')
+        client._use_jes = True
+        client.disable_jes()
+        self.assertIs(False, client._use_jes)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
@@ -213,6 +231,58 @@ class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
         client._use_jes = True
         env = client._shell_environ()
         self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+
+
+class TestTearDown(TestCase):
+
+    def test_tear_down_no_jes(self):
+        client = MagicMock()
+        tear_down(client, False)
+        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(0, client.kill_controller.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_jes(self):
+        client = MagicMock()
+        tear_down(client, True)
+        client.kill_controller.assert_called_once_with()
+        self.assertEqual(0, client.destroy_environment.call_count)
+        self.assertEqual(0, client.enable_jes.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_try_jes(self):
+
+        def check_jes():
+            client.enable_jes.assert_called_once_with()
+            self.assertEqual(0, client.disable_jes.call_count)
+
+        client = MagicMock()
+        client.kill_controller.side_effect = check_jes
+
+        tear_down(client, jes_enabled=False, try_jes=True)
+        client.kill_controller.assert_called_once_with()
+        client.disable_jes.assert_called_once_with()
+
+    def test_tear_down_jes_try_jes(self):
+        client = MagicMock()
+        tear_down(client, jes_enabled=True, try_jes=True)
+        client.kill_controller.assert_called_once_with()
+        self.assertEqual(0, client.destroy_environment.call_count)
+        self.assertEqual(0, client.enable_jes.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_try_jes_not_supported(self):
+
+        def check_jes():
+            client.enable_jes.assert_called_once_with()
+
+        client = MagicMock()
+        client.enable_jes.side_effect = JESNotSupported
+        client.destroy_environment.side_effect = check_jes
+
+        tear_down(client, jes_enabled=False, try_jes=True)
+        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(0, client.disable_jes.call_count)
 
 
 class FakePopen(object):
@@ -430,6 +500,30 @@ class TestEnvJujuClient(ClientTest):
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
 
+    def test_create_environment_system(self):
+        self.do_create_environment(
+            'system', 'system create-environment', ('-s', 'foo'))
+
+    def test_create_environment_controller(self):
+        self.do_create_environment(
+            'controller', 'controller create-environment', ('-c', 'foo'))
+
+    def test_create_environment_hypenated_controller(self):
+        self.do_create_environment(
+            'destroy-controller', 'create-environment', ('-c', 'foo'))
+
+    def do_create_environment(self, jes_command, create_cmd,
+                              controller_option):
+        controller_client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
+        client = EnvJujuClient(SimpleEnvironment('bar'), None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+            with patch.object(client, 'juju') as juju_mock:
+                client.create_environment(controller_client, 'temp')
+        juju_mock.assert_called_once_with(
+            create_cmd, controller_option + ('bar', '--config', 'temp'),
+            include_e=False)
+
     def test_destroy_environment_non_sudo(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
@@ -471,6 +565,25 @@ class TestEnvJujuClient(ClientTest):
                 self.assertTrue(os.path.exists(jenv_path))
                 client.destroy_environment(delete_jenv=True)
                 self.assertFalse(os.path.exists(jenv_path))
+
+    def test_kill_controller_system(self):
+        self.do_kill_controller('system', 'system kill')
+
+    def test_kill_controller_controller(self):
+        self.do_kill_controller('controller', 'controller kill')
+
+    def test_kill_controller_hyphenated(self):
+        self.do_kill_controller('destroy-controller', 'destroy-controller')
+
+    def do_kill_controller(self, jes_command, kill_command):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+            with patch.object(client, 'juju') as juju_mock:
+                client.kill_controller()
+        juju_mock.assert_called_once_with(
+            kill_command, ('foo', '-y'), check=False, include_e=False,
+            timeout=600)
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
@@ -624,6 +737,14 @@ class TestEnvJujuClient(ClientTest):
             env.deploy('mondogb', to='0')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--to', '0'))
+
+    def test_deploy_service(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:mondogb', service='my-mondogb')
+        mock_juju.assert_called_with(
+            'deploy', ('local:mondogb', 'my-mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
@@ -936,8 +1057,7 @@ class TestEnvJujuClient(ClientTest):
                 return action
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        with patch(output_real, get_juju_output_fake):
+        with patch.object(client, 'get_juju_output', get_juju_output_fake):
             client.wait_for_version('1.17.2')
 
     def test_wait_for_version_raises_non_connection_error(self):
@@ -953,8 +1073,7 @@ class TestEnvJujuClient(ClientTest):
                 return action
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        with patch(output_real, get_juju_output_fake):
+        with patch.object(client, 'get_juju_output', get_juju_output_fake):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')
 
@@ -1200,7 +1319,7 @@ class TestEnvJujuClient(ClientTest):
     def test_is_jes_enabled(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(' system', None, 0)
+        fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
             self.assertFalse(client.is_jes_enabled())
@@ -1208,13 +1327,13 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'help', 'commands'))
         # Juju 1.25 uses the system command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('system', None, 0)
+        fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
         # Juju 1.26 uses the controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('controller', None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
@@ -1224,25 +1343,33 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, '/foobar/baz')
         # Juju 1.24 and older do not have a JES command. It is an error
         # to call get_jes_command when is_jes_enabled is False
-        fake_popen = FakePopen(' system', None, 0)
+        fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
             with self.assertRaises(JESNotSupported):
                 client.get_jes_command()
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
-        # Juju 1.26 uses the controller command.
+        # Juju 2.x uses the 'controller kill' command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('controller', None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_2x, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual('controller', client.get_jes_command())
-        # Juju 1.25 uses the system command.
+            self.assertEqual(
+                DEFAULT_JES_COMMAND_2x, client.get_jes_command())
+        # Juju 1.26 uses the destroy-controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen('system', None, 0)
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND_1x, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual('system', client.get_jes_command())
+            self.assertEqual(DEFAULT_JES_COMMAND_1x, client.get_jes_command())
+        # Juju 1.25 uses the 'system kill' command.
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            self.assertEqual(
+                OPTIONAL_JES_COMMAND, client.get_jes_command())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
@@ -2306,3 +2433,79 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
     def test_parse_new_state_server_from_error_no_output(self):
         address = parse_new_state_server_from_error(Exception())
         self.assertIs(None, address)
+
+
+class TestGetMachineDNSName(TestCase):
+
+    log_level = logging.DEBUG
+
+    machine_0_no_addr = """\
+        machines:
+            "0":
+                instance-id: pending
+        """
+
+    machine_0_hostname = """\
+        machines:
+            "0":
+                dns-name: a-host
+        """
+
+    machine_0_ipv6 = """\
+        machines:
+            "0":
+                dns-name: 2001:db8::3
+        """
+
+    def test_gets_host(self):
+        status = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "a-host")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(self.log_stream.getvalue(), "")
+
+    def test_retries_for_dns_name(self):
+        status_pending = Status.from_text(self.machine_0_no_addr)
+        status_host = Status.from_text(self.machine_0_hostname)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status_pending, status_host]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "a-host")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n")
+
+    def test_retries_gives_up(self):
+        status = Status.from_text(self.machine_0_no_addr)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status] * 3
+        host = get_machine_dns_name(fake_client, '0', timeout=10)
+        self.assertEqual(host, None)
+        fake_client.status_until.assert_called_once_with(timeout=10)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "DEBUG No dns-name yet for machine 0\n" * 3)
+
+    def test_gets_ipv6(self):
+        status = Status.from_text(self.machine_0_ipv6)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "[2001:db8::3]")
+        fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            "WARNING Selected IPv6 address for machine 0: '2001:db8::3'\n")
+
+    def test_gets_ipv6_unsupported(self):
+        status = Status.from_text(self.machine_0_ipv6)
+        fake_client = Mock(spec=['status_until'])
+        fake_client.status_until.return_value = [status]
+        with patch('jujupy.socket', wraps=socket) as wrapped_socket:
+            del wrapped_socket.inet_pton
+            host = get_machine_dns_name(fake_client, '0')
+        self.assertEqual(host, "2001:db8::3")
+        fake_client.status_until.assert_called_once_with(timeout=600)

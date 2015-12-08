@@ -3,27 +3,19 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from datetime import datetime
-import logging
 import re
-import sys
 
 from deploy_stack import (
-    dump_env_logs,
-    get_machine_dns_name,
+    boot_context,
+    tear_down,
     update_env,
 )
-from jujuconfig import (
-    get_juju_home,
-)
 from jujupy import (
+    jes_home_path,
     make_client,
-    parse_new_state_server_from_error,
-    temp_bootstrap_env,
     yaml_loads,
 )
-from utility import (
-    print_now,
-)
+from utility import add_basic_testing_arguments
 
 
 __metaclass__ = type
@@ -176,65 +168,44 @@ def check_log0(expected, action_output):
 
 def parse_args(argv=None):
     """Parse all arguments."""
-    parser = ArgumentParser('Test log rotation.')
-    parser.add_argument(
-        '--debug', action='store_true', default=False,
-        help='Use --debug juju logging.')
+    parser = add_basic_testing_arguments(
+        ArgumentParser(description='Test log rotation.'))
     parser.add_argument(
         'agent',
         help='Which agent log rotation to test.',
         choices=['machine', 'unit'])
-    parser.add_argument(
-        'juju_path', help='Directory your juju binary lives in.')
-    parser.add_argument(
-        'env_name', help='Juju environment name to run tests in.')
-    parser.add_argument('logs', help='Directory to store logs in.')
-    parser.add_argument(
-        'temp_env_name', nargs='?',
-        help='Temporary environment name to use for this test.')
-    parser.add_argument('--agent-stream',
-                        help='Stream for retrieving agent binaries.')
     return parser.parse_args(argv)
 
 
 def make_client_from_args(args):
     client = make_client(
-        args.juju_path, args.debug, args.env_name, args.temp_env_name)
-    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream)
+        args.juju_bin, args.debug, args.env, args.temp_env_name)
+    update_env(
+        client.env, args.temp_env_name, series=args.series,
+        bootstrap_host=args.bootstrap_host, agent_url=args.agent_url,
+        agent_stream=args.agent_stream, region=args.region)
+    jes_enabled = client.is_jes_enabled()
+    if jes_enabled:
+        client.juju_home = jes_home_path(client.juju_home, args.temp_env_name)
+    tear_down(client, jes_enabled)
     return client
 
 
 def main():
     args = parse_args()
-    log_dir = args.logs
     client = make_client_from_args(args)
-    client.destroy_environment()
-    juju_home = get_juju_home()
-    bootstrap_host = None
-    try:
-        with temp_bootstrap_env(juju_home, client):
-            client.bootstrap()
-        bootstrap_host = get_machine_dns_name(client, 0)
-        client.get_status(60)
+    with boot_context(args.temp_env_name, client,
+                      bootstrap_host=args.bootstrap_host,
+                      machines=args.machine, series=args.series,
+                      agent_url=args.agent_url, agent_stream=args.agent_stream,
+                      log_dir=args.logs, keep_env=args.keep_env,
+                      upload_tools=args.upload_tools,
+                      permanent=client.is_jes_enabled(), region=args.region):
         client.juju("deploy", ('local:trusty/fill-logs',))
-
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":
             test_machine_rotation(client)
-    except Exception as e:
-        logging.exception(e)
-        try:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
-        except Exception as e:
-            print_now("exception while dumping logs:\n")
-            logging.exception(e)
-        sys.exit(1)
-    finally:
-        if bootstrap_host is not None:
-            dump_env_logs(client, bootstrap_host, log_dir)
-        client.destroy_environment()
 
 
 if __name__ == '__main__':

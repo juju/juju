@@ -79,9 +79,9 @@ class ClientTestCase(TestCase):
                               return_value={}) as lmt_mock:
                 with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
-                    with patch.object(client, 'request_deletion',
+                    with patch.object(client, 'attempt_deletion',
                                       autospec=True) as rd_mock:
-                        client.delete_old_machines(1, 'foo@bar')
+                        client.delete_old_machines(1)
         lm_mock.assert_called_once_with()
         lmt_mock.assert_called_once_with('id')
         drm_mock.assert_called_once_with('id')
@@ -96,11 +96,11 @@ class ClientTestCase(TestCase):
             with patch.object(client, '_list_machine_tags', autospec=True):
                 with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
-                    with patch.object(client, 'request_deletion',
+                    with patch.object(client, 'attempt_deletion',
                                       autospec=True) as rd_mock:
-                        client.delete_old_machines(1, 'foo@bar')
+                        client.delete_old_machines(1)
         self.assertEqual(0, drm_mock.call_count)
-        rd_mock.assert_called_once_with([machine], 'foo@bar')
+        rd_mock.assert_called_once_with([machine])
 
     def test_delete_old_machines_permanent(self):
         machine = make_machine('provisioning')
@@ -112,9 +112,24 @@ class ClientTestCase(TestCase):
                               return_value={'permanent': 'true'}) as lmt_mock:
                 with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
-                    with patch.object(client, 'request_deletion',
+                    with patch.object(client, 'attempt_deletion',
                                       autospec=True) as rd_mock:
-                        client.delete_old_machines(1, 'foo@bar')
+                        client.delete_old_machines(1)
         lmt_mock.assert_called_once_with('id')
         self.assertEqual(0, drm_mock.call_count)
         self.assertEqual(0, rd_mock.call_count)
+
+    def test_attempt_deletion(self):
+        client = Client(
+            'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
+        with patch.object(client, 'delete_machine', autospec=True) as dm_func:
+            all_success = client.attempt_deletion(['a', 'b'])
+        self.assertIs(True, all_success)
+        dm_func.assert_any_call('a')
+        dm_func.assert_any_call('b')
+        with patch.object(client, 'delete_machine', autospec=True,
+                          side_effect=[Exception, None]) as dm_func:
+            all_success = client.attempt_deletion(['a', 'b'])
+        self.assertIs(False, all_success)
+        dm_func.assert_any_call('a')
+        dm_func.assert_any_call('b')

@@ -1,12 +1,9 @@
 """Tests for remote access to juju machines."""
 
-import logging
 from mock import patch
 import os
-from StringIO import StringIO
 import subprocess
 import sys
-import unittest
 
 import winrm
 
@@ -21,12 +18,13 @@ from remote import (
     remote_from_unit,
     WinRmRemote,
 )
+import tests
 from utility import (
     temp_dir,
 )
 
 
-class TestRemote(unittest.TestCase):
+class TestRemote(tests.FakeHomeTestCase):
 
     precise_status_output = """\
     machines:
@@ -51,15 +49,6 @@ class TestRemote(unittest.TestCase):
                     machine: "2"
                     public-address: 10.55.60.2
     """
-
-    def setUp(self):
-        log = logging.getLogger()
-        self.addCleanup(setattr, log, "handlers", log.handlers)
-        log.handlers = []
-        self.log_stream = StringIO()
-        handler = logging.StreamHandler(self.log_stream)
-        handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-        log.addHandler(handler)
 
     def test_remote_from_unit(self):
         env = SimpleEnvironment("an-env", {"type": "nonlocal"})
@@ -128,25 +117,27 @@ class TestRemote(unittest.TestCase):
         with patch.object(client, "get_status") as st:
             st.return_value = Status.from_text(self.precise_status_output)
             remote = remote_from_unit(client, unit)
-            with patch.object(client, "get_juju_output") as mock_cmd:
-                mock_cmd.side_effect = subprocess.CalledProcessError(1, "ssh")
+            with patch.object(client, "get_juju_output") as mock_gjo:
+                mock_gjo.side_effect = subprocess.CalledProcessError(1, "ssh",
+                                                                     output="")
                 with patch.object(remote, "_run_subprocess") as mock_run:
                     mock_run.return_value = "contents of /a/file"
                     output = remote.run("cat /a/file")
                     self.assertEqual(output, "contents of /a/file")
-        mock_cmd.assert_called_once_with("ssh", unit, "cat /a/file",
+        mock_gjo.assert_called_once_with("ssh", unit, "cat /a/file",
                                          timeout=120)
         mock_run.assert_called_once_with([
             "ssh",
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
             "10.55.60.1",
             "cat /a/file",
         ])
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
-            "(?m)^WARNING juju ssh to 'a-service/0' failed: .*")
+            "(?m)^WARNING juju ssh to 'a-service/0' failed, .*")
 
     def test_run_with_address(self):
         remote = remote_from_address("10.55.60.1")
@@ -159,6 +150,7 @@ class TestRemote(unittest.TestCase):
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
             "10.55.60.1",
             "cat /a/file",
         ])
@@ -172,6 +164,7 @@ class TestRemote(unittest.TestCase):
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
             "10.55.60.1",
             "cat /a/file",
         ])
@@ -202,6 +195,7 @@ class TestRemote(unittest.TestCase):
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
             "10.55.60.1:/var/log/*",
             "10.55.60.1:~/.config",
             "/local/path",
@@ -259,9 +253,12 @@ class TestRemote(unittest.TestCase):
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
+            "-o", "PasswordAuthentication no",
             "10.55.60.1",
             "cat /a/file",
-        ))
+            ),
+            stdin=subprocess.PIPE,
+        )
 
     def test_encoded_copy_to_dir_one(self):
         output = "testfile|K0ktLuECAA==\r\n"

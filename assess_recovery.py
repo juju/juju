@@ -12,7 +12,6 @@ import sys
 
 from deploy_stack import (
     dump_env_logs,
-    get_machine_dns_name,
     wait_for_state_server_to_shutdown,
     update_env,
 )
@@ -21,10 +20,11 @@ from jujuconfig import (
     get_juju_home,
 )
 from jujupy import (
-    temp_bootstrap_env,
-    until_timeout,
+    get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
+    temp_bootstrap_env,
+    until_timeout,
 )
 from substrate import (
     terminate_instances,
@@ -188,7 +188,7 @@ def main(argv):
                 logging.exception(e)
                 client.destroy_environment()
                 sys.exit(1)
-        bootstrap_host = get_machine_dns_name(client, 0)
+        bootstrap_host = get_machine_dns_name(client, '0')
         try:
             instance_id = deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):

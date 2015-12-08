@@ -58,7 +58,9 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with self.assess_boostrap_cxt():
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                assess_bootstrap('/foo', 'bar', False, None, None)
+                with patch('deploy_stack.get_machine_dns_name'):
+                    with patch('deploy_stack.dump_env_logs'):
+                        assess_bootstrap('/foo', 'bar', False, None, None)
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
@@ -72,7 +74,9 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with self.assess_boostrap_cxt():
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                assess_bootstrap('/foo', 'bar', False, 'baz', 'qux')
+                with patch('deploy_stack.get_machine_dns_name'):
+                    with patch('deploy_stack.dump_env_logs'):
+                        assess_bootstrap('/foo', 'bar', False, 'baz', 'qux')
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")

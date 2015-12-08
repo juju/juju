@@ -13,6 +13,7 @@ import logging
 import os
 import re
 from shutil import rmtree
+import socket
 import subprocess
 import sys
 import time
@@ -42,6 +43,19 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
+DEFAULT_JES_COMMAND_2x = 'controller'
+DEFAULT_JES_COMMAND_1x = 'destroy-controller'
+OPTIONAL_JES_COMMAND = 'system'
+
+_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
+    'create': 'create-environment',
+    'kill': DEFAULT_JES_COMMAND_1x,
+    }}
+for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
+    _jes_cmds[super_cmd] = {
+        'create': '{} create-environment'.format(super_cmd),
+        'kill': '{} kill'.format(super_cmd),
+        }
 
 log = logging.getLogger("jujupy")
 
@@ -136,11 +150,11 @@ class EnvJujuClient:
             return False
 
     def get_jes_command(self):
-        """Return the JES command.
+        """Return the JES command to destroy a controller.
 
-        Juju 1.26 has the 'controller' command to manage the master env.
-        Juju 1.25 has the 'system' command to manage the master env when
-        the jes feature flag is set.
+        Juju 2.x has 'controller kill'.
+        Juju 1.26 has 'destroy-controller'.
+        Juju 1.25 has 'system kill' when the jes feature flag is set.
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
@@ -148,11 +162,26 @@ class EnvJujuClient:
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
         for line in commands.splitlines():
-            if line.startswith('controller'):
-                return 'controller'
-            if line.startswith('system'):
-                return 'system'
+            for cmd in _jes_cmds.keys():
+                if line.startswith(cmd):
+                    return cmd
         raise JESNotSupported()
+
+    def enable_jes(self):
+        """Enable JES if JES is optional.
+
+        Specifically implemented by the clients that optionally support JES.
+        This version raises either JESByDefault or JESNotSupported.
+
+        :raises: JESByDefault when JES is always enabled; Juju has the
+            'destroy-controller' command.
+        :raises: JESNotSupported when JES is not supported; Juju does not have
+            the 'system kill' command when the JES feature flag is set.
+        """
+        if self.is_jes_enabled():
+            raise JESByDefault()
+        else:
+            raise JESNotSupported()
 
     @classmethod
     def get_full_path(cls):
@@ -262,6 +291,16 @@ class EnvJujuClient:
             log.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
+    def create_environment(self, controller_client, config_file):
+        seen_cmd = self.get_jes_command()
+        if seen_cmd == OPTIONAL_JES_COMMAND:
+            controller_option = ('-s', controller_client.env.environment)
+        else:
+            controller_option = ('-c', controller_client.env.environment)
+        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
+                self.env.environment, '--config', config_file),
+            include_e=False)
+
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
             force_arg = ('--force',)
@@ -275,6 +314,13 @@ class EnvJujuClient:
         if delete_jenv:
             jenv_path = get_jenv_path(self.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
+
+    def kill_controller(self):
+        """Kill a controller and its environments."""
+        seen_cmd = self.get_jes_command()
+        self.juju(
+            _jes_cmds[seen_cmd]['kill'], (self.env.environment, '-y'),
+            include_e=False, check=False, timeout=600)
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -388,12 +434,14 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm, repository=None, to=None):
+    def deploy(self, charm, repository=None, to=None, service=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
         if to is not None:
             args.extend(['--to', to])
+        if service is not None:
+            args.extend([service])
         return self.juju('deploy', tuple(args))
 
     def deployer(self, bundle, name=None):
@@ -711,9 +759,9 @@ class EnvJujuClient26(EnvJujuClient):
         """Enable JES if JES is optional.
 
         :raises: JESByDefault when JES is always enabled; Juju has the
-            'controller' command.
+            'destroy-controller' command.
         :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system' command when the JES feature flag is set.
+            the 'system kill' command when the JES feature flag is set.
         """
         if self._use_jes:
             return
@@ -723,6 +771,9 @@ class EnvJujuClient26(EnvJujuClient):
         if not self.is_jes_enabled():
             self._use_jes = False
             raise JESNotSupported()
+
+    def disable_jes(self):
+        self._use_jes = False
 
     def enable_container_address_allocation(self):
         self._use_container_address_allocation = True
@@ -773,6 +824,48 @@ def bootstrap_from_env(juju_home, client):
 def quickstart_from_env(juju_home, client, bundle):
     with temp_bootstrap_env(juju_home, client):
         client.quickstart(bundle)
+
+
+@contextmanager
+def maybe_jes(client, jes_enabled, try_jes):
+    """If JES is desired and not enabled, try to enable it for this context.
+
+    JES will be in its previous state after exiting this context.
+    If jes_enabled is True or try_jes is False, the context is a no-op.
+    If enable_jes() raises JESNotSupported, JES will not be enabled in the
+    context.
+
+    The with value is True if JES is enabled in the context.
+    """
+
+    class JESUnwanted(Exception):
+        """Non-error.  Used to avoid enabling JES if not wanted."""
+
+    try:
+        if not try_jes or jes_enabled:
+            raise JESUnwanted
+        client.enable_jes()
+    except (JESNotSupported, JESUnwanted):
+        yield jes_enabled
+        return
+    else:
+        try:
+            yield True
+        finally:
+            client.disable_jes()
+
+
+def tear_down(client, jes_enabled, try_jes=False):
+    """Tear down a JES or non-JES environment.
+
+    JES environments are torn down via 'controller kill' or 'system kill',
+    and non-JES environments are torn down via 'destroy-environment --force.'
+    """
+    with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:
+        if jes_enabled:
+            client.kill_controller()
+        else:
+            client.destroy_environment()
 
 
 def uniquify_local(env):
@@ -913,6 +1006,26 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                         if e.errno != errno.ENOENT:
                             raise
                 client.juju_home = old_juju_home
+
+
+def get_machine_dns_name(client, machine, timeout=600):
+    """Wait for dns-name on a juju machine."""
+    for status in client.status_until(timeout=timeout):
+        try:
+            return _dns_name_for_machine(status, machine)
+        except KeyError:
+            log.debug("No dns-name yet for machine %s", machine)
+
+
+def _dns_name_for_machine(status, machine):
+    host = status.status['machines'][machine]['dns-name']
+    try:
+        socket.inet_pton(socket.AF_INET6, host)
+    except (AttributeError, socket.error):
+        # IPv4 or hostname
+        return host
+    log.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    return host.join("[]")
 
 
 class Status:

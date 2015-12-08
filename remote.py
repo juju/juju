@@ -102,6 +102,9 @@ class _Remote:
             raise ValueError("No address or client supplied")
         status = self._get_status()
         unit = status.get_unit(self.unit)
+        if 'public-address' not in unit:
+            raise ValueError("No public address for unit: {!r} {!r}".format(
+                self.unit, unit))
         self.address = unit['public-address']
 
 
@@ -112,6 +115,7 @@ class SSHRemote(_Remote):
         "-o", "User ubuntu",
         "-o", "UserKnownHostsFile /dev/null",
         "-o", "StrictHostKeyChecking no",
+        "-o", "PasswordAuthentication no",
     ]
 
     # Limit each operation over SSH to 2 minutes by default
@@ -124,7 +128,9 @@ class SSHRemote(_Remote):
                 return self.client.get_juju_output("ssh", self.unit, command,
                                                    timeout=self.timeout)
             except subprocess.CalledProcessError as e:
-                logging.warning("juju ssh to %r failed: %s", self.unit, e)
+                logging.warning("juju ssh to {!r} failed, returncode: {}"
+                                " output: {!r}".format(self.unit, e.returncode,
+                                                       e.output))
                 self.use_juju_ssh = False
             self._ensure_address()
         args = ["ssh"]
@@ -152,7 +158,7 @@ class SSHRemote(_Remote):
     def _run_subprocess(self, command):
         if self.timeout:
             command = jujupy.get_timeout_prefix(self.timeout) + tuple(command)
-        return subprocess.check_output(command)
+        return subprocess.check_output(command, stdin=subprocess.PIPE)
 
 
 class _SSLSession(winrm.Session):

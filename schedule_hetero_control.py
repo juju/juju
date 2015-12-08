@@ -52,11 +52,17 @@ def calculate_jobs(root, schedule_all=False):
     candidates_path = get_candidates_path(root)
     for candidate_path in find_candidates(root, schedule_all):
         parent, candidate = os.path.split(candidate_path)
+        if candidate == '1.26':
+            # 1.26 was renamed to 2.0 because it is not compatible with 1.x
+            continue
         if parent != candidates_path:
             raise ValueError('Wrong path')
         candidate_version, revision_build = get_candidate_info(candidate_path)
         for release in releases:
-            for client_os in ('ubuntu',  'osx', 'windows'):
+            # Releases with the same major number must be compatible.
+            if release[:2] != candidate[:2]:
+                continue
+            for client_os in ('ubuntu', 'osx', 'windows'):
                 yield {
                     'old_version': release,  # Client
                     'candidate': candidate_version,  # Server

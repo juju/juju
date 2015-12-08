@@ -32,19 +32,31 @@ def parse_args(args=None):
         Download the package for this client machine from s3.
         Extract the package files.  Print the location of the juju client.
         """)
-    parser_get_juju_bin.add_argument(
-        'revision_build', type=int,
-        help='The revision-build to get binaries from')
-    parser_get_juju_bin.add_argument(
-        'workspace', nargs='?', default='.',
-        help='The directory to download into')
-    parser_get_juju_bin.add_argument(
-        '--config', default=default_config,
-        help=('s3cmd config file for credentials.  Default to juju-qa.s3cfg in'
-              ' juju home.'))
-    parser_get_juju_bin.add_argument(
-        '--verbose', '-v', default=0, action='count',
-        help='Increase verbosity')
+    parser_get = subparsers.add_parser(
+        'get', help='Download job files(s)',
+        description="""
+        Download a file from a job for this revision build.
+
+        Within the revision build, the most recent version will be selected.
+        """)
+    for subparser in [parser_get_juju_bin, parser_get]:
+        subparser.add_argument(
+            'revision_build', type=int,
+            help='The revision-build to use.')
+    parser_get.add_argument('job', help='The job to get files from',)
+    parser_get.add_argument(
+        'file_pattern', help='The file pattern to use for selecting files',)
+    for subparser in [parser_get_juju_bin, parser_get]:
+        subparser.add_argument(
+            'workspace', nargs='?', default='.',
+            help='The directory to download into')
+        subparser.add_argument(
+            '--config', default=default_config,
+            help=('s3cmd config file for credentials.  Default to '
+                  'juju-qa.s3cfg in juju home.'))
+        subparser.add_argument(
+            '--verbose', '-v', default=0, action='count',
+            help='Increase verbosity')
     return parser.parse_args(args)
 
 
@@ -57,9 +69,7 @@ def get_s3_credentials(s3cfg_path):
     return access_key, secret_key
 
 
-def get_job_path(revision_build):
-    namer = JobNamer.factory()
-    job = namer.get_build_binary_job()
+def get_job_path(revision_build, job):
     return 'juju-ci/products/version-{}/{}'.format(revision_build, job)
 
 
@@ -68,7 +78,9 @@ class PackageNotFound(Exception):
 
 
 def find_package_key(bucket, revision_build):
-    prefix = get_job_path(revision_build)
+    namer = JobNamer.factory()
+    job = namer.get_build_binary_job()
+    prefix = get_job_path(revision_build, job)
     keys = bucket.list(prefix)
     suffix = PackageNamer.factory().get_release_package_suffix()
     filtered = [
@@ -89,6 +101,37 @@ def fetch_juju_binary(bucket, revision_build, workspace):
     return acquire_binary(package_path, workspace)
 
 
+def find_file_keys(bucket, revision_build, job, file_regex):
+    prefix = get_job_path(revision_build, job)
+    keys = bucket.list(prefix)
+    by_build = {}
+    for key in keys:
+        match = re.search('^/build-(\d+)', key.name[len(prefix):])
+        build = int(match.group(1))
+        by_build.setdefault(build, []).append(key)
+    # We can't use last successful build, because we don't know what builds
+    # are successful, so use last build and require it to be successful.
+    last_build = max(by_build.keys())
+    build_keys = by_build[last_build]
+    filtered = []
+    full_prefix = '{}/build-{}/'.format(prefix, last_build)
+    for key in build_keys:
+        path = key.name[len(full_prefix):]
+        if re.match(file_regex, path):
+            filtered.append(key)
+    return filtered
+
+
+def fetch_files(bucket, revision_build, job, file_pattern, workspace):
+    file_keys = find_file_keys(bucket, revision_build, job, file_pattern)
+    out_files = [os.path.join(workspace, k.name.split('/')[-1])
+                 for k in file_keys]
+    for key in file_keys:
+        logging.info('Selected: %s', key.name)
+    download_files(file_keys, workspace)
+    return out_files
+
+
 def main():
     args = parse_args()
     log_level = logging.WARNING - args.verbose * (
@@ -96,6 +139,8 @@ def main():
     configure_logging(log_level)
     if args.command == 'get-juju-bin':
         return get_juju_bin(args)
+    elif args.command == 'get':
+        return cmd_get(args)
     else:
         raise Exception('{} not implemented.'.format(args.command))
 
@@ -105,6 +150,15 @@ def get_juju_bin(args):
     conn = S3Connection(*credentials)
     bucket = conn.get_bucket('juju-qa-data')
     print(fetch_juju_binary(bucket, args.revision_build, args.workspace))
+
+
+def cmd_get(args):
+    credentials = get_s3_credentials(args.config)
+    conn = S3Connection(*credentials)
+    bucket = conn.get_bucket('juju-qa-data')
+    for path in fetch_files(bucket, args.revision_build, args.job,
+                            args.file_pattern, args.workspace):
+        print(path)
 
 
 if __name__ == '__main__':
