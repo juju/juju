@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -76,7 +77,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
-	err := sysManager.DestroyController(false, false)
+	err := sysManager.DestroyController(false)
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 }
 
@@ -149,4 +150,18 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
+}
+
+func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
+	sysManager := s.OpenAPI(c)
+	envTag := s.State.EnvironTag()
+	results, err := sysManager.EnvironmentStatus(envTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.EnvironmentStatus{{
+		UUID:               envTag.Id(),
+		HostedMachineCount: 0,
+		ServiceCount:       0,
+		Owner:              "dummy-admin@local",
+		Life:               params.Alive,
+	}})
 }

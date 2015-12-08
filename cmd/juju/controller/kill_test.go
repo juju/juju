@@ -9,11 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
@@ -68,15 +70,11 @@ func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
 	checkControllerRemovedFromStore(c, "test1", s.store)
-
-	// Check that we didn't call the API
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 	_, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.ignoreBlocks, jc.IsTrue)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
@@ -120,7 +118,6 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
-	c.Assert(s.api.ignoreBlocks, jc.IsTrue)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -183,4 +180,91 @@ type mockClock struct {
 func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 	m.wait = duration
 	return time.After(time.Millisecond)
+}
+
+func (s *KillSuite) TestControllerStatus(c *gc.C) {
+	s.api.allEnvs = []base.UserEnvironment{
+		{Name: "admin",
+			UUID:  "123",
+			Owner: names.NewUserTag("admin").String(),
+		}, {Name: "env1",
+			UUID:  "456",
+			Owner: names.NewUserTag("bob").String(),
+		}, {Name: "env2",
+			UUID:  "789",
+			Owner: names.NewUserTag("jo").String(),
+		},
+	}
+
+	s.api.envStatus = make(map[string]base.EnvironmentStatus)
+	for _, env := range s.api.allEnvs {
+		owner, err := names.ParseUserTag(env.Owner)
+		c.Assert(err, jc.ErrorIsNil)
+		s.api.envStatus[env.UUID] = base.EnvironmentStatus{
+			UUID:               env.UUID,
+			Life:               params.Dying,
+			HostedMachineCount: 2,
+			ServiceCount:       1,
+			Owner:              owner.Canonical(),
+		}
+	}
+
+	ctrStatus, envsStatus, err := system.NewData(s.api, "123")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctrStatus.HostedEnvCount, gc.Equals, 2)
+	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)
+	c.Assert(ctrStatus.ServiceCount, gc.Equals, 3)
+	c.Assert(envsStatus, gc.HasLen, 2)
+
+	for i, expected := range []struct {
+		Owner              string
+		Name               string
+		Life               params.Life
+		HostedMachineCount int
+		ServiceCount       int
+	}{
+		{
+			Owner:              "bob@local",
+			Name:               "env1",
+			Life:               params.Dying,
+			HostedMachineCount: 2,
+			ServiceCount:       1,
+		}, {
+			Owner:              "jo@local",
+			Name:               "env2",
+			Life:               params.Dying,
+			HostedMachineCount: 2,
+			ServiceCount:       1,
+		},
+	} {
+		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
+		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
+		c.Assert(envsStatus[i].Life, gc.Equals, expected.Life)
+		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
+		c.Assert(envsStatus[i].ServiceCount, gc.Equals, expected.ServiceCount)
+	}
+
+}
+
+func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
+	data := system.CtrData{
+		3,
+		20,
+		8,
+	}
+	out := system.FmtCtrStatus(data)
+	c.Assert(out, gc.Equals, "Waiting on 3 environments, 20 machines, 8 services")
+}
+
+func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
+	data := system.EnvData{
+		"owner@local",
+		"envname",
+		params.Dying,
+		8,
+		1,
+	}
+
+	out := system.FmtEnvStatus(data)
+	c.Assert(out, gc.Equals, "owner@local/envname (dying), 8 machines, 1 service")
 }

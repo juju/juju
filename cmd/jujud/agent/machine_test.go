@@ -45,6 +45,7 @@ import (
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
+	apiundertaker "github.com/juju/juju/api/undertaker"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -2156,6 +2157,46 @@ func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+}
+
+func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&getUndertakerAPI, func(st api.Connection) apiundertaker.UndertakerClient {
+		close(started)
+		return apiundertaker.NewClient(st)
+	})
+
+	st, closer := s.setUpNewEnvironment(c)
+	defer closer()
+
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// state server workers.
+	_ = s.singularRecord.nextRunner(c)
+	// new environ workers.
+	_ = s.singularRecord.nextRunner(c)
+
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+
+	// state server workers.
+	_ = s.singularRecord.nextRunner(c)
+	// new environ workers.
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "undertaker")
+
+	// Now make sure the undertaker starts.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("undertaker worker not started as expected")
+	}
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

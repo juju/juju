@@ -5,7 +5,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -370,7 +369,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 			errs = append(errs, err.Error())
 		}
 	}
-	return destroyErr("units", args.UnitNames, errs)
+	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
 // ServiceDestroy destroys a given service.
@@ -598,30 +597,11 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	var errs []string
-	for _, id := range args.MachineNames {
-		machine, err := c.api.stateAccessor.Machine(id)
-		switch {
-		case errors.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case args.Force:
-			err = machine.ForceDestroy()
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			{
-				if err := c.check.RemoveAllowed(); err != nil {
-					return errors.Trace(err)
-				}
-				err = machine.Destroy()
-			}
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
+	if err := c.check.RemoveAllowed(); !args.Force && err != nil {
+		return errors.Trace(err)
 	}
-	return destroyErr("machines", args.MachineNames, errs)
+
+	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -876,18 +856,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	return c.api.toolsFinder.FindTools(args)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 func (c *Client) AddCharm(args params.CharmURL) error {

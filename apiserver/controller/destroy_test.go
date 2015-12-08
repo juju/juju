@@ -4,7 +4,6 @@
 package controller_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -68,7 +67,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.otherEnvUUID = s.otherState.EnvironUUID()
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvsWithBlocks(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -76,16 +75,12 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvsWithBlocks(
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
-		IgnoreBlocks:        true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironmentsErr(c *gc.C) {
@@ -113,9 +108,6 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
@@ -127,10 +119,8 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		IgnoreBlocks: true,
-	})
-	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+	err := s.controller.DestroyController(params.DestroyControllerArgs{})
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 
 	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,21 +139,18 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlock(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{
-		IgnoreBlocks: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	c.Assert(err, gc.ErrorMatches, "found blocks in controller environments")
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
