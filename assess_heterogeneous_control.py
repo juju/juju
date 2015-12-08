@@ -142,6 +142,9 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         other.juju('remove-machine', (lxc_holder,))
         wait_until_removed(other, lxc_holder)
 
+# suppress nosetests
+test_control_heterogeneous.__test__ = False
+
 
 def juju_with_fallback(other, released, command, args, include_e=True):
     """Fallback to released juju when 1.18 fails.
