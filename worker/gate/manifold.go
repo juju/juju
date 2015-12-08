@@ -49,8 +49,10 @@ func ManifoldEx(lock Lock) dependency.Manifold {
 				*outPointer = inWorker.lock
 			case *Waiter:
 				*outPointer = inWorker.lock
+			case *Lock:
+				*outPointer = inWorker.lock
 			default:
-				return errors.Errorf("out should be a pointer to an Unlocker or a Waiter; is %#v", out)
+				return errors.Errorf("out should be a *Unlocker, *Waiter, *Lock; is %#v", out)
 			}
 			return nil
 		},

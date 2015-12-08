@@ -44,6 +44,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-check-gate",
 		"upgrader",
+		"upgradesteps",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
