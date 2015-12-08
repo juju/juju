@@ -4,21 +4,35 @@
 package provisioner_test
 
 import (
-	//	"fmt"
-	//
-	//	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	//	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	//	basetesting "github.com/juju/juju/api/base/testing"
-	//	apimetadata "github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
-	//	"github.com/juju/juju/environs"
-	//	"github.com/juju/juju/environs/imagemetadata"
-	//	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
+
+var (
+	testRoundTripper = &jujutest.ProxyRoundTripper{}
+)
+
+func init() {
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
+}
+
+// useTestImageData causes the given content to be served when published metadata is requested.
+func useTestImageData(files map[string]string) {
+	if files != nil {
+		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+		imagemetadata.DefaultBaseURL = "test:"
+	} else {
+		testRoundTripper.Sub = nil
+		imagemetadata.DefaultBaseURL = ""
+	}
+}
 
 type ImageMetadataSuite struct {
 	provisionerSuite
@@ -26,139 +40,233 @@ type ImageMetadataSuite struct {
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
+func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
+	s.provisionerSuite.SetUpSuite(c)
+
+	// Make sure that there is nothing in data sources.
+	// Each individual tests will decide if it needs metadata there.
+	useTestImageData(nil)
+}
+
+func (s *ImageMetadataSuite) TearDownSuite(c *gc.C) {
+	useTestImageData(nil)
+	s.provisionerSuite.TearDownSuite(c)
+}
+
+func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.provisionerSuite.SetUpTest(c)
+}
+
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
-	//    anAuthorizer := s.authorizer
-	//    anAuthorizer.EnvironManager = true
-	// Works with an environment manager, which is not a machine agent.
 	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := make([][]params.CloudImageMetadata, len(s.machines))
+	for i, _ := range result.Results {
+		expected[i] = nil
+	}
+	s.assertImageMetadataResults(c, result, expected...)
+}
+
+func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
+	// ensure metadata in data sources
+	useTestImageData(testImagesData)
+
+	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertImageMetadataResults(c, result, s.expectedDataSoureImageMetadata()...)
+}
+
+func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
+	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.expectedDataSoureImageMetadata()
+
+	// Write metadata to state.
+	metadata := s.convertCloudImageMetadata(expected[0])
+	for _, m := range metadata {
+		err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertImageMetadataResults(c, result, expected...)
+}
+
+func (s *ImageMetadataSuite) getTestMachinesTags(c *gc.C) params.Entities {
 
 	testMachines := make([]params.Entity, len(s.machines))
 
 	for i, m := range s.machines {
 		testMachines[i] = params.Entity{Tag: m.Tag().String()}
 	}
-	args := params.Entities{Entities: testMachines}
+	return params.Entities{Entities: testMachines}
+}
 
-	result, err := api.ProvisioningInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{
-			params.ProvisioningInfoResult{Result: (*params.ProvisioningInfo)(0xc2082f8000)},
-			params.ProvisioningInfoResult{Result: (*params.ProvisioningInfo)(0xc2082f82a0)},
-			params.ProvisioningInfoResult{Result: (*params.ProvisioningInfo)(0xc20825f5e0)},
-			params.ProvisioningInfoResult{Result: (*params.ProvisioningInfo)(0xc20825e8c0)},
-			params.ProvisioningInfoResult{Result: (*params.ProvisioningInfo)(0xc20825ea80)}},
+func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMetadata) []cloudimagemetadata.Metadata {
+	expected := make([]cloudimagemetadata.Metadata, len(all))
+	for i, one := range all {
+		expected[i] = cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Region:          one.Region,
+				Series:          one.Series,
+				Arch:            one.Arch,
+				VirtType:        one.VirtType,
+				RootStorageType: one.RootStorageType,
+				Source:          one.Source,
+			},
+			one.Priority,
+			one.ImageId,
+		}
 	}
-	c.Assert(result, jc.DeepEquals, expected)
-	//	env, ic, _ := s.setupSimpleStreamData(c, nil)
-	//
-	//	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
-	//	c.Assert(err, gc.ErrorMatches, ".*not found.*")
-	//	c.Assert(info, gc.IsNil)
-	//	c.Assert(metadata, gc.HasLen, 0)
+	return expected
 }
 
-func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
-	//	arch := "ppc64el"
-	//	env, ic, setupInfo := s.setupSimpleStreamData(c, []string{arch})
-	//
-	//	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
-	//	c.Assert(err, jc.ErrorIsNil)
-	//	c.Assert(info, gc.DeepEquals, setupInfo)
-	//	c.Assert(metadata, gc.DeepEquals, []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
-	//		Id:         "image-id",
-	//		Arch:       arch,
-	//		RegionName: "Region",
-	//		Version:    "12.04",
-	//		Endpoint:   "https://endpoint/",
-	//	}})
+func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudImageMetadata {
+	expected := make([][]params.CloudImageMetadata, len(s.machines))
+	for i, _ := range s.machines {
+		expected[i] = []params.CloudImageMetadata{
+			{ImageId: "ami-1126745463",
+				Region:          "another_dummy_region",
+				Series:          "quantal",
+				Arch:            "amd64",
+				VirtType:        "pv",
+				RootStorageType: "ebs",
+				Source:          "default cloud images",
+				Priority:        10,
+			},
+			{ImageId: "ami-26745463",
+				Region:          "dummy_region",
+				Series:          "quantal",
+				Arch:            "amd64",
+				VirtType:        "pv",
+				RootStorageType: "ebs",
+				Source:          "default cloud images",
+				Priority:        10},
+		}
+	}
+	return expected
 }
 
-//var stateResolveInfo = &simplestreams.ResolveInfo{Source: "state server"}
-
-func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
-	//	env, ic, _ := s.setupSimpleStreamData(c, nil)
-	//
-	//	stored := params.CloudImageMetadata{
-	//		ImageId: "image_id",
-	//		Region:  "region",
-	//		Series:  "trusty",
-	//		Arch:    "ppc64el",
-	//	}
-	//	s.patchMetadataAPI(c, "", stored)
-	//
-	//	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
-	//	c.Assert(err, jc.ErrorIsNil)
-	//
-	//	// This should have pulled image metadata from state server
-	//	c.Assert(info, gc.DeepEquals, stateResolveInfo)
-	//	c.Assert(metadata, gc.DeepEquals, []*imagemetadata.ImageMetadata{convertMetadataFromParams(stored)})
+func (s *ImageMetadataSuite) assertImageMetadataResults(c *gc.C, obtained params.ProvisioningInfoResults, expected ...[]params.CloudImageMetadata) {
+	c.Assert(obtained.Results, gc.HasLen, len(expected))
+	for i, one := range obtained.Results {
+		// We are only concerned with images here
+		c.Assert(one.Result.ImageMetadata, gc.DeepEquals, expected[i])
+	}
 }
 
-func (s *ImageMetadataSuite) TestMetadataStateError(c *gc.C) {
-	//	arch := "amd64"
-	//	env, ic, setupInfo := s.setupSimpleStreamData(c, []string{arch})
-	//
-	//	msg := "fail"
-	//	s.patchMetadataAPI(c, msg)
-	//
-	//	metadata, info, err := provisioner.FindImageMetadata(env, ic, false)
-	//	// should have logged it and proceeded to get metadata from prev search path
-	//	// so not expecting any odd behaviour
-	//	c.Assert(err, jc.ErrorIsNil)
-	//	c.Assert(info, gc.DeepEquals, setupInfo)
-	//	c.Assert(metadata, gc.DeepEquals, []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
-	//		Id:         "image-id",
-	//		Arch:       arch,
-	//		RegionName: "Region",
-	//		Version:    "12.04",
-	//		Endpoint:   "https://endpoint/",
-	//	}})
+// TODO (anastasiamac 2015-09-04) This metadata is so verbose.
+// Need to generate the text by creating a struct and marshalling it.
+var testImagesData = map[string]string{
+	"/streams/v1/index.json": `
+		{
+		 "index": {
+		  "com.ubuntu.cloud:released:aws": {
+		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		   "clouds": [
+			{
+			 "region": "dummy_region",
+			 "endpoint": "https://anywhere"
+			},
+			{
+			 "region": "another_dummy_region",
+			 "endpoint": ""
+			}
+		   ],
+		   "cloudname": "aws",
+		   "datatype": "image-ids",
+		   "format": "products:1.0",
+		   "products": [
+			"com.ubuntu.cloud:server:12.10:amd64",
+			"com.ubuntu.cloud:server:14.04:amd64"
+		   ],
+		   "path": "streams/v1/image_metadata.json"
+		   }
+		  },
+		 "updated": "Wed, 27 May 2015 13:31:26 +0000",
+		 "format": "index:1.0"
+		}
+`,
+	"/streams/v1/image_metadata.json": `
+{
+ "updated": "Wed, 27 May 2015 13:31:26 +0000",
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "products": {
+  "com.ubuntu.cloud:server:14.04:amd64": {
+   "release": "trusty",
+   "version": "14.04",
+   "arch": "amd64",
+   "versions": {
+    "20140118": {
+     "items": {
+      "nzww1pe": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "crsn": "da1",
+       "id": "ami-36745463"
+      },
+      "nzww1pe2": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "crsn": "da2",
+       "id": "ami-1136745463"
+      }
+     },
+     "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:12.10:amd64": {
+   "release": "quantal",
+   "version": "12.10",
+   "arch": "amd64",
+   "versions": {
+    "20121218": {
+     "items": {
+      "usww1pe": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "crsn": "da1",
+       "id": "ami-26745463"
+      },
+      "usww1pe2": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "crsn": "da2",
+       "id": "ami-1126745463"
+      }
+     },
+     "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+     "label": "release"
+    }
+   }
+  }
+ },
+ "_aliases": {
+  "crsn": {
+   "da1": {
+    "region": "dummy_region",
+    "endpoint": "https://anywhere"
+   },
+   "da2": {
+    "region": "another_dummy_region",
+    "endpoint": ""
+   }
+  }
+ },
+ "format": "products:1.0"
 }
-
-//func (s *metadataSuite) patchMetadataAPI(c *gc.C, errMsg string, m ...params.CloudImageMetadata) {
-//	apiCaller := basetesting.APICallerFunc(
-//		func(objType string, version int, id, request string, a, result interface{}) error {
-//			if errMsg != "" {
-//				return errors.New(errMsg)
-//			}
-//			if results, k := result.(*params.ListCloudImageMetadataResult); k {
-//				results.Result = append(results.Result, m...)
-//			}
-//			return nil
-//		})
-//	mockAPI := apimetadata.NewClient(apiCaller)
-//
-//	s.PatchValue(provisioner.MetadataAPI, func(env environs.Environ) (*apimetadata.Client, error) {
-//		return mockAPI, nil
-//	})
-//	s.AddCleanup(func(*gc.C) {
-//		mockAPI.Close()
-//	})
-//}
-
-//func (s *metadataSuite) setupSimpleStreamData(c *gc.C, arches []string) (environs.Environ, *imagemetadata.ImageConstraint, *simplestreams.ResolveInfo) {
-//	dsId := "metadataSuite"
-//	env, cloudSpec, fileUrl := setupMetadataWithDataSource(c, s.FakeJujuHomeSuite, dsId, arches)
-//	ic := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-//		CloudSpec: cloudSpec,
-//	})
-//
-//	info := &simplestreams.ResolveInfo{
-//		Source:   dsId,
-//		IndexURL: fmt.Sprintf("%v%v", fileUrl, "/streams/v1/index.json"),
-//	}
-//	return env, ic, info
-//}
-//
-//func convertMetadataFromParams(p params.CloudImageMetadata) *imagemetadata.ImageMetadata {
-//	m := &imagemetadata.ImageMetadata{
-//		Id:         p.ImageId,
-//		Arch:       p.Arch,
-//		RegionName: p.Region,
-//	}
-//	m.Version, _ = series.SeriesVersion(p.Series)
-//	return m
-//}
+`,
+}
