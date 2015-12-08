@@ -497,9 +497,11 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 	}
 }
 
-func heartbeat(f func() error, timeout time.Duration) bool {
+func callWithTimeout(f func() error, timeout time.Duration) bool {
 	result := make(chan error, 1)
 	go func() {
+		// Note that result is buffered so that we don't leak this
+		// goroutine when a timeout happens.
 		result <- f()
 	}()
 	select {
@@ -516,7 +518,7 @@ func heartbeat(f func() error, timeout time.Duration) bool {
 
 func (s *state) heartbeatMonitor() {
 	for {
-		if !heartbeat(s.Ping, PingTimeout) {
+		if !callWithTimeout(s.Ping, PingTimeout) {
 			close(s.broken)
 			return
 		}
