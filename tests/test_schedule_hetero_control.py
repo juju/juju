@@ -162,7 +162,37 @@ class CalculateJobs(TestCase):
         expected = self.make_jobs('1.24.4', '1.20.11')
         self.assertItemsEqual(jobs, expected)
 
-    def make_jobs(self, candidate, old_version, candidate_path=False):
+    def test_calculate_jobs_candidate_v2(self):
+        with temp_dir() as root:
+            release_path = os.path.join(root, 'old-juju', '1.20.11')
+            os.makedirs(release_path)
+            release_path = os.path.join(root, 'old-juju', '2.0.0')
+            os.makedirs(release_path)
+            candidate_path_2 = os.path.join(root, 'candidate', '2.0.1')
+            os.makedirs(candidate_path_2)
+            make_build_var_file(candidate_path_2, '2.0.1')
+            jobs = list(calculate_jobs(root))
+        expected = self.make_jobs('2.0.1',  '2.0.0')
+        self.assertItemsEqual(jobs, expected)
+
+    def test_calculate_jobs_candiade_v1_and_v2(self):
+        with temp_dir() as root:
+            release_path = os.path.join(root, 'old-juju', '1.20.11')
+            os.makedirs(release_path)
+            release_path = os.path.join(root, 'old-juju', '2.0.0')
+            os.makedirs(release_path)
+            candidate_path = os.path.join(root, 'candidate', '1.24.3')
+            os.makedirs(candidate_path)
+            make_build_var_file(candidate_path, '1.24.3')
+            candidate_path_2 = os.path.join(root, 'candidate', '2.0.1')
+            os.makedirs(candidate_path_2)
+            make_build_var_file(candidate_path_2, '2.0.1')
+            jobs = list(calculate_jobs(root))
+        expected = self.make_jobs('2.0.1',  '2.0.0')
+        expected.extend(self.make_jobs('1.24.3', '1.20.11'))
+        self.assertItemsEqual(jobs, expected)
+
+    def make_jobs(self, candidate, old_version, candidate_path=None):
         jobs = []
         for client_os in ('ubuntu', 'osx', 'windows'):
             for new_to_old in ('false', 'true'):
