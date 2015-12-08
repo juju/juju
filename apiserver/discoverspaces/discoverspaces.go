@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("DiscoverSpaces", 0, DiscoverSpacesAPI)
+	common.RegisterStandardFacade("DiscoverSpaces", 0, NewDiscoverSpacesAPI)
 }
 
 // DiscoverSpacesAPI implements the API used by the discoverspaces worker.
