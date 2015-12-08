@@ -4493,9 +4493,9 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a coule of test spaces, but notably NOT the default one.
-	_, err = s.state.AddSpace("db", nil, false)
+	_, err = s.state.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.state.AddSpace("apps", nil, true)
+	_, err = s.state.AddSpace("apps", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some testing charms for the services.
