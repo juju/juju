@@ -5,8 +5,7 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -16,9 +15,9 @@ import (
 // NOTE: All of the following code is only tested with a feature test.
 
 // subnetShim forwards and adapts state.Subnets methods to
-// common.BackingSubnet.
+// networkingcommon.BackingSubnet.
 type subnetShim struct {
-	common.BackingSubnet
+	networkingcommon.BackingSubnet
 	subnet *state.Subnet
 }
 
@@ -57,7 +56,7 @@ func (s *subnetShim) SpaceName() string {
 
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	common.BackingSpace
+	networkingcommon.BackingSpace
 	space *state.Space
 }
 
@@ -65,12 +64,12 @@ func (s *spaceShim) Name() string {
 	return s.space.Name()
 }
 
-func (s *spaceShim) Subnets() ([]common.BackingSubnet, error) {
+func (s *spaceShim) Subnets() ([]networkingcommon.BackingSubnet, error) {
 	results, err := s.space.Subnets()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnets := make([]common.BackingSubnet, len(results))
+	subnets := make([]networkingcommon.BackingSubnet, len(results))
 	for i, result := range results {
 		subnets[i] = &subnetShim{subnet: result}
 	}
@@ -93,13 +92,13 @@ func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []str
 	return err
 }
 
-func (s *stateShim) AllSpaces() ([]common.BackingSpace, error) {
+func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	// TODO(dimitern): Make this ListSpaces() instead.
 	results, err := s.st.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaces := make([]common.BackingSpace, len(results))
+	spaces := make([]networkingcommon.BackingSpace, len(results))
 	for i, result := range results {
 		spaces[i] = &spaceShim{space: result}
 	}

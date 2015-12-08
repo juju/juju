@@ -19,7 +19,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
-	AvailabilityZones() []string
+	AvailabilityZone() string
 	Status() string
 	SpaceName() string
 	Life() params.Life
