@@ -7,7 +7,7 @@ from jujupy import (
     make_client,
 )
 from deploy_stack import (
-    boot_context,
+    BootstrapManager,
 )
 from utility import add_basic_testing_arguments
 
@@ -131,18 +131,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-    log_dir = args.logs
 
     client = make_client(
         args.juju_path, args.debug, args.env, args.temp_env_name)
     # client.destroy_environment()
     series = args.series
     if series is None:
-        series = 'precise'
-    with boot_context(args.temp_env_name, client, args.bootstrap_host,
-                      args.machine, series, args.agent_url, args.agent_stream,
-                      log_dir, args.keep_env, args.upload_tools):
-
+        args.series = 'precise'
+    bs_manager = BootstrapManager.from_args(args)
+    client = bs_manager.client
+    with bs_manager.booted_context(args.upload_tools):
         client.get_status(60)
         client.juju("deploy", ('local:trusty/statusstresser',))
         client.wait_for_started()

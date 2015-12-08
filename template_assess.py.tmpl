@@ -5,18 +5,15 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 
-from jujupy import (
-    make_client,
-)
 from deploy_stack import (
-    boot_context,
+    BootstrapManager,
 )
 from utility import (
     add_basic_testing_arguments
 )
 
 
-TEST_HUMAN_NAME="<YOUR TEST HUMAN READABLE HERE>"
+TEST_HUMAN_NAME = "<YOUR TEST HUMAN READABLE HERE>"
 
 
 def parse_args():
@@ -30,29 +27,22 @@ def parse_args():
 
 def main():
     args = parse_args()
-    log_dir = args.logs
-
-    client = make_client(
-        args.juju_path, args.debug, args.env_name, args.temp_env_name)
-    client.destroy_environment()
     series = args.series
     if series is None:
-        series = 'precise'
-    with boot_context(args.temp_env_name, client, args.bootstrap_host,
-                      args.machine, series, args.agent_url, args.agent_stream,
-                      log_dir, args.keep_env, args.upload_tools,
-                      region=args.region):
-
+        args.series = 'trusty'
+    bs_manager = BootstrapManager.from_args(args)
+    client = bs_manager.client
+    with bs_manager.booted_context(args.upload_tools):
         client.get_status(60)
         # Deploy charms, there are several under ./repository
         client.juju("deploy", ('local:trusty/my-charm',))
         # Wait for the deployment to finish.
         client.wait_for_started()
 
-        #----------------- CALL YOUR TESTS HERE
+        # ----------------- CALL YOUR TESTS HERE
         # At this point you have a juju bootstraped with my-charm
         # deployed and active with the agent idle.
-        #----------------- TESTS END HERE
+        # ----------------- TESTS END HERE
 
 
 if __name__ == '__main__':
