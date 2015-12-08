@@ -5,6 +5,7 @@ package machine
 
 import (
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -33,6 +35,10 @@ type ManifoldsConfig struct {
 	// coordinate workers that shouldn't do anything until the
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
+
+	// OpenStateForUpgrade is a function the upgradesteps worker can
+	// use to establish a connection to state.
+	OpenStateForUpgrade func() (*state.State, func(), error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -85,6 +91,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
+
+		// The upgradesteps worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			OpenStateForUpgrade:  config.OpenStateForUpgrade,
+		}),
 	}
 }
 
@@ -96,4 +113,5 @@ const (
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeCheckGateName = "upgrade-check-gate"
 	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgradesteps"
 )

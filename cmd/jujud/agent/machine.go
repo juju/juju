@@ -440,13 +440,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 
 	agentConfig := a.CurrentConfig()
-
-	createEngine := a.makeEngineCreator(
-		a.upgradeComplete,
-		a.initialUpgradeCheckComplete,
-		agentConfig.UpgradedToVersion(),
-	)
-
+	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
@@ -474,11 +468,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) makeEngineCreator(
-	upgradeStepsLock gate.Lock,
-	upgradeCheckLock gate.Lock,
-	previousAgentVersion version.Number,
-) func() (worker.Worker, error) {
+func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		config := dependency.EngineConfig{
 			IsFatal:     cmdutil.IsFatal,
@@ -493,8 +483,9 @@ func (a *MachineAgent) makeEngineCreator(
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{a},
-			UpgradeStepsLock:     upgradeStepsLock,
-			UpgradeCheckLock:     upgradeCheckLock,
+			UpgradeStepsLock:     a.upgradeComplete,
+			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenStateForUpgrade:  a.openStateForUpgrade,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -727,8 +718,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	}
 
 	runner := newConnRunner(st)
-
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
@@ -996,30 +985,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 func (a *MachineAgent) Restart() error {
 	name := a.CurrentConfig().Value(agent.AgentServiceName)
 	return service.Restart(name)
-}
-
-func (a *MachineAgent) upgradeStepsWorkerStarter(
-	apiConn api.Connection,
-	jobs []multiwatcher.MachineJob,
-) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
-		tag, ok := a.Tag().(names.MachineTag)
-		if !ok {
-			return nil, errors.New("agent's tag is not a machine tag")
-		}
-		machine, err := apiConn.Machiner().Machine(tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return upgradesteps.NewWorker(
-			a.upgradeComplete,
-			a,
-			apiConn,
-			jobs,
-			a.openStateForUpgrade,
-			machine,
-		)
-	}
 }
 
 // openStateForUpgrade exists to be passed into the upgradesteps
