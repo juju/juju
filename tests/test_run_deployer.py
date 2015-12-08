@@ -87,7 +87,7 @@ class TestRunDeployer(TestCase):
             with patch('subprocess.check_output', return_value='foo'):
                 with patch('subprocess.check_call', return_value='foo'):
                     with patch('run_deployer.boot_context') as bc_mock:
-                        run_deployer(['foo', 'bar', 'baz', 'qux', 'quxx',
+                        run_deployer(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
                                       '--region', 'region-foo'])
         client = bc_mock.mock_calls[0][1][1]
         bc_mock.assert_called_once_with(

@@ -992,7 +992,7 @@ class TestBootContext(FakeHomeTestCase):
 class TestDeployJobParseArgs(FakeHomeTestCase):
 
     def test_deploy_job_parse_args(self):
-        args = deploy_job_parse_args(['foo', 'bar', 'baz', 'qux'])
+        args = deploy_job_parse_args(['foo', 'bar/juju', 'baz', 'qux'])
         self.assertEqual(args, Namespace(
             agent_stream=None,
             agent_url=None,
@@ -1016,15 +1016,15 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
 
     def test_upload_tools(self):
         args = deploy_job_parse_args(
-            ['foo', 'bar', 'baz', 'qux', '--upload-tools'])
+            ['foo', 'bar/juju', 'baz', 'qux', '--upload-tools'])
         self.assertEqual(args.upload_tools, True)
 
     def test_agent_stream(self):
         args = deploy_job_parse_args(
-            ['foo', 'bar', 'baz', 'qux', '--agent-stream', 'wacky'])
+            ['foo', 'bar/juju', 'baz', 'qux', '--agent-stream', 'wacky'])
         self.assertEqual('wacky', args.agent_stream)
 
     def test_jes(self):
         args = deploy_job_parse_args(
-            ['foo', 'bar', 'baz', 'qux', '--jes'])
+            ['foo', 'bar/juju', 'baz', 'qux', '--jes'])
         self.assertIs(args.jes, True)
