@@ -227,7 +227,6 @@ var commandNames = []string{
 	"enable-user",  // alias for "user enable"
 	"ensure-availability",
 	"env", // alias for switch
-	"environment",
 	"expose",
 	"generate-config", // alias for init
 	"get",
@@ -243,7 +242,8 @@ var commandNames = []string{
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
-	"list-users",  // alias for "user list"
+	"list-shares",
+	"list-users", // alias for "user list"
 	"login",
 	"machine",
 	"publish",
@@ -261,6 +261,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"share-environment",
 	"show-user", // alias for "user info"
 	"space",
 	"ssh",
@@ -279,6 +280,7 @@ var commandNames = []string{
 	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
+	"unshare-environment",
 	"upgrade-charm",
 	"upgrade-juju",
 	"user",
@@ -531,38 +533,4 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
 	c.Check(check.Obsolete(), jc.IsTrue)
-}
-
-// obsoleteCommandNames is the list of commands that are deprecated in
-// 2.0, and obsolete in 3.0
-var obsoleteCommandNames = []string{
-	"add-machine",
-	"destroy-machine",
-	"get-constraints",
-	"get-env",
-	"get-environment",
-	"remove-machine",
-	"retry-provisioning",
-	"set-constraints",
-	"set-env",
-	"set-environment",
-	"terminate-machine",
-	"unset-env",
-	"unset-environment",
-}
-
-func (s *MainSuite) TestObsoleteRegistration(c *gc.C) {
-	var commands commands
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
-	registerCommands(&commands, testing.Context(c))
-
-	cmdSet := set.NewStrings(obsoleteCommandNames...)
-	registeredCmdSet := set.NewStrings()
-	for _, cmd := range commands {
-		registeredCmdSet.Add(cmd.Info().Name)
-	}
-
-	intersection := registeredCmdSet.Intersection(cmdSet)
-	c.Logf("Registered obsolete commands: %s", intersection.Values())
-	c.Assert(intersection.IsEmpty(), gc.Equals, true)
 }

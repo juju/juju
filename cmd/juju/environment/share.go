@@ -18,17 +18,17 @@ const shareEnvHelpDoc = `
 Share the current environment with another user.
 
 Examples:
- juju environment share joe
+ juju share-environment joe
      Give local user "joe" access to the current environment
 
- juju environment share user1 user2 user3@ubuntuone
+ juju share-environment user1 user2 user3@ubuntuone
      Give two local users and one remote user access to the current environment
 
- juju environment share sam --environment myenv
+ juju share-environment sam --environment myenv
      Give local user "sam" access to the environment named "myenv"
  `
 
-func newShareCommand() cmd.Command {
+func NewShareCommand() cmd.Command {
 	return envcmd.Wrap(&shareCommand{})
 }
 
@@ -45,7 +45,7 @@ type shareCommand struct {
 // Info implements Command.Info.
 func (c *shareCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "share",
+		Name:    "share-environment",
 		Args:    "<user> ...",
 		Purpose: "share the current environment with another user",
 		Doc:     strings.TrimSpace(shareEnvHelpDoc),

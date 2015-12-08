@@ -130,7 +130,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newRemoveRelationCommand())
 	r.Register(newRemoveServiceCommand())
 	r.Register(newRemoveUnitCommand())
-	r.Register(newDestroyEnvironmentCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -192,14 +191,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 
 	// Mangage environment
-	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
-	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
-	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
-	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
-	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
+	r.Register(environment.NewGetCommand())
+	r.Register(environment.NewSetCommand())
+	r.Register(environment.NewUnsetCommand())
+	r.Register(environment.NewRetryProvisioningCommand())
+	r.Register(environment.NewDestroyCommand())
+
+	r.Register(environment.NewShareCommand())
+	r.Register(environment.NewUnshareCommand())
+	r.Register(environment.NewUsersCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())

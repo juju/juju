@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newDestroyCommand() cmd.Command {
+func NewDestroyCommand() cmd.Command {
 	return envcmd.Wrap(
 		&destroyCommand{},
 		envcmd.EnvSkipDefault,
@@ -51,10 +51,11 @@ type DestroyEnvironmentAPI interface {
 // Info implements Command.Info.
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy",
+		Name:    "destroy-environment",
 		Args:    "<environment name>",
 		Purpose: "terminate all machines and other associated resources for a non-system environment",
 		Doc:     destroyDoc,
+		Aliases: []string{"destroy-model"},
 	}
 }
 
