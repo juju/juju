@@ -422,11 +422,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
 		var err error
-		ref, _, err := repo.Resolve(curl.Reference())
-		if err != nil {
-			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
-		}
-		curl, err = ref.URL("")
+		curl, _, err = repo.Resolve(curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
@@ -596,7 +592,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
 	repo, err := charmrepo.InferRepository(
-		curl.Reference(),
+		curl,
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)

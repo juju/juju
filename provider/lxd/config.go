@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
@@ -40,6 +39,9 @@ lxd:
     # created by the provider.  It is prepended to the container names.
     # By default the environment's name is used as the namespace.
     #
+    # Setting the namespace is useful when more than one environment
+    # is using the same remote (e.g. the local LXD socket).
+    #
     # namespace: lxd
 
     # remote-url is the URL to the LXD API server to use for managing
@@ -59,12 +61,25 @@ lxd:
     #
     #   newgrp lxd
     #
-    # You will also need to prepare the "ubuntu" image that Juju uses:
+    # You will also need to prepare the "ubuntu" images that Juju uses:
     #
     #   lxc remote add images images.linuxcontainers.org
-    #   lxd-images import ubuntu --alias ubuntu
+    #   lxd-images import ubuntu --alias ubuntu-wily wily
+    #
+    # (Also consider the --stream and --sync options.)
+    #
+    # You will need to prepare an image for each Ubuntu series for which
+    # you want to create instances.  The alias must match the series:
+    #
+    #   lxd-images import ubuntu --alias ubuntu-trusty trusty
+    #   lxd-images import ubuntu --alias ubuntu-wily wily
+    #   lxd-images import ubuntu --alias ubuntu-xenial xenial
     #
     # See: https://linuxcontainers.org/lxd/getting-started-cli/
+    #
+    # Note: the LXD provider does not support using any series older
+    # than wily for a controller instance.  However, non-controller
+    # instances may be provisioned on earler series (e.g. trusty).
     #
     # remote-url:
 
@@ -153,10 +168,6 @@ func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) (map[st
 		updated[k] = v
 	}
 
-	// The container type would be pulled from cfg if there were more
-	// than one possible type for this provider.
-	//cType := instance.LXD
-
 	// Set the proper default namespace.
 	raw := updated[cfgNamespace]
 	if raw == nil || raw.(string) == "" {
@@ -243,12 +254,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
-}
-
-func (c *environConfig) containerType() instance.ContainerType {
-	// The container type would be pulled from c.attrs if there were
-	// more than one possible type for this provider.
-	return instance.LXD
 }
 
 func (c *environConfig) namespace() string {

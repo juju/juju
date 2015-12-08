@@ -53,6 +53,7 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
+	compat
 	api   *API
 	check *common.BlockChecker
 }
@@ -68,7 +69,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 	}
 	apiState := getState(st)
 	urlGetter := common.NewToolsURLGetter(apiState.EnvironUUID(), apiState)
-	return &Client{
+	client := &Client{
 		api: &API{
 			stateAccessor: apiState,
 			auth:          authorizer,
@@ -76,7 +77,10 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
 			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
 		},
-		check: common.NewBlockChecker(st)}, nil
+		check: common.NewBlockChecker(st)}
+	// Plug in compatibility shims.
+	client.compat = compat{client}
+	return client, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -133,19 +137,6 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 		settings[option] = nil
 	}
 	return svc.UpdateConfigSettings(settings)
-}
-
-// ServiceSetYAML implements the server side of Client.ServerSetYAML.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return err
-	}
-	return serviceSetSettingsYAML(svc, p.Config)
 }
 
 // ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
@@ -286,103 +277,6 @@ func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }
 
-// ServiceUpdate updates the service attributes, including charm URL,
-// minimum number of units, settings and constraints.
-// All parameters in params.ServiceUpdate except the service name are optional.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	if !args.ForceCharmUrl {
-		if err := c.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	// Set the charm for the given service.
-	if args.CharmUrl != "" {
-		if err = c.serviceSetCharm(svc, args.CharmUrl, args.ForceCharmUrl); err != nil {
-			return err
-		}
-	}
-	// Set the minimum number of units for the given service.
-	if args.MinUnits != nil {
-		if err = svc.SetMinUnits(*args.MinUnits); err != nil {
-			return err
-		}
-	}
-	// Set up service's settings.
-	if args.SettingsYAML != "" {
-		if err = serviceSetSettingsYAML(svc, args.SettingsYAML); err != nil {
-			return err
-		}
-	} else if len(args.SettingsStrings) > 0 {
-		if err = service.ServiceSetSettingsStrings(svc, args.SettingsStrings); err != nil {
-			return err
-		}
-	}
-	// Update service's constraints.
-	if args.Constraints != nil {
-		return svc.SetConstraints(*args.Constraints)
-	}
-	return nil
-}
-
-// serviceSetCharm sets the charm for the given service.
-func (c *Client) serviceSetCharm(service *state.Service, url string, force bool) error {
-	curl, err := charm.ParseURL(url)
-	if err != nil {
-		return err
-	}
-	sch, err := c.api.stateAccessor.Charm(curl)
-	if errors.IsNotFound(err) {
-		// Charms should be added before trying to use them, with
-		// AddCharm or AddLocalCharm API calls. When they're not,
-		// we're reverting to 1.16 compatibility mode.
-		return c.serviceSetCharm1dot16(service, curl, force)
-	}
-	if err != nil {
-		return err
-	}
-	return service.SetCharm(sch, force)
-}
-
-// serviceSetCharm1dot16 sets the charm for the given service in 1.16
-// compatibility mode. Remove this when support for 1.16 is dropped.
-func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, force bool) error {
-	if curl.Schema != "cs" {
-		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-	}
-	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
-	}
-	err := c.AddCharm(params.CharmURL{
-		URL: curl.String(),
-	})
-	if err != nil {
-		return err
-	}
-	ch, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return err
-	}
-	return service.SetCharm(ch, force)
-}
-
-// serviceSetSettingsYAML updates the settings for the given service,
-// taking the configuration from a YAML string.
-func serviceSetSettingsYAML(service *state.Service, settings string) error {
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := ch.Config().ParseSettingsYAML([]byte(settings), service.Name())
-	if err != nil {
-		return err
-	}
-	return service.UpdateConfigSettings(changes)
-}
-
 // newServiceSetSettingsStringsForClientAPI updates the settings for the given
 // service, taking the configuration from a map of strings.
 //
@@ -401,22 +295,6 @@ func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings m
 	}
 
 	return service.UpdateConfigSettings(changes)
-}
-
-// ServiceSetCharm sets the charm for a given service.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
-	// when forced, don't block
-	if !args.Force {
-		if err := c.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	service, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	return c.serviceSetCharm(service, args.CharmUrl, args.Force)
 }
 
 // addServiceUnits adds a given number of units to a service.

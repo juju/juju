@@ -247,6 +247,7 @@ func newLocalClient(c *gc.C) *lxdclient.Client {
 		Remote:    lxdclient.Local,
 	})
 	if err != nil {
+		c.Log(err)
 		return nil
 	}
 	return client

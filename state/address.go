@@ -4,8 +4,9 @@
 package state
 
 import (
-	"fmt"
+	"net"
 	"reflect"
+	"strconv"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
@@ -64,7 +65,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 func appendPort(addrs []string, port int) []string {
 	newAddrs := make([]string, len(addrs))
 	for i, addr := range addrs {
-		newAddrs[i] = fmt.Sprintf("%s:%d", addr, port)
+		newAddrs[i] = net.JoinHostPort(addr, strconv.Itoa(port))
 	}
 	return newAddrs
 }

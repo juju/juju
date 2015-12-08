@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -45,6 +47,7 @@ func (testsuite) TestAssignUnitsNotFound(c *gc.C) {
 	api := New(f)
 	ids := []names.UnitTag{names.NewUnitTag("mysql/0")}
 	errs, err := api.AssignUnits(ids)
+	f.Lock()
 	c.Assert(f.request, gc.Equals, "AssignUnits")
 	c.Assert(f.params, gc.DeepEquals,
 		params.Entities{[]params.Entity{
@@ -63,6 +66,7 @@ func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 	}
 	api := New(f)
 	w, err := api.WatchUnitAssignments()
+	f.Lock()
 	c.Assert(f.request, gc.Equals, "WatchUnitAssignments")
 	c.Assert(f.params, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,6 +75,7 @@ func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 
 type fakeAssignCaller struct {
 	base.APICaller
+	sync.Mutex
 	request  string
 	params   interface{}
 	response params.ErrorResults
@@ -79,23 +84,27 @@ type fakeAssignCaller struct {
 }
 
 func (f *fakeAssignCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
+	f.Lock()
+	defer f.Unlock()
 	f.request = request
 	f.params = param
 	res, ok := response.(*params.ErrorResults)
 	if !ok {
 		f.c.Errorf("Expected *params.ErrorResults as response, but was %#v", response)
+	} else {
+		*res = f.response
 	}
-	*res = f.response
 	return f.err
 
 }
 
-func (fakeAssignCaller) BestFacadeVersion(facade string) int {
+func (*fakeAssignCaller) BestFacadeVersion(facade string) int {
 	return 1
 }
 
 type fakeWatchCaller struct {
 	base.APICaller
+	sync.Mutex
 	request  string
 	params   interface{}
 	response params.StringsWatchResult
@@ -104,17 +113,17 @@ type fakeWatchCaller struct {
 }
 
 func (f *fakeWatchCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
+	f.Lock()
+	defer f.Unlock()
 	f.request = request
 	f.params = param
-	res, ok := response.(*params.StringsWatchResult)
+	_, ok := response.(*params.StringsWatchResult)
 	if !ok {
 		f.c.Errorf("Expected *params.StringsWatchResult as response, but was %#v", response)
 	}
-	*res = f.response
 	return f.err
-
 }
 
-func (fakeWatchCaller) BestFacadeVersion(facade string) int {
+func (*fakeWatchCaller) BestFacadeVersion(facade string) int {
 	return 1
 }

@@ -17,7 +17,7 @@ import (
 
 type GetSuite struct {
 	coretesting.FakeJujuHomeSuite
-	fake *fakeServiceAPI
+	fake *fakeClientAPI
 }
 
 var _ = gc.Suite(&GetSuite{})
@@ -62,7 +62,7 @@ var getTests = []struct {
 
 func (s *GetSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAPI{servName: "dummy-service", charmName: "dummy",
+	s.fake = &fakeClientAPI{servName: "dummy-service", charmName: "dummy",
 		values: map[string]interface{}{
 			"title":       "Nearly There",
 			"skill-level": 100,

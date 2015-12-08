@@ -33,6 +33,11 @@ type azureStorageProvider struct{}
 
 var _ storage.Provider = (*azureStorageProvider)(nil)
 
+// StorageProvider returns the legacy azure storage.Provider.
+func StorageProvider() storage.Provider {
+	return &azureStorageProvider{}
+}
+
 var azureStorageConfigFields = schema.Fields{}
 
 var azureStorageConfigChecker = schema.FieldMap(

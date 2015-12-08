@@ -1,13 +1,16 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package container
+// filelock provides a machine wide file lock.
+package filelock
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/juju/loggo"
 )
 
 const (
@@ -17,8 +20,10 @@ const (
 
 var (
 	validName = regexp.MustCompile(NameRegexp)
+	logger    = loggo.GetLogger("juju.utils.filelock")
 )
 
+// Lock represents a machine wide file lock.
 type Lock struct {
 	name     string
 	lockDir  string
@@ -46,30 +51,30 @@ func NewLock(dir, name string) (*Lock, error) {
 
 // Lock blocks until it is able to acquire the lock. It is good behaviour to
 // provide a message that is output in debugging information.
-func (lock *Lock) Lock(message string) (err error) {
-	logger.Infof("acquire lock %q, %s", lock.name, message)
-	lock.lockFile, err = os.Open(lock.lockDir)
+func (lock *Lock) Lock(message string) error {
+	f, err := os.Open(lock.lockDir)
 	if err != nil {
 		return err
 	}
-	fd := int(lock.lockFile.Fd())
-	err = flockLock(fd)
-	if err != nil {
-		lock.lockFile.Close()
-		lock.lockFile = nil
+	fd := int(f.Fd())
+	if err := flockLock(fd); err != nil {
+		f.Close()
+		return err
 	}
-	return err
+	logger.Infof("acquired lock %q, %s", lock.name, message)
+	lock.lockFile = f
+	return nil
 }
 
 // Unlock releases a held lock.
 func (lock *Lock) Unlock() error {
-	logger.Infof("release lock %q", lock.name)
 	if lock.lockFile == nil {
 		return nil
 	}
 	fd := int(lock.lockFile.Fd())
 	err := flockUnlock(fd)
 	if err == nil {
+		logger.Infof("release lock %q", lock.name)
 		lock.lockFile.Close()
 		lock.lockFile = nil
 	}

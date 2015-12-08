@@ -195,6 +195,7 @@ type ServicesDeploy struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
+	Series        string
 	CharmUrl      string
 	NumUnits      int
 	Config        map[string]string
@@ -211,6 +212,7 @@ type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
 	ForceCharmUrl   bool
+	ForceSeries     bool
 	MinUnits        *int
 	SettingsStrings map[string]string
 	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
@@ -219,9 +221,10 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
-	ServiceName string
-	CharmUrl    string
-	Force       bool
+	ServiceName string `json:"servicename"`
+	CharmUrl    string `json:"charmurl"`
+	ForceUnits  bool   `json:"forceunits"`
+	ForceSeries bool   `json:"forceseries"`
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -236,6 +239,7 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
+// TODO(wallyworld) - deprecated, remove when GUI updated.
 // ServiceSetYAML holds the parameters for
 // a ServiceSetYAML command. Config contains the
 // configuration data in YAML format.
@@ -411,7 +415,7 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.

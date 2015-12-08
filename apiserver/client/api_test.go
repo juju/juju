@@ -5,7 +5,6 @@ package client_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,10 +28,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type baseSuite struct {
 	testing.JujuConnSuite
