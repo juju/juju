@@ -48,7 +48,7 @@ def terminate_instances(env, instance_ids):
     if provider_type == 'ec2':
         environ.update(get_euca_env(env.config))
         command_args = ['euca-terminate-instances'] + instance_ids
-    elif provider_type == 'openstack':
+    elif provider_type in ('openstack', 'rackspace'):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
@@ -454,6 +454,7 @@ def make_substrate_manager(config):
     substrate_factory = {
         'ec2': AWSAccount.manager_from_config,
         'openstack': OpenStackAccount.manager_from_config,
+        'rackspace': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
     }
