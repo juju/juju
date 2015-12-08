@@ -130,7 +130,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	}
 	if defaultURL != "" {
 		publicKey := simplestreamsImagesPublicKey
-		signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyEnvKey)
+		signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyFileEnvKey)
 		if signingKeyFile != "" {
 			path, err := utils.NormalizePath(signingKeyFile)
 			if err != nil {
