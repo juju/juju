@@ -59,6 +59,9 @@ def calculate_jobs(root, schedule_all=False):
             raise ValueError('Wrong path')
         candidate_version, revision_build = get_candidate_info(candidate_path)
         for release in releases:
+            # Releases with the same major number must be compatible.
+            if release[:2] != candidate[:2]:
+                continue
             for client_os in ('ubuntu', 'osx', 'windows'):
                 yield {
                     'old_version': release,  # Client
