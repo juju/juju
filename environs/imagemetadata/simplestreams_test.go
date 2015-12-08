@@ -6,7 +6,9 @@ package imagemetadata_test
 import (
 	"bytes"
 	"flag"
+	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"io/ioutil"
-	"path/filepath"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
