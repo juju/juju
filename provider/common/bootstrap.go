@@ -147,6 +147,21 @@ var FinishBootstrap = func(
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
+	addr, err := WaitSSH(
+		ctx.GetStderr(),
+		interrupted,
+		client,
+		GetCheckNonceCommand(instanceConfig),
+		&RefreshableInstance{inst, env},
+		instanceConfig.Config.BootstrapSSHOpts(),
+	)
+	if err != nil {
+		return err
+	}
+	return ConfigureMachine(ctx, client, addr, instanceConfig)
+}
+
+func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	// Each attempt to connect to an address must verify the machine is the
 	// bootstrap machine by checking its nonce file exists and contains the
 	// nonce in the InstanceConfig. This also blocks sshinit from proceeding
@@ -165,18 +180,7 @@ var FinishBootstrap = func(
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(instanceConfig.MachineNonce))
-	addr, err := waitSSH(
-		ctx,
-		interrupted,
-		client,
-		checkNonceCommand,
-		&refreshableInstance{inst, env},
-		instanceConfig.Config.BootstrapSSHOpts(),
-	)
-	if err != nil {
-		return err
-	}
-	return ConfigureMachine(ctx, client, addr, instanceConfig)
+	return checkNonceCommand
 }
 
 func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, instanceConfig *instancecfg.InstanceConfig) error {
@@ -216,7 +220,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	})
 }
 
-type addresser interface {
+type Addresser interface {
 	// Refresh refreshes the addresses for the instance.
 	Refresh() error
 
@@ -226,14 +230,14 @@ type addresser interface {
 	Addresses() ([]network.Address, error)
 }
 
-type refreshableInstance struct {
+type RefreshableInstance struct {
 	instance.Instance
-	env environs.Environ
+	Env environs.Environ
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *refreshableInstance) Refresh() error {
-	instances, err := i.env.Instances([]instance.Id{i.Id()})
+func (i *RefreshableInstance) Refresh() error {
+	instances, err := i.Env.Instances([]instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -373,7 +377,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
+func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -383,7 +387,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
-		stderr:          ctx.GetStderr(),
+		stderr:          stdErr,
 		active:          make(map[network.Address]chan struct{}),
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
@@ -391,7 +395,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	defer checker.wg.Wait()
 	defer checker.Kill()
 
-	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")
+	fmt.Fprintln(stdErr, "Waiting for address")
 	for {
 		select {
 		case <-pollAddresses.C:
