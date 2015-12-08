@@ -23,6 +23,7 @@ from jujupy import (
     EnvJujuClient,
 )
 from utility import (
+    wait_for_port,
     print_now,
     add_basic_testing_arguments,
 )
@@ -347,19 +348,31 @@ def assess_container_networking(client, args):
         types = [KVM_MACHINE, LXC_MACHINE]
 
     hosts, containers = make_machines(client, types)
+    status = client.wait_for_started().status
+
     _assess_container_networking(client, types, hosts, containers)
-    for host in hosts:
+
+    # Reboot all hosts apart from machine 0 because we use machine 0 to jump
+    # through for some hosts.
+    for host in hosts[1:]:
         ssh(client, host, 'sudo reboot')
 
-    # If wait_for_started is called too early the machines still appear to be
-    # up, so we wait a few seconds for the reboot.
-    time.sleep(10)
+    # Finally reboot machine 0
+    ssh(client, hosts[0], 'sudo reboot')
+
+    # Wait for the state server to shut down. This prevents us from calling
+    # wait_for_started before machine 0 has shut down, which can cause us
+    # to think that we have finished rebooting before we actually have.
+    hostname = status['machines'][hosts[0]]['dns-name']
+    wait_for_port(hostname, 22, closed=True)
+
     client.wait_for_started()
 
-    # Once Juju is up it can take a little while before ssh responds. This
-    # seems to be around 25 seconds for an EC2 m3.medium machine. We pause for
-    # 20 seconds here and let the ssh retry logic deal with any extra delay.
-    time.sleep(20)
+    # Once Juju is up it can take a little while before ssh responds.
+    for host in hosts:
+        hostname = status['machines'][host]['dns-name']
+        wait_for_port(hostname, 22, timeout=240)
+
     _assess_container_networking(client, types, hosts, containers)
 
 

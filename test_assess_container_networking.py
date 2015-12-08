@@ -312,53 +312,45 @@ class TestContainerNetworking(TestCase):
                 jcnet.assess_network_traffic, self.client, targets)
 
     def test_test_address_range(self):
-        rtn = Mock(**{'r.side_effect': [
-            '192.168.0.2', '192.168.0.3', '192.168.0.4', '192.168.0.5']})
-        with patch('assess_container_networking.socket.gethostbyname',
-                   rtn.r):
-            targets = ['0/lxc/0', '0/lxc/1']
-            self.juju_mock.set_status({'machines': {'0': {
-                'containers': {
-                    targets[0]: {'dns-name': 'lxc0-dns-name'},
-                    targets[1]: {'dns-name': 'lxc1-dns-name'},
-                },
-                'dns-name': '0-dns-name',
-            }}})
-            self.juju_mock.set_ssh_output([
-                'default via 192.168.0.1 dev eth3',
-                '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
-                'global eth3\       valid_lft forever preferred_lft forever',
-                '192.168.0.0/24',
-            ])
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {
+                targets[0]: {'dns-name': 'lxc0-dns-name'},
+                targets[1]: {'dns-name': 'lxc1-dns-name'},
+            },
+            'dns-name': '0-dns-name',
+        }}})
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3',
+            '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
+            'global eth3\       valid_lft forever preferred_lft forever',
+            '192.168.0.0/24',
+        ])
 
-            jcnet.assess_address_range(self.client, targets)
+        jcnet.assess_address_range(self.client, targets)
 
     def test_test_address_range_fail(self):
-        rtn = Mock(**{'r.side_effect': [
-            '192.168.0.2', '192.168.0.3', '192.168.0.4', '192.168.0.5']})
-        with patch('assess_container_networking.socket.gethostbyname',
-                   rtn.r):
-            targets = ['0/lxc/0', '0/lxc/1']
-            self.juju_mock.set_status({'machines': {'0': {
-                'containers': {
-                    targets[0]: {'dns-name': 'lxc0-dns-name'},
-                    targets[1]: {'dns-name': 'lxc1-dns-name'},
-                },
-                'dns-name': '0-dns-name',
-            }}})
-            self.juju_mock.set_ssh_output([
-                'default via 192.168.0.1 dev eth3',
-                '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
-                'global eth3\       valid_lft forever preferred_lft forever',
-                '192.168.0.0/24',
-                '192.168.1.0/24',
-                '192.168.2.0/24',
-                '192.168.3.0/24',
-            ])
+        targets = ['0/lxc/0', '0/lxc/1']
+        self.juju_mock.set_status({'machines': {'0': {
+            'containers': {
+                targets[0]: {'dns-name': 'lxc0-dns-name'},
+                targets[1]: {'dns-name': 'lxc1-dns-name'},
+            },
+            'dns-name': '0-dns-name',
+        }}})
+        self.juju_mock.set_ssh_output([
+            'default via 192.168.0.1 dev eth3',
+            '2: eth3    inet 192.168.0.22/24 brd 192.168.0.255 scope '
+            'global eth3\       valid_lft forever preferred_lft forever',
+            '192.168.0.0/24',
+            '192.168.1.0/24',
+            '192.168.2.0/24',
+            '192.168.3.0/24',
+        ])
 
-            self.assertRaisesRegexp(
-                ValueError, '0/lxc/0 \S+ not on the same subnet as 0 \S+',
-                jcnet.assess_address_range, self.client, targets)
+        self.assertRaisesRegexp(
+            ValueError, '0/lxc/0 \S+ not on the same subnet as 0 \S+',
+            jcnet.assess_address_range, self.client, targets)
 
     def test_test_internet_connection(self):
         targets = ['0/lxc/0', '0/lxc/1']
