@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent"
@@ -36,6 +37,25 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 	if err != nil {
 		return err
 	}
+	services, err := st.AllServices()
+	if err != nil {
+		return err
+	}
+	usedCharms := make(set.Strings)
+	for _, service := range services {
+		url, _ := service.CharmURL()
+		usedCharms.Add(url.String())
+
+		units, err := service.AllUnits()
+		if err != nil {
+			return err
+		}
+		for _, unit := range units {
+			if url, ok := unit.CharmURL(); ok {
+				usedCharms.Add(url.String())
+			}
+		}
+	}
 	storage := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
 
 	// Local and manual provider host storage on the state server's
@@ -58,6 +78,11 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 			logger.Debugf("skipping %s, not uploaded to provider storage", ch.URL())
 			continue
 		}
+		curl := ch.URL()
+		if !usedCharms.Contains(curl.String()) {
+			logger.Debugf("skipping %s, not used by any service or unit", ch.URL())
+			continue
+		}
 		if charmStoragePath(ch) != "" {
 			logger.Debugf("skipping %s, already in environment storage", ch.URL())
 			continue
@@ -76,7 +101,6 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 			return err
 		}
 
-		curl := ch.URL()
 		storagePath := fmt.Sprintf("charms/%s-%s", curl, uuid)
 		logger.Debugf("uploading %s to %q in environment storage", curl, storagePath)
 		err = storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
