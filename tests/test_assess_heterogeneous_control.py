@@ -267,3 +267,5 @@ class TestTestControlHeterogeneous(TestCase):
         bs_manager.permanent = True
         test_control_heterogeneous(bs_manager, other_client, True)
         self.assertEqual(initial_client.juju_home, other_client.juju_home)
+        self.assertEqual(
+            initial_client.env.environment, other_client.env.environment)

@@ -636,6 +636,7 @@ class FakeBootstrapManager:
     @contextmanager
     def bootstrap_context(self, bootstrap_host, machines):
         initial_home = self.client.juju_home
+        self.client.env.environment = self.client.env.environment + '-temp'
         try:
             self.entered_bootstrap = True
             self.client.juju_home = os.path.join(initial_home, 'isolated')
