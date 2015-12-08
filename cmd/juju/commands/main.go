@@ -130,7 +130,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newRemoveRelationCommand())
 	r.Register(newRemoveServiceCommand())
 	r.Register(newRemoveUnitCommand())
-	r.Register(newDestroyEnvironmentCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -196,6 +195,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(environment.NewSetCommand())
 	r.Register(environment.NewUnsetCommand())
 	r.Register(environment.NewRetryProvisioningCommand())
+	r.Register(environment.NewDestroyCommand())
 
 	r.Register(environment.NewShareCommand())
 	r.Register(environment.NewUnshareCommand())

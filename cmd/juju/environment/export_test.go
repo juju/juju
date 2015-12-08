@@ -78,8 +78,8 @@ func NewUsersCommandForTest(api UsersAPI) cmd.Command {
 	return envcmd.Wrap(cmd)
 }
 
-// NewDestroyCommand returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommand(api DestroyEnvironmentAPI) cmd.Command {
+// NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
+func NewDestroyCommandForTest(api DestroyEnvironmentAPI) cmd.Command {
 	cmd := &destroyCommand{
 		api: api,
 	}
