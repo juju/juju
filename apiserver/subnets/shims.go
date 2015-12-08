@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/network"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -19,7 +20,7 @@ import (
 // subnetShim forwards and adapts state.Subnets methods to
 // common.BackingSubnet.
 type subnetShim struct {
-	common.BackingSubnet
+	networkingcommon.BackingSubnet
 	subnet *state.Subnet
 }
 
@@ -58,7 +59,7 @@ func (s *subnetShim) SpaceName() string {
 
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	common.BackingSpace
+	networkingcommon.BackingSpace
 	space *state.Space
 }
 
