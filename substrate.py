@@ -8,7 +8,6 @@ import subprocess
 from time import sleep
 import urlparse
 
-from utility import temp_dir
 from boto import ec2
 from boto.exception import EC2ResponseError
 
@@ -19,6 +18,7 @@ from jujuconfig import (
 )
 from utility import (
     print_now,
+    temp_dir,
     until_timeout,
 )
 

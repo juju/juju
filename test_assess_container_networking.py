@@ -1,8 +1,12 @@
+from copy import deepcopy
+from contextlib import contextmanager
+from unittest import TestCase
+
 from mock import (
     patch,
     Mock,
 )
-from unittest import TestCase
+
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
@@ -10,8 +14,6 @@ from jujupy import (
 )
 
 import assess_container_networking as jcnet
-from copy import deepcopy
-from contextlib import contextmanager
 from tests import parse_error
 
 

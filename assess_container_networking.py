@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from argparse import ArgumentParser
 from copy import (
     copy,
     deepcopy,
 )
 import logging
-import time
 import re
-import tempfile
 import os
 import subprocess
+import tempfile
 from textwrap import dedent
-from argparse import ArgumentParser
+import time
 
+from deploy_stack import (
+    update_env,
+    dump_env_logs,
+    get_random_string,
+)
 from jujuconfig import (
     get_juju_home,
 )
@@ -27,11 +32,7 @@ from utility import (
     print_now,
     add_basic_testing_arguments,
 )
-from deploy_stack import (
-    update_env,
-    dump_env_logs,
-    get_random_string,
-)
+
 
 KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
