@@ -70,6 +70,17 @@ func (s *ManifoldSuite) TestSameManifoldWorkersConnected(c *gc.C) {
 	assertUnlocked(c, w)
 }
 
+func (s *ManifoldSuite) TestLockOutput(c *gc.C) {
+	var lock gate.Lock
+	err := s.manifold.Output(s.worker, &lock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := waiter(c, s.manifold, s.worker)
+	assertLocked(c, w)
+	lock.Unlock()
+	assertUnlocked(c, w)
+}
+
 func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *gc.C) {
 	manifold2 := gate.Manifold()
 	worker2, err := manifold2.Start(nil)
