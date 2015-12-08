@@ -79,9 +79,9 @@ peers:
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
-	_, err := s.State.AddSpace("client", nil, true)
+	_, err := s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("apps", nil, false)
+	_, err = s.State.AddSpace("apps", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

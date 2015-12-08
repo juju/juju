@@ -518,7 +518,7 @@ func (api *subnetsAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubne
 
 	// Try adding the subnet.
 	backingInfo := common.BackingSubnetInfo{
-		ProviderId:        string(subnetInfo.ProviderId),
+		ProviderId:        subnetInfo.ProviderId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AvailabilityZones: zones,
@@ -592,7 +592,7 @@ func (api *subnetsAPI) ListSubnets(args params.SubnetsFilters) (results params.L
 		}
 		result := params.Subnet{
 			CIDR:       subnet.CIDR(),
-			ProviderId: subnet.ProviderId(),
+			ProviderId: string(subnet.ProviderId()),
 			VLANTag:    subnet.VLANTag(),
 			Life:       subnet.Life(),
 			SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),

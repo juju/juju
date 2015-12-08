@@ -130,7 +130,7 @@ func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
 	}
 
 	for _, subnetId := range f.SubnetIds {
-		providerId := "provider-" + subnetId
+		providerId := network.Id("provider-" + subnetId)
 
 		// Pick the third element of the IP address and use this to
 		// decide how we construct the Subnet. It provides variation of
@@ -303,7 +303,7 @@ func (f *FakeSubnet) AvailabilityZones() []string {
 	return f.info.AvailabilityZones
 }
 
-func (f *FakeSubnet) ProviderId() string {
+func (f *FakeSubnet) ProviderId() network.Id {
 	return f.info.ProviderId
 }
 
@@ -394,7 +394,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	if withSubnets {
 		info0 := common.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
-			ProviderId:        string(ProviderInstance.Subnets[0].ProviderId),
+			ProviderId:        ProviderInstance.Subnets[0].ProviderId,
 			AllocatableIPLow:  ProviderInstance.Subnets[0].AllocatableIPLow.String(),
 			AllocatableIPHigh: ProviderInstance.Subnets[0].AllocatableIPHigh.String(),
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
@@ -402,7 +402,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		}
 		info1 := common.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[1].CIDR,
-			ProviderId:        string(ProviderInstance.Subnets[1].ProviderId),
+			ProviderId:        ProviderInstance.Subnets[1].ProviderId,
 			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
 			SpaceName:         "dmz",
 		}
@@ -483,8 +483,8 @@ func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.Ba
 	return fs, nil
 }
 
-func (sb *StubBacking) AddSpace(name string, subnets []string, public bool) error {
-	sb.MethodCall(sb, "AddSpace", name, subnets, public)
+func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string, public bool) error {
+	sb.MethodCall(sb, "AddSpace", name, providerId, subnets, public)
 	if err := sb.NextErr(); err != nil {
 		return err
 	}
