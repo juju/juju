@@ -104,6 +104,9 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         status = other.get_status()
         other.juju('unexpose', ('dummy-sink',))
         status = other.get_status()
+        if status.status['services']['dummy-sink']['exposed']:
+            raise AssertionError('dummy-sink is still exposed')
+        status = other.get_status()
         juju_with_fallback(other, released, 'deploy',
                            ('local:dummy-sink', 'sink2'))
         other.wait_for_started()
