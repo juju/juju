@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -444,6 +445,44 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
+type mockEnviron struct {
+	environs.Environ
+	allInstancesCalled bool
+	err                error
+}
+
+func (m *mockEnviron) AllInstances() ([]instance.Instance, error) {
+	m.allInstancesCalled = true
+	return nil, m.err
+}
+
+func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
+	env := &mockEnviron{err: envError}
+	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
+		return env, nil
+	})
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetEnvironAgentVersion(args)
+	c.Assert(env.allInstancesCalled, jc.IsTrue)
+	if expectErr != "" {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
+	s.assertCheckProviderAPI(c, nil, "")
+	s.assertCheckProviderAPI(c, environs.ErrPartialInstances, "")
+	s.assertCheckProviderAPI(c, environs.ErrNoInstances, "")
+}
+
+func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
+	s.assertCheckProviderAPI(c, fmt.Errorf("instances error"), "cannot make API call to provider: instances error")
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {

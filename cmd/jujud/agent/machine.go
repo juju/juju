@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -932,6 +933,7 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 			apiConn,
 			jobs,
 			a.openStateForUpgrade,
+			upgrades.PreUpgradeSteps,
 			machine,
 		)
 	}
