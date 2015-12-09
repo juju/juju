@@ -192,6 +192,9 @@ class FakeJujuClient:
         if cmd == 'expose':
             (service,) = args
             self._backing_state.exposed.add(service)
+        if cmd == 'unexpose':
+            (service,) = args
+            self._backing_state.exposed.remove(service)
         if cmd == 'add-unit':
             (service,) = args
             self._backing_state.add_unit(service)
