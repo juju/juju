@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newUnsetCommand() cmd.Command {
+func NewUnsetCommand() cmd.Command {
 	return envcmd.Wrap(&unsetCommand{})
 }
 
@@ -34,10 +34,11 @@ Multiple attributes may be removed at once; keys should be space-separated.
 
 func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "unset",
+		Name:    "unset-environment",
 		Args:    "<environment key> ...",
 		Purpose: "unset environment values",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
+		Aliases: []string{"unset-env"},
 	}
 }
 

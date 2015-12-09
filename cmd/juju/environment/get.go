@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-func newGetCommand() cmd.Command {
+func NewGetCommand() cmd.Command {
 	return envcmd.Wrap(&getCommand{})
 }
 
@@ -35,15 +35,16 @@ the end of the command line.
 
 Example:
   
-  juju environment get default-series  (returns the default series for the environment)
+  juju get-environment default-series  (returns the default series for the environment)
 `
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get",
+		Name:    "get-environment",
 		Args:    "[<environment key>]",
 		Purpose: "view environment values",
 		Doc:     strings.TrimSpace(getEnvHelpDoc),
+		Aliases: []string{"get-env"},
 	}
 }
 
