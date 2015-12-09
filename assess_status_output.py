@@ -131,10 +131,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    client = make_client(
-        args.juju_path, args.debug, args.env, args.temp_env_name)
-    # client.destroy_environment()
     series = args.series
     if series is None:
         args.series = 'precise'
