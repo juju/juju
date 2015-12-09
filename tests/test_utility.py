@@ -21,6 +21,7 @@ from mock import (
 
 from utility import (
     add_basic_testing_arguments,
+    ErrJujuPath,
     extract_deb,
     find_candidates,
     find_latest_branch_candidates,
@@ -287,6 +288,30 @@ class TestAddBasicTestingArguments(TestCase):
             verbose=logging.INFO, agent_stream=None, keep_env=False,
             upload_tools=False, bootstrap_host=None, machine=[], region=None)
         self.assertEqual(args, expected)
+
+    def test_positional_args_add_juju_bin_name(self):
+        cmd_line = ['local', '/juju', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/juju')
+
+    def test_positional_args_accepts_juju_exe(self):
+        cmd_line = ['local', '/juju.exe', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/juju.exe')
+
+    def test_positional_args_raises_ErrJujuPath(self):
+        cmd_line = ['local', '/foo', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        with self.assertRaises(ErrJujuPath):
+            parser.parse_args(cmd_line)
+
+    def test_positional_args_juju_bin_empty(self):
+        cmd_line = ['local', '', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        with self.assertRaises(ErrJujuPath):
+            parser.parse_args(cmd_line)
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']

@@ -31,7 +31,7 @@ s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
 deb=$(find . -name $package|sed -r 's/.*build-([0-9]+)\/.*/\1 \0/'|sort -g|\
       tail -n1| cut -f 2 -d ' ')
 dpkg -x $deb extracted-bin
-JUJU_BIN=$(dirname $(find extracted-bin -name 'juju'))
+JUJU_BIN=$(find extracted-bin -name 'juju')
 $SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     echo "Setting the default juju to 1.20.11."
@@ -43,4 +43,4 @@ if [[ $VERSION =~ ^1\.23.*$ ]]; then
 fi
 
 timeout -s INT $timeout $SCRIPTS/deploy_job.py --series $series\
-   $ENV $JUJU_BIN/juju $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
+   $ENV $JUJU_BIN $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
