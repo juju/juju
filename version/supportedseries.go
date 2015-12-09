@@ -192,7 +192,7 @@ func SeriesVersion(series string) (string, error) {
 	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	updateSeriesVersions()
+	updateSeriesVersionsOnce()
 	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
@@ -204,7 +204,7 @@ func SeriesVersion(series string) (string, error) {
 func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
-	updateSeriesVersions()
+	updateSeriesVersionsOnce()
 	var series []string
 	for s := range seriesVersions {
 		series = append(series, s)
@@ -226,7 +226,15 @@ func OSSupportedSeries(os OSType) []string {
 	return osSeries
 }
 
-func updateSeriesVersions() {
+// UpdateSeriesVersions forces an update of the series versions by querying
+// distro-info if possible.
+func UpdateSeriesVersions() error {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+	return updateDistroInfo()
+}
+
+func updateSeriesVersionsOnce() {
 	if !updatedseriesVersions {
 		err := updateDistroInfo()
 		if err != nil {
