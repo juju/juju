@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -119,9 +120,35 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"state-server": true},
 	})
+	defer st.Close()
 
-	st.Close()
-	s.run(c, "destroy-controller", "dummyenv", "-y", "--destroy-all-environments")
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	// In order for the destroy controller command to complete we need to run
+	// the code that the cleaner and undertaker workers would be running in
+	// the agent in order to progress the lifecycle of the hosted environment,
+	// and cleanup the documents.
+	go func() {
+		defer close(done)
+		for {
+			err := s.State.Cleanup()
+			c.Check(err, jc.ErrorIsNil)
+			err = st.ProcessDyingEnviron()
+			if errors.Cause(err) != state.ErrEnvironmentNotDying {
+				c.Check(err, jc.ErrorIsNil)
+			}
+			select {
+			case <-stop:
+				return
+			case <-time.After(200 * time.Millisecond):
+				//continue
+			}
+		}
+	}()
+
+	s.run(c, "destroy-controller", "dummyenv", "-y", "--destroy-all-environments", "--debug")
+	close(stop)
+	<-done
 
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
