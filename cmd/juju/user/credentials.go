@@ -21,7 +21,7 @@ as the same user from another machine.
 
 Examples:
 
-    $ juju user credentials --output staging.creds
+    $ juju get-user-credentials --output staging.creds
 
     # copy the staging.creds file to another machine
 
@@ -32,7 +32,7 @@ See Also:
     juju controller login
 `
 
-func newCredentialsCommand() cmd.Command {
+func NewCredentialsCommand() cmd.Command {
 	return envcmd.WrapController(&credentialsCommand{})
 }
 
@@ -45,7 +45,7 @@ type credentialsCommand struct {
 // Info implements Command.Info.
 func (c *credentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "credentials",
+		Name:    "get-user-credentials",
 		Purpose: "save the credentials and server details to a file",
 		Doc:     userCredentialsDoc,
 	}

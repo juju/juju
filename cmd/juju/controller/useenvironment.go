@@ -88,7 +88,7 @@ See Also:
     juju help environment share
     juju help environment unshare
     juju help switch
-    juju help user add
+    juju help add-user
 `
 
 // Info implements Command.Info

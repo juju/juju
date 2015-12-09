@@ -29,7 +29,7 @@ This allows the creation, listing, and disabling of users. When a juju
 controller is initially bootstrapped, there is only one user.  Additional
 users are created as follows:
 
-    $ juju user add bob "Bob Brown"
+    $ juju add-user bob "Bob Brown"
     user "Bob Brown (bob)" added
     server file written to /current/working/directory/bob.server
 

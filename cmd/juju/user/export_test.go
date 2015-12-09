@@ -32,26 +32,26 @@ type DisenableUserBase struct {
 	*disenableUserBase
 }
 
-func NewAddCommand(api AddUserAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddUserAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
 	return envcmd.WrapController(c), &AddCommand{c}
 }
 
-func NewInfoCommand(api UserInfoAPI) cmd.Command {
+func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
 	return envcmd.WrapController(&infoCommand{
 		infoCommandBase: infoCommandBase{
 			api: api,
 		}})
 }
 
-func NewCredentialsCommand() (cmd.Command, *CredentialsCommand) {
+func NewCredentialsCommandForTest() (cmd.Command, *CredentialsCommand) {
 	c := &credentialsCommand{}
 	return envcmd.WrapController(c), &CredentialsCommand{c}
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
+func NewChangePasswordCommandForTest(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
 	c := &changePasswordCommand{
 		api:    api,
 		writer: writer,
@@ -61,7 +61,7 @@ func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWrit
 
 // NewDisableCommand returns a DisableCommand with the api provided as
 // specified.
-func NewDisableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
+func NewDisableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 	c := &disableCommand{
 		disenableUserBase{
 			api: api,
@@ -72,7 +72,7 @@ func NewDisableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 
 // NewEnableCommand returns a EnableCommand with the api provided as
 // specified.
-func NewEnableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
+func NewEnableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 	c := &enableCommand{
 		disenableUserBase{
 			api: api,
@@ -82,7 +82,7 @@ func NewEnableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommand(api UserInfoAPI) cmd.Command {
+func NewListCommandForTest(api UserInfoAPI) cmd.Command {
 	c := &listCommand{
 		infoCommandBase: infoCommandBase{
 			api: api,
