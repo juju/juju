@@ -486,6 +486,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
+			WriteUninstallFile:   a.writeUninstallAgentFile,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -689,16 +690,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	agentConfig := a.CurrentConfig()
-	if machine.Life() == params.Dead {
-		logger.Errorf("agent terminating - %s is dead", names.ReadableString(a.Tag()))
-		if err := writeUninstallAgentFile(agentConfig.DataDir()); err != nil {
-			return nil, errors.Annotate(err, "writing uninstall agent file")
-		}
-		return nil, worker.ErrTerminateAgent
-	}
-
 	for _, job := range machine.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -712,7 +703,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 			if err != nil {
 				return nil, err
 			}
-			agentConfig = a.CurrentConfig()
 			break
 		}
 	}
@@ -721,7 +711,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.postUpgradeAPIWorker(st, agentConfig, machine.Jobs())
+		return a.postUpgradeAPIWorker(st, a.CurrentConfig(), machine.Jobs())
 	})
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
@@ -791,7 +781,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			Tag:             agentConfig.Tag().(names.MachineTag),
 			ClearMachineAddressesOnStart: ignoreMachineAddresses,
 			NotifyMachineDead: func() error {
-				return writeUninstallAgentFile(agentConfig.DataDir())
+				return a.writeUninstallAgentFile()
 			},
 		})
 		if err != nil {
@@ -1920,8 +1910,9 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
 // which will cause the agent to uninstall itself when it encounters
 // the ErrTerminateAgent error.
-func writeUninstallAgentFile(dataDir string) error {
-	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
+func (a *MachineAgent) writeUninstallAgentFile() error {
+	logger.Errorf("agent terminating - %s is dead", names.ReadableString(a.Tag()))
+	uninstallFile := filepath.Join(a.CurrentConfig().DataDir(), agent.UninstallAgentFile)
 	return ioutil.WriteFile(uninstallFile, nil, 0644)
 }
 
