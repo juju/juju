@@ -3,9 +3,6 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from status import StatusTester
-from jujupy import (
-    make_client,
-)
 from deploy_stack import (
     BootstrapManager,
 )

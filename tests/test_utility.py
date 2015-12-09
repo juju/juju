@@ -295,6 +295,12 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/juju')
 
+    def test_positional_args_accepts_juju_exe(self):
+        cmd_line = ['local', '/juju.exe', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/juju.exe')
+
     def test_positional_args_raises_ErrJujuPath(self):
         cmd_line = ['local', '/foo', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser())
