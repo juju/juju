@@ -86,7 +86,8 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
     """Test if one binary can control an environment set up by the other."""
     initial = bs_manager.client
     released = bs_manager.tear_down_client
-    # Use a reference instead of a copy so that update_env affects all.
+    # Work around bug #1524398.  Force all clients to use the same env
+    # instance.
     other.env = initial.env
     released.env = initial.env
     with run_context(bs_manager, other, upload_tools):

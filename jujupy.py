@@ -237,6 +237,7 @@ class EnvJujuClient:
         if env is None:
             self.env = None
         else:
+            # XXX This is cruft.  See bug #1524398.
             self.env = SimpleEnvironment(env.environment, env.config)
         self.version = version
         self.full_path = full_path
