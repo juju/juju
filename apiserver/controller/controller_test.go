@@ -217,7 +217,7 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	}
 }
 
-func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
+func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
 	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
 	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name:    "dummytoo",
@@ -248,7 +248,7 @@ func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
 	}
-	results, err := s.systemManager.EnvironmentStatus(req)
+	results, err := s.controller.EnvironmentStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.EnvironmentStatus{{
 		EnvironTag:         controllerEnvTag,

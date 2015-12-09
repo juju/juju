@@ -78,7 +78,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(err, gc.ErrorMatches, "controller environment cannot be destroyed before all other environments are destroyed")
 }
 
 func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
@@ -152,10 +152,10 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	}
 }
 
-func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
-	sysManager := s.OpenAPI(c)
+func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
+	controller := s.OpenAPI(c)
 	envTag := s.State.EnvironTag()
-	results, err := sysManager.EnvironmentStatus(envTag)
+	results, err := controller.EnvironmentStatus(envTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.EnvironmentStatus{{
 		UUID:               envTag.Id(),
