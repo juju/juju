@@ -54,7 +54,7 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 
 func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *gc.C) {
 	s.assertImageMetadataURLOfficialSource(c, imagemetadata.UbuntuCloudImagesURL)
-	s.assertImageMetadataURLOfficialSource(c, imagemetadata.UbuntuStreamsImagesURL)
+	s.assertImageMetadataURLOfficialSource(c, imagemetadata.JujuStreamsImagesURL)
 }
 
 func (s *URLsSuite) assertImageMetadataURLOfficialSource(c *gc.C, baseURL string) {

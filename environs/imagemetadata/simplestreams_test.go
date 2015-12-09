@@ -35,7 +35,7 @@ type liveTestData struct {
 
 var liveUrls = map[string]liveTestData{
 	"ec2": {
-		baseURL:        imagemetadata.DefaultBaseURL,
+		baseURL:        imagemetadata.DefaultUbuntuBaseURL,
 		requireSigned:  true,
 		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
 	},

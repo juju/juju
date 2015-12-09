@@ -41,7 +41,7 @@ const (
 
 	// JujuImageStreamsPublicKeyFileEnvKey is a file containing the public
 	// key used to sign image simplestreams metadata.
-	JujuImageStreamsPublicKeyFileEnvKey = "JUJU_IMAGESTREAMS_PUBLICKEY"
+	JujuImageStreamsPublicKeyFileEnvKey = "JUJU_IMAGESTREAMS_PUBLICKEY_FILE"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

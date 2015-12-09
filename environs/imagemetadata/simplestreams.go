@@ -99,13 +99,13 @@ p7vH1ewg+vd9ySST0+OkWXYpbMOIARfBKyrGM3nu
 `
 
 const (
-	// The legacy location where Ubuntu cloud image metadata is published for
+	// The location where Ubuntu generic cloud image metadata is published for
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
 
-	// The location where Ubuntu cloud image metadata is published for
-	// public consumption.
-	UbuntuStreamsImagesURL = "https://streams.canonical.com/juju/images"
+	// The ;ocation of juju specific image metadata including non-Ubuntu images
+	// in public clouds.
+	JujuStreamsImagesURL = "https://streams.canonical.com/juju/images"
 
 	// The path where released image metadata is found.
 	ReleasedImagesPath = "releases"
@@ -114,8 +114,8 @@ const (
 // This needs to be a var so we can override it for testing and in bootstrap.
 var (
 	//
-	DefaultBaseURL    = UbuntuCloudImagesURL
-	DefaultNewBaseURL = UbuntuStreamsImagesURL
+	DefaultUbuntuBaseURL = UbuntuCloudImagesURL
+	DefaultJujuBaseURL   = JujuStreamsImagesURL
 )
 
 // OfficialDataSources returns the simplestreams datasources where official
@@ -124,7 +124,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
 	// New images metadata for centos and windows and existing clouds.
-	defaultURL, err := ImageMetadataURL(DefaultNewBaseURL, stream)
+	defaultURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	}
 
 	// Fallback to image metadata for existing clouds.
-	defaultLegacyURL, err := ImageMetadataURL(DefaultBaseURL, stream)
+	defaultLegacyURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
 	if err != nil {
 		return nil, err
 	}
