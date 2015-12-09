@@ -17,7 +17,6 @@ var (
 	NewStateStorage           = &newStateStorage
 	StateToolsStorage         = &stateToolsStorage
 	AddAZToInstData           = &addAZToInstData
-	MinDiskSpaceGib           = &minDiskSpaceGib
 
 	ChownPath       = &chownPath
 	IsLocalEnviron  = &isLocalEnviron
