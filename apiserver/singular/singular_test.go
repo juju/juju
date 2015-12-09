@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/singular"
+	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -80,12 +81,14 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 func (s *SingularSuite) TestValidClaims(c *gc.C) {
 	durations := []time.Duration{
 		time.Second,
+		10 * time.Second,
 		30 * time.Second,
 		time.Minute,
 	}
 	errors := []error{
 		nil,
 		errors.New("pow!"),
+		lease.ErrClaimDenied,
 		nil,
 	}
 	count := len(durations)
@@ -120,9 +123,12 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, count)
 
 	for i, err := range result.Results {
-		if errors[i] == nil {
+		switch errors[i] {
+		case nil:
 			c.Check(err.Error, gc.IsNil)
-		} else {
+		case lease.ErrClaimDenied:
+			c.Check(err.Error, jc.Satisfies, params.IsCodeLeaseClaimDenied)
+		default:
 			c.Check(err.Error.Error(), gc.Equals, errors[i].Error())
 		}
 	}
