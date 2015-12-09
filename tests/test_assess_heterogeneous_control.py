@@ -117,6 +117,10 @@ class TestTestControlHeterogeneous(TestCase):
         client = FakeJujuClient()
         bs_manager = FakeBootstrapManager(client)
         test_control_heterogeneous(bs_manager, client, True)
+        self.assertEqual(client._backing_state.exposed,
+                         {'sink2', 'dummy-sink'})
+        self.assertEqual(client._backing_state.machines, {'0', '1', '2'})
+        self.assertEqual(client.juju_home, 'foo')
 
     def test_same_home_and_env(self):
         initial_client = FakeJujuClient()
