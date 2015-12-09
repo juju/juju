@@ -6,12 +6,10 @@ package spaces
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -57,52 +55,12 @@ func newAPIWithBacking(backing networkingcommon.BackingState, resources *common.
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	err = api.supportsSpaces()
-	if err != nil {
-		return results, common.ServerError(errors.Trace(err))
-	}
-
-	results.Results = make([]params.ErrorResult, len(args.Spaces))
-
-	for i, space := range args.Spaces {
-		err := api.createOneSpace(space)
-		if err == nil {
-			continue
-		}
-		results.Results[i].Error = common.ServerError(errors.Trace(err))
-	}
-
-	return results, nil
-}
-
-func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
-	// Validate the args, assemble information for api.backing.AddSpaces
-	var subnets []string
-
-	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, tag := range args.SubnetTags {
-		subnetTag, err := names.ParseSubnetTag(tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		subnets = append(subnets, subnetTag.Id())
-	}
-
-	// Add the validated space.
-	err = api.backing.AddSpace(spaceTag.Id(), "", subnets, args.Public)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return networkingcommon.CreateSpace(api.backing, args)
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
-	err = api.supportsSpaces()
+	err = networkingcommon.SupportsSpaces(api.backing)
 	if err != nil {
 		return results, common.ServerError(errors.Trace(err))
 	}
@@ -132,26 +90,4 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		results.Results[i] = result
 	}
 	return results, nil
-}
-
-// supportsSpaces checks if the environment implements NetworkingEnviron
-// and also if it supports spaces.
-func (api *spacesAPI) supportsSpaces() error {
-	config, err := api.backing.EnvironConfig()
-	if err != nil {
-		return errors.Annotate(err, "getting environment config")
-	}
-	env, err := environs.New(config)
-	if err != nil {
-		return errors.Annotate(err, "validating environment config")
-	}
-	netEnv, ok := environs.SupportsNetworking(env)
-	if !ok {
-		return errors.NotSupportedf("networking")
-	}
-	ok, err = netEnv.SupportsSpaces()
-	if !ok {
-		return errors.NotSupportedf("spaces")
-	}
-	return err
 }

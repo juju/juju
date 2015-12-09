@@ -23,6 +23,13 @@ type BackingState interface {
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
+
+	// AddSubnets adds existing subnets to Juju.
+	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
+
+	// ListSubnets returns the matching subnets after applying
+	// optional filters.
+	ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResults, error)
 }
 
 // NOTE:  All of the following code is only tested with a feature test.
