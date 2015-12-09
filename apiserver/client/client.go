@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
@@ -841,7 +842,28 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+	// Before changing the agent version to trigger an upgrade or downgrade,
+	// we'll do a very basic check to ensure the
+	cfg, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := getEnvironment(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := environs.CheckProviderAPI(env); err != nil {
+		return err
+	}
 	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
+}
+
+var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade

@@ -255,7 +255,7 @@ func (w *upgradesteps) runUpgrades() error {
 func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
 	if err := w.preUpgradeSteps(w.st, w.agent.CurrentConfig(), w.isMaster); err != nil {
-		return nil, errors.Annotatef(err, "machine %q cannot be upgraded", w.tag)
+		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
 	if !w.isStateServer {

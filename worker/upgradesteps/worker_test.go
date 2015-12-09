@@ -375,16 +375,15 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 
 func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	s.preUpgradeError = true
-	defer s.captureLogs(c)
+	s.captureLogs(c)
 
 	workerErr, config, statusCalls, doneCh := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, jc.ErrorIsNil)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
 	assertUpgradeNotComplete(c, doneCh)
-	assertUpgradeNotComplete(c, doneCh)
 
-	causeMessage := `machine "machine-0" cannot be upgraded: preupgrade error`
+	causeMessage := `machine 0 cannot be upgraded: preupgrade error`
 	failMessage := fmt.Sprintf(
 		`upgrade from %s to %s for "machine-0" failed \(giving up\): %s`,
 		s.oldVersion.Number, version.Current, causeMessage)
@@ -394,7 +393,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	})
 
 	statusMessage := fmt.Sprintf(
-		`upgrade to %s failed \(giving up\): %s`, version.Current, causeMessage)
+		`upgrade to %s failed (giving up): %s`, version.Current, causeMessage)
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
 		params.StatusError, statusMessage,
 	}})
