@@ -11,10 +11,13 @@ from assess_heterogeneous_control import (
     assess_heterogeneous,
     get_clients,
     parse_args,
+    test_control_heterogeneous,
     )
 from jujupy import (
     _temp_env,
     )
+from tests.test_deploy_stack import FakeBootstrapManager
+from tests.test_jujupy import FakeJujuClient
 
 
 __metaclass__ = type
@@ -106,3 +109,26 @@ class TestAssessHeterogeneous(TestCase):
             region=None, series='series')
         ch_mock.assert_called_once_with(
             bm_mock.return_value, 'other_client', False)
+
+
+class TestTestControlHeterogeneous(TestCase):
+
+    def test_test_control_heterogeneous(self):
+        client = FakeJujuClient()
+        bs_manager = FakeBootstrapManager(client)
+        test_control_heterogeneous(bs_manager, client, True)
+        self.assertEqual(client._backing_state.exposed,
+                         {'sink2', 'dummy-sink'})
+        self.assertEqual(client._backing_state.machines, {'0', '1', '2'})
+        self.assertEqual(client.juju_home, 'foo')
+
+    def test_same_home_and_env(self):
+        initial_client = FakeJujuClient()
+        other_client = FakeJujuClient()
+        other_client._backing_state = initial_client._backing_state
+        bs_manager = FakeBootstrapManager(initial_client)
+        bs_manager.permanent = True
+        test_control_heterogeneous(bs_manager, other_client, True)
+        self.assertEqual(initial_client.juju_home, other_client.juju_home)
+        self.assertEqual(
+            initial_client.env.environment, other_client.env.environment)

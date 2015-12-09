@@ -4,6 +4,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+from itertools import count
 import logging
 import os
 import socket
@@ -20,6 +21,7 @@ from mock import (
 )
 import yaml
 
+from deploy_stack import GET_TOKEN_SCRIPT
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -75,6 +77,154 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
         call_index = 0
     empty, args, kwargs = mock_method.mock_calls[call_index]
     test_case.assertEqual(args, (expected_args,))
+
+
+class FakeEnvironmentState:
+    """A Fake environment state that can be used by multiple FakeClients."""
+
+    def __init__(self):
+        self.name = None
+        self.machine_id_iter = count()
+        self.state_servers = []
+        self.services = {}
+        self.machines = set()
+        self.containers = {}
+        self.relations = {}
+        self.token = None
+        self.exposed = set()
+
+    def add_machine(self):
+        machine_id = str(self.machine_id_iter.next())
+        self.machines.add(machine_id)
+        return machine_id
+
+    def add_container(self, container_type):
+        host = self.add_machine()
+        container_name = '{}/{}/{}'.format(host, container_type, '0')
+        self.containers[host] = {container_name}
+
+    def remove_container(self, container_id):
+        for containers in self.containers.values():
+            containers.discard(container_id)
+
+    def remove_machine(self, machine_id):
+        self.machines.remove(machine_id)
+        self.containers.pop(machine_id, None)
+
+    def bootstrap(self, name):
+        self.name = name
+        self.state_servers.append(self.add_machine())
+
+    def deploy(self, charm_name, service_name):
+        self.add_unit(service_name)
+
+    def add_unit(self, service_name):
+        machines = self.services.setdefault(service_name, set())
+        machines.add(
+            ('{}/{}'.format(service_name, str(len(machines))),
+             self.add_machine()))
+
+    def remove_unit(self, to_remove):
+        for units in self.services.values():
+            for unit_id, machine_id in units:
+                if unit_id == to_remove:
+                    self.remove_machine(machine_id)
+                    units.remove((unit_id, machine_id))
+                    break
+
+    def destroy_service(self, service_name):
+        for unit, machine_id in self.services.pop(service_name):
+            self.remove_machine(machine_id)
+
+    def get_status_dict(self):
+        machines = dict((mid, {}) for mid in self.machines)
+        for host, containers in self.containers.items():
+            machines[host]['containers'] = dict((c, {}) for c in containers)
+        services = {}
+        for service, units in self.services.items():
+            unit_map = {}
+            for unit_id, machine_id in units:
+                unit_map[unit_id] = {'machine': machine_id}
+            services[service] = {
+                'units': unit_map,
+                'relations': self.relations.get(service, {}),
+                'exposed': service in self.exposed,
+                }
+        return {'machines': machines, 'services': services}
+
+
+class FakeJujuClient:
+    """A fake juju client for tests.
+
+    This is a partial implementation, but should be suitable for many uses,
+    and can be extended.
+
+    The state is provided by _backing_state, so that multiple clients can
+    manipulate the same state.
+    """
+    def __init__(self):
+        self._backing_state = FakeEnvironmentState()
+        self.env = SimpleEnvironment('name', {
+            'type': 'foo',
+            'default-series': 'angsty',
+            })
+        self.juju_home = 'foo'
+
+    def get_juju_output(self, command, *args, **kwargs):
+        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+            return self._backing_state.token
+        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
+            return 'Codename:\t{}\n'.format(self.env.config['default-series'])
+
+    def juju(self, cmd, args, include_e=True):
+        # TODO: Use argparse or change all call sites to use functions.
+        if (cmd, args[:1]) == ('set', ('dummy-source',)):
+            name, value = args[1].split('=')
+            if name == 'token':
+                self._backing_state.token = value
+        if cmd == 'deploy':
+            self.deploy(*args)
+        if cmd == 'destroy-service':
+            self._backing_state.destroy_service(*args)
+        if cmd == 'add-relation':
+            if args[0] == 'dummy-source':
+                self._backing_state.relations[args[1]] = {'source': [args[0]]}
+        if cmd == 'expose':
+            (service,) = args
+            self._backing_state.exposed.add(service)
+        if cmd == 'unexpose':
+            (service,) = args
+            self._backing_state.exposed.remove(service)
+        if cmd == 'add-unit':
+            (service,) = args
+            self._backing_state.add_unit(service)
+        if cmd == 'remove-unit':
+            (unit_id,) = args
+            self._backing_state.remove_unit(unit_id)
+        if cmd == 'add-machine':
+            (container_type,) = args
+            self._backing_state.add_container(container_type)
+        if cmd == 'remove-machine':
+            (machine_id,) = args
+            if '/' in machine_id:
+                self._backing_state.remove_container(machine_id)
+            else:
+                self._backing_state.remove_machine(machine_id)
+
+    def bootstrap(self, upload_tools):
+        self._backing_state.bootstrap(self.env.environment)
+
+    def deploy(self, charm_name, service_name=None):
+        if service_name is None:
+            service_name = charm_name.split(':')[-1]
+        self._backing_state.deploy(charm_name, service_name)
+
+    def wait_for_started(self):
+        pass
+
+    def get_status(self):
+        status_dict = self._backing_state.get_status_dict()
+        return Status(status_dict, yaml.safe_dump(status_dict))
 
 
 class TestErroredUnit(TestCase):

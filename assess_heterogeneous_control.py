@@ -71,6 +71,7 @@ def run_context(bs_manager, other, upload_tools):
     try:
         bs_manager.keep_env = True
         with bs_manager.booted_context(upload_tools):
+            other.juju_home = bs_manager.client.juju_home
             yield
         # Test clean shutdown of an environment.
         juju_with_fallback(other, bs_manager.tear_down_client,
@@ -85,6 +86,10 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
     """Test if one binary can control an environment set up by the other."""
     initial = bs_manager.client
     released = bs_manager.tear_down_client
+    # Work around bug #1524398.  Force all clients to use the same env
+    # instance.
+    other.env = initial.env
+    released.env = initial.env
     with run_context(bs_manager, other, upload_tools):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
@@ -98,6 +103,9 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
         status = other.get_status()
         other.juju('unexpose', ('dummy-sink',))
+        status = other.get_status()
+        if status.status['services']['dummy-sink']['exposed']:
+            raise AssertionError('dummy-sink is still exposed')
         status = other.get_status()
         juju_with_fallback(other, released, 'deploy',
                            ('local:dummy-sink', 'sink2'))
@@ -140,6 +148,9 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         wait_until_removed(other, lxc_machine)
         other.juju('remove-machine', (lxc_holder,))
         wait_until_removed(other, lxc_holder)
+
+# suppress nosetests
+test_control_heterogeneous.__test__ = False
 
 
 def juju_with_fallback(other, released, command, args, include_e=True):

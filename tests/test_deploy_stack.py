@@ -615,12 +615,15 @@ class FakeBootstrapManager:
 
     def __init__(self, client):
         self.client = client
+        self.tear_down_client = client
         self.entered_top = False
         self.exited_top = False
         self.entered_bootstrap = False
         self.exited_bootstrap = False
         self.entered_runtime = False
         self.exited_runtime = False
+        self.torn_down = False
+        self.permanent = False
 
     @contextmanager
     def top_context(self):
@@ -632,11 +635,16 @@ class FakeBootstrapManager:
 
     @contextmanager
     def bootstrap_context(self, bootstrap_host, machines):
+        initial_home = self.client.juju_home
+        self.client.env.environment = self.client.env.environment + '-temp'
         try:
             self.entered_bootstrap = True
+            self.client.juju_home = os.path.join(initial_home, 'isolated')
             yield
         finally:
             self.exited_bootstrap = True
+            if not self.permanent:
+                self.client.juju_home = initial_home
 
     @contextmanager
     def runtime_context(self, bootstrap_host, machines):
@@ -645,6 +653,17 @@ class FakeBootstrapManager:
             yield
         finally:
             self.exited_runtime = True
+
+    def tear_down(self):
+        self.client.torn_down = True
+
+    @contextmanager
+    def booted_context(self, upload_tools):
+        with self.top_context() as (bootstrap_host, machines):
+            with self.bootstrap_context(bootstrap_host, machines):
+                self.client.bootstrap(upload_tools)
+            with self.runtime_context(bootstrap_host, machines):
+                yield machines
 
 
 class TestDeployJob(FakeHomeTestCase):
