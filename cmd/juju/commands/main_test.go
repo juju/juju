@@ -233,7 +233,7 @@ var commandNames = []string{
 	"get",
 	"get-constraints",
 	"get-user-credentials",
-	"get-env",         // alias for get-environment
+	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
 	"help-tool",

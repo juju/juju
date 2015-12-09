@@ -4,8 +4,8 @@
 package user_test
 
 import (
-	"strings"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -15,9 +15,9 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 // All of the functionality of the AddUser api call is contained elsewhere.
