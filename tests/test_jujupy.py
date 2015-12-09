@@ -83,6 +83,9 @@ class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeClients."""
 
     def __init__(self):
+        self._clear()
+
+    def _clear(self):
         self.name = None
         self.machine_id_iter = count()
         self.state_servers = []
@@ -92,11 +95,18 @@ class FakeEnvironmentState:
         self.relations = {}
         self.token = None
         self.exposed = set()
+        self.machine_host_names = {}
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
         self.machines.add(machine_id)
+        self.machine_host_names[machine_id] = '{}.example.com'.format(
+            machine_id)
         return machine_id
+
+    def add_ssh_machines(self, machines):
+        for machine in machines:
+            self.add_machine()
 
     def add_container(self, container_type):
         host = self.add_machine()
@@ -114,6 +124,9 @@ class FakeEnvironmentState:
     def bootstrap(self, name):
         self.name = name
         self.state_servers.append(self.add_machine())
+
+    def destroy_environment(self):
+        self._clear()
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -137,7 +150,13 @@ class FakeEnvironmentState:
             self.remove_machine(machine_id)
 
     def get_status_dict(self):
-        machines = dict((mid, {}) for mid in self.machines)
+        machines = {}
+        for machine_id in self.machines:
+            machine_dict = {}
+            hostname = self.machine_host_names.get(machine_id)
+            if hostname is not None:
+                machine_dict['dns-name'] = hostname
+            machines[machine_id] = machine_dict
         for host, containers in self.containers.items():
             machines[host]['containers'] = dict((c, {}) for c in containers)
         services = {}
@@ -209,8 +228,14 @@ class FakeJujuClient:
             else:
                 self._backing_state.remove_machine(machine_id)
 
-    def bootstrap(self, upload_tools):
+    def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
+
+    def destroy_environment(self):
+        self._backing_state.destroy_environment()
+
+    def add_ssh_machines(self, machines):
+        self._backing_state.add_ssh_machines(machines)
 
     def deploy(self, charm_name, service_name=None):
         if service_name is None:
@@ -223,6 +248,9 @@ class FakeJujuClient:
     def get_status(self):
         status_dict = self._backing_state.get_status_dict()
         return Status(status_dict, yaml.safe_dump(status_dict))
+
+    def status_until(self, timeout):
+        yield self.get_status()
 
 
 class TestErroredUnit(TestCase):

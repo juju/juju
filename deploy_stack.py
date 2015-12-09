@@ -394,6 +394,8 @@ class BootstrapManager:
     :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
     :ivar client: an EnvJujuClient.
+    :ivar tear_down_client: an EnvJujuClient for tearing down the environment
+        (may be more reliable/capable/compatible than client.)
     :ivar bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
     :ivar machine: [] or a list of machines to use add to a manual env
@@ -406,6 +408,8 @@ class BootstrapManager:
         it alive to do an autopsy.
     :ivar upload_tools: False or True to upload the local agent instead of
         using streams.
+    :ivar known_hosts: A dict mapping machine_ids to hosts for
+        dump_env_logs_known_hosts.
     """
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
@@ -428,6 +432,9 @@ class BootstrapManager:
         self.keep_env = keep_env
         self.permanent = permanent
         self.jes_enabled = jes_enabled
+        self.known_hosts = {}
+        if bootstrap_host is not None:
+            self.known_hosts['0'] = bootstrap_host
 
     @classmethod
     def from_args(cls, args):
@@ -570,6 +577,7 @@ class BootstrapManager:
                 host = get_machine_dns_name(self.client, '0')
             if host is None:
                 raise ValueError('Could not get machine 0 host')
+            self.known_hosts.setdefault('0', host)
             try:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
@@ -587,8 +595,9 @@ class BootstrapManager:
                 runtime_config = get_jenv_path(self.client.juju_home,
                                                self.client.env.environment)
             if host is not None:
-                dump_env_logs(self.client, host, self.log_dir,
-                              runtime_config=runtime_config)
+                dump_env_logs_known_hosts(
+                    self.client, self.log_dir, runtime_config,
+                    self.known_hosts)
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
