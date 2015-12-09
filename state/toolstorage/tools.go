@@ -174,6 +174,53 @@ func (s *toolsStorage) AllMetadata() ([]Metadata, error) {
 	return list, nil
 }
 
+// RemoveInvalid will remove all tools with invalid metadata. This exists
+// because we had a bug that would allow tools with invalid metadata to
+// be entered, which would render "AllMetadata" unusable.
+func (s *toolsStorage) RemoveInvalid() error {
+	type Doc struct {
+		Id      string   `bson:"_id"`
+		Version bson.Raw `bson:"version"`
+		Path    string   `bson:"path"`
+	}
+	var docs []Doc
+	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		var v version.Binary
+		if err := v.SetBSON(doc.Version); err != nil {
+			logger.Debugf("invalid tools version: %q", doc.Version)
+			if err := s.removeTools(doc.Id, doc.Path); err != nil {
+				return errors.Annotate(err, "removing invalid tools")
+			}
+		}
+	}
+	return nil
+}
+
+// removeTools will remove the tools with the specified ID.
+func (s *toolsStorage) removeTools(id, path string) error {
+	if err := s.managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
+		return errors.Annotate(err, "cannot remove tools tarball")
+	}
+	// Remove the metadata.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		op := txn.Op{
+			C:      s.metadataCollection.Name,
+			Id:     id,
+			Remove: true,
+		}
+		return []txn.Op{op}, nil
+	}
+	err := s.txnRunner.Run(buildTxn)
+	// Metadata already removed, we don't care.
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	return errors.Annotate(err, "cannot remove tools metadata")
+}
+
 type toolsMetadataDoc struct {
 	Id      string         `bson:"_id"`
 	Version version.Binary `bson:"version"`

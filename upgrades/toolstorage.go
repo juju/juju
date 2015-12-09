@@ -130,6 +130,17 @@ func isErrInvalidMetadata(err error) bool {
 	return ok
 }
 
+// cleanToolsStorage removes invalid tools from environment storage.
+func cleanToolsStorage(st *state.State) error {
+	logger.Debugf("removing invalid tools from environment storage")
+	tstor, err := stateToolsStorage(st)
+	if err != nil {
+		return errors.Annotate(err, "cannot get tools storage")
+	}
+	defer tstor.Close()
+	return tstor.RemoveInvalid()
+}
+
 func fetchToolsArchive(stor storage.StorageReader, toolsDir string, agentTools *tools.Tools) ([]byte, error) {
 	r, err := stor.Get(envtools.StorageName(agentTools.Version, toolsDir))
 	if err != nil {

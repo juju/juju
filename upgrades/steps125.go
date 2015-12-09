@@ -115,6 +115,18 @@ func stateStepsFor125() []Step {
 	}
 }
 
+// stateStepsFor1252 returns upgrade steps for Juju 1.25.2 that manipulate state directly.
+func stateStepsFor1252() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "remove invalid tools metadata from state",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return cleanToolsStorage(context.State())
+			}},
+	}
+}
+
 // stepsFor125 returns upgrade steps for Juju 1.25 that only need the API.
 func stepsFor125() []Step {
 	return []Step{

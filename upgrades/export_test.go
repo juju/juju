@@ -52,9 +52,10 @@ var (
 	CopyFile         = copyFile
 
 	// 125 upgrade functions
-	AddInstanceTags = addInstanceTags
-	RemoveJujudpass = removeJujudpass
-	AddJujuRegKey   = addJujuRegKey
+	AddInstanceTags   = addInstanceTags
+	RemoveJujudpass   = removeJujudpass
+	AddJujuRegKey     = addJujuRegKey
+	CleanToolsStorage = cleanToolsStorage
 )
 
 type EnvironConfigUpdater environConfigUpdater

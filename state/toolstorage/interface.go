@@ -35,6 +35,16 @@ type Storage interface {
 	// Metadata returns the Metadata for the specified version
 	// if it exists, else an error satisfying errors.IsNotFound.
 	Metadata(v version.Binary) (Metadata, error)
+
+	// RemoveInvalid will remove all tools with invalid metadata. This
+	// exists because we had a bug that would allow tools with invalid
+	// metadata to be entered, which would render "AllMetadata" unusable.
+	//
+	// NOTE(axw) this should not be carried over to 2.0. The upgrade step
+	// will be run when upgrading to the first version of the 1.25 series
+	// that is allowed to upgrade to 2.0; after that the issue should not
+	// occur.
+	RemoveInvalid() error
 }
 
 // StorageCloser extends the Storage interface with a Close method.

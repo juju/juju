@@ -343,6 +343,37 @@ func (s *ToolsSuite) TestAddToolsInvalidVersion(c *gc.C) {
 		`invalid tools version: invalid binary version "1.2.3--amd64"`)
 }
 
+func (s *ToolsSuite) TestRemoveInvalid(c *gc.C) {
+	number := version.MustParse("1.2.3")
+	versionWithoutSeries := version.Binary{Number: number, Arch: "amd64"}
+	versionWithoutArch := version.Binary{Number: number, Series: "trusty"}
+	goodVersion := version.Binary{
+		Number: number, Arch: "amd64", Series: "trusty", OS: version.Ubuntu,
+	}
+
+	s.addMetadataDoc(c, versionWithoutSeries, 4, "hash(abc)", "path1")
+	err := s.managedStorage.PutForEnvironment("my-uuid", "path1", strings.NewReader("blah"), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addMetadataDoc(c, versionWithoutArch, 4, "hash(abc)", "path2")
+	err = s.managedStorage.PutForEnvironment("my-uuid", "path2", strings.NewReader("blah"), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addMetadataDoc(c, goodVersion, 4, "hash(abc)", "path3")
+	err = s.managedStorage.PutForEnvironment("my-uuid", "path3", strings.NewReader("blah"), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.storage.AllMetadata()
+	c.Assert(err, gc.ErrorMatches, "invalid binary version.*")
+
+	err = s.storage.RemoveInvalid()
+	c.Assert(err, jc.ErrorIsNil)
+	metadata, err := s.storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(metadata[0].Version, gc.Equals, goodVersion)
+}
+
 func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
 	doc := struct {
 		Id      string         `bson:"_id"`
