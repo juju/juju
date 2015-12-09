@@ -631,7 +631,7 @@ class FakeBootstrapManager:
     def top_context(self):
         try:
             self.entered_top = True
-            yield 'foo', ['bar']
+            yield ['bar']
         finally:
             self.exited_top = True
 
@@ -661,7 +661,7 @@ class FakeBootstrapManager:
 
     @contextmanager
     def booted_context(self, upload_tools):
-        with self.top_context() as (bootstrap_host, machines):
+        with self.top_context() as machines:
             with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
             with self.runtime_context(machines):

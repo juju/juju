@@ -38,7 +38,7 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
             permanent=jes_enabled, jes_enabled=jes_enabled, log_dir=log_dir,
             bootstrap_host=None, machines=[], series=None, agent_url=None,
             agent_stream=None, keep_env=False)
-        with bs_manager.top_context() as (bootstrap_host, machines):
+        with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(machines):
                 tear_down(client, jes_enabled)
                 client.bootstrap()

@@ -608,7 +608,7 @@ class BootstrapManager:
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
             with self.aws_machines() as (bootstrap_host, new_machines):
-                yield bootstrap_host, machines + new_machines
+                yield machines + new_machines
 
     @contextmanager
     def booted_context(self, upload_tools):
@@ -625,7 +625,7 @@ class BootstrapManager:
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
         """
-        with self.top_context() as (bootstrap_host, machines):
+        with self.top_context() as machines:
             with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
             with self.runtime_context(machines):
