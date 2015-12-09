@@ -649,7 +649,7 @@ class FakeBootstrapManager:
                 self.client.juju_home = initial_home
 
     @contextmanager
-    def runtime_context(self, bootstrap_host, machines):
+    def runtime_context(self, machines):
         try:
             self.entered_runtime = True
             yield
@@ -664,7 +664,7 @@ class FakeBootstrapManager:
         with self.top_context() as (bootstrap_host, machines):
             with self.bootstrap_context(bootstrap_host, machines):
                 self.client.bootstrap(upload_tools)
-            with self.runtime_context(bootstrap_host, machines):
+            with self.runtime_context(machines):
                 yield machines
 
 
@@ -861,6 +861,19 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
 
+    def test_aws_machines_updates_bootstrap_host(self):
+        client = FakeJujuClient()
+        client.env.config['type'] = 'manual'
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.juju_home, False, False, False)
+        with patch('deploy_stack.run_instances',
+                   return_value=[('foo', 'aws.example.org')]):
+            with patch('deploy_stack.destroy_job_instances'):
+                with bs_manager.aws_machines():
+                    self.assertEqual({'0': 'aws.example.org'},
+                                     bs_manager.known_hosts)
+
     def test_from_args_no_host(self):
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
@@ -992,11 +1005,10 @@ class TestBootstrapManager(FakeHomeTestCase):
             False)
         bs_manager.known_hosts['2'] = 'example.org'
         with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-            with bs_manager.runtime_context('example.com', []):
+            with bs_manager.runtime_context([]):
                 pass
         del_mock.assert_called_once_with(
             client, 'foo', 'foo/environments/name.jenv', {
-                '0': 'example.com',
                 '2': 'example.org',
                 })
 
@@ -1007,14 +1019,12 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, client,
             None, [], None, None, None, None, client.juju_home, False, False,
             False)
-        bs_manager.known_hosts['2'] = 'example.org'
         with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-            with bs_manager.runtime_context(None, []):
+            with bs_manager.runtime_context([]):
                 pass
         del_mock.assert_called_once_with(
             client, 'foo', 'foo/environments/name.jenv', {
                 '0': '0.example.com',
-                '2': 'example.org',
                 })
 
 

@@ -507,6 +507,7 @@ class BootstrapManager:
         try:
             instances = run_instances(3, self.temp_env_name, self.series)
             new_bootstrap_host = instances[0][1]
+            self.known_hosts['0'] = new_bootstrap_host
             yield new_bootstrap_host, [i[1] for i in instances[1:]]
         finally:
             if self.keep_env:
@@ -566,22 +567,22 @@ class BootstrapManager:
                 raise
 
     @contextmanager
-    def runtime_context(self, host, addable_machines):
+    def runtime_context(self, addable_machines):
         """Context for running non-bootstrap operations.
 
         If any manual machines need to be added, they will be added before
         control is yielded.
         """
         try:
-            if host is None:
+            if len(self.known_hosts) == 0:
                 host = get_machine_dns_name(self.client, '0')
-            if host is None:
-                raise ValueError('Could not get machine 0 host')
-            self.known_hosts.setdefault('0', host)
+                if host is None:
+                    raise ValueError('Could not get machine 0 host')
+                self.known_hosts['0'] = host
             try:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
-                yield host
+                yield
             except GeneratorExit:
                 return
             except BaseException as e:
@@ -594,7 +595,7 @@ class BootstrapManager:
             else:
                 runtime_config = get_jenv_path(self.client.juju_home,
                                                self.client.env.environment)
-            if host is not None:
+            if len(self.known_hosts) > 0:
                 dump_env_logs_known_hosts(
                     self.client, self.log_dir, runtime_config,
                     self.known_hosts)
@@ -626,7 +627,7 @@ class BootstrapManager:
         with self.top_context() as (bootstrap_host, machines):
             with self.bootstrap_context(bootstrap_host, machines):
                 self.client.bootstrap(upload_tools)
-            with self.runtime_context(bootstrap_host, machines):
+            with self.runtime_context(machines):
                 yield machines
 
 

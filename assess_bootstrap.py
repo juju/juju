@@ -42,7 +42,7 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
             with bs_manager.bootstrap_context(bootstrap_host, machines):
                 tear_down(client, jes_enabled)
                 client.bootstrap()
-            with bs_manager.runtime_context(bootstrap_host, machines):
+            with bs_manager.runtime_context(machines):
                 client.get_status(1)
                 log.info('Environment successfully bootstrapped.')
 
