@@ -207,8 +207,7 @@ class FakeJujuClient:
             self._backing_state.destroy_service(*args)
         if cmd == 'add-relation':
             if args[0] == 'dummy-source':
-                self._backing_state.relations[args[1]] = {
-                        'source': [args[0]]}
+                self._backing_state.relations[args[1]] = {'source': [args[0]]}
         if cmd == 'expose':
             (service,) = args
             self._backing_state.exposed.add(service)
