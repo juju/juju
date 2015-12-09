@@ -4,7 +4,6 @@
 package user_test
 
 import (
-	"io/ioutil"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -12,10 +11,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -27,23 +24,6 @@ type UserAddCommandSuite struct {
 	mockAPI        *mockAddUserAPI
 	randomPassword string
 	serverFilename string
-}
-
-type BaseSuite struct {
-	testing.FakeJujuHomeSuite
-}
-
-func (s *BaseSuite) assertServerFileMatches(c *gc.C, serverfile, username, password string) {
-	yaml, err := ioutil.ReadFile(serverfile)
-	c.Assert(err, jc.ErrorIsNil)
-	var content envcmd.ServerFile
-	err = goyaml.Unmarshal(yaml, &content)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(content.Username, gc.Equals, username)
-	c.Assert(content.Password, gc.Equals, password)
-	c.Assert(content.CACert, gc.Equals, testing.CACert)
-	c.Assert(content.Addresses, jc.DeepEquals, []string{"127.0.0.1:12345"})
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
@@ -75,7 +55,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		errorString string
 	}{
 		{
-			errorString: "no controller specified",
+			errorString: "no username supplied",
 		}, {
 			args:    []string{"foobar"},
 			user:    "foobar",

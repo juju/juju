@@ -124,7 +124,7 @@ var resolvedMachineTests = []struct {
 func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		command := environment.NewRetryProvisioningCommand(s.fake)
+		command := environment.NewRetryProvisioningCommandForTest(s.fake)
 		context, err := testing.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
@@ -144,7 +144,7 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 
 func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockRetryProvisioning")
-	command := environment.NewRetryProvisioningCommand(s.fake)
+	command := environment.NewRetryProvisioningCommandForTest(s.fake)
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)

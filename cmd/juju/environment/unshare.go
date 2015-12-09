@@ -18,17 +18,17 @@ const unshareEnvHelpDoc = `
 Deny a user access to an environment that was previously shared with them.
 
 Examples:
- juju environment unshare joe
+ juju unshare-environment joe
      Deny local user "joe" access to the current environment
 
- juju environment unshare user1 user2 user3@ubuntuone
+ juju unshare-environment user1 user2 user3@ubuntuone
      Deny two local users and one remote user access to the current environment
 
- juju environment unshare sam -e/--environment myenv
+ juju unshare-environment sam -e/--environment myenv
      Deny local user "sam" access to the environment named "myenv"
  `
 
-func newUnshareCommand() cmd.Command {
+func NewUnshareCommand() cmd.Command {
 	return envcmd.Wrap(&unshareCommand{})
 }
 
@@ -45,7 +45,7 @@ type unshareCommand struct {
 
 func (c *unshareCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "unshare",
+		Name:    "unshare-environment",
 		Args:    "<user> ...",
 		Purpose: "unshare the current environment with a user",
 		Doc:     strings.TrimSpace(unshareEnvHelpDoc),
