@@ -77,15 +77,10 @@ class GenerateMirrors(TestCase):
                 purposeful_mirrors[1]['mirror'])
             self.assertEqual(17, len(purposeful_mirrors[1]['clouds']))
             self.assertEqual(
-                ("https://region-a.geo-1.objects.hpcloudsvc.com/"
-                 "v1/60502529753910/juju-dist/tools"),
-                purposeful_mirrors[2]['mirror'])
-            self.assertEqual(2, len(purposeful_mirrors[2]['clouds']))
-            self.assertEqual(
                 ("https://us-east.manta.joyent.com/"
                  "cpcjoyentsupport/public/juju-dist/tools"),
-                purposeful_mirrors[3]['mirror'])
-            self.assertEqual(6, len(purposeful_mirrors[3]['clouds']))
+                purposeful_mirrors[2]['mirror'])
+            self.assertEqual(6, len(purposeful_mirrors[2]['clouds']))
 
     def test_cpc_generate_mirrors_file_deprecated_tree(self):
         updated = datetime.datetime.utcnow()
@@ -114,15 +109,10 @@ class GenerateMirrors(TestCase):
             purposeful_mirror[1]['mirror'])
         self.assertEqual(17, len(purposeful_mirror[1]['clouds']))
         self.assertEqual(
-            ("https://region-a.geo-1.objects.hpcloudsvc.com/"
-             "v1/60502529753910/juju-dist/devel/tools"),
-            purposeful_mirror[2]['mirror'])
-        self.assertEqual(2, len(purposeful_mirror[2]['clouds']))
-        self.assertEqual(
             ("https://us-east.manta.joyent.com/"
              "cpcjoyentsupport/public/juju-dist/devel/tools"),
-            purposeful_mirror[3]['mirror'])
-        self.assertEqual(6, len(purposeful_mirror[3]['clouds']))
+            purposeful_mirror[2]['mirror'])
+        self.assertEqual(6, len(purposeful_mirror[2]['clouds']))
 
     def test_main(self):
         with patch('generate_mirrors.generate_mirrors_file') as gmf_mock:

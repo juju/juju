@@ -137,23 +137,6 @@ AZURE_MIRROR = OrderedDict([
         }
     ])
 ])
-HP_MIRROR = OrderedDict([
-    ("mirror", ("https://region-a.geo-1.objects.hpcloudsvc.com/"
-                "v1/60502529753910/juju-dist/tools")),
-    ("path", None),
-    ("clouds", [
-        {
-            "endpoint": ("https://region-a.geo-1.identity.hpcloudsvc.com:"
-                         "35357/v2.0/"),
-            "region": "region-a.geo-1"
-        },
-        {
-            "endpoint": ("https://region-b.geo-1.identity.hpcloudsvc.com:"
-                         "35357/v2.0/"),
-            "region": "region-b.geo-1"
-        }
-    ])
-])
 JOYENT_MIRROR = OrderedDict([
     ("mirror", ("https://us-east.manta.joyent.com/"
                 "cpcjoyentsupport/public/juju-dist/tools")),
@@ -246,7 +229,7 @@ def generate_cpc_mirrors_file(updated, streams_path,
         if verbose:
             print("Adding %s to cpc-mirrors.json" % product_path)
         mirrors['mirrors'][product_name] = []
-        for master in (AWS_MIRROR, AZURE_MIRROR, HP_MIRROR, JOYENT_MIRROR):
+        for master in (AWS_MIRROR, AZURE_MIRROR, JOYENT_MIRROR):
             mirror = OrderedDict(master)
             mirror['path'] = product_path
             if deprecated_purpose:
