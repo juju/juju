@@ -184,7 +184,7 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 		AvailableTools: availableTools,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal")
+	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal", "")
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.Tools = availableTools[0]
 	err = finalizer(ctx, icfg)

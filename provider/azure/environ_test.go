@@ -1565,7 +1565,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tag:        machineTag,
 		EnvironTag: coretesting.EnvironmentTag,
 	}
-	icfg, err := instancecfg.NewInstanceConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	icfg, err := instancecfg.NewInstanceConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(

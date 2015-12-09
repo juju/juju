@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -201,6 +202,18 @@ func (w *unixConfigure) ConfigureJuju() error {
 			fmt.Sprintf(
 				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+	}
+
+	if w.icfg.PublicImageSigningKey != "" {
+		keyFile := "/home/ubuntu/simplestreamspublickey"
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+		script := fmt.Sprintf(`([ ! -e /home/ubuntu/.profile ] || grep -q '%s' /home/ubuntu/.profile) || `+
+			`printf '\n#Added by juju\nexport %s=%s\n' >> /home/ubuntu/.profile`,
+			osenv.JujuImageStreamsPublicKeyFileEnvKey,
+			osenv.JujuImageStreamsPublicKeyFileEnvKey,
+			keyFile,
+		)
+		w.conf.AddScripts(script)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to

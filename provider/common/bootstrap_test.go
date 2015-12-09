@@ -100,7 +100,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series)
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series, "")
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()

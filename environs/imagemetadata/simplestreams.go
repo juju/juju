@@ -118,6 +118,25 @@ var (
 	DefaultJujuBaseURL   = JujuStreamsImagesURL
 )
 
+// UserPublicSigningKey returns the public signing key (if defined)
+// from the file specified by the osenv.JujuImageStreamsPublicKeyFileEnvKey env var.
+func UserPublicSigningKey() (string, error) {
+	signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyFileEnvKey)
+	signingKey := ""
+	if signingKeyFile != "" {
+		path, err := utils.NormalizePath(signingKeyFile)
+		if err != nil {
+			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
+		}
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return "", errors.Annotatef(err, "invalid public key file: %s", path)
+		}
+		signingKey = string(b)
+	}
+	return signingKey, nil
+}
+
 // OfficialDataSources returns the simplestreams datasources where official
 // image metadata can be found.
 func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
@@ -129,18 +148,12 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		return nil, err
 	}
 	if defaultURL != "" {
-		publicKey := simplestreamsImagesPublicKey
-		signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyFileEnvKey)
-		if signingKeyFile != "" {
-			path, err := utils.NormalizePath(signingKeyFile)
-			if err != nil {
-				return nil, errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
-			}
-			b, err := ioutil.ReadFile(path)
-			if err != nil {
-				return nil, errors.Annotatef(err, "invalid public key file: %s", path)
-			}
-			publicKey = string(b)
+		publicKey, err := UserPublicSigningKey()
+		if err != nil {
+			return nil, err
+		}
+		if publicKey == "" {
+			publicKey = simplestreamsImagesPublicKey
 		}
 		result = append(
 			result,

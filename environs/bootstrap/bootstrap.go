@@ -168,7 +168,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	publicKey, err := imagemetadata.UserPublicSigningKey()
+	if err != nil {
+		return err
+	}
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series, publicKey)
 	if err != nil {
 		return err
 	}
