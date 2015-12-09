@@ -136,6 +136,6 @@ func FmtEnvStatus(data EnvData) string {
 	return fmtEnvStatus(envData(data))
 }
 
-func NewData(api destroySystemAPI, ctrUUID string) (ctrData, []envData, error) {
+func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
 	return newData(api, ctrUUID)
 }

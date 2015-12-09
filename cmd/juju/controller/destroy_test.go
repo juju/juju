@@ -295,8 +295,7 @@ func (s *DestroySuite) resetController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 

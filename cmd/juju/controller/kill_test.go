@@ -209,7 +209,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		}
 	}
 
-	ctrStatus, envsStatus, err := system.NewData(s.api, "123")
+	ctrStatus, envsStatus, err := controller.NewData(s.api, "123")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctrStatus.HostedEnvCount, gc.Equals, 2)
 	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)
@@ -247,17 +247,17 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 }
 
 func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
-	data := system.CtrData{
+	data := controller.CtrData{
 		3,
 		20,
 		8,
 	}
-	out := system.FmtCtrStatus(data)
+	out := controller.FmtCtrStatus(data)
 	c.Assert(out, gc.Equals, "Waiting on 3 environments, 20 machines, 8 services")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
-	data := system.EnvData{
+	data := controller.EnvData{
 		"owner@local",
 		"envname",
 		params.Dying,
@@ -265,6 +265,6 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		1,
 	}
 
-	out := system.FmtEnvStatus(data)
+	out := controller.FmtEnvStatus(data)
 	c.Assert(out, gc.Equals, "owner@local/envname (dying), 8 machines, 1 service")
 }

@@ -30,7 +30,7 @@ type envData struct {
 
 // newTimedStatusUpdater returns a function which waits a given period of time
 // before querying the apiserver for updated data.
-func newTimedStatusUpdater(ctx *cmd.Context, api destroySystemAPI, uuid string) func(time.Duration) (ctrData, []envData) {
+func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid string) func(time.Duration) (ctrData, []envData) {
 	return func(wait time.Duration) (ctrData, []envData) {
 		time.Sleep(wait)
 
@@ -45,7 +45,7 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroySystemAPI, uuid string) 
 	}
 }
 
-func newData(api destroySystemAPI, ctrUUID string) (ctrData, []envData, error) {
+func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
 	envs, err := api.AllEnvironments()
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
