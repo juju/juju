@@ -131,20 +131,35 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
+		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
 		return environs.Destroy(controllerEnviron, store)
 	}
 
-	// Attempt to destroy the controller with destroyEnvs and ignoreBlocks = true
-	err = api.DestroyController(true, true)
+	// Attempt to destroy the controller and all environments.
+	err = api.DestroyController(true)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
+		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		return c.killControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
 	}
 
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
+		return environs.Destroy(controllerEnviron, store)
 	}
+
+	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.EnvName())
+
+	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
+		ctx.Infof(fmtCtrStatus(ctrStatus))
+		for _, envStatus := range envsStatus {
+			ctx.Verbosef(fmtEnvStatus(envStatus))
+		}
+	}
+
+	ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
 
 	return environs.Destroy(controllerEnviron, store)
 }

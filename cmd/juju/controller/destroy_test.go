@@ -9,9 +9,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -33,12 +35,13 @@ var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
-	err          error
-	env          map[string]interface{}
-	destroyAll   bool
-	ignoreBlocks bool
-	blocks       []params.EnvironmentBlockInfo
-	blocksErr    error
+	err        error
+	env        map[string]interface{}
+	destroyAll bool
+	blocks     []params.EnvironmentBlockInfo
+	blocksErr  error
+	envStatus  map[string]base.EnvironmentStatus
+	allEnvs    []base.UserEnvironment
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -50,14 +53,25 @@ func (f *fakeDestroyAPI) EnvironmentConfig() (map[string]interface{}, error) {
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPI) DestroyController(destroyAll bool, ignoreBlocks bool) error {
+func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
 	f.destroyAll = destroyAll
-	f.ignoreBlocks = ignoreBlocks
 	return f.err
 }
 
 func (f *fakeDestroyAPI) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
 	return f.blocks, f.blocksErr
+}
+
+func (f *fakeDestroyAPI) EnvironmentStatus(tags ...names.EnvironTag) ([]base.EnvironmentStatus, error) {
+	status := make([]base.EnvironmentStatus, len(tags))
+	for i, tag := range tags {
+		status[i] = f.envStatus[tag.Id()]
+	}
+	return status, f.err
+}
+
+func (f *fakeDestroyAPI) AllEnvironments() ([]base.UserEnvironment, error) {
+	return f.allEnvs, f.err
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -97,7 +111,10 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.clientapi = &fakeDestroyAPIClient{}
-	s.api = &fakeDestroyAPI{}
+	owner := names.NewUserTag("owner")
+	s.api = &fakeDestroyAPI{
+		envStatus: map[string]base.EnvironmentStatus{},
+	}
 	s.apierror = nil
 
 	var err error
@@ -126,10 +143,11 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	}
 	for _, env := range envList {
 		info := s.store.CreateInfo(env.name)
+		uuid := env.envUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:   []string{"localhost"},
 			CACert:      testing.CACert,
-			EnvironUUID: env.envUUID,
+			EnvironUUID: uuid,
 			ServerUUID:  env.serverUUID,
 		})
 
@@ -138,6 +156,20 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 		}
 		err := info.Write()
 		c.Assert(err, jc.ErrorIsNil)
+
+		s.api.allEnvs = append(s.api.allEnvs, base.UserEnvironment{
+			Name:  env.name,
+			UUID:  uuid,
+			Owner: owner.Canonical(),
+		})
+
+		s.api.envStatus[env.envUUID] = base.EnvironmentStatus{
+			UUID:               uuid,
+			Life:               params.Dead,
+			HostedMachineCount: 0,
+			ServiceCount:       0,
+			Owner:              owner.Canonical(),
+		}
 	}
 }
 
@@ -203,7 +235,6 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
@@ -212,7 +243,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-environments")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -246,7 +276,6 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	s.api.err = errors.New("permission denied")
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkControllerExistsInStore(c, "test1", s.store)
 }
@@ -266,8 +295,7 @@ func (s *DestroySuite) resetController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.Context(c)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 

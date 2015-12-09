@@ -10,11 +10,14 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -56,8 +59,10 @@ Continue [y/N]? `[1:]
 type destroyControllerAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
-	DestroyController(destroyEnvs bool, ignoreBlocks bool) error
+	DestroyController(destroyEnvs bool) error
 	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
+	EnvironmentStatus(envs ...names.EnvironTag) ([]base.EnvironmentStatus, error)
+	AllEnvironments() ([]base.UserEnvironment, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -123,22 +128,36 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the controller.
-	err = api.DestroyController(c.destroyEnvs, false)
+	err = api.DestroyController(c.destroyEnvs)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
-		return c.destroyControLleRviaclient(ctx, cfgInfo, controllerEnviron, store)
+		return c.destroyControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
 	}
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
+	ctx.Infof("Destroying controller %q", c.EnvName())
+	if c.destroyEnvs {
+		ctx.Infof("Waiting for hosted environment resources to be reclaimed.")
+
+		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+		for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
+			ctx.Infof(fmtCtrStatus(ctrStatus))
+			for _, envStatus := range envsStatus {
+				ctx.Verbosef(fmtEnvStatus(envStatus))
+			}
+		}
+
+		ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+	}
 	return environs.Destroy(controllerEnviron, store)
 }
 
-// destroyControLleRviaclient attempts to destroy the controller using the client
+// destroyControllerViaClient attempts to destroy the controller using the client
 // endpoint for older juju controllers which do not implement controller.DestroyController
-func (c *destroyCommand) destroyControLleRviaclient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
+func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
