@@ -22,7 +22,7 @@ func PreUpgradeSteps(st *state.State, agentConf agent.Config, isMaster bool) err
 }
 
 // We'll be conservative and require at least 2GiB of disk space for an upgrade.
-var MinDiskSpaceGib = 2
+var MinDiskSpaceGib = uint64(2)
 
 func checkDiskSpace(dir string) error {
 	usage := du.NewDiskUsage(dir)
