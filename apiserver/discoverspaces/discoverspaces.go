@@ -6,6 +6,7 @@ package discoverspaces
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
@@ -19,7 +20,7 @@ func init() {
 type DiscoverSpacesAPI struct {
 	*common.EnvironWatcher
 
-	st             *state.State
+	st             networkingcommon.NetworkBacking
 	resources      *common.Resources
 	authorizer     common.Authorizer
 	StateAddresser *common.StateAddresser
@@ -32,7 +33,7 @@ func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authoriz
 	}
 	return &DiscoverSpacesAPI{
 		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
-		st:             st,
+		st:             networkingcommon.NewStateShim(st),
 		authorizer:     authorizer,
 		resources:      resources,
 		StateAddresser: common.NewStateAddresser(st),
@@ -74,33 +75,11 @@ func (api *DiscoverSpacesAPI) createOneSpace(args params.CreateSpaceParams) erro
 	}
 
 	// Add the validated space
-	_, err = api.st.AddSpace(spaceTag.Id(), "", subnets, args.Public)
+	err = api.st.AddSpace(spaceTag.Id(), "", subnets, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func backingSubnetToParamsSubnet(subnet state.Subnet) params.Subnet {
-	cidr := subnet.CIDR()
-	vlantag := subnet.VLANTag()
-	providerid := subnet.ProviderId()
-	zone := subnet.AvailabilityZone()
-	status := subnet.Status()
-	var spaceTag names.SpaceTag
-	if subnet.SpaceName() != "" {
-		spaceTag = names.NewSpaceTag(subnet.SpaceName())
-	}
-
-	return params.Subnet{
-		CIDR:       cidr,
-		VLANTag:    vlantag,
-		ProviderId: string(providerid),
-		Zones:      []string{zone},
-		Status:     status,
-		SpaceTag:   spaceTag.String(),
-		Life:       subnet.Life(),
-	}
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
@@ -113,7 +92,7 @@ func (api *DiscoverSpacesAPI) ListSpaces() (results params.DiscoverSpacesResults
 	results.Results = make([]params.ProviderSpace, len(spaces))
 	for i, space := range spaces {
 		result := params.ProviderSpace{}
-		result.ProviderId = space.ProviderId()
+		result.ProviderId = string(space.ProviderId())
 
 		subnets, err := space.Subnets()
 		if err != nil {
@@ -125,7 +104,7 @@ func (api *DiscoverSpacesAPI) ListSpaces() (results params.DiscoverSpacesResults
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = backingSubnetToParamsSubnet(subnet)
+			result.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}
