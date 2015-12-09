@@ -502,13 +502,13 @@ class BootstrapManager:
         if (
                 self.client.env.config['type'] != 'manual' or
                 self.bootstrap_host is not None):
-            yield self.bootstrap_host, []
+            yield []
             return
         try:
             instances = run_instances(3, self.temp_env_name, self.series)
             new_bootstrap_host = instances[0][1]
             self.known_hosts['0'] = new_bootstrap_host
-            yield new_bootstrap_host, [i[1] for i in instances[1:]]
+            yield [i[1] for i in instances[1:]]
         finally:
             if self.keep_env:
                 return
@@ -607,7 +607,7 @@ class BootstrapManager:
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
-            with self.aws_machines() as (bootstrap_host, new_machines):
+            with self.aws_machines() as new_machines:
                 yield machines + new_machines
 
     @contextmanager
