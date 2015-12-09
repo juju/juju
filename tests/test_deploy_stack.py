@@ -221,7 +221,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ['machine-0', 'machine-1', 'machine-2'],
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
-            (client, '10.10.0.1'), gm_mock.call_args[0])
+            (client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
         self.assertItemsEqual(
             [(self.r0, '%s/machine-0' % artifacts_dir),
              (self.r1, '%s/machine-1' % artifacts_dir),
@@ -251,7 +251,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ['machine-2'],
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
-            (client, '10.10.0.1'), gm_mock.call_args[0])
+                (client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
         self.assertEqual(
             [(self.r2, '%s/machine-2' % artifacts_dir)],
             [cal[0] for cal in crl_mock.call_args_list])
@@ -422,7 +422,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machines = get_remote_machines(client, None)
+            machines = get_remote_machines(client, {})
         self.assert_machines(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
@@ -436,7 +436,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machines = get_remote_machines(client, '10.11.111.222')
+            machines = get_remote_machines(client, {'0': '10.11.111.222'})
         self.assert_machines({'0': '10.11.111.222'}, machines)
 
     def test_get_machines_for_logs_with_no_addresses(self):
@@ -444,7 +444,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         with patch.object(client, 'get_status', autospec=True,
                           side_effect=Exception):
-            machines = get_remote_machines(client, '10.11.111.222')
+            machines = get_remote_machines(client, {'0': '10.11.111.222'})
         self.assert_machines({'0': '10.11.111.222'}, machines)
 
     @patch('subprocess.check_call')
@@ -471,7 +471,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             }
             with patch('substrate.MAASAccount.get_allocated_ips',
                        autospec=True, return_value=allocated_ips):
-                machines = get_remote_machines(client, 'node1.maas')
+                machines = get_remote_machines(client, {'0': 'node1.maas'})
         self.assert_machines(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
