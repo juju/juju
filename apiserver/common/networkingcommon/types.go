@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/names"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -19,7 +20,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
-	AvailabilityZone() string
+	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
 	Life() params.Life
@@ -123,4 +124,26 @@ type NetworkBacking interface {
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
+}
+
+func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
+	cidr := subnet.CIDR()
+	vlantag := subnet.VLANTag()
+	providerid := subnet.ProviderId()
+	zones := subnet.AvailabilityZones()
+	status := subnet.Status()
+	var spaceTag names.SpaceTag
+	if subnet.SpaceName() != "" {
+		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+	}
+
+	return params.Subnet{
+		CIDR:       cidr,
+		VLANTag:    vlantag,
+		ProviderId: string(providerid),
+		Zones:      zones,
+		Status:     status,
+		SpaceTag:   spaceTag.String(),
+		Life:       subnet.Life(),
+	}
 }

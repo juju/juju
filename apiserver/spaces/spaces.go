@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -29,22 +27,9 @@ type API interface {
 	ListSpaces() (params.ListSpacesResults, error)
 }
 
-// Backing defines the state methods this facede needs, so they can be
-// mocked for testing.
-type Backing interface {
-	// EnvironConfig returns the configuration of the environment.
-	EnvironConfig() (*config.Config, error)
-
-	// AddSpace creates a space.
-	AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error
-
-	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]networkingcommon.BackingSpace, error)
-}
-
 // spacesAPI implements the API interface.
 type spacesAPI struct {
-	backing    Backing
+	backing    networkingcommon.BackingState
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
@@ -52,12 +37,12 @@ type spacesAPI struct {
 // NewAPI creates a new Space API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
-	return newAPIWithBacking(&stateShim{st: st}, res, auth)
+	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
-func newAPIWithBacking(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func newAPIWithBacking(backing networkingcommon.BackingState, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -115,28 +100,6 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
-func backingSubnetToParamsSubnet(subnet networkingcommon.BackingSubnet) params.Subnet {
-	cidr := subnet.CIDR()
-	vlantag := subnet.VLANTag()
-	providerid := subnet.ProviderId()
-	zone := subnet.AvailabilityZone()
-	status := subnet.Status()
-	var spaceTag names.SpaceTag
-	if subnet.SpaceName() != "" {
-		spaceTag = names.NewSpaceTag(subnet.SpaceName())
-	}
-
-	return params.Subnet{
-		CIDR:       cidr,
-		VLANTag:    vlantag,
-		ProviderId: string(providerid),
-		Zones:      []string{zone},
-		Status:     status,
-		SpaceTag:   spaceTag.String(),
-		Life:       subnet.Life(),
-	}
-}
-
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
 	err = api.supportsSpaces()
@@ -164,7 +127,7 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 
 		result.Subnets = make([]params.Subnet, len(subnets))
 		for i, subnet := range subnets {
-			result.Subnets[i] = backingSubnetToParamsSubnet(subnet)
+			result.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}

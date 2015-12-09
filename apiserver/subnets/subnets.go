@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -48,7 +49,7 @@ type API interface {
 
 // subnetsAPI implements the API interface.
 type subnetsAPI struct {
-	backing    common.NetworkBacking
+	backing    networkingcommon.NetworkBacking
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
@@ -56,12 +57,12 @@ type subnetsAPI struct {
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
-	return newAPIWithBacking(&stateShim{st: st}, res, auth)
+	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing common.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -517,7 +518,7 @@ func (api *subnetsAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubne
 	}
 
 	// Try adding the subnet.
-	backingInfo := common.BackingSubnetInfo{
+	backingInfo := networkingcommon.BackingSubnetInfo{
 		ProviderId:        subnetInfo.ProviderId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
