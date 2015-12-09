@@ -527,8 +527,9 @@ class BootstrapManager:
             self.tear_down_client.juju_home = old_home
 
     @contextmanager
-    def bootstrap_context(self, bootstrap_host, machines):
+    def bootstrap_context(self, machines):
         """Context for bootstrapping a state server."""
+        bootstrap_host = self.known_hosts.get('0')
         update_env(self.client.env, self.temp_env_name, series=self.series,
                    bootstrap_host=bootstrap_host,
                    agent_url=self.agent_url, agent_stream=self.agent_stream,
@@ -625,7 +626,7 @@ class BootstrapManager:
             of using streams.
         """
         with self.top_context() as (bootstrap_host, machines):
-            with self.bootstrap_context(bootstrap_host, machines):
+            with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
             with self.runtime_context(machines):
                 yield machines

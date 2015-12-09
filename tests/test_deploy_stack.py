@@ -636,7 +636,7 @@ class FakeBootstrapManager:
             self.exited_top = True
 
     @contextmanager
-    def bootstrap_context(self, bootstrap_host, machines):
+    def bootstrap_context(self, machines):
         initial_home = self.client.juju_home
         self.client.env.environment = self.client.env.environment + '-temp'
         try:
@@ -662,7 +662,7 @@ class FakeBootstrapManager:
     @contextmanager
     def booted_context(self, upload_tools):
         with self.top_context() as (bootstrap_host, machines):
-            with self.bootstrap_context(bootstrap_host, machines):
+            with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
             with self.runtime_context(machines):
                 yield machines
@@ -912,7 +912,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=True)
 
     def test_bootstrap_context_tear_down_jenv(self):
@@ -936,7 +936,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=False)
 
     def test_bootstrap_context_tear_down_client(self):
@@ -952,7 +952,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client,
                                                 False, try_jes=True)
 
@@ -975,7 +975,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
