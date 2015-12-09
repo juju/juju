@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -1526,29 +1527,25 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 
 // constructImageConstraint returns environment-specific criteria used to look for image metadata.
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
+	// If we can determine current region,
+	// we want only metadata specific to this region.
+	cloud, cfg, env, err := p.obtainEnvCloudConfig()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	lookup := simplestreams.LookupParams{
 		Series: []string{m.Series()},
-		// Stream can be "" or "released" for the default "released" stream,
-		// or "daily" for daily images, or any other stream that the available
-		// simplestreams metadata supports.
-		// TODO (anastasiamac 2015-12-03) what should go in here? if anything...
-		// i mean, maybe it makes more sense for start instance itself to decide what stream to use...
-		Stream: "",
+		Stream: cfg.AgentStream(),
 	}
 
 	mcons, err := m.Constraints()
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
 	}
+
 	if mcons.Arch != nil {
 		lookup.Arches = []string{*mcons.Arch}
-	}
-
-	// If we can determine current region,
-	// we want only metadata specific to this region.
-	cloud, env, err := p.obtainEnvCloudConfig()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
 	}
 	if cloud != nil {
 		lookup.CloudSpec = *cloud
@@ -1591,15 +1588,15 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 
 // obtainEnvCloudConfig returns environment specific cloud information
 // to be used in search for compatible images and their metadata.
-func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, environs.Environ, error) {
+func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not get environment config")
+		return nil, nil, nil, errors.Annotate(err, "could not get environment config")
 	}
 
 	env, err := environs.New(cfg)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not get environment")
+		return nil, nil, nil, errors.Annotate(err, "could not get environment")
 	}
 
 	if inst, ok := env.(simplestreams.HasRegion); ok {
@@ -1607,11 +1604,11 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, envir
 		if err != nil {
 			// can't really find images if we cannot determine cloud region
 			// TODO (anastasiamac 2015-12-03) or can we?
-			return nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
+			return nil, nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
 		}
-		return &cloud, env, nil
+		return &cloud, cfg, env, nil
 	}
-	return nil, env, nil
+	return nil, cfg, env, nil
 }
 
 // imageMetadataFromState returns image metadata stored in state
@@ -1670,6 +1667,9 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			Source:          source,
 			Priority:        priority,
 		}
+		if result.Stream == "" {
+			result.Stream = imagemetadata.ReleasedStream
+		}
 		// Translate version (eg.14.04) to a series (eg. "trusty")
 		s, err := series.VersionSeries(m.Version)
 		if err != nil {
@@ -1685,6 +1685,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		logger.Debugf("looking in data source %v", source.Description())
 		// TODO (anastasiamac 2015-12-02) signedOnly for now defaulted to false... how do i get provider specific one?
 		// do i need to add another property to metadata, like signed?
+		// Fix this when fixing DS in the follow-up PR to contain signed/unsigned bool.
 		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint, false)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.

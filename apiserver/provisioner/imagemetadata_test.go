@@ -124,6 +124,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 				VirtType:        one.VirtType,
 				RootStorageType: one.RootStorageType,
 				Source:          one.Source,
+				Stream:          one.Stream,
 			},
 			one.Priority,
 			one.ImageId,
@@ -143,6 +144,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 				VirtType:        "pv",
 				RootStorageType: "ebs",
 				Source:          "default cloud images",
+				Stream:          "released",
 				Priority:        10,
 			},
 			{ImageId: "ami-26745463",
@@ -151,6 +153,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 				Arch:            "amd64",
 				VirtType:        "pv",
 				RootStorageType: "ebs",
+				Stream:          "released",
 				Source:          "default cloud images",
 				Priority:        10},
 		}
