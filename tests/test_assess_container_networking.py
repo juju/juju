@@ -1,10 +1,11 @@
+from argparse import Namespace
 from copy import deepcopy
 from contextlib import contextmanager
-from unittest import TestCase
 
 from mock import (
     patch,
     Mock,
+    MagicMock,
 )
 
 from jujupy import (
@@ -14,7 +15,10 @@ from jujupy import (
 )
 
 import assess_container_networking as jcnet
-from tests import parse_error
+from tests import (
+    parse_error,
+    TestCase,
+)
 
 
 __metaclass__ = type
@@ -384,3 +388,18 @@ class TestContainerNetworking(TestCase):
         self.assertRaisesRegexp(
             ValueError, "Default route not found",
             jcnet.assess_internet_connection, self.client, targets)
+
+    def test_get_client(self):
+        args = Namespace(env="e", juju_bin="jb", debug=False,
+            agent_stream="http://tools.testing/agents", temp_env_name="te",
+            series="s", bootstrap_host="bh", agent_url="au", region="r")
+        
+        upenv = MagicMock()
+        with patch.object(EnvJujuClient, "by_version") as ejc, \
+             patch.object(SimpleEnvironment, "from_config") as se, \
+             patch("assess_container_networking.update_env", upenv):
+
+                jcnet.get_client(args)
+                self.assertEqual(upenv.call_args[0][1], args.temp_env_name)
+                for key, value in upenv.call_args[1].iteritems():
+                    self.assertEqual(vars(args)[key], value)

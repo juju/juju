@@ -1,3 +1,14 @@
 azure==0.8.0
 coverage==3.7.1
 pywinrm==0.0.3
+pyyaml
+mock
+launchpadlib
+boto==2.20.1
+python-jenkins==0.2.1
+requests
+rackspace-novaclient
+python-novaclient==2.17.0
+python-keystoneclient==1.6.0
+cloudsigma==0.4
+
