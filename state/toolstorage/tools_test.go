@@ -325,6 +325,24 @@ func (s *ToolsSuite) TestAddToolsExcessiveContention(c *gc.C) {
 	s.assertTools(c, metadata[3], "3")
 }
 
+func (s *ToolsSuite) TestAddToolsInvalidVersion(c *gc.C) {
+	number := version.MustParse("1.2.3")
+	versionWithoutSeries := version.Binary{Number: number, Arch: "amd64"}
+	versionWithoutArch := version.Binary{Number: number, Series: "trusty"}
+
+	err := s.storage.AddTools(strings.NewReader("xyzzzz"), toolstorage.Metadata{
+		Version: versionWithoutArch,
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`invalid tools version: invalid binary version "1.2.3-trusty-"`)
+
+	err = s.storage.AddTools(strings.NewReader("xyzzzz"), toolstorage.Metadata{
+		Version: versionWithoutSeries,
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`invalid tools version: invalid binary version "1.2.3--amd64"`)
+}
+
 func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
 	doc := struct {
 		Id      string         `bson:"_id"`

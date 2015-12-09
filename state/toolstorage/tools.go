@@ -47,6 +47,11 @@ func NewStorage(
 }
 
 func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error) {
+	// Validate the metadata by marshalling and unmarshalling the version.
+	if err := validateVersion(metadata.Version); err != nil {
+		return errors.Annotate(err, "invalid tools version")
+	}
+
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
 	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
@@ -196,4 +201,19 @@ func (s *toolsStorage) toolsTarball(path string) (io.ReadCloser, error) {
 // toolsPath returns the storage path for the specified tools.
 func toolsPath(v version.Binary, hash string) string {
 	return fmt.Sprintf("tools/%s-%s", v, hash)
+}
+
+func validateVersion(v version.Binary) error {
+	doc := struct{ Version version.Binary }{v}
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := bson.Unmarshal(data, &doc); err != nil {
+		return errors.Trace(err)
+	}
+	if v != doc.Version {
+		return errors.Errorf("version %q != %q", v, doc.Version)
+	}
+	return nil
 }
