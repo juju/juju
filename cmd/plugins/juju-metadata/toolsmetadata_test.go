@@ -74,6 +74,8 @@ var expectedOutputCommon = makeExpectedOutputCommon()
 func makeExpectedOutputCommon() string {
 	expected := "Finding tools in .*\n"
 	f := `.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: %s` + "\n"
+
+	// Sort the global versionStrings
 	sort.Strings(versionStrings)
 	for _, v := range versionStrings {
 		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
