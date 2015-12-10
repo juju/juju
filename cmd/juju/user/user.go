@@ -8,4 +8,3 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.user")
-
