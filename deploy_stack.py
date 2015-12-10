@@ -553,9 +553,19 @@ class BootstrapManager:
         with temp_bootstrap_env(self.client.juju_home, self.client,
                                 permanent=self.permanent):
             try:
-                if not torn_down:
-                    self.tear_down(try_jes=True)
-                yield
+                try:
+                    if not torn_down:
+                        self.tear_down(try_jes=True)
+                    yield
+                # If an exception is raised that indicates an error, log it
+                # before tearning down so that the error is closely tied to
+                # the failed operation.
+                except Exception as e:
+                    logging.exception(e)
+                    if getattr(e, 'output', None):
+                        print_now('\n')
+                        print_now(e.output)
+                    sys.exit(1)
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
@@ -575,14 +585,14 @@ class BootstrapManager:
         control is yielded.
         """
         try:
-            if len(self.known_hosts) == 0:
-                host = get_machine_dns_name(self.client, '0')
-                if host is None:
-                    raise ValueError('Could not get machine 0 host')
-                self.known_hosts['0'] = host
             try:
-                if addable_machines is not None:
-                    self.client.add_ssh_machines(addable_machines)
+                if len(self.known_hosts) == 0:
+                    host = get_machine_dns_name(self.client, '0')
+                    if host is None:
+                        raise ValueError('Could not get machine 0 host')
+                    self.known_hosts['0'] = host
+                    if addable_machines is not None:
+                        self.client.add_ssh_machines(addable_machines)
                 yield
             except GeneratorExit:
                 return
