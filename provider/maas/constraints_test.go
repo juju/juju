@@ -416,7 +416,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
-	c.Assert(nodeValues[0].Get("not_networks"), gc.Equals, "space=space2,space=space4")
+	c.Assert(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
@@ -470,7 +470,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}{{ // without specified bindings, spaces constraints are used instead.
 		interfaces:        nil,
 		expectedPositives: "0:space=foo",
-		expectedNegatives: "space=bar",
+		expectedNegatives: "space:bar",
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1", false}},
@@ -491,7 +491,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"name-3", "space-3", true},
 		},
 		expectedPositives: "name-1:space=space-1",
-		expectedNegatives: "space=space-2,space=space-3",
+		expectedNegatives: "space:space-2,space:space-3",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything", false}},
 		expectedError: "interface bindings cannot have empty names",

@@ -166,7 +166,7 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 		}
 		namesSet.Add(binding.Name)
 		if binding.IsExcluded {
-			negatives = append(negatives, fmt.Sprintf("space=%s", binding.SpaceProviderId))
+			negatives = append(negatives, fmt.Sprintf("space:%s", binding.SpaceProviderId))
 		} else {
 			positives = append(positives, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
 		}
