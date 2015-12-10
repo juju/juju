@@ -1656,28 +1656,51 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, err
 	}
 
-	toParams := func(m *imagemetadata.ImageMetadata, source string, priority int) params.CloudImageMetadata {
-		result := params.CloudImageMetadata{
+	getSeries := func(id, version string) string {
+		// Translate version (eg.14.04) to a series (eg. "trusty")
+		s, err := series.VersionSeries(version)
+		if err != nil {
+			logger.Warningf("could not determine series for image id %s: %v", id, err)
+			return ""
+		}
+		return s
+	}
+
+	getStream := func(current string) string {
+		if current == "" {
+			return imagemetadata.ReleasedStream
+		}
+		return current
+	}
+
+	toParams := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) params.CloudImageMetadata {
+		return params.CloudImageMetadata{
 			ImageId:         m.Id,
-			Stream:          m.Stream,
 			Region:          m.RegionName,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
 			RootStorageType: m.Storage,
+			Series:          mSeries,
 			Source:          source,
 			Priority:        priority,
+			Stream:          mStream,
 		}
-		if result.Stream == "" {
-			result.Stream = imagemetadata.ReleasedStream
+	}
+
+	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) cloudimagemetadata.Metadata {
+		return cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Region:          m.RegionName,
+				Arch:            m.Arch,
+				VirtType:        m.VirtType,
+				RootStorageType: m.Storage,
+				Source:          source,
+				Series:          mSeries,
+				Stream:          mStream,
+			},
+			priority,
+			m.Id,
 		}
-		// Translate version (eg.14.04) to a series (eg. "trusty")
-		s, err := series.VersionSeries(m.Version)
-		if err != nil {
-			logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
-			return result
-		}
-		result.Series = s
-		return result
 	}
 
 	var all []params.CloudImageMetadata
@@ -1693,7 +1716,16 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			continue
 		}
 		for _, m := range found {
-			all = append(all, toParams(m, info.Source, source.Priority()))
+			mSeries := getSeries(m.Id, m.Version)
+			mStream := getStream(m.Stream)
+
+			all = append(all, toParams(m, mSeries, mStream, info.Source, source.Priority()))
+			// Attempt to store in state for next time :D
+			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mSeries, mStream, info.Source, source.Priority()))
+			if err != nil {
+				// No need to react here, just take note
+				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
+			}
 		}
 	}
 

@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -72,8 +73,13 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
-	// ensure metadata in data sources
+	// ensure metadata in data sources and not in state
 	useTestImageData(testImagesData)
+
+	criteria := cloudimagemetadata.MetadataFilter{Stream: "released"}
+	found, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(found, gc.HasLen, 0)
 
 	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +87,15 @@ func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertImageMetadataResults(c, result, s.expectedDataSoureImageMetadata()...)
+	expected := s.expectedDataSoureImageMetadata()
+	s.assertImageMetadataResults(c, result, expected...)
+
+	// Also make sure that these images metadata has been written to state for re-use
+	saved, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(saved, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
+		"default cloud images": s.convertCloudImageMetadata(expected[0]),
+	})
 }
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
