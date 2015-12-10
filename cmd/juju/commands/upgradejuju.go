@@ -462,7 +462,7 @@ func validateUpgradeTarget(target, agentVersion version.Number, printf func(stri
 		if target.Major > 2 || (target.Major == 2 && target.Minor > 0) {
 			output = append(output, ""+
 				"Environment must first be upgraded to the latest 2.0 release.\n"+
-				"    juju upgrade-juju --version=2.0")
+				"    juju upgrade-juju --version=2.0.0")
 		}
 
 		// We can only upgrade a major version if we're currently on 1.25.2 or later
