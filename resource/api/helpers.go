@@ -50,7 +50,11 @@ func ResourceSpec2API(r resource.Spec) ResourceSpec {
 func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 	var spec resource.Spec
 
-	rtype, _ := charmresource.ParseType(apiSpec.Type)
+	rtype, ok := charmresource.ParseType(apiSpec.Type)
+	if !ok {
+		// This will be handled later during spec.Validate().
+	}
+
 	info := charmresource.Info{
 		Name:    apiSpec.Name,
 		Type:    rtype,
