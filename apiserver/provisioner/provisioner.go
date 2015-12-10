@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,11 +22,15 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -432,6 +437,12 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
+
+	imageMetadata, err := p.availableImageMetadata(m)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get available image metadata")
+	}
+
 	return &params.ProvisioningInfo{
 		Constraints:    cons,
 		Series:         m.Series(),
@@ -441,6 +452,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		Volumes:        volumes,
 		Tags:           tags,
 		SubnetsToZones: subnetsToZones,
+		ImageMetadata:  imageMetadata,
 	}, nil
 }
 
@@ -1493,4 +1505,252 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 		subnetsToZones[providerId] = []string{zone}
 	}
 	return subnetsToZones, nil
+}
+
+// availableImageMetadata returns all image metadata available to this machine
+// or an error fetching them.
+func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.CloudImageMetadata, error) {
+	imageConstraint, env, err := p.constructImageConstraint(m)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not construct image constraint")
+	}
+
+	// Look for image metadata in state.
+	data, err := p.findImageMetadata(imageConstraint, env)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Sort(metadataList(data))
+	return data, nil
+}
+
+// constructImageConstraint returns environment-specific criteria used to look for image metadata.
+func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
+	// If we can determine current region,
+	// we want only metadata specific to this region.
+	cloud, cfg, env, err := p.obtainEnvCloudConfig()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	lookup := simplestreams.LookupParams{
+		Series: []string{m.Series()},
+		Stream: cfg.AgentStream(),
+	}
+
+	mcons, err := m.Constraints()
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
+	}
+
+	if mcons.Arch != nil {
+		lookup.Arches = []string{*mcons.Arch}
+	}
+	if cloud != nil {
+		lookup.CloudSpec = *cloud
+	}
+
+	return imagemetadata.NewImageConstraint(lookup), env, nil
+}
+
+// findImageMetadata returns all image metadata or an error fetching them.
+// It looks for image metadata in state.
+// If none are found, we fall back on original image search in simple streams.
+func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
+	// Look for image metadata in state.
+	stateMetadata, err := p.imageMetadataFromState(imageConstraint)
+	if err != nil && !errors.IsNotFound(err) {
+		// look into simple stream if for some reason can't get from state server,
+		// so do not exit on error.
+		logger.Infof("could not get image metadata from state server: %v", err)
+	}
+	logger.Warningf("\n\n GOT FROM STATE %d METADATA \n\n", len(stateMetadata))
+	// No need to look in data sources if found in state.
+	if len(stateMetadata) != 0 {
+		return stateMetadata, nil
+	}
+
+	// If no metadata is found in state, fall back to original simple stream search.
+	// Currently, an image metadata worker picks up this metadata periodically (daily),
+	// and stores it in state. So potentially, this collection could be different
+	// to what is in state.
+	dsMetadata, err := p.imageMetadataFromDataSources(env, imageConstraint)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+	}
+	logger.Warningf("\n\n GOT FROM DATA SOURCES %d METADATA \n\n", len(dsMetadata))
+
+	return dsMetadata, nil
+}
+
+// obtainEnvCloudConfig returns environment specific cloud information
+// to be used in search for compatible images and their metadata.
+func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
+	cfg, err := p.st.EnvironConfig()
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "could not get environment config")
+	}
+
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "could not get environment")
+	}
+
+	if inst, ok := env.(simplestreams.HasRegion); ok {
+		cloud, err := inst.Region()
+		if err != nil {
+			// can't really find images if we cannot determine cloud region
+			// TODO (anastasiamac 2015-12-03) or can we?
+			return nil, nil, nil, errors.Annotate(err, "getting provider region information (cloud spec)")
+		}
+		return &cloud, cfg, env, nil
+	}
+	return nil, cfg, env, nil
+}
+
+// imageMetadataFromState returns image metadata stored in state
+// that matches given criteria.
+func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+	filter := cloudimagemetadata.MetadataFilter{
+		Series: constraint.Series,
+		Arches: constraint.Arches,
+		Region: constraint.Region,
+		Stream: constraint.Stream,
+	}
+	stored, err := p.st.CloudImageMetadataStorage.FindMetadata(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	toParams := func(m cloudimagemetadata.Metadata) params.CloudImageMetadata {
+		return params.CloudImageMetadata{
+			ImageId:         m.ImageId,
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Series:          m.Series,
+			Arch:            m.Arch,
+			VirtType:        m.VirtType,
+			RootStorageType: m.RootStorageType,
+			RootStorageSize: m.RootStorageSize,
+			Source:          m.Source,
+			Priority:        m.Priority,
+		}
+	}
+
+	var all []params.CloudImageMetadata
+	for _, ms := range stored {
+		for _, m := range ms {
+			all = append(all, toParams(m))
+		}
+	}
+	return all, nil
+}
+
+// imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
+func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, err
+	}
+
+	getSeries := func(id, version string) string {
+		// Translate version (eg.14.04) to a series (eg. "trusty")
+		s, err := series.VersionSeries(version)
+		if err != nil {
+			logger.Warningf("could not determine series for image id %s: %v", id, err)
+			return ""
+		}
+		return s
+	}
+
+	getStream := func(current string) string {
+		if current == "" {
+			return imagemetadata.ReleasedStream
+		}
+		return current
+	}
+
+	toParams := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) params.CloudImageMetadata {
+		return params.CloudImageMetadata{
+			ImageId:         m.Id,
+			Region:          m.RegionName,
+			Arch:            m.Arch,
+			VirtType:        m.VirtType,
+			RootStorageType: m.Storage,
+			Series:          mSeries,
+			Source:          source,
+			Priority:        priority,
+			Stream:          mStream,
+		}
+	}
+
+	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) cloudimagemetadata.Metadata {
+		return cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Region:          m.RegionName,
+				Arch:            m.Arch,
+				VirtType:        m.VirtType,
+				RootStorageType: m.Storage,
+				Source:          source,
+				Series:          mSeries,
+				Stream:          mStream,
+			},
+			priority,
+			m.Id,
+		}
+	}
+
+	var all []params.CloudImageMetadata
+	for _, source := range sources {
+		logger.Debugf("looking in data source %v", source.Description())
+		// TODO (anastasiamac 2015-12-02) signedOnly for now defaulted to false... how do i get provider specific one?
+		// do i need to add another property to metadata, like signed?
+		// Fix this when fixing DS in the follow-up PR to contain signed/unsigned bool.
+		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint, false)
+		if err != nil {
+			// Do not stop looking in other data sources if there is an issue here.
+			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
+			continue
+		}
+		for _, m := range found {
+			mSeries := getSeries(m.Id, m.Version)
+			mStream := getStream(m.Stream)
+
+			all = append(all, toParams(m, mSeries, mStream, info.Source, source.Priority()))
+			// Attempt to store in state for next time :D
+			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mSeries, mStream, info.Source, source.Priority()))
+			if err != nil {
+				// No need to react here, just take note
+				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
+			}
+		}
+	}
+
+	if len(all) == 0 {
+		return nil, errors.NotFoundf("image metadata for series %v, arch %v", constraint.Series, constraint.Arches)
+	}
+
+	return all, nil
+}
+
+// metadataList is a convenience type enabling to sort
+// a collection of CloudImageMetadata in order of priority.
+type metadataList []params.CloudImageMetadata
+
+// Implements sort.Interface
+func (m metadataList) Len() int {
+	return len(m)
+}
+
+// Implements sort.Interface and sorts image metadata by priority.
+func (m metadataList) Less(i, j int) bool {
+	return m[i].Priority < m[j].Priority
+}
+
+// Implements sort.Interface
+func (m metadataList) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
 }
