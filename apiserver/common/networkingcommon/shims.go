@@ -12,33 +12,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Backing defines the state methods that networking facedes need, so they can
-// be mocked for testing.
-type BackingState interface {
-	// EnvironConfig returns the configuration of the environment.
-	EnvironConfig() (*config.Config, error)
-
-	// AddSpace creates a space.
-	AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error
-
-	// AllSpaces returns all known Juju network spaces.
-	AllSpaces() ([]BackingSpace, error)
-
-	// AddSubnet creates a backing subnet for an existing subnet.
-	AddSubnet(BackingSubnetInfo) (BackingSubnet, error)
-
-	// AllSubnets returns all backing subnets.
-	AllSubnets() ([]BackingSubnet, error)
-
-	// AvailabilityZones returns all cached availability zones (i.e.
-	// not from the provider, but in state).
-	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
-
-	// SetAvailabilityZones replaces the cached list of availability
-	// zones with the given zones.
-	SetAvailabilityZones([]providercommon.AvailabilityZone) error
-}
-
 // NOTE:  All of the following code is only tested with a feature test.
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
@@ -109,7 +82,7 @@ func NewStateShim(st *state.State) *stateShim {
 // stateShim forwards and adapts state.State methods to Backing
 // method.
 type stateShim struct {
-	BackingState
+	NetworkBacking
 	st *state.State
 }
 

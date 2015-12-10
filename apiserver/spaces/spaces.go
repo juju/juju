@@ -27,7 +27,7 @@ type API interface {
 
 // spacesAPI implements the API interface.
 type spacesAPI struct {
-	backing    networkingcommon.BackingState
+	backing    networkingcommon.NetworkBacking
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
@@ -40,7 +40,7 @@ func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
-func newAPIWithBacking(backing networkingcommon.BackingState, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
