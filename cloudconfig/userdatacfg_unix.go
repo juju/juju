@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -203,6 +206,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 			fmt.Sprintf(
 				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+	}
+
+	if w.icfg.PublicImageSigningKey != "" {
+		keyFile := filepath.Join(agent.DefaultConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
