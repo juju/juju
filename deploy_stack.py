@@ -596,10 +596,9 @@ class BootstrapManager:
             else:
                 runtime_config = get_jenv_path(self.client.juju_home,
                                                self.client.env.environment)
-            if len(self.known_hosts) > 0:
-                dump_env_logs_known_hosts(
-                    self.client, self.log_dir, runtime_config,
-                    self.known_hosts)
+            dump_env_logs_known_hosts(
+                self.client, self.log_dir, runtime_config,
+                self.known_hosts)
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
