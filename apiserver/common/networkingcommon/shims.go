@@ -24,12 +24,19 @@ type BackingState interface {
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
 
-	// AddSubnets adds existing subnets to Juju.
-	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
+	// AddSubnet creates a backing subnet for an existing subnet.
+	AddSubnet(BackingSubnetInfo) (BackingSubnet, error)
 
-	// ListSubnets returns the matching subnets after applying
-	// optional filters.
-	ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResults, error)
+	// AllSubnets returns all backing subnets.
+	AllSubnets() ([]BackingSubnet, error)
+
+	// AvailabilityZones returns all cached availability zones (i.e.
+	// not from the provider, but in state).
+	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
+
+	// SetAvailabilityZones replaces the cached list of availability
+	// zones with the given zones.
+	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 }
 
 // NOTE:  All of the following code is only tested with a feature test.
