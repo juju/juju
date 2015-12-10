@@ -242,8 +242,8 @@ var commandNames = []string{
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
-	"list-users",
 	"list-shares",
+	"list-users",
 	"login",
 	"machine",
 	"publish",
@@ -261,8 +261,8 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
-	"show-user",
 	"share-environment",
+	"show-user",
 	"space",
 	"ssh",
 	"stat", // alias for status

@@ -28,5 +28,12 @@ to login to the same Juju System.
 
 See Also:
     juju help controllers
-    juju help user
+    juju help add-user
+    juju help change-user-password
+    juju help get-user-credentials
+    juju help list-users
+    juju help show-user
+    juju help disable-user
+    juju help enable-user
+
 `
