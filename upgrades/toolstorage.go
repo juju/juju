@@ -75,10 +75,25 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 	}
 
 	for _, agentTools := range toolsList {
+		// Sanity-check tools metadata.
+		if err := validateAgentTools(agentTools); err != nil {
+			logger.Debugf("ignoring invalid agent tools %v: %v", agentTools.Version, err)
+			continue
+		}
 		logger.Infof("migrating %v tools to environment storage", agentTools.Version)
 		data, err := fetchToolsArchive(stor, envtools.LegacyReleaseDirectory, agentTools)
-		if err != nil {
-			return errors.Annotatef(err, "failed to fetch %v tools", agentTools.Version)
+		if errors.IsNotFound(err) {
+			logger.Debugf("ignoring missing agent tools %v: %v", agentTools.Version, err)
+			continue
+		} else if isErrInvalidMetadata(err) {
+			logger.Debugf("ignoring invalid agent tools %v: %v", agentTools.Version, err)
+			continue
+		} else if err != nil {
+			// Failed to fetch tools. Ignore them, in which case
+			// Juju will fetch them externally again, or the user
+			// must upload/sync them again.
+			logger.Debugf("ignoring agent tools %v: failed to fetch tools: %v", agentTools.Version, err)
+			continue
 		}
 		err = tstor.AddTools(bytes.NewReader(data), toolstorage.Metadata{
 			Version: agentTools.Version,
@@ -90,6 +105,29 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		}
 	}
 	return nil
+}
+
+func validateAgentTools(agentTools *tools.Tools) error {
+	// Neither of these should be possible because simplestreams
+	// barfs if release/arch are not set. We'll be pedantic here
+	// in case of changes.
+	v := agentTools.Version
+	if v.Series == "" {
+		return errors.New("series not set")
+	}
+	if v.Arch == "" {
+		return errors.New("arch not set")
+	}
+	return nil
+}
+
+type errInvalidMetadata struct {
+	error
+}
+
+func isErrInvalidMetadata(err error) bool {
+	_, ok := err.(errInvalidMetadata)
+	return ok
 }
 
 func fetchToolsArchive(stor storage.StorageReader, toolsDir string, agentTools *tools.Tools) ([]byte, error) {
@@ -105,10 +143,10 @@ func fetchToolsArchive(stor storage.StorageReader, toolsDir string, agentTools *
 		return nil, err
 	}
 	if hash != agentTools.SHA256 {
-		return nil, errors.New("hash mismatch")
+		return nil, errInvalidMetadata{errors.New("hash mismatch")}
 	}
 	if size != agentTools.Size {
-		return nil, errors.New("size mismatch")
+		return nil, errInvalidMetadata{errors.New("size mismatch")}
 	}
 	return buf.Bytes(), nil
 }
