@@ -40,14 +40,13 @@ class QuickstartTest:
     def iter_steps(self):
         # Start the quickstart job
         step = {'juju-quickstart': 'Returned from quickstart'}
-        with self.bs_manager.top_context() as (bootstrap_host, machines):
-            with self.bs_manager.bootstrap_context(bootstrap_host, machines):
+        with self.bs_manager.top_context() as machines:
+            with self.bs_manager.bootstrap_context(machines):
                 self.client.quickstart(self.bundle_path)
                 yield step
-            with self.bs_manager.runtime_context(bootstrap_host,
-                                                 machines) as host:
+            with self.bs_manager.runtime_context(machines):
                 # Get the hostname for machine 0
-                step['bootstrap_host'] = host
+                step['bootstrap_host'] = self.bs_manager.known_hosts['0']
                 yield step
                 # Wait for deploy to start
                 self.client.wait_for_deploy_started(self.service_count)

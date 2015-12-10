@@ -63,6 +63,7 @@ from tests import (
 )
 from test_jujupy import (
     assert_juju_call,
+    FakeJujuClient,
     FakePopen,
 )
 from utility import (
@@ -221,7 +222,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ['machine-0', 'machine-1', 'machine-2'],
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
-            (client, '10.10.0.1'), gm_mock.call_args[0])
+            (client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
         self.assertItemsEqual(
             [(self.r0, '%s/machine-0' % artifacts_dir),
              (self.r1, '%s/machine-1' % artifacts_dir),
@@ -251,7 +252,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ['machine-2'],
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
-            (client, '10.10.0.1'), gm_mock.call_args[0])
+                (client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
         self.assertEqual(
             [(self.r2, '%s/machine-2' % artifacts_dir)],
             [cal[0] for cal in crl_mock.call_args_list])
@@ -422,7 +423,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machines = get_remote_machines(client, None)
+            machines = get_remote_machines(client, {})
         self.assert_machines(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
@@ -436,7 +437,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machines = get_remote_machines(client, '10.11.111.222')
+            machines = get_remote_machines(client, {'0': '10.11.111.222'})
         self.assert_machines({'0': '10.11.111.222'}, machines)
 
     def test_get_machines_for_logs_with_no_addresses(self):
@@ -444,7 +445,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             SimpleEnvironment('cloud', {'type': 'ec2'}), '1.23.4', None)
         with patch.object(client, 'get_status', autospec=True,
                           side_effect=Exception):
-            machines = get_remote_machines(client, '10.11.111.222')
+            machines = get_remote_machines(client, {'0': '10.11.111.222'})
         self.assert_machines({'0': '10.11.111.222'}, machines)
 
     @patch('subprocess.check_call')
@@ -471,7 +472,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             }
             with patch('substrate.MAASAccount.get_allocated_ips',
                        autospec=True, return_value=allocated_ips):
-                machines = get_remote_machines(client, 'node1.maas')
+                machines = get_remote_machines(client, {'0': 'node1.maas'})
         self.assert_machines(
             {'0': '10.11.12.13', '1': '10.11.12.14'}, machines)
 
@@ -624,17 +625,18 @@ class FakeBootstrapManager:
         self.exited_runtime = False
         self.torn_down = False
         self.permanent = False
+        self.known_hosts = {'0': '0.example.org'}
 
     @contextmanager
     def top_context(self):
         try:
             self.entered_top = True
-            yield 'foo', ['bar']
+            yield ['bar']
         finally:
             self.exited_top = True
 
     @contextmanager
-    def bootstrap_context(self, bootstrap_host, machines):
+    def bootstrap_context(self, machines):
         initial_home = self.client.juju_home
         self.client.env.environment = self.client.env.environment + '-temp'
         try:
@@ -647,7 +649,7 @@ class FakeBootstrapManager:
                 self.client.juju_home = initial_home
 
     @contextmanager
-    def runtime_context(self, bootstrap_host, machines):
+    def runtime_context(self, machines):
         try:
             self.entered_runtime = True
             yield
@@ -659,10 +661,10 @@ class FakeBootstrapManager:
 
     @contextmanager
     def booted_context(self, upload_tools):
-        with self.top_context() as (bootstrap_host, machines):
-            with self.bootstrap_context(bootstrap_host, machines):
+        with self.top_context() as machines:
+            with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
-            with self.runtime_context(bootstrap_host, machines):
+            with self.runtime_context(machines):
                 yield machines
 
 
@@ -857,6 +859,32 @@ class TestBootstrapManager(FakeHomeTestCase):
         jes_enabled = bs_manager.client.is_jes_enabled.return_value
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
+        self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+
+    def test_aws_machines_updates_bootstrap_host(self):
+        client = FakeJujuClient()
+        client.env.config['type'] = 'manual'
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.juju_home, False, False, False)
+        with patch('deploy_stack.run_instances',
+                   return_value=[('foo', 'aws.example.org')]):
+            with patch('deploy_stack.destroy_job_instances'):
+                with bs_manager.aws_machines():
+                    self.assertEqual({'0': 'aws.example.org'},
+                                     bs_manager.known_hosts)
+
+    def test_from_args_no_host(self):
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host=None, machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs='pine', keep_env=True)
+        with patch.object(SimpleEnvironment, 'from_config'):
+            with patch.object(EnvJujuClient, 'by_version'):
+                bs_manager = BootstrapManager.from_args(args)
+        self.assertIs(None, bs_manager.bootstrap_host)
+        self.assertEqual({}, bs_manager.known_hosts)
 
     def make_client(self):
         client = MagicMock()
@@ -884,7 +912,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=True)
 
     def test_bootstrap_context_tear_down_jenv(self):
@@ -908,7 +936,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=False)
 
     def test_bootstrap_context_tear_down_client(self):
@@ -924,7 +952,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client,
                                                 False, try_jes=True)
 
@@ -947,7 +975,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context(None, []):
+            with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
@@ -969,6 +997,36 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager.tear_down()
         self.assertEqual('barfoo', tear_down_client.juju_home)
 
+    def test_runtime_context_uses_known_hosts(self):
+        client = FakeJujuClient()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+        bs_manager.known_hosts['2'] = 'example.org'
+        with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+            with bs_manager.runtime_context([]):
+                pass
+        del_mock.assert_called_once_with(
+            client, 'foo', 'foo/environments/name.jenv', {
+                '2': 'example.org',
+                })
+
+    def test_runtime_context_looks_up_host(self):
+        client = FakeJujuClient()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+        with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+            with bs_manager.runtime_context([]):
+                pass
+        del_mock.assert_called_once_with(
+            client, 'foo', 'foo/environments/name.jenv', {
+                '0': '0.example.com',
+                })
+
 
 class TestBootContext(FakeHomeTestCase):
 
@@ -985,7 +1043,8 @@ class TestBootContext(FakeHomeTestCase):
 
     @contextmanager
     def bc_context(self, client, log_dir=None, jes=None, keep_env=False):
-        dl_mock = self.addContext(patch('deploy_stack.dump_env_logs'))
+        dl_mock = self.addContext(
+            patch('deploy_stack.dump_env_logs_known_hosts'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True))
@@ -1013,7 +1072,7 @@ class TestBootContext(FakeHomeTestCase):
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'bar.jenv')
         dl_mock.assert_called_once_with(
-            client, 'foo', log_dir, runtime_config=runtime_config)
+                client, log_dir, runtime_config, {'0': 'foo'})
         if keep_env:
             tear_down_count = 1
         else:

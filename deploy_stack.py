@@ -146,11 +146,23 @@ def _can_run_ssh():
 
 
 def dump_env_logs(client, bootstrap_host, artifacts_dir, runtime_config=None):
+    if bootstrap_host is None:
+        known_hosts = {}
+    else:
+        known_hosts = {'0': bootstrap_host}
+    dump_env_logs_known_hosts(client, artifacts_dir, runtime_config,
+                              known_hosts)
+
+
+def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
+                              known_hosts=None):
+    if known_hosts is None:
+        known_hosts = {}
     if client.env.local:
         logging.info("Retrieving logs for local environment")
         copy_local_logs(client.env, artifacts_dir)
     else:
-        remote_machines = get_remote_machines(client, bootstrap_host)
+        remote_machines = get_remote_machines(client, known_hosts)
 
         for machine_id in sorted(remote_machines, key=int):
             remote = remote_machines[machine_id]
@@ -193,7 +205,7 @@ def dump_juju_timings(client, log_directory):
         print_now(str(e))
 
 
-def get_remote_machines(client, bootstrap_host):
+def get_remote_machines(client, known_hosts):
     """Return a dict of machine_id to remote machines.
 
     A bootstrap_host address may be provided as a fallback for machine 0 if
@@ -203,8 +215,9 @@ def get_remote_machines(client, bootstrap_host):
     # Try to get machine details from environment if possible.
     machines = dict(iter_remote_machines(client))
     # The bootstrap host is added as a fallback in case status failed.
-    if bootstrap_host and '0' not in machines:
-        machines['0'] = remote_from_address(bootstrap_host)
+    for machine_id, address in known_hosts.items():
+        if machine_id not in machines:
+            machines[machine_id] = remote_from_address(address)
     # Update remote machines in place with real addresses if substrate needs.
     resolve_remote_dns_names(client.env, machines.itervalues())
     return machines
@@ -371,6 +384,17 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['region'] = region
 
 
+@contextmanager
+def temp_juju_home(client, new_home):
+    """Temporarily override the client's home directory."""
+    old_home = client.juju_home
+    client.juju_home = new_home
+    try:
+        yield
+    finally:
+        client.juju_home = old_home
+
+
 class BootstrapManager:
     """
     Helper class for running juju tests.
@@ -381,6 +405,8 @@ class BootstrapManager:
     :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
     :ivar client: an EnvJujuClient.
+    :ivar tear_down_client: an EnvJujuClient for tearing down the environment
+        (may be more reliable/capable/compatible than client.)
     :ivar bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
     :ivar machine: [] or a list of machines to use add to a manual env
@@ -393,6 +419,8 @@ class BootstrapManager:
         it alive to do an autopsy.
     :ivar upload_tools: False or True to upload the local agent instead of
         using streams.
+    :ivar known_hosts: A dict mapping machine_ids to hosts for
+        dump_env_logs_known_hosts.
     """
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
@@ -415,6 +443,9 @@ class BootstrapManager:
         self.keep_env = keep_env
         self.permanent = permanent
         self.jes_enabled = jes_enabled
+        self.known_hosts = {}
+        if bootstrap_host is not None:
+            self.known_hosts['0'] = bootstrap_host
 
     @classmethod
     def from_args(cls, args):
@@ -482,32 +513,30 @@ class BootstrapManager:
         if (
                 self.client.env.config['type'] != 'manual' or
                 self.bootstrap_host is not None):
-            yield self.bootstrap_host, []
+            yield []
             return
         try:
             instances = run_instances(3, self.temp_env_name, self.series)
             new_bootstrap_host = instances[0][1]
-            yield new_bootstrap_host, [i[1] for i in instances[1:]]
+            self.known_hosts['0'] = new_bootstrap_host
+            yield [i[1] for i in instances[1:]]
         finally:
             if self.keep_env:
                 return
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        old_home = self.tear_down_client.juju_home
         if self.tear_down_client == self.client:
             jes_enabled = self.jes_enabled
         else:
             jes_enabled = self.tear_down_client.is_jes_enabled()
-            self.tear_down_client.juju_home = self.client.juju_home
-        try:
+        with temp_juju_home(self.tear_down_client, self.client.juju_home):
             tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
-        finally:
-            self.tear_down_client.juju_home = old_home
 
     @contextmanager
-    def bootstrap_context(self, bootstrap_host, machines):
+    def bootstrap_context(self, machines):
         """Context for bootstrapping a state server."""
+        bootstrap_host = self.known_hosts.get('0')
         update_env(self.client.env, self.temp_env_name, series=self.series,
                    bootstrap_host=bootstrap_host,
                    agent_url=self.agent_url, agent_stream=self.agent_stream,
@@ -520,13 +549,22 @@ class BootstrapManager:
             wait_for_port(machine, 22, timeout=120)
         jenv_path = get_jenv_path(self.client.juju_home,
                                   self.client.env.environment)
+        torn_down = False
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
             self.tear_down(try_jes=False)
             torn_down = True
         else:
-            torn_down = False
+            jes_home = jes_home_path(
+                self.client.juju_home, self.client.env.environment)
+            with temp_juju_home(self.client, jes_home):
+                cache_path = get_cache_path(self.client.juju_home)
+                if os.path.isfile(cache_path):
+                    # An existing .jenv implies JES was used, because when JES
+                    # is enabled, cache.yaml is enabled.
+                    self.tear_down(try_jes=True)
+                    torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.juju_home, self.client,
                                 permanent=self.permanent):
@@ -546,21 +584,22 @@ class BootstrapManager:
                 raise
 
     @contextmanager
-    def runtime_context(self, host, addable_machines):
+    def runtime_context(self, addable_machines):
         """Context for running non-bootstrap operations.
 
         If any manual machines need to be added, they will be added before
         control is yielded.
         """
         try:
-            if host is None:
+            if len(self.known_hosts) == 0:
                 host = get_machine_dns_name(self.client, '0')
-            if host is None:
-                raise ValueError('Could not get machine 0 host')
+                if host is None:
+                    raise ValueError('Could not get machine 0 host')
+                self.known_hosts['0'] = host
             try:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
-                yield host
+                yield
             except GeneratorExit:
                 return
             except BaseException as e:
@@ -573,9 +612,9 @@ class BootstrapManager:
             else:
                 runtime_config = get_jenv_path(self.client.juju_home,
                                                self.client.env.environment)
-            if host is not None:
-                dump_env_logs(self.client, host, self.log_dir,
-                              runtime_config=runtime_config)
+            dump_env_logs_known_hosts(
+                self.client, self.log_dir, runtime_config,
+                self.known_hosts)
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
@@ -583,8 +622,8 @@ class BootstrapManager:
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
-            with self.aws_machines() as (bootstrap_host, new_machines):
-                yield bootstrap_host, machines + new_machines
+            with self.aws_machines() as new_machines:
+                yield machines + new_machines
 
     @contextmanager
     def booted_context(self, upload_tools):
@@ -601,10 +640,10 @@ class BootstrapManager:
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
         """
-        with self.top_context() as (bootstrap_host, machines):
-            with self.bootstrap_context(bootstrap_host, machines):
+        with self.top_context() as machines:
+            with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)
-            with self.runtime_context(bootstrap_host, machines):
+            with self.runtime_context(machines):
                 yield machines
 
 
