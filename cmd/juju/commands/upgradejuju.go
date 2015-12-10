@@ -442,6 +442,54 @@ func validateUpgradeTarget(target, agentVersion version.Number) error {
 		return nil
 	}
 
+	// Disallow major.minor version downgrades.
+	if target.Major < agentVersion.Major || (target.Major == agentVersion.Major && target.Minor < agentVersion.Minor) {
+		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
+		// *connecting* to environments with higher agent-versions; but ofc they
+		// have to connect in order to discover they shouldn't. However, once
+		// any of our tools detect an incompatible version, they should act to
+		// minimize damage: the CLI should abort politely, and the agents should
+		// run an Upgrader but no other tasks.
+		return errors.NewNotValid(nil, fmt.Sprintf("cannot change version from %s to %s", agentVersion, target))
+	}
+
+	// Check based on the agent version.
+	switch agentVersion.Major {
+	case 1:
+		// If the agent is on a version before 1.20, they must upgrade
+		// through 1.20.14.
+		if agentVersion.Minor < 20 {
+			if target.Major > 1 || (target.Major == 1 && target.Minor > 20) {
+				return errors.NewNotValid(nil, ""+
+					"unsupported upgrade\n"+
+					"\n"+
+					"Environment must first be upgraded to 1.20.14.\n"+
+					"    juju upgrade-juju --version=1.20.14")
+			}
+		}
+	case 2:
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not a recognized agent", agentVersion.Major))
+	}
+
+	// Check based on the target version.
+	switch target.Major {
+	case 1:
+		// Skip 1.21 and 1.23 if the agents are not already on them.
+		if agentVersion.Major == 1 && agentVersion.Minor != target.Minor {
+			if target.Minor == 21 || target.Minor == 23 {
+				return errors.NewNotValid(nil, fmt.Sprintf(""+
+					"unsupported upgrade\n"+
+					"\n"+
+					"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
+					target))
+			}
+		}
+	case 2:
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not an acceptable target", target.Major))
+	}
+
 	if target.Major > agentVersion.Major {
 		// We can only upgrade a major version if we're currently on 1.25.2 or later
 		// and we're going to 2.0.x, and the version was explicitly requested.
@@ -461,39 +509,6 @@ func validateUpgradeTarget(target, agentVersion version.Number) error {
 				message: "cannot upgrade to version incompatible with CLI",
 			}
 		}
-	} else if target.Major < agentVersion.Major {
-		return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-	}
-
-	// If the client is on a version before 1.20, they must upgrade
-	// through 1.20.14.
-	if agentVersion.Major == 1 && agentVersion.Minor < 20 &&
-		(target.Major > 1 ||
-			(target.Major == 1 && target.Minor > 20)) {
-		return errors.New("unsupported upgrade\n\n" +
-			"Environment must first be upgraded to 1.20.14.\n" +
-			"    juju upgrade-juju --version=1.20.14")
-	}
-
-	// Skip 1.21 and 1.23 if the agents are not already on them.
-	if agentVersion.Major == 1 && target.Major == 1 &&
-		agentVersion.Minor != target.Minor &&
-		(target.Minor == 21 || target.Minor == 23) {
-		return errors.Errorf("unsupported upgrade\n\n"+
-			"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
-			target)
-	}
-
-	// Disallow major.minor version downgrades.
-	if target.Major < agentVersion.Major ||
-		target.Major == agentVersion.Major && target.Minor < agentVersion.Minor {
-		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
-		// *connecting* to environments with higher agent-versions; but ofc they
-		// have to connect in order to discover they shouldn't. However, once
-		// any of our tools detect an incompatible version, they should act to
-		// minimize damage: the CLI should abort politely, and the agents should
-		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change version from %s to %s", agentVersion, target)
 	}
 
 	return nil
