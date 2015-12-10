@@ -21,6 +21,7 @@ type State struct {
 
 // NewState returns a new State for the given raw Juju state.
 func NewState(raw RawState) *State {
+	logger.Tracef("wrapping state for resources")
 	return &State{
 		specState: &specState{raw},
 	}

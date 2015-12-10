@@ -21,36 +21,52 @@ import (
 	"github.com/juju/juju/state/utils"
 )
 
+// resources exposes the registration methods needed
+// for the top-level component machinery.
 type resources struct{}
 
-func (c resources) registerForServer() error {
-	c.registerPublicFacade()
+// RegisterForServer is the top-level registration method
+// for the component in a jujud context.
+func (r resources) registerForServer() error {
+	r.registerPublicFacade()
 	return nil
 }
 
-func (c resources) registerForClient() error {
-	c.registerPublicCommands()
+// RegisterForClient is the top-level registration method
+// for the component in a "juju" command context.
+func (r resources) registerForClient() error {
+	r.registerPublicCommands()
 	return nil
 }
 
-func (c resources) registerPublicFacade() error {
+// registerPublicFacade adds the resources public API facade
+// to the API server.
+func (r resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
-		c.newPublicFacade,
+		r.newPublicFacade,
 	)
-	return nil
 }
 
-func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, _ common.Authorizer) (*server.Facade, error) {
+// newPublicFacade is passed into common.RegisterStandardFacade
+// in registerPublicFacade.
+func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+
 	rst := state.NewState(&resourceState{raw: st})
 	return server.NewFacade(rst), nil
 }
 
+// resourceState is a wrapper around state.State that supports the needs
+// of resources.
 type resourceState struct {
 	raw *corestate.State
 }
 
+// CharmMetadata implements resource/state.RawState.
 func (st resourceState) CharmMetadata(serviceID string) (*charm.Meta, error) {
 	meta, err := utils.CharmMetadata(st.raw, serviceID)
 	if err != nil {
@@ -59,41 +75,45 @@ func (st resourceState) CharmMetadata(serviceID string) (*charm.Meta, error) {
 	return meta, nil
 }
 
+// resourcesApiClient adds a Close() method to the resources public API client.
 type resourcesAPIClient struct {
 	*client.Client
-	closeFunc func() error
+	closeConnFunc func() error
 }
 
-func (c resourcesAPIClient) Close() error {
-	return c.closeFunc()
+// Close implements io.Closer.
+func (client resourcesAPIClient) Close() error {
+	return client.closeConnFunc()
 }
 
+// newAPIClient builds a new resources public API client from
+// the provided API caller.
 func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient, error) {
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
 
 	cl := &resourcesAPIClient{
-		Client:    client.NewClient(caller),
-		closeFunc: apiCaller.Close,
+		Client:        client.NewClient(caller),
+		closeConnFunc: apiCaller.Close,
 	}
 
 	return cl, nil
 }
 
-func (c resources) registerPublicCommands() {
+// registerPublicCommands adds the resources-related commands
+// to the "juju" supercommand.
+func (r resources) registerPublicCommands() {
 	if !markRegistered(resource.ComponentName, "public-commands") {
 		return
 	}
 
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		return cmd.NewShowCommand(c.newShowAPIClient)
-	})
-}
-
-func (c resources) newShowAPIClient(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
-	apiCaller, err := command.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
+	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
+		apiCaller, err := command.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return r.newAPIClient(apiCaller)
 	}
-
-	return c.newAPIClient(apiCaller)
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		return cmd.NewShowCommand(newShowAPIClient)
+	})
 }

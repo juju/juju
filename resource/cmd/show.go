@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,8 +16,11 @@ import (
 
 // ShowAPI has the API methods needed by ShowCommand.
 type ShowAPI interface {
-	ListSpecs(service string) ([]resource.Spec, error)
-	io.Closer
+	// ListSpecs lists the resource specs for each of the given services.
+	ListSpecs(services []string) ([]resource.SpecsResult, error)
+
+	// Close closes the client.
+	Close() error
 }
 
 // ShowCommand implements the show-resources command.
@@ -45,6 +47,7 @@ This command will report the resources defined by a charm.
 The resources are looked up in the service's charm metadata.
 `
 
+// Info implements cmd.Command.
 func (c *ShowCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-resources",
@@ -54,6 +57,7 @@ func (c *ShowCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements cmd.Command.
 func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
@@ -63,6 +67,7 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// Init implements cmd.Command.
 func (c *ShowCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing service ID")
@@ -84,6 +89,7 @@ Error details:
 %v
 `
 
+// Run implements cmd.Command.
 func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.newAPIClient(c)
 	if err != nil {
@@ -91,9 +97,16 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	specs, err := apiclient.ListSpecs(c.serviceID)
+	services := []string{c.serviceID}
+	results, err := apiclient.ListSpecs(services)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	var specs []resource.Spec
+	if len(results) == 1 {
+		// TODO(ericsnow) Handle results[0].Error?
+		specs = results[0].Specs
 	}
 
 	// Note that we do not worry about c.CompatVersion for show-resources...

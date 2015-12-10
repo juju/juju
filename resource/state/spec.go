@@ -29,7 +29,7 @@ func (st specState) ListResourceSpecs(serviceID string) ([]resource.Spec, error)
 
 	var specs []resource.Spec
 	for _, res := range meta.Resources {
-		spec, err := newSpec(res)
+		spec, err := newSpec(res, serviceID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -38,20 +38,15 @@ func (st specState) ListResourceSpecs(serviceID string) ([]resource.Spec, error)
 	return specs, nil
 }
 
-func metadata(raw rawSpecState, serviceID string) (*charm.Meta, error) {
-	meta, err := raw.CharmMetadata(serviceID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return meta, nil
-}
-
-func newSpec(res charmresource.Resource) (resource.Spec, error) {
+func newSpec(res charmresource.Resource, serviceID string) (resource.Spec, error) {
 	// TODO(ericsnow) For now uploads are the only supported origin.
 	// Once that changes, this code will need to adjust.
-	spec, err := resource.NewSpec(res.Info, resource.OriginUpload, "")
-	if err != nil {
-		return nil, errors.Trace(err)
+	spec := resource.Spec{
+		Definition: res.Info,
+		Origin:     resource.OriginKindUpload,
+	}
+	if err := spec.Validate(); err != nil {
+		return spec, errors.Annotatef(err, "invalid charm metadata for service %q", serviceID)
 	}
 	return spec, nil
 }

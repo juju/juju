@@ -34,13 +34,13 @@ func (lf *specListFormatter) format() []FormattedSpec {
 
 // FormatSpec converts the resource spec into a FormattedSpec.
 func FormatSpec(spec resource.Spec) FormattedSpec {
-	info := spec.Definition()
+	info := spec.Definition
 	return FormattedSpec{
 		Name:     info.Name,
 		Type:     info.Type.String(),
 		Path:     info.Path,
 		Comment:  info.Comment,
-		Origin:   spec.Origin(),
-		Revision: spec.Revision(),
+		Origin:   spec.Origin.String(),
+		Revision: spec.Revision.String(),
 	}
 }

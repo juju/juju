@@ -20,7 +20,11 @@ func NewSpec(c *gc.C, name, suffix, comment string) resource.Spec {
 		Path:    name + suffix,
 		Comment: comment,
 	}
-	spec, err := resource.NewSpec(info, resource.OriginUpload, "")
+	spec := resource.Spec{
+		Definition: info,
+		Origin:     resource.OriginKindUpload,
+	}
+	err := spec.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	return spec
 }

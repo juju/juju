@@ -31,7 +31,7 @@ func (s *specSuite) SetUpTest(c *gc.C) {
 	s.raw = &stubRawSpecState{stub: s.stub}
 }
 
-func (s *specSuite) TestListResourceSpecOkay(c *gc.C) {
+func (s *specSuite) TestListResourceSpecsOkay(c *gc.C) {
 	expected, meta := newSpecs(c, "spam", "eggs")
 	s.raw.ReturnCharmMetadata = meta
 	st := state.NewState(s.raw)
@@ -44,7 +44,7 @@ func (s *specSuite) TestListResourceSpecOkay(c *gc.C) {
 	s.stub.CheckCall(c, 0, "CharmMetadata", "a-service")
 }
 
-func (s *specSuite) TestListResourceSpecEmpty(c *gc.C) {
+func (s *specSuite) TestListResourceSpecsEmpty(c *gc.C) {
 	s.raw.ReturnCharmMetadata = &charm.Meta{}
 	st := state.NewState(s.raw)
 
@@ -55,7 +55,7 @@ func (s *specSuite) TestListResourceSpecEmpty(c *gc.C) {
 	s.stub.CheckCallNames(c, "CharmMetadata")
 }
 
-func (s *specSuite) TestListResourceSpecCharmMetadataError(c *gc.C) {
+func (s *specSuite) TestListResourceSpecsCharmMetadataError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 	_, meta := newSpecs(c, "spam", "eggs")
@@ -68,8 +68,18 @@ func (s *specSuite) TestListResourceSpecCharmMetadataError(c *gc.C) {
 	s.stub.CheckCallNames(c, "CharmMetadata")
 }
 
-func (s *specSuite) TestListResourceSpecBadNewSpec(c *gc.C) {
-	c.Skip("for now there is no way for newSpec to fail")
+func (s *specSuite) TestListResourceSpecsInvalidMetadata(c *gc.C) {
+	_, meta := newSpecs(c, "spam", "eggs")
+	spam := meta.Resources["spam"]
+	spam.Info.Name = ""
+	meta.Resources["spam"] = spam
+	s.raw.ReturnCharmMetadata = meta
+	st := state.NewState(s.raw)
+
+	_, err := st.ListResourceSpecs("a-service")
+
+	c.Check(err, gc.ErrorMatches, `.*invalid charm metadata.*`)
+	s.stub.CheckCallNames(c, "CharmMetadata")
 }
 
 func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
@@ -81,14 +91,16 @@ func newSpecs(c *gc.C, names ...string) ([]resource.Spec, *charm.Meta) {
 			Type: charmresource.TypeFile,
 			Path: name + ".tgz",
 		}
+
+		spec := resource.Spec{
+			Definition: info,
+			Origin:     resource.OriginKindUpload,
+		}
+		specs = append(specs, spec)
+
 		res := charmresource.Resource{
 			Info: info,
 		}
-
-		spec, err := resource.NewSpec(info, resource.OriginUpload, "")
-		c.Assert(err, jc.ErrorIsNil)
-
-		specs = append(specs, spec)
 		resources[info.Name] = res
 	}
 	return specs, &charm.Meta{

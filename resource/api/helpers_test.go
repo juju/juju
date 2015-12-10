@@ -20,16 +20,17 @@ type helpersSuite struct {
 }
 
 func (helpersSuite) TestResourceSpec2API(c *gc.C) {
-	spec, err := resource.NewSpec(
-		charmresource.Info{
+	spec := resource.Spec{
+		Definition: charmresource.Info{
 			Name:    "spam",
-			Type:    "file",
+			Type:    charmresource.TypeFile,
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
-		resource.OriginUpload,
-		resource.NoRevision,
-	)
+		Origin:   resource.OriginKindUpload,
+		Revision: resource.NoRevision,
+	}
+	err := spec.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	apiSpec := api.ResourceSpec2API(spec)
 
@@ -54,16 +55,17 @@ func (helpersSuite) TestAPI2ResourceSpec(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected, err := resource.NewSpec(
-		charmresource.Info{
+	expected := resource.Spec{
+		Definition: charmresource.Info{
 			Name:    "spam",
-			Type:    "file",
+			Type:    charmresource.TypeFile,
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
-		resource.OriginUpload,
-		resource.NoRevision,
-	)
+		Origin:   resource.OriginKindUpload,
+		Revision: resource.NoRevision,
+	}
+	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec, jc.DeepEquals, expected)
 }
