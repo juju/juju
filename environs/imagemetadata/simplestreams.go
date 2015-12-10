@@ -145,7 +145,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	if defaultUbuntuURL != "" {
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default legacy cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
 	}
 
 	return result, nil

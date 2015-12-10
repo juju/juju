@@ -852,7 +852,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
 	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
-	c.Check(sources[2].Description(), gc.Equals, "default legacy cloud images")
+	c.Check(sources[2].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -1015,7 +1015,7 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		sourceIds = append(sourceIds, s.Description())
 	}
 	c.Assert(sourceIds, jc.DeepEquals, []string{
-		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default legacy cloud images"})
+		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {

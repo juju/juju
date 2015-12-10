@@ -6,9 +6,7 @@ package imagemetadata_test
 import (
 	"bytes"
 	"flag"
-	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
