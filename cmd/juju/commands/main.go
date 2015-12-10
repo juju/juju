@@ -171,14 +171,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newAuthorizedKeysCommand())
 
 	// Manage users and access
-	r.Register(user.NewSuperCommand())
-	r.RegisterSuperAlias("add-user", "user", "add", twoDotOhDeprecation("user add"))
-	r.RegisterSuperAlias("change-password", "user", "change-password", twoDotOhDeprecation("user change-password"))
-	r.RegisterSuperAlias("get-credentials", "user", "credentials", twoDotOhDeprecation("user credentials"))
-	r.RegisterSuperAlias("show-user", "user", "info", twoDotOhDeprecation("user info"))
-	r.RegisterSuperAlias("list-users", "user", "list", twoDotOhDeprecation("user list"))
-	r.RegisterSuperAlias("enable-user", "user", "enable", twoDotOhDeprecation("user enable"))
-	r.RegisterSuperAlias("disable-user", "user", "disable", twoDotOhDeprecation("user disable"))
+	r.Register(user.NewAddCommand())
+	r.Register(user.NewChangePasswordCommand())
+	r.Register(user.NewCredentialsCommand())
+	r.Register(user.NewShowUserCommand())
+	r.Register(user.NewListCommand())
+	r.Register(user.NewEnableCommand())
+	r.Register(user.NewDisableCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())

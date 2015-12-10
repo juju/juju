@@ -74,7 +74,7 @@ See Also:
     juju help list-environments
     juju help use-environment
     juju help create-environment
-    juju help user add
+    juju help add-user
     juju help switch
 `
 

@@ -18,31 +18,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type UserCommandSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&UserCommandSuite{})
-
-var expectedUserCommmandNames = []string{
-	"add",
-	"change-password",
-	"credentials",
-	"disable",
-	"enable",
-	"help",
-	"info",
-	"list",
-}
-
-func (s *UserCommandSuite) TestHelp(c *gc.C) {
-	// Check the help output
-	ctx, err := testing.RunCommand(c, user.NewSuperCommand(), "--help")
-	c.Assert(err, jc.ErrorIsNil)
-	namesFound := testing.ExtractCommandsFromHelpOutput(ctx)
-	c.Assert(namesFound, gc.DeepEquals, expectedUserCommmandNames)
-}
-
 type BaseSuite struct {
 	testing.FakeJujuHomeSuite
 }
