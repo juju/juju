@@ -43,7 +43,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Series:          "series",
+		Version:         "version",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test"}
@@ -66,7 +66,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Version:         "version",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
@@ -89,8 +89,8 @@ func buildAttributesFilter(attrs cloudimagemetadata.MetadataAttributes) cloudima
 		Region:          attrs.Region,
 		VirtType:        attrs.VirtType,
 		RootStorageType: attrs.RootStorageType}
-	if attrs.Series != "" {
-		filter.Series = []string{attrs.Series}
+	if attrs.Version != "" {
+		filter.Versions = []string{attrs.Version}
 	}
 	if attrs.Arch != "" {
 		filter.Arches = []string{attrs.Arch}
@@ -102,7 +102,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Version:         "version",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
@@ -127,9 +127,9 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -141,9 +141,9 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "12"}
@@ -157,9 +157,9 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -176,9 +176,9 @@ func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDate
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -192,9 +192,9 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 
@@ -207,10 +207,10 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
-		Source: "public",
+		Stream:  "stream",
+		Version: "version",
+		Arch:    "arch",
+		Source:  "public",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 

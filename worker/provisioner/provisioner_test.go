@@ -126,7 +126,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	m := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
-			Series:          "trusty",
+			Version:         "14.04",
 			Arch:            "amd64",
 			VirtType:        "",
 			RootStorageType: "",

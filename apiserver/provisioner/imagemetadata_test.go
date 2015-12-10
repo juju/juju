@@ -133,7 +133,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 		expected[i] = cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          one.Region,
-				Series:          one.Series,
+				Version:         one.Version,
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.RootStorageType,
@@ -153,7 +153,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 		expected[i] = []params.CloudImageMetadata{
 			{ImageId: "ami-1126745463",
 				Region:          "another_dummy_region",
-				Series:          "quantal",
+				Version:         "12.10",
 				Arch:            "amd64",
 				VirtType:        "pv",
 				RootStorageType: "ebs",
@@ -163,7 +163,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 			},
 			{ImageId: "ami-26745463",
 				Region:          "dummy_region",
-				Series:          "quantal",
+				Version:         "12.10",
 				Arch:            "amd64",
 				VirtType:        "pv",
 				RootStorageType: "ebs",

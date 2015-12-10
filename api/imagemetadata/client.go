@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/utils/series"
 )
 
 var logger = loggo.GetLogger("juju.api.imagemetadata")
@@ -30,12 +31,22 @@ func NewClient(st base.APICallCloser) *Client {
 // Empty filter will return all image metadata.
 func (c *Client) List(
 	stream, region string,
-	series, arches []string,
+	allSeries, arches []string,
 	virtType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
+
+	versions := make([]string, len(allSeries))
+	for i, s := range allSeries {
+		v, err := series.SeriesVersion(s)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		versions[i] = v
+	}
+
 	in := params.ImageMetadataFilter{
 		Region:          region,
-		Series:          series,
+		Versions:        versions,
 		Arches:          arches,
 		Stream:          stream,
 		VirtType:        virtType,

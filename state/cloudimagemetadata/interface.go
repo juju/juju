@@ -18,8 +18,8 @@ type MetadataAttributes struct {
 	// Region is the name of cloud region associated with the image.
 	Region string
 
-	// Series is Os version, for e.g. "quantal".
-	Series string
+	// Version is OS version, for e.g. "12.04".
+	Version string
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string

@@ -1614,11 +1614,21 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *conf
 // imageMetadataFromState returns image metadata stored in state
 // that matches given criteria.
 func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+	// translate series to versions
+	versions := make([]string, len(constraint.Series))
+	for i, s := range constraint.Series {
+		v, err := series.SeriesVersion(s)
+		if err != nil {
+			return nil, errors.Annotatef(err, "could not translate series %v", s)
+		}
+		versions[i] = v
+	}
+
 	filter := cloudimagemetadata.MetadataFilter{
-		Series: constraint.Series,
-		Arches: constraint.Arches,
-		Region: constraint.Region,
-		Stream: constraint.Stream,
+		Versions: versions,
+		Arches:   constraint.Arches,
+		Region:   constraint.Region,
+		Stream:   constraint.Stream,
 	}
 	stored, err := p.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
@@ -1630,7 +1640,7 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 			ImageId:         m.ImageId,
 			Stream:          m.Stream,
 			Region:          m.Region,
-			Series:          m.Series,
+			Version:         m.Version,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
 			RootStorageType: m.RootStorageType,
@@ -1656,16 +1666,6 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, err
 	}
 
-	getSeries := func(id, version string) string {
-		// Translate version (eg.14.04) to a series (eg. "trusty")
-		s, err := series.VersionSeries(version)
-		if err != nil {
-			logger.Warningf("could not determine series for image id %s: %v", id, err)
-			return ""
-		}
-		return s
-	}
-
 	getStream := func(current string) string {
 		if current == "" {
 			return imagemetadata.ReleasedStream
@@ -1673,21 +1673,21 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return current
 	}
 
-	toParams := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) params.CloudImageMetadata {
+	toParams := func(m *imagemetadata.ImageMetadata, mStream string, source string, priority int) params.CloudImageMetadata {
 		return params.CloudImageMetadata{
 			ImageId:         m.Id,
 			Region:          m.RegionName,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
 			RootStorageType: m.Storage,
-			Series:          mSeries,
+			Version:         m.Version,
 			Source:          source,
 			Priority:        priority,
 			Stream:          mStream,
 		}
 	}
 
-	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) cloudimagemetadata.Metadata {
+	toModel := func(m *imagemetadata.ImageMetadata, mStream string, source string, priority int) cloudimagemetadata.Metadata {
 		return cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -1695,7 +1695,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				VirtType:        m.VirtType,
 				RootStorageType: m.Storage,
 				Source:          source,
-				Series:          mSeries,
+				Version:         m.Version,
 				Stream:          mStream,
 			},
 			priority,
@@ -1716,12 +1716,11 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			continue
 		}
 		for _, m := range found {
-			mSeries := getSeries(m.Id, m.Version)
 			mStream := getStream(m.Stream)
 
-			all = append(all, toParams(m, mSeries, mStream, info.Source, source.Priority()))
+			all = append(all, toParams(m, mStream, info.Source, source.Priority()))
 			// Attempt to store in state for next time :D
-			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mSeries, mStream, info.Source, source.Priority()))
+			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, info.Source, source.Priority()))
 			if err != nil {
 				// No need to react here, just take note
 				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())

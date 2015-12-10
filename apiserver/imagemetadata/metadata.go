@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -64,7 +63,7 @@ func NewAPI(
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
-		Series:          filter.Series,
+		Versions:        filter.Versions,
 		Arches:          filter.Arches,
 		Stream:          filter.Stream,
 		VirtType:        filter.VirtType,
@@ -105,7 +104,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		ImageId:         p.ImageId,
 		Stream:          p.Stream,
 		Region:          p.Region,
-		Series:          p.Series,
+		Version:         p.Version,
 		Arch:            p.Arch,
 		VirtType:        p.VirtType,
 		RootStorageType: p.RootStorageType,
@@ -121,7 +120,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
 			Region:          p.Region,
-			Series:          p.Series,
+			Version:         p.Version,
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.RootStorageType,
@@ -212,17 +211,10 @@ var convertToParams = func(info *simplestreams.ResolveInfo, priority int, publis
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
+			Version:         p.Version,
 			Priority:        priority,
 		}
-		// Translate version (eg.14.04) to a series (eg. "trusty")
-		s, err := series.VersionSeries(p.Version)
-		if err != nil {
-			logger.Warningf("could not determine series for image id %s: %v", p.Id, err)
-			continue
-		}
-		metadata[i].Series = s
 	}
-
 	return params.MetadataSaveParams{Metadata: metadata}
 }
 

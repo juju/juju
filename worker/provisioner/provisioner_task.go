@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -591,13 +590,8 @@ func constructStartInstanceParams(
 			Storage:     metadata.RootStorageType,
 			Stream:      metadata.Stream,
 			VirtType:    metadata.VirtType,
+			Version:     metadata.Version,
 		}
-		v, err := series.SeriesVersion(metadata.Series)
-		if err != nil {
-			logger.Warningf("could not determine version for image id %s: %v", metadata.ImageId, err)
-			continue
-		}
-		possibleImageMetadata[i].Version = v
 	}
 
 	return environs.StartInstanceParams{

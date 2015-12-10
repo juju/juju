@@ -108,8 +108,8 @@ type imagesMetadataDoc struct {
 	// Region is the name of cloud region associated with the image.
 	Region string `bson:"region"`
 
-	// Series is Os version, for e.g. "quantal".
-	Series string `bson:"series"`
+	// Version is OS version, for e.g. "12.04".
+	Version string `bson:"version"`
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string `bson:"arch"`
@@ -141,7 +141,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
-			Series:          m.Series,
+			Version:         m.Version,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
@@ -161,7 +161,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
-		Series:          m.Series,
+		Version:         m.Version,
 		Arch:            m.Arch,
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
@@ -180,7 +180,7 @@ func buildKey(m Metadata) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
 		m.Stream,
 		m.Region,
-		m.Series,
+		m.Version,
 		m.Arch,
 		m.VirtType,
 		m.RootStorageType,
@@ -221,8 +221,8 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"region", criteria.Region})
 	}
 
-	if len(criteria.Series) != 0 {
-		all = append(all, bson.DocElem{"series", bson.D{{"$in", criteria.Series}}})
+	if len(criteria.Versions) != 0 {
+		all = append(all, bson.DocElem{"version", bson.D{{"$in", criteria.Versions}}})
 	}
 
 	if len(criteria.Arches) != 0 {
@@ -250,8 +250,8 @@ type MetadataFilter struct {
 	// Region stores metadata region.
 	Region string `json:"region,omitempty"`
 
-	// Series stores all desired series.
-	Series []string `json:"series,omitempty"`
+	// Versions stores all desired versions.
+	Versions []string `json:"versions,omitempty"`
 
 	// Arches stores all desired architectures.
 	Arches []string `json:"arches,omitempty"`
