@@ -39,6 +39,7 @@ func (clock *Clock) Now() time.Time {
 // NewClock(now, step).
 func (clock *Clock) Reset(now time.Time, step time.Duration) {
 	clock.now = now
+	clock.step = step
 }
 
 // Advance advances the clock by the supplied time.
