@@ -15,7 +15,7 @@ import (
 // specify the removal of blocks or the destruction of the environments, this
 // method will attempt to do so.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	controllerEnv, err := s.state.StateServerEnvironment()
+	controllerEnv, err := s.state.ControllerEnvironment()
 	if err != nil {
 		return errors.Trace(err)
 	}

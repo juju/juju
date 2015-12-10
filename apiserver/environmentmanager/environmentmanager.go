@@ -117,7 +117,7 @@ func (em *EnvironmentManagerAPI) ConfigSkeleton(args params.EnvironmentSkeletonC
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	stateServerEnv, err := em.state.StateServerEnvironment()
+	stateServerEnv, err := em.state.ControllerEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -294,7 +294,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	result := params.Environment{}
 	// Get the state server environment first. We need it both for the state
 	// server owner and the ability to get the config.
-	stateServerEnv, err := em.state.StateServerEnvironment()
+	stateServerEnv, err := em.state.ControllerEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

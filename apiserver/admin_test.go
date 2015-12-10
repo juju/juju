@@ -771,7 +771,7 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }
 
-func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
+func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -787,7 +787,7 @@ func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
 }
 
-func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
+func (s *loginSuite) TestControllerEnvironmentBadCreds(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
