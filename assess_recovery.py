@@ -186,6 +186,7 @@ def main(argv):
             delete_instance(client, instance_id)
             wait_for_state_server_to_shutdown(
                 bs_manager.known_hosts['0'], client, instance_id)
+            del bs_manager.known_hosts['0']
             if args.strategy == 'ha':
                 client.get_status(600)
             else:

@@ -124,7 +124,7 @@ class TestMain(FakeHomeTestCase):
         ws_mock.assert_called_once_with('host', client, 'i_id')
         jenv_path = get_jenv_path(client.juju_home, client.env.environment)
         dl_mock.assert_called_once_with(client, 'log_dir', jenv_path,
-                                        {'0': 'host'})
+                                        {})
         self.assertEqual(0, ns_mock.call_count)
 
     def test_ha_error(self, so_mock, cc_mock, co_mock,
