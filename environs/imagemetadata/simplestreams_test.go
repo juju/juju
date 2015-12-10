@@ -131,16 +131,6 @@ func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
 	c.Assert(ds[1].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
 }
 
-func (s *simplestreamsSuite) TestPublicKeyEnvVar(c *gc.C) {
-	path := filepath.Join(c.MkDir(), "key")
-	ioutil.WriteFile(path, []byte(sstesting.SignedMetadataPublicKey), 0755)
-	s.PatchEnvironment("JUJU_IMAGESTREAMS_PUBLICKEY", path)
-	ds, err := imagemetadata.OfficialDataSources("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ds, gc.HasLen, 2)
-	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
-}
-
 var fetchTests = []struct {
 	region  string
 	version string
@@ -408,7 +398,9 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLSignedDataSource(
+		"test", "signedtest://host/signed", sstesting.SignedMetadataPublicKey, utils.VerifySSLHostnames,
+	)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

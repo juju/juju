@@ -8,16 +8,12 @@ package imagemetadata
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"sort"
 
 	"github.com/juju/utils"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
 
@@ -118,37 +114,18 @@ var (
 	DefaultJujuBaseURL   = JujuStreamsImagesURL
 )
 
-// UserPublicSigningKey returns the public signing key (if defined)
-// from the file specified by the osenv.JujuImageStreamsPublicKeyFileEnvKey env var.
-func UserPublicSigningKey() (string, error) {
-	signingKeyFile := os.Getenv(osenv.JujuImageStreamsPublicKeyFileEnvKey)
-	signingKey := ""
-	if signingKeyFile != "" {
-		path, err := utils.NormalizePath(signingKeyFile)
-		if err != nil {
-			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
-		}
-		b, err := ioutil.ReadFile(path)
-		if err != nil {
-			return "", errors.Annotatef(err, "invalid public key file: %s", path)
-		}
-		signingKey = string(b)
-	}
-	return signingKey, nil
-}
-
 // OfficialDataSources returns the simplestreams datasources where official
 // image metadata can be found.
 func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
 	// New images metadata for centos and windows and existing clouds.
-	defaultURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
+	defaultJujuURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
 	if err != nil {
 		return nil, err
 	}
-	if defaultURL != "" {
-		publicKey, err := UserPublicSigningKey()
+	if defaultJujuURL != "" {
+		publicKey, err := simplestreams.UserPublicSigningKey()
 		if err != nil {
 			return nil, err
 		}
@@ -157,18 +134,18 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		}
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default cloud images", defaultURL, publicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames))
 	}
 
-	// Fallback to image metadata for existing clouds.
-	defaultLegacyURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
+	// Fallback to image metadata for existing Ubuntu images.
+	defaultUbuntuURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
 	if err != nil {
 		return nil, err
 	}
-	if defaultLegacyURL != "" {
+	if defaultUbuntuURL != "" {
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default legacy cloud images", defaultLegacyURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default legacy cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
 	}
 
 	return result, nil

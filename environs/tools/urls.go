@@ -93,7 +93,7 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 	if defaultURL != "" {
 		sources = append(sources,
 			simplestreams.NewURLSignedDataSource(
-				"default simplestreams", defaultURL, simplestreamsToolsPublicKey, utils.VerifySSLHostnames))
+				"default simplestreams", defaultURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames))
 	}
 	return sources, nil
 }

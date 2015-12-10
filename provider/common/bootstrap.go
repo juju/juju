@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
@@ -75,7 +75,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	publicKey, err := imagemetadata.UserPublicSigningKey()
+	publicKey, err := simplestreams.UserPublicSigningKey()
 	if err != nil {
 		return nil, "", nil, err
 	}

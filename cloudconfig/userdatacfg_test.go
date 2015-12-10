@@ -454,9 +454,8 @@ printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-install -D -m 644 /dev/null '/home/ubuntu/simplestreamspublickey'
-printf '%s\\n' 'publickey' > '/home/ubuntu/simplestreamspublickey'
-([ ! -e /home/ubuntu/.profile ] || grep -q 'JUJU_IMAGESTREAMS_PUBLICKEY_FILE' /home/ubuntu/.profile) || printf '\\n#Added by juju\\nexport JUJU_IMAGESTREAMS_PUBLICKEY_FILE=/home/ubuntu/simplestreamspublickey\\n' >> /home/ubuntu/.profile
+install -D -m 644 /dev/null '/etc/juju/publicsimplestreamskey'
+printf '%s\\n' 'publickey' > '/etc/juju/publicsimplestreamskey'
 `,
 	},
 }
