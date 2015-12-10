@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NOTE:  All of the following code is only tested with a feature test.
+// NOTE: All of the following code is only tested with a feature test.
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
 type subnetShim struct {
