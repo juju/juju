@@ -72,34 +72,33 @@ func convertTagsToParams(params url.Values, tags *[]string) {
 	}
 }
 
-// convertSpacesToBindings converts a list of positive/negative spaces from
-// constraints into a list of interface bindings with zero-based numeric labels
-// and using "space=<positive-name>" or "not_space=<negative-name>". Those
-// bindings can then be passed to MAAS acquire node API.
-func convertSpacesToBindings(spaces *[]string) []interfaceBinding {
+// convertSpacesFromConstraints converts a list of positive/negative spaces from
+// constraints into a list of interface bindings for the positive spaces, and a
+// list all negative spaces (if any). The bindings use zero-based numeric labels
+// using "space=<positive-name>". Negative spaces are returned with a "space:"
+// prefix. The results are then used to prepare the "intefaces" and
+// "not_networks" arguments passed to MAAS acquire node API.
+func convertSpacesFromConstraints(spaces *[]string) ([]interfaceBinding, []string) {
 	if spaces == nil || len(*spaces) == 0 {
-		return nil
+		return nil, nil
 	}
-	var index uint
-	var bindings []interfaceBinding
+	var (
+		index    uint
+		bindings []interfaceBinding
+		excluded []string
+	)
 	positives, negatives := parseDelimitedValues(*spaces)
 	for _, space := range positives {
 		bindings = append(bindings, interfaceBinding{
 			Name:            fmt.Sprintf("%v", index),
 			SpaceProviderId: space,
-			IsExcluded:      false,
 		})
 		index++
 	}
 	for _, space := range negatives {
-		bindings = append(bindings, interfaceBinding{
-			Name:            fmt.Sprintf("%v", index),
-			SpaceProviderId: space,
-			IsExcluded:      true,
-		})
-		index++
+		excluded = append(excluded, fmt.Sprintf("space:%s", space))
 	}
-	return bindings
+	return bindings, excluded
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
@@ -134,9 +133,6 @@ type interfaceBinding struct {
 	Name            string
 	SpaceProviderId string
 
-	// IsExcluded is true if the space has to be excluded from this binding.
-	IsExcluded bool
-
 	// add more as needed.
 }
 
@@ -149,7 +145,6 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 		return nil
 	}
 	var positives []string
-	var negatives []string
 	namesSet := set.NewStrings()
 	for _, binding := range bindings {
 		switch {
@@ -165,17 +160,10 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 			)
 		}
 		namesSet.Add(binding.Name)
-		if binding.IsExcluded {
-			negatives = append(negatives, fmt.Sprintf("space:%s", binding.SpaceProviderId))
-		} else {
-			positives = append(positives, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
-		}
+		positives = append(positives, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
 	}
 	if len(positives) > 0 {
 		params.Add("interfaces", strings.Join(positives, ";"))
-	}
-	if len(negatives) > 0 {
-		params.Add("not_networks", strings.Join(negatives, ","))
 	}
 	return nil
 }

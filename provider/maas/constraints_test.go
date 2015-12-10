@@ -27,7 +27,7 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 	}, {
 		cons:     constraints.Value{Mem: uint64p(1024)},
 		expected: url.Values{"mem": {"1024"}},
-	}, { // Spaces are converted to bindings, but only in acquireNode
+	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
 		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
 		expected: url.Values{},
 	}, {
@@ -133,89 +133,67 @@ func (*environSuite) TestConvertTagsToParams(c *gc.C) {
 	}
 }
 
-func (*environSuite) TestConvertSpacesToBindings(c *gc.C) {
+func (*environSuite) TestConvertSpacesFromConstraints(c *gc.C) {
 	for i, test := range []struct {
-		spaces   *[]string
-		expected []interfaceBinding
+		spaces            *[]string
+		expectedBindings  []interfaceBinding
+		expectedNegatives []string
 	}{{
-		spaces:   nil,
-		expected: nil,
+		spaces:            nil,
+		expectedBindings:  nil,
+		expectedNegatives: nil,
 	}, {
-		spaces:   &nilStringSlice,
-		expected: nil,
+		spaces:            &nilStringSlice,
+		expectedBindings:  nil,
+		expectedNegatives: nil,
 	}, {
-		spaces:   &[]string{},
-		expected: nil,
+		spaces:            &[]string{},
+		expectedBindings:  nil,
+		expectedNegatives: nil,
 	}, {
-		spaces:   stringslicep(""),
-		expected: nil,
+		spaces:            stringslicep(""),
+		expectedBindings:  nil,
+		expectedNegatives: nil,
 	}, {
 		spaces: stringslicep("foo"),
-		expected: []interfaceBinding{{
+		expectedBindings: []interfaceBinding{{
 			Name:            "0",
 			SpaceProviderId: "foo",
-			IsExcluded:      false,
 		}},
+		expectedNegatives: nil,
 	}, {
-		spaces: stringslicep("^bar"),
-		expected: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "bar",
-			IsExcluded:      true,
-		}},
+		spaces:            stringslicep("^bar"),
+		expectedBindings:  nil,
+		expectedNegatives: []string{"space:bar"},
 	}, {
 		spaces: stringslicep("foo", "^bar", "baz", "^oof"),
-		expected: []interfaceBinding{{
+		expectedBindings: []interfaceBinding{{
 			Name:            "0",
 			SpaceProviderId: "foo",
-			IsExcluded:      false,
 		}, {
 			Name:            "1",
 			SpaceProviderId: "baz",
-			IsExcluded:      false,
-		}, {
-			Name:            "2",
-			SpaceProviderId: "bar",
-			IsExcluded:      true,
-		}, {
-			Name:            "3",
-			SpaceProviderId: "oof",
-			IsExcluded:      true,
 		}},
+		expectedNegatives: []string{"space:bar", "space:oof"},
 	}, {
-		spaces: stringslicep("", "^bar", "^", "^oof"),
-		expected: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "bar",
-			IsExcluded:      true,
-		}, {
-			Name:            "1",
-			SpaceProviderId: "oof",
-			IsExcluded:      true,
-		}},
+		spaces:            stringslicep("", "^bar", "^", "^oof"),
+		expectedBindings:  nil,
+		expectedNegatives: []string{"space:bar", "space:oof"},
 	}, {
 		spaces: stringslicep("foo", "foo", "^bar", "^bar"),
-		expected: []interfaceBinding{{
+		expectedBindings: []interfaceBinding{{
 			Name:            "0",
 			SpaceProviderId: "foo",
-			IsExcluded:      false,
 		}, {
 			Name:            "1",
 			SpaceProviderId: "foo",
-			IsExcluded:      false,
-		}, {
-			Name:            "2",
-			SpaceProviderId: "bar",
-			IsExcluded:      true,
-		}, {
-			Name:            "3",
-			SpaceProviderId: "bar",
-			IsExcluded:      true,
 		}},
+		expectedNegatives: []string{"space:bar", "space:bar"},
 	}} {
 		c.Logf("test #%d: spaces=%v", i, test.spaces)
-		bindings := convertSpacesToBindings(test.spaces)
-		c.Check(bindings, jc.DeepEquals, test.expected)
+		bindings, negatives := convertSpacesFromConstraints(test.spaces)
+		c.Check(bindings, jc.DeepEquals, test.expectedBindings)
+		c.Check(negatives, jc.DeepEquals, test.expectedNegatives)
 	}
 }
 
@@ -473,62 +451,54 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedNegatives: "space:bar",
 		expectedError:     "",
 	}, {
-		interfaces:        []interfaceBinding{{"name-1", "space-1", false}},
+		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
 		expectedPositives: "name-1:space=space-1",
-		expectedNegatives: "",
+		expectedNegatives: "space:bar",
 	}, {
 		interfaces: []interfaceBinding{
-			{"name-1", "space-1", false},
-			{"name-2", "space-2", false},
-			{"name-3", "space-3", false},
+			{"name-1", "space-1"},
+			{"name-2", "space-2"},
+			{"name-3", "space-3"},
 		},
 		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3",
-		expectedNegatives: "",
+		expectedNegatives: "space:bar",
 	}, {
-		interfaces: []interfaceBinding{
-			{"name-1", "space-1", false},
-			{"name-2", "space-2", true},
-			{"name-3", "space-3", true},
-		},
-		expectedPositives: "name-1:space=space-1",
-		expectedNegatives: "space:space-2,space:space-3",
-	}, {
-		interfaces:    []interfaceBinding{{"", "anything", false}},
+		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces:    []interfaceBinding{{"", "", false}},
+		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
 		interfaces: []interfaceBinding{
-			{"valid", "ok", false},
-			{"", "valid-but-ignored-space", false},
-			{"valid-name-empty-space", "", false},
-			{"", "", true},
+			{"valid", "ok"},
+			{"", "valid-but-ignored-space"},
+			{"valid-name-empty-space", ""},
+			{"", ""},
 		},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces:    []interfaceBinding{{"foo", "", false}},
+		interfaces:    []interfaceBinding{{"foo", ""}},
 		expectedError: `invalid interface binding "foo": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"bar", "", false},
-			{"valid", "ok", true},
-			{"", "valid-but-ignored-space", false},
-			{"", "", false},
+			{"bar", ""},
+			{"valid", "ok"},
+			{"", "valid-but-ignored-space"},
+			{"", ""},
 		},
 		expectedError: `invalid interface binding "bar": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"dup-name", "space-1", false},
-			{"dup-name", "space-2", true},
+			{"dup-name", "space-1"},
+			{"dup-name", "space-2"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"valid-1", "space-0", true},
-			{"dup-name", "space-1", false},
-			{"dup-name", "space-2", false},
-			{"valid-2", "space-3", true},
+			{"valid-1", "space-0"},
+			{"dup-name", "space-1"},
+			{"dup-name", "space-2"},
+			{"valid-2", "space-3"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
