@@ -17,14 +17,18 @@ var originRevisionTypes = map[OriginKind]RevisionType{
 
 // Resource defines a single resource within Juju state.
 type Resource struct {
-	// Spec is the backing resource spec.
-	Spec Spec
+	// Username is the ID of the user that added the revision
+	// to the model (whether implicitly or explicitly).
+	Username string
+
+	// Timestamp indicates when the resource was added to the model.
+	Timestamp time.Time
 
 	// Origin identifies the where the resource came from.
 	Origin Origin
 
 	// Revision is the actual revision of the resource.
-	Revision Revision
+	Revision int
 
 	// Fingerprint is the MD5 checksum for the resource blob.
 	Fingerprint string
