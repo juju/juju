@@ -1,3 +1,4 @@
+import argparse
 from contextlib import contextmanager
 from datetime import (
     datetime,
@@ -70,6 +71,19 @@ class until_timeout:
         if remaining <= 0:
             raise StopIteration
         return remaining
+
+
+class ErrJujuPath(Exception):
+    """An exception for an invalid juju binary path."""
+
+
+class enforce_juju_path(argparse.Action):
+    """Enforces that a path ending with juju is given."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not values.endswith(('/juju', '\\juju.exe')):
+            raise ErrJujuPath(
+                "%s: The full path to the juju binary is required." % values)
+        setattr(namespace, self.dest, values)
 
 
 def pause(seconds):
@@ -235,7 +249,10 @@ def add_basic_testing_arguments(parser, using_jes=False):
     ]
     for p_arg in positional_args:
         name, help_txt = p_arg
-        parser.add_argument(name, help=help_txt)
+        if name == 'juju_bin':
+            parser.add_argument(name, action=enforce_juju_path, help=help_txt)
+        else:
+            parser.add_argument(name, help=help_txt)
     parser.add_argument('--debug', action='store_true',
                         help='Pass --debug to Juju.')
     parser.add_argument('--verbose', action='store_const',
