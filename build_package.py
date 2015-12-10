@@ -48,13 +48,15 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eu
     echo "\nInstalling common build deps.\n"
     cd workspace
+    # Wait for Cloud-init to complete to indicate the machine is in a ready
+    # state with network to do work,
     while ! tail -1 /var/log/cloud-init-output.log | \
             egrep -q 'Cloud-init .* finished'; do
         echo "Waiting for Cloud-init to finish."
         sleep 5
     done
     set +e
-    # The arm64 and ppc64el images do not have sane have sources.list.
+    # The cloud-init breaks arm64 and ppc64el /etc/apt/sources.list.
     if [[ $(dpkg --print-architecture) =~ ^(arm64|ppc64el)$ ]]; then
         sed -i \
             -e 's,archive.ubuntu.com/ubuntu,ports.ubuntu.com/ubuntu-ports,' \
