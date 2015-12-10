@@ -43,7 +43,7 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 def setup_juju_path(juju_path):
     """Ensure the binaries and scripts under test are found first."""
-    full_path = os.path.abspath(juju_path)
+    full_path = os.path.dirname(juju_path)
     if not os.path.isdir(full_path):
         raise ValueError("The juju_path does not exist: %s" % full_path)
     os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
