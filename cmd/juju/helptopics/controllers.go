@@ -29,7 +29,7 @@ This allows the creation, listing, and disabling of users. When a juju
 controller is initially bootstrapped, there is only one user.  Additional
 users are created as follows:
 
-    $ juju user add bob "Bob Brown"
+    $ juju add-user bob "Bob Brown"
     user "Bob Brown (bob)" added
     server file written to /current/working/directory/bob.server
 
@@ -78,14 +78,14 @@ new environment has no machines, and no services.
 Bob wants to collaborate with Mary on this environment. A user for Mary needs
 to exist in the controller before Bob is able to share the environment with her.
 
-    $ juju environment share mary
+    $ juju share-environment mary
     ERROR could not share environment: user "mary" does not exist locally: user "mary" not found
 
 Bob gets the controller administrator to add a user for Mary, and then shares the
 environment with Mary.
 
-    $ juju environment share mary
-    $ juju environment users
+    $ juju share-environment mary
+    $ juju list-shares
     NAME        DATE CREATED    LAST CONNECTION
     bob@local   5 minutes ago   just now
     mary@local  57 seconds ago  never connected
