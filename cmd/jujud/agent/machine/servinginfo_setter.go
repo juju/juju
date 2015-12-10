@@ -7,40 +7,32 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/agent"
+	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// uninstallerManifoldConfig provides the dependencies for the
-// uninstaller manifold.
-type uninstallerManifoldConfig struct {
-	AgentName          string
-	APICallerName      string
-	WriteUninstallFile func() error
+// servingInfoSetterConfig provides the dependencies for the
+// servingInfoSetter manifold.
+type servingInfoSetterConfig struct {
+	AgentName     string
+	APICallerName string
 }
 
-// uninstallerManifold defines a simple start function which retrieves
-// some dependencies, checks if the machine is dead and causes the
-// agent to uninstall itself if it is. This doubles up on part of the
-// machiner's functionality but the machiner doesn't run until
-// upgrades are complete, and the upgrade related workers may not be
-// able to make API requests if the machine is dead.
-func uninstallerManifold(config uninstallerManifoldConfig) dependency.Manifold {
+// servingInfoSetterManifold defines a simple start function which
+// runs after the API connection has come up. If the machine agent is
+// a state server, it grabs the state serving info over the API and
+// records it to agent configuration, and then stops.
+func servingInfoSetterManifold(config servingInfoSetterConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			if config.WriteUninstallFile == nil {
-				return nil, errors.New("WriteUninstallFile not specified")
-			}
-
 			// Get the agent.
-			var agent agent.Agent
+			var agent coreagent.Agent
 			if err := getResource(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
@@ -61,19 +53,28 @@ func uninstallerManifold(config uninstallerManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			// Check if the machine is dead and set the agent to
-			// uninstall if it is.
+			// If the machine needs State, grab the state serving info
+			// over the API and write it to the agent configuration.
 			//
 			// TODO(mjs) - ideally this would be using its own facade.
 			machine, err := apiConn.Agent().Entity(tag)
 			if err != nil {
 				return nil, err
 			}
-			if machine.Life() == params.Dead {
-				if err := config.WriteUninstallFile(); err != nil {
-					return nil, errors.Annotate(err, "writing uninstall agent file")
+			for _, job := range machine.Jobs() {
+				if job.NeedsState() {
+					info, err := apiConn.Agent().StateServingInfo()
+					if err != nil {
+						return nil, errors.Errorf("cannot get state serving info: %v", err)
+					}
+					err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
+						config.SetStateServingInfo(info)
+						return nil
+					})
+					if err != nil {
+						return nil, err
+					}
 				}
-				return nil, worker.ErrTerminateAgent
 			}
 
 			// All is well - we're done (no actual worker is actually returned).

@@ -690,30 +690,12 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, job := range machine.Jobs() {
-		if job.NeedsState() {
-			info, err := st.Agent().StateServingInfo()
-			if err != nil {
-				return nil, fmt.Errorf("cannot get state serving info: %v", err)
-			}
-			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-				config.SetStateServingInfo(info)
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
-	}
-
-	runner := newConnRunner(st)
 
 	// All other workers must wait for the upgrade steps to complete before starting.
+	runner := newConnRunner(st)
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, a.CurrentConfig(), machine.Jobs())
 	})
-
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
