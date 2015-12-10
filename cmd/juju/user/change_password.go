@@ -42,7 +42,7 @@ func NewChangePasswordCommand() cmd.Command {
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api      ChangePasswordAPI
 	writer   EnvironInfoCredsWriter
 	Generate bool

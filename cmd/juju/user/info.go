@@ -57,7 +57,7 @@ type UserInfoAPI interface {
 
 // infoCommandBase is a common base for 'juju show-user' and 'juju list-user'.
 type infoCommandBase struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api       UserInfoAPI
 	exactTime bool
 	out       cmd.Output

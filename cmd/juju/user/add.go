@@ -45,7 +45,7 @@ func NewAddCommand() cmd.Command {
 
 // addCommand adds new users into a Juju Server.
 type addCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api         AddUserAPI
 	User        string
 	DisplayName string

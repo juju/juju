@@ -25,11 +25,11 @@ Examples:
 
     # copy the staging.creds file to another machine
 
-    $ juju controller login staging --server staging.creds --keep-password
+    $ juju login staging --server staging.creds --keep-password
 
 
 See Also:
-    juju controller login
+    juju help login
 `
 
 func NewCredentialsCommand() cmd.Command {
@@ -38,7 +38,7 @@ func NewCredentialsCommand() cmd.Command {
 
 // credentialsCommand changes the password for a user.
 type credentialsCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	OutPath string
 }
 

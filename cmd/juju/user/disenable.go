@@ -37,7 +37,7 @@ See Also:
 
 // disenableUserBase common code for enable/disable user commands
 type disenableUserBase struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api  disenableUserAPI
 	User string
 }
