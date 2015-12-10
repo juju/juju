@@ -104,7 +104,7 @@ func (s *kvmBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, "", nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
