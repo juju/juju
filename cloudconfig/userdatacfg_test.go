@@ -459,8 +459,8 @@ printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-install -D -m 644 /dev/null '/etc/juju/publicsimplestreamskey'
-printf '%s\\n' 'publickey' > '/etc/juju/publicsimplestreamskey'
+install -D -m 644 /dev/null '.*publicsimplestreamskey'
+printf '%s\\n' 'publickey' > '.*publicsimplestreamskey'
 `,
 	},
 }
