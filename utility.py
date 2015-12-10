@@ -80,7 +80,7 @@ class ErrJujuPath(Exception):
 class enforce_juju_path(argparse.Action):
     """Enforces that a path ending with juju is given."""
     def __call__(self, parser, namespace, values, option_string=None):
-        if not values.endswith(('/juju', '/juju.exe')):
+        if not values.endswith(('/juju', '\\juju.exe')):
             raise ErrJujuPath(
                 "%s: The full path to the juju binary is required." % values)
         setattr(namespace, self.dest, values)
