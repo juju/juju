@@ -277,6 +277,7 @@ func (s *envManagerSuite) TestCreateEnvironmentSameAgentVersion(c *gc.C) {
 }
 
 func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 
