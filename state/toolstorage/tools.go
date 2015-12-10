@@ -178,12 +178,12 @@ func (s *toolsStorage) AllMetadata() ([]Metadata, error) {
 // because we had a bug that would allow tools with invalid metadata to
 // be entered, which would render "AllMetadata" unusable.
 func (s *toolsStorage) RemoveInvalid() error {
-	type Doc struct {
+	type doc struct {
 		Id      string   `bson:"_id"`
 		Version bson.Raw `bson:"version"`
 		Path    string   `bson:"path"`
 	}
-	var docs []Doc
+	var docs []doc
 	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
 		return err
 	}
@@ -201,7 +201,8 @@ func (s *toolsStorage) RemoveInvalid() error {
 
 // removeTools will remove the tools with the specified ID.
 func (s *toolsStorage) removeTools(id, path string) error {
-	if err := s.managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
+	err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot remove tools tarball")
 	}
 	// Remove the metadata.
@@ -213,7 +214,7 @@ func (s *toolsStorage) removeTools(id, path string) error {
 		}
 		return []txn.Op{op}, nil
 	}
-	err := s.txnRunner.Run(buildTxn)
+	err = s.txnRunner.Run(buildTxn)
 	// Metadata already removed, we don't care.
 	if err == mgo.ErrNotFound {
 		return nil

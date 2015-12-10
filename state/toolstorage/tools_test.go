@@ -355,9 +355,7 @@ func (s *ToolsSuite) TestRemoveInvalid(c *gc.C) {
 	err := s.managedStorage.PutForEnvironment("my-uuid", "path1", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.addMetadataDoc(c, versionWithoutArch, 4, "hash(abc)", "path2")
-	err = s.managedStorage.PutForEnvironment("my-uuid", "path2", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
+	s.addMetadataDoc(c, versionWithoutArch, 4, "hash(abc)", "non-existent-path")
 
 	s.addMetadataDoc(c, goodVersion, 4, "hash(abc)", "path3")
 	err = s.managedStorage.PutForEnvironment("my-uuid", "path3", strings.NewReader("blah"), 4)
@@ -372,6 +370,12 @@ func (s *ToolsSuite) TestRemoveInvalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].Version, gc.Equals, goodVersion)
+
+	// Only path3 should remain in managed storage.
+	err = s.managedStorage.RemoveForEnvironment("my-uuid", "path1")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = s.managedStorage.RemoveForEnvironment("my-uuid", "path3")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
