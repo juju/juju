@@ -36,7 +36,7 @@ SourceFile = namedtuple('SourceFile', ['sha256', 'size', 'name', 'path'])
 
 CREATE_LXC_TEMPLATE = """\
 set -eu
-sudo lxc-create -t download -n {container} -- -d ubuntu -r {series} -a {arch}
+sudo lxc-create -t ubuntu-cloud -n {container} -- -r {series} -a {arch}
 sudo mkdir /var/lib/lxc/{container}/rootfs/workspace
 echo "lxc.mount.entry = {build_dir} workspace none bind 0 0" |
     sudo tee -a /var/lib/lxc/{container}/config
@@ -48,11 +48,18 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     set -eu
     echo "\nInstalling common build deps.\n"
     cd workspace
-    while ! ifconfig | grep -q "addr:10.0."; do
-        echo "Waiting for network"
-        sleep 1
+    while ! tail -1 /var/log/cloud-init-output.log | \
+            egrep -q 'Cloud-init .* finished'; do
+        echo "Waiting for Cloud-init to finish."
+        sleep 5
     done
     set +e
+    # The arm64 and ppc64el images do not have sane have sources.list.
+    if [[ $(dpkg --print-architecture) =~ ^(arm64|ppc64el)$ ]]; then
+        sed -i \
+            -e 's,archive.ubuntu.com/ubuntu,ports.ubuntu.com/ubuntu-ports,' \
+            /etc/apt/sources.list
+    fi
     # Adding the ppa directly to sources.list without the archive key
     # requires apt to be run with --force-yes
     echo "{ppa}" >> /etc/apt/sources.list
