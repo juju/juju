@@ -17,7 +17,7 @@ import (
 // ShowAPI has the API methods needed by ShowCommand.
 type ShowAPI interface {
 	// ListSpecs lists the resource specs for each of the given services.
-	ListSpecs(services ...string) ([]resource.SpecsResult, error)
+	ListSpecs(services []string) ([]resource.SpecsResult, error)
 
 	// Close closes the client.
 	Close() error
@@ -97,7 +97,8 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	results, err := apiclient.ListSpecs(c.serviceID)
+	services := []string{c.serviceID}
+	results, err := apiclient.ListSpecs(services)
 	if err != nil {
 		return errors.Trace(err)
 	}

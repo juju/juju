@@ -18,7 +18,7 @@ type specClient struct {
 
 // ListSpecs calls the ListSpecs API server method with
 // the given service name.
-func (c specClient) ListSpecs(services ...string) ([]resource.SpecsResult, error) {
+func (c specClient) ListSpecs(services []string) ([]resource.SpecsResult, error) {
 	args, err := api.NewListSpecsArgs(services...)
 	if err != nil {
 		return nil, errors.Trace(err)

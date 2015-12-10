@@ -51,7 +51,8 @@ func (s *SpecSuite) TestListSpecsOkay(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service")
+	services := []string{"a-service"}
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{
@@ -81,7 +82,8 @@ func (s *SpecSuite) TestListSpecsBulk(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service", "other-service")
+	services := []string{"a-service", "other-service"}
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{
@@ -110,7 +112,8 @@ func (s *SpecSuite) TestListSpecsBulk(c *gc.C) {
 func (s *SpecSuite) TestListSpecsNoServices(c *gc.C) {
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs()
+	var services []string
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, gc.HasLen, 0)
@@ -120,7 +123,8 @@ func (s *SpecSuite) TestListSpecsNoServices(c *gc.C) {
 func (s *SpecSuite) TestListSpecsBadServices(c *gc.C) {
 	cl := client.NewClient(s.facade)
 
-	_, err := cl.ListSpecs("???")
+	services := []string{"???"}
+	_, err := cl.ListSpecs(services)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
@@ -129,7 +133,8 @@ func (s *SpecSuite) TestListSpecsBadServices(c *gc.C) {
 func (s *SpecSuite) TestListSpecsServiceNotFound(c *gc.C) {
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service")
+	services := []string{"a-service"}
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
@@ -145,7 +150,8 @@ func (s *SpecSuite) TestListSpecsServiceEmpty(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service")
+	services := []string{"a-service"}
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
@@ -162,7 +168,8 @@ func (s *SpecSuite) TestListSpecsServerError(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	_, err := cl.ListSpecs("a-service")
+	services := []string{"a-service"}
+	_, err := cl.ListSpecs(services)
 
 	c.Check(err, gc.ErrorMatches, `<failure>`)
 	s.stub.CheckCallNames(c, "FacadeCall")
@@ -182,7 +189,8 @@ func (s *SpecSuite) TestListSpecsTooFew(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service", "other-service")
+	services := []string{"a-service", "other-service"}
+	results, err := cl.ListSpecs(services)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
 		Service: "a-service",
@@ -211,7 +219,8 @@ func (s *SpecSuite) TestListSpecsTooMany(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service", "other-service")
+	services := []string{"a-service", "other-service"}
+	results, err := cl.ListSpecs(services)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
 		Service: "a-service",
@@ -238,7 +247,8 @@ func (s *SpecSuite) TestListSpecsConversionFailed(c *gc.C) {
 
 	cl := client.NewClient(s.facade)
 
-	results, err := cl.ListSpecs("a-service")
+	services := []string{"a-service"}
+	results, err := cl.ListSpecs(services)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{

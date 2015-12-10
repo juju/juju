@@ -16,7 +16,7 @@ type stubClient struct {
 	ReturnListSpecs []resource.SpecsResult
 }
 
-func (s *stubClient) ListSpecs(serviceIDs ...string) ([]resource.SpecsResult, error) {
+func (s *stubClient) ListSpecs(serviceIDs []string) ([]resource.SpecsResult, error) {
 	s.stub.AddCall("ListSpecs", serviceIDs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
