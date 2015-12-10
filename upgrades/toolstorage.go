@@ -89,7 +89,11 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 			logger.Debugf("ignoring invalid agent tools %v: %v", agentTools.Version, err)
 			continue
 		} else if err != nil {
-			return errors.Annotatef(err, "failed to fetch %v tools", agentTools.Version)
+			// Failed to fetch tools. Ignore them, in which case
+			// Juju will fetch them externally again, or the user
+			// must upload/sync them again.
+			logger.Debugf("ignoring agent tools %v: failed to fetch tools: %v", agentTools.Version, err)
+			continue
 		}
 		err = tstor.AddTools(bytes.NewReader(data), toolstorage.Metadata{
 			Version: agentTools.Version,

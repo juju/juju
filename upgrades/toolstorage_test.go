@@ -4,6 +4,7 @@
 package upgrades_test
 
 import (
+	"errors"
 	"io"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
@@ -102,6 +104,20 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageMissing(c *gc.C) {
 	err := stor.Remove(envtools.StorageName(migrateToolsVersions[0], "releases"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(migrateToolsVersions[1], jc.Satisfies, fakeToolsStorage.contains)
+	c.Assert(fakeToolsStorage.stored, gc.HasLen, 1)
+}
+
+func (s *migrateToolsStorageSuite) TestMigrateToolsStorageReadFails(c *gc.C) {
+	fakeToolsStorage := s.installFakeToolsStorage()
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
+
+	storageErr := errors.New("no tools for you")
+	dummy.Poison(stor, envtools.StorageName(migrateToolsVersions[0], "releases"), storageErr)
+
+	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(migrateToolsVersions[1], jc.Satisfies, fakeToolsStorage.contains)
 	c.Assert(fakeToolsStorage.stored, gc.HasLen, 1)
