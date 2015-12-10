@@ -171,10 +171,10 @@ class TestContainerNetworking(TestCase):
 
     def test_parse_args(self):
         # Test a simple command line that should work
-        cmdline = ['env', 'juju_bin', 'logs', 'ten']
+        cmdline = ['env', '/juju', 'logs', 'ten']
         args = jcnet.parse_args(cmdline)
         self.assertEqual(args.machine_type, None)
-        self.assertEqual(args.juju_bin, 'juju_bin')
+        self.assertEqual(args.juju_bin, '/juju')
         self.assertEqual(args.env, 'env')
         self.assertEqual(args.logs, 'logs')
         self.assertEqual(args.temp_env_name, 'ten')
