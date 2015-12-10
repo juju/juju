@@ -384,6 +384,17 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['region'] = region
 
 
+@contextmanager
+def temp_juju_home(client, new_home):
+    """Temporarily override the client's home directory."""
+    old_home = client.juju_home
+    client.juju_home = new_home
+    try:
+        yield
+    finally:
+        client.juju_home = old_home
+
+
 class BootstrapManager:
     """
     Helper class for running juju tests.
@@ -515,16 +526,12 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        old_home = self.tear_down_client.juju_home
         if self.tear_down_client == self.client:
             jes_enabled = self.jes_enabled
         else:
             jes_enabled = self.tear_down_client.is_jes_enabled()
-            self.tear_down_client.juju_home = self.client.juju_home
-        try:
+        with temp_juju_home(self.tear_down_client, self.client.juju_home):
             tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
-        finally:
-            self.tear_down_client.juju_home = old_home
 
     @contextmanager
     def bootstrap_context(self, machines):
@@ -542,13 +549,22 @@ class BootstrapManager:
             wait_for_port(machine, 22, timeout=120)
         jenv_path = get_jenv_path(self.client.juju_home,
                                   self.client.env.environment)
+        torn_down = False
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
             self.tear_down(try_jes=False)
             torn_down = True
         else:
-            torn_down = False
+            jes_home = jes_home_path(
+                self.client.juju_home, self.client.env.environment)
+            with temp_juju_home(self.client, jes_home):
+                cache_path = get_cache_path(self.client.juju_home)
+                if os.path.isfile(cache_path):
+                    # An existing .jenv implies JES was used, because when JES
+                    # is enabled, cache.yaml is enabled.
+                    self.tear_down(try_jes=True)
+                    torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.juju_home, self.client,
                                 permanent=self.permanent):
