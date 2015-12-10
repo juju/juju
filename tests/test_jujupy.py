@@ -2565,12 +2565,13 @@ class TestMakeClient(TestCase):
                                         side_effect=ValueError):
             with patch('subprocess.check_output') as co_mock:
                 co_mock.return_value = '1.18'
+                juju_path = os.path.join(juju_path, 'juju')
                 yield juju_path
 
     def test_make_client(self):
         with self.make_client_cxt() as juju_path:
             client = make_client(juju_path, False, 'foo', 'bar')
-        self.assertEqual(client.full_path, os.path.join(juju_path, 'juju'))
+        self.assertEqual(client.full_path, juju_path)
         self.assertEqual(client.debug, False)
         self.assertEqual(client.env.config['orig-name'], 'foo')
         self.assertEqual(client.env.config['name'], 'bar')
@@ -2584,7 +2585,7 @@ class TestMakeClient(TestCase):
     def test_make_client_no_temp_env_name(self):
         with self.make_client_cxt() as juju_path:
             client = make_client(juju_path, False, 'foo', None)
-        self.assertEqual(client.full_path, os.path.join(juju_path, 'juju'))
+        self.assertEqual(client.full_path, juju_path)
         self.assertEqual(client.env.config['orig-name'], 'foo')
         self.assertEqual(client.env.config['name'], 'foo')
         self.assertEqual(client.env.environment, 'foo')
