@@ -199,7 +199,8 @@ func (doc clockDoc) skews(readAfter, readBefore time.Time) (map[string]Skew, err
 		return nil, errors.Trace(err)
 	}
 	if readBefore.Before(readAfter) {
-		return nil, errors.New("end of read window preceded beginning")
+		difference := readAfter.Sub(readBefore)
+		return nil, errors.Errorf("end of read window preceded beginning (%s)", difference)
 	}
 	skews := make(map[string]Skew)
 	for writer, written := range doc.Writers {
