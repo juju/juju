@@ -17,6 +17,7 @@ var originRevisionTypes = map[OriginKind]RevisionType{
 
 // Resource defines a single resource within Juju state.
 type Resource struct {
+	// Spec is the backing resource spec.
 	Spec Spec
 
 	// Origin identifies the where the resource came from.
