@@ -56,7 +56,7 @@ type stateInterface interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*state.EnvironmentUser, error)
+	AddEnvironmentUser(state.UserSpec) (*state.EnvironmentUser, error)
 	RemoveEnvironmentUser(names.UserTag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error

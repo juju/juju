@@ -83,7 +83,10 @@ func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddEnvironmentUser(admin.UserTag(), remoteUserTag, "Foo Bar")
+	st.AddEnvironmentUser(state.UserSpec{
+		User:        admin.UserTag(),
+		CreatedBy:   remoteUserTag,
+		DisplayName: "Foo Bar"})
 
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()

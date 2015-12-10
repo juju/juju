@@ -31,6 +31,7 @@ type envUserDoc struct {
 	DisplayName string    `bson:"displayname"`
 	CreatedBy   string    `bson:"createdby"`
 	DateCreated time.Time `bson:"datecreated"`
+	ReadOnly    bool      `bson:"readonly"`
 }
 
 // envUserLastConnectionDoc is updated by the apiserver whenever the user
@@ -78,6 +79,12 @@ func (e *EnvironmentUser) CreatedBy() string {
 // DateCreated returns the date the environment user was created in UTC.
 func (e *EnvironmentUser) DateCreated() time.Time {
 	return e.doc.DateCreated.UTC()
+}
+
+// ReadOnly returns whether or not the user has write access or only
+// read access to the environment.
+func (e *EnvironmentUser) ReadOnly() bool {
+	return e.doc.ReadOnly
 }
 
 // LastConnection returns when this EnvironmentUser last connected through the API
@@ -154,37 +161,46 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	return envUser, nil
 }
 
+// UserSpec defines the attributes that can be set when adding a new
+// environment user.
+type UserSpec struct {
+	User        names.UserTag
+	CreatedBy   names.UserTag
+	DisplayName string
+	ReadOnly    bool
+}
+
 // AddEnvironmentUser adds a new user to the database.
-func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*EnvironmentUser, error) {
+func (st *State) AddEnvironmentUser(spec UserSpec) (*EnvironmentUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
-	if user.IsLocal() {
-		localUser, err := st.User(user)
+	if spec.User.IsLocal() {
+		localUser, err := st.User(spec.User)
 		if err != nil {
-			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
+			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", spec.User.Name()))
 		}
-		if displayName == "" {
-			displayName = localUser.DisplayName()
+		if spec.DisplayName == "" {
+			spec.DisplayName = localUser.DisplayName()
 		}
 	}
 
 	// Ensure local createdBy user exists.
-	if createdBy.IsLocal() {
-		if _, err := st.User(createdBy); err != nil {
-			return nil, errors.Annotate(err, fmt.Sprintf("createdBy user %q does not exist locally", createdBy.Name()))
+	if spec.CreatedBy.IsLocal() {
+		if _, err := st.User(spec.CreatedBy); err != nil {
+			return nil, errors.Annotatef(err, "createdBy user %q does not exist locally", spec.CreatedBy.Name())
 		}
 	}
 
 	envuuid := st.EnvironUUID()
-	op := createEnvUserOp(envuuid, user, createdBy, displayName)
+	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("environment user %q", user.Canonical())
+		err = errors.AlreadyExistsf("environment user %q", spec.User.Canonical())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Re-read from DB to get the multi-env updated values.
-	return st.EnvironmentUser(user)
+	return st.EnvironmentUser(spec.User)
 }
 
 // envUserID returns the document id of the environment user
@@ -193,13 +209,14 @@ func envUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string) txn.Op {
+func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &envUserDoc{
 		ID:          envUserID(user),
 		EnvUUID:     envuuid,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
+		ReadOnly:    readOnly,
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
 	}
