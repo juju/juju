@@ -51,7 +51,7 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
     # Wait for Cloud-init to complete to indicate the machine is in a ready
     # state with network to do work,
     while ! tail -1 /var/log/cloud-init-output.log | \
-            egrep -q 'Cloud-init .* finished'; do
+            egrep -q -i 'Cloud-init .* finished'; do
         echo "Waiting for Cloud-init to finish."
         sleep 5
     done
