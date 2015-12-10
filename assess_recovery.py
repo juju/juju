@@ -4,33 +4,25 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-import logging
 import os
 import re
 import subprocess
 import sys
 
 from deploy_stack import (
-    dump_env_logs,
+    BootstrapManager,
     wait_for_state_server_to_shutdown,
-    update_env,
-)
-from jujuconfig import (
-    get_jenv_path,
-    get_juju_home,
 )
 from jujupy import (
     get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
-    temp_bootstrap_env,
     until_timeout,
 )
 from substrate import (
     terminate_instances,
 )
 from utility import (
-    ensure_deleted,
     print_now,
 )
 
@@ -166,29 +158,21 @@ def parse_args(argv=None):
 
 
 def make_client_from_args(args):
-    client = make_client(args.juju_path, args.debug, args.env_name,
-                         args.temp_env_name)
-    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream,
-               series=args.series)
-    return client
+    return make_client(args.juju_path, args.debug, args.env_name,
+                       args.temp_env_name)
 
 
 def main(argv):
     args = parse_args(argv)
-    log_dir = args.logs
-    try:
-        setup_juju_path(args.juju_path)
-        juju_home = get_juju_home()
-        client = make_client_from_args(args)
-        ensure_deleted(get_jenv_path(juju_home, client.env.environment))
-        with temp_bootstrap_env(juju_home, client):
-            try:
-                client.bootstrap()
-            except Exception as e:
-                logging.exception(e)
-                client.destroy_environment()
-                sys.exit(1)
-        bootstrap_host = get_machine_dns_name(client, '0')
+    setup_juju_path(args.juju_path)
+    client = make_client_from_args(args)
+    jes_enabled = client.is_jes_enabled()
+    bs_manager = BootstrapManager(
+        client.env.environment, client, client, None, [], args.series,
+        agent_url=None, agent_stream=args.agent_stream, region=None,
+        log_dir=args.logs, keep_env=False, permanent=jes_enabled,
+        jes_enabled=jes_enabled)
+    with bs_manager.booted_context(upload_tools=False):
         try:
             instance_id = deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
@@ -200,28 +184,15 @@ def main(argv):
             if args.strategy == 'ha-backup':
                 delete_extra_state_servers(client, instance_id)
             delete_instance(client, instance_id)
-            wait_for_state_server_to_shutdown(bootstrap_host, client,
-                                              instance_id)
-            bootstrap_host = None
+            wait_for_state_server_to_shutdown(
+                bs_manager.known_hosts['0'], client, instance_id)
             if args.strategy == 'ha':
                 client.get_status(600)
             else:
                 restore_missing_state_server(client, backup_file)
         except Exception as e:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
+            bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
             raise
-        finally:
-            dump_env_logs(client, bootstrap_host, log_dir)
-            client.destroy_environment()
-    except Exception as e:
-        print_now("\nEXCEPTION CAUGHT:\n")
-        logging.exception(e)
-        if getattr(e, 'output', None):
-            print_now('\n')
-            print_now(e.output)
-        print_now("\nFAIL")
-        sys.exit(1)
 
 
 if __name__ == '__main__':
