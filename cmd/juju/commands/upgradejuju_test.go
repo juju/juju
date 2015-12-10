@@ -358,6 +358,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		version.Current = oldVersion
 	}()
 
+	success := 0
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
@@ -368,9 +369,13 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		com := &UpgradeJujuCommand{}
 		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {
-				c.Check(err, gc.ErrorMatches, test.expectInitErr)
+				if c.Check(err, gc.ErrorMatches, test.expectInitErr) {
+					success += 1
+				}
 			} else {
-				c.Check(err, jc.ErrorIsNil)
+				if c.Check(err, jc.ErrorIsNil) {
+					success += 1
+				}
 			}
 			continue
 		}
@@ -395,7 +400,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			if c.Check(err, gc.ErrorMatches, test.expectErr) {
+				success += 1
+			}
 			continue
 		} else if !c.Check(err, jc.ErrorIsNil) {
 			continue
@@ -414,7 +421,10 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
+
+		success += 1
 	}
+	c.Logf(" -- %d/%d passed", success, len(upgradeJujuTests))
 }
 
 func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
