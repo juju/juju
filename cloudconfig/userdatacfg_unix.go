@@ -209,7 +209,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.PublicImageSigningKey != "" {
-		keyFile := filepath.Join(agent.DefaultConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
 		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
 	}
 

@@ -1035,7 +1035,7 @@ const SimplestreamsPublicKeyFile = "publicsimplestreamskey"
 
 // UserPublicSigningKey returns the public signing key (if defined).
 func UserPublicSigningKey() (string, error) {
-	signingKeyFile := filepath.Join(agent.DefaultConfDir, SimplestreamsPublicKeyFile)
+	signingKeyFile := filepath.Join(agent.DefaultPaths.ConfDir, SimplestreamsPublicKeyFile)
 	b, err := ioutil.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
 		return "", nil
