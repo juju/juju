@@ -274,8 +274,5 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 	if err := client.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return m, nil
 }
