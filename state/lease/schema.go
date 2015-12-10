@@ -213,9 +213,9 @@ func (doc clockDoc) skews(beginning, end time.Time) (map[string]Skew, error) {
 	skews := make(map[string]Skew)
 	for writer, written := range doc.Writers {
 		skews[writer] = Skew{
-			LastWrite:  toTime(written),
-			ReadAfter:  beginning,
-			ReadBefore: end,
+			LastWrite: toTime(written),
+			Beginning: beginning,
+			End:       end,
 		}
 	}
 	return skews, nil
