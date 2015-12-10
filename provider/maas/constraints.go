@@ -141,14 +141,15 @@ type interfaceBinding struct {
 }
 
 // addInterfaces converts a slice of interface bindings to the format MAAS
-// expects for the "interfaces" argument to acquire node. Returns an error
-// satisfying errors.IsNotValid() if bindings contains duplicates or empty
-// Name/SpaceName.
+// expects for the "interfaces" and "not_networks" arguments to acquire node.
+// Returns an error satisfying errors.IsNotValid() if bindings contains
+// duplicates or empty Name/SpaceName.
 func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 	if len(bindings) == 0 {
 		return nil
 	}
-	var items []string
+	var positives []string
+	var negatives []string
 	namesSet := set.NewStrings()
 	for _, binding := range bindings {
 		switch {
@@ -165,13 +166,16 @@ func addInterfaces(params url.Values, bindings []interfaceBinding) error {
 		}
 		namesSet.Add(binding.Name)
 		if binding.IsExcluded {
-			items = append(items, fmt.Sprintf("%s:not_space=%s", binding.Name, binding.SpaceProviderId))
+			negatives = append(negatives, fmt.Sprintf("space=%s", binding.SpaceProviderId))
 		} else {
-			items = append(items, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
+			positives = append(positives, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
 		}
 	}
-	if len(items) > 0 {
-		params.Add("interfaces", strings.Join(items, ";"))
+	if len(positives) > 0 {
+		params.Add("interfaces", strings.Join(positives, ";"))
+	}
+	if len(negatives) > 0 {
+		params.Add("not_networks", strings.Join(negatives, ","))
 	}
 	return nil
 }

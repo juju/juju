@@ -183,48 +183,14 @@ func (*environSuite) TestConvertSpacesToBindings(c *gc.C) {
 			IsExcluded:      true,
 		}},
 	}, {
-		spaces: stringslicep("", "^bar", "  ", "^oof"),
+		spaces: stringslicep("", "^bar", "^", "^oof"),
 		expected: []interfaceBinding{{
 			Name:            "0",
-			SpaceProviderId: "  ",
-			IsExcluded:      false,
-		}, {
-			Name:            "1",
 			SpaceProviderId: "bar",
 			IsExcluded:      true,
 		}, {
-			Name:            "2",
+			Name:            "1",
 			SpaceProviderId: "oof",
-			IsExcluded:      true,
-		}},
-	}, {
-		spaces: stringslicep("foo", "^", " b a z  ", "^^ ^"),
-		expected: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "foo",
-			IsExcluded:      false,
-		}, {
-			Name:            "1",
-			SpaceProviderId: " b a z  ",
-			IsExcluded:      false,
-		}, {
-			Name:            "2",
-			SpaceProviderId: "^ ^",
-			IsExcluded:      true,
-		}},
-	}, {
-		spaces: stringslicep("", "^bar", "  ", " ^ o of "),
-		expected: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "  ",
-			IsExcluded:      false,
-		}, {
-			Name:            "1",
-			SpaceProviderId: " ^ o of ",
-			IsExcluded:      false,
-		}, {
-			Name:            "2",
-			SpaceProviderId: "bar",
 			IsExcluded:      true,
 		}},
 	}, {
@@ -449,7 +415,8 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3;2:not_space=space2;3:not_space=space4")
+	c.Assert(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
+	c.Assert(nodeValues[0].Get("not_networks"), gc.Equals, "space=space2,space=space4")
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
@@ -496,30 +463,35 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}
 
 	for i, test := range []struct {
-		interfaces    []interfaceBinding
-		expectedValue string
-		expectedError string
+		interfaces        []interfaceBinding
+		expectedPositives string
+		expectedNegatives string
+		expectedError     string
 	}{{ // without specified bindings, spaces constraints are used instead.
-		interfaces:    nil,
-		expectedValue: "0:space=foo;1:not_space=bar",
-		expectedError: "",
+		interfaces:        nil,
+		expectedPositives: "0:space=foo",
+		expectedNegatives: "space=bar",
+		expectedError:     "",
 	}, {
-		interfaces:    []interfaceBinding{{"name-1", "space-1", false}},
-		expectedValue: "name-1:space=space-1",
+		interfaces:        []interfaceBinding{{"name-1", "space-1", false}},
+		expectedPositives: "name-1:space=space-1",
+		expectedNegatives: "",
 	}, {
 		interfaces: []interfaceBinding{
 			{"name-1", "space-1", false},
 			{"name-2", "space-2", false},
 			{"name-3", "space-3", false},
 		},
-		expectedValue: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3",
+		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3",
+		expectedNegatives: "",
 	}, {
 		interfaces: []interfaceBinding{
 			{"name-1", "space-1", false},
 			{"name-2", "space-2", true},
 			{"name-3", "space-3", true},
 		},
-		expectedValue: "name-1:space=space-1;name-2:not_space=space-2;name-3:not_space=space-3",
+		expectedPositives: "name-1:space=space-1",
+		expectedNegatives: "space=space-2,space=space-3",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything", false}},
 		expectedError: "interface bindings cannot have empty names",
@@ -573,7 +545,8 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
 		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedValue)
+		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
+		c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
 		suite.testMAASObject.TestServer.Clear()
 	}
 }
