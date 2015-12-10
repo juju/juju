@@ -55,7 +55,7 @@ func newAPIWithBacking(backing networkingcommon.BackingState, resources *common.
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	return networkingcommon.CreateSpace(api.backing, args)
+	return networkingcommon.CreateSpaces(api.backing, args)
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
