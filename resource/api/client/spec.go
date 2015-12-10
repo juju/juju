@@ -29,12 +29,14 @@ func (c specClient) ListSpecs(services []string) ([]resource.SpecsResult, error)
 		return nil, errors.Trace(err)
 	}
 
+	if len(apiResults.Results) != len(services) {
+		// We don't bother returning the results we *did* get since
+		// something bad happened on the server.
+		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(services), len(apiResults.Results))
+	}
+
 	results := make([]resource.SpecsResult, len(services))
 	for i, service := range services {
-		if i >= len(apiResults.Results) {
-			// TODO(ericsnow) Set errors.NotFound instead?
-			return results, errors.New("got too few results from server")
-		}
 		apiResult := apiResults.Results[i]
 
 		result, err := api.API2SpecsResult(service, apiResult)
@@ -46,11 +48,6 @@ func (c specClient) ListSpecs(services []string) ([]resource.SpecsResult, error)
 			}
 		}
 		results[i] = result
-	}
-
-	if len(apiResults.Results) > len(services) {
-		// TODO(ericsnow) Add the remainder to the results, with no service set?
-		return results, errors.Errorf("got too many results from server")
 	}
 
 	return results, nil

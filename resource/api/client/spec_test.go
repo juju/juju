@@ -192,12 +192,8 @@ func (s *SpecSuite) TestListSpecsTooFew(c *gc.C) {
 	services := []string{"a-service", "other-service"}
 	results, err := cl.ListSpecs(services)
 
-	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
-		Service: "a-service",
-	}, {
-		Service: "",
-	}})
-	c.Check(err, gc.ErrorMatches, `.*got too few results.*`)
+	c.Check(results, gc.HasLen, 0)
+	c.Check(err, gc.ErrorMatches, `.*got invalid data from server \(expected 2 results, got 1\).*`)
 	s.stub.CheckCallNames(c, "FacadeCall")
 }
 
@@ -222,12 +218,8 @@ func (s *SpecSuite) TestListSpecsTooMany(c *gc.C) {
 	services := []string{"a-service", "other-service"}
 	results, err := cl.ListSpecs(services)
 
-	c.Check(results, jc.DeepEquals, []resource.SpecsResult{{
-		Service: "a-service",
-	}, {
-		Service: "other-service",
-	}})
-	c.Check(err, gc.ErrorMatches, `.*got too many results.*`)
+	c.Check(results, gc.HasLen, 0)
+	c.Check(err, gc.ErrorMatches, `.*got invalid data from server \(expected 2 results, got 3\).*`)
 	s.stub.CheckCallNames(c, "FacadeCall")
 }
 
