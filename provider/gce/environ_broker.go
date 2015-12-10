@@ -179,7 +179,14 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.globalFirewallName(),
 		machineID,
 	}
-	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series)
+
+	cfg := env.Config()
+	eUUID, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("cannot find UUID necessary to create the instance disk")
+	}
+
+	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series, eUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -258,7 +265,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser string) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -277,11 +284,12 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser string) 
 		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
 	}
 	dSpec := google.DiskSpec{
-		Series:     ser,
-		SizeHintGB: size,
-		ImageURL:   imageURL + spec.Image.Id,
-		Boot:       true,
-		AutoDelete: true,
+		Series:      ser,
+		SizeHintGB:  size,
+		ImageURL:    imageURL + spec.Image.Id,
+		Boot:        true,
+		AutoDelete:  true,
+		Description: eUUID,
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
