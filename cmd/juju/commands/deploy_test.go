@@ -697,6 +697,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 Added charm "cs:trusty/terms1-1" to the environment.
+Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")

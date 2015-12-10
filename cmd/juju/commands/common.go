@@ -168,19 +168,13 @@ func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
 	return false
 }
 
-// termsAgreementError returns err as a *termsAgreementError
-// if it has a "terms agreement request" error code, otherwise
+// maybeTermsAgreementError returns err as a *termsAgreementError
+// if it has a "terms agreement required" error code, otherwise
 // it returns err unchanged.
-func termsAgreementError(err error) error {
-	e, ok := err.(*httpbakery.DischargeError)
-	if !ok {
-		return nil
-	}
-	if e.Reason == nil {
-		return err
-	}
-	code := "term agreement required"
-	if e.Reason.Code != httpbakery.ErrorCode(code) {
+func maybeTermsAgreementError(err error) error {
+	const code = "term agreement required"
+	e, ok := errors.Cause(err).(*httpbakery.DischargeError)
+	if !ok || e.Reason == nil || e.Reason.Code != code {
 		return err
 	}
 	magicMarker := code + ":"
@@ -222,7 +216,7 @@ func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interfa
 			}
 			m, err := csclient.authorize(curl)
 			if err != nil {
-				return nil, termsAgreementError(errors.Cause(err))
+				return nil, maybeTermsAgreementError(err)
 			}
 			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
 				return nil, errors.Trace(err)
@@ -259,23 +253,31 @@ var newCharmStoreClient = func(client *http.Client) *csClient {
 // The macaroon is properly attenuated so that it can only be used to deploy
 // the given charm URL.
 func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
+	if curl == nil {
+		return nil, errors.New("empty charm url not allowed")
+	}
+
 	client := csclient.New(csclient.Params{
 		URL:          c.params.URL,
 		HTTPClient:   c.params.HTTPClient,
 		VisitWebPage: c.params.VisitWebPage,
 	})
 	endpoint := "/delegatable-macaroon"
-	if curl != nil {
-		query := url.Values{}
-		query.Add("id", curl.String())
-		endpoint = endpoint + "?" + query.Encode()
-	}
+	endpoint += "?id=" + url.QueryEscape(curl.String())
+
 	var m *macaroon.Macaroon
 	if err := client.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// We need to add the is-entity first party caveat to the
+	// delegatable macaroon in case we're talking to the old
+	// version of the charmstore.
+	// TODO (ashipika) - remove this once the new charmstore
+	// is deployed.
 	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return m, nil
 }
