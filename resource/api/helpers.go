@@ -97,6 +97,7 @@ func API2SpecsResult(service string, apiResult ResourceSpecsResult) (resource.Sp
 			// or non-conforming.
 			if result.Error == nil {
 				result.Error = errors.Annotate(err, "got bad data from server")
+				// TODO(ericsnow) Aggregate the errors instead of returning the last one?
 				failure = result.Error
 			}
 			// TODO(ericsnow) Set an empty spec?
