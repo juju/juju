@@ -4,6 +4,8 @@
 package resource_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,33 +15,27 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-var _ = gc.Suite(&ResourceSuite{})
-
 type ResourceSuite struct {
 	testing.IsolationSuite
 }
 
+var _ = gc.Suite(&ResourceSuite{})
+
 func (ResourceSuite) TestValidateUploadOkay(c *gc.C) {
 	res := resource.Resource{
-		Spec: resource.Spec{
-			Definition: charmresource.Info{
+		Info: resource.Info{
+			Info: charmresource.Info{
 				Name:    "spam",
 				Type:    charmresource.TypeFile,
 				Path:    "spam.tgz",
 				Comment: "you need it",
 			},
 			Origin:   resource.OriginKindUpload,
-			Revision: resource.NoRevision,
+			Revision: 1,
 		},
-		Origin: resource.Origin{
-			Kind:  resource.OriginKindUpload,
-			Value: "a-user",
-		},
-		Revision: resource.Revision{
-			Type:  resource.RevisionTypeDate,
-			Value: "2015-02-12",
-		},
-		Fingerprint: "deadbeef",
+		Username:    "a-user",
+		Timestamp:   time.Now(),
+		Fingerprint: "chdec737riyg2kqja3yh",
 	}
 
 	err := res.Validate()
@@ -55,125 +51,82 @@ func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
-func (ResourceSuite) TestValidateBadSpec(c *gc.C) {
+func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
+	c.Assert(resource.Info{}.Validate(), gc.NotNil)
+
 	res := resource.Resource{
-		Origin: resource.Origin{
-			Kind:  resource.OriginKindUpload,
-			Value: "a-user",
-		},
-		Revision: resource.Revision{
-			Type:  resource.RevisionTypeDate,
-			Value: "2015-02-12",
-		},
-		Fingerprint: "deadbeef",
+		Info:        resource.Info{},
+		Username:    "a-user",
+		Timestamp:   time.Now(),
+		Fingerprint: "chdec737riyg2kqja3yh",
 	}
 
 	err := res.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad spec.*`)
+	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateBadOrigin(c *gc.C) {
-	c.Assert(resource.Origin{}.Validate(), gc.NotNil)
-
+func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 	res := resource.Resource{
-		Spec: resource.Spec{
-			Definition: charmresource.Info{
-				Name: "spam",
-				Type: charmresource.TypeFile,
-				Path: "spam.tgz",
+		Info: resource.Info{
+			Info: charmresource.Info{
+				Name:    "spam",
+				Type:    charmresource.TypeFile,
+				Path:    "spam.tgz",
+				Comment: "you need it",
 			},
 			Origin:   resource.OriginKindUpload,
-			Revision: resource.NoRevision,
+			Revision: 1,
 		},
-		Origin: resource.Origin{},
-		Revision: resource.Revision{
-			Type:  resource.RevisionTypeDate,
-			Value: "2015-02-12",
-		},
-		Fingerprint: "deadbeef",
+		Username:    "",
+		Timestamp:   time.Now(),
+		Fingerprint: "chdec737riyg2kqja3yh",
 	}
 
 	err := res.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad origin.*`)
+	c.Check(err, gc.ErrorMatches, `.*missing username.*`)
 }
 
-func (ResourceSuite) TestValidateBadRevision(c *gc.C) {
-	c.Assert(resource.Revision{}.Validate(), gc.NotNil)
-
+func (ResourceSuite) TestValidateBadTimestamp(c *gc.C) {
 	res := resource.Resource{
-		Spec: resource.Spec{
-			Definition: charmresource.Info{
-				Name: "spam",
-				Type: charmresource.TypeFile,
-				Path: "spam.tgz",
+		Info: resource.Info{
+			Info: charmresource.Info{
+				Name:    "spam",
+				Type:    charmresource.TypeFile,
+				Path:    "spam.tgz",
+				Comment: "you need it",
 			},
 			Origin:   resource.OriginKindUpload,
-			Revision: resource.NoRevision,
+			Revision: 1,
 		},
-		Origin: resource.Origin{
-			Kind:  resource.OriginKindUpload,
-			Value: "a-user",
-		},
-		Revision:    resource.Revision{},
-		Fingerprint: "deadbeef",
+		Username:    "a-user",
+		Timestamp:   time.Time{},
+		Fingerprint: "chdec737riyg2kqja3yh",
 	}
 
 	err := res.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad revision.*`)
-}
-
-func (ResourceSuite) TestValidateUploadNoRevision(c *gc.C) {
-	res := resource.Resource{
-		Spec: resource.Spec{
-			Definition: charmresource.Info{
-				Name: "spam",
-				Type: charmresource.TypeFile,
-				Path: "spam.tgz",
-			},
-			Origin:   resource.OriginKindUpload,
-			Revision: resource.NoRevision,
-		},
-		Origin: resource.Origin{
-			Kind:  resource.OriginKindUpload,
-			Value: "a-user",
-		},
-		Revision:    resource.NoRevision,
-		Fingerprint: "deadbeef",
-	}
-
-	err := res.Validate()
-
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*origin.*does not support revision type.*`)
+	c.Check(err, gc.ErrorMatches, `.*missing timestamp.*`)
 }
 
 func (ResourceSuite) TestValidateBadFingerprint(c *gc.C) {
-	c.Assert(resource.Revision{}.Validate(), gc.NotNil)
-
 	res := resource.Resource{
-		Spec: resource.Spec{
-			Definition: charmresource.Info{
-				Name: "spam",
-				Type: charmresource.TypeFile,
-				Path: "spam.tgz",
+		Info: resource.Info{
+			Info: charmresource.Info{
+				Name:    "spam",
+				Type:    charmresource.TypeFile,
+				Path:    "spam.tgz",
+				Comment: "you need it",
 			},
 			Origin:   resource.OriginKindUpload,
-			Revision: resource.NoRevision,
+			Revision: 1,
 		},
-		Origin: resource.Origin{
-			Kind:  resource.OriginKindUpload,
-			Value: "a-user",
-		},
-		Revision: resource.Revision{
-			Type:  resource.RevisionTypeDate,
-			Value: "2015-02-12",
-		},
+		Username:    "a-user",
+		Timestamp:   time.Now(),
 		Fingerprint: "",
 	}
 

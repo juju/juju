@@ -12,14 +12,11 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-var (
-	_ = gc.Suite(&OriginKindSuite{})
-	_ = gc.Suite(&OriginSuite{})
-)
-
 type OriginKindSuite struct {
 	testing.IsolationSuite
 }
+
+var _ = gc.Suite(&OriginKindSuite{})
 
 func (OriginKindSuite) TestValidateKnown(c *gc.C) {
 	recognized := []resource.OriginKind{
@@ -38,52 +35,4 @@ func (OriginKindSuite) TestValidateUnknown(c *gc.C) {
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `.*unknown origin.*`)
-}
-
-type OriginSuite struct {
-	testing.IsolationSuite
-}
-
-func (OriginSuite) TestValidateOkay(c *gc.C) {
-	recognized := map[resource.OriginKind]string{
-		resource.OriginKindUpload: "a-user",
-	}
-	for kind, value := range recognized {
-		o := resource.Origin{
-			Kind:  kind,
-			Value: value,
-		}
-		err := o.Validate()
-
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
-
-func (OriginSuite) TestValidateZeroValue(c *gc.C) {
-	var o resource.Origin
-	err := o.Validate()
-
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-}
-
-func (OriginSuite) TestValidateBadKind(c *gc.C) {
-	o := resource.Origin{
-		Kind:  resource.OriginKind("<invalid>"),
-		Value: "spam",
-	}
-	err := o.Validate()
-
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad origin kind.*`)
-}
-
-func (OriginSuite) TestValidateUploadBadUsername(c *gc.C) {
-	o := resource.Origin{
-		Kind:  resource.OriginKindUpload,
-		Value: "",
-	}
-	err := o.Validate()
-
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*missing upload username.*`)
 }
