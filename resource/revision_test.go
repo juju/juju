@@ -54,9 +54,9 @@ func (RevisionSuite) TestParseRevisionOkay(c *gc.C) {
 	}
 	for rt, value := range recognized {
 		c.Logf("checking %q:%q", rt, value)
-		rev, ok := resource.ParseRevision(value)
+		rev, err := resource.ParseRevision(value)
 
-		c.Check(ok, jc.IsTrue)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(rev, jc.DeepEquals, resource.Revision{
 			Type:  rt,
 			Value: value,
@@ -65,9 +65,9 @@ func (RevisionSuite) TestParseRevisionOkay(c *gc.C) {
 }
 
 func (RevisionSuite) TestParseRevisionUnrecognized(c *gc.C) {
-	rev, ok := resource.ParseRevision("spam")
+	rev, err := resource.ParseRevision("spam")
 
-	c.Check(ok, jc.IsFalse)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(rev, jc.DeepEquals, resource.Revision{
 		Type:  resource.RevisionTypeUnknown,
 		Value: "spam",

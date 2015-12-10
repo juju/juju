@@ -249,6 +249,7 @@ func (s *SpecSuite) TestListSpecsConversionFailed(c *gc.C) {
 			Definition: charmresource.Info{
 				Name: "spam",
 			},
+			Revision: resource.NoRevision,
 		}},
 		Error: results[0].Error,
 	}})
