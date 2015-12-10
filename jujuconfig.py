@@ -98,7 +98,9 @@ def get_euca_env(current_env):
     new_environ = {
         'EC2_URL': 'https://%s.ec2.amazonaws.com' % current_env['region']}
     for key in ['access-key', 'secret-key']:
-        new_environ['EC2_' + key.upper().replace('-', '_')] = current_env[key]
+        env_key = key.upper().replace('-', '_')
+        new_environ['EC2_' + env_key] = current_env[key]
+        new_environ['AWS_' + env_key] = current_env[key]
     return new_environ
 
 
