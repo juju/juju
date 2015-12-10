@@ -64,6 +64,7 @@ type DeployCommand struct {
 	BundleStorage map[string]map[string]storage.Constraints
 
 	AfterSteps []DeployStep
+	Bindings   map[string]string
 }
 
 const deployDoc = `
@@ -235,7 +236,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	_, err := c.parseBind()
+	err := c.parseBind()
 	if err != nil {
 		return err
 	}
@@ -474,7 +475,7 @@ func (c *DeployCommand) deployCharm(
 		c.Placement,
 		c.Networks,
 		c.Storage,
-		c.BindToSpaces,
+		c.Bindings,
 	}); err != nil {
 		return err
 	}
@@ -503,20 +504,15 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
-// binding binds a relation to be deployed into a space
-type binding struct {
-	relation string
-	space    string
-}
-
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name@space-name
 // * @space-name
 // * The above in a space separated list to specify multiple bindings,
 //   e.g. "rel1@space1 rel2@space2 @space3"
-func (c *DeployCommand) parseBind() (bindings []binding, err error) {
+func (c *DeployCommand) parseBind() error {
+	bindings := make(map[string]string)
 	if c.BindToSpaces == "" {
-		return nil, nil
+		return nil
 	}
 
 	for _, s := range strings.Split(c.BindToSpaces, " ") {
@@ -529,17 +525,18 @@ func (c *DeployCommand) parseBind() (bindings []binding, err error) {
 		v := strings.Split(s, "@")
 		switch len(v) {
 		case 1:
-			return nil, errors.New(e + "Could not find '@'.")
+			return errors.New(e + "Could not find '@'.")
 		case 2:
 			if !names.IsValidSpace(v[1]) {
-				return nil, errors.New(e + "Space name invalid.")
+				return errors.New(e + "Space name invalid.")
 			}
-			bindings = append(bindings, binding{v[0], v[1]})
+			bindings[v[0]] = v[1]
 		default:
-			return nil, errors.New(e + "Found multiple @ in binding. Did you forget to space-separate the binding list?")
+			return errors.New(e + "Found multiple @ in binding. Did you forget to space-separate the binding list?")
 		}
 	}
-	return bindings, nil
+	c.Bindings = bindings
+	return nil
 }
 
 type serviceDeployParams struct {
@@ -553,7 +550,7 @@ type serviceDeployParams struct {
 	placement     []*instance.Placement
 	networks      string
 	storage       map[string]storage.Constraints
-	bindToSpaces  string
+	spaceBindings map[string]string
 }
 
 type serviceDeployer struct {
@@ -599,6 +596,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		args.placement,
 		[]string{},
 		args.storage,
+		args.spaceBindings,
 	)
 }
 

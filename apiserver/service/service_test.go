@@ -375,6 +375,26 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
+func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	args := params.ServiceDeploy{
+		ServiceName:      "service",
+		CharmUrl:         curl.String(),
+		NumUnits:         1,
+		Constraints:      cons,
+		EndpointBindings: map[string]string{"foo": "bar"},
+	}
+	results, err := s.serviceApi.ServicesDeployWithBindings(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	//TODO(dooferlad) - once the API endpoint does something, check it here
+}
+
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
 // package in order to use the fake charm store testing infrastructure. They are legacy tests
 // written to use the api client instead of the apiserver logic. They need to be rewritten and
