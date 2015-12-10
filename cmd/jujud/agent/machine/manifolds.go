@@ -39,6 +39,10 @@ type ManifoldsConfig struct {
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.State, func(), error)
+
+	// WriteUninstallFile is a function the uninstaller manifold uses
+	// to write the agent uninstall file.
+	WriteUninstallFile func() error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -102,6 +106,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 		}),
+
+		// The uninstaller manifold checks if the machine is dead. If
+		// it is it writes the agent uninstall file and returns
+		// ErrTerminateAgent which causes the agent to remove itself.
+		uninstallerName: uninstallerManifold(uninstallerManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			WriteUninstallFile: config.WriteUninstallFile,
+		}),
 	}
 }
 
@@ -114,4 +127,5 @@ const (
 	upgradeCheckGateName = "upgrade-check-gate"
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgradesteps"
+	uninstallerName      = "uninstaller"
 )
