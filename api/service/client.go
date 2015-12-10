@@ -76,17 +76,17 @@ func (c *Client) ServiceDeploy(
 ) error {
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName:           serviceName,
-			Series:                series,
-			CharmUrl:              charmURL,
-			NumUnits:              numUnits,
-			ConfigYAML:            configYAML,
-			Constraints:           cons,
-			ToMachineSpec:         toMachineSpec,
-			Placement:             placement,
-			Networks:              networks,
-			Storage:               storage,
-			SpaceRelationBindings: bindings,
+			ServiceName:      serviceName,
+			Series:           series,
+			CharmUrl:         charmURL,
+			NumUnits:         numUnits,
+			ConfigYAML:       configYAML,
+			Constraints:      cons,
+			ToMachineSpec:    toMachineSpec,
+			Placement:        placement,
+			Networks:         networks,
+			Storage:          storage,
+			EndpointBindings: bindings,
 		}},
 	}
 	var results params.ErrorResults

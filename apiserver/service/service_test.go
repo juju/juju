@@ -381,11 +381,11 @@ func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var cons constraints.Value
 	args := params.ServiceDeploy{
-		ServiceName:           "service",
-		CharmUrl:              curl.String(),
-		NumUnits:              1,
-		Constraints:           cons,
-		SpaceRelationBindings: map[string]string{"foo": "bar"},
+		ServiceName:      "service",
+		CharmUrl:         curl.String(),
+		NumUnits:         1,
+		Constraints:      cons,
+		EndpointBindings: map[string]string{"foo": "bar"},
 	}
 	results, err := s.serviceApi.ServicesDeployWithBindings(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},

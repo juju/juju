@@ -116,17 +116,26 @@ func (s *serviceSuite) TestSetServiceDeployWithBindings(c *gc.C) {
 		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
 		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
 		c.Assert(args.Services[0].ToMachineSpec, gc.Equals, "machineSpec")
-		c.Assert(args.Services[0].Networks, gc.DeepEquals, []string{"neta"})
 		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
-		c.Assert(args.Services[0].SpaceRelationBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+		c.Assert(args.Services[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.ServiceDeploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
-		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
-		map[string]string{"foo": "bar"})
+	err := s.client.ServiceDeploy(
+		"charmURL",
+		"serviceA",
+		"series",
+		2,
+		"configYAML",
+		constraints.MustParse("mem=4G"),
+		"machineSpec",
+		nil,
+		nil, // networks shouldn't be used anymore
+		map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		map[string]string{"foo": "bar"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
