@@ -182,7 +182,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return fmt.Errorf("cannot upgrade a %s environment with a %s client", agentVersion, version.Current.Number)
 	}
 
-	if err := validateUpgradeTarget(c.Version, agentVersion); err != nil {
+	if err := validateUpgradeTarget(c.Version, agentVersion, ctx.Infof); err != nil {
 		return err
 	}
 
@@ -190,6 +190,8 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	context.infof = ctx.Infof
+
 	if c.UploadTools && !c.DryRun {
 		if err := context.uploadTools(); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
@@ -291,7 +293,6 @@ func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
-		config:    cfg,
 	}, nil
 }
 
@@ -301,8 +302,8 @@ type upgradeContext struct {
 	client    version.Number
 	chosen    version.Number
 	tools     coretools.List
-	config    *config.Config
 	apiClient upgradeJujuAPI
+	infof     func(string, ...interface{})
 }
 
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
@@ -406,7 +407,7 @@ func (context *upgradeContext) validate() (err error) {
 		return errUpToDate
 	}
 
-	if err := validateUpgradeTarget(context.chosen, context.agent); err != nil {
+	if err := validateUpgradeTarget(context.chosen, context.agent, context.infof); err != nil {
 		return err
 	}
 
@@ -429,15 +430,15 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 }
 
 type outputErr struct {
-	output  string
-	message string
+	output string
+	err    error
 }
 
 func (err outputErr) Error() string {
-	return err.message
+	return err.err.Error() + "\n\n" + err.output
 }
 
-func validateUpgradeTarget(target, agentVersion version.Number) error {
+func validateUpgradeTarget(target, agentVersion version.Number, printf func(string, ...interface{})) error {
 	if target == version.Zero {
 		return nil
 	}
@@ -456,15 +457,38 @@ func validateUpgradeTarget(target, agentVersion version.Number) error {
 	// Check based on the agent version.
 	switch agentVersion.Major {
 	case 1:
+		var output []string
+
+		if target.Major > 2 || (target.Major == 2 && target.Minor > 0) {
+			output = append(output, ""+
+				"Environment must first be upgraded to the latest 2.0 release.\n"+
+				"    juju upgrade-juju --version=2.0")
+		}
+
+		// We can only upgrade a major version if we're currently on 1.25.2 or later
+		// and we're going to 2.0.x.
+		if target.Major > 1 {
+			if agentVersion.Minor < 25 || agentVersion.Patch < 2 {
+				output = append(output, ""+
+					"Environment must first be upgraded to the latest 1.25 release.\n"+
+					"    juju upgrade-juju --version=1.25.2")
+			}
+		}
+
 		// If the agent is on a version before 1.20, they must upgrade
 		// through 1.20.14.
-		if agentVersion.Minor < 20 {
-			if target.Major > 1 || (target.Major == 1 && target.Minor > 20) {
-				return errors.NewNotValid(nil, ""+
-					"unsupported upgrade\n"+
-					"\n"+
+		if target.Major > 1 || target.Minor > 20 {
+			if agentVersion.Minor < 20 {
+				output = append(output, ""+
 					"Environment must first be upgraded to 1.20.14.\n"+
 					"    juju upgrade-juju --version=1.20.14")
+			}
+		}
+
+		if len(output) > 0 {
+			return &outputErr{
+				output: strings.Join(output, "\n"),
+				err:    errors.NewNotValid(nil, "unsupported upgrade"),
 			}
 		}
 	case 2:
@@ -476,8 +500,8 @@ func validateUpgradeTarget(target, agentVersion version.Number) error {
 	switch target.Major {
 	case 1:
 		// Skip 1.21 and 1.23 if the agents are not already on them.
-		if agentVersion.Major == 1 && agentVersion.Minor != target.Minor {
-			if target.Minor == 21 || target.Minor == 23 {
+		if target.Minor == 21 || target.Minor == 23 {
+			if agentVersion.Major == 1 && agentVersion.Minor != target.Minor {
 				return errors.NewNotValid(nil, fmt.Sprintf(""+
 					"unsupported upgrade\n"+
 					"\n"+
@@ -486,29 +510,13 @@ func validateUpgradeTarget(target, agentVersion version.Number) error {
 			}
 		}
 	case 2:
-	default:
-		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not an acceptable target", target.Major))
-	}
-
-	if target.Major > agentVersion.Major {
 		// We can only upgrade a major version if we're currently on 1.25.2 or later
 		// and we're going to 2.0.x, and the version was explicitly requested.
-		if agentVersion.Major != 1 {
-			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-		}
-		var output []string
-		if target.Major > 2 || target.Minor > 0 {
-			output = append(output, fmt.Sprintf("Upgrades to %s must first go through juju 2.0.", target))
-		}
-		if agentVersion.Minor < 25 || (agentVersion.Minor == 25 && agentVersion.Patch < 2) {
-			output = append(output, "Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.")
-		}
-		if len(output) > 0 {
-			return &outputErr{
-				output:  strings.Join(output, "\n"),
-				message: "cannot upgrade to version incompatible with CLI",
-			}
-		}
+		//if agentVersion.Major != 1 {
+		//	return errors.NewNotValid(nil, "cannot upgrade to version incompatible with CLI")
+		//}
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not an acceptable target", target.Major))
 	}
 
 	return nil
