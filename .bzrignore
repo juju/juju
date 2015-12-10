@@ -1,6 +1,6 @@
 ./manual-provider-home
 ./juju-ci-tools.common_*.deb
-./.idea
+/.idea
 /logs
 /repository
 ./.coverage

@@ -3,6 +3,7 @@ from __future__ import print_function
 import logging
 import re
 import yaml
+import socket
 from textwrap import dedent
 from argparse import ArgumentParser
 
@@ -12,20 +13,19 @@ from jujuconfig import (
 from jujupy import (
     parse_new_state_server_from_error,
     temp_bootstrap_env,
-    SimpleEnvironment,
-    EnvJujuClient,
 )
 from utility import (
     print_now,
     add_basic_testing_arguments,
 )
 from deploy_stack import (
-    update_env,
+    get_machine_dns_name,
     dump_env_logs
 )
 from assess_container_networking import (
     clean_environment,
     ssh,
+    get_client,
 )
 
 __metaclass__ = type
@@ -56,10 +56,6 @@ def parse_args(argv=None):
 
         At termination, clean out services and machines from the environment
         rather than destroying it."""))
-    parser.add_argument(
-        '--keep-environment', action='store_true',
-        help="Don't destroy/clean the environment at the end of the test"
-    )
     return parser.parse_args(argv)
 
 
@@ -168,16 +164,6 @@ def ipv4_in_cidr(ipv4, cidr):
     return (ipv4 & mask) == subnet
 
 
-def get_client(args):
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(args.env),
-        args.juju_bin, args.debug
-    )
-    client.enable_container_address_allocation()
-    update_env(client.env, args.temp_env_name)
-    return client
-
-
 def main():
     args = parse_args()
     client = get_client(args)
@@ -202,9 +188,8 @@ def main():
                 client.bootstrap(args.upload_tools)
 
         logging.info('Waiting for the bootstrap machine agent to start.')
-        status = client.wait_for_started()
-        mid, data = list(status.iter_machines())[0]
-        bootstrap_host = data['dns-name']
+        client.wait_for_started()
+        bootstrap_host = get_machine_dns_name(client, 0)
 
         assess_spaces_subnets(client)
 
@@ -220,7 +205,7 @@ def main():
     finally:
         if bootstrap_host is not None:
             dump_env_logs(client, bootstrap_host, args.logs)
-        if not args.keep_environment:
+        if not args.keep_env:
             if args.clean_environment:
                 clean_environment(client)
             else:
