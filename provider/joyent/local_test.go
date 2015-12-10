@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -124,6 +125,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
@@ -166,6 +168,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {

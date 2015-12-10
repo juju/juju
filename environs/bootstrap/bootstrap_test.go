@@ -5,6 +5,8 @@ package bootstrap_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"runtime"
 	"strings"
 	stdtesting "testing"
@@ -253,11 +255,22 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 2)
+	c.Assert(datasources, gc.HasLen, 3)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -278,8 +291,9 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
+	c.Assert(datasources[1].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(

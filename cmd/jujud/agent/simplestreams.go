@@ -61,6 +61,11 @@ func (d environmentStorageDataSource) URL(file string) (string, error) {
 	return fmt.Sprintf("environment-storage://%s", path), nil
 }
 
+// PublicSigningKey is defined in simplestreams.DataSource.
+func (d environmentStorageDataSource) PublicSigningKey() string {
+	return ""
+}
+
 // Defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 }

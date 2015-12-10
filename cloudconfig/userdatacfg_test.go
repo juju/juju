@@ -445,6 +445,19 @@ printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json
 printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud-released-imagemetadata\.json'
 `,
 	},
+
+	// custom image metadata signing key.
+	{
+		cfg: makeBootstrapConfig("trusty").mutate(func(cfg *testInstanceConfig) {
+			cfg.PublicImageSigningKey = "publickey"
+		}),
+		setEnvConfig: true,
+		inexactMatch: true,
+		expectScripts: `
+install -D -m 644 /dev/null '/etc/juju/publicsimplestreamskey'
+printf '%s\\n' 'publickey' > '/etc/juju/publicsimplestreamskey'
+`,
+	},
 }
 
 func newSimpleTools(vers string) *tools.Tools {
@@ -979,7 +992,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),

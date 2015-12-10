@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
@@ -517,12 +518,17 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
+	publicKey, err := simplestreams.UserPublicSigningKey()
+	if err != nil {
+		return nil, err
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
 	return instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		pInfo.Series,
+		publicKey,
 		task.secureServerConnection,
 		nil,
 		stateInfo,
