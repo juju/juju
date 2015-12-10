@@ -65,13 +65,13 @@ func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
 
 	origin, ok := resource.ParseOriginKind(apiSpec.Origin)
 	if !ok {
-		return spec, errors.Trace(origin.Validate())
+		// This will be handled later during spec.Validate().
 	}
 	spec.Origin = origin
 
-	rev, ok := resource.ParseRevision(apiSpec.Revision)
-	if !ok {
-		return spec, errors.Trace(origin.Validate())
+	rev, err := resource.ParseRevision(apiSpec.Revision)
+	if err != nil {
+		return spec, errors.Trace(err)
 	}
 	spec.Revision = rev
 

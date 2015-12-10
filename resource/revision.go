@@ -30,12 +30,17 @@ const NoRevision Revision = ""
 type Revision string
 
 // ParseRevision converts the provided value into a Revision. If it
-// cannot be converted then false is returned.
-func ParseRevision(value string) (Revision, bool) {
+// cannot be converted then an error is returned.
+func ParseRevision(value string) (Revision, error) {
 	if value == "" {
-		return NoRevision, true
+		return NoRevision, nil
 	}
-	return Revision(value), false
+	rev := Revision(value)
+
+	if err := rev.Validate(); err != nil {
+		return rev, errors.Trace(err)
+	}
+	return rev, nil
 }
 
 // String returns the printable representation of the revision.
