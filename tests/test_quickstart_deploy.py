@@ -3,7 +3,6 @@ from mock import (
     MagicMock,
     patch,
 )
-from unittest import TestCase
 
 from deploy_stack import BootstrapManager
 from jujupy import (
@@ -11,7 +10,10 @@ from jujupy import (
     SimpleEnvironment,
     )
 from quickstart_deploy import QuickstartTest
-from tests import use_context
+from tests import (
+    FakeHomeTestCase,
+    use_context,
+)
 from tests.test_deploy_stack import FakeBootstrapManager
 from utility import temp_dir
 
@@ -23,7 +25,7 @@ def make_bootstrap_manager(client, log_dir='log_dir'):
         'jes_enabled')
 
 
-class TestQuickstartTest(TestCase):
+class TestQuickstartTest(FakeHomeTestCase):
 
     def test_run_finally(self):
         do_finally = MagicMock()
@@ -43,10 +45,8 @@ class TestQuickstartTest(TestCase):
             quickstart.run()
         do_finally.assert_called_once_with()
 
-    @patch('sys.stderr')
-    def test_run_exception(self, se_mock):
+    def test_run_exception(self):
         tear_down = MagicMock()
-
         def fake_iter_steps():
             try:
                 yield {'bootstrap_host': 'foo'}
@@ -72,9 +72,11 @@ class TestQuickstartTest(TestCase):
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
-            with patch('deploy_stack.tear_down'):
-                # Test first yield
-                step = steps.next()
+            # Test first yield
+            with patch('jujupy.check_free_disk_space', autospec=True):
+                with patch('deploy_stack.tear_down', autospec=True) as td_mock:
+                    step = steps.next()
+        td_mock.assert_called_once_with(client, 'jes_enabled', try_jes=True)
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)

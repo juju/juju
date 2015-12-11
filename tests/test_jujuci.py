@@ -3,7 +3,6 @@ from contextlib import contextmanager
 import json
 import os
 from StringIO import StringIO
-from unittest import TestCase
 import urllib2
 
 from mock import patch
@@ -38,7 +37,11 @@ from jujuci import (
 )
 import jujupy
 from utility import temp_dir
-from tests import parse_error
+from tests import (
+    FakeHomeTestCase,
+    parse_error,
+    TestCase,
+)
 
 
 def make_build_data(number='lastSuccessfulBuild'):
@@ -196,7 +199,7 @@ def make_job_data():
     }
 
 
-class JujuCITestCase(TestCase):
+class JujuCITestCase(FakeHomeTestCase):
 
     def test_get_credentials(self):
         self.assertEqual(
@@ -217,43 +220,55 @@ class JujuCITestCase(TestCase):
             get_credentials(Namespace(user='jrandom', password=None))
 
     def test_main_list_options(self):
-        with patch('jujuci.list_artifacts') as mock:
-            main(['-d', '-v', 'list', '-b', '1234', 'foo', '*.tar.gz',
-                  '--user', 'jrandom', '--password', '1password'])
-            args, kwargs = mock.call_args
-            self.assertEqual((Credentials('jrandom', '1password'), 'foo',
-                             '1234', '*.tar.gz'), args)
-            self.assertTrue(kwargs['verbose'])
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.list_artifacts') as mock:
+                main(['-d', '-v', 'list', '-b', '1234', 'foo', '*.tar.gz',
+                      '--user', 'jrandom', '--password', '1password'])
+        args, kwargs = mock.call_args
+        self.assertEqual((Credentials('jrandom', '1password'), 'foo',
+                         '1234', '*.tar.gz'), args)
+        self.assertTrue(kwargs['verbose'])
+        self.assertEqual(print_list, ['Done.'])
 
     def test_main_get_options(self):
-        with patch('jujuci.get_artifacts') as mock:
-            main(['-d', '-v',
-                  'get', '-a', '-b', '1234', 'foo', '*.tar.gz', 'bar',
-                  '--user', 'jrandom', '--password', '1password'])
-            args, kwargs = mock.call_args
-            self.assertEqual((Credentials('jrandom', '1password'), 'foo',
-                             '1234', '*.tar.gz', 'bar'), args)
-            self.assertTrue(kwargs['archive'])
-            self.assertTrue(kwargs['verbose'])
-            self.assertTrue(kwargs['dry_run'])
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.get_artifacts') as mock:
+                main(['-d', '-v',
+                      'get', '-a', '-b', '1234', 'foo', '*.tar.gz', 'bar',
+                      '--user', 'jrandom', '--password', '1password'])
+        args, kwargs = mock.call_args
+        self.assertEqual((Credentials('jrandom', '1password'), 'foo',
+                         '1234', '*.tar.gz', 'bar'), args)
+        self.assertTrue(kwargs['archive'])
+        self.assertTrue(kwargs['verbose'])
+        self.assertTrue(kwargs['dry_run'])
+        self.assertEqual(print_list, ['Done.'])
 
     def test_main_setup_workspace_options(self):
-        with patch('jujuci.setup_workspace', autospec=True) as mock:
-            main(
-                ['-d', '-v', 'setup-workspace', '--clean-env', 'bar', './foo'])
-            args, kwargs = mock.call_args
-            self.assertEqual(('./foo', ), args)
-            self.assertEqual('bar', kwargs['env'])
-            self.assertTrue(kwargs['dry_run'])
-            self.assertTrue(kwargs['verbose'])
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.setup_workspace', autospec=True) as mock:
+                main(['-d', '-v', 'setup-workspace', '--clean-env', 'bar',
+                      './foo'])
+        args, kwargs = mock.call_args
+        self.assertEqual(('./foo', ), args)
+        self.assertEqual('bar', kwargs['env'])
+        self.assertTrue(kwargs['dry_run'])
+        self.assertTrue(kwargs['verbose'])
+        self.assertEqual(print_list, ['Done.'])
 
     def test_main_get_buildvars(self):
-        with patch('jujuci.get_buildvars', autospec=True) as mock:
-            main(
-                ['get-build-vars', '--env', 'foo', '--summary',
-                 '--revision-build', '--version', '--short-branch',
-                 '--short-revision', '--branch', '--revision', '123',
-                 '--user', 'jrandom', '--password', '1password'])
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.get_buildvars', autospec=True,
+                       return_value='sample buildvars') as mock:
+                main(
+                    ['get-build-vars', '--env', 'foo', '--summary',
+                     '--revision-build', '--version', '--short-branch',
+                     '--short-revision', '--branch', '--revision', '123',
+                     '--user', 'jrandom', '--password', '1password'])
         args, kwargs = mock.call_args
         self.assertEqual((Credentials('jrandom', '1password'), '123'), args)
         self.assertEqual('foo', kwargs['env'])
@@ -264,6 +279,7 @@ class JujuCITestCase(TestCase):
         self.assertTrue(kwargs['short_branch'])
         self.assertTrue(kwargs['branch'])
         self.assertTrue(kwargs['revision'])
+        self.assertEqual(print_list, ['sample buildvars'])
 
     def test_parse_arg_buildvars_common_options(self):
         args, credentials = parse_args(
@@ -529,9 +545,10 @@ class JujuCITestCase(TestCase):
 
     def test_get_artifacts(self):
         build_data = make_build_data(1234)
-        with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.urlretrieve') as uo_mock:
-                with patch('jujuci.print_now') as pn_mock:
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.get_build_data', return_value=build_data):
+                with patch('urllib.urlretrieve') as uo_mock:
                     found = get_artifacts(
                         Credentials('jrandom', '1password'), 'foo', '1234',
                         '*.bash', './', verbose=True)
@@ -546,37 +563,41 @@ class JujuCITestCase(TestCase):
         auth_location = location.replace('http://',
                                          'http://jrandom:1password@')
         self.assertEqual((auth_location, local_path), args)
-        messages = sorted(call[1][0] for call in pn_mock.mock_calls)
-        self.assertEqual(1, len(messages))
-        message = messages[0]
         self.assertEqual(
-            'Retrieving %s => %s' % (location, local_path),
-            message)
+            print_list,
+            ['Retrieving %s => %s' % (location, local_path)]
+        )
 
     def test_get_artifacts_with_dry_run(self):
         build_data = make_build_data(1234)
-        with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.urlretrieve') as uo_mock:
-                get_artifacts(
-                    Credentials('jrandom', '1password'), 'foo', '1234',
-                    '*.bash', './', dry_run=True)
+        print_list = []
+        with patch('jujuci.print_now', side_effect=print_list.append):
+            with patch('jujuci.get_build_data', return_value=build_data):
+                with patch('urllib.urlretrieve') as uo_mock:
+                    get_artifacts(
+                        Credentials('jrandom', '1password'), 'foo', '1234',
+                        '*.bash', './', dry_run=True)
         self.assertEqual(0, uo_mock.call_count)
+        self.assertEqual(print_list, ['buildvars.bash'])
 
     def test_get_artifacts_with_archive(self):
         build_data = make_build_data(1234)
-        with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.urlretrieve'):
-                with temp_dir() as base_dir:
-                    path = os.path.join(base_dir, 'foo')
-                    os.mkdir(path)
-                    old_file_path = os.path.join(path, 'old_file.txt')
-                    with open(old_file_path, 'w') as old_file:
-                        old_file.write('old')
-                    get_artifacts(
-                        Credentials('jrandom', '1password'), 'foo', '1234',
-                        '*.bash', path, archive=True)
-                    self.assertFalse(os.path.isfile(old_file_path))
-                    self.assertTrue(os.path.isdir(path))
+        print_list = []
+        with temp_dir() as base_dir:
+            path = os.path.join(base_dir, 'foo')
+            os.mkdir(path)
+            old_file_path = os.path.join(path, 'old_file.txt')
+            with open(old_file_path, 'w') as old_file:
+                old_file.write('old')
+            with patch('jujuci.print_now', side_effect=print_list.append):
+                with patch('jujuci.get_build_data', return_value=build_data):
+                    with patch('urllib.urlretrieve'):
+                        get_artifacts(
+                            Credentials('jrandom', '1password'), 'foo', '1234',
+                            '*.bash', path, archive=True)
+            self.assertFalse(os.path.isfile(old_file_path))
+            self.assertTrue(os.path.isdir(path))
+        self.assertEqual(print_list, ['buildvars.bash'])
 
     def test_get_artifacts_with_archive_error(self):
         build_data = make_build_data(1234)
@@ -594,36 +615,49 @@ class JujuCITestCase(TestCase):
             os.makedirs(foo_dir)
             with open(os.path.join(workspace_dir, 'old.txt'), 'w') as of:
                 of.write('old')
-            setup_workspace(workspace_dir, dry_run=False, verbose=False)
+            print_list = []
+            with patch('jujuci.print_now', side_effect=print_list.append):
+                setup_workspace(workspace_dir, dry_run=False, verbose=False)
             self.assertEqual(['artifacts'], os.listdir(workspace_dir))
             artifacts_dir = os.path.join(workspace_dir, 'artifacts')
             self.assertEqual(['empty'], os.listdir(artifacts_dir))
+            self.assertEqual(
+                print_list,
+                ['Removing old.txt', 'Removing foo', 'Creating artifacts dir.']
+            )
 
     def test_setup_workspace_with_env(self):
         with temp_dir() as base_dir:
             workspace_dir = os.path.join(base_dir, 'workspace')
             os.makedirs(workspace_dir)
-            with patch('jujuci.clean_environment', autospec=True) as mock:
-                setup_workspace(
-                    workspace_dir, env='foo', dry_run=False, verbose=False)
+            print_list = []
+            with patch('jujuci.print_now', side_effect=print_list.append):
+                with patch('jujuci.clean_environment', autospec=True) as mock:
+                    setup_workspace(
+                        workspace_dir, env='foo', dry_run=False, verbose=False)
             mock.assert_called_once_with('foo', verbose=False)
+            self.assertEqual(print_list, ['Creating artifacts dir.'])
 
     def test_clean_environment_not_dirty(self):
         config = {'environments': {'local': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
-            with patch('jujuci.destroy_environment') as mock:
-                dirty = clean_environment('foo', verbose=False)
+            with patch('jujuci.destroy_environment', autospec=True) as mock_de:
+                with patch('jujupy.EnvJujuClient.by_version', side_effect=(
+                        lambda env: jujupy.EnvJujuClient(env, '1', None))):
+                    dirty = clean_environment('foo', verbose=False)
         self.assertFalse(dirty)
-        self.assertEqual(0, mock.call_count)
+        self.assertEqual(0, mock_de.call_count)
 
     def test_clean_environment_dirty(self):
         config = {'environments': {'foo': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
-            with patch('jujuci.destroy_environment', autospec=True) as mock:
-                dirty = clean_environment('foo', verbose=False)
+            with patch('jujuci.destroy_environment', autospec=True) as mock_de:
+                with patch('jujupy.EnvJujuClient.by_version', side_effect=(
+                        lambda env: jujupy.EnvJujuClient(env, '1', None))):
+                    dirty = clean_environment('foo', verbose=False)
         self.assertTrue(dirty)
-        self.assertEqual(1, mock.call_count)
-        args, kwargs = mock.call_args
+        self.assertEqual(1, mock_de.call_count)
+        args, kwargs = mock_de.call_args
         self.assertIsInstance(args[0], jujupy.EnvJujuClient)
         self.assertEqual('foo', args[1])
 
