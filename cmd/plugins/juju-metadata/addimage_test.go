@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -109,7 +110,7 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
-	m.Series = ""
+	m.Version = ""
 
 	s.assertValidAddImageMetadata(c, m)
 }
@@ -122,13 +123,13 @@ func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
 }
 
 func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImageMetadata) {
-	args := getAddImageMetadataCmdFlags(m)
+	args := getAddImageMetadataCmdFlags(c, m)
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Need to make sure that defaults are populated
-	if m.Series == "" {
-		m.Series = "trusty"
+	if m.Version == "" {
+		m.Version = "14.04"
 	}
 	if m.Arch == "" {
 		m.Arch = "amd64"
@@ -145,7 +146,7 @@ func runAddImageMetadata(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {
-	args := getAddImageMetadataCmdFlags(m)
+	args := getAddImageMetadataCmdFlags(c, m)
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	c.Assert(s.data, gc.DeepEquals, emptyMetadata)
@@ -154,13 +155,13 @@ func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId: "im-33333",
-		Series:  "series",
+		Version: "14.04",
 		Arch:    "arch",
 		Source:  "custom",
 	}
 }
 
-func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
+func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []string {
 	args := []string{}
 
 	addFlag := func(flag, value, defaultValue string) {
@@ -170,8 +171,14 @@ func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
 			args = append(args, flag, defaultValue)
 		}
 	}
+
+	if data.Version != "" {
+		s, err := series.VersionSeries(data.Version)
+		c.Assert(err, jc.ErrorIsNil)
+		addFlag("--series", s, "trusty")
+	}
+
 	addFlag("--region", data.Region, "")
-	addFlag("--series", data.Series, "trusty")
 	addFlag("--arch", data.Arch, "amd64")
 	addFlag("--virt-type", data.VirtType, "")
 	addFlag("--storage-type", data.RootStorageType, "")

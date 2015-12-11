@@ -4,10 +4,12 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -125,7 +127,12 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	info := convertDetailsToInfo(found)
+	info, errs := convertDetailsToInfo(found)
+	if len(errs) > 0 {
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, strings.Join(errs, "\n"))
+	}
+
 	var output interface{}
 	switch c.out.Name() {
 	case "yaml", "json":
@@ -153,16 +160,25 @@ func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
 
 // convertDetailsToInfo converts cloud image metadata received from api to
 // structure native to CLI.
-func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
+// We also return a list of errors for versions we could not convert to series for user friendly read.
+func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, []string) {
 	if len(details) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	info := make([]MetadataInfo, len(details))
+	errs := []string{}
 	for i, one := range details {
+		s, err := series.VersionSeries(one.Version)
+		if err != nil {
+			errs = append(errs, err.Error())
+			// just return a record with version instead of series
+			s = one.Version
+		}
+
 		info[i] = MetadataInfo{
 			Source:          one.Source,
-			Series:          one.Series,
+			Series:          s,
 			Arch:            one.Arch,
 			Region:          one.Region,
 			ImageId:         one.ImageId,
@@ -171,7 +187,7 @@ func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
 			RootStorageType: one.RootStorageType,
 		}
 	}
-	return info
+	return info, errs
 }
 
 // metadataInfos is a convenience type enabling to sort

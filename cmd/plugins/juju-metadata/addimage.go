@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -62,6 +63,7 @@ type addImageMetadataCommand struct {
 	RootStorageType string
 	RootStorageSize uint64
 	Stream          string
+	Version         string
 }
 
 // Init implements Command.Init.
@@ -73,7 +75,7 @@ func (c *addImageMetadataCommand) Init(args []string) (err error) {
 		return errors.New("only one image id can be supplied as an argument to this command")
 	}
 	c.ImageId = args[0]
-	return nil
+	return c.validate()
 }
 
 // Info implements Command.Info.
@@ -137,10 +139,13 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 	return c.NewImageMetadataAPI()
 }
 
-func checkArgumentSet(arg, name string) (err error) {
-	if arg == "" {
-		return errors.New(fmt.Sprintf("%v must be supplied when adding an image metadata", name))
+// Init implements Command.Init.
+func (c *addImageMetadataCommand) validate() error {
+	v, err := series.SeriesVersion(c.Series)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	c.Version = v
 	return nil
 }
 
@@ -149,7 +154,7 @@ func (c *addImageMetadataCommand) constructMetadataParam() params.CloudImageMeta
 	info := params.CloudImageMetadata{
 		ImageId:         c.ImageId,
 		Region:          c.Region,
-		Series:          c.Series,
+		Version:         c.Version,
 		Arch:            c.Arch,
 		VirtType:        c.VirtType,
 		RootStorageType: c.RootStorageType,
