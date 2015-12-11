@@ -158,8 +158,8 @@ class TestTestDebugLog(TestCase):
         client = Mock()
         client.get_juju_output.return_value = '\n'*1000
         # Ensure that no exception is raised
-        test_debug_log(client)
-        client.get_juju_output.assert_called_once_with("debug-log", "--lines=1000", "--limit=1000", timeout=60)
+        test_debug_log(client, timeout=120)
+        client.get_juju_output.assert_called_once_with("debug-log", "--lines=1000", "--limit=1000", timeout=120)
 
     def test_unhappy_log(self):
         client = Mock()
@@ -167,6 +167,7 @@ class TestTestDebugLog(TestCase):
         # Ensure that no exception is raised
         with self.assertRaises(LogRotateError):
             test_debug_log(client)
+        client.get_juju_output.assert_called_once_with("debug-log", "--lines=1000", "--limit=1000", timeout=180)
 
 
 class TestParseArgs(TestCase):
