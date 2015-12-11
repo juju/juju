@@ -233,11 +233,7 @@ class EnvJujuClient:
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
-        if env is None:
-            self.env = None
-        else:
-            # XXX This is cruft.  See bug #1524398.
-            self.env = SimpleEnvironment(env.environment, env.config)
+        self.env = env
         self.version = version
         self.full_path = full_path
         self.debug = debug
