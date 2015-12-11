@@ -323,6 +323,11 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 	return env.supportsNetworkDeploymentUbuntu, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (env *maasEnviron) SupportsSpaces() (bool, error) {
+	return env.supportsNetworkDeploymentUbuntu, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {

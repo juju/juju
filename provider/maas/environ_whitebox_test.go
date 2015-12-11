@@ -837,10 +837,25 @@ func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
 	c.Assert(supported, jc.IsFalse)
 }
 
+func (suite *environSuite) TestSupportsSpaceDiscoveryDefaultFalse(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaceDiscovery()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+}
+
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	env := suite.makeEnviron()
+	supported, err := env.SupportsSpaceDiscovery()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }
