@@ -27,7 +27,7 @@ type SubnetsSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     networkingcommon.SubnetsAPI
+	facade     subnets.SubnetsAPI
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
