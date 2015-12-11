@@ -23,6 +23,8 @@ from jujuci import (
 from jujuconfig import get_juju_home
 from utility import configure_logging
 
+JUJU_QA_DATA = 'juju-qa-data'
+
 
 def parse_args(args=None):
     parser = ArgumentParser()
@@ -162,7 +164,7 @@ def main():
 def get_qa_data_bucket(config):
     credentials = get_s3_credentials(config)
     conn = S3Connection(*credentials)
-    return conn.get_bucket('juju-qa-data')
+    return conn.get_bucket(JUJU_QA_DATA)
 
 
 def get_juju_bin(args):
