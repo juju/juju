@@ -46,6 +46,7 @@ JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 DEFAULT_JES_COMMAND_2x = 'kill-controller'
 DEFAULT_JES_COMMAND_1x = 'destroy-controller'
 OPTIONAL_JES_COMMAND = 'system'
+FORBIDDEN_JES_COMMANDS = ('controller', )
 
 _jes_cmds = {
     DEFAULT_JES_COMMAND_1x: {
@@ -101,14 +102,21 @@ class JESNotSupported(Exception):
 
     def __init__(self):
         super(JESNotSupported, self).__init__(
-            'This client does not support JES')
+            'This client does not support Controllers')
 
 
 class JESByDefault(Exception):
 
     def __init__(self):
         super(JESByDefault, self).__init__(
-            'This client does not need to enable JES')
+            'This client does not need to enable Controllers')
+
+
+class JESCannotBeTested(Exception):
+
+    def __init__(self):
+        super(JESCannotBeTested, self).__init__(
+            'This client does not support this kind of Controller')
 
 
 def yaml_loads(yaml_str):
