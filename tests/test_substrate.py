@@ -210,6 +210,8 @@ class TestAWSAccount(TestCase):
                 'secret-key': 'hoover',
                 }) as aws:
             self.assertEqual(aws.euca_environ, {
+                'AWS_ACCESS_KEY': 'skeleton',
+                'AWS_SECRET_KEY': 'hoover',
                 'EC2_ACCESS_KEY': 'skeleton',
                 'EC2_SECRET_KEY': 'hoover',
                 'EC2_URL': 'https://france.ec2.amazonaws.com',
@@ -220,6 +222,8 @@ class TestAWSAccount(TestCase):
         with AWSAccount.manager_from_config(get_aws_env().config) as aws:
             environ = dict(os.environ)
             environ.update({
+                'AWS_ACCESS_KEY': 'skeleton-key',
+                'AWS_SECRET_KEY': 'secret-skeleton-key',
                 'EC2_ACCESS_KEY': 'skeleton-key',
                 'EC2_SECRET_KEY': 'secret-skeleton-key',
                 'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
@@ -707,6 +711,8 @@ class TestMakeSubstrateManager(TestCase):
         with make_substrate_manager(aws_env.config) as aws:
             self.assertIs(type(aws), AWSAccount)
             self.assertEqual(aws.euca_environ, {
+                'AWS_ACCESS_KEY': 'skeleton-key',
+                'AWS_SECRET_KEY': 'secret-skeleton-key',
                 'EC2_ACCESS_KEY': 'skeleton-key',
                 'EC2_SECRET_KEY': 'secret-skeleton-key',
                 'EC2_URL': 'https://ca-west.ec2.amazonaws.com',

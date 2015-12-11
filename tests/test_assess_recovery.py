@@ -6,6 +6,7 @@ from assess_recovery import (
     make_client_from_args,
     parse_args,
 )
+from jujuconfig import get_jenv_path
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
@@ -77,24 +78,6 @@ class TestMakeClientFromArgs(TestCase):
         self.assertEqual(client.env.config, {'name': 'temp-foo'})
         self.assertEqual(client.env.environment, 'temp-foo')
 
-    def test_agent_stream(self):
-        with temp_env({'environments': {'foo': {}}}):
-            with patch.object(EnvJujuClient, 'get_version', return_value=''):
-                client = make_client_from_args(
-                    Namespace(env_name='foo', juju_path='bar',
-                              temp_env_name='temp-foo', debug=False,
-                              agent_stream='stream-foo', series=None))
-        self.assertEqual(client.env.config['agent-stream'], 'stream-foo')
-
-    def test_series(self):
-        with temp_env({'environments': {'foo': {}}}):
-            with patch.object(EnvJujuClient, 'get_version', return_value=''):
-                client = make_client_from_args(
-                    Namespace(env_name='foo', juju_path='bar',
-                              temp_env_name='temp-foo', debug=False,
-                              agent_stream=None, series='series-foo'))
-        self.assertEqual(client.env.config['default-series'], 'series-foo')
-
 
 def make_mocked_client(name, status_error=None):
     client = EnvJujuClient(SimpleEnvironment(
@@ -103,20 +86,22 @@ def make_mocked_client(name, status_error=None):
     patch.object(
         client, 'get_status', autospec=True, side_effect=status_error).start()
     patch.object(client, 'destroy_environment', autospec=True).start()
+    patch.object(client, 'is_jes_enabled', autospec=True,
+                 return_value=False).start()
     return client
 
 
-@patch('assess_recovery.dump_env_logs', autospec=True)
+@patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
 @patch('assess_recovery.parse_new_state_server_from_error', autospec=True,
        return_value='new_host')
 @patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
 @patch('assess_recovery.delete_instance', autospec=True)
 @patch('assess_recovery.deploy_stack', autospec=True, return_value='i_id')
-@patch('assess_recovery.get_machine_dns_name', autospec=True,
+@patch('deploy_stack.get_machine_dns_name', autospec=True,
        return_value='host')
 @patch('subprocess.check_output', autospec=True)
 @patch('subprocess.check_call', autospec=True)
-@patch('sys.stdout', autospec=True)
+@patch('sys.stderr', autospec=True)
 class TestMain(FakeHomeTestCase):
 
     def test_ha(self, so_mock, cc_mock, co_mock,
@@ -132,12 +117,14 @@ class TestMain(FakeHomeTestCase):
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
-        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(2, client.destroy_environment.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
-        dl_mock.assert_called_once_with(client, None, 'log_dir')
+        jenv_path = get_jenv_path(client.juju_home, client.env.environment)
+        dl_mock.assert_called_once_with(client, 'log_dir', jenv_path,
+                                        {})
         self.assertEqual(0, ns_mock.call_count)
 
     def test_ha_error(self, so_mock, cc_mock, co_mock,
@@ -147,21 +134,23 @@ class TestMain(FakeHomeTestCase):
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             with self.assertRaises(SystemExit):
-                main(['./', 'foo', 'log_dir',
-                      '--ha', '--charm-prefix', 'prefix'])
+                    main(['./', 'foo', 'log_dir',
+                          '--ha', '--charm-prefix', 'prefix'])
         mc_mock.assert_called_once_with(Namespace(
             agent_stream=None, charm_prefix='prefix', debug=False,
             env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
-        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(2, client.destroy_environment.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
         ns_mock.assert_called_once_with(error)
-        dl_mock.assert_called_once_with(client, 'new_host', 'log_dir')
+        jenv_path = get_jenv_path(client.juju_home, client.env.environment)
+        dl_mock.assert_called_once_with(client, 'log_dir', jenv_path,
+                                        {'0': 'new_host'})
 
     def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
                                    dns_mock, ds_mock, di_mock, ws_mock,
@@ -173,4 +162,4 @@ class TestMain(FakeHomeTestCase):
                 with self.assertRaises(SystemExit):
                     main(['./', 'foo', 'log_dir',
                           '--ha', '--charm-prefix', 'prefix'])
-        client.destroy_environment.assert_called_once_with()
+        self.assertEqual(2, client.destroy_environment.call_count)

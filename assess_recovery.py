@@ -4,33 +4,24 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-import logging
-import os
 import re
-import subprocess
+from subprocess import CalledProcessError
 import sys
 
 from deploy_stack import (
-    dump_env_logs,
+    BootstrapManager,
     wait_for_state_server_to_shutdown,
-    update_env,
-)
-from jujuconfig import (
-    get_jenv_path,
-    get_juju_home,
 )
 from jujupy import (
     get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
-    temp_bootstrap_env,
     until_timeout,
 )
 from substrate import (
     terminate_instances,
 )
 from utility import (
-    ensure_deleted,
     print_now,
 )
 
@@ -39,15 +30,6 @@ __metaclass__ = type
 
 
 running_instance_pattern = re.compile('\["([^"]+)"\]')
-
-
-def setup_juju_path(juju_path):
-    """Ensure the binaries and scripts under test are found first."""
-    full_path = os.path.dirname(os.path.abspath(juju_path))
-    if not os.path.isdir(full_path):
-        raise ValueError("The juju_path does not exist: %s" % full_path)
-    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
-    sys.path.insert(0, full_path)
 
 
 def deploy_stack(client, charm_prefix):
@@ -70,29 +52,30 @@ def deploy_stack(client, charm_prefix):
     return instance_id
 
 
+def juju_restore(client, backup_file):
+    return client.get_juju_output(
+        'restore', '--constraints', 'mem=2G', backup_file)
+
+
 def restore_present_state_server(client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
-    environ = dict(os.environ)
-    proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', client.env.environment,
-         backup_file],
-        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, err = proc.communicate()
-    if proc.returncode == 0:
-        raise Exception(
-            "juju-restore restored to an operational state-server: %s" % err)
-    else:
+    try:
+        output = juju_restore(client, backup_file)
+    except CalledProcessError as e:
         print_now(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        match = running_instance_pattern.search(err)
+        match = running_instance_pattern.search(e.stderr)
         if match is None:
             print_now("WARNING: Could not find the instance_id in output:")
-            print_now(err)
+            print_now(e.stderr)
             print_now("")
             return None
-        instance_id = match.group(1)
-    return instance_id
+        return match.group(1)
+    else:
+        raise Exception(
+            "juju-restore restored to an operational state-server: %s" %
+            output)
 
 
 def delete_instance(client, instance_id):
@@ -116,16 +99,12 @@ def delete_extra_state_servers(client, instance_id):
 
 def restore_missing_state_server(client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
-    environ = dict(os.environ)
     print_now("Starting restore.")
-    proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', client.env.environment,
-         '--constraints', 'mem=2G', backup_file],
-        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, err = proc.communicate()
-    if proc.returncode != 0:
+    try:
+        output = juju_restore(client, backup_file)
+    except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
-        message = 'Restore failed: \n%s' % err
+        message = 'Restore failed: \n%s' % e.stderr
         print_now(message)
         print_now('\n')
         raise Exception(message)
@@ -166,29 +145,20 @@ def parse_args(argv=None):
 
 
 def make_client_from_args(args):
-    client = make_client(args.juju_path, args.debug, args.env_name,
-                         args.temp_env_name)
-    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream,
-               series=args.series)
-    return client
+    return make_client(args.juju_path, args.debug, args.env_name,
+                       args.temp_env_name)
 
 
 def main(argv):
     args = parse_args(argv)
-    log_dir = args.logs
-    try:
-        setup_juju_path(args.juju_path)
-        juju_home = get_juju_home()
-        client = make_client_from_args(args)
-        ensure_deleted(get_jenv_path(juju_home, client.env.environment))
-        with temp_bootstrap_env(juju_home, client):
-            try:
-                client.bootstrap()
-            except Exception as e:
-                logging.exception(e)
-                client.destroy_environment()
-                sys.exit(1)
-        bootstrap_host = get_machine_dns_name(client, '0')
+    client = make_client_from_args(args)
+    jes_enabled = client.is_jes_enabled()
+    bs_manager = BootstrapManager(
+        client.env.environment, client, client, None, [], args.series,
+        agent_url=None, agent_stream=args.agent_stream, region=None,
+        log_dir=args.logs, keep_env=False, permanent=jes_enabled,
+        jes_enabled=jes_enabled)
+    with bs_manager.booted_context(upload_tools=False):
         try:
             instance_id = deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
@@ -200,28 +170,16 @@ def main(argv):
             if args.strategy == 'ha-backup':
                 delete_extra_state_servers(client, instance_id)
             delete_instance(client, instance_id)
-            wait_for_state_server_to_shutdown(bootstrap_host, client,
-                                              instance_id)
-            bootstrap_host = None
+            wait_for_state_server_to_shutdown(
+                bs_manager.known_hosts['0'], client, instance_id)
+            del bs_manager.known_hosts['0']
             if args.strategy == 'ha':
                 client.get_status(600)
             else:
                 restore_missing_state_server(client, backup_file)
         except Exception as e:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
+            bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
             raise
-        finally:
-            dump_env_logs(client, bootstrap_host, log_dir)
-            client.destroy_environment()
-    except Exception as e:
-        print_now("\nEXCEPTION CAUGHT:\n")
-        logging.exception(e)
-        if getattr(e, 'output', None):
-            print_now('\n')
-            print_now(e.output)
-        print_now("\nFAIL")
-        sys.exit(1)
 
 
 if __name__ == '__main__':

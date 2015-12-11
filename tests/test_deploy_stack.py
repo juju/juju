@@ -1160,14 +1160,17 @@ class TestBootContext(FakeHomeTestCase):
         po_mock = self.addContext(patch('subprocess.Popen', autospec=True,
                                         return_value=FakePopen('', '', 0)))
         self.addContext(patch('deploy_stack.wait_for_port'))
+        fake_exception = FakeException()
         self.addContext(patch.object(client, 'bootstrap',
-                                     side_effect=FakeException))
+                                     side_effect=fake_exception))
         crl_mock = self.addContext(patch('deploy_stack.copy_remote_logs'))
         al_mock = self.addContext(patch('deploy_stack.archive_logs'))
-        with self.assertRaises(FakeException):
+        le_mock = self.addContext(patch('logging.exception'))
+        with self.assertRaises(SystemExit):
             with boot_context('bar', client, 'baz', [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=True):
                 pass
+        le_mock.assert_called_once_with(fake_exception)
         self.assertEqual(crl_mock.call_count, 1)
         call_args = crl_mock.call_args[0]
         self.assertIsInstance(call_args[0], _Remote)
