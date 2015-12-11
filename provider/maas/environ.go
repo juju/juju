@@ -324,7 +324,7 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaces() (bool, error) {
+func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return env.supportsNetworkDeploymentUbuntu, nil
 }
 
