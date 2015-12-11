@@ -47,6 +47,10 @@ class TestDescribeSubstrate(TestCase):
     def test_describe_substrate_maas(self):
         self.assertEqual('MAAS', describe_substrate({'type': 'maas'}))
 
+    def test_describe_substrate_rackspace(self):
+        self.assertEqual('Rackspace',
+                         describe_substrate({'type': 'rackspace'}))
+
 
 class TestGetJenvPath(TestCase):
 
