@@ -118,11 +118,13 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		EnvUUID:     "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
-	c.Assert(err, gc.ErrorMatches, `local:quantal/metered-1 does not offer a default plan`)
+	c.Assert(err, gc.ErrorMatches, `local:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
 		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}, {
+		"ListPlans", []interface{}{"local:quantal/metered-1"},
 	}})
 }
 
@@ -212,25 +214,44 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 			panic(err)
 		}
 	} else if req.Method == "GET" {
-		cURL := req.URL.Query().Get("charm-url")
-		c.AddCall("DefaultPlan", cURL)
-		rErr := c.NextErr()
-		if rErr != nil {
-			if errors.IsNotFound(rErr) {
-				http.Error(w, rErr.Error(), http.StatusNotFound)
+		if req.URL.Path == "/default" {
+			cURL := req.URL.Query().Get("charm-url")
+			c.AddCall("DefaultPlan", cURL)
+			rErr := c.NextErr()
+			if rErr != nil {
+				if errors.IsNotFound(rErr) {
+					http.Error(w, rErr.Error(), http.StatusNotFound)
+					return
+				}
+				http.Error(w, rErr.Error(), http.StatusInternalServerError)
 				return
 			}
+			result := struct {
+				URL string `json:"url"`
+			}{"thisplan"}
+			err := json.NewEncoder(w).Encode(result)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		cURL := req.URL.Query().Get("charm-url")
+		c.AddCall("ListPlans", cURL)
+		rErr := c.NextErr()
+		if rErr != nil {
 			http.Error(w, rErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		result := struct {
+		result := []struct {
 			URL string `json:"url"`
-		}{"thisplan"}
+		}{
+			{"thisplan"},
+			{"thisotherplan"},
+		}
 		err := json.NewEncoder(w).Encode(result)
 		if err != nil {
 			panic(err)
 		}
-
 	} else {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return

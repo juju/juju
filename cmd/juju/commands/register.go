@@ -5,9 +5,11 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -37,6 +39,8 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
+// RunPre obtains authorization to deploy this charm. The authorization, if received is not
+// sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
@@ -58,7 +62,14 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 	if r.Plan == "" {
 		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
 		if err != nil {
-			logger.Errorf("could not determine default plan")
+			if isNoDefaultPlanError(err) {
+				options, err1 := r.getCharmPlans(client, deployInfo.CharmURL.String())
+				if err1 != nil {
+					return err1
+				}
+				charmUrl := deployInfo.CharmURL.String()
+				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmUrl, strings.Join(options, ", "))
+			}
 			return err
 		}
 	}
@@ -71,6 +82,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 	return nil
 }
 
+// RunPost sends credentials obtained during the call to RunPre to the controller.
 func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
 	if r.credentials == nil {
 		return nil
@@ -96,11 +108,25 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client
 	return nil
 }
 
+type noDefaultPlanError struct {
+	cUrl string
+}
+
+func (e *noDefaultPlanError) Error() string {
+	return fmt.Sprintf("%v has no default plan", e.cUrl)
+}
+
+func isNoDefaultPlanError(e error) bool {
+	_, ok := e.(*noDefaultPlanError)
+	return ok
+}
+
 func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) (string, error) {
 	if r.QueryURL == "" {
 		return "", errors.Errorf("no plan query url specified")
 	}
-	qURL, err := url.Parse(r.RegisterURL)
+
+	qURL, err := url.Parse(r.QueryURL + "/default")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -121,7 +147,7 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) 
 	defer response.Body.Close()
 
 	if response.StatusCode == http.StatusNotFound {
-		return "", errors.Errorf("%v does not offer a default plan", cURL)
+		return "", &noDefaultPlanError{cURL}
 	}
 	if response.StatusCode != http.StatusOK {
 		return "", errors.Errorf("failed to query default plan: http response is %d", response.StatusCode)
@@ -136,6 +162,49 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) 
 		return "", errors.Trace(err)
 	}
 	return planInfo.URL, nil
+}
+
+func (r *RegisterMeteredCharm) getCharmPlans(client *http.Client, cURL string) ([]string, error) {
+	if r.QueryURL == "" {
+		return nil, errors.Errorf("no plan query url specified")
+	}
+	qURL, err := url.Parse(r.QueryURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := qURL.Query()
+	query.Set("charm-url", cURL)
+	qURL.RawQuery = query.Encode()
+
+	req, err := http.NewRequest("GET", qURL.String(), nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to query plans: http response is %d", response.StatusCode)
+	}
+
+	var planInfo []struct {
+		URL string `json:"url"`
+	}
+	dec := json.NewDecoder(response.Body)
+	err = dec.Decode(&planInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info := make([]string, len(planInfo))
+	for i, p := range planInfo {
+		info[i] = p.URL
+	}
+	return info, nil
 }
 
 func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {

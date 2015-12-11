@@ -176,8 +176,9 @@ See Also:
 type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
-	// Run the deploy step.
+	// RunPre runs before the call is made to add the charm to the environment.
 	RunPre(api.Connection, *http.Client, DeploymentInfo) error
+	// RunPost runs after the call is made to add the charm to the environment.
 	RunPost(api.Connection, *http.Client, DeploymentInfo) error
 }
 
