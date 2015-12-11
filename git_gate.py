@@ -50,10 +50,9 @@ def go_test(args, gopath):
     go = SubcommandRunner("go", goenv)
     git = SubcommandRunner("git")
 
-    project_ellipsis = modFeatureDir(args.project) + "/..."
-
-    directory = os.path.join(gopath, "src", args.project)
-    directory = modFeatureDir(directory)
+    project_dir = from_feature_dir(args.project)
+    project_ellipsis = project_dir + "/..."
+    directory = os.path.join(gopath, "src", project_dir)
 
     if args.tsv_path:
         print_now("Getting and installing godeps")
@@ -91,7 +90,7 @@ def go_test(args, gopath):
     go("test", project_ellipsis)
 
 
-def modFeatureDir(directory):
+def from_feature_dir(directory):
     """
     For feature branches on repos that are versioned with gopkg.in,  we need to
     do some special handling, since the test code expects the branch name to be
@@ -105,10 +104,10 @@ def modFeatureDir(directory):
     named charm.v6.myfeature, which should end up in
     $GOPATH/src/gokpg.in/juju/charm.v6
     """
-    d = os.path.basename(directory)
-    parts = d.split(".")
+    name = os.path.basename(directory)
+    parts = name.split(".")
     if len(parts) == 3:
-            return directory[:-len(parts[2])-1]
+        return directory[:-len(parts[2]) - 1]
     return directory
 
 

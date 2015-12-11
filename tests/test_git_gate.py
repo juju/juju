@@ -198,7 +198,7 @@ class TestGoTest(unittest.TestCase):
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project'),
+             ' https://git.testing/project to src/git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
@@ -220,7 +220,7 @@ class TestGoTest(unittest.TestCase):
             ('go', 'get', '-v', '-d', 'launchpad.net/godeps/...'),
             ('go', 'install', 'launchpad.net/godeps/...'),
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project'),
+             ' https://git.testing/project to src/git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
@@ -231,3 +231,21 @@ class TestGoTest(unittest.TestCase):
             ('go', 'build', 'git.testing/project/...'),
             ('go', 'test', 'git.testing/project/...')
         ])
+
+
+class TestFromFeatureDir(unittest.TestCase):
+    """
+    Tests for from_feature_dir function.
+    """
+    def test_boring(self):
+        directory = git_gate.from_feature_dir("github.com/juju/juju")
+        self.assertEqual(directory, "github.com/juju/juju")
+
+    def test_gopkg(self):
+        directory = git_gate.from_feature_dir("gopkg.in/juju/charm.v6")
+        self.assertEqual(directory, "gopkg.in/juju/charm.v6")
+
+    def test_gopkg_feature(self):
+        directory = git_gate.from_feature_dir("gopkg.in/juju/charm.v6.minver")
+        self.assertEqual(directory, "gopkg.in/juju/charm.v6")
+
