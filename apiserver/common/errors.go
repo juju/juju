@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -118,6 +119,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrDead:                params.CodeDead,
 	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
 	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
 	ErrPerm:                      params.CodeUnauthorized,
