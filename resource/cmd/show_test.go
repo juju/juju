@@ -48,7 +48,7 @@ func (s *ShowSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "show-resources",
+		Name:    "show-charm-resources",
 		Args:    "charm-id",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc: `

@@ -46,7 +46,7 @@ This command will report the resources for a charm in the charm store.
 // Info implements cmd.Command.
 func (c *ShowCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-resources",
+		Name:    "show-charm-resources",
 		Args:    "charm-id",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc:     showDoc,
@@ -97,7 +97,8 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 		return errors.New("got bad data from charm store")
 	}
 
-	// Note that we do not worry about c.CompatVersion for show-resources...
+	// Note that we do not worry about c.CompatVersion
+	// for show-charm-resources...
 	formatter := newInfoListFormatter(infos[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
