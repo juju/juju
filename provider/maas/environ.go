@@ -677,22 +677,9 @@ func (environ *maasEnviron) acquireNode(
 ) (gomaasapi.MAASObject, error) {
 
 	acquireParams := convertConstraints(cons)
-	// Specified bindings always override positve spaces constraints (but not
-	// negative spaces), and since both of them end up as part of the
-	// "interfaces=" argument to acquire, we only process spaces constraints if
-	// there are no bindings.
-	var (
-		positiveBindings []interfaceBinding
-		negativeSpaces   []string
-	)
-	positiveBindings, negativeSpaces = convertSpacesFromConstraints(cons.Spaces)
-	if len(negativeSpaces) > 0 {
-		acquireParams.Add("not_networks", strings.Join(negativeSpaces, ","))
-	}
-	if len(interfaces) == 0 {
-		interfaces = positiveBindings
-	}
-	if err := addInterfaces(acquireParams, interfaces); err != nil {
+	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
+	err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	if err != nil {
 		return gomaasapi.MAASObject{}, err
 	}
 	addStorage(acquireParams, volumes)
@@ -721,7 +708,6 @@ func (environ *maasEnviron) acquireNode(
 	}
 
 	var result gomaasapi.JSONObject
-	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
 		logger.Tracef("calling acquire with params: %+v", acquireParams)

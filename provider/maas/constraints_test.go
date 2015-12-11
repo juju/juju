@@ -133,70 +133,6 @@ func (*environSuite) TestConvertTagsToParams(c *gc.C) {
 	}
 }
 
-func (*environSuite) TestConvertSpacesFromConstraints(c *gc.C) {
-	for i, test := range []struct {
-		spaces            *[]string
-		expectedBindings  []interfaceBinding
-		expectedNegatives []string
-	}{{
-		spaces:            nil,
-		expectedBindings:  nil,
-		expectedNegatives: nil,
-	}, {
-		spaces:            &nilStringSlice,
-		expectedBindings:  nil,
-		expectedNegatives: nil,
-	}, {
-		spaces:            &[]string{},
-		expectedBindings:  nil,
-		expectedNegatives: nil,
-	}, {
-		spaces:            stringslicep(""),
-		expectedBindings:  nil,
-		expectedNegatives: nil,
-	}, {
-		spaces: stringslicep("foo"),
-		expectedBindings: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "foo",
-		}},
-		expectedNegatives: nil,
-	}, {
-		spaces:            stringslicep("^bar"),
-		expectedBindings:  nil,
-		expectedNegatives: []string{"space:bar"},
-	}, {
-		spaces: stringslicep("foo", "^bar", "baz", "^oof"),
-		expectedBindings: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "foo",
-		}, {
-			Name:            "1",
-			SpaceProviderId: "baz",
-		}},
-		expectedNegatives: []string{"space:bar", "space:oof"},
-	}, {
-		spaces:            stringslicep("", "^bar", "^", "^oof"),
-		expectedBindings:  nil,
-		expectedNegatives: []string{"space:bar", "space:oof"},
-	}, {
-		spaces: stringslicep("foo", "foo", "^bar", "^bar"),
-		expectedBindings: []interfaceBinding{{
-			Name:            "0",
-			SpaceProviderId: "foo",
-		}, {
-			Name:            "1",
-			SpaceProviderId: "foo",
-		}},
-		expectedNegatives: []string{"space:bar", "space:bar"},
-	}} {
-		c.Logf("test #%d: spaces=%v", i, test.spaces)
-		bindings, negatives := convertSpacesFromConstraints(test.spaces)
-		c.Check(bindings, jc.DeepEquals, test.expectedBindings)
-		c.Check(negatives, jc.DeepEquals, test.expectedNegatives)
-	}
-}
-
 func uint64p(val uint64) *uint64 {
 	return &val
 }
@@ -388,13 +324,27 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
 		nil, nil,
 	)
-
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
-	c.Assert(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
+	c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
+	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
+}
+
+func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
+	var shortLimit uint = 0
+	suite.PatchValue(&numericLabelLimit, shortLimit)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
+
+	_, err := env.acquireNode(
+		"", "",
+		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
+		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, `too many conflicting numeric labels, giving up.`)
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
@@ -452,7 +402,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
-		expectedPositives: "name-1:space=space-1",
+		expectedPositives: "name-1:space=space-1;0:space=foo",
 		expectedNegatives: "space:bar",
 	}, {
 		interfaces: []interfaceBinding{
@@ -460,11 +410,20 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"name-2", "space-2"},
 			{"name-3", "space-3"},
 		},
-		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3",
+		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3;0:space=foo",
 		expectedNegatives: "space:bar",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
+	}, {
+		interfaces:    []interfaceBinding{{"shared-db", "bar"}},
+		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"shared-db", "dup-space"},
+			{"db", "dup-space"},
+		},
+		expectedError: `duplicated space "dup-space" in interface binding "db"`,
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
