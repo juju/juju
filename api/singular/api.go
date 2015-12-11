@@ -14,10 +14,14 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// NewAPI returns a new API client for the Singular facade; exposing methods for
-// claiming and observing administration responsibility for the apiCaller's model,
-// on behalf of the supplied controller machine.
+// NewAPI returns a new API client for the Singular facade. It exposes methods
+// for claiming and observing administration responsibility for the apiCaller's
+// model, on behalf of the supplied controller machine.
 func NewAPI(apiCaller base.APICaller, controllerTag names.MachineTag) (*API, error) {
+	controllerId := controllerTag.Id()
+	if !names.IsValidMachine(controllerId) {
+		return nil, errors.NotValidf("controller tag")
+	}
 	modelTag, err := apiCaller.EnvironTag()
 	if err != nil {
 		return nil, errors.Trace(err)
