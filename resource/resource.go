@@ -21,9 +21,6 @@ type Resource struct {
 
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time
-
-	// Fingerprint is the SHA-384 checksum for the resource blob.
-	Fingerprint string
 }
 
 // Validate ensures that the spec is valid.
@@ -38,11 +35,6 @@ func (res Resource) Validate() error {
 
 	if res.Timestamp.IsZero() {
 		return errors.NewNotValid(nil, "missing timestamp")
-	}
-
-	// TODO(ericsnow) Ensure Fingerprint is a valid SHA-384 hash?
-	if len(res.Fingerprint) == 0 {
-		return errors.NewNotValid(nil, "missing fingerprint")
 	}
 
 	return nil

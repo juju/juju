@@ -15,14 +15,17 @@ import (
 
 func NewInfo(c *gc.C, name, suffix, comment string) resource.Info {
 	info := resource.Info{
-		Info: charmresource.Info{
-			Name:    name,
-			Type:    charmresource.TypeFile,
-			Path:    name + suffix,
-			Comment: comment,
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    name,
+				Type:    charmresource.TypeFile,
+				Path:    name + suffix,
+				Comment: comment,
+			},
+			Revision:    0,
+			Fingerprint: "chdec737riyg2kqja3yh",
 		},
-		Origin:   resource.OriginKindUpload,
-		Revision: 0,
+		Origin: resource.OriginKindUpload,
 	}
 	err := info.Validate()
 	c.Assert(err, jc.ErrorIsNil)

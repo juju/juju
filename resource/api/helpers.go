@@ -35,7 +35,6 @@ func Resource2API(res resource.Resource) Resource {
 		ResourceInfo: ResourceInfo2API(res.Info),
 		Username:     res.Username,
 		Timestamp:    res.Timestamp,
-		Fingerprint:  res.Fingerprint,
 	}
 }
 
@@ -50,10 +49,9 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 	}
 
 	res = resource.Resource{
-		Info:        info,
-		Username:    apiRes.Username,
-		Timestamp:   apiRes.Timestamp,
-		Fingerprint: apiRes.Fingerprint,
+		Info:      info,
+		Username:  apiRes.Username,
+		Timestamp: apiRes.Timestamp,
 	}
 
 	if err := res.Validate(); err != nil {
@@ -67,12 +65,13 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 // a ResourceInfo struct.
 func ResourceInfo2API(info resource.Info) ResourceInfo {
 	return ResourceInfo{
-		Name:     info.Name,
-		Type:     info.Type.String(),
-		Path:     info.Path,
-		Comment:  info.Comment,
-		Origin:   info.Origin.String(),
-		Revision: info.Revision,
+		Name:        info.Name,
+		Type:        info.Type.String(),
+		Path:        info.Path,
+		Comment:     info.Comment,
+		Revision:    info.Revision,
+		Fingerprint: info.Fingerprint,
+		Origin:      info.Origin.String(),
 	}
 }
 
@@ -90,14 +89,17 @@ func API2ResourceInfo(apiInfo ResourceInfo) (resource.Info, error) {
 	}
 
 	info := resource.Info{
-		Info: charmresource.Info{
-			Name:    apiInfo.Name,
-			Type:    rtype,
-			Path:    apiInfo.Path,
-			Comment: apiInfo.Comment,
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    apiInfo.Name,
+				Type:    rtype,
+				Path:    apiInfo.Path,
+				Comment: apiInfo.Comment,
+			},
+			Revision:    apiInfo.Revision,
+			Fingerprint: apiInfo.Fingerprint,
 		},
-		Origin:   origin,
-		Revision: apiInfo.Revision,
+		Origin: origin,
 	}
 
 	if err := info.Validate(); err != nil {

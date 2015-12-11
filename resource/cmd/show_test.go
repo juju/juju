@@ -120,7 +120,6 @@ music    upload -   mp3 of your backing vocals
   path: music.mp3
   comment: mp3 of your backing vocals
   origin: upload
-  revision: 0
 `[1:],
 		"json": strings.Replace(""+
 			"["+

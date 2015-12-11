@@ -17,9 +17,6 @@ type Resource struct {
 
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time `json:"timestamp"`
-
-	// Fingerprint is the SHA-384 checksum for the resource blob.
-	Fingerprint string `json:"fingerprint"`
 }
 
 // ResourceInfo contains the definition for a resource.
@@ -36,9 +33,12 @@ type ResourceInfo struct {
 	// Comment contains user-facing info about the resource.
 	Comment string `json:"comment,omitempty"`
 
-	// Origin is where the resource will come from.
-	Origin string `json:"origin"`
-
 	// Revision is the revision, if applicable.
 	Revision int `json:"revision"`
+
+	// Fingerprint is the SHA-384 checksum for the resource blob.
+	Fingerprint string `json:"fingerprint"`
+
+	// Origin is where the resource will come from.
+	Origin string `json:"origin"`
 }
