@@ -31,6 +31,7 @@ from s3ci import (
     find_package_key,
     get_job_path,
     get_s3_credentials,
+    JUJU_QA_DATA,
     main,
     PackageNotFound,
     parse_args,
@@ -337,7 +338,7 @@ class TestMain(StrictTestCase):
                             main()
         s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
         gb_mock = s3c_mock.return_value.get_bucket
-        gb_mock.assert_called_once_with('juju-qa-data')
+        gb_mock.assert_called_once_with(JUJU_QA_DATA)
         gbj_mock.assert_called_once_with(gb_mock.return_value, 28,
                                          'bar-workspace')
         self.assertEqual('gjb\n', stdout.getvalue())
@@ -355,7 +356,7 @@ class TestMain(StrictTestCase):
                             main()
         s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
         gb_mock = s3c_mock.return_value.get_bucket
-        gb_mock.assert_called_once_with('juju-qa-data')
+        gb_mock.assert_called_once_with(JUJU_QA_DATA)
         ff_mock.assert_called_once_with(gb_mock.return_value, 28,
                                         'foo-job', 'bar-file', 'bar-workspace')
         self.assertEqual('ff\ngg\n', stdout.getvalue())
