@@ -5,47 +5,25 @@ package discoverspaces
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
-
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
+	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"launchpad.net/tomb"
 )
 
 var logger = loggo.GetLogger("juju.discoverspaces")
 
-const networkingFacade = "Networking"
-
-// API provides access to the API facade.
-type API struct {
-	*common.EnvironWatcher
-	facade base.FacadeCaller
-}
-
-// NewAPI creates a new facade.
-func NewAPI(caller base.APICaller) *API {
-	if caller == nil {
-		panic("caller is nil")
-	}
-	facadeCaller := base.NewFacadeCaller(caller, networkingFacade)
-	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
-	}
-}
-
 type discoverspacesWorker struct {
-	api      *API
+	api      *discoverspaces.API
 	tomb     tomb.Tomb
 	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker
-func NewWorker(api *API) worker.Worker {
+func NewWorker(api *discoverspaces.API) worker.Worker {
 	dw := &discoverspacesWorker{
 		api: api,
 	}
