@@ -4,9 +4,8 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-import os
 import re
-import subprocess
+from subprocess import CalledProcessError
 import sys
 
 from deploy_stack import (
@@ -33,15 +32,6 @@ __metaclass__ = type
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 
-def setup_juju_path(juju_path):
-    """Ensure the binaries and scripts under test are found first."""
-    full_path = os.path.dirname(os.path.abspath(juju_path))
-    if not os.path.isdir(full_path):
-        raise ValueError("The juju_path does not exist: %s" % full_path)
-    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
-    sys.path.insert(0, full_path)
-
-
 def deploy_stack(client, charm_prefix):
     """"Deploy a simple stack, state-server and ubuntu."""
     if charm_prefix and not charm_prefix.endswith('/'):
@@ -62,29 +52,30 @@ def deploy_stack(client, charm_prefix):
     return instance_id
 
 
+def juju_restore(client, backup_file):
+    return client.get_juju_output(
+        'restore', '--constraints', 'mem=2G', backup_file)
+
+
 def restore_present_state_server(client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
-    environ = dict(os.environ)
-    proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', client.env.environment,
-         backup_file],
-        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, err = proc.communicate()
-    if proc.returncode == 0:
-        raise Exception(
-            "juju-restore restored to an operational state-server: %s" % err)
-    else:
+    try:
+        output = juju_restore(client, backup_file)
+    except CalledProcessError as e:
         print_now(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        match = running_instance_pattern.search(err)
+        match = running_instance_pattern.search(e.stderr)
         if match is None:
             print_now("WARNING: Could not find the instance_id in output:")
-            print_now(err)
+            print_now(e.stderr)
             print_now("")
             return None
-        instance_id = match.group(1)
-    return instance_id
+        return match.group(1)
+    else:
+        raise Exception(
+            "juju-restore restored to an operational state-server: %s" %
+            output)
 
 
 def delete_instance(client, instance_id):
@@ -108,16 +99,12 @@ def delete_extra_state_servers(client, instance_id):
 
 def restore_missing_state_server(client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
-    environ = dict(os.environ)
     print_now("Starting restore.")
-    proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', client.env.environment,
-         '--constraints', 'mem=2G', backup_file],
-        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, err = proc.communicate()
-    if proc.returncode != 0:
+    try:
+        output = juju_restore(client, backup_file)
+    except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
-        message = 'Restore failed: \n%s' % err
+        message = 'Restore failed: \n%s' % e.stderr
         print_now(message)
         print_now('\n')
         raise Exception(message)
@@ -164,7 +151,6 @@ def make_client_from_args(args):
 
 def main(argv):
     args = parse_args(argv)
-    setup_juju_path(args.juju_path)
     client = make_client_from_args(args)
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
