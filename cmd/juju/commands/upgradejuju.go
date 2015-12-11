@@ -374,13 +374,6 @@ func (context *upgradeContext) uploadTools() (err error) {
 // If validate returns no error, the environment agent-version can be set to
 // the value of the chosen field.
 func (context *upgradeContext) validate() (err error) {
-	// Filter the available tools to get those with compatible
-	// series and arch.
-	filter := coretools.Filter{Number: context.chosen}
-	if context.tools, err = context.tools.Match(filter); err != nil {
-		return err
-	}
-
 	// If no explicit version specified, get the newest released tools.
 	if context.chosen == version.Zero {
 		newest, found := context.tools.NewestReleased(context.agent)
@@ -390,6 +383,10 @@ func (context *upgradeContext) validate() (err error) {
 		context.chosen = newest
 	} else {
 		// Otherwise get the newest tools matching the user specified version.
+		filter := coretools.Filter{Number: context.chosen}
+		if context.tools, err = context.tools.Match(filter); err != nil {
+			return err
+		}
 		context.chosen, context.tools = context.tools.Newest()
 	}
 	if context.chosen == context.agent {
