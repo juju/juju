@@ -45,6 +45,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-check-gate",
 		"upgrader",
 		"upgradesteps",
+		"uninstaller",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
