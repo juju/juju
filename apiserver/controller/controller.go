@@ -182,7 +182,7 @@ func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoLi
 func (s *ControllerAPI) EnvironmentConfig() (params.EnvironmentConfigResults, error) {
 	result := params.EnvironmentConfigResults{}
 
-	stateServerEnv, err := s.state.StateServerEnvironment()
+	stateServerEnv, err := s.state.ControllerEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
