@@ -142,11 +142,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
+	var envUser *state.EnvironmentUser
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
+		}
+		envUser, err = a.root.state.EnvironmentUser(entity.Tag().(names.UserTag))
+		if err != nil {
+			return fail, errors.Annotatef(err, "missing EnvironmentUser for logged in user %s", entity.Tag())
+		}
+		if envUser.ReadOnly() {
+			logger.Debugf("environment user %s is READ ONLY", entity.Tag())
 		}
 	}
 
@@ -186,6 +194,10 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			}
 		}
 		loginResult.Facades = facades
+	}
+
+	if envUser != nil {
+		authedApi = newClientAuthRoot(authedApi, envUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
