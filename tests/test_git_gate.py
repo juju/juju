@@ -176,7 +176,7 @@ class TestGoTest(unittest.TestCase):
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project'),
+             ' https://git.testing/project to src/git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
