@@ -65,7 +65,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
 
 	// Ensure we don't fail disk space check.
-	s.PatchValue(&upgrades.MinDiskSpaceGib, uint64(0))
+	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
 
 	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {

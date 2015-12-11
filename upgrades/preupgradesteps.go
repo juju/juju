@@ -21,15 +21,15 @@ func PreUpgradeSteps(st *state.State, agentConf agent.Config, isMaster bool) err
 	return nil
 }
 
-// We'll be conservative and require at least 2GiB of disk space for an upgrade.
-var MinDiskSpaceGib = uint64(2)
+// We'll be conservative and require at least 250MiB of disk space for an upgrade.
+var MinDiskSpaceMib = uint64(250)
 
 func checkDiskSpace(dir string) error {
 	usage := du.NewDiskUsage(dir)
 	free := usage.Free()
-	if free < uint64(MinDiskSpaceGib*humanize.GiByte) {
-		return errors.Errorf("not enough free disk space for upgrade: %s available, require %dGiB",
-			humanize.IBytes(free), MinDiskSpaceGib)
+	if free < uint64(MinDiskSpaceMib*humanize.MiByte) {
+		return errors.Errorf("not enough free disk space for upgrade: %s available, require %dMiB",
+			humanize.IBytes(free), MinDiskSpaceMib)
 	}
 	return nil
 }
