@@ -800,18 +800,26 @@ func (s *UpgradeSuite) keyFile() string {
 	return filepath.Join(s.DataDir(), "system-identity")
 }
 
-func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
+func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C, cmds []*exec.Cmd) {
 	// rsyslog-gnutls should have been installed.
-	cmds := s.getAptCmds()
-	c.Assert(cmds, gc.HasLen, 1)
-	args := cmds[0].Args
-	c.Assert(len(args), jc.GreaterThan, 1)
+	c.Assert(len(cmds), jc.GreaterThan, 0)
+	s.assertAptCommand(c, cmds[0], "install", "rsyslog-gnutls")
+}
+
+func (s *UpgradeSuite) assertAptCommand(c *gc.C, cmd *exec.Cmd, tailArgs ...string) {
+	args := cmd.Args
+	c.Assert(len(args), jc.GreaterThan, len(tailArgs))
 	c.Assert(args[0], gc.Equals, "apt-get")
-	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")
+	c.Assert(args[len(args)-len(tailArgs):], gc.DeepEquals, tailArgs)
 }
 
 func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
-	s.assertCommonUpgrades(c)
+	cmds := s.getAptCmds()
+	c.Assert(len(cmds), jc.GreaterThan, 1)
+	s.assertAptCommand(c, cmds[0], "update")
+	s.assertAptCommand(c, cmds[1], "install", "distro-info")
+	s.assertCommonUpgrades(c, cmds[2:])
+
 	// System SSH key
 	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
 	// Syslog port should have been updated
@@ -827,7 +835,9 @@ func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 }
 
 func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
-	s.assertCommonUpgrades(c)
+	cmds := s.getAptCmds()
+	s.assertCommonUpgrades(c, cmds)
+
 	// Lock directory
 	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
 	// used to create the directory which partially works on windows 8 but

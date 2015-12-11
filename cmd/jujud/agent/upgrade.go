@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/packaging/manager"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -251,6 +252,14 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// Update distro info in case the new version of Juju is aware of new
+	// supported series. We'll keep going if this fails, and the user can
+	// manually update it if they need to.
+	logger.Infof("updating distro-info")
+	if err := c.updateDistroInfo(); err != nil {
+		logger.Warningf("failed to update distro-info")
+	}
+
 	// State servers need to wait for other state servers to be ready
 	// to run the upgrade steps.
 	logger.Infof("waiting for other state servers to be ready for upgrade")
@@ -384,6 +393,17 @@ func (c *upgradeWorkerContext) finaliseUpgrade(info *state.UpgradeInfo) error {
 	}
 
 	return nil
+}
+
+func (c *upgradeWorkerContext) updateDistroInfo() error {
+	pm := manager.NewAptPackageManager()
+	if err := pm.Update(); err != nil {
+		return errors.Annotate(err, "updating package list")
+	}
+	if err := pm.Install("distro-info"); err != nil {
+		return errors.Annotate(err, "updating distro-info package")
+	}
+	return version.UpdateSeriesVersions()
 }
 
 func getUpgradeStartTimeout(isMaster bool) time.Duration {
