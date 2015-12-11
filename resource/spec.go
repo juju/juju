@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The resource package provides the functionality of the "resources"
-// feature in Juju.
 package resource
 
 import (
@@ -14,7 +12,7 @@ import (
 
 // TODO(ericsnow) Move the this file or something similar to the charm repo?
 
-var revisionTypes = map[OriginKind]RevisionType{
+var specRevisionTypes = map[OriginKind]RevisionType{
 	OriginKindUpload: RevisionTypeNone,
 }
 
@@ -51,13 +49,13 @@ func (s Spec) Validate() error {
 		return errors.NewNotValid(nil, fmt.Sprintf("resource origin %q not supported", s.Origin))
 	}
 
-	revType := s.Revision.Type()
-	if revisionTypes[s.Origin] != revType {
+	revType := s.Revision.Type
+	if specRevisionTypes[s.Origin] != revType {
 		return errors.NewNotValid(nil, fmt.Sprintf("resource origin %q does not support revision type %q", s.Origin, revType))
 	}
 
 	if err := s.Revision.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "bad revision")
 	}
 
 	return nil

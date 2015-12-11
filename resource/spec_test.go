@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-var _ = gc.Suite(&specSuite{})
+var _ = gc.Suite(&SpecSuite{})
 
-type specSuite struct {
+type SpecSuite struct {
 	testing.IsolationSuite
 }
 
-func (specSuite) TestValidateUploadOkay(c *gc.C) {
+func (SpecSuite) TestValidateUploadOkay(c *gc.C) {
 	spec := resource.Spec{
 		Definition: charmresource.Info{
 			Name:    "spam",
@@ -36,15 +36,18 @@ func (specSuite) TestValidateUploadOkay(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (specSuite) TestValidateUploadHasRevision(c *gc.C) {
+func (SpecSuite) TestValidateUploadHasRevision(c *gc.C) {
 	spec := resource.Spec{
 		Definition: charmresource.Info{
 			Name: "spam",
 			Type: charmresource.TypeFile,
 			Path: "spam.tgz",
 		},
-		Origin:   resource.OriginKindUpload,
-		Revision: "???",
+		Origin: resource.OriginKindUpload,
+		Revision: resource.Revision{
+			Type:  resource.RevisionTypeDate,
+			Value: "2012-01-01",
+		},
 	}
 
 	err := spec.Validate()
@@ -53,7 +56,7 @@ func (specSuite) TestValidateUploadHasRevision(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*don't have revisions.*`)
 }
 
-func (specSuite) TestValidateUnknownOrigin(c *gc.C) {
+func (SpecSuite) TestValidateUnknownOrigin(c *gc.C) {
 	spec := resource.Spec{
 		Definition: charmresource.Info{
 			Name: "spam",
@@ -70,7 +73,7 @@ func (specSuite) TestValidateUnknownOrigin(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*origin.*`)
 }
 
-func (specSuite) TestValidateEmptyInfo(c *gc.C) {
+func (SpecSuite) TestValidateEmptyInfo(c *gc.C) {
 	spec := resource.Spec{
 		Origin:   resource.OriginKindUpload,
 		Revision: resource.NoRevision,
