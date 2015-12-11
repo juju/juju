@@ -78,14 +78,14 @@ new environment has no machines, and no services.
 Bob wants to collaborate with Mary on this environment. A user for Mary needs
 to exist in the controller before Bob is able to share the environment with her.
 
-    $ juju environment share mary
+    $ juju share-environment mary
     ERROR could not share environment: user "mary" does not exist locally: user "mary" not found
 
 Bob gets the controller administrator to add a user for Mary, and then shares the
 environment with Mary.
 
-    $ juju environment share mary
-    $ juju environment users
+    $ juju share-environment mary
+    $ juju list-shares
     NAME        DATE CREATED    LAST CONNECTION
     bob@local   5 minutes ago   just now
     mary@local  57 seconds ago  never connected
