@@ -135,13 +135,13 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"2.0.5-quantal-amd64", "2.0.1-quantal-i386", "2.3.3-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.0.5",
+	expectVersion:  "2.3.3",
 }, {
-	about:          "latest current release matching CLI, major version",
+	about:          "disallow unsupported major version upgrades",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectVersion:  "3.2.0",
+	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest current release matching CLI, major version, no matching major tools",
 	tools:          []string{"2.8.2-quantal-amd64"},
@@ -153,12 +153,6 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"3.3.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible tools available",
-}, {
-	about:          "no next supported available",
-	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
-	currentVersion: "2.0.0-quantal-amd64",
-	agentVersion:   "2.0.0",
 	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest supported stable, when client is dev",
@@ -251,9 +245,9 @@ var upgradeJujuTests = []struct {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "3.3-dev0",
+	agentVersion:   "3.3.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
+	expectErr:      "cannot change version from 3.3.0 to 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -523,16 +517,10 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1-dev1-quantal-amd64
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
-    2.1.3-quantal-amd64
-    2.2.3-quantal-amd64
-best version:
-    2.1.3
+			expectedCmdOutput: `best available tools version:
+    2.2.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.1.3"
+    juju upgrade-juju --version="2.2.3"
 `,
 		},
 		{
@@ -541,16 +529,10 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1-dev1-quantal-amd64
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
-    2.1.3-quantal-amd64
-    2.2.3-quantal-amd64
-best version:
-    2.1.3
+			expectedCmdOutput: `best available tools version:
+    2.2.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.1.3"
+    juju upgrade-juju --version="2.2.3"
 `,
 		},
 		{
@@ -559,11 +541,7 @@ upgrade to this version by running
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "1.2.3-myawesomeseries-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `available tools:
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
-    2.1.3-quantal-amd64
-best version:
+			expectedCmdOutput: `best available tools version:
     2.1.3
 upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
@@ -767,10 +745,10 @@ func (s *UpgradeJujuSuite) TestMajorVersionRestriction(c *gc.C) {
 
 		ctx := coretesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
+		c.Check(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "Upgrades to "+vers+" must first go through juju 2.0.\n")
+		c.Check(output, gc.Equals, "Upgrades to "+vers+" must first go through juju 2.0.\n")
 	}
 }
 

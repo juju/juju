@@ -38,10 +38,11 @@ var (
 	t100all       = tools.List{
 		t100precise, t100precise32, t100quantal, t100quantal32,
 	}
-	t190precise   = mustParseTools("1.9.0-precise-amd64")
-	t190precise32 = mustParseTools("1.9.0-precise-i386")
-	t190quantal   = mustParseTools("1.9.0-quantal-amd64")
-	t190all       = tools.List{
+	t110preciseDev = mustParseTools("1.1-alpha1-precise-amd64")
+	t190precise    = mustParseTools("1.9.0-precise-amd64")
+	t190precise32  = mustParseTools("1.9.0-precise-i386")
+	t190quantal    = mustParseTools("1.9.0-quantal-amd64")
+	t190all        = tools.List{
 		t190precise, t190precise32, t190quantal,
 	}
 	t200precise   = mustParseTools("2.0.0-precise-amd64")
@@ -149,7 +150,7 @@ func (s *ListSuite) TestNewest(c *gc.C) {
 	}
 }
 
-var newestCompatibleTests = []struct {
+var newestReleasedTests = []struct {
 	src    tools.List
 	base   version.Number
 	expect version.Number
@@ -184,12 +185,17 @@ var newestCompatibleTests = []struct {
 	base:   version.MustParse("2.1.1"),
 	expect: version.MustParse("2.1.5.2"),
 	found:  true,
+}, {
+	src:    append(t100all, t110preciseDev),
+	base:   version.MustParse("1.0.0"),
+	expect: version.MustParse("1.0.0"),
+	found:  true,
 }}
 
-func (s *ListSuite) TestNewestCompatible(c *gc.C) {
-	for i, test := range newestCompatibleTests {
+func (s *ListSuite) TestNewestReleased(c *gc.C) {
+	for i, test := range newestReleasedTests {
 		c.Logf("test %d", i)
-		actual, found := test.src.NewestCompatible(test.base)
+		actual, found := test.src.NewestReleased(test.base)
 		c.Check(actual, gc.DeepEquals, test.expect)
 		c.Check(found, gc.Equals, test.found)
 	}
