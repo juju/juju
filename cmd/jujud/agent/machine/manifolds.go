@@ -119,7 +119,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
-		servingInfoSetterName: servingInfoSetterManifold(servingInfoSetterConfig{
+		servingInfoSetterName: ServingInfoSetterManifold(ServingInfoSetterConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		}),

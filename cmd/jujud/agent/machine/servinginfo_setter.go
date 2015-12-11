@@ -8,23 +8,24 @@ import (
 	"github.com/juju/names"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// servingInfoSetterConfig provides the dependencies for the
+// ServingInfoSetterConfig provides the dependencies for the
 // servingInfoSetter manifold.
-type servingInfoSetterConfig struct {
+type ServingInfoSetterConfig struct {
 	AgentName     string
 	APICallerName string
 }
 
-// servingInfoSetterManifold defines a simple start function which
+// ServingInfoSetterManifold defines a simple start function which
 // runs after the API connection has come up. If the machine agent is
 // a state server, it grabs the state serving info over the API and
 // records it to agent configuration, and then stops.
-func servingInfoSetterManifold(config servingInfoSetterConfig) dependency.Manifold {
+func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
@@ -44,26 +45,21 @@ func servingInfoSetterManifold(config servingInfoSetterConfig) dependency.Manifo
 			}
 
 			// Get API connection.
-			//
-			// TODO(mjs) - this should really be a base.APICaller to
-			// remove the possibility of the API connection being closed
-			// here.
-			var apiConn api.Connection
-			if err := getResource(config.APICallerName, &apiConn); err != nil {
+			var apiCaller base.APICaller
+			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
+			apiState := apiagent.NewState(apiCaller)
 
 			// If the machine needs State, grab the state serving info
 			// over the API and write it to the agent configuration.
-			//
-			// TODO(mjs) - ideally this would be using its own facade.
-			machine, err := apiConn.Agent().Entity(tag)
+			machine, err := apiState.Entity(tag)
 			if err != nil {
 				return nil, err
 			}
 			for _, job := range machine.Jobs() {
 				if job.NeedsState() {
-					info, err := apiConn.Agent().StateServingInfo()
+					info, err := apiState.StateServingInfo()
 					if err != nil {
 						return nil, errors.Errorf("cannot get state serving info: %v", err)
 					}
