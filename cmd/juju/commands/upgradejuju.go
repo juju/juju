@@ -42,10 +42,14 @@ The upgrade-juju command upgrades a running environment by setting a version
 number for all juju agents to run. By default, it chooses the most recent
 supported version compatible with the command-line tools version.
 
-A development version is defined to be any version with an odd minor
-version or a nonzero build component (for example version 2.1.1, 3.3.0
-and 2.0.0.1 are development versions; 2.0.3 and 3.4.1 are not). A
-development version may be chosen in two cases:
+A development version is defined to be any version with a tag like
+alpha or beta, or a nonzero build component. For exmple:
+Development versions:
+ - 1.24-alpha1
+ - 1.24-alpha1.2
+ - 1.24.0.1
+
+A development version may be chosen in two cases:
 
  - when the current agent version is a development one and there is
    a more recent version available with the same major.minor numbers;
@@ -59,13 +63,10 @@ Currently the tools will be uploaded as if they had the version of the current
 juju tool, unless specified otherwise by the --version flag.
 
 When run without arguments. upgrade-juju will try to upgrade to the
-following versions, in order of preference, depending on the current
-value of the environment's agent-version setting:
+highest available minor.patch.build version of the major version
+matching the Juju client used to perform the upgrade.
 
- - The highest patch.build version of the *next* stable major.minor version.
- - The highest patch.build version of the *current* major.minor version.
-
-Both of these depend on tools availability, which some situations (no
+This depends on tools availability, which some situations (no
 outgoing internet access) and provider types (such as maas) require that
 you manage yourself; see the documentation for "sync-tools".
 
@@ -214,9 +215,9 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	ctx.Infof("available tools:\n%s", formatTools(context.tools))
-	ctx.Infof("best version:\n    %s", context.chosen)
+	logger.Debugf("available tools:\n%s", formatTools(context.tools))
 	if c.DryRun {
+		ctx.Infof("best available tools version:\n    %s", context.chosen)
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
 		if c.ResetPrevious {
@@ -242,7 +243,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		logger.Infof("started upgrade to %s", context.chosen)
+		ctx.Infof("started upgrade of Juju environment to version %s", context.chosen)
 	}
 	return nil
 }
@@ -373,44 +374,15 @@ func (context *upgradeContext) uploadTools() (err error) {
 // If validate returns no error, the environment agent-version can be set to
 // the value of the chosen field.
 func (context *upgradeContext) validate() (err error) {
+	// If no explicit version specified, get the newest released tools.
 	if context.chosen == version.Zero {
-		// No explicitly specified version, so find the version to which we
-		// need to upgrade. If the CLI and agent major versions match, we find
-		// next available stable release to upgrade to by incrementing the
-		// minor version, starting from the current agent version and doing
-		// major.minor+1.patch=0. If the CLI has a greater major version,
-		// we just use the CLI version as is.
-		nextVersion := context.agent
-		if nextVersion.Major == context.client.Major {
-			nextVersion.Minor += 1
-			nextVersion.Patch = 0
-			// Explicitly skip 1.21 and 1.23.
-			if nextVersion.Major == 1 && (nextVersion.Minor == 21 || nextVersion.Minor == 23) {
-				nextVersion.Minor += 1
-			}
-		} else {
-			nextVersion = context.client
+		newest, found := context.tools.NewestReleased(context.agent)
+		if !found {
+			return fmt.Errorf("no more recent supported versions available")
 		}
-
-		newestNextStable, found := context.tools.NewestCompatible(nextVersion)
-		if found {
-			logger.Debugf("found a more recent stable version %s", newestNextStable)
-			context.chosen = newestNextStable
-		} else {
-			newestCurrent, found := context.tools.NewestCompatible(context.agent)
-			if found {
-				logger.Debugf("found more recent current version %s", newestCurrent)
-				context.chosen = newestCurrent
-			} else {
-				if context.agent.Major != context.client.Major {
-					return fmt.Errorf("no compatible tools available")
-				} else {
-					return fmt.Errorf("no more recent supported versions available")
-				}
-			}
-		}
+		context.chosen = newest
 	} else {
-		// If not completely specified already, pick a single tools version.
+		// Otherwise get the newest tools matching the user specified version.
 		filter := coretools.Filter{Number: context.chosen}
 		if context.tools, err = context.tools.Match(filter); err != nil {
 			return err
@@ -431,6 +403,8 @@ func (context *upgradeContext) validate() (err error) {
 			"    juju upgrade-juju --version=1.20.14")
 	}
 
+	// We should select tools past these versions, but just in case
+	// a deployment only has access to old tools we'll still check.
 	// Skip 1.21 and 1.23 if the agents are not already on them.
 	if context.agent.Major == 1 && context.chosen.Major == 1 &&
 		context.agent.Minor != context.chosen.Minor &&
