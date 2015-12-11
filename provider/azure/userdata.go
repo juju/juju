@@ -7,20 +7,25 @@ package azure
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/os"
+	jujuos "github.com/juju/utils/os"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type AzureRenderer struct{}
 
-func (AzureRenderer) EncodeUserdata(udata []byte, vers os.OSType) ([]byte, error) {
-	switch vers {
-	case os.Ubuntu, os.CentOS:
-		return renderers.ToBase64(utils.Gzip(udata)), nil
-	case os.Windows:
-		return renderers.ToBase64(renderers.WinEmbedInScript(udata)), nil
+func (AzureRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
+	switch os {
+	case jujuos.Ubuntu:
+		return renderers.RenderYAML(cfg, os, utils.Gzip, renderers.ToBase64)
+
+	case jujuos.CentOS:
+		return renderers.RenderScript(cfg, os, renderers.ToBase64)
+
+	case jujuos.Windows:
+		return renderers.RenderYAML(cfg, os, renderers.WinEmbedInScript, renderers.ToBase64)
 	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", vers)
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}
 }
