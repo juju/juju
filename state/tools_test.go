@@ -83,7 +83,9 @@ func (s *ToolsSuite) TestStorage(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{})
+	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{
+		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	collectionNames, err = session.DB("juju").CollectionNames()
