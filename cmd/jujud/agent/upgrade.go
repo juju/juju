@@ -253,10 +253,11 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	}
 
 	// Update distro info in case the new version of Juju is aware of new
-	// supported series.
+	// supported series. We'll keep going if this fails, and the user can
+	// manually update it if they need to.
 	logger.Infof("updating distro-info")
 	if err := c.updateDistroInfo(); err != nil {
-		return nil, errors.Trace(err)
+		logger.Warningf("failed to update distro-info")
 	}
 
 	// State servers need to wait for other state servers to be ready
