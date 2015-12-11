@@ -98,7 +98,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 
 		_, err := st.EnvironmentUser(uTag)
 		if err != nil && errors.IsNotFound(err) {
-			_, err = st.AddEnvironmentUser(UserSpec{User: uTag, CreatedBy: uTag})
+			_, err = st.AddEnvironmentUser(EnvUserSpec{User: uTag, CreatedBy: uTag})
 			if err != nil {
 				return errors.Trace(err)
 			}

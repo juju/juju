@@ -673,7 +673,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		switch arg.Action {
 		case params.AddEnvUser:
 			_, err := c.api.stateAccessor.AddEnvironmentUser(
-				state.UserSpec{User: user, CreatedBy: createdBy})
+				state.EnvUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
