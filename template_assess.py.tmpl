@@ -1,49 +1,52 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+"""TODO: add rough description of what is assessed in this module."""
+
 from __future__ import print_function
 
 __metaclass__ = type
 
-from argparse import ArgumentParser
+import argparse
+import logging
+import sys
 
 from deploy_stack import (
     BootstrapManager,
 )
 from utility import (
-    add_basic_testing_arguments
+    add_basic_testing_arguments,
+    configure_logging,
 )
 
 
-TEST_HUMAN_NAME = "<YOUR TEST HUMAN READABLE HERE>"
+log = logging.getLogger("assess_TEMPLATE")
 
 
-def parse_args():
+def assess_TEMPLATE(client):
+    # Deploy charms, there are several under ./repository
+    client.juju("deploy", ('local:trusty/my-charm',))
+    # Wait for the deployment to finish.
+    client.wait_for_started()
+    logging.info("TODO: Add log line about any test ")
+    # TODO: Add specific functional testing actions here.
+
+
+def parse_args(argv):
     """Parse all arguments."""
-    parser = ArgumentParser(TEST_HUMAN_NAME)
-    # Add your positional arguments
+    parser = argparse.ArgumentParser(description="TODO: script info")
+    # TODO: Add additional positional arguments.
     add_basic_testing_arguments(parser)
-    # Add your optional arguments.
-    return parser.parse_args()
+    # TODO: Add additional optional arguments.
+    return parser.parse_args(argv)
 
 
-def main():
-    args = parse_args()
-    series = args.series
-    if series is None:
-        args.series = 'trusty'
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    client = bs_manager.client
     with bs_manager.booted_context(args.upload_tools):
-        client.get_status(60)
-        # Deploy charms, there are several under ./repository
-        client.juju("deploy", ('local:trusty/my-charm',))
-        # Wait for the deployment to finish.
-        client.wait_for_started()
-
-        # ----------------- CALL YOUR TESTS HERE
-        # At this point you have a juju bootstraped with my-charm
-        # deployed and active with the agent idle.
-        # ----------------- TESTS END HERE
+        assess_TEMPLATE(bs_manager.client)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
