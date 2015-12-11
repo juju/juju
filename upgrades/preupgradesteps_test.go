@@ -19,7 +19,7 @@ var _ = gc.Suite(&preupgradechecksSuite{})
 
 func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *gc.C) {
 	// Expect an impossibly large amount of free disk.
-	s.PatchValue(&upgrades.MinDiskSpaceGib, uint64(humanize.EiByte/humanize.GiByte))
+	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))
 	err := upgrades.PreUpgradeSteps(nil, &mockAgentConfig{dataDir: "/"}, false)
 	c.Assert(err, gc.ErrorMatches, "not enough free disk space for upgrade: .*")
 }
