@@ -118,10 +118,25 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		EnvUUID:     "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, gc.ErrorMatches, `local:quantal/metered-1 does not offer a default plan`)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}})
+}
+
+func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
+	s.stub.SetErrors(nil, errors.New("something failed"))
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
-	authorization, err := json.Marshal([]byte("hello registration"))
-	authorization = append(authorization, byte(0xa))
-	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
@@ -201,6 +216,10 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 		c.AddCall("DefaultPlan", cURL)
 		rErr := c.NextErr()
 		if rErr != nil {
+			if errors.IsNotFound(rErr) {
+				http.Error(w, rErr.Error(), http.StatusNotFound)
+				return
+			}
 			http.Error(w, rErr.Error(), http.StatusInternalServerError)
 			return
 		}

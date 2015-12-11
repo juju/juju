@@ -120,6 +120,9 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) 
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode == http.StatusNotFound {
+		return "", errors.Errorf("%v does not offer a default plan", cURL)
+	}
 	if response.StatusCode != http.StatusOK {
 		return "", errors.Errorf("failed to query default plan: http response is %d", response.StatusCode)
 	}
