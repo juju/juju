@@ -19,8 +19,8 @@ type OutputTabularSuite struct {
 }
 
 func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
-	spec := cmd.NewSpec(c, "spam", ".tgz", "...")
-	formatted := formatSpecs(spec)
+	info := cmd.NewInfo(c, "spam", ".tgz", "...")
+	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,8 +32,8 @@ spam     upload -   ...
 }
 
 func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
-	spec := cmd.NewSpec(c, "spam", "", "")
-	formatted := formatSpecs(spec)
+	info := cmd.NewInfo(c, "spam", "", "")
+	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -45,12 +45,12 @@ spam     upload -
 }
 
 func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
-	formatted := formatSpecs(
-		cmd.NewSpec(c, "spam", ".tgz", "spamspamspamspam"),
-		cmd.NewSpec(c, "eggs", "", "..."),
-		cmd.NewSpec(c, "somethingbig", ".zip", ""),
-		cmd.NewSpec(c, "song", ".mp3", "your favorite"),
-		cmd.NewSpec(c, "avatar", ".png", "your picture"),
+	formatted := formatInfos(
+		cmd.NewInfo(c, "spam", ".tgz", "spamspamspamspam"),
+		cmd.NewInfo(c, "eggs", "", "..."),
+		cmd.NewInfo(c, "somethingbig", ".zip", ""),
+		cmd.NewInfo(c, "song", ".mp3", "your favorite"),
+		cmd.NewInfo(c, "avatar", ".png", "your picture"),
 	)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -67,16 +67,16 @@ avatar       upload -   your picture
 }
 
 func (s *OutputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
-	bogus := "should have been []formattedSpec"
+	bogus := "should have been []formattedInfo"
 	_, err := cmd.FormatTabular(bogus)
 
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
-func formatSpecs(specs ...resource.Spec) []cmd.FormattedSpec {
-	var formatted []cmd.FormattedSpec
-	for _, spec := range specs {
-		formatted = append(formatted, cmd.FormatSpec(spec))
+func formatInfos(infos ...resource.Info) []cmd.FormattedInfo {
+	var formatted []cmd.FormattedInfo
+	for _, info := range infos {
+		formatted = append(formatted, cmd.FormatInfo(info))
 	}
 	return formatted
 }

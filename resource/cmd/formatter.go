@@ -7,40 +7,39 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-type specListFormatter struct {
-	specs []resource.Spec
+type infoListFormatter struct {
+	infos []resource.Info
 }
 
-func newSpecListFormatter(specs []resource.Spec) *specListFormatter {
+func newInfoListFormatter(infos []resource.Info) *infoListFormatter {
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
-	lf := specListFormatter{
-		specs: specs,
+	lf := infoListFormatter{
+		infos: infos,
 	}
 	return &lf
 }
 
-func (lf *specListFormatter) format() []FormattedSpec {
-	if lf.specs == nil {
+func (lf *infoListFormatter) format() []FormattedInfo {
+	if lf.infos == nil {
 		return nil
 	}
 
-	var formatted []FormattedSpec
-	for _, spec := range lf.specs {
-		formatted = append(formatted, FormatSpec(spec))
+	var formatted []FormattedInfo
+	for _, info := range lf.infos {
+		formatted = append(formatted, FormatInfo(info))
 	}
 	return formatted
 }
 
-// FormatSpec converts the resource spec into a FormattedSpec.
-func FormatSpec(spec resource.Spec) FormattedSpec {
-	info := spec.Definition
-	return FormattedSpec{
+// FormatInfo converts the resource info into a FormattedInfo.
+func FormatInfo(info resource.Info) FormattedInfo {
+	return FormattedInfo{
 		Name:     info.Name,
 		Type:     info.Type.String(),
 		Path:     info.Path,
 		Comment:  info.Comment,
-		Origin:   spec.Origin.String(),
-		Revision: spec.Revision.String(),
+		Origin:   info.Origin.String(),
+		Revision: info.Revision,
 	}
 }

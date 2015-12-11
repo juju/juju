@@ -13,25 +13,24 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-func NewSpec(c *gc.C, name, suffix, comment string) resource.Spec {
-	info := charmresource.Info{
-		Name:    name,
-		Type:    charmresource.TypeFile,
-		Path:    name + suffix,
-		Comment: comment,
+func NewInfo(c *gc.C, name, suffix, comment string) resource.Info {
+	info := resource.Info{
+		Info: charmresource.Info{
+			Name:    name,
+			Type:    charmresource.TypeFile,
+			Path:    name + suffix,
+			Comment: comment,
+		},
+		Origin:   resource.OriginKindUpload,
+		Revision: 0,
 	}
-	spec := resource.Spec{
-		Definition: info,
-		Origin:     resource.OriginKindUpload,
-		Revision:   resource.NoRevision,
-	}
-	err := spec.Validate()
+	err := info.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	return spec
+	return info
 }
 
-func NewSpecs(c *gc.C, names ...string) []resource.Spec {
-	var specs []resource.Spec
+func NewInfos(c *gc.C, names ...string) []resource.Info {
+	var infos []resource.Info
 	for _, name := range names {
 		var comment string
 		parts := strings.SplitN(name, ":", 2)
@@ -40,8 +39,8 @@ func NewSpecs(c *gc.C, names ...string) []resource.Spec {
 			comment = parts[1]
 		}
 
-		spec := NewSpec(c, name, ".tgz", comment)
-		specs = append(specs, spec)
+		info := NewInfo(c, name, ".tgz", comment)
+		infos = append(infos, info)
 	}
-	return specs
+	return infos
 }

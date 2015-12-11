@@ -17,16 +17,16 @@ type FormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *FormatterSuite) TestFormatSpecOkay(c *gc.C) {
-	spec := cmd.NewSpec(c, "spam", ".tgz", "X")
-	formatted := cmd.FormatSpec(spec)
+func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
+	info := cmd.NewInfo(c, "spam", ".tgz", "X")
+	formatted := cmd.FormatInfo(info)
 
-	c.Check(formatted, jc.DeepEquals, cmd.FormattedSpec{
+	c.Check(formatted, jc.DeepEquals, cmd.FormattedInfo{
 		Name:     "spam",
 		Type:     "file",
 		Path:     "spam.tgz",
 		Comment:  "X",
 		Origin:   "upload",
-		Revision: "",
+		Revision: 0,
 	})
 }

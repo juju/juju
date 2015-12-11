@@ -10,6 +10,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/resource"
 )
 
 var (
@@ -26,9 +28,9 @@ var (
 
 // FormatTabular returns a tabular summary of payloads.
 func FormatTabular(value interface{}) ([]byte, error) {
-	specs, valueConverted := value.([]FormattedSpec)
+	infos, valueConverted := value.([]FormattedInfo)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", specs, value)
+		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
 
 	// TODO(ericsnow) sort the rows first?
@@ -41,18 +43,18 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	// We do not print a section label.
 	fmt.Fprintln(tw, tabularHeader)
 
-	// Print each spec to its own row.
-	for _, spec := range specs {
-		rev := spec.Revision
-		if rev == "" {
-			rev = "-"
+	// Print each info to its own row.
+	for _, info := range infos {
+		rev := "-"
+		if info.Origin == resource.OriginKindStore.String() {
+			rev = fmt.Sprintf("%d", info.Revision)
 		}
 		// tabularColumns must be kept in sync with these.
 		fmt.Fprintf(tw, tabularRow+"\n",
-			spec.Name,
-			spec.Origin,
+			info.Name,
+			info.Origin,
 			rev,
-			spec.Comment,
+			info.Comment,
 		)
 	}
 	tw.Flush()
