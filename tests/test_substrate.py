@@ -70,6 +70,17 @@ def get_openstack_env():
     })
 
 
+def get_rax_env():
+    return SimpleEnvironment('rax', {
+        'type': 'rackspace',
+        'region': 'DFW',
+        'username': 'a-user',
+        'password': 'a-pasword',
+        'tenant-name': '100',
+        'auth-url': 'http://rax.testing',
+    })
+
+
 def get_aws_environ(env):
     environ = dict(os.environ)
     environ.update(get_euca_env(env.config))
@@ -182,6 +193,18 @@ class TestTerminateInstances(TestCase):
         self.assertEqual(cc_mock.call_count, 0)
         self.assertEqual(out_mock.write.mock_calls, [
             call('No instances to delete.'), call('\n')])
+
+    def test_terminate_rackspace(self):
+        env = get_rax_env()
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('sys.stdout') as out_mock:
+                terminate_instances(env, ['foo', 'bar'])
+        environ = dict(os.environ)
+        environ.update(translate_to_env(env.config))
+        cc_mock.assert_called_with(
+            ['nova', 'delete', 'foo', 'bar'], env=environ)
+        self.assertEqual(out_mock.write.mock_calls, [
+            call('Deleting foo, bar.'), call('\n')])
 
     def test_terminate_joyent(self):
         with patch('substrate.JoyentAccount.terminate_instances') as ti_mock:
@@ -715,6 +738,17 @@ class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_openstack(self):
         config = get_os_config()
+        with make_substrate_manager(config) as account:
+            self.assertIs(type(account), OpenStackAccount)
+            self.assertEqual(account._username, 'foo')
+            self.assertEqual(account._password, 'bar')
+            self.assertEqual(account._tenant_name, 'baz')
+            self.assertEqual(account._auth_url, 'qux')
+            self.assertEqual(account._region_name, 'quxx')
+
+    def test_make_substrate_manager_rackspace(self):
+        config = get_os_config()
+        config['type'] = 'rackspace'
         with make_substrate_manager(config) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
