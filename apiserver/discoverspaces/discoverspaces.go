@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 func init() {
@@ -40,46 +39,10 @@ func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authoriz
 	}, nil
 }
 
-// API methods needed: ListSpaces, AddSpace, AddSubnet
-
-// AddSpaces creates a new Juju network space.
-func (api *DiscoverSpacesAPI) AddSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	results.Results = make([]params.ErrorResult, len(args.Spaces))
-
-	for i, space := range args.Spaces {
-		err := api.createOneSpace(space)
-		if err == nil {
-			continue
-		}
-		results.Results[i].Error = common.ServerError(errors.Trace(err))
-	}
-
-	return results, nil
-}
-
-func (api *DiscoverSpacesAPI) createOneSpace(args params.CreateSpaceParams) error {
-	// Validate the args, assemble information for api.backing.AddSpaces
-	var subnets []string
-
-	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, tag := range args.SubnetTags {
-		subnetTag, err := names.ParseSubnetTag(tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		subnets = append(subnets, subnetTag.Id())
-	}
-
-	// Add the validated space
-	err = api.st.AddSpace(spaceTag.Id(), "", subnets, args.Public)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+// CreateSpaces creates a new Juju network space, associating the
+// specified subnets with it (optional; can be empty).
+func (api *DiscoverSpacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	return networkingcommon.CreateSpaces(api.st, args)
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
@@ -109,4 +72,15 @@ func (api *DiscoverSpacesAPI) ListSpaces() (results params.DiscoverSpacesResults
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// AddSubnets is defined on the API interface.
+func (api *DiscoverSpacesAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	return networkingcommon.AddSubnets(api.st, args)
+}
+
+// ListSubnets lists all the available subnets or only those matching
+// all given optional filters.
+func (api *DiscoverSpacesAPI) ListSubnets(args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
+	return networkingcommon.ListSubnets(api.st, args)
 }

@@ -18,35 +18,15 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	providercommon "github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon.subnets")
 
-// SubnetsAPI defines the methods the Subnets API facade implements.
-type SubnetsAPI interface {
-	// AllZones returns all availability zones known to Juju. If a
-	// zone is unusable, unavailable, or deprecated the Available
-	// field will be false.
-	AllZones() (params.ZoneResults, error)
-
-	// AllSpaces returns the tags of all network spaces known to Juju.
-	AllSpaces() (params.SpaceResults, error)
-
-	// AddSubnets adds existing subnets to Juju.
-	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
-
-	// ListSubnets returns the matching subnets after applying
-	// optional filters.
-	ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResults, error)
-
-	// Backiing returns the NetworkBacking used by the API.
-	Backing() NetworkBacking
-}
-
 // addSubnetsCache holds cached lists of spaces, zones, and subnets,
 // used for fast lookups while adding subnets.
 type addSubnetsCache struct {
-	api            SubnetsAPI
+	api            NetworkBacking
 	allSpaces      set.Strings          // all defined backing spaces
 	allZones       set.Strings          // all known provider zones
 	availableZones set.Strings          // all the available zones
@@ -58,7 +38,7 @@ type addSubnetsCache struct {
 	subnetsByProviderId map[string]*network.SubnetInfo
 }
 
-func NewAddSubnetsCache(api SubnetsAPI) *addSubnetsCache {
+func NewAddSubnetsCache(api NetworkBacking) *addSubnetsCache {
 	// Empty cache initially.
 	return &addSubnetsCache{
 		api:                 api,
@@ -87,7 +67,7 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, e
 		// Not yet cached.
 		logger.Debugf("caching known spaces")
 
-		allSpaces, err := cache.api.Backing().AllSpaces()
+		allSpaces, err := cache.api.AllSpaces()
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot validate given SpaceTag")
 		}
@@ -120,7 +100,7 @@ func (cache *addSubnetsCache) cacheZones() error {
 		return nil
 	}
 
-	allZones, err := cache.api.AllZones()
+	allZones, err := AllZones(cache.api)
 	if err != nil {
 		return errors.Annotate(err, "given Zones cannot be validated")
 	}
@@ -354,7 +334,7 @@ func (cache *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*net
 // addOneSubnet validates the given arguments, using cache for lookups
 // (initialized on first use), then adds it to the backing store, if
 // successful.
-func addOneSubnet(api SubnetsAPI, args params.AddSubnetParams, cache *addSubnetsCache) error {
+func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache) error {
 	subnetInfo, err := cache.validateSubnet(args.SubnetTag, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)
@@ -382,14 +362,14 @@ func addOneSubnet(api SubnetsAPI, args params.AddSubnetParams, cache *addSubnets
 	if subnetInfo.AllocatableIPHigh != nil {
 		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
 	}
-	if _, err := api.Backing().AddSubnet(backingInfo); err != nil {
+	if _, err := api.AddSubnet(backingInfo); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
 // AddSubnets adds.
-func AddSubnets(api SubnetsAPI, args params.AddSubnetsParams) (params.ErrorResults, error) {
+func AddSubnets(api NetworkBacking, args params.AddSubnetsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Subnets)),
 	}
@@ -410,8 +390,8 @@ func AddSubnets(api SubnetsAPI, args params.AddSubnetsParams) (params.ErrorResul
 
 // ListSubnets lists all the available subnets or only those matching
 // all given optional filters.
-func ListSubnets(api SubnetsAPI, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
-	subnets, err := api.Backing().AllSubnets()
+func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
+	subnets, err := api.AllSubnets()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -460,8 +440,8 @@ func ListSubnets(api SubnetsAPI, args params.SubnetsFilters) (results params.Lis
 // from the current environment config, if supported. If the
 // environment does not support environs.Networking, an error
 // satisfying errors.IsNotSupported() will be returned.
-func networkingEnviron(api SubnetsAPI) (environs.NetworkingEnviron, error) {
-	envConfig, err := api.Backing().EnvironConfig()
+func networkingEnviron(api NetworkBacking) (environs.NetworkingEnviron, error) {
+	envConfig, err := api.EnvironConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environment config")
 	}
@@ -474,4 +454,83 @@ func networkingEnviron(api SubnetsAPI) (environs.NetworkingEnviron, error) {
 		return netEnv, nil
 	}
 	return nil, errors.NotSupportedf("environment networking features") // " not supported"
+}
+
+// AllZones is defined on the API interface.
+func AllZones(api NetworkBacking) (params.ZoneResults, error) {
+	var results params.ZoneResults
+
+	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
+		results := make([]string, len(zones))
+		for i, zone := range zones {
+			results[i] = zone.Name()
+		}
+		return `"` + strings.Join(results, `", "`) + `"`
+	}
+
+	// Try fetching cached zones first.
+	zones, err := api.AvailabilityZones()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	if len(zones) == 0 {
+		// This is likely the first time we're called.
+		// Fetch all zones from the provider and update.
+		zones, err = updateZones(api)
+		if err != nil {
+			return results, errors.Annotate(err, "cannot update known zones")
+		}
+		logger.Debugf(
+			"updated the list of known zones from the environment: %s", zonesAsString(zones),
+		)
+	} else {
+		logger.Debugf("using cached list of known zones: %s", zonesAsString(zones))
+	}
+
+	results.Results = make([]params.ZoneResult, len(zones))
+	for i, zone := range zones {
+		results.Results[i].Name = zone.Name()
+		results.Results[i].Available = zone.Available()
+	}
+	return results, nil
+}
+
+// updateZones attempts to retrieve all availability zones from the
+// environment provider (if supported) and then updates the persisted
+// list of zones in state, returning them as well on success.
+func updateZones(api NetworkBacking) ([]providercommon.AvailabilityZone, error) {
+	zoned, err := zonedEnviron(api)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	zones, err := zoned.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := api.SetAvailabilityZones(zones); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return zones, nil
+}
+
+// zonedEnviron returns a providercommon.ZonedEnviron instance from
+// the current environment config. If the environment does not support
+// zones, an error satisfying errors.IsNotSupported() will be
+// returned.
+func zonedEnviron(api NetworkBacking) (providercommon.ZonedEnviron, error) {
+	envConfig, err := api.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting environment config")
+	}
+
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "opening environment")
+	}
+	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
+		return zonedEnv, nil
+	}
+	return nil, errors.NotSupportedf("availability zones")
 }
