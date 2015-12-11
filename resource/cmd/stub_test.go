@@ -10,22 +10,22 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-type stubClient struct {
+type stubCharmStore struct {
 	stub *testing.Stub
 
-	ReturnListSpecs []resource.SpecsResult
+	ReturnListResources [][]resource.Info
 }
 
-func (s *stubClient) ListSpecs(serviceIDs []string) ([]resource.SpecsResult, error) {
-	s.stub.AddCall("ListSpecs", serviceIDs)
+func (s *stubCharmStore) ListResources(charmIDs []string) ([][]resource.Info, error) {
+	s.stub.AddCall("ListResources", charmIDs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnListSpecs, nil
+	return s.ReturnListResources, nil
 }
 
-func (s *stubClient) Close() error {
+func (s *stubCharmStore) Close() error {
 	s.stub.AddCall("Close")
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

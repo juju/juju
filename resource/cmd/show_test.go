@@ -24,17 +24,17 @@ type ShowSuite struct {
 	testing.IsolationSuite
 
 	stub   *testing.Stub
-	client *stubClient
+	client *stubCharmStore
 }
 
 func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.client = &stubClient{stub: s.stub}
+	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.ShowAPI, error) {
+func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.CharmStore, error) {
 	s.stub.AddCall("newAPIClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -49,28 +49,23 @@ func (s *ShowSuite) TestInfo(c *gc.C) {
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "show-resources",
-		Args:    "service-id",
-		Purpose: "display the charm-defined resources for a service",
+		Args:    "charm-id",
+		Purpose: "display the resources for a charm in the charm store",
 		Doc: `
-This command will report the resources defined by a charm.
-
-The resources are looked up in the service's charm metadata.
+This command will report the resources for a charm in the charm store.
 `,
 	})
 }
 
 func (s *ShowSuite) TestOkay(c *gc.C) {
-	specs := cmd.NewSpecs(c,
+	infos := cmd.NewInfos(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, resource.SpecsResult{
-		Service: "a-service",
-		Specs:   specs,
-	})
+	s.client.ReturnListResources = [][]resource.Info{infos}
 
 	command := cmd.NewShowCommand(s.newAPIClient)
-	code, stdout, stderr := runShow(c, command, "a-service")
+	code, stdout, stderr := runShow(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
@@ -80,14 +75,16 @@ music    upload -   mp3 of your backing vocals
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCallNames(c, "newAPIClient", "ListSpecs", "Close")
+	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
 	s.stub.CheckCall(c, 0, "newAPIClient", command)
-	s.stub.CheckCall(c, 1, "ListSpecs", []string{"a-service"})
+	s.stub.CheckCall(c, 1, "ListResources", []string{"cs:a-charm"})
 }
 
 func (s *ShowSuite) TestNoResources(c *gc.C) {
+	s.client.ReturnListResources = [][]resource.Info{{}}
+
 	command := cmd.NewShowCommand(s.newAPIClient)
-	code, stdout, stderr := runShow(c, command, "a-service")
+	code, stdout, stderr := runShow(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
@@ -95,18 +92,15 @@ RESOURCE FROM REV COMMENT
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCallNames(c, "newAPIClient", "ListSpecs", "Close")
+	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
 }
 
 func (s *ShowSuite) TestOutputFormats(c *gc.C) {
-	specs := []resource.Spec{
-		cmd.NewSpec(c, "website", ".tgz", ".tgz of your website"),
-		cmd.NewSpec(c, "music", ".mp3", "mp3 of your backing vocals"),
+	infos := []resource.Info{
+		cmd.NewInfo(c, "website", ".tgz", ".tgz of your website"),
+		cmd.NewInfo(c, "music", ".mp3", "mp3 of your backing vocals"),
 	}
-	s.client.ReturnListSpecs = append(s.client.ReturnListSpecs, resource.SpecsResult{
-		Service: "a-service",
-		Specs:   specs,
-	})
+	s.client.ReturnListResources = [][]resource.Info{infos}
 
 	formats := map[string]string{
 		"tabular": `
@@ -126,6 +120,7 @@ music    upload -   mp3 of your backing vocals
   path: music.mp3
   comment: mp3 of your backing vocals
   origin: upload
+  revision: 0
 `[1:],
 		"json": strings.Replace(""+
 			"["+
@@ -149,7 +144,7 @@ music    upload -   mp3 of your backing vocals
 		command := cmd.NewShowCommand(s.newAPIClient)
 		args := []string{
 			"--format", format,
-			"a-service",
+			"cs:a-charm",
 		}
 		code, stdout, stderr := runShow(c, command, args...)
 		c.Check(code, gc.Equals, 0)

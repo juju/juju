@@ -4,8 +4,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -14,10 +12,10 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// ShowAPI has the API methods needed by ShowCommand.
-type ShowAPI interface {
-	// ListSpecs lists the resource specs for each of the given services.
-	ListSpecs(services []string) ([]resource.SpecsResult, error)
+// CharmStore has the charm store API methods needed by ShowCommand.
+type CharmStore interface {
+	// ListResources lists the resources for each of the given charms.
+	ListResources(charms []string) ([][]resource.Info, error)
 
 	// Close closes the client.
 	Close() error
@@ -26,15 +24,15 @@ type ShowAPI interface {
 // ShowCommand implements the show-resources command.
 type ShowCommand struct {
 	envcmd.EnvCommandBase
-	out       cmd.Output
-	serviceID string
+	out     cmd.Output
+	charmID string
 
-	newAPIClient func(c *ShowCommand) (ShowAPI, error)
+	newAPIClient func(c *ShowCommand) (CharmStore, error)
 }
 
 // NewShowCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowCommand(newAPIClient func(c *ShowCommand) (ShowAPI, error)) *ShowCommand {
+func NewShowCommand(newAPIClient func(c *ShowCommand) (CharmStore, error)) *ShowCommand {
 	cmd := &ShowCommand{
 		newAPIClient: newAPIClient,
 	}
@@ -42,17 +40,15 @@ func NewShowCommand(newAPIClient func(c *ShowCommand) (ShowAPI, error)) *ShowCom
 }
 
 var showDoc = `
-This command will report the resources defined by a charm.
-
-The resources are looked up in the service's charm metadata.
+This command will report the resources for a charm in the charm store.
 `
 
 // Info implements cmd.Command.
 func (c *ShowCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-resources",
-		Args:    "service-id",
-		Purpose: "display the charm-defined resources for a service",
+		Args:    "charm-id",
+		Purpose: "display the resources for a charm in the charm store",
 		Doc:     showDoc,
 	}
 }
@@ -70,9 +66,9 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements cmd.Command.
 func (c *ShowCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing service ID")
+		return errors.New("missing charm ID")
 	}
-	c.serviceID = args[0]
+	c.charmID = args[0]
 
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Trace(err)
@@ -81,36 +77,28 @@ func (c *ShowCommand) Init(args []string) error {
 	return nil
 }
 
-// TODO(ericsnow) Move this to a common place, like cmd/envcmd?
-const connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
-
-Error details:
-%v
-`
-
 // Run implements cmd.Command.
 func (c *ShowCommand) Run(ctx *cmd.Context) error {
+	// TODO(ericsnow) Adjust this to the charm store.
+
 	apiclient, err := c.newAPIClient(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		// TODO(ericsnow) Return a more user-friendly error?
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	services := []string{c.serviceID}
-	results, err := apiclient.ListSpecs(services)
+	charms := []string{c.charmID}
+	infos, err := apiclient.ListResources(charms)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	var specs []resource.Spec
-	if len(results) == 1 {
-		// TODO(ericsnow) Handle results[0].Error?
-		specs = results[0].Specs
+	if len(infos) != 1 {
+		return errors.New("got bad data from charm store")
 	}
 
 	// Note that we do not worry about c.CompatVersion for show-resources...
-	formatter := newSpecListFormatter(specs)
+	formatter := newInfoListFormatter(infos[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }
