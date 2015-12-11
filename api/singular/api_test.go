@@ -40,7 +40,7 @@ func (s *APISuite) TestBadControllerTag(c *gc.C) {
 func (s *APISuite) TestBadEnvironTag(c *gc.C) {
 	api, err := singular.NewAPI(mockAPICaller{}, machine123)
 	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no tags for yuo")
+	c.Check(err, gc.ErrorMatches, "no tags for you")
 }
 
 func (s *APISuite) TestNoCalls(c *gc.C) {
@@ -182,5 +182,5 @@ type mockAPICaller struct {
 }
 
 func (mockAPICaller) EnvironTag() (names.EnvironTag, error) {
-	return names.EnvironTag{}, errors.New("no tags for yuo")
+	return names.EnvironTag{}, errors.New("no tags for you")
 }
