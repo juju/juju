@@ -30,13 +30,14 @@ type RegisterMeteredCharm struct {
 	Plan        string
 	RegisterURL string
 	QueryURL    string
+	credentials []byte
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
-func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
@@ -62,12 +63,18 @@ func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, de
 		}
 	}
 
-	credentials, err := r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	r.credentials, err = r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
 		logger.Infof("failed to obtain plan authorization: %v", err)
 		return err
 	}
+	return nil
+}
 
+func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+	if r.credentials == nil {
+		return nil
+	}
 	api, cerr := getMetricCredentialsAPI(state)
 	if cerr != nil {
 		logger.Infof("failed to get the metrics credentials setter: %v", cerr)
@@ -75,7 +82,7 @@ func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, de
 	}
 	defer api.Close()
 
-	err = api.SetMetricCredentials(deployInfo.ServiceName, credentials)
+	err := api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
 		// the user, but don't return an error.

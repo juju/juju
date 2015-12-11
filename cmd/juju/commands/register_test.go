@@ -46,7 +46,9 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -78,7 +80,9 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -113,7 +117,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -132,11 +136,15 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/unmetered-1"}},
 	}})
+	s.stub.ResetCalls()
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{})
 }
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
@@ -147,7 +155,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
