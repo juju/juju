@@ -106,12 +106,14 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.ShowAPI, error) {
-		apiCaller, err := command.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return r.newAPIClient(apiCaller)
+	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmStore, error) {
+		//apiCaller, err := command.NewAPIRoot()
+		//if err != nil {
+		//	return nil, errors.Trace(err)
+		//}
+		//return r.newAPIClient(apiCaller)
+		// TODO(ericsnow) finish!
+		return nil, errors.Errorf("not implemented")
 	}
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
