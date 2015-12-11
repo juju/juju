@@ -47,6 +47,7 @@ class TestQuickstartTest(FakeHomeTestCase):
 
     def test_run_exception(self):
         tear_down = MagicMock()
+
         def fake_iter_steps():
             try:
                 yield {'bootstrap_host': 'foo'}
