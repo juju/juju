@@ -39,6 +39,11 @@ def test_debug_log(client):
 
 def test_unit_rotation(client):
     """Tests unit log rotation."""
+    # TODO: as part of testing that when a unit sending lots of logs triggers
+    # unit log rotation, we should also test that all-machines.log and future
+    # logsink.log get rotated.
+    # It would also be possible to test that the logs database doesn't grow too
+    # large.
     test_rotation(client,
                   "/var/log/juju/unit-fill-logs-0.log",
                   "unit-fill-logs-0",
