@@ -6,6 +6,8 @@ package service_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path/filepath"
 	"sync"
 
 	"github.com/juju/errors"
@@ -375,24 +377,67 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
-func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
-	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+func AddCustomCharm(c *gc.C, st *state.State, name, filename, content, series string, revision int) *state.Charm {
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
+	if filename != "" {
+		config := filepath.Join(path, filename)
+		err := ioutil.WriteFile(config, []byte(content), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	ch, err := charm.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
+	if revision != -1 {
+		ch.SetRevision(revision)
+	}
+	return addCharm(c, st, series, ch)
+}
+
+func addCharm(c *gc.C, st *state.State, series string, ch charm.Charm) *state.Charm {
+	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
+	curl := charm.MustParseURL("local:" + series + "/" + ident)
+	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
+	c.Assert(err, jc.ErrorIsNil)
+	return sch
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+	const metaBase = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+`
+
+	ch := AddCustomCharm(c, s.State, "mysql", "actions.yaml", metaBase, "quantal", 42)
+
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName:      "service",
-		CharmUrl:         curl.String(),
+		CharmUrl:         ch.URL().String(),
 		NumUnits:         1,
 		Constraints:      cons,
-		EndpointBindings: map[string]string{"foo": "bar"},
+		EndpointBindings: map[string]string{"server": "a-space"},
 	}
+
+	s.State.AddSpace("a-space", "", nil, true)
 	results, err := s.serviceApi.ServicesDeployWithBindings(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	//TODO(dooferlad) - once the API endpoint does something, check it here
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service(args.ServiceName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	retrievedBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retrievedBindings, jc.DeepEquals, args.EndpointBindings)
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
