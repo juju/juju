@@ -35,11 +35,12 @@ func (lf *infoListFormatter) format() []FormattedInfo {
 // FormatInfo converts the resource info into a FormattedInfo.
 func FormatInfo(info resource.Info) FormattedInfo {
 	return FormattedInfo{
-		Name:     info.Name,
-		Type:     info.Type.String(),
-		Path:     info.Path,
-		Comment:  info.Comment,
-		Origin:   info.Origin.String(),
-		Revision: info.Revision,
+		Name:        info.Name,
+		Type:        info.Type.String(),
+		Path:        info.Path,
+		Comment:     info.Comment,
+		Revision:    info.Revision,
+		Origin:      info.Origin.String(),
+		Fingerprint: info.Fingerprint,
 	}
 }

@@ -97,8 +97,8 @@ RESOURCE FROM REV COMMENT
 
 func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 	infos := []resource.Info{
-		cmd.NewInfo(c, "website", ".tgz", ".tgz of your website"),
-		cmd.NewInfo(c, "music", ".mp3", "mp3 of your backing vocals"),
+		cmd.NewInfo(c, "website", ".tgz", ".tgz of your website", "deadbeef"),
+		cmd.NewInfo(c, "music", ".mp3", "mp3 of your backing vocals", "chdec737riyg2kqja3yh"),
 	}
 	s.client.ReturnListResources = [][]resource.Info{infos}
 
@@ -114,11 +114,13 @@ music    upload -   mp3 of your backing vocals
   type: file
   path: website.tgz
   comment: .tgz of your website
+  fingerprint: deadbeef
   origin: upload
 - name: music
   type: file
   path: music.mp3
   comment: mp3 of your backing vocals
+  fingerprint: chdec737riyg2kqja3yh
   origin: upload
 `[1:],
 		"json": strings.Replace(""+
@@ -128,12 +130,14 @@ music    upload -   mp3 of your backing vocals
 			`    "type":"file",`+
 			`    "path":"website.tgz",`+
 			`    "comment":".tgz of your website",`+
+			`    "fingerprint":"deadbeef",`+
 			`    "origin":"upload"`+
 			"  },{"+
 			`    "name":"music",`+
 			`    "type":"file",`+
 			`    "path":"music.mp3",`+
 			`    "comment":"mp3 of your backing vocals",`+
+			`    "fingerprint":"chdec737riyg2kqja3yh",`+
 			`    "origin":"upload"`+
 			"  }"+
 			"]\n",

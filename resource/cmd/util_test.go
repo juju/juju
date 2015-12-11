@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"crypto/sha512"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +14,13 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-func NewInfo(c *gc.C, name, suffix, comment string) resource.Info {
+func NewInfo(c *gc.C, name, suffix, comment, fingerprint string) resource.Info {
+	if fingerprint == "" {
+		hash := sha512.New384()
+		_, err := hash.Write([]byte(name))
+		c.Assert(err, jc.ErrorIsNil)
+		fingerprint = string(hash.Sum(nil))
+	}
 	info := resource.Info{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -23,7 +30,7 @@ func NewInfo(c *gc.C, name, suffix, comment string) resource.Info {
 				Comment: comment,
 			},
 			Revision:    0,
-			Fingerprint: "chdec737riyg2kqja3yh",
+			Fingerprint: fingerprint,
 		},
 		Origin: resource.OriginKindUpload,
 	}
@@ -42,7 +49,7 @@ func NewInfos(c *gc.C, names ...string) []resource.Info {
 			comment = parts[1]
 		}
 
-		info := NewInfo(c, name, ".tgz", comment)
+		info := NewInfo(c, name, ".tgz", comment, "")
 		infos = append(infos, info)
 	}
 	return infos

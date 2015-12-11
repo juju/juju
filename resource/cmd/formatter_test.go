@@ -18,15 +18,17 @@ type FormatterSuite struct {
 }
 
 func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
-	info := cmd.NewInfo(c, "spam", ".tgz", "X")
+	fingerprint := "chdec737riyg2kqja3yh"
+	info := cmd.NewInfo(c, "spam", ".tgz", "X", fingerprint)
 	formatted := cmd.FormatInfo(info)
 
 	c.Check(formatted, jc.DeepEquals, cmd.FormattedInfo{
-		Name:     "spam",
-		Type:     "file",
-		Path:     "spam.tgz",
-		Comment:  "X",
-		Origin:   "upload",
-		Revision: 0,
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Comment:     "X",
+		Revision:    0,
+		Fingerprint: "chdec737riyg2kqja3yh",
+		Origin:      "upload",
 	})
 }

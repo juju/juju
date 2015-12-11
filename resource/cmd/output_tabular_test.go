@@ -19,7 +19,7 @@ type OutputTabularSuite struct {
 }
 
 func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
-	info := cmd.NewInfo(c, "spam", ".tgz", "...")
+	info := cmd.NewInfo(c, "spam", ".tgz", "...", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -32,7 +32,7 @@ spam     upload -   ...
 }
 
 func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
-	info := cmd.NewInfo(c, "spam", "", "")
+	info := cmd.NewInfo(c, "spam", "", "", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -46,11 +46,11 @@ spam     upload -
 
 func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	formatted := formatInfos(
-		cmd.NewInfo(c, "spam", ".tgz", "spamspamspamspam"),
-		cmd.NewInfo(c, "eggs", "", "..."),
-		cmd.NewInfo(c, "somethingbig", ".zip", ""),
-		cmd.NewInfo(c, "song", ".mp3", "your favorite"),
-		cmd.NewInfo(c, "avatar", ".png", "your picture"),
+		cmd.NewInfo(c, "spam", ".tgz", "spamspamspamspam", ""),
+		cmd.NewInfo(c, "eggs", "", "...", ""),
+		cmd.NewInfo(c, "somethingbig", ".zip", "", ""),
+		cmd.NewInfo(c, "song", ".mp3", "your favorite", ""),
+		cmd.NewInfo(c, "avatar", ".png", "your picture", ""),
 	)
 
 	data, err := cmd.FormatTabular(formatted)
