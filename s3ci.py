@@ -1,6 +1,9 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 from argparse import ArgumentParser
 from ConfigParser import ConfigParser
+import json
 import logging
 import os
 import re
@@ -39,17 +42,26 @@ def parse_args(args=None):
 
         Within the revision build, the most recent version will be selected.
         """)
-    for subparser in [parser_get_juju_bin, parser_get]:
+    parser_get_summary = subparsers.add_parser(
+        'get-summary', help='Summarize this test',
+        description="""
+        Print a summary of what is being tested.
+        """
+        )
+    for subparser in [parser_get_juju_bin, parser_get, parser_get_summary]:
         subparser.add_argument(
             'revision_build', type=int,
             help='The revision-build to use.')
     parser_get.add_argument('job', help='The job to get files from',)
     parser_get.add_argument(
         'file_pattern', help='The file pattern to use for selecting files',)
+    parser_get_summary.add_argument(
+        'env', help='The name of the environment used for this test.')
     for subparser in [parser_get_juju_bin, parser_get]:
         subparser.add_argument(
             'workspace', nargs='?', default='.',
             help='The directory to download into')
+    for subparser in [parser_get_juju_bin, parser_get, parser_get_summary]:
         subparser.add_argument(
             '--config', default=default_config,
             help=('s3cmd config file for credentials.  Default to '
@@ -141,24 +153,54 @@ def main():
         return get_juju_bin(args)
     elif args.command == 'get':
         return cmd_get(args)
+    elif args.command == 'get-summary':
+        return cmd_get_summary(args)
     else:
         raise Exception('{} not implemented.'.format(args.command))
 
 
-def get_juju_bin(args):
-    credentials = get_s3_credentials(args.config)
+def get_qa_data_bucket(config):
+    credentials = get_s3_credentials(config)
     conn = S3Connection(*credentials)
-    bucket = conn.get_bucket('juju-qa-data')
+    return conn.get_bucket('juju-qa-data')
+
+
+def get_juju_bin(args):
+    bucket = get_qa_data_bucket(args.config)
     print(fetch_juju_binary(bucket, args.revision_build, args.workspace))
 
 
 def cmd_get(args):
-    credentials = get_s3_credentials(args.config)
-    conn = S3Connection(*credentials)
-    bucket = conn.get_bucket('juju-qa-data')
+    bucket = get_qa_data_bucket(args.config)
     for path in fetch_files(bucket, args.revision_build, args.job,
                             args.file_pattern, args.workspace):
         print(path)
+
+
+def get_summary(bucket, revision_build, env):
+    """Return a textual summary of a test.
+
+    revision-build is the build number of the build-revision that is under
+    test.
+
+    env is the name of the environmnet being used to test.
+    """
+    template = (
+        'Testing {branch} {short_revision_id} on {env} for {revision_build}')
+    job_path = get_job_path(revision_build, 'build-revision')
+    buildvars_path = 'build-{}/buildvars.json'.format(revision_build)
+    full_path = '/'.join([job_path, buildvars_path])
+    key = bucket.get_key(full_path)
+    buildvars = json.loads(key.get_contents_as_string())
+    short_revision_id = buildvars['revision_id'][0:7]
+    return template.format(
+        short_revision_id=short_revision_id, env=env, **buildvars)
+
+
+def cmd_get_summary(args):
+    """Print a textual summary of a test."""
+    bucket = get_qa_data_bucket(args.config)
+    print(get_summary(bucket, args.revision_build, args.env))
 
 
 if __name__ == '__main__':
