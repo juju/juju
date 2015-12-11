@@ -22,7 +22,7 @@ type Resource struct {
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time
 
-	// Fingerprint is the MD5 checksum for the resource blob.
+	// Fingerprint is the SHA-384 checksum for the resource blob.
 	Fingerprint string
 }
 

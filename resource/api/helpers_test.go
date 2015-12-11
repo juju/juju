@@ -13,59 +13,60 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
-var _ = gc.Suite(&helpersSuite{})
-
 type helpersSuite struct {
 	testing.IsolationSuite
 }
 
-func (helpersSuite) TestResourceSpec2API(c *gc.C) {
-	spec := resource.Spec{
-		Definition: charmresource.Info{
+var _ = gc.Suite(&helpersSuite{})
+
+func (helpersSuite) TestResourceInfo2API(c *gc.C) {
+	info := resource.Info{
+		Info: charmresource.Info{
 			Name:    "spam",
 			Type:    charmresource.TypeFile,
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
 		Origin:   resource.OriginKindUpload,
-		Revision: resource.NoRevision,
+		Revision: 1,
 	}
-	err := spec.Validate()
+	err := info.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiSpec := api.ResourceSpec2API(spec)
+	apiInfo := api.ResourceInfo2API(info)
 
-	c.Check(apiSpec, jc.DeepEquals, api.ResourceSpec{
+	c.Check(apiInfo, jc.DeepEquals, api.ResourceInfo{
 		Name:     "spam",
 		Type:     "file",
 		Path:     "spam.tgz",
 		Comment:  "you need it",
 		Origin:   "upload",
-		Revision: "",
+		Revision: 1,
 	})
 }
 
-func (helpersSuite) TestAPI2ResourceSpec(c *gc.C) {
-	spec, err := api.API2ResourceSpec(api.ResourceSpec{
+func (helpersSuite) TestAPI2ResourceInfo(c *gc.C) {
+	info, err := api.API2ResourceInfo(api.ResourceInfo{
 		Name:     "spam",
 		Type:     "file",
 		Path:     "spam.tgz",
 		Comment:  "you need it",
 		Origin:   "upload",
-		Revision: "",
+		Revision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := resource.Spec{
-		Definition: charmresource.Info{
+	expected := resource.Info{
+		Info: charmresource.Info{
 			Name:    "spam",
 			Type:    charmresource.TypeFile,
 			Path:    "spam.tgz",
 			Comment: "you need it",
 		},
 		Origin:   resource.OriginKindUpload,
-		Revision: resource.NoRevision,
+		Revision: 1,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec, jc.DeepEquals, expected)
+
+	c.Check(info, jc.DeepEquals, expected)
 }

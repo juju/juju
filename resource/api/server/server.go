@@ -14,17 +14,17 @@ const Version = 1
 
 // DataStore is the functionality of Juju's state needed for the resources API.
 type DataStore interface {
-	specLister
+	// Add the sub-dependencies here.
 }
 
 // Facade is the public API facade for resources.
 type Facade struct {
-	*specFacade
+	// Add sub-facades here.
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
 func NewFacade(data DataStore) *Facade {
 	return &Facade{
-		specFacade: &specFacade{data},
+	// Add sub-facades here.
 	}
 }
