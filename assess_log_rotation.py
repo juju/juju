@@ -29,6 +29,14 @@ class LogRotateError(Exception):
         super(LogRotateError, self).__init__(message)
 
 
+def test_debug_log(client):
+    """After doing log rotation, we should be able to see debug-log output."""
+    out = client.get_juju_output("debug-log", "--lines=1000", "--limit=1000", timeout=60)
+    content = out.splitlines()
+    if len(content) != 1000:
+        raise LogRotateError("We expected 1000 lines of output, got {}".format(len(content)))
+
+
 def test_unit_rotation(client):
     """Tests unit log rotation."""
     test_rotation(client,
@@ -37,6 +45,8 @@ def test_unit_rotation(client):
                   "fill-unit",
                   "unit-size",
                   "megs=300")
+    # After all of the unit spew, we should be able to read some content
+    test_debug_log(client)
 
 
 def test_machine_rotation(client):
