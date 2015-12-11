@@ -1089,6 +1089,12 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+// TODO(mfoord): This should be configurable.
+func (env *environ) SupportSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
 // Spaces is specified on environs.Networking.
 // TODO(mfoord): This should support the broken setting
 // for injecting errors and allow returning a pre-canned
