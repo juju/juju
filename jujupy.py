@@ -43,19 +43,24 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND_2x = 'controller'
+DEFAULT_JES_COMMAND_2x = 'kill-controller'
 DEFAULT_JES_COMMAND_1x = 'destroy-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
-_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
-    'create': 'create-environment',
-    'kill': DEFAULT_JES_COMMAND_1x,
+_jes_cmds = {
+    DEFAULT_JES_COMMAND_1x: {
+        'create': 'create-environment',
+        'kill': DEFAULT_JES_COMMAND_1x,
+        },
+    DEFAULT_JES_COMMAND_2x: {
+        'create': 'create-environment',
+        'kill': DEFAULT_JES_COMMAND_2x,
+        },
+    OPTIONAL_JES_COMMAND: {
+        'create': '{} create-environment'.format(OPTIONAL_JES_COMMAND),
+        'kill': '{} kill'.format(OPTIONAL_JES_COMMAND),
     }}
-for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
-    _jes_cmds[super_cmd] = {
-        'create': '{} create-environment'.format(super_cmd),
-        'kill': '{} kill'.format(super_cmd),
-        }
+
 
 log = logging.getLogger("jujupy")
 
@@ -151,7 +156,7 @@ class EnvJujuClient:
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
-        Juju 2.x has 'controller kill'.
+        Juju 2.x has 'kill-controller'.
         Juju 1.26 has 'destroy-controller'.
         Juju 1.25 has 'system kill' when the jes feature flag is set.
 
@@ -857,7 +862,7 @@ def maybe_jes(client, jes_enabled, try_jes):
 def tear_down(client, jes_enabled, try_jes=False):
     """Tear down a JES or non-JES environment.
 
-    JES environments are torn down via 'controller kill' or 'system kill',
+    JES environments are torn down via 'kill-controller' or 'system kill',
     and non-JES environments are torn down via 'destroy-environment --force.'
     """
     with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:

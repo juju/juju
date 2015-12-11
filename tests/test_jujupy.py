@@ -684,7 +684,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_create_environment_controller(self):
         self.do_create_environment(
-            'controller', 'controller create-environment', ('-c', 'foo'))
+            'kill-controller', 'create-environment', ('-c', 'foo'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
@@ -748,7 +748,7 @@ class TestEnvJujuClient(ClientTest):
         self.do_kill_controller('system', 'system kill')
 
     def test_kill_controller_controller(self):
-        self.do_kill_controller('controller', 'controller kill')
+        self.do_kill_controller('kill-controller', 'kill-controller')
 
     def test_kill_controller_hyphenated(self):
         self.do_kill_controller('destroy-controller', 'destroy-controller')
