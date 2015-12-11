@@ -49,14 +49,19 @@ def go_test(args, gopath):
     goenv["GOPATH"] = gopath
     go = SubcommandRunner("go", goenv)
     git = SubcommandRunner("git")
-    project_ellipsis = args.project + "/..."
-    directory = os.path.join(gopath, "src", args.project)
+
+    project_dir = from_feature_dir(args.project)
+    project_ellipsis = project_dir + "/..."
+    directory = os.path.join(gopath, "src", project_dir)
+
     if args.tsv_path:
         print_now("Getting and installing godeps")
         go("get", "-v", "-d", "launchpad.net/godeps/...")
         go("install", "launchpad.net/godeps/...")
     if args.project_url:
-        print_now("Cloning {} from {}".format(args.project, args.project_url))
+        reldir = os.path.relpath(directory, gopath)
+        print_now("Cloning {} from {} to {}".format(args.project,
+                                                    args.project_url, reldir))
         git("clone", args.project_url, directory)
     if args.go_get_all and not (args.project_url and args.merge_url):
         print_now("Getting {} and dependencies using go".format(args.project))
@@ -83,6 +88,27 @@ def go_test(args, gopath):
         godeps("-u", tsv_path)
     go("build", project_ellipsis)
     go("test", project_ellipsis)
+
+
+def from_feature_dir(directory):
+    """
+    For feature branches on repos that are versioned with gopkg.in,  we need to
+    do some special handling, since the test code expects the branch name to be
+    appended to the reponame with a ".".  However, for a feature branch, the
+    branchname is different than the base gopkg.in branch.  To account for
+    this, we use the convention of base_branch_name.featurename, and thus this
+    code can know that it needs to strip out the featurename when locating the
+    code on disk.
+
+    Thus, the feature branch off of gopkg.in/juju/charm.v6 would be a branch
+    named charm.v6.myfeature, which should end up in
+    $GOPATH/src/gokpg.in/juju/charm.v6
+    """
+    name = os.path.basename(directory)
+    parts = name.split(".")
+    if len(parts) == 3:
+        return directory[:-len(parts[2]) - 1]
+    return directory
 
 
 def parse_args(args=None):
