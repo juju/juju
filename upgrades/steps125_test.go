@@ -42,6 +42,13 @@ func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)
 }
 
+func (s *steps125Suite) TestStateStepsFor1252(c *gc.C) {
+	expected := []string{
+		"remove invalid tools metadata from state",
+	}
+	assertStateSteps(c, version.MustParse("1.25.2"), expected)
+}
+
 func (s *steps125Suite) TestStepsFor125(c *gc.C) {
 	expected := []string{
 		"remove Jujud.pass file on windows",

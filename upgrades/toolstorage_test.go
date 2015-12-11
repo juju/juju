@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -151,18 +153,42 @@ func (s *migrateToolsStorageSuite) installFakeToolsStorage() *fakeToolsStorage {
 	return fakeToolsStorage
 }
 
+type cleanToolsStorageSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&cleanToolsStorageSuite{})
+
+func (s *cleanToolsStorageSuite) TestCleanToolsStorage(c *gc.C) {
+	fakeToolsStorage := &fakeToolsStorage{}
+	s.PatchValue(upgrades.StateToolsStorage, func(*state.State) (toolstorage.StorageCloser, error) {
+		return fakeToolsStorage, nil
+	})
+	fakeToolsStorage.SetErrors(errors.New("woop"))
+	err := upgrades.CleanToolsStorage(nil)
+	c.Assert(err, gc.ErrorMatches, "woop")
+}
+
 type fakeToolsStorage struct {
+	gitjujutesting.Stub
 	toolstorage.Storage
 	stored map[version.Binary]toolstorage.Metadata
 }
 
 func (s *fakeToolsStorage) Close() error {
-	return nil
+	s.MethodCall(s, "Close")
+	return s.NextErr()
 }
 
 func (s *fakeToolsStorage) AddTools(r io.Reader, meta toolstorage.Metadata) error {
+	s.MethodCall(s, "AddTools", r, meta)
 	s.stored[meta.Version] = meta
-	return nil
+	return s.NextErr()
+}
+
+func (s *fakeToolsStorage) RemoveInvalid() error {
+	s.MethodCall(s, "RemoveInvalid")
+	return s.NextErr()
 }
 
 func (s *fakeToolsStorage) contains(v version.Binary) bool {

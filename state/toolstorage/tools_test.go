@@ -325,6 +325,59 @@ func (s *ToolsSuite) TestAddToolsExcessiveContention(c *gc.C) {
 	s.assertTools(c, metadata[3], "3")
 }
 
+func (s *ToolsSuite) TestAddToolsInvalidVersion(c *gc.C) {
+	number := version.MustParse("1.2.3")
+	versionWithoutSeries := version.Binary{Number: number, Arch: "amd64"}
+	versionWithoutArch := version.Binary{Number: number, Series: "trusty"}
+
+	err := s.storage.AddTools(strings.NewReader("xyzzzz"), toolstorage.Metadata{
+		Version: versionWithoutArch,
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`invalid tools version: invalid binary version "1.2.3-trusty-"`)
+
+	err = s.storage.AddTools(strings.NewReader("xyzzzz"), toolstorage.Metadata{
+		Version: versionWithoutSeries,
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`invalid tools version: invalid binary version "1.2.3--amd64"`)
+}
+
+func (s *ToolsSuite) TestRemoveInvalid(c *gc.C) {
+	number := version.MustParse("1.2.3")
+	versionWithoutSeries := version.Binary{Number: number, Arch: "amd64"}
+	versionWithoutArch := version.Binary{Number: number, Series: "trusty"}
+	goodVersion := version.Binary{
+		Number: number, Arch: "amd64", Series: "trusty", OS: version.Ubuntu,
+	}
+
+	s.addMetadataDoc(c, versionWithoutSeries, 4, "hash(abc)", "path1")
+	err := s.managedStorage.PutForEnvironment("my-uuid", "path1", strings.NewReader("blah"), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addMetadataDoc(c, versionWithoutArch, 4, "hash(abc)", "non-existent-path")
+
+	s.addMetadataDoc(c, goodVersion, 4, "hash(abc)", "path3")
+	err = s.managedStorage.PutForEnvironment("my-uuid", "path3", strings.NewReader("blah"), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.storage.AllMetadata()
+	c.Assert(err, gc.ErrorMatches, "invalid binary version.*")
+
+	err = s.storage.RemoveInvalid()
+	c.Assert(err, jc.ErrorIsNil)
+	metadata, err := s.storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(metadata[0].Version, gc.Equals, goodVersion)
+
+	// Only path3 should remain in managed storage.
+	err = s.managedStorage.RemoveForEnvironment("my-uuid", "path1")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = s.managedStorage.RemoveForEnvironment("my-uuid", "path3")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
 	doc := struct {
 		Id      string         `bson:"_id"`

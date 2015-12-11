@@ -140,10 +140,12 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	_, uploadedData := s.getToolsFromStorage(c, s.State, vers)
+	metadata, uploadedData := s.getToolsFromStorage(c, s.State, vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
+	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
+	c.Assert(allMetadata, jc.DeepEquals, []toolstorage.Metadata{metadata})
 }
 
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {
@@ -349,6 +351,15 @@ func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers version.
 	r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	return metadata, data
+}
+
+func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []toolstorage.Metadata {
+	storage, err := st.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	metadata, err := storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	return metadata
 }
 
 func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {

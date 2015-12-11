@@ -245,7 +245,10 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 
 	// We'll clone the tools for each additional series specified.
-	cloneSeries := strings.Split(query.Get("series"), ",")
+	var cloneSeries []string
+	if seriesParam := query.Get("series"); seriesParam != "" {
+		cloneSeries = strings.Split(seriesParam, ",")
+	}
 	logger.Debugf("request to upload tools: %s", toolsVersion)
 	logger.Debugf("additional series: %s", cloneSeries)
 

@@ -47,6 +47,11 @@ func NewStorage(
 }
 
 func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error) {
+	// Validate the metadata by marshalling and unmarshalling the version.
+	if err := validateVersion(metadata.Version); err != nil {
+		return errors.Annotate(err, "invalid tools version")
+	}
+
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
 	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
@@ -169,6 +174,54 @@ func (s *toolsStorage) AllMetadata() ([]Metadata, error) {
 	return list, nil
 }
 
+// RemoveInvalid will remove all tools with invalid metadata. This exists
+// because we had a bug that would allow tools with invalid metadata to
+// be entered, which would render "AllMetadata" unusable.
+func (s *toolsStorage) RemoveInvalid() error {
+	type doc struct {
+		Id      string   `bson:"_id"`
+		Version bson.Raw `bson:"version"`
+		Path    string   `bson:"path"`
+	}
+	var docs []doc
+	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		var v version.Binary
+		if err := v.SetBSON(doc.Version); err != nil {
+			logger.Debugf("invalid tools version: %q", doc.Version)
+			if err := s.removeTools(doc.Id, doc.Path); err != nil {
+				return errors.Annotate(err, "removing invalid tools")
+			}
+		}
+	}
+	return nil
+}
+
+// removeTools will remove the tools with the specified ID.
+func (s *toolsStorage) removeTools(id, path string) error {
+	err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot remove tools tarball")
+	}
+	// Remove the metadata.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		op := txn.Op{
+			C:      s.metadataCollection.Name,
+			Id:     id,
+			Remove: true,
+		}
+		return []txn.Op{op}, nil
+	}
+	err = s.txnRunner.Run(buildTxn)
+	// Metadata already removed, we don't care.
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	return errors.Annotate(err, "cannot remove tools metadata")
+}
+
 type toolsMetadataDoc struct {
 	Id      string         `bson:"_id"`
 	Version version.Binary `bson:"version"`
@@ -196,4 +249,19 @@ func (s *toolsStorage) toolsTarball(path string) (io.ReadCloser, error) {
 // toolsPath returns the storage path for the specified tools.
 func toolsPath(v version.Binary, hash string) string {
 	return fmt.Sprintf("tools/%s-%s", v, hash)
+}
+
+func validateVersion(v version.Binary) error {
+	doc := struct{ Version version.Binary }{v}
+	data, err := bson.Marshal(doc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := bson.Unmarshal(data, &doc); err != nil {
+		return errors.Trace(err)
+	}
+	if v != doc.Version {
+		return errors.Errorf("version %q != %q", v, doc.Version)
+	}
+	return nil
 }
