@@ -152,6 +152,9 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 	defer func() {
+		if outputErr, ok := err.(*outputErr); ok {
+			ctx.Infof(outputErr.output)
+		}
 		if err == errUpToDate {
 			ctx.Infof(err.Error())
 			err = nil
@@ -179,32 +182,16 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return fmt.Errorf("cannot upgrade a %s environment with a %s client", agentVersion, version.Current.Number)
 	}
 
-	if c.Version.Major > agentVersion.Major {
-		// We can only upgrade a major version if we're currently on 1.25.2 or later
-		// and we're going to 2.0.x, and the version was explicitly requested.
-		if agentVersion.Major != 1 {
-			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-		}
-		retErr := false
-		if c.Version.Major > 2 || c.Version.Minor > 0 {
-			ctx.Infof("Upgrades to %s must first go through juju 2.0.", c.Version)
-			retErr = true
-		}
-		if agentVersion.Minor < 25 || (agentVersion.Minor == 25 && agentVersion.Patch < 2) {
-			ctx.Infof("Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.")
-			retErr = true
-		}
-		if retErr {
-			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-		}
-	} else if c.Version != version.Zero && c.Version.Major < agentVersion.Major {
-		return fmt.Errorf("cannot upgrade to version incompatible with CLI")
+	if err := validateUpgradeTarget(c.Version, agentVersion, ctx.Infof); err != nil {
+		return err
 	}
 
 	context, err := c.initVersions(client, cfg, agentVersion)
 	if err != nil {
 		return err
 	}
+	context.infof = ctx.Infof
+
 	if c.UploadTools && !c.DryRun {
 		if err := context.uploadTools(); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
@@ -306,7 +293,6 @@ func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
-		config:    cfg,
 	}, nil
 }
 
@@ -316,8 +302,8 @@ type upgradeContext struct {
 	client    version.Number
 	chosen    version.Number
 	tools     coretools.List
-	config    *config.Config
 	apiClient upgradeJujuAPI
+	infof     func(string, ...interface{})
 }
 
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
@@ -421,35 +407,8 @@ func (context *upgradeContext) validate() (err error) {
 		return errUpToDate
 	}
 
-	// If the client is on a version before 1.20, they must upgrade
-	// through 1.20.14.
-	if context.agent.Major == 1 && context.agent.Minor < 20 &&
-		(context.chosen.Major > 1 ||
-			(context.chosen.Major == 1 && context.chosen.Minor > 20)) {
-		return errors.New("unsupported upgrade\n\n" +
-			"Environment must first be upgraded to 1.20.14.\n" +
-			"    juju upgrade-juju --version=1.20.14")
-	}
-
-	// Skip 1.21 and 1.23 if the agents are not already on them.
-	if context.agent.Major == 1 && context.chosen.Major == 1 &&
-		context.agent.Minor != context.chosen.Minor &&
-		(context.chosen.Minor == 21 || context.chosen.Minor == 23) {
-		return errors.Errorf("unsupported upgrade\n\n"+
-			"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
-			context.chosen.String())
-	}
-
-	// Disallow major.minor version downgrades.
-	if context.chosen.Major < context.agent.Major ||
-		context.chosen.Major == context.agent.Major && context.chosen.Minor < context.agent.Minor {
-		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
-		// *connecting* to environments with higher agent-versions; but ofc they
-		// have to connect in order to discover they shouldn't. However, once
-		// any of our tools detect an incompatible version, they should act to
-		// minimize damage: the CLI should abort politely, and the agents should
-		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change version from %s to %s", context.agent, context.chosen)
+	if err := validateUpgradeTarget(context.chosen, context.agent, context.infof); err != nil {
+		return err
 	}
 
 	return nil
@@ -468,4 +427,97 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 		}
 	}
 	return vers
+}
+
+type outputErr struct {
+	output string
+	err    error
+}
+
+func (err outputErr) Error() string {
+	return err.err.Error() + "\n\n" + err.output
+}
+
+func validateUpgradeTarget(target, agentVersion version.Number, printf func(string, ...interface{})) error {
+	if target == version.Zero {
+		return nil
+	}
+
+	// Disallow major.minor version downgrades.
+	if target.Major < agentVersion.Major || (target.Major == agentVersion.Major && target.Minor < agentVersion.Minor) {
+		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
+		// *connecting* to environments with higher agent-versions; but ofc they
+		// have to connect in order to discover they shouldn't. However, once
+		// any of our tools detect an incompatible version, they should act to
+		// minimize damage: the CLI should abort politely, and the agents should
+		// run an Upgrader but no other tasks.
+		return errors.NewNotValid(nil, fmt.Sprintf("cannot change version from %s to %s", agentVersion, target))
+	}
+
+	// Check based on the agent version.
+	switch agentVersion.Major {
+	case 1:
+		var output []string
+
+		if target.Major > 2 || (target.Major == 2 && target.Minor > 0) {
+			output = append(output, ""+
+				"Environment must first be upgraded to the latest 2.0 release.\n"+
+				"    juju upgrade-juju --version=2.0.0")
+		}
+
+		// We can only upgrade a major version if we're currently on 1.25.2 or later
+		// and we're going to 2.0.x.
+		if target.Major > 1 {
+			if agentVersion.Minor < 25 || agentVersion.Patch < 2 {
+				output = append(output, ""+
+					"Environment must first be upgraded to the latest 1.25 release.\n"+
+					"    juju upgrade-juju --version=1.25.2")
+			}
+		}
+
+		// If the agent is on a version before 1.20, they must upgrade
+		// through 1.20.14.
+		if target.Major > 1 || target.Minor > 20 {
+			if agentVersion.Minor < 20 {
+				output = append(output, ""+
+					"Environment must first be upgraded to 1.20.14.\n"+
+					"    juju upgrade-juju --version=1.20.14")
+			}
+		}
+
+		if len(output) > 0 {
+			return &outputErr{
+				output: strings.Join(output, "\n"),
+				err:    errors.NewNotValid(nil, "unsupported upgrade"),
+			}
+		}
+	case 2:
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not a recognized agent", agentVersion.Major))
+	}
+
+	// Check based on the target version.
+	switch target.Major {
+	case 1:
+		// Skip 1.21 and 1.23 if the agents are not already on them.
+		if target.Minor == 21 || target.Minor == 23 {
+			if agentVersion.Major == 1 && agentVersion.Minor != target.Minor {
+				return errors.NewNotValid(nil, fmt.Sprintf(""+
+					"unsupported upgrade\n"+
+					"\n"+
+					"Upgrading to %s is not supported. Please upgrade to the latest 1.25 release.",
+					target))
+			}
+		}
+	case 2:
+		// We can only upgrade a major version if we're currently on 1.25.2 or later
+		// and we're going to 2.0.x, and the version was explicitly requested.
+		//if agentVersion.Major != 1 {
+		//	return errors.NewNotValid(nil, "cannot upgrade to version incompatible with CLI")
+		//}
+	default:
+		return errors.NewNotValid(nil, fmt.Sprintf("version %d.X.X not an acceptable target", target.Major))
+	}
+
+	return nil
 }

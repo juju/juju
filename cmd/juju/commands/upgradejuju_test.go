@@ -85,44 +85,44 @@ var upgradeJujuTests = []struct {
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "just major version, no minor specified",
-	currentVersion: "4.2.0-quantal-amd64",
-	args:           []string{"--version", "4"},
-	expectInitErr:  `invalid version "4"`,
+	currentVersion: "2.2.0-quantal-amd64",
+	args:           []string{"--version", "2"},
+	expectInitErr:  `invalid version "2"`,
 }, {
 	about:          "major version upgrade to incompatible version",
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--version", "5.2.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	expectErr:      "version 5.X.X not an acceptable target",
 }, {
 	about:          "major version downgrade to incompatible version",
-	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
-	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "1.25.2"},
+	expectErr:      "cannot change version from 2.0.0 to 1.25.2",
 }, {
 	about:          "invalid --series",
-	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
+	currentVersion: "2.2.0-quantal-amd64",
+	agentVersion:   "2.2.0",
 	args:           []string{"--series", "precise&quantal"},
 	expectInitErr:  `invalid value "precise&quantal" for flag --series: .*`,
 }, {
 	about:          "--series without --upload-tools",
-	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
+	currentVersion: "2.2.0-quantal-amd64",
+	agentVersion:   "2.2.0",
 	args:           []string{"--series", "precise,quantal"},
 	expectInitErr:  "--series requires --upload-tools",
 }, {
 	about:          "--upload-tools with inappropriate version 1",
-	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
-	args:           []string{"--upload-tools", "--version", "3.1.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--upload-tools", "--version", "1.25.2"},
+	expectErr:      "cannot change version from 2.0.0 to 1.25.2",
 }, {
 	about:          "--upload-tools with inappropriate version 2",
-	currentVersion: "3.2.7-quantal-amd64",
-	agentVersion:   "3.2.7",
-	args:           []string{"--upload-tools", "--version", "3.2.8.4"},
+	currentVersion: "2.2.7-quantal-amd64",
+	agentVersion:   "2.2.7",
+	args:           []string{"--upload-tools", "--version", "2.2.8.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
 	about:          "latest supported stable release",
@@ -138,21 +138,21 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.0.5",
 }, {
 	about:          "latest current release matching CLI, major version",
-	tools:          []string{"3.2.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "2.8.2",
-	expectVersion:  "3.2.0",
+	tools:          []string{"2.2.0-quantal-amd64"},
+	currentVersion: "2.2.0-quantal-amd64",
+	agentVersion:   "2.1.2",
+	expectVersion:  "2.2.0",
 }, {
 	about:          "latest current release matching CLI, major version, no matching major tools",
-	tools:          []string{"2.8.2-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "2.8.2",
+	tools:          []string{"1.25.2-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "1.25.2",
 	expectErr:      "no matching tools available",
 }, {
 	about:          "latest current release matching CLI, major version, no matching tools",
-	tools:          []string{"3.3.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "2.8.2",
+	tools:          []string{"2.3.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "1.25.2",
 	expectErr:      "no compatible tools available",
 }, {
 	about:          "no next supported available",
@@ -202,58 +202,58 @@ var upgradeJujuTests = []struct {
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version missing, but already set",
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.0.0"},
-	expectVersion:  "3.0.0",
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.0.0"},
+	expectVersion:  "2.0.0",
 }, {
 	about:          "specified version, no tools",
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.2.0"},
 	expectErr:      "no tools available",
 }, {
 	about:          "specified version, no matching major version",
 	tools:          []string{"4.2.0-quantal-amd64"},
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching minor version",
-	tools:          []string{"3.4.0-quantal-amd64"},
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	tools:          []string{"2.4.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching patch version",
-	tools:          []string{"3.2.5-quantal-amd64"},
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	tools:          []string{"2.2.5-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching build version",
-	tools:          []string{"3.2.0.2-quantal-amd64"},
-	currentVersion: "3.0.0-quantal-amd64",
-	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	tools:          []string{"2.2.0.2-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "2.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "major version downgrade to incompatible version",
-	tools:          []string{"3.2.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
-	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot upgrade a 4.2.0 environment with a 3.2.0 client",
+	tools:          []string{"1.25.2-quantal-amd64"},
+	currentVersion: "1.25.2-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "1.25.2"},
+	expectErr:      "cannot upgrade a 2.0.0 environment with a 1.25.2 client",
 }, {
 	about:          "minor version downgrade to incompatible version",
-	tools:          []string{"3.2.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "3.3-dev0",
-	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
+	tools:          []string{"2.2.0-quantal-amd64"},
+	currentVersion: "2.2.0-quantal-amd64",
+	agentVersion:   "2.3-dev0",
+	args:           []string{"--version", "2.2.0"},
+	expectErr:      "cannot change version from 2.3-dev0 to 2.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -358,6 +358,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		version.Current = oldVersion
 	}()
 
+	success := 0
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
@@ -368,9 +369,13 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		com := &UpgradeJujuCommand{}
 		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {
-				c.Check(err, gc.ErrorMatches, test.expectInitErr)
+				if c.Check(err, gc.ErrorMatches, test.expectInitErr) {
+					success += 1
+				}
 			} else {
-				c.Check(err, jc.ErrorIsNil)
+				if c.Check(err, jc.ErrorIsNil) {
+					success += 1
+				}
 			}
 			continue
 		}
@@ -395,7 +400,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			if c.Check(err, gc.ErrorMatches, test.expectErr) {
+				success += 1
+			}
 			continue
 		} else if !c.Check(err, jc.ErrorIsNil) {
 			continue
@@ -414,7 +421,10 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
+
+		success += 1
 	}
+	c.Logf(" -- %d/%d passed", success, len(upgradeJujuTests))
 }
 
 func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
@@ -745,10 +755,12 @@ func (s *UpgradeJujuSuite) TestMinimumVersionForMajorUpgrade(c *gc.C) {
 
 		ctx := coretesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
+		c.Check(err, gc.ErrorMatches, `unsupported upgrade.*`)
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.\n")
+		c.Check(output, gc.Equals, ""+
+			"Environment must first be upgraded to the latest 1.25 release.\n"+
+			"    juju upgrade-juju --version=1.25.2\n")
 	}
 }
 
@@ -767,10 +779,12 @@ func (s *UpgradeJujuSuite) TestMajorVersionRestriction(c *gc.C) {
 
 		ctx := coretesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
+		c.Check(err, gc.ErrorMatches, `unsupported upgrade.*`)
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "Upgrades to "+vers+" must first go through juju 2.0.\n")
+		c.Check(output, gc.Equals, ""+
+			"Environment must first be upgraded to the latest 2.0 release.\n"+
+			"    juju upgrade-juju --version=2.0.0\n")
 	}
 }
 
@@ -787,11 +801,14 @@ func (s *UpgradeJujuSuite) TestMinFromAndMaxToMajorVersion(c *gc.C) {
 
 	ctx := coretesting.Context(c)
 	err = com.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
+	c.Check(err, gc.ErrorMatches, `unsupported upgrade.*`)
 
 	output := coretesting.Stderr(ctx)
-	c.Assert(output, gc.Equals, "Upgrades to 2.1.4 must first go through juju 2.0.\n"+
-		"Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.\n")
+	c.Check(output, gc.Equals, ""+
+		"Environment must first be upgraded to the latest 2.0 release.\n"+
+		"    juju upgrade-juju --version=2.0.0\n"+
+		"Environment must first be upgraded to the latest 1.25 release.\n"+
+		"    juju upgrade-juju --version=1.25.2\n")
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
