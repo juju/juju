@@ -181,11 +181,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cachedimages.NewSuperCommand())
 
 	// Manage machines
-	r.Register(machine.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", nil)
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
+	r.Register(machine.NewAddCommand())
+	r.Register(machine.NewRemoveCommand())
 
 	// Mangage environment
 	r.Register(environment.NewGetCommand())

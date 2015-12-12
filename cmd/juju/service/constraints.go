@@ -29,7 +29,7 @@ See Also:
    juju help constraints
    juju help service set-constraints
    juju help deploy
-   juju help machine add
+   juju help add-machine
    juju help add-unit
 `
 
@@ -52,7 +52,7 @@ See Also:
    juju help constraints
    juju help service get-constraints
    juju help deploy
-   juju help machine add
+   juju help add-machine
    juju help add-unit
 `
 

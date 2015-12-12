@@ -26,7 +26,7 @@ See Also:
    juju help constraints
    juju help environment set-constraints
    juju help deploy
-   juju help machine add
+   juju help add-machine
    juju help add-unit
 `
 
@@ -49,7 +49,7 @@ See Also:
    juju help constraints
    juju help environment get-constraints
    juju help deploy
-   juju help machine add
+   juju help add-machine
    juju help add-unit
 `
 

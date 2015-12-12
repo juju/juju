@@ -19,7 +19,7 @@ type AddCommand struct {
 }
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
 	cmd := &addCommand{
 		api:               api,
 		machineManagerAPI: mmApi,
@@ -32,7 +32,7 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommand(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
 	cmd := &removeCommand{
 		api: api,
 	}

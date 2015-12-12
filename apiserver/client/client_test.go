@@ -2421,7 +2421,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	// This will cause a machine add to fail due to an unsupported container.
+	// This will cause a add-machine to fail due to an unsupported container.
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -2449,7 +2449,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			Addrs: params.FromNetworkAddresses(addrs),
 		}
 	}
-	// This will cause the last machine add to fail.
+	// This will cause the last add-machine to fail.
 	apiParams[2].Nonce = ""
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
