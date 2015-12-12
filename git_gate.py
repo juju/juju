@@ -84,7 +84,7 @@ def go_test(args, gopath):
             print_now("Getting {} and dependencies using go".format(dep))
             go("get", "-v", "-d", dep)
     if args.tsv_path:
-        tsv_path = os.path.join(gopath, "src", args.tsv_path)
+        tsv_path = os.path.join(gopath, "src", final_project, args.tsv_path)
         print_now("Getting dependencies using godeps from {}".format(tsv_path))
         godeps = SubcommandRunner(os.path.join(gopath, "bin", "godeps"), goenv)
         godeps("-u", tsv_path)
@@ -144,7 +144,7 @@ def parse_args(args=None):
         help="Go import path of package needed to for build or testing.")
     dep_group.add_argument(
         "--tsv-path",
-        help="Path to dependencies.tsv file for project relative to src dir.")
+        help="Path to dependencies.tsv file relative to project dir.")
     args = parser.parse_args(args)
     if args.project_url is None and not args.go_get_all:
         parser.error("Must supply either --project-url or --go-get-all")
