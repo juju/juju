@@ -1,12 +1,12 @@
 import argparse
 import mock
 import subprocess
-import unittest
 
 import git_gate
+import tests
 
 
-class TestParseArgs(unittest.TestCase):
+class TestParseArgs(tests.TestCase):
 
     def test_project_and_url(self):
         args = git_gate.parse_args(
@@ -77,8 +77,25 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(args.go_get_all, False)
         self.assertEqual(args.tsv_path, "/a/file.tsv")
 
+    def test_error_on_project_url_missing(self):
+        with tests.parse_error(self) as stderr:
+            git_gate.parse_args(["--project", "git.testing/project"])
+        self.assertIn(
+            "Must supply either --project-url or --go-get-all",
+            stderr.getvalue())
 
-class TestSubcommandError(unittest.TestCase):
+    def test_error_go_get_feature_branch(self):
+        with tests.parse_error(self) as stderr:
+            git_gate.parse_args(
+                ["--project", "git.testing/project",
+                 "--project-url", "https://git.testing/project",
+                 "--go-get-all", "--feature-branch"])
+        self.assertIn(
+            "Cannot use --feature-branch and --go-get-all together",
+            stderr.getvalue())
+
+
+class TestSubcommandError(tests.TestCase):
 
     def test_subcommand_error(self):
         proc_error = subprocess.CalledProcessError(1, ["git"])
@@ -86,7 +103,7 @@ class TestSubcommandError(unittest.TestCase):
         self.assertEqual(str(err), "Subprocess git clone failed with code 1")
 
 
-class TestGoTest(unittest.TestCase):
+class TestGoTest(tests.TestCase):
     """
     Tests for go_test function.
 
@@ -99,6 +116,7 @@ class TestGoTest(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
+        super(TestGoTest, self).setUp()
         # Patch out and record actions run as part of go_test()
         self.actions = []
         self.patch_action("git_gate.print_now", lambda s: ("print", s))
@@ -127,8 +145,8 @@ class TestGoTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    args = frozenset("project project_url project_ref merge_url merge_ref"
-                     " go_get_all dependencies tsv_path".split())
+    args = frozenset("project project_url project_ref feature_branch merge_url"
+                     " merge_ref go_get_all dependencies tsv_path".split())
 
     @classmethod
     def make_args(cls, project, **kwargs):
@@ -176,7 +194,7 @@ class TestGoTest(unittest.TestCase):
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project to src/git.testing/project'),
+             ' https://git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
@@ -198,7 +216,7 @@ class TestGoTest(unittest.TestCase):
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project to src/git.testing/project'),
+             ' https://git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
@@ -220,7 +238,7 @@ class TestGoTest(unittest.TestCase):
             ('go', 'get', '-v', '-d', 'launchpad.net/godeps/...'),
             ('go', 'install', 'launchpad.net/godeps/...'),
             ('print', 'Cloning git.testing/project from'
-             ' https://git.testing/project to src/git.testing/project'),
+             ' https://git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
@@ -232,11 +250,45 @@ class TestGoTest(unittest.TestCase):
             ('go', 'test', 'git.testing/project/...')
         ])
 
+    def test_feature_branch(self):
+        args = self.make_args("vgo.testing/project.v2.feature",
+                              project_url="https://git.testing/project",
+                              project_ref="v2.feature",
+                              feature_branch=True, dependencies=[])
+        git_gate.go_test(args, "/tmp/fake")
+        self.assertEqual(self.actions, [
+            ('print', 'Cloning vgo.testing/project.v2 from'
+             ' https://git.testing/project'),
+            ('git', 'clone', 'https://git.testing/project',
+             '/tmp/fake/src/vgo.testing/project.v2'),
+            ('chdir', '/tmp/fake/src/vgo.testing/project.v2'),
+            ('print', 'Switching repository to v2.feature'),
+            ('git', 'checkout', 'v2.feature'),
+            ('go', 'build', 'vgo.testing/project.v2/...'),
+            ('go', 'test', 'vgo.testing/project.v2/...')
+        ])
 
-class TestFromFeatureDir(unittest.TestCase):
-    """
-    Tests for from_feature_dir function.
-    """
+    def test_no_magic_dots(self):
+        args = self.make_args("vgo.testing/project.dot.love",
+                              project_url="https://git.testing/project",
+                              project_ref="dot.love", dependencies=[])
+        git_gate.go_test(args, "/tmp/fake")
+        self.assertEqual(self.actions, [
+            ('print', 'Cloning vgo.testing/project.dot.love from'
+             ' https://git.testing/project'),
+            ('git', 'clone', 'https://git.testing/project',
+             '/tmp/fake/src/vgo.testing/project.dot.love'),
+            ('chdir', '/tmp/fake/src/vgo.testing/project.dot.love'),
+            ('print', 'Switching repository to dot.love'),
+            ('git', 'checkout', 'dot.love'),
+            ('go', 'build', 'vgo.testing/project.dot.love/...'),
+            ('go', 'test', 'vgo.testing/project.dot.love/...')
+        ])
+
+
+class TestFromFeatureDir(tests.TestCase):
+    """Tests for from_feature_dir function."""
+
     def test_boring(self):
         directory = git_gate.from_feature_dir("github.com/juju/juju")
         self.assertEqual(directory, "github.com/juju/juju")
