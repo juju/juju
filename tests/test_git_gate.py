@@ -231,7 +231,7 @@ class TestGoTest(tests.TestCase):
     def test_tsv_test(self):
         args = self.make_args("git.testing/project",
                               project_url="https://git.testing/project",
-                              tsv_path="git.testing/project/dependencies.tsv")
+                              tsv_path="dependencies.tsv")
         git_gate.go_test(args, "/tmp/fake")
         self.assertEqual(self.actions, [
             ('print', 'Getting and installing godeps'),
