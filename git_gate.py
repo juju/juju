@@ -50,9 +50,12 @@ def go_test(args, gopath):
     go = SubcommandRunner("go", goenv)
     git = SubcommandRunner("git")
 
-    project_dir = from_feature_dir(args.project)
-    project_ellipsis = project_dir + "/..."
-    directory = os.path.join(gopath, "src", project_dir)
+    final_project = args.project
+    if args.feature_branch:
+        final_project = from_feature_dir(args.project)
+
+    project_ellipsis = final_project + "/..."
+    directory = os.path.join(gopath, "src", final_project)
 
     if args.tsv_path:
         print_now("Getting and installing godeps")
@@ -60,8 +63,7 @@ def go_test(args, gopath):
         go("install", "launchpad.net/godeps/...")
     if args.project_url:
         reldir = os.path.relpath(directory, gopath)
-        print_now("Cloning {} from {} to {}".format(args.project,
-                                                    args.project_url, reldir))
+        print_now("Cloning {} from {}".format(final_project, args.project_url))
         git("clone", args.project_url, directory)
     if args.go_get_all and not (args.project_url and args.merge_url):
         print_now("Getting {} and dependencies using go".format(args.project))
@@ -124,6 +126,9 @@ def parse_args(args=None):
         "--project-url", help="URL to git repository of package.")
     project_group.add_argument(
         "--project-ref", help="Branch name or tag to use as basis.")
+    project_group.add_argument(
+        "--feature-branch", action="store_true",
+        help="Use special handling for pending feature branches.")
     merge_group = parser.add_argument_group()
     merge_group.add_argument(
         "--merge-url", help="URL to git repository to merge before testing.")
@@ -143,6 +148,8 @@ def parse_args(args=None):
     args = parser.parse_args(args)
     if args.project_url is None and not args.go_get_all:
         parser.error("Must supply either --project-url or --go-get-all")
+    if args.feature_branch and args.go_get_all:
+        parser.error("Cannot use --feature-branch and --go-get-all together")
     return args
 
 
