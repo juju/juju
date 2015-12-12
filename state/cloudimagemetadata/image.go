@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -36,6 +37,9 @@ var emptyMetadata = Metadata{}
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
 func (s *storage) SaveMetadata(metadata Metadata) error {
 	newDoc := s.mongoDoc(metadata)
+	if err := validateMetadata(&newDoc); err != nil {
+		return err
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
@@ -111,6 +115,9 @@ type imagesMetadataDoc struct {
 	// Version is OS version, for e.g. "12.04".
 	Version string `bson:"version"`
 
+	// Series is OS series, for e.g. "trusty".
+	Series string `bson:"series"`
+
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string `bson:"arch"`
 
@@ -142,6 +149,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Version:         m.Version,
+			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
@@ -162,6 +170,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Stream:          m.Stream,
 		Region:          m.Region,
 		Version:         m.Version,
+		Series:          m.Series,
 		Arch:            m.Arch,
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
@@ -180,11 +189,50 @@ func buildKey(m Metadata) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
 		m.Stream,
 		m.Region,
-		m.Version,
+		m.Series,
 		m.Arch,
 		m.VirtType,
 		m.RootStorageType,
 		m.Source)
+}
+
+func validateMetadata(m *imagesMetadataDoc) error {
+	// Either version or series must be supplied.
+	if m.Version == "" && m.Series == "" {
+		return errors.NotValidf("missing version and series: metadata for image %v", m.ImageId)
+	}
+
+	var v, s string
+	var err error
+
+	if m.Series != "" {
+		// based on the check above, by this stage, series is 100% provided
+		v, err = series.SeriesVersion(m.Series)
+		if err != nil {
+			return err
+		}
+		if m.Version == "" {
+			m.Version = v
+			// no need to keep validating - version and series match as one is deduced from the other
+			return nil
+		}
+	}
+	if m.Version != "" {
+		s, err = series.VersionSeries(m.Version)
+		if err != nil {
+			return err
+		}
+		if m.Series == "" {
+			m.Series = s
+			// no need to keep validating - version and series match as one is deduced from the other
+			return nil
+		}
+	}
+
+	if m.Version != v || m.Series != s {
+		return errors.NotValidf("version %v for series %v", m.Version, m.Series)
+	}
+	return nil
 }
 
 // FindMetadata implements Storage.FindMetadata.
@@ -221,8 +269,8 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"region", criteria.Region})
 	}
 
-	if len(criteria.Versions) != 0 {
-		all = append(all, bson.DocElem{"version", bson.D{{"$in", criteria.Versions}}})
+	if len(criteria.Series) != 0 {
+		all = append(all, bson.DocElem{"series", bson.D{{"$in", criteria.Series}}})
 	}
 
 	if len(criteria.Arches) != 0 {
@@ -250,8 +298,8 @@ type MetadataFilter struct {
 	// Region stores metadata region.
 	Region string `json:"region,omitempty"`
 
-	// Versions stores all desired versions.
-	Versions []string `json:"versions,omitempty"`
+	// Series stores all desired series.
+	Series []string `json:"series,omitempty"`
 
 	// Arches stores all desired architectures.
 	Arches []string `json:"arches,omitempty"`

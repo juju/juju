@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1565,7 +1564,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 		// so do not exit on error.
 		logger.Infof("could not get image metadata from state server: %v", err)
 	}
-	logger.Warningf("\n\n GOT FROM STATE %d METADATA \n\n", len(stateMetadata))
+	logger.Debugf("got from state server %d metadata", len(stateMetadata))
 	// No need to look in data sources if found in state.
 	if len(stateMetadata) != 0 {
 		return stateMetadata, nil
@@ -1581,7 +1580,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 			return nil, errors.Trace(err)
 		}
 	}
-	logger.Warningf("\n\n GOT FROM DATA SOURCES %d METADATA \n\n", len(dsMetadata))
+	logger.Warningf("got from data sources %d metadata", len(dsMetadata))
 
 	return dsMetadata, nil
 }
@@ -1614,21 +1613,11 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *conf
 // imageMetadataFromState returns image metadata stored in state
 // that matches given criteria.
 func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
-	// translate series to versions
-	versions := make([]string, len(constraint.Series))
-	for i, s := range constraint.Series {
-		v, err := series.SeriesVersion(s)
-		if err != nil {
-			return nil, errors.Annotatef(err, "could not translate series %v", s)
-		}
-		versions[i] = v
-	}
-
 	filter := cloudimagemetadata.MetadataFilter{
-		Versions: versions,
-		Arches:   constraint.Arches,
-		Region:   constraint.Region,
-		Stream:   constraint.Stream,
+		Series: constraint.Series,
+		Arches: constraint.Arches,
+		Region: constraint.Region,
+		Stream: constraint.Stream,
 	}
 	stored, err := p.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
@@ -1641,6 +1630,7 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Version:         m.Version,
+			Series:          m.Series,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
 			RootStorageType: m.RootStorageType,
@@ -1673,20 +1663,6 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return current
 	}
 
-	toParams := func(m *imagemetadata.ImageMetadata, mStream string, source string, priority int) params.CloudImageMetadata {
-		return params.CloudImageMetadata{
-			ImageId:         m.Id,
-			Region:          m.RegionName,
-			Arch:            m.Arch,
-			VirtType:        m.VirtType,
-			RootStorageType: m.Storage,
-			Version:         m.Version,
-			Source:          source,
-			Priority:        priority,
-			Stream:          mStream,
-		}
-	}
-
 	toModel := func(m *imagemetadata.ImageMetadata, mStream string, source string, priority int) cloudimagemetadata.Metadata {
 		return cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
@@ -1703,7 +1679,6 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		}
 	}
 
-	var all []params.CloudImageMetadata
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
 		// TODO (anastasiamac 2015-12-02) signedOnly for now defaulted to false... how do i get provider specific one?
@@ -1715,10 +1690,9 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
 		}
+
 		for _, m := range found {
 			mStream := getStream(m.Stream)
-
-			all = append(all, toParams(m, mStream, info.Source, source.Priority()))
 			// Attempt to store in state for next time :D
 			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, info.Source, source.Priority()))
 			if err != nil {
@@ -1726,6 +1700,13 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
 			}
 		}
+	}
+
+	// Since we've fallen through to data sources search and have saved all needed images into state server,
+	// let's try to get them from state server to avoid duplication of conversion logic here.
+	all, err := p.imageMetadataFromState(constraint)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not read metadata from state server after saving it there from data sources")
 	}
 
 	if len(all) == 0 {

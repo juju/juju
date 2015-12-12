@@ -63,7 +63,7 @@ func NewAPI(
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
-		Versions:        filter.Versions,
+		Series:          filter.Series,
 		Arches:          filter.Arches,
 		Stream:          filter.Stream,
 		VirtType:        filter.VirtType,
@@ -105,6 +105,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Stream:          p.Stream,
 		Region:          p.Region,
 		Version:         p.Version,
+		Series:          p.Series,
 		Arch:            p.Arch,
 		VirtType:        p.VirtType,
 		RootStorageType: p.RootStorageType,
@@ -121,6 +122,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			Stream:          p.Stream,
 			Region:          p.Region,
 			Version:         p.Version,
+			Series:          p.Series,
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.RootStorageType,

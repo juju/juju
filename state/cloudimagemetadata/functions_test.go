@@ -36,10 +36,10 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithRegion(c *gc.C) {
 		bson.D{{"region", "region-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithVersion(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithSeries(c *gc.C) {
 	s.assertSearchCriteriaBuilt(c,
-		cloudimagemetadata.MetadataFilter{Versions: []string{"version-value"}},
-		bson.D{{"version", bson.D{{"$in", []string{"version-value"}}}}})
+		cloudimagemetadata.MetadataFilter{Series: []string{"series-value"}},
+		bson.D{{"series", bson.D{{"$in", []string{"series-value"}}}}})
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaWithArch(c *gc.C) {
@@ -65,7 +65,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{
 			RootStorageType: "rootstorage-value",
-			Versions:        []string{"version-value", "version-value-two"},
+			Series:          []string{"series-value", "series-value-two"},
 			Stream:          "stream-value",
 			Region:          "region-value",
 			Arches:          []string{"arch-value", "arch-value-two"},
@@ -75,7 +75,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 		bson.D{
 			{"stream", "stream-value"},
 			{"region", "region-value"},
-			{"version", bson.D{{"$in", []string{"version-value", "version-value-two"}}}},
+			{"series", bson.D{{"$in", []string{"series-value", "series-value-two"}}}},
 			{"arch", bson.D{{"$in", []string{"arch-value", "arch-value-two"}}}},
 			{"virt_type", "vtype-value"},
 			{"root_storage_type", "rootstorage-value"},

@@ -59,7 +59,8 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						ImageId:         imageId,
 						Stream:          args.Stream,
 						Region:          args.Region,
-						Version:         args.Versions[0],
+						Version:         versionFromSeries(args.Series[0]),
+						Series:          args.Series[0],
 						Arch:            args.Arches[0],
 						VirtType:        args.VirtType,
 						RootStorageType: args.RootStorageType,
@@ -87,6 +88,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Stream:          stream,
 			Region:          region,
 			Version:         version,
+			Series:          testSeries,
 			Arch:            arch,
 			VirtType:        virtType,
 			RootStorageType: rootStorageType,
@@ -224,4 +226,10 @@ func (s *imagemetadataSuite) TestUpdateFromPublishedImagesFacadeCallError(c *gc.
 	err := client.UpdateFromPublishedImages()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
+}
+
+var versionFromSeries = func(s string) string {
+	// For testing purposes only, there will not be an error :D
+	v, _ := series.SeriesVersion(s)
+	return v
 }
