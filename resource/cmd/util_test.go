@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"crypto/sha512"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -15,12 +14,17 @@ import (
 )
 
 func NewInfo(c *gc.C, name, suffix, comment, fingerprint string) resource.Info {
+	var fp charmresource.Fingerprint
 	if fingerprint == "" {
-		hash := sha512.New384()
-		_, err := hash.Write([]byte(name))
+		built, err := charmresource.GenerateFingerprint([]byte(name))
 		c.Assert(err, jc.ErrorIsNil)
-		fingerprint = string(hash.Sum(nil))
+		fp = built
+	} else {
+		wrapped, err := charmresource.NewFingerprint([]byte(fingerprint))
+		c.Assert(err, jc.ErrorIsNil)
+		fp = wrapped
 	}
+
 	info := resource.Info{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -30,7 +34,7 @@ func NewInfo(c *gc.C, name, suffix, comment, fingerprint string) resource.Info {
 				Comment: comment,
 			},
 			Revision:    0,
-			Fingerprint: fingerprint,
+			Fingerprint: fp,
 		},
 		Origin: resource.OriginKindUpload,
 	}

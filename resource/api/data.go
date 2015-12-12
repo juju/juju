@@ -37,7 +37,7 @@ type ResourceInfo struct {
 	Revision int `json:"revision"`
 
 	// Fingerprint is the SHA-384 checksum for the resource blob.
-	Fingerprint string `json:"fingerprint"`
+	Fingerprint []byte `json:"fingerprint"`
 
 	// Origin is where the resource will come from.
 	Origin string `json:"origin"`

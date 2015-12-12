@@ -6,12 +6,20 @@ package resource_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
 
-func newFullCharmResource(name string) charmresource.Resource {
+func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	c.Assert(err, jc.ErrorIsNil)
+	return fp
+}
+
+func newFullCharmResource(c *gc.C, name string) charmresource.Resource {
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:    name,
@@ -20,20 +28,20 @@ func newFullCharmResource(name string) charmresource.Resource {
 			Comment: "you need it",
 		},
 		Revision:    1,
-		Fingerprint: "chdec737riyg2kqja3yh",
+		Fingerprint: newFingerprint(c, name),
 	}
 }
 
-func newFullInfo(name string) resource.Info {
+func newFullInfo(c *gc.C, name string) resource.Info {
 	return resource.Info{
-		Resource: newFullCharmResource(name),
+		Resource: newFullCharmResource(c, name),
 		Origin:   resource.OriginKindUpload,
 	}
 }
 
-func newFullResource(name string) resource.Resource {
+func newFullResource(c *gc.C, name string) resource.Resource {
 	return resource.Resource{
-		Info:      newFullInfo(name),
+		Info:      newFullInfo(c, name),
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}

@@ -70,7 +70,7 @@ func ResourceInfo2API(info resource.Info) ResourceInfo {
 		Path:        info.Path,
 		Comment:     info.Comment,
 		Revision:    info.Revision,
-		Fingerprint: info.Fingerprint,
+		Fingerprint: info.Fingerprint.Bytes(),
 		Origin:      info.Origin.String(),
 	}
 }
@@ -81,6 +81,14 @@ func API2ResourceInfo(apiInfo ResourceInfo) (resource.Info, error) {
 	rtype, ok := charmresource.ParseType(apiInfo.Type)
 	if !ok {
 		// This will be handled later during spec.Validate().
+	}
+
+	fp, err := charmresource.NewFingerprint(apiInfo.Fingerprint)
+	if err != nil {
+		return resource.Info{}, errors.Trace(err)
+	}
+	if err := fp.Validate(); err != nil {
+		return resource.Info{}, errors.Trace(err)
 	}
 
 	origin, ok := resource.ParseOriginKind(apiInfo.Origin)
@@ -97,7 +105,7 @@ func API2ResourceInfo(apiInfo ResourceInfo) (resource.Info, error) {
 				Comment: apiInfo.Comment,
 			},
 			Revision:    apiInfo.Revision,
-			Fingerprint: apiInfo.Fingerprint,
+			Fingerprint: fp,
 		},
 		Origin: origin,
 	}

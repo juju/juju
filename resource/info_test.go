@@ -21,7 +21,7 @@ var _ = gc.Suite(&InfoSuite{})
 
 func (InfoSuite) TestValidateFull(c *gc.C) {
 	info := resource.Info{
-		Resource: newFullCharmResource("spam"),
+		Resource: newFullCharmResource(c, "spam"),
 		Origin:   resource.OriginKindUpload,
 	}
 
@@ -57,7 +57,7 @@ func (InfoSuite) TestValidateBadOrigin(c *gc.C) {
 	c.Assert(origin.Validate(), gc.NotNil)
 
 	info := resource.Info{
-		Resource: newFullCharmResource("spam"),
+		Resource: newFullCharmResource(c, "spam"),
 		Origin:   origin,
 	}
 	err := info.Validate()

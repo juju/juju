@@ -22,7 +22,7 @@ var _ = gc.Suite(&ResourceSuite{})
 
 func (ResourceSuite) TestValidateUploadFull(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo("spam"),
+		Info:      newFullInfo(c, "spam"),
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -58,7 +58,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 
 func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo("spam"),
+		Info:      newFullInfo(c, "spam"),
 		Username:  "",
 		Timestamp: time.Now(),
 	}
@@ -71,7 +71,7 @@ func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 
 func (ResourceSuite) TestValidateBadTimestamp(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo("spam"),
+		Info:      newFullInfo(c, "spam"),
 		Username:  "a-user",
 		Timestamp: time.Time{},
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource/cmd"
 )
@@ -18,7 +19,10 @@ type FormatterSuite struct {
 }
 
 func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
-	fingerprint := "chdec737riyg2kqja3yh"
+	data := []byte("spamspamspam")
+	fp, err := charmresource.GenerateFingerprint(data)
+	c.Assert(err, jc.ErrorIsNil)
+	fingerprint := string(fp.Bytes())
 	info := cmd.NewInfo(c, "spam", ".tgz", "X", fingerprint)
 	formatted := cmd.FormatInfo(info)
 
@@ -28,7 +32,7 @@ func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
 		Path:        "spam.tgz",
 		Comment:     "X",
 		Revision:    0,
-		Fingerprint: "chdec737riyg2kqja3yh",
+		Fingerprint: "fac09f7d67d1bd30f41135c16fc132e5b635988c162f353786ca28ec0605d4d8ed55799d5d02e9275473574bf3754975",
 		Origin:      "upload",
 	})
 }

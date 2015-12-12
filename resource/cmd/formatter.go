@@ -41,6 +41,6 @@ func FormatInfo(info resource.Info) FormattedInfo {
 		Comment:     info.Comment,
 		Revision:    info.Revision,
 		Origin:      info.Origin.String(),
-		Fingerprint: info.Fingerprint,
+		Fingerprint: info.Fingerprint.String(),
 	}
 }

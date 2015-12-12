@@ -15,6 +15,14 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
+const fingerprint = "123456789012345678901234567890123456789012345678"
+
+func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	c.Assert(err, jc.ErrorIsNil)
+	return fp
+}
+
 type helpersSuite struct {
 	testing.IsolationSuite
 }
@@ -22,6 +30,8 @@ type helpersSuite struct {
 var _ = gc.Suite(&helpersSuite{})
 
 func (helpersSuite) TestResource2API(c *gc.C) {
+	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
+	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	res := resource.Resource{
 		Info: resource.Info{
@@ -33,14 +43,14 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 					Comment: "you need it",
 				},
 				Revision:    1,
-				Fingerprint: "chdec737riyg2kqja3yh",
+				Fingerprint: fp,
 			},
 			Origin: resource.OriginKindUpload,
 		},
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	err := res.Validate()
+	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	apiRes := api.Resource2API(res)
 
@@ -51,7 +61,7 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 			Path:        "spam.tgz",
 			Comment:     "you need it",
 			Revision:    1,
-			Fingerprint: "chdec737riyg2kqja3yh",
+			Fingerprint: []byte(fingerprint),
 			Origin:      "upload",
 		},
 		Username:  "a-user",
@@ -68,7 +78,7 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 			Path:        "spam.tgz",
 			Comment:     "you need it",
 			Revision:    1,
-			Fingerprint: "chdec737riyg2kqja3yh",
+			Fingerprint: []byte(fingerprint),
 			Origin:      "upload",
 		},
 		Username:  "a-user",
@@ -76,6 +86,8 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
+	c.Assert(err, jc.ErrorIsNil)
 	expected := resource.Resource{
 		Info: resource.Info{
 			Resource: charmresource.Resource{
@@ -86,7 +98,7 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 					Comment: "you need it",
 				},
 				Revision:    1,
-				Fingerprint: "chdec737riyg2kqja3yh",
+				Fingerprint: fp,
 			},
 			Origin: resource.OriginKindUpload,
 		},
@@ -100,6 +112,8 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 }
 
 func (helpersSuite) TestResourceInfo2API(c *gc.C) {
+	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
+	c.Assert(err, jc.ErrorIsNil)
 	info := resource.Info{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -109,11 +123,11 @@ func (helpersSuite) TestResourceInfo2API(c *gc.C) {
 				Comment: "you need it",
 			},
 			Revision:    1,
-			Fingerprint: "chdec737riyg2kqja3yh",
+			Fingerprint: fp,
 		},
 		Origin: resource.OriginKindUpload,
 	}
-	err := info.Validate()
+	err = info.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo := api.ResourceInfo2API(info)
 
@@ -123,7 +137,7 @@ func (helpersSuite) TestResourceInfo2API(c *gc.C) {
 		Path:        "spam.tgz",
 		Comment:     "you need it",
 		Revision:    1,
-		Fingerprint: "chdec737riyg2kqja3yh",
+		Fingerprint: []byte(fingerprint),
 		Origin:      "upload",
 	})
 }
@@ -135,11 +149,13 @@ func (helpersSuite) TestAPI2ResourceInfo(c *gc.C) {
 		Path:        "spam.tgz",
 		Comment:     "you need it",
 		Revision:    1,
-		Fingerprint: "chdec737riyg2kqja3yh",
+		Fingerprint: []byte(fingerprint),
 		Origin:      "upload",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
+	c.Assert(err, jc.ErrorIsNil)
 	expected := resource.Info{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -149,7 +165,7 @@ func (helpersSuite) TestAPI2ResourceInfo(c *gc.C) {
 				Comment: "you need it",
 			},
 			Revision:    1,
-			Fingerprint: "chdec737riyg2kqja3yh",
+			Fingerprint: fp,
 		},
 		Origin: resource.OriginKindUpload,
 	}
