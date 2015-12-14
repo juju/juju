@@ -87,7 +87,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stateSpaceMap := make(map[string]params.Space)
+	stateSpaceMap := make(map[string]params.ProviderSpace)
 	for _, space := range listSpacesResult.Results {
 		stateSpaceMap[space.ProviderId] = space
 	}
@@ -100,7 +100,8 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// We need to create the space.
 			// XXX in the apiserver the name should be generated and
 			// IsPublic set to false.
-			err = dw.api.AddSpace(space.ProviderId)
+			args := params.CreateSpacesParams{}
+			_, err := dw.api.CreateSpaces(args)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -118,7 +119,14 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 				return errors.Trace(err)
 			}
 
-			err = dw.api.AddSubnet(subnetTag, subnet.ProviderId, spaceTag, subnet.AvailabilityZones)
+			args := params.AddSubnetsParams{
+				Subnets: []params.AddSubnetParams{{
+					SubnetTag:        subnetTag.String(),
+					SubnetProviderId: string(subnet.ProviderId),
+					SpaceTag:         spaceTag.String(),
+					Zones:            subnet.AvailabilityZones,
+				}}}
+			_, err = dw.api.AddSubnets(args)
 			if err != nil {
 				return errors.Trace(err)
 			}
