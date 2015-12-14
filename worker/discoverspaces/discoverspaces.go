@@ -65,7 +65,7 @@ func (dw *discoverspacesWorker) loop() (err error) {
 
 	// TODO(mfoord): we'll have a watcher here checking if we need to
 	// update the spaces/subnets definition.
-	dying := u.tomb.Dying()
+	dying := dw.tomb.Dying()
 	for {
 		select {
 		case <-dying:
