@@ -300,4 +300,3 @@ class TestFromFeatureDir(tests.TestCase):
     def test_gopkg_feature(self):
         directory = git_gate.from_feature_dir("gopkg.in/juju/charm.v6.minver")
         self.assertEqual(directory, "gopkg.in/juju/charm.v6")
-

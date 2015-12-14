@@ -390,14 +390,15 @@ class TestContainerNetworking(TestCase):
             jcnet.assess_internet_connection, self.client, targets)
 
     def test_get_client(self):
-        args = Namespace(env="e", juju_bin="jb", debug=False,
+        args = Namespace(
+            env="e", juju_bin="jb", debug=False,
             agent_stream="http://tools.testing/agents", temp_env_name="te",
             series="s", bootstrap_host="bh", agent_url="au", region="r")
-        
+
         upenv = MagicMock()
-        with patch.object(EnvJujuClient, "by_version") as ejc, \
-             patch.object(SimpleEnvironment, "from_config") as se, \
-             patch("assess_container_networking.update_env", upenv):
+        with patch.object(EnvJujuClient, "by_version"), \
+            patch.object(SimpleEnvironment, "from_config"), \
+                patch("assess_container_networking.update_env", upenv):
 
                 jcnet.get_client(args)
                 self.assertEqual(upenv.call_args[0][1], args.temp_env_name)
