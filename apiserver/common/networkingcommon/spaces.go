@@ -73,6 +73,7 @@ func createOneSpace(backing NetworkBacking, args params.CreateSpaceParams) error
 	}
 
 	// Add the validated space.
+	// XXX need the real provider ID here.
 	err = backing.AddSpace(spaceTag.Id(), "", subnets, args.Public)
 	if err != nil {
 		return errors.Trace(err)
