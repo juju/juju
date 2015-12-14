@@ -62,7 +62,6 @@ def go_test(args, gopath):
         go("get", "-v", "-d", "launchpad.net/godeps/...")
         go("install", "launchpad.net/godeps/...")
     if args.project_url:
-        reldir = os.path.relpath(directory, gopath)
         print_now("Cloning {} from {}".format(final_project, args.project_url))
         git("clone", args.project_url, directory)
     if args.go_get_all and not (args.project_url and args.merge_url):

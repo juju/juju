@@ -606,8 +606,8 @@ class BootstrapManager:
                 # too. self.known_hosts cannot be zero length because
                 # bootstrap assigned to it. We do know that in the case
                 # of manual envs, we do want to add the addable_machines.
-                if (len(self.known_hosts) == 0
-                        or self.client.env.config['type'] == 'manual'):
+                if (len(self.known_hosts) == 0 or
+                        self.client.env.config['type'] == 'manual'):
                     host = get_machine_dns_name(self.client, '0')
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
