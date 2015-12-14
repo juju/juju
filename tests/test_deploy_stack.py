@@ -1027,6 +1027,33 @@ class TestBootstrapManager(FakeHomeTestCase):
                 '0': '0.example.com',
                 })
 
+    @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
+    def test_runtime_context_addable_machines_no_known_hosts(self, del_mock):
+        client = FakeJujuClient()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+        bs_manager.known_hosts = {}
+        with patch.object(bs_manager.client, 'add_ssh_machines',
+                          autospec=True) as ads_mock:
+            with bs_manager.runtime_context(['baz']):
+                ads_mock.assert_called_once_with(['baz'])
+
+    @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
+    def test_runtime_context_addable_machines_with_known_hosts(self, del_mock):
+        client = FakeJujuClient()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.juju_home, False, False,
+            False)
+        bs_manager.known_hosts['0'] = 'example.org'
+        with patch.object(bs_manager.client, 'add_ssh_machines',
+                          autospec=True) as ads_mock:
+            with bs_manager.runtime_context(['baz']):
+                ads_mock.assert_called_once_with(['baz'])
+
 
 class TestBootContext(FakeHomeTestCase):
 
