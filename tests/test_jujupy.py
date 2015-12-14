@@ -669,7 +669,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
-            client.juju_home = 'foo'
+            client.env.juju_home = 'foo'
             with client.bootstrap_async():
                 mock.assert_called_once_with(
                     client, 'bootstrap', ('--constraints', 'mem=2G'))
@@ -741,7 +741,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
-                client.juju_home = juju_home
+                client.env.juju_home = juju_home
                 jenv_path = get_jenv_path(juju_home, 'foo')
                 os.makedirs(os.path.dirname(jenv_path))
                 open(jenv_path, 'w')
@@ -1392,7 +1392,7 @@ class TestEnvJujuClient(ClientTest):
 
         with patch('subprocess.check_call', side_effect=check_home):
             client.juju('foo', ('bar', 'baz'))
-            client.juju_home = 'asdf'
+            client.env.juju_home = 'asdf'
             client.juju('foo', ('bar', 'baz'))
 
     def test_juju_extra_env(self):
@@ -1673,7 +1673,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertEqual(out, ret)
 
     def test__shell_environ_uses_pathsep(self):
-        client = EnvJujuClient(None, None, 'foo/bar/juju')
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, 'foo/bar/juju')
         with patch('os.pathsep', '!'):
             environ = client._shell_environ()
         self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
@@ -1915,7 +1915,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
-            client.juju_home = fake_home
+            client.env.juju_home = fake_home
             with temp_bootstrap_env(fake_home, client,
                                     permanent=False) as tb_home:
                 stub_bootstrap(client)
@@ -1933,7 +1933,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
-            client.juju_home = fake_home
+            client.env.juju_home = fake_home
             with temp_bootstrap_env(fake_home, client,
                                     permanent=True) as tb_home:
                 stub_bootstrap(client)
@@ -2423,6 +2423,12 @@ class TestSimpleEnvironment(TestCase):
                 env = SimpleEnvironment.from_config(None)
             self.assertEqual(env.environment, 'foo')
             cde_mock.assert_called_once_with()
+
+    def test_juju_home(self):
+        env = SimpleEnvironment('foo')
+        self.assertIs(None, env.juju_home)
+        env = SimpleEnvironment('foo', juju_home='baz')
+        self.assertEqual('baz', env.juju_home)
 
 
 class TestGroupReporter(TestCase):

@@ -203,7 +203,8 @@ def make_client_from_args(args):
         agent_stream=args.agent_stream, region=args.region)
     jes_enabled = client.is_jes_enabled()
     if jes_enabled:
-        client.juju_home = jes_home_path(client.juju_home, args.temp_env_name)
+        client.env.juju_home = jes_home_path(client.juju_home,
+                                             args.temp_env_name)
     tear_down(client, jes_enabled)
     return client
 

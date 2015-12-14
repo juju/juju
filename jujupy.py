@@ -237,11 +237,18 @@ class EnvJujuClient:
         self.version = version
         self.full_path = full_path
         self.debug = debug
-        if juju_home is None:
-            juju_home = get_juju_home()
-        self.juju_home = juju_home
+        if env is not None:
+            if juju_home is None:
+                if env.juju_home is None:
+                    env.juju_home = get_juju_home()
+            else:
+                env.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
+
+    @property
+    def juju_home(self):
+        return self.env.juju_home
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -982,8 +989,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         # Skip creating symlink where not supported (i.e. Windows).
         if not permanent and getattr(os, 'symlink', None) is not None:
             os.symlink(new_jenv_path, jenv_path)
-        old_juju_home = client.juju_home
-        client.juju_home = temp_juju_home
+        old_juju_home = client.env.juju_home
+        client.env.juju_home = temp_juju_home
         try:
             yield temp_juju_home
         finally:
@@ -1000,7 +1007,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     except OSError as e:
                         if e.errno != errno.ENOENT:
                             raise
-                client.juju_home = old_juju_home
+                client.env.juju_home = old_juju_home
 
 
 def get_machine_dns_name(client, machine, timeout=600):
@@ -1122,9 +1129,10 @@ class Status:
 
 class SimpleEnvironment:
 
-    def __init__(self, environment, config=None):
+    def __init__(self, environment, config=None, juju_home=None):
         self.environment = environment
         self.config = config
+        self.juju_home = juju_home
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
             self.kvm = (

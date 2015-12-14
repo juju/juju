@@ -388,11 +388,11 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 def temp_juju_home(client, new_home):
     """Temporarily override the client's home directory."""
     old_home = client.juju_home
-    client.juju_home = new_home
+    client.env.juju_home = new_home
     try:
         yield
     finally:
-        client.juju_home = old_home
+        client.env.juju_home = old_home
 
 
 class BootstrapManager:
@@ -530,8 +530,9 @@ class BootstrapManager:
             jes_enabled = self.jes_enabled
         else:
             jes_enabled = self.tear_down_client.is_jes_enabled()
-        with temp_juju_home(self.tear_down_client, self.client.juju_home):
-            tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+        if self.tear_down_client.env is not self.client.env:
+            raise AssertionError('Tear down client needs same env!')
+        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
     @contextmanager
     def bootstrap_context(self, machines):

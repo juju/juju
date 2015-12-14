@@ -641,12 +641,12 @@ class FakeBootstrapManager:
         self.client.env.environment = self.client.env.environment + '-temp'
         try:
             self.entered_bootstrap = True
-            self.client.juju_home = os.path.join(initial_home, 'isolated')
+            self.client.env.juju_home = os.path.join(initial_home, 'isolated')
             yield
         finally:
             self.exited_bootstrap = True
             if not self.permanent:
-                self.client.juju_home = initial_home
+                self.client.env.juju_home = initial_home
 
     @contextmanager
     def runtime_context(self, machines):
@@ -942,6 +942,7 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client(self):
         client = self.make_client()
         tear_down_client = self.make_client()
+        tear_down_client.env = client.env
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client, None, [], None, None, None,
             None, client.juju_home, False, False, False)
@@ -959,6 +960,7 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client_jenv(self):
         client = self.make_client()
         tear_down_client = self.make_client()
+        tear_down_client.env = client.env
         jenv_path = get_jenv_path(client.juju_home, 'foobar')
         os.makedirs(os.path.dirname(jenv_path))
         with open(jenv_path, 'w'):
@@ -979,7 +981,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
-    def test_tear_down_sets_home(self):
+    def test_tear_down_requires_same_env(self):
         client = self.make_client()
         client.juju_home = 'foobar'
         tear_down_client = self.make_client()
@@ -992,9 +994,11 @@ class TestBootstrapManager(FakeHomeTestCase):
         def check_home(foo, bar, try_jes):
             self.assertEqual(client.juju_home, tear_down_client.juju_home)
 
-        with patch('deploy_stack.tear_down', autospec=True,
-                   side_effect=check_home):
-            bs_manager.tear_down()
+        with self.assertRaisesRegexp(AssertionError,
+                                     'Tear down client needs same env'):
+            with patch('deploy_stack.tear_down', autospec=True,
+                       side_effect=check_home):
+                bs_manager.tear_down()
         self.assertEqual('barfoo', tear_down_client.juju_home)
 
     def test_runtime_context_uses_known_hosts(self):
