@@ -16,7 +16,7 @@ var logger = loggo.GetLogger("juju.api.discoverspaces")
 
 const discoverspacesFacade = "DiscoverSpaces"
 
-// API provides access to the InstancePoller API facade.
+// API provides access to the DiscoverSpaces API facade.
 type API struct {
 	*common.EnvironWatcher
 	facade base.FacadeCaller
