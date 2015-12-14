@@ -65,9 +65,14 @@ func (dw *discoverspacesWorker) loop() (err error) {
 
 	// TODO(mfoord): we'll have a watcher here checking if we need to
 	// update the spaces/subnets definition.
+	dying := u.tomb.Dying()
 	for {
+		select {
+		case <-dying:
+			return nil
+		}
 	}
-	return err
+	return nil
 }
 
 func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) error {
@@ -92,8 +97,8 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		stateSpaceMap[space.ProviderId] = space
 	}
 
-	// TODO(mfoord): we also need to attempt to delete spaces that no
-	// longer exist, so long as they're not in use.
+	// TODO(mfoord): we also need to attempt to delete spaces and subnets
+	// that no longer exist, so long as they're not in use.
 	for _, space := range providerSpaces {
 		_, ok := stateSpaceMap[space.Name]
 		if !ok {
