@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
@@ -178,6 +179,7 @@ type Connection interface {
 	Logger() *apilogger.State
 	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
+	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
