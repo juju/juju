@@ -12,15 +12,16 @@ import logging
 import os
 import socket
 from time import time
-from unittest import TestCase
 
 from mock import (
     call,
     patch,
     )
 
+from tests import TestCase
 from utility import (
     add_basic_testing_arguments,
+    as_literal_address,
     ErrJujuPath,
     extract_deb,
     find_candidates,
@@ -29,6 +30,7 @@ from utility import (
     get_candidates_path,
     get_deb_arch,
     get_winrm_certs,
+    is_ipv6_address,
     quote,
     run_command,
     scoped_environ,
@@ -180,6 +182,37 @@ class TestFindLatestBranchCandidates(TestCase):
                 find_latest_branch_candidates(root), [path_1233, path_1234])
 
 
+class TestAsLiteralAddress(TestCase):
+
+    def test_hostname(self):
+        self.assertEqual("name.testing", as_literal_address("name.testing"))
+
+    def test_ipv4(self):
+        self.assertEqual("127.0.0.2", as_literal_address("127.0.0.2"))
+
+    def test_ipv6(self):
+        self.assertEqual("[2001:db8::7]", as_literal_address("2001:db8::7"))
+
+
+class TestIsIPv6Address(TestCase):
+
+    def test_hostname(self):
+        self.assertIs(False, is_ipv6_address("name.testing"))
+
+    def test_ipv4(self):
+        self.assertIs(False, is_ipv6_address("127.0.0.2"))
+
+    def test_ipv6(self):
+        self.assertIs(True, is_ipv6_address("2001:db8::4"))
+
+    def test_ipv6_missing_support(self):
+        with patch('utility.socket', wraps=socket) as wrapped_socket:
+            del wrapped_socket.inet_pton
+            result = is_ipv6_address("2001:db8::4")
+        # Would use expectedFailure here, but instead just assert wrong result.
+        self.assertIs(False, result)
+
+
 class TestWaitForPort(TestCase):
 
     def test_wait_for_port_0000_closed(self):
@@ -228,8 +261,9 @@ class TestWaitForPort(TestCase):
         connect_mock.assert_called_once_with(('192.168.8.3', 27))
 
     def test_wait_for_port_no_address_closed(self):
+        error = socket.gaierror(socket.EAI_NODATA, 'What address?')
         with patch('socket.getaddrinfo', autospec=True,
-                   side_effect=socket.error(-5, None)) as gai_mock:
+                   side_effect=error) as gai_mock:
             with patch('socket.socket') as socket_mock:
                 wait_for_port('asdf', 26, closed=True)
         gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
@@ -244,7 +278,7 @@ class TestWaitForPort(TestCase):
             if loc['stub_called']:
                 raise ValueError()
             loc['stub_called'] = True
-            raise socket.error(-5, None)
+            raise socket.error(socket.EAI_NODATA, 'Err, address?')
 
         with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
                    ) as gai_mock:
@@ -256,6 +290,18 @@ class TestWaitForPort(TestCase):
             call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
             ])
         self.assertEqual(socket_mock.call_count, 0)
+
+    def test_ipv6_open(self):
+        gai_result = [(23, 0, 0, '', ('2001:db8::2', 22, 0, 0))]
+        with patch('socket.getaddrinfo', autospec=True,
+                   return_value=gai_result) as gai_mock:
+            with patch('socket.socket') as socket_mock:
+                wait_for_port('2001:db8::2', 22, closed=False)
+        gai_mock.assert_called_once_with(
+            '2001:db8::2', 22, socket.AF_INET6, socket.SOCK_STREAM)
+        socket_mock.assert_called_once_with(23, 0, 0)
+        connect_mock = socket_mock.return_value.connect
+        connect_mock.assert_called_once_with(('2001:db8::2', 22, 0, 0))
 
 
 class TestExtractDeb(TestCase):

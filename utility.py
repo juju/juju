@@ -29,6 +29,11 @@ except ImportError:
 quote
 
 
+# Equivalent of socket.EAI_NODATA when using windows sockets
+# <https://msdn.microsoft.com/ms740668#WSANO_DATA>
+WSANO_DATA = 11004
+
+
 @contextmanager
 def scoped_environ(new_environ=None):
     old_environ = dict(os.environ)
@@ -91,13 +96,39 @@ def pause(seconds):
     sleep(seconds)
 
 
+def is_ipv6_address(address):
+    """Returns True if address is IPv6 rather than IPv4 or a host name.
+
+    Incorrectly returns False for IPv6 addresses on windows due to lack of
+    support for socket.inet_pton there.
+    """
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+    except (AttributeError, socket.error):
+        # IPv4 or hostname
+        return False
+    return True
+
+
+def as_literal_address(address):
+    """Returns address in form suitable for embedding in URL or similar.
+
+    In practice, this just puts square brackets round IPv6 addresses which
+    avoids conflict with port seperators and other uses of colons.
+    """
+    if is_ipv6_address(address):
+        return address.join("[]")
+    return address
+
+
 def wait_for_port(host, port, closed=False, timeout=30):
+    family = socket.AF_INET6 if is_ipv6_address(host) else socket.AF_INET
     for remaining in until_timeout(timeout):
         try:
-            addrinfo = socket.getaddrinfo(host, port, socket.AF_INET,
+            addrinfo = socket.getaddrinfo(host, port, family,
                                           socket.SOCK_STREAM)
         except socket.error as e:
-            if e.errno != -5:  # "No address associated with hostname"
+            if e.errno not in (socket.EAI_NODATA, WSANO_DATA):
                 raise
             if closed:
                 return
@@ -118,7 +149,8 @@ def wait_for_port(host, port, closed=False, timeout=30):
             if closed:
                 return
         except socket.error as e:
-            if e.errno not in (errno.ECONNREFUSED, errno.ETIMEDOUT):
+            if e.errno not in (errno.ECONNREFUSED, errno.ENETUNREACH,
+                               errno.ETIMEDOUT):
                 raise
             if closed:
                 return

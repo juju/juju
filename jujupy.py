@@ -13,7 +13,6 @@ import logging
 import os
 import re
 from shutil import rmtree
-import socket
 import subprocess
 import sys
 import time
@@ -30,6 +29,7 @@ from utility import (
     check_free_disk_space,
     ensure_deleted,
     ensure_dir,
+    is_ipv6_address,
     pause,
     scoped_environ,
     temp_dir,
@@ -340,7 +340,7 @@ class EnvJujuClient:
             if proc.returncode != 0:
                 log.debug(sub_error)
                 e = subprocess.CalledProcessError(
-                    proc.returncode, args[0], sub_error)
+                    proc.returncode, args[0], sub_output)
                 e.stderr = sub_error
                 if (
                     'Unable to connect to environment' in sub_error or
@@ -1014,13 +1014,9 @@ def get_machine_dns_name(client, machine, timeout=600):
 
 def _dns_name_for_machine(status, machine):
     host = status.status['machines'][machine]['dns-name']
-    try:
-        socket.inet_pton(socket.AF_INET6, host)
-    except (AttributeError, socket.error):
-        # IPv4 or hostname
-        return host
-    log.warning("Selected IPv6 address for machine %s: %r", machine, host)
-    return host.join("[]")
+    if is_ipv6_address(host):
+        log.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    return host
 
 
 class Status:

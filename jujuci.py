@@ -31,6 +31,7 @@ from utility import (
     extract_deb,
     get_deb_arch,
     get_revision_build,
+    print_now,
     )
 
 
@@ -43,10 +44,6 @@ PUBLISH_REVISION = 'publish-revision'
 CERTIFY_UBUNTU_PACKAGES = 'certify-ubuntu-packages'
 
 Artifact = namedtuple('Artifact', ['file_name', 'location'])
-
-
-def print_now(string):
-    print(string)
 
 
 Credentials = namedtuple('Credentials', ['user', 'password'])
@@ -458,7 +455,7 @@ def main(argv):
     try:
         args, credentials = parse_args(argv)
     except CredentialsMissing as e:
-        print(e)
+        print_now(e)
         sys.exit(2)
     try:
         if args.command == 'list':
@@ -475,11 +472,11 @@ def main(argv):
                 args.path, env=args.clean_env,
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'get-juju-bin':
-            print(get_juju_bin(credentials, args.workspace))
+            print_now(get_juju_bin(credentials, args.workspace))
         elif args.command == 'get-certification-bin':
             path = get_certification_bin(credentials, args.version,
                                          args.workspace)
-            print(path)
+            print_now(path)
         elif args.command == 'get-build-vars':
             text = get_buildvars(
                 credentials, args.build, env=args.env,
@@ -487,17 +484,17 @@ def main(argv):
                 version=args.version, short_branch=args.short_branch,
                 short_revision=args.short_revision,
                 branch=args.branch, revision=args.revision)
-            print(text)
+            print_now(text)
         elif args.command == 'get-package-name':
-            print(PackageNamer.factory().get_release_package(args.version))
+            print_now(PackageNamer.factory().get_release_package(args.version))
 
     except Exception as e:
-        print(e)
+        print_now(e)
         if args.verbose:
             traceback.print_tb(sys.exc_info()[2])
         return 2
     if args.verbose:
-        print("Done.")
+        print_now("Done.")
     return 0
 
 

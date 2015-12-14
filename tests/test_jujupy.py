@@ -790,12 +790,13 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output_stderr(self):
         env = SimpleEnvironment('foo')
-        fake_popen = FakePopen(None, 'Hello!', 1)
+        fake_popen = FakePopen('output', 'Error!', 1)
         client = EnvJujuClient(env, None, None)
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
-        self.assertEqual(exc.exception.stderr, 'Hello!')
+        self.assertEqual(exc.exception.stderr, 'Error!')
+        self.assertEqual(exc.exception.output, 'output')
 
     def test_get_juju_output_accepts_timeout(self):
         env = SimpleEnvironment('foo')
@@ -2678,7 +2679,7 @@ class TestGetMachineDNSName(TestCase):
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
         host = get_machine_dns_name(fake_client, '0')
-        self.assertEqual(host, "[2001:db8::3]")
+        self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
         self.assertEqual(
             self.log_stream.getvalue(),
@@ -2688,8 +2689,9 @@ class TestGetMachineDNSName(TestCase):
         status = Status.from_text(self.machine_0_ipv6)
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
-        with patch('jujupy.socket', wraps=socket) as wrapped_socket:
+        with patch('utility.socket', wraps=socket) as wrapped_socket:
             del wrapped_socket.inet_pton
             host = get_machine_dns_name(fake_client, '0')
         self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
+        self.assertEqual(self.log_stream.getvalue(), "")
