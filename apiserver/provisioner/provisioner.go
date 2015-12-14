@@ -1042,37 +1042,6 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			if address == nil {
-				// This is only an issue when the address allocation is enabled,
-				// as it should've been reported as an error after retrying a
-				// few times.
-				if !environs.AddressAllocationEnabled() {
-					// Without the feature flag, we might be running on MAAS
-					// 1.8+ in which case the container will use DHCP to get its
-					// IP, and it needs to use the generated MAC address.
-					result.Results[i] = params.MachineNetworkConfigResult{
-						Config: []params.NetworkConfig{{
-							DeviceIndex:   0,
-							InterfaceName: "eth0",
-							ConfigType:    string(network.ConfigDHCP),
-							MACAddress:    macAddress,
-							// The following should not be needed anymore, but the
-							// worker still validates them on SetProvisioned.
-							NetworkName: network.DefaultPrivate,
-							ProviderId:  network.DefaultPrivate,
-						}},
-					}
-					logger.Infof(
-						"reserved address for container %q with MAC address %q (using DHCP)",
-						container, macAddress,
-					)
-					continue
-				} else {
-					err = errors.New("expected allocated address, got nil and no error")
-					result.Results[i].Error = common.ServerError(err)
-					continue
-				}
-			}
 		} else {
 			id := container.Id()
 			addresses, err := p.st.AllocatedIPAddresses(id)
@@ -1300,15 +1269,30 @@ func (p *ProvisionerAPI) allocateAddress(
 		// register containers getting IPs via DHCP. However, most of the usual
 		// allocation code can be bypassed, we just need the parent instance ID
 		// and a MAC address (no subnet or IP address).
-		zeroIP := network.Address{}
-		err := environ.AllocateAddress(instId, network.AnySubnet, zeroIP, macAddress, hostname)
+		allocatedAddress := network.Address{}
+		err := environ.AllocateAddress(instId, network.AnySubnet, &allocatedAddress, macAddress, hostname)
 		if err != nil {
 			// Not using MAAS 1.8+ or some other error.
 			return nil, errors.Trace(err)
 		}
-		// No address to return since the container will be using DHCP (but the
-		// reserved address will be logged).
-		return nil, nil
+
+		logger.Infof(
+			"allocated address %q on instance %q for container %q",
+			allocatedAddress.String(), instId, hostname,
+		)
+
+		// Add the address to state, so we can look it up later by MAC address.
+		stateAddr, err := p.st.AddIPAddress(allocatedAddress, string(network.AnySubnet))
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to save address %q", allocatedAddress)
+		}
+
+		err = p.setAllocatedOrRelease(stateAddr, environ, instId, container, network.AnySubnet, macAddress)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return stateAddr, nil
 	}
 
 	subnetId := network.Id(subnet.ProviderId())
@@ -1317,9 +1301,10 @@ func (p *ProvisionerAPI) allocateAddress(
 		if err != nil {
 			return nil, err
 		}
+		netAddr := addr.Address()
 		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
 		// Attempt to allocate with environ.
-		err = environ.AllocateAddress(instId, subnetId, addr.Address(), macAddress, hostname)
+		err = environ.AllocateAddress(instId, subnetId, &netAddr, macAddress, hostname)
 		if err != nil {
 			logger.Warningf(
 				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",

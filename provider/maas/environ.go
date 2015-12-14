@@ -56,6 +56,8 @@ var (
 	ReleaseNodes             = releaseNodes
 	ReserveIPAddress         = reserveIPAddress
 	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
+	NewDeviceParams          = newDeviceParams
+	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
 )
@@ -73,15 +75,21 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
-func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
-	device := devices.GetSubObject(deviceId)
+func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
+	device := devices.GetSubObject(deviceID)
 	params := url.Values{}
 	if addr.Value != "" {
 		params.Add("requested_address", addr.Value)
 	}
+	if macAddress != "" {
+		params.Add("mac_address", macAddress)
+	}
 	resp, err := device.CallPost("claim_sticky_ip_address", params)
 	if err != nil {
-		return network.Address{}, errors.Annotatef(err, "failed to reserve sticky IP address for device %q", deviceId)
+		return network.Address{}, errors.Annotatef(
+			err, "failed to reserve sticky IP address for device %q",
+			deviceID,
+		)
 	}
 	respMap, err := resp.GetMap()
 	if err != nil {
@@ -94,7 +102,7 @@ func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, add
 	if len(addresses) == 0 {
 		return network.Address{}, errors.Errorf(
 			"expected to find a sticky IP address for device %q: MAAS API response contains no IP addresses",
-			deviceId,
+			deviceID,
 		)
 	}
 	var firstAddress network.Address
@@ -103,20 +111,20 @@ func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceId string, add
 		if err != nil {
 			return network.Address{}, errors.Annotatef(err,
 				"failed to parse reserved IP address for device %q",
-				deviceId,
+				deviceID,
 			)
 		}
 		if ip := net.ParseIP(value); ip == nil {
 			return network.Address{}, errors.Annotatef(err,
 				"failed to parse reserved IP address %q for device %q",
-				value, deviceId,
+				value, deviceID,
 			)
 		}
 		if firstAddress.Value == "" {
 			// We only need the first address, but we're logging all we got.
 			firstAddress = network.NewAddress(value)
 		}
-		logger.Debugf("reserved address %q for device %q", value, deviceId)
+		logger.Debugf("reserved address %q for device %q and MAC %q", value, deviceID, macAddress)
 	}
 	return firstAddress, nil
 }
@@ -1382,16 +1390,48 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
-// newDevice creates a new MAAS device for a MAC address, returning the Id of
-// the new device.
-func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
+// updateDeviceHostname uses the given client to update the hostname of the
+// device with the given deviceID to have the specified hostnameSuffx.
+func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
+
+	hostnameParts := strings.SplitN(deviceHostname, ".", 2)
+	if len(hostnameParts) != 2 {
+		return "", errors.Errorf("unexpected device %q hostname %q", deviceID, deviceHostname)
+	}
+	newHostname := fmt.Sprintf("%s-%s.%s", hostnameParts[0], hostnameSuffix, hostnameParts[1])
+	deviceObj := client.GetSubObject("devices").GetSubObject(deviceID)
+	params := make(url.Values)
+	params.Add("hostname", newHostname)
+	if _, err := deviceObj.Update(params); err != nil {
+		return "", errors.Annotatef(err, "updating device %q hostname to %q", deviceID, newHostname)
+	}
+	return newHostname, nil
+}
+
+// newDeviceParams prepares the params to call "devices new" API. Declared
+// separately so it can be mocked out in the test to work around the gomaasapi's
+// testservice limitation.
+func newDeviceParams(macAddress string, instId instance.Id, hostnameSuffx string) url.Values {
+	params := make(url.Values)
+	params.Add("mac_addresses", macAddress)
+	// We create the device without a hostname, to allow MAAS to create a unique
+	// hostname first.
+	params.Add("parent", extractSystemId(instId))
+
+	return params
+}
+
+// newDevice creates a new MAAS device with parent instance instId, using the
+// given macAddress and hostnameSuffix, returning the ID of the new device.
+func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostnameSuffix string) (string, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
-	params := url.Values{}
-	params.Add("mac_addresses", macAddress)
-	params.Add("hostname", hostname)
-	params.Add("parent", extractSystemId(instId))
-	logger.Tracef("creating a new MAAS device for MAC %q, hostname %q, parent %q", macAddress, hostname, string(instId))
+	// Work around the limitation of gomaasapi's testservice expecting all 3
+	// arguments (parent, mac_addresses, and hostname) to be filled in.
+	params := NewDeviceParams(macAddress, instId, hostnameSuffix)
+	logger.Tracef(
+		"creating a new MAAS device for MAC %q, parent %q", macAddress, instId,
+	)
 	result, err := devices.CallPost("new", params)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -1402,12 +1442,24 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 		return "", errors.Trace(err)
 	}
 
-	device, err := resultMap["system_id"].GetString()
+	deviceID, err := resultMap["system_id"].GetString()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Tracef("created device %q", device)
-	return device, nil
+	deviceHostname, err := resultMap["hostname"].GetString()
+	if err != nil {
+		return deviceID, errors.Trace(err)
+	}
+
+	logger.Tracef("created device %q with MAC %q and hostname %q", deviceID, macAddress, deviceHostname)
+
+	newHostname, err := UpdateDeviceHostname(client, deviceID, deviceHostname, hostnameSuffix)
+	if err != nil {
+		return deviceID, errors.Trace(err)
+	}
+	logger.Tracef("updated device %q hostname to %q", deviceID, newHostname)
+
+	return deviceID, nil
 }
 
 // fetchFullDevice fetches an existing device Id associated with a MAC address
@@ -1467,20 +1519,19 @@ func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instan
 	if !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
 	}
-	device, err = environ.newDevice(macAddress, instId, hostname)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return device, nil
+	return environ.newDevice(macAddress, instId, hostname)
 }
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) (err error) {
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) (err error) {
 	logger.Tracef(
 		"AllocateAddress for instId %q, subnet %q, addr %q, MAC %q, hostname %q",
 		instId, subnetId, addr, macAddress, hostname,
 	)
+	if addr == nil {
+		return errors.NewNotValid(nil, "invalid address: cannot be nil")
+	}
 
 	if !environs.AddressAllocationEnabled() {
 		if !environ.supportsDevices {
@@ -1504,14 +1555,15 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 			deviceID, hostname, macAddress, instId,
 		)
 		devices := environ.getMAASClient().GetSubObject("devices")
-		addr, err := ReserveIPAddressOnDevice(devices, deviceID, network.Address{})
+		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, network.Address{})
 		if err != nil {
 			return errors.Trace(err)
 		}
 		logger.Infof(
-			"reserved sticky IP address %q for device %q representing container %q",
-			addr, deviceID, hostname,
+			"reserved sticky IP address %q for device %q with MAC address %q representing container %q",
+			newAddr, deviceID, macAddress, hostname,
 		)
+		*addr = newAddr
 		return nil
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -1519,14 +1571,18 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	client := environ.getMAASClient()
 	var maasErr gomaasapi.ServerError
 	if environ.supportsDevices {
-		device, err := environ.createOrFetchDevice(macAddress, instId, hostname)
+		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
 			return err
 		}
 
 		devices := client.GetSubObject("devices")
-		if gotAddr, err := ReserveIPAddressOnDevice(devices, device, addr); err == nil {
-			logger.Infof("allocated address %q for instance %q on device %q (asked for address %q)", addr, instId, device, gotAddr)
+		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
+		if err == nil {
+			logger.Infof(
+				"allocated address %q for instance %q on device %q (asked for address %q)",
+				addr, instId, deviceID, newAddr,
+			)
 			return nil
 		}
 
@@ -1540,7 +1596,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		var subnets []network.SubnetInfo
 
 		subnets, err = environ.Subnets(instId, []network.Id{subnetId})
-		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, addr, subnets, err)
+		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, *addr, subnets, err)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1552,9 +1608,9 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 
 		cidr := foundSub.CIDR
 		ipaddresses := client.GetSubObject("ipaddresses")
-		err = ReserveIPAddress(ipaddresses, cidr, addr)
+		err = ReserveIPAddress(ipaddresses, cidr, *addr)
 		if err == nil {
-			logger.Infof("allocated address %q for instance %q on subnet %q", addr, instId, cidr)
+			logger.Infof("allocated address %q for instance %q on subnet %q", *addr, instId, cidr)
 			return nil
 		}
 
@@ -1594,7 +1650,9 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 			return errors.NotSupportedf("address allocation")
 		}
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
-		deviceID, err := environ.fetchDevice(macAddress, hostname)
+		// The MAC address should uniquely identity the device, no need to pass
+		// hostname.
+		deviceID, err := environ.fetchDevice(macAddress, "")
 		if err != nil {
 			return errors.Annotatef(
 				err,

@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
@@ -17,9 +16,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
-
-// Ensure maasEnviron supports environs.NetworkingEnviron.
-var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
 
 type providerSuite struct {
 	coretesting.FakeJujuHomeSuite
