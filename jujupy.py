@@ -43,14 +43,14 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND_2x = 'kill-controller'
+DEFAULT_JES_COMMAND = 'kill-controller'
 OPTIONAL_JES_COMMAND = 'system'
 FORBIDDEN_JES_COMMANDS = ('controller', )
 
 _jes_cmds = {
-    DEFAULT_JES_COMMAND_2x: {
+    DEFAULT_JES_COMMAND: {
         'create': 'create-environment',
-        'kill': DEFAULT_JES_COMMAND_2x,
+        'kill': DEFAULT_JES_COMMAND,
         },
     OPTIONAL_JES_COMMAND: {
         'create': '{} create-environment'.format(OPTIONAL_JES_COMMAND),
