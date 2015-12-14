@@ -21,9 +21,9 @@ __metaclass__ = type
 
 class JujuMock:
     """A mock of the parts of the Juju command that the tests hit."""
-    # XXX This is the version from assess-spaces-subnets, which has enough
-    # differences from the assess_container_networking version that the tests
-    # break.
+    # XXX This is the version from assess-spaces-subnets r 1103, which has
+    # enough differences from the assess_container_networking version that the
+    # tests break.
     # These differences should be reconciled in a future branch.
 
     def __init__(self):
