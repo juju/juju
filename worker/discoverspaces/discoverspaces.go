@@ -105,6 +105,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	for _, space := range providerSpaces {
 		_, ok := stateSpaceMap[string(space.ProviderId)]
 		if !ok {
+			// XXX skip spaces with no subnets(?)
 			spaceTag, err := names.ParseSpaceTag(string(space.ProviderId))
 			if err != nil {
 				// XXX generate a valid name here
