@@ -111,12 +111,12 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 				return errors.Trace(err)
 			}
 			// We need to create the space.
-			// IsPublic set to false.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
 					Public:   false,
 					SpaceTag: spaceTag.String(),
 				}}}
+			// XXX check the error result too.
 			_, err = dw.api.CreateSpaces(args)
 			if err != nil {
 				return errors.Trace(err)
@@ -142,6 +142,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					SpaceTag:         spaceTag.String(),
 					Zones:            subnet.AvailabilityZones,
 				}}}
+			// XXX check the error result too.
 			_, err = dw.api.AddSubnets(args)
 			if err != nil {
 				return errors.Trace(err)
