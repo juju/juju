@@ -42,10 +42,20 @@ func (api *API) ListSpaces() (params.DiscoverSpacesResults, error) {
 	return result, nil
 }
 
-func (api *API) AddSubnet() error {
-	return nil
+func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	err := api.facade.FacadeCall("AddSubnets", args, &result)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
 }
 
-func (api *API) AddSpace() error {
-	return nil
+func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	var result params.ErrorResults
+	err = api.facade.FacadeCall("CreateSpaces", args, &result)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
 }
