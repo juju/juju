@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 )
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
@@ -73,7 +74,7 @@ func createOneSpace(backing NetworkBacking, args params.CreateSpaceParams) error
 	}
 
 	// Add the validated space.
-	err = backing.AddSpace(spaceTag.Id(), args.ProviderId, subnets, args.Public)
+	err = backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnets, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
