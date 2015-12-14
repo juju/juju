@@ -49,14 +49,20 @@ def go_test(args, gopath):
     goenv["GOPATH"] = gopath
     go = SubcommandRunner("go", goenv)
     git = SubcommandRunner("git")
-    project_ellipsis = args.project + "/..."
-    directory = os.path.join(gopath, "src", args.project)
+
+    final_project = args.project
+    if args.feature_branch:
+        final_project = from_feature_dir(args.project)
+
+    project_ellipsis = final_project + "/..."
+    directory = os.path.join(gopath, "src", final_project)
+
     if args.tsv_path:
         print_now("Getting and installing godeps")
         go("get", "-v", "-d", "launchpad.net/godeps/...")
         go("install", "launchpad.net/godeps/...")
     if args.project_url:
-        print_now("Cloning {} from {}".format(args.project, args.project_url))
+        print_now("Cloning {} from {}".format(final_project, args.project_url))
         git("clone", args.project_url, directory)
     if args.go_get_all and not (args.project_url and args.merge_url):
         print_now("Getting {} and dependencies using go".format(args.project))
@@ -77,12 +83,33 @@ def go_test(args, gopath):
             print_now("Getting {} and dependencies using go".format(dep))
             go("get", "-v", "-d", dep)
     if args.tsv_path:
-        tsv_path = os.path.join(gopath, "src", args.tsv_path)
+        tsv_path = os.path.join(gopath, "src", final_project, args.tsv_path)
         print_now("Getting dependencies using godeps from {}".format(tsv_path))
         godeps = SubcommandRunner(os.path.join(gopath, "bin", "godeps"), goenv)
         godeps("-u", tsv_path)
     go("build", project_ellipsis)
     go("test", project_ellipsis)
+
+
+def from_feature_dir(directory):
+    """
+    For feature branches on repos that are versioned with gopkg.in,  we need to
+    do some special handling, since the test code expects the branch name to be
+    appended to the reponame with a ".".  However, for a feature branch, the
+    branchname is different than the base gopkg.in branch.  To account for
+    this, we use the convention of base_branch_name.featurename, and thus this
+    code can know that it needs to strip out the featurename when locating the
+    code on disk.
+
+    Thus, the feature branch off of gopkg.in/juju/charm.v6 would be a branch
+    named charm.v6.myfeature, which should end up in
+    $GOPATH/src/gokpg.in/juju/charm.v6
+    """
+    name = os.path.basename(directory)
+    parts = name.split(".")
+    if len(parts) == 3:
+        return directory[:-len(parts[2]) - 1]
+    return directory
 
 
 def parse_args(args=None):
@@ -98,6 +125,9 @@ def parse_args(args=None):
         "--project-url", help="URL to git repository of package.")
     project_group.add_argument(
         "--project-ref", help="Branch name or tag to use as basis.")
+    project_group.add_argument(
+        "--feature-branch", action="store_true",
+        help="Use special handling for pending feature branches.")
     merge_group = parser.add_argument_group()
     merge_group.add_argument(
         "--merge-url", help="URL to git repository to merge before testing.")
@@ -113,10 +143,12 @@ def parse_args(args=None):
         help="Go import path of package needed to for build or testing.")
     dep_group.add_argument(
         "--tsv-path",
-        help="Path to dependencies.tsv file for project relative to src dir.")
+        help="Path to dependencies.tsv file relative to project dir.")
     args = parser.parse_args(args)
     if args.project_url is None and not args.go_get_all:
         parser.error("Must supply either --project-url or --go-get-all")
+    if args.feature_branch and args.go_get_all:
+        parser.error("Cannot use --feature-branch and --go-get-all together")
     return args
 
 

@@ -607,8 +607,8 @@ class BootstrapManager:
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
                     self.known_hosts['0'] = host
-                    if addable_machines is not None:
-                        self.client.add_ssh_machines(addable_machines)
+                if addable_machines is not None:
+                    self.client.add_ssh_machines(addable_machines)
                 yield
             except GeneratorExit:
                 return

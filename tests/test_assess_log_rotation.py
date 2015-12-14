@@ -1,22 +1,26 @@
 from argparse import Namespace
 from contextlib import contextmanager
-from unittest import TestCase
 
-from mock import patch
+from mock import (
+    Mock,
+    patch,
+)
 
 from assess_log_rotation import (
-    check_for_extra_backup,
     check_expected_backup,
+    check_for_extra_backup,
     check_log0,
     LogRotateError,
     make_client_from_args,
     parse_args,
+    test_debug_log,
 )
 from jujupy import (
     EnvJujuClient,
     _temp_env as temp_env,
     yaml_loads,
     )
+from tests import TestCase
 
 good_yaml = \
     """
@@ -148,6 +152,26 @@ class TestCheckLog0(TestCase):
                 "/var/log/juju/unit-fill-logs-0.log", big_obj)
 
 
+class TestTestDebugLog(TestCase):
+
+    def test_happy_log(self):
+        client = Mock()
+        client.get_juju_output.return_value = '\n'*1000
+        # Ensure that no exception is raised
+        test_debug_log(client, timeout=120)
+        client.get_juju_output.assert_called_once_with(
+            "debug-log", "--lines=1000", "--limit=1000", timeout=120)
+
+    def test_unhappy_log(self):
+        client = Mock()
+        client.get_juju_output.return_value = ''
+        # Ensure that no exception is raised
+        with self.assertRaises(LogRotateError):
+            test_debug_log(client)
+        client.get_juju_output.assert_called_once_with(
+            "debug-log", "--lines=1000", "--limit=1000", timeout=180)
+
+
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
@@ -164,12 +188,6 @@ class TestParseArgs(TestCase):
 
 
 class TestMakeClientFromArgs(TestCase):
-
-    def setUp(self):
-        super(TestMakeClientFromArgs, self).setUp()
-        patcher = patch('subprocess.Popen', side_effect=Exception)
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
     @contextmanager
     def make_client_cxt(self):
