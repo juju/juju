@@ -122,7 +122,7 @@ class TestTestControlHeterogeneous(TestCase):
         self.assertEqual(client._backing_state.machines, {'0', '1', '2'})
         self.assertEqual(client.juju_home, 'foo')
 
-    def test_same_home_and_env(self):
+    def test_same_home(self):
         initial_client = FakeJujuClient()
         other_client = FakeJujuClient()
         other_client._backing_state = initial_client._backing_state
@@ -130,5 +130,3 @@ class TestTestControlHeterogeneous(TestCase):
         bs_manager.permanent = True
         test_control_heterogeneous(bs_manager, other_client, True)
         self.assertEqual(initial_client.juju_home, other_client.juju_home)
-        self.assertEqual(
-            initial_client.env.environment, other_client.env.environment)

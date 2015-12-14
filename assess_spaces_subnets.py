@@ -3,7 +3,6 @@ from __future__ import print_function
 import logging
 import re
 import yaml
-import socket
 from textwrap import dedent
 from argparse import ArgumentParser
 
