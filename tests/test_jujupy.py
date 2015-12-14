@@ -29,7 +29,6 @@ from jujuconfig import (
 )
 from jujupy import (
     CannotConnectEnv,
-    DEFAULT_JES_COMMAND_1x,
     DEFAULT_JES_COMMAND_2x,
     EnvJujuClient,
     EnvJujuClient22,
@@ -685,15 +684,11 @@ class TestEnvJujuClient(ClientTest):
 
     def test_create_environment_system(self):
         self.do_create_environment(
-            'system', 'system create-environment', ('-s', 'foo'))
+            OPTIONAL_JES_COMMAND, 'system create-environment', ('-s', 'foo'))
 
     def test_create_environment_controller(self):
         self.do_create_environment(
-            'kill-controller', 'create-environment', ('-c', 'foo'))
-
-    def test_create_environment_hypenated_controller(self):
-        self.do_create_environment(
-            'destroy-controller', 'create-environment', ('-c', 'foo'))
+            DEFAULT_JES_COMMAND_2x, 'create-environment', ('-c', 'foo'))
 
     def do_create_environment(self, jes_command, create_cmd,
                               controller_option):
@@ -754,9 +749,6 @@ class TestEnvJujuClient(ClientTest):
 
     def test_kill_controller_controller(self):
         self.do_kill_controller('kill-controller', 'kill-controller')
-
-    def test_kill_controller_hyphenated(self):
-        self.do_kill_controller('destroy-controller', 'destroy-controller')
 
     def do_kill_controller(self, jes_command, kill_command):
         client = EnvJujuClient(SimpleEnvironment('foo'), None, None)
@@ -1541,12 +1533,6 @@ class TestEnvJujuClient(ClientTest):
                    return_value=fake_popen):
             self.assertEqual(
                 DEFAULT_JES_COMMAND_2x, client.get_jes_command())
-        # Juju 1.26 uses the destroy-controller command.
-        client = EnvJujuClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(DEFAULT_JES_COMMAND_1x, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertEqual(DEFAULT_JES_COMMAND_1x, client.get_jes_command())
         # Juju 1.25 uses the 'system kill' command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
