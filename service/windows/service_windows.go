@@ -400,8 +400,9 @@ func (s *SvcManager) ensureRestartOnFailure(name string) (err error) {
 	}
 	defer func() {
 		// The CloseHandle error is less important than another error
+		closeErr := s.mgr.CloseHandle(handle)
 		if err == nil {
-			err = s.mgr.CloseHandle(handle)
+			err = errors.Annotatef(closeErr, "could not close %s's handle", name)
 		}
 	}()
 	action := serviceAction{
