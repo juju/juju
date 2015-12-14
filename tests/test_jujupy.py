@@ -477,6 +477,11 @@ class FakePopen(object):
 
 class TestEnvJujuClient(ClientTest):
 
+    def test_no_duplicate_env(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient(env, '1.25', 'full_path')
+        self.assertIs(env, client.env)
+
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
