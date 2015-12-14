@@ -572,6 +572,7 @@ type DiscoverSpacesResults struct {
 
 // ProviderSpace holds the information about a single space and its associated subnets.
 type ProviderSpace struct {
+	Name       string   `json:"Name"`
 	ProviderId string   `json:"Name"`
 	Subnets    []Subnet `json:"Subnets"`
 	Error      *Error   `json:"Error,omitempty"`

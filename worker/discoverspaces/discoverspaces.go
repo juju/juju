@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 )
 
@@ -93,20 +94,30 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		return errors.Trace(err)
 	}
 	stateSpaceMap := make(map[string]params.ProviderSpace)
+	spaceNames := make(set.Strings)
 	for _, space := range listSpacesResult.Results {
 		stateSpaceMap[space.ProviderId] = space
+		spaceNames.Add(space.Name)
 	}
 
-	// TODO(mfoord): we also need to attempt to delete spaces and subnets
-	// that no longer exist, so long as they're not in use.
+	// TODO(mfoord): we need to delete spaces and subnets that no longer
+	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
-		_, ok := stateSpaceMap[space.Name]
+		_, ok := stateSpaceMap[string(space.ProviderId)]
 		if !ok {
+			spaceTag, err := names.ParseSpaceTag(string(space.ProviderId))
+			if err != nil {
+				// XXX generate a valid name here
+				return errors.Trace(err)
+			}
 			// We need to create the space.
-			// XXX in the apiserver the name should be generated and
 			// IsPublic set to false.
-			args := params.CreateSpacesParams{}
-			_, err := dw.api.CreateSpaces(args)
+			args := params.CreateSpacesParams{
+				Spaces: []params.CreateSpaceParams{{
+					Public:   false,
+					SpaceTag: spaceTag.String(),
+				}}}
+			_, err = dw.api.CreateSpaces(args)
 			if err != nil {
 				return errors.Trace(err)
 			}

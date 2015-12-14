@@ -56,6 +56,7 @@ func (api *DiscoverSpacesAPI) ListSpaces() (results params.DiscoverSpacesResults
 	for i, space := range spaces {
 		result := params.ProviderSpace{}
 		result.ProviderId = string(space.ProviderId())
+		result.Name = space.Name()
 
 		subnets, err := space.Subnets()
 		if err != nil {
