@@ -35,6 +35,7 @@ from jujupy import (
     EnvJujuClient24,
     EnvJujuClient25,
     EnvJujuClient26,
+    EnvironmentCannotBeTornDown,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -304,8 +305,10 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         fake_popen = FakePopen(DEFAULT_JES_COMMAND, '', 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen) as po_mock:
-            with self.assertRaises(JESByDefault):
-                client.enable_jes()
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=True):
+                with self.assertRaises(JESByDefault):
+                    client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'))
@@ -316,8 +319,10 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
             '1.24-foobar', 'path')
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen('', '', 0)) as po_mock:
-            with self.assertRaises(JESNotSupported):
-                client.enable_jes()
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=False):
+                with self.assertRaises(JESNotSupported):
+                    client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
@@ -335,7 +340,9 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         with patch('subprocess.Popen', autospec=True, side_effect=[
                 FakePopen('', '', 0),
                 FakePopen(OPTIONAL_JES_COMMAND, '', 0)]) as po_mock:
-            client.enable_jes()
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=False):
+                client.enable_jes()
         self.assertTrue(client._use_jes)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
@@ -1498,7 +1505,9 @@ class TestEnvJujuClient(ClientTest):
         fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
-            self.assertFalse(client.is_jes_enabled())
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=False):
+                self.assertFalse(client.is_jes_enabled())
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
         # Juju 1.25 uses the system command.
@@ -1506,13 +1515,17 @@ class TestEnvJujuClient(ClientTest):
         fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertTrue(client.is_jes_enabled())
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=True):
+                self.assertTrue(client.is_jes_enabled())
         # Juju 1.26 uses the controller command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertTrue(client.is_jes_enabled())
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=True):
+                self.assertTrue(client.is_jes_enabled())
 
     def test_get_jes_command(self):
         env = SimpleEnvironment('qux')
@@ -1522,8 +1535,10 @@ class TestEnvJujuClient(ClientTest):
         fake_popen = FakePopen(' %s' % OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
-            with self.assertRaises(JESNotSupported):
-                client.get_jes_command()
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=False):
+                with self.assertRaises(JESNotSupported):
+                    client.get_jes_command()
         assert_juju_call(self, po_mock, client, (
             'juju', '--show-log', 'help', 'commands'))
         # Juju 2.x uses the 'controller kill' command.
@@ -1531,15 +1546,47 @@ class TestEnvJujuClient(ClientTest):
         fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual(
-                DEFAULT_JES_COMMAND, client.get_jes_command())
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=True):
+                self.assertEqual(
+                    DEFAULT_JES_COMMAND, client.get_jes_command())
         # Juju 1.25 uses the 'system kill' command.
         client = EnvJujuClient(env, None, '/foobar/baz')
         fake_popen = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
         with patch('subprocess.Popen', autospec=True,
                    return_value=fake_popen):
-            self.assertEqual(
-                OPTIONAL_JES_COMMAND, client.get_jes_command())
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=False):
+                self.assertEqual(
+                    OPTIONAL_JES_COMMAND, client.get_jes_command())
+
+    def test_get_jes_command_environment_cannot_be_torn_down_error(self):
+        # The client knows about controllers, but a kill command was not found.
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        fake_popen = FakePopen('unknown', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            with patch.object(client, '_has_controllers',
+                              autospec=True, return_value=True):
+                with self.assertRaises(EnvironmentCannotBeTornDown):
+                    client.get_jes_command()
+
+    def test_has_controllers(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        # True when the the juju list-controllers command exits with zero.
+        fake_popen = FakePopen('help text', None, 0)
+        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
+            self.assertTrue(client._has_controllers())
+            assert_juju_call(self, po_mock, client, (
+                             'juju', '--show-log', 'list-controllers',
+                             '-e', 'qux', '--help'))
+        # False when the Juju does not have the list-controllers command and
+        # exits with non-zero.
+        with patch('subprocess.Popen',
+                   side_effect=subprocess.CalledProcessError('a', 'b')):
+            self.assertFalse(client._has_controllers())
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')

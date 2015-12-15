@@ -45,7 +45,6 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 DEFAULT_JES_COMMAND = 'kill-controller'
 OPTIONAL_JES_COMMAND = 'system'
-FORBIDDEN_JES_COMMANDS = ('controller', )
 
 _jes_cmds = {
     DEFAULT_JES_COMMAND: {
@@ -107,11 +106,11 @@ class JESByDefault(Exception):
             'This client does not need to enable Controllers')
 
 
-class JESCannotBeTested(Exception):
+class EnvironmentCannotBeTornDown(Exception):
 
     def __init__(self):
-        super(JESCannotBeTested, self).__init__(
-            'This client does not support this kind of Controller')
+        super(EnvironmentCannotBeTornDown, self).__init__(
+            'This client does not know how to destroy the environment.')
 
 
 def yaml_loads(yaml_str):
@@ -156,15 +155,29 @@ class EnvJujuClient:
         except JESNotSupported:
             return False
 
+    def _has_controllers(self):
+        """Does this client support controllers?
+
+        Juju 2.x has controllers in multi-environments, Juju 1.25.x does not.
+        """
+        try:
+            # All tested Juju versions that create controllers and require
+            # a separate JUJU_HOME have a list-controllers command.
+            self.get_juju_output('list-controllers', '--help')
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
         Juju 2.x has 'kill-controller'.
-        Juju 1.26 has 'destroy-controller'.
         Juju 1.25 has 'system kill' when the jes feature flag is set.
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
+        :raises: EnvironmentCannotBeTornDown when controllers are supported,
+            but the command to kill them is unknown.
         :return: The JES command.
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
@@ -172,6 +185,10 @@ class EnvJujuClient:
             for cmd in _jes_cmds.keys():
                 if line.startswith(cmd):
                     return cmd
+        if self._has_controllers():
+            # This is probably 1.26-alpha / 2.0-alpha where JES is enabled
+            # but the commands have changed.
+            raise EnvironmentCannotBeTornDown()
         raise JESNotSupported()
 
     def enable_jes(self):
