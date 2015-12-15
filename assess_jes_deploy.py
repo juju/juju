@@ -32,7 +32,7 @@ def make_hosted_env_client(client, suffix):
     hosted_env_client = EnvJujuClient.by_version(
         hosted_environment, client.full_path, client.debug,
     )
-    hosted_env_client.juju_home = client.juju_home
+    hosted_env_client.env.juju_home = client.env.juju_home
     if not hosted_env_client.is_jes_enabled():
         hosted_env_client.enable_jes()
     return hosted_env_client

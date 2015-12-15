@@ -237,9 +237,12 @@ class EnvJujuClient:
         self.version = version
         self.full_path = full_path
         self.debug = debug
-        if juju_home is None:
-            juju_home = get_juju_home()
-        self.juju_home = juju_home
+        if env is not None:
+            if juju_home is None:
+                if env.juju_home is None:
+                    env.juju_home = get_juju_home()
+            else:
+                env.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
 
@@ -252,7 +255,7 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
-        env['JUJU_HOME'] = self.juju_home
+        env['JUJU_HOME'] = self.env.juju_home
         return env
 
     def add_ssh_machines(self, machines):
@@ -307,7 +310,7 @@ class EnvJujuClient:
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
         if delete_jenv:
-            jenv_path = get_jenv_path(self.juju_home, self.env.environment)
+            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
 
     def kill_controller(self):
@@ -934,7 +937,7 @@ def make_safe_config(client):
     # ensure MAASAccount knows what the name will be.
     config['name'] = client.env.environment
     if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(client.juju_home,
+        config.setdefault('root-dir', get_local_root(client.env.juju_home,
                           client.env))
         # MongoDB requires a lot of free disk space, and the only
         # visible error message is from "juju bootstrap":
@@ -982,8 +985,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         # Skip creating symlink where not supported (i.e. Windows).
         if not permanent and getattr(os, 'symlink', None) is not None:
             os.symlink(new_jenv_path, jenv_path)
-        old_juju_home = client.juju_home
-        client.juju_home = temp_juju_home
+        old_juju_home = client.env.juju_home
+        client.env.juju_home = temp_juju_home
         try:
             yield temp_juju_home
         finally:
@@ -1000,7 +1003,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     except OSError as e:
                         if e.errno != errno.ENOENT:
                             raise
-                client.juju_home = old_juju_home
+                client.env.juju_home = old_juju_home
 
 
 def get_machine_dns_name(client, machine, timeout=600):
@@ -1122,9 +1125,10 @@ class Status:
 
 class SimpleEnvironment:
 
-    def __init__(self, environment, config=None):
+    def __init__(self, environment, config=None, juju_home=None):
         self.environment = environment
         self.config = config
+        self.juju_home = juju_home
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
             self.kvm = (

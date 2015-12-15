@@ -368,7 +368,7 @@ class BootstrapAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'bootstrap'}
         yield results
-        with temp_bootstrap_env(client.juju_home, client, set_home=False):
+        with temp_bootstrap_env(client.env.juju_home, client, set_home=False):
             logging.info('Performing async bootstrap')
             with client.bootstrap_async():
                 yield results

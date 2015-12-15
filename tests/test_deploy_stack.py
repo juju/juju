@@ -637,16 +637,16 @@ class FakeBootstrapManager:
 
     @contextmanager
     def bootstrap_context(self, machines):
-        initial_home = self.client.juju_home
+        initial_home = self.client.env.juju_home
         self.client.env.environment = self.client.env.environment + '-temp'
         try:
             self.entered_bootstrap = True
-            self.client.juju_home = os.path.join(initial_home, 'isolated')
+            self.client.env.juju_home = os.path.join(initial_home, 'isolated')
             yield
         finally:
             self.exited_bootstrap = True
             if not self.permanent:
-                self.client.juju_home = initial_home
+                self.client.env.juju_home = initial_home
 
     @contextmanager
     def runtime_context(self, machines):
@@ -866,7 +866,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.env.config['type'] = 'manual'
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
-            client.juju_home, False, False, False)
+            client.env.juju_home, False, False, False)
         with patch('deploy_stack.run_instances',
                    return_value=[('foo', 'aws.example.org')]):
             with patch('deploy_stack.destroy_job_instances'):
@@ -892,47 +892,49 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.is_jes_enabled.return_value = False
         client.env.config = {'type': 'baz'}
         client.get_matching_agent_version.return_value = '3.14'
-        client.juju_home = use_context(self, temp_dir())
+        client.env.juju_home = use_context(self, temp_dir())
         return client
 
     def test_bootstrap_context_tear_down(self):
-        client = self.make_client()
-        initial_home = client.juju_home
+        client = FakeJujuClient()
+        client.env.juju_home = use_context(self, temp_dir())
+        initial_home = client.env.juju_home
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
-            client.juju_home, False, False, False)
+            client.env.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
-            jenv_path = get_jenv_path(client.juju_home, 'foobar')
+            jenv_path = get_jenv_path(client.env.juju_home, 'foobar')
             self.assertFalse(os.path.exists(jenv_path))
-            environments_path = get_environments_path(client.juju_home)
+            environments_path = get_environments_path(client.env.juju_home)
             self.assertTrue(os.path.isfile(environments_path))
-            self.assertNotEqual(initial_home, client.juju_home)
+            self.assertNotEqual(initial_home, client.env.juju_home)
 
+        ije_cxt = patch.object(client, 'is_jes_enabled')
         with patch('deploy_stack.tear_down',
-                   side_effect=check_config) as td_mock:
+                   side_effect=check_config) as td_mock, ije_cxt:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=True)
 
     def test_bootstrap_context_tear_down_jenv(self):
         client = self.make_client()
-        initial_home = client.juju_home
-        jenv_path = get_jenv_path(client.juju_home, 'foobar')
+        initial_home = client.env.juju_home
+        jenv_path = get_jenv_path(client.env.juju_home, 'foobar')
         os.makedirs(os.path.dirname(jenv_path))
         with open(jenv_path, 'w'):
             pass
 
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
-            client.juju_home, False, False, False)
+            client.env.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             self.assertTrue(os.path.isfile(jenv_path))
-            environments_path = get_environments_path(client.juju_home)
+            environments_path = get_environments_path(client.env.juju_home)
             self.assertFalse(os.path.exists(environments_path))
-            self.assertEqual(initial_home, client.juju_home)
+            self.assertEqual(initial_home, client.env.juju_home)
 
         with patch('deploy_stack.tear_down',
                    side_effect=check_config) as td_mock:
@@ -942,9 +944,10 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client(self):
         client = self.make_client()
         tear_down_client = self.make_client()
+        tear_down_client.env = client.env
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client, None, [], None, None, None,
-            None, client.juju_home, False, False, False)
+            None, client.env.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
@@ -959,15 +962,16 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_bootstrap_context_tear_down_client_jenv(self):
         client = self.make_client()
         tear_down_client = self.make_client()
-        jenv_path = get_jenv_path(client.juju_home, 'foobar')
+        tear_down_client.env = client.env
+        jenv_path = get_jenv_path(client.env.juju_home, 'foobar')
         os.makedirs(os.path.dirname(jenv_path))
         with open(jenv_path, 'w'):
             pass
 
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
@@ -979,30 +983,33 @@ class TestBootstrapManager(FakeHomeTestCase):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
-    def test_tear_down_sets_home(self):
+    def test_tear_down_requires_same_env(self):
         client = self.make_client()
-        client.juju_home = 'foobar'
+        client.env.juju_home = 'foobar'
         tear_down_client = self.make_client()
-        tear_down_client.juju_home = 'barfoo'
+        tear_down_client.env.juju_home = 'barfoo'
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
 
         def check_home(foo, bar, try_jes):
-            self.assertEqual(client.juju_home, tear_down_client.juju_home)
+            self.assertEqual(client.env.juju_home,
+                             tear_down_client.env.juju_home)
 
-        with patch('deploy_stack.tear_down', autospec=True,
-                   side_effect=check_home):
-            bs_manager.tear_down()
-        self.assertEqual('barfoo', tear_down_client.juju_home)
+        with self.assertRaisesRegexp(AssertionError,
+                                     'Tear down client needs same env'):
+            with patch('deploy_stack.tear_down', autospec=True,
+                       side_effect=check_home):
+                bs_manager.tear_down()
+        self.assertEqual('barfoo', tear_down_client.env.juju_home)
 
     def test_runtime_context_uses_known_hosts(self):
         client = FakeJujuClient()
         bs_manager = BootstrapManager(
             'foobar', client, client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
         bs_manager.known_hosts['2'] = 'example.org'
         with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
             with bs_manager.runtime_context([]):
@@ -1017,8 +1024,8 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.bootstrap()
         bs_manager = BootstrapManager(
             'foobar', client, client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
         with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
             with bs_manager.runtime_context([]):
                 pass
@@ -1033,8 +1040,8 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.bootstrap()
         bs_manager = BootstrapManager(
             'foobar', client, client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
         bs_manager.known_hosts = {}
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
@@ -1046,8 +1053,8 @@ class TestBootstrapManager(FakeHomeTestCase):
         client = FakeJujuClient()
         bs_manager = BootstrapManager(
             'foobar', client, client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
         bs_manager.known_hosts['0'] = 'example.org'
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
@@ -1093,10 +1100,10 @@ class TestBootContext(FakeHomeTestCase):
             1)
         self.assertEqual(po_count, po_mock.call_count)
         if jes:
-            runtime_config = os.path.join(client.juju_home, 'environments',
+            runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'cache.yaml')
         else:
-            runtime_config = os.path.join(client.juju_home, 'environments',
+            runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'bar.jenv')
         dl_mock.assert_called_once_with(
                 client, log_dir, runtime_config, {'0': 'foo'})
