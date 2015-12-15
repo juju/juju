@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
@@ -50,10 +51,21 @@ func (s *ShowSuite) TestInfo(c *gc.C) {
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "show-charm-resources",
-		Args:    "charm-id",
+		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc: `
 This command will report the resources for a charm in the charm store.
+
+<charm> can be a charm URL, or an unambiguously condensed form of it;
+assuming a current series of "trusty", the following forms will be
+accepted:
+
+For cs:trusty/mysql
+  mysql
+  trusty/mysql
+
+For cs:~user/trusty/mysql
+  cs:~user/mysql
 `,
 	})
 }
@@ -78,7 +90,14 @@ music    upload -   mp3 of your backing vocals
 	c.Check(stderr, gc.Equals, "")
 	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
 	s.stub.CheckCall(c, 0, "newAPIClient", command)
-	s.stub.CheckCall(c, 1, "ListResources", []string{"cs:a-charm"})
+	s.stub.CheckCall(c, 1, "ListResources", []charm.URL{{
+		Schema:   "cs",
+		User:     "",
+		Name:     "a-charm",
+		Revision: -1,
+		Series:   "",
+		Channel:  "",
+	}})
 }
 
 func (s *ShowSuite) TestNoResources(c *gc.C) {

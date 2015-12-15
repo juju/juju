@@ -6,6 +6,7 @@ package cmd_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/resource"
 )
@@ -16,8 +17,8 @@ type stubCharmStore struct {
 	ReturnListResources [][]resource.Info
 }
 
-func (s *stubCharmStore) ListResources(charmIDs []string) ([][]resource.Info, error) {
-	s.stub.AddCall("ListResources", charmIDs)
+func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]resource.Info, error) {
+	s.stub.AddCall("ListResources", charmURLs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
