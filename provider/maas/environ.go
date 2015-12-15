@@ -1469,57 +1469,62 @@ func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hos
 	return deviceID, nil
 }
 
-// fetchFullDevice fetches an existing device Id associated with a MAC address
-// and/or hostname, or returns an error if there is no device.
-func (environ *maasEnviron) fetchFullDevice(macAddress, hostname string) (map[string]gomaasapi.JSONObject, error) {
+// fetchFullDevice fetches an existing device ID associated with the given
+// macAddress, or returns an error if there is no device.
+func (environ *maasEnviron) fetchFullDevice(macAddress string) (map[string]gomaasapi.JSONObject, error) {
+	if macAddress == "" {
+		return nil, errors.Errorf("given MAC address is empty")
+	}
+
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
 	params := url.Values{}
-	if macAddress != "" {
-		params.Add("mac_address", macAddress)
-	}
-	if hostname != "" {
-		params.Add("hostname", hostname)
-	}
+	params.Add("mac_address", macAddress)
+
 	result, err := devices.CallGet("list", params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	resultArray, err := result.GetArray()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if len(resultArray) == 0 {
-		return nil, errors.NotFoundf("no device for MAC %q and/or hostname %q", macAddress, hostname)
+		return nil, errors.NotFoundf("no device for MAC address %q", macAddress)
 	}
+
 	if len(resultArray) != 1 {
 		return nil, errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
 	}
+
 	resultMap, err := resultArray[0].GetMap()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	logger.Tracef("device found as %+v", resultMap)
 	return resultMap, nil
 }
 
-func (environ *maasEnviron) fetchDevice(macAddress, hostname string) (string, error) {
-	deviceMap, err := environ.fetchFullDevice(macAddress, hostname)
+func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
+	deviceMap, err := environ.fetchFullDevice(macAddress)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	deviceId, err := deviceMap["system_id"].GetString()
+	deviceID, err := deviceMap["system_id"].GetString()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return deviceId, nil
+	return deviceID, nil
 }
 
 // createOrFetchDevice returns a device Id associated with a MAC address. If
 // there is not already one it will create one.
 func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
-	device, err := environ.fetchDevice(macAddress, hostname)
+	device, err := environ.fetchDevice(macAddress)
 	if err == nil {
 		return device, nil
 	}
@@ -1657,9 +1662,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 			return errors.NotSupportedf("address allocation")
 		}
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
-		// The MAC address should uniquely identity the device, no need to pass
-		// hostname.
-		deviceID, err := environ.fetchDevice(macAddress, "")
+		deviceID, err := environ.fetchDevice(macAddress)
 		if err != nil {
 			return errors.Annotatef(
 				err,
@@ -1689,7 +1692,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
 	if environ.supportsDevices && macAddress != "" {
-		device, err := environ.fetchFullDevice(macAddress, hostname)
+		device, err := environ.fetchFullDevice(macAddress)
 		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
 			if err != nil {
