@@ -294,6 +294,44 @@ class CloudSigmaTest:
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
+class TestEnvJujuClient26Init(ClientTest):
+
+    def test_init_then_ensure_is_jes_enabled(self):
+        env = SimpleEnvironment('bar', {'type': 'ec2'})
+        with patch.object(EnvJujuClient26, '_ensure_is_jes_enabled',
+                          autospec=True) as eije_func:
+            client = EnvJujuClient26(env, None, '/foobar/baz')
+        eije_func.assert_called_once_with(client)
+
+    def test_ensure_is_jes_enabled_optional(self):
+        # client with optional support are enabled on init.
+        env = SimpleEnvironment('bar', {'type': 'ec2'})
+        fake_popen_1 = FakePopen('', None, 0)
+        fake_popen_2 = FakePopen(OPTIONAL_JES_COMMAND, None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   side_effect=(fake_popen_1, fake_popen_2)):
+            client = EnvJujuClient26(env, None, '/foobar/baz')
+        self.assertTrue(client._use_jes)
+
+    def test_ensure_is_jes_enabled_default(self):
+        # The clients with default support are enabled without error.
+        env = SimpleEnvironment('bar', {'type': 'ec2'})
+        fake_popen = FakePopen(DEFAULT_JES_COMMAND, None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            client = EnvJujuClient26(env, None, '/foobar/baz')
+        self.assertFalse(client._use_jes)
+
+    def test_ensure_is_jes_enabled_environment_cannot_be_torn_down_error(self):
+        # Clients that do not have a controller command raise an error on init.
+        env = SimpleEnvironment('bar', {'type': 'ec2'})
+        fake_popen = FakePopen('unknown', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
+            with self.assertRaises(EnvironmentCannotBeTornDown):
+                EnvJujuClient26(env, None, '/foobar/baz')
+
+
 class EnvJujuClient26WithoutInitedJES(EnvJujuClient26):
 
     def _ensure_is_jes_enabled(self):
@@ -1550,16 +1588,6 @@ class TestEnvJujuClient(ClientTest):
                    return_value=fake_popen):
             self.assertEqual(
                 OPTIONAL_JES_COMMAND, client.get_jes_command())
-
-    # def test_get_jes_command_environment_cannot_be_torn_down_error(self):
-    #     # The client knows about controllers, but a kill command was not found.
-    #     env = SimpleEnvironment('qux')
-    #     client = EnvJujuClient(env, None, '/foobar/baz')
-    #     fake_popen = FakePopen('unknown', None, 0)
-    #     with patch('subprocess.Popen', autospec=True,
-    #                return_value=fake_popen):
-    #         with self.assertRaises(EnvironmentCannotBeTornDown):
-    #             client.get_jes_command()
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')

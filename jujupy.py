@@ -761,8 +761,9 @@ class EnvJujuClient26(EnvJujuClient):
         # The 1.26-alpha version transitions from supported to default.
         # It is safer to always ensure controllers are enabled and use
         # the kill command to tear down.
-        if not self.is_jes_enabled():
-            self._use_jes = True
+        if self.is_jes_enabled():
+            return
+        self._use_jes = True
         if not self.is_jes_enabled():
             raise EnvironmentCannotBeTornDown()
 
