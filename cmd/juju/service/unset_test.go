@@ -18,14 +18,14 @@ import (
 type UnsetSuite struct {
 	coretesting.FakeJujuHomeSuite
 	dir  string
-	fake *fakeServiceAPI
+	fake *fakeClientAPI
 }
 
 var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAPI{servName: "dummy-service", values: map[string]interface{}{
+	s.fake = &fakeClientAPI{servName: "dummy-service", values: map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	}}

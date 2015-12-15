@@ -47,6 +47,7 @@ import (
 	_ "github.com/juju/juju/apiserver/storageprovisioner"
 	_ "github.com/juju/juju/apiserver/subnets"
 	_ "github.com/juju/juju/apiserver/systemmanager"
+	_ "github.com/juju/juju/apiserver/undertaker"
 	_ "github.com/juju/juju/apiserver/unitassigner"
 	_ "github.com/juju/juju/apiserver/uniter"
 	_ "github.com/juju/juju/apiserver/upgrader"
