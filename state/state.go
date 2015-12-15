@@ -81,6 +81,9 @@ type State struct {
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
+
+	muMetrics         sync.Mutex
+	metricsCollection map[string]*channelWatcher
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -2259,4 +2262,51 @@ func tagForGlobalKey(key string) (string, bool) {
 		return "", false
 	}
 	return p + key[2:], true
+}
+
+// CollectMetrics signals to the specified unit or service to collect and
+// flush metrics.
+func (st *State) CollectMetrics(tag names.Tag) error {
+	id := tag.Id()
+	switch tag := tag.(type) {
+	case names.UnitTag:
+		unit, err := st.Unit(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unit.CollectMetrics()
+		return nil
+	case names.ServiceTag:
+		service, err := st.Service(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(service.CollectMetrics())
+	default:
+		return errors.Errorf("unknown tag: %v", tag)
+	}
+}
+
+func (st *State) addMetricsCollectionWatcher(name string) {
+	st.muMetrics.Lock()
+	defer st.muMetrics.Unlock()
+
+	st.metricsCollection[name] = newChannelWatcher()
+}
+
+func (st *State) getMetricsCollectionWatcher(name string) (*channelWatcher, error) {
+	st.muMetrics.Lock()
+	defer st.muMetrics.Unlock()
+	watcher, ok := st.metricsCollection[name]
+	if !ok {
+		return nil, errors.NotFoundf("watcher not found")
+	}
+	return watcher, nil
+}
+
+func (st *State) removeMetricsCollectionWatcher(name string) {
+	st.muMetrics.Lock()
+	defer st.muMetrics.Unlock()
+
+	delete(st.metricsCollection, name)
 }

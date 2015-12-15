@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -1642,5 +1643,34 @@ action-b-b:
 	c.Assert(len(actions2), gc.Equals, 2)
 	for _, action := range actions2 {
 		c.Assert(action.Name(), gc.Matches, "^action-b-.")
+	}
+}
+
+func (s *UnitSuite) TestCollectMetrics(c *gc.C) {
+	watcher, err := s.unit.WatchMetricsCollection()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher.Changes():
+		c.Fatal("unexpected metrics collection event")
+	default:
+	}
+
+	err = s.unit.CollectMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher.Changes():
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("metrics collection event timeout")
+	}
+
+	err = s.unit.CollectMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher.Changes():
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("metrics collection event timeout")
 	}
 }

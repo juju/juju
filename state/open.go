@@ -244,12 +244,13 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 
 	// Create State.
 	return &State{
-		environTag: environTag,
-		mongoInfo:  mongoInfo,
-		session:    session,
-		database:   database,
-		policy:     policy,
-		watcher:    watcher.New(rawDB.C(txnLogC)),
+		environTag:        environTag,
+		mongoInfo:         mongoInfo,
+		session:           session,
+		database:          database,
+		policy:            policy,
+		watcher:           watcher.New(rawDB.C(txnLogC)),
+		metricsCollection: make(map[string]*channelWatcher),
 	}, nil
 }
 

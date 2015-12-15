@@ -4564,3 +4564,44 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = tryOpenState(st.EnvironTag(), mongoInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *StateSuite) TestCollectMetrics(c *gc.C) {
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	unit1, err := mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	unit2, err := mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher1, err := unit1.WatchMetricsCollection()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher2, err := unit2.WatchMetricsCollection()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.CollectMetrics(mysql.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher1.Changes():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("collect metrics watcher timeout")
+	}
+	select {
+	case <-watcher2.Changes():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("collect metrics watcher timeout")
+	}
+
+	err = s.State.CollectMetrics(unit1.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher1.Changes():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("collect metrics watcher timeout")
+	}
+	select {
+	case <-watcher2.Changes():
+		c.Fatal("unexpected collect metrics watcher signal")
+	default:
+	}
+}

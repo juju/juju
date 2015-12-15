@@ -905,6 +905,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	} else if err != nil {
 		return nil, err
 	}
+	s.st.addMetricsCollectionWatcher(name)
 	return s.st.Unit(name)
 }
 
@@ -1418,4 +1419,20 @@ var statusServerities = map[Status]int{
 	StatusTerminated:  60,
 	StatusActive:      50,
 	StatusUnknown:     40,
+}
+
+// CollectMetrics signals all units belonging to this service
+// to collect and flush metrics.
+func (s *Service) CollectMetrics() error {
+	units, err := s.AllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, unit := range units {
+		err = unit.CollectMetrics()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }

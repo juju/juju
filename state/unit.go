@@ -289,6 +289,7 @@ func (u *Unit) PasswordValid(password string) bool {
 // directly.
 func (u *Unit) Destroy() (err error) {
 	defer func() {
+		u.st.removeMetricsCollectionWatcher(u.Name())
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			u.doc.Life = Dying
@@ -642,6 +643,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
+	u.st.removeMetricsCollectionWatcher(u.Name())
 	return unit.st.run(buildTxn)
 }
 
@@ -2155,4 +2157,15 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
 	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+}
+
+// CollectMetrics increments a unit's collect metrics counter signaling that the
+// unit should collect and flush metrics when it observes this change.
+func (u *Unit) CollectMetrics() error {
+	watcher, err := u.st.getMetricsCollectionWatcher(u.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	watcher.trigger()
+	return nil
 }
