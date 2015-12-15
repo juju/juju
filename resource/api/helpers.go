@@ -78,25 +78,27 @@ func ResourceInfo2API(info resource.Info) ResourceInfo {
 // API2ResourceInfo converts an API ResourceInfo struct into
 // a resource.Info.
 func API2ResourceInfo(apiInfo ResourceInfo) (resource.Info, error) {
-	rtype, ok := charmresource.ParseType(apiInfo.Type)
-	if !ok {
-		// This will be handled later during spec.Validate().
+	var info resource.Info
+
+	rtype, err := charmresource.ParseType(apiInfo.Type)
+	if err != nil {
+		return info, errors.Trace(err)
 	}
 
 	fp, err := charmresource.NewFingerprint(apiInfo.Fingerprint)
 	if err != nil {
-		return resource.Info{}, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 	if err := fp.Validate(); err != nil {
-		return resource.Info{}, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
-	origin, ok := resource.ParseOriginKind(apiInfo.Origin)
-	if !ok {
-		// This will be handled later during spec.Validate().
+	origin, err := resource.ParseOriginKind(apiInfo.Origin)
+	if err != nil {
+		return info, errors.Trace(err)
 	}
 
-	info := resource.Info{
+	info = resource.Info{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:    apiInfo.Name,

@@ -23,10 +23,13 @@ var knownOriginKinds = map[OriginKind]bool{
 type OriginKind string
 
 // ParseOriginKind converts the provided string into an OriginKind.
-// If it is not a known origin kind then false is returned.
-func ParseOriginKind(value string) (OriginKind, bool) {
+// If it is not a known origin kind then an error is returned.
+func ParseOriginKind(value string) (OriginKind, error) {
 	o := OriginKind(value)
-	return o, knownOriginKinds[o]
+	if !knownOriginKinds[o] {
+		return o, errors.Errorf("unknown origin %q", value)
+	}
+	return o, nil
 }
 
 // String returns the printable representation of the origin kind.
