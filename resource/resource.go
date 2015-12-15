@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable/resource"
 )
 
 // Resource defines a single resource within Juju state.
 type Resource struct {
-	Info
+	resource.Resource
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
@@ -25,7 +26,7 @@ type Resource struct {
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
-	if err := res.Info.Validate(); err != nil {
+	if err := res.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad info")
 	}
 

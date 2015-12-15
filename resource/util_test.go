@@ -27,21 +27,15 @@ func newFullCharmResource(c *gc.C, name string) charmresource.Resource {
 			Path:    name + ".tgz",
 			Comment: "you need it",
 		},
+		Origin:      charmresource.OriginUpload,
 		Revision:    1,
 		Fingerprint: newFingerprint(c, name),
 	}
 }
 
-func newFullInfo(c *gc.C, name string) resource.Info {
-	return resource.Info{
-		Resource: newFullCharmResource(c, name),
-		Origin:   resource.OriginKindUpload,
-	}
-}
-
 func newFullResource(c *gc.C, name string) resource.Resource {
 	return resource.Resource{
-		Info:      newFullInfo(c, name),
+		Resource:  newFullCharmResource(c, name),
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}

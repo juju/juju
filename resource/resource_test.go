@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -22,7 +23,7 @@ var _ = gc.Suite(&ResourceSuite{})
 
 func (ResourceSuite) TestValidateUploadFull(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo(c, "spam"),
+		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -41,11 +42,11 @@ func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
 }
 
 func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
-	var info resource.Info
-	c.Assert(info.Validate(), gc.NotNil)
+	var charmRes charmresource.Resource
+	c.Assert(charmRes.Validate(), gc.NotNil)
 
 	res := resource.Resource{
-		Info:      info,
+		Resource:  charmRes,
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -58,7 +59,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 
 func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo(c, "spam"),
+		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "",
 		Timestamp: time.Now(),
 	}
@@ -71,7 +72,7 @@ func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 
 func (ResourceSuite) TestValidateBadTimestamp(c *gc.C) {
 	res := resource.Resource{
-		Info:      newFullInfo(c, "spam"),
+		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "a-user",
 		Timestamp: time.Time{},
 	}
