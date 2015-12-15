@@ -8,25 +8,25 @@ import (
 )
 
 type infoListFormatter struct {
-	infos []resource.Info
+	infoList []resource.Info
 }
 
-func newInfoListFormatter(infos []resource.Info) *infoListFormatter {
+func newInfoListFormatter(infoList []resource.Info) *infoListFormatter {
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
 	lf := infoListFormatter{
-		infos: infos,
+		infoList: infoList,
 	}
 	return &lf
 }
 
 func (lf *infoListFormatter) format() []FormattedInfo {
-	if lf.infos == nil {
+	if lf.infoList == nil {
 		return nil
 	}
 
 	var formatted []FormattedInfo
-	for _, info := range lf.infos {
+	for _, info := range lf.infoList {
 		formatted = append(formatted, FormatInfo(info))
 	}
 	return formatted

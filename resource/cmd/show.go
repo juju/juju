@@ -89,17 +89,17 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	charmURLs := []string{c.charmURL}
-	infos, err := apiclient.ListResources(charmURLs)
+	infoList, err := apiclient.ListResources(charmURLs)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(infos) != 1 {
+	if len(infoList) != 1 {
 		return errors.New("got bad data from charm store")
 	}
 
 	// Note that we do not worry about c.CompatVersion
 	// for show-charm-resources...
-	formatter := newInfoListFormatter(infos[0])
+	formatter := newInfoListFormatter(infoList[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }
