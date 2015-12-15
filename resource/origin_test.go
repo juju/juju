@@ -50,7 +50,7 @@ func (OriginKindSuite) TestValidateKnown(c *gc.C) {
 }
 
 func (OriginKindSuite) TestValidateUnknown(c *gc.C) {
-	kind := resource.OriginKind("<invalid>")
+	var kind resource.OriginKind
 	err := kind.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)

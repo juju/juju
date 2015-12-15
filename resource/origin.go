@@ -8,10 +8,9 @@ import (
 )
 
 // These are the valid kinds of resource origin.
-const (
-	OriginKindUnknown OriginKind = ""
-	OriginKindUpload  OriginKind = "upload"
-	OriginKindStore   OriginKind = "store"
+var (
+	OriginKindUpload = OriginKind{"upload"}
+	OriginKindStore  = OriginKind{"store"}
 )
 
 var knownOriginKinds = map[OriginKind]bool{
@@ -20,26 +19,31 @@ var knownOriginKinds = map[OriginKind]bool{
 }
 
 // OriginKind identifies the kind of a resource origin.
-type OriginKind string
+type OriginKind struct {
+	str string
+}
 
 // ParseOriginKind converts the provided string into an OriginKind.
 // If it is not a known origin kind then an error is returned.
 func ParseOriginKind(value string) (OriginKind, error) {
-	o := OriginKind(value)
-	if !knownOriginKinds[o] {
-		return OriginKindUnknown, errors.Errorf("unknown origin %q", value)
+	for kind := range knownOriginKinds {
+		if value == kind.str {
+			return kind, nil
+		}
 	}
-	return o, nil
+	return OriginKind{}, errors.Errorf("unknown origin %q", value)
 }
 
 // String returns the printable representation of the origin kind.
 func (o OriginKind) String() string {
-	return string(o)
+	return o.str
 }
 
 // Validate ensures that the origin is correct.
 func (o OriginKind) Validate() error {
-	if !knownOriginKinds[o] {
+	// Only the zero value is invalid.
+	var zero OriginKind
+	if o == zero {
 		return errors.NewNotValid(nil, "unknown origin")
 	}
 	return nil
