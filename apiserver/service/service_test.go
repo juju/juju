@@ -375,7 +375,7 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
-func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
 	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
 
 	var cons constraints.Value
@@ -384,10 +384,9 @@ func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
 		CharmUrl:         curl.String(),
 		NumUnits:         1,
 		Constraints:      cons,
-		EndpointBindings: map[string]string{"endpoint": "a-space"},
+		EndpointBindings: endpointBindings,
 	}
 
-	s.State.AddSpace("a-space", "", nil, true)
 	results, err := s.serviceApi.ServicesDeployWithBindings(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
@@ -400,8 +399,27 @@ func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
 
 	retrievedBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := map[string]string{"endpoint": "a-space", "ring": "default", "admin": "default"}
 	c.Assert(retrievedBindings, jc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+	s.State.AddSpace("a-space", "", nil, true)
+	expected := map[string]string{
+		"endpoint": "a-space",
+		"ring":     "default",
+		"admin":    "default",
+	}
+	endpointBindings := map[string]string{"endpoint": "a-space"}
+	s.testClientServicesDeployWithBindings(c, endpointBindings, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
+	expected := map[string]string{
+		"endpoint": "default",
+		"ring":     "default",
+		"admin":    "default",
+	}
+	s.testClientServicesDeployWithBindings(c, nil, expected)
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client

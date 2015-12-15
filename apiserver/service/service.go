@@ -104,7 +104,8 @@ func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.
 }
 
 // ServicesDeployWithBindings fetches the charms from the charm store and deploys them
-// using the specified placement directives and saving the specified space bindings.
+// using the specified placement directives and saving the specified endpoint bindings.
+// It is identical to ServicesDeployWithPlacement, but only exists when the API supports bindings.
 func (api *API) ServicesDeployWithBindings(args params.ServicesDeploy) (params.ErrorResults, error) {
 	return api.ServicesDeployWithPlacement(args)
 }
