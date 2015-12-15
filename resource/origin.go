@@ -27,7 +27,7 @@ type OriginKind string
 func ParseOriginKind(value string) (OriginKind, error) {
 	o := OriginKind(value)
 	if !knownOriginKinds[o] {
-		return o, errors.Errorf("unknown origin %q", value)
+		return OriginKindUnknown, errors.Errorf("unknown origin %q", value)
 	}
 	return o, nil
 }
