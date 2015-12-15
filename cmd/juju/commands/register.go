@@ -43,7 +43,7 @@ func (r *RegisterMeteredCharm) Run(state api.Connection, client *http.Client, de
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
 		// the user, but don't return an error.
-		logger.Warningf("current state server version does not support charm metering")
+		logger.Tracef("current state server version does not support charm metering")
 		return nil
 	} else if err != nil {
 		return err
