@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// CharmStore has the charm store API methods needed by ShowCommand.
-type CharmStore interface {
+// CharmResourceLister has the charm store API methods needed by ShowCommand.
+type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
 	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
 
@@ -28,14 +28,14 @@ type ShowCommand struct {
 	out   cmd.Output
 	charm string
 
-	newAPIClient func(c *ShowCommand) (CharmStore, error)
+	newResourceLister func(c *ShowCommand) (CharmResourceLister, error)
 }
 
 // NewShowCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowCommand(newAPIClient func(c *ShowCommand) (CharmStore, error)) *ShowCommand {
+func NewShowCommand(newResourceLister func(c *ShowCommand) (CharmResourceLister, error)) *ShowCommand {
 	cmd := &ShowCommand{
-		newAPIClient: newAPIClient,
+		newResourceLister: newResourceLister,
 	}
 	return cmd
 }
@@ -93,7 +93,7 @@ func (c *ShowCommand) Init(args []string) error {
 func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	apiclient, err := c.newAPIClient(c)
+	apiclient, err := c.newResourceLister(c)
 	if err != nil {
 		// TODO(ericsnow) Return a more user-friendly error?
 		return errors.Trace(err)

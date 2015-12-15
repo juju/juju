@@ -35,7 +35,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.CharmStore, error) {
+func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
 	s.stub.AddCall("newAPIClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
