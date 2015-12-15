@@ -11,18 +11,18 @@ var logger = loggo.GetLogger("juju.resource.state")
 
 // RawState defines the functionality needed from state.State for resources.
 type RawState interface {
-	// Add sub-interfaces here.
+	// TODO(ericsnow) Add sub-interfaces here.
 }
 
 // State exposes the state functionality needed for resources.
 type State struct {
-	// Add sub-states here.
+	// TODO(ericsnow) Embed sub-structs here.
 }
 
 // NewState returns a new State for the given raw Juju state.
 func NewState(raw RawState) *State {
 	logger.Tracef("wrapping state for resources")
 	return &State{
-	// ...
+	// TODO(ericsnow) Add sub-structs here.
 	}
 }
