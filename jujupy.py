@@ -96,14 +96,14 @@ class JESNotSupported(Exception):
 
     def __init__(self):
         super(JESNotSupported, self).__init__(
-            'This client does not support Controllers')
+            'This client does not support JES')
 
 
 class JESByDefault(Exception):
 
     def __init__(self):
         super(JESByDefault, self).__init__(
-            'This client does not need to enable Controllers')
+            'This client does not need to enable JES')
 
 
 class EnvironmentCannotBeTornDown(Exception):
