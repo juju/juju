@@ -713,7 +713,8 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         if use_jes:
             client.enable_jes()
         if client.is_jes_enabled():
-            client.juju_home = jes_home_path(client.juju_home, temp_env_name)
+            client.env.juju_home = jes_home_path(client.env.juju_home,
+                                                 temp_env_name)
         client.destroy_environment()
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)

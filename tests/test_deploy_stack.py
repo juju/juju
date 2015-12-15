@@ -947,7 +947,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         tear_down_client.env = client.env
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client, None, [], None, None, None,
-            None, client.juju_home, False, False, False)
+            None, client.env.juju_home, False, False, False)
 
         def check_config(client_, jes_enabled, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
@@ -985,23 +985,24 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
-        client.juju_home = 'foobar'
+        client.env.juju_home = 'foobar'
         tear_down_client = self.make_client()
-        tear_down_client.juju_home = 'barfoo'
+        tear_down_client.env.juju_home = 'barfoo'
         bs_manager = BootstrapManager(
             'foobar', client, tear_down_client,
-            None, [], None, None, None, None, client.juju_home, False, False,
-            False)
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
 
         def check_home(foo, bar, try_jes):
-            self.assertEqual(client.juju_home, tear_down_client.juju_home)
+            self.assertEqual(client.env.juju_home,
+                             tear_down_client.env.juju_home)
 
         with self.assertRaisesRegexp(AssertionError,
                                      'Tear down client needs same env'):
             with patch('deploy_stack.tear_down', autospec=True,
                        side_effect=check_home):
                 bs_manager.tear_down()
-        self.assertEqual('barfoo', tear_down_client.juju_home)
+        self.assertEqual('barfoo', tear_down_client.env.juju_home)
 
     def test_runtime_context_uses_known_hosts(self):
         client = FakeJujuClient()
