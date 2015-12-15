@@ -804,3 +804,18 @@ type BundleChangesChange struct {
 	// before this change is applied.
 	Requires []string `json:"requires"`
 }
+
+type MetricsResults struct {
+	Results []MetricsResult `json:"results"`
+}
+
+type MetricsResult struct {
+	Metric []MetricResult `json:"metric,ommitempty"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+type MetricResult struct {
+	Time  time.Time `json:"time"`
+	Key   string    `json:"key"`
+	Value string    `jons:"value"`
+}
