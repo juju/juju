@@ -32,7 +32,7 @@ func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
 		Path:        "spam.tgz",
 		Comment:     "X",
 		Revision:    0,
-		Fingerprint: "fac09f7d67d1bd30f41135c16fc132e5b635988c162f353786ca28ec0605d4d8ed55799d5d02e9275473574bf3754975",
+		Fingerprint: fp.String(),
 		Origin:      "upload",
 	})
 }
