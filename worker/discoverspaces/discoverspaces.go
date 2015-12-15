@@ -4,6 +4,8 @@
 package discoverspaces
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
@@ -103,14 +105,18 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
+		spaceName := string(space.ProviderId)
+		spaceName = strings.Replace(spaceName, " ", "-", -1)
+		spaceName = strings.ToLower(spaceName)
+		if !names.IsValidSpace(spaceName) {
+			// XXX generate a valid name here
+			logger.Errorf("invalid space name %v", spaceName)
+			return errors.Errorf("invalid space name: %q", spaceName)
+		}
+		spaceTag := names.NewSpaceTag(spaceName)
 		_, ok := stateSpaceMap[string(space.ProviderId)]
 		if !ok {
 			// XXX skip spaces with no subnets(?)
-			spaceTag, err := names.ParseSpaceTag(string(space.ProviderId))
-			if err != nil {
-				// XXX generate a valid name here
-				return errors.Trace(err)
-			}
 			// We need to create the space.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
@@ -120,6 +126,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// XXX check the error result too.
 			_, err = dw.api.CreateSpaces(args)
 			if err != nil {
+				logger.Errorf("invalid creating space %v", err)
 				return errors.Trace(err)
 			}
 		}
@@ -127,15 +134,12 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
 		for _, subnet := range space.Subnets {
-			spaceTag, err := names.ParseSpaceTag(space.Name)
-			if err != nil {
-				return errors.Trace(err)
+			if !names.IsValidSubnet(subnet.CIDR) {
+				// XXX generate a valid name here
+				logger.Errorf("invalid  subnet %v", subnet.CIDR)
+				return errors.Errorf("invalid subnet: %q", subnet.CIDR)
 			}
-			subnetTag, err := names.ParseSubnetTag(subnet.CIDR)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
+			subnetTag := names.NewSubnetTag(subnet.CIDR)
 			args := params.AddSubnetsParams{
 				Subnets: []params.AddSubnetParams{{
 					SubnetTag:        subnetTag.String(),
@@ -146,6 +150,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// XXX check the error result too.
 			_, err = dw.api.AddSubnets(args)
 			if err != nil {
+				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)
 			}
 		}
