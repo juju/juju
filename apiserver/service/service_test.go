@@ -6,8 +6,6 @@ package service_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 	"sync"
 
 	"github.com/juju/errors"
@@ -377,51 +375,16 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
-func AddCustomCharm(c *gc.C, st *state.State, name, filename, content, series string, revision int) *state.Charm {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
-	if filename != "" {
-		config := filepath.Join(path, filename)
-		err := ioutil.WriteFile(config, []byte(content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	ch, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
-	if revision != -1 {
-		ch.SetRevision(revision)
-	}
-	return addCharm(c, st, series, ch)
-}
-
-func addCharm(c *gc.C, st *state.State, series string, ch charm.Charm) *state.Charm {
-	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:" + series + "/" + ident)
-	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
-	c.Assert(err, jc.ErrorIsNil)
-	return sch
-}
-
 func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
-	const metaBase = `
-name: mysql
-summary: "Fake MySQL Database engine"
-description: "Complete with nonsense relations"
-provides:
-  server: mysql
-requires:
-  client: mysql
-peers:
-  cluster: mysql
-`
-
-	ch := AddCustomCharm(c, s.State, "mysql", "actions.yaml", metaBase, "quantal", 42)
+	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
 
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName:      "service",
-		CharmUrl:         ch.URL().String(),
+		CharmUrl:         curl.String(),
 		NumUnits:         1,
 		Constraints:      cons,
-		EndpointBindings: map[string]string{"server": "a-space"},
+		EndpointBindings: map[string]string{"endpoint": "a-space"},
 	}
 
 	s.State.AddSpace("a-space", "", nil, true)
@@ -437,7 +400,8 @@ peers:
 
 	retrievedBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retrievedBindings, jc.DeepEquals, args.EndpointBindings)
+	expected := map[string]string{"endpoint": "a-space", "ring": "default", "admin": "default"}
+	c.Assert(retrievedBindings, jc.DeepEquals, expected)
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
