@@ -896,7 +896,8 @@ class TestBootstrapManager(FakeHomeTestCase):
         return client
 
     def test_bootstrap_context_tear_down(self):
-        client = self.make_client()
+        client = FakeJujuClient()
+        client.env.juju_home = use_context(self, temp_dir())
         initial_home = client.juju_home
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
@@ -910,8 +911,9 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertTrue(os.path.isfile(environments_path))
             self.assertNotEqual(initial_home, client.juju_home)
 
+        ije_cxt = patch.object(client, 'is_jes_enabled')
         with patch('deploy_stack.tear_down',
-                   side_effect=check_config) as td_mock:
+                   side_effect=check_config) as td_mock, ije_cxt:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=True)
 

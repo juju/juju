@@ -181,13 +181,25 @@ class FakeJujuClient:
     The state is provided by _backing_state, so that multiple clients can
     manipulate the same state.
     """
-    def __init__(self):
+    def __init__(self, env=None):
         self._backing_state = FakeEnvironmentState()
-        self.env = SimpleEnvironment('name', {
+        if env is None:
+            env = SimpleEnvironment('name', {
             'type': 'foo',
             'default-series': 'angsty',
-            })
-        self.juju_home = 'foo'
+            }, juju_home='foo')
+        self.env = env
+        self._jes_enabled = False
+
+    @property
+    def juju_home(self):
+        return self.env.juju_home
+
+    def get_matching_agent_version(self):
+        return '1.2-alpha3'
+
+    def is_jes_enabled(self):
+        return self._jes_enabled
 
     def get_juju_output(self, command, *args, **kwargs):
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):

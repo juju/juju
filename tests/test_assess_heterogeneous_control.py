@@ -124,7 +124,7 @@ class TestTestControlHeterogeneous(TestCase):
 
     def test_same_home(self):
         initial_client = FakeJujuClient()
-        other_client = FakeJujuClient()
+        other_client = FakeJujuClient(env=initial_client.env)
         other_client._backing_state = initial_client._backing_state
         bs_manager = FakeBootstrapManager(initial_client)
         bs_manager.permanent = True

@@ -71,7 +71,8 @@ def run_context(bs_manager, other, upload_tools):
     try:
         bs_manager.keep_env = True
         with bs_manager.booted_context(upload_tools):
-            other.juju_home = bs_manager.client.juju_home
+            if other.juju_home != bs_manager.client.juju_home:
+                raise AssertionError('Juju home out of sync')
             yield
         # Test clean shutdown of an environment.
         juju_with_fallback(other, bs_manager.tear_down_client,
