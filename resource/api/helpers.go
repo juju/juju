@@ -32,9 +32,9 @@ func ServiceTag2ID(tagStr string) (string, error) {
 // a Resource struct.
 func Resource2API(res resource.Resource) Resource {
 	return Resource{
-		ResourceInfo: ResourceInfo2API(res.Info),
-		Username:     res.Username,
-		Timestamp:    res.Timestamp,
+		CharmResource: CharmResource2API(res.Resource),
+		Username:      res.Username,
+		Timestamp:     res.Timestamp,
 	}
 }
 
@@ -43,13 +43,13 @@ func Resource2API(res resource.Resource) Resource {
 func API2Resource(apiRes Resource) (resource.Resource, error) {
 	var res resource.Resource
 
-	info, err := API2ResourceInfo(apiRes.ResourceInfo)
+	charmRes, err := API2CharmResource(apiRes.CharmResource)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
 
 	res = resource.Resource{
-		Info:      info,
+		Resource:  charmRes,
 		Username:  apiRes.Username,
 		Timestamp: apiRes.Timestamp,
 	}
@@ -61,59 +61,57 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 	return res, nil
 }
 
-// ResourceInfo2API converts a resource.Info into
-// a ResourceInfo struct.
-func ResourceInfo2API(info resource.Info) ResourceInfo {
-	return ResourceInfo{
-		Name:        info.Name,
-		Type:        info.Type.String(),
-		Path:        info.Path,
-		Comment:     info.Comment,
-		Revision:    info.Revision,
-		Fingerprint: info.Fingerprint.Bytes(),
-		Origin:      info.Origin.String(),
+// CharmResource2API converts a charm resource into
+// a CharmResource struct.
+func CharmResource2API(res charmresource.Resource) CharmResource {
+	return CharmResource{
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Origin:      res.Origin.String(),
+		Revision:    res.Revision,
+		Fingerprint: res.Fingerprint.Bytes(),
 	}
 }
 
-// API2ResourceInfo converts an API ResourceInfo struct into
-// a resource.Info.
-func API2ResourceInfo(apiInfo ResourceInfo) (resource.Info, error) {
-	var info resource.Info
+// API2CharmResource converts an API CharmResource struct into
+// a charm resource.
+func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
+	var res charmresource.Resource
 
 	rtype, err := charmresource.ParseType(apiInfo.Type)
 	if err != nil {
-		return info, errors.Trace(err)
+		return res, errors.Trace(err)
+	}
+
+	origin, err := charmresource.ParseOrigin(apiInfo.Origin)
+	if err != nil {
+		return res, errors.Trace(err)
 	}
 
 	fp, err := charmresource.NewFingerprint(apiInfo.Fingerprint)
 	if err != nil {
-		return info, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 	if err := fp.Validate(); err != nil {
-		return info, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 
-	origin, err := resource.ParseOriginKind(apiInfo.Origin)
-	if err != nil {
-		return info, errors.Trace(err)
-	}
-
-	info = resource.Info{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    apiInfo.Name,
-				Type:    rtype,
-				Path:    apiInfo.Path,
-				Comment: apiInfo.Comment,
-			},
-			Revision:    apiInfo.Revision,
-			Fingerprint: fp,
+	res = charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    apiInfo.Name,
+			Type:    rtype,
+			Path:    apiInfo.Path,
+			Comment: apiInfo.Comment,
 		},
-		Origin: origin,
+		Origin:      origin,
+		Revision:    apiInfo.Revision,
+		Fingerprint: fp,
 	}
 
-	if err := info.Validate(); err != nil {
-		return info, errors.Trace(err)
+	if err := res.Validate(); err != nil {
+		return res, errors.Trace(err)
 	}
-	return info, nil
+	return res, nil
 }

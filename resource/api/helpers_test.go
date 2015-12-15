@@ -34,18 +34,16 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	res := resource.Resource{
-		Info: resource.Info{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "spam",
-					Type:    charmresource.TypeFile,
-					Path:    "spam.tgz",
-					Comment: "you need it",
-				},
-				Revision:    1,
-				Fingerprint: fp,
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "spam",
+				Type:    charmresource.TypeFile,
+				Path:    "spam.tgz",
+				Comment: "you need it",
 			},
-			Origin: resource.OriginKindUpload,
+			Origin:      charmresource.OriginUpload,
+			Revision:    1,
+			Fingerprint: fp,
 		},
 		Username:  "a-user",
 		Timestamp: now,
@@ -55,14 +53,14 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 	apiRes := api.Resource2API(res)
 
 	c.Check(apiRes, jc.DeepEquals, api.Resource{
-		ResourceInfo: api.ResourceInfo{
+		CharmResource: api.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
 			Comment:     "you need it",
+			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
-			Origin:      "upload",
 		},
 		Username:  "a-user",
 		Timestamp: now,
@@ -72,14 +70,14 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
 	res, err := api.API2Resource(api.Resource{
-		ResourceInfo: api.ResourceInfo{
+		CharmResource: api.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
 			Comment:     "you need it",
+			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
-			Origin:      "upload",
 		},
 		Username:  "a-user",
 		Timestamp: now,
@@ -89,18 +87,16 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	expected := resource.Resource{
-		Info: resource.Info{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "spam",
-					Type:    charmresource.TypeFile,
-					Path:    "spam.tgz",
-					Comment: "you need it",
-				},
-				Revision:    1,
-				Fingerprint: fp,
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "spam",
+				Type:    charmresource.TypeFile,
+				Path:    "spam.tgz",
+				Comment: "you need it",
 			},
-			Origin: resource.OriginKindUpload,
+			Origin:      charmresource.OriginUpload,
+			Revision:    1,
+			Fingerprint: fp,
 		},
 		Username:  "a-user",
 		Timestamp: now,
@@ -111,66 +107,62 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	c.Check(res, jc.DeepEquals, expected)
 }
 
-func (helpersSuite) TestResourceInfo2API(c *gc.C) {
+func (helpersSuite) TestCharmResource2API(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
-	info := resource.Info{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
-			},
-			Revision:    1,
-			Fingerprint: fp,
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    "spam",
+			Type:    charmresource.TypeFile,
+			Path:    "spam.tgz",
+			Comment: "you need it",
 		},
-		Origin: resource.OriginKindUpload,
+		Origin:      charmresource.OriginUpload,
+		Revision:    1,
+		Fingerprint: fp,
 	}
-	err = info.Validate()
+	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	apiInfo := api.ResourceInfo2API(info)
+	apiInfo := api.CharmResource2API(res)
 
-	c.Check(apiInfo, jc.DeepEquals, api.ResourceInfo{
+	c.Check(apiInfo, jc.DeepEquals, api.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
 		Comment:     "you need it",
+		Origin:      "upload",
 		Revision:    1,
 		Fingerprint: []byte(fingerprint),
-		Origin:      "upload",
 	})
 }
 
-func (helpersSuite) TestAPI2ResourceInfo(c *gc.C) {
-	info, err := api.API2ResourceInfo(api.ResourceInfo{
+func (helpersSuite) TestAPI2CharmResource(c *gc.C) {
+	res, err := api.API2CharmResource(api.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
 		Comment:     "you need it",
+		Origin:      "upload",
 		Revision:    1,
 		Fingerprint: []byte(fingerprint),
-		Origin:      "upload",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
-	expected := resource.Info{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
-			},
-			Revision:    1,
-			Fingerprint: fp,
+	expected := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    "spam",
+			Type:    charmresource.TypeFile,
+			Path:    "spam.tgz",
+			Comment: "you need it",
 		},
-		Origin: resource.OriginKindUpload,
+		Origin:      charmresource.OriginUpload,
+		Revision:    1,
+		Fingerprint: fp,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(res, jc.DeepEquals, expected)
 }

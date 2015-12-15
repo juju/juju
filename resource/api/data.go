@@ -9,7 +9,7 @@ import (
 
 // Resource contains info about a Resource.
 type Resource struct {
-	ResourceInfo
+	CharmResource
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
@@ -19,8 +19,8 @@ type Resource struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// ResourceInfo contains the definition for a resource.
-type ResourceInfo struct {
+// CharmResource contains the definition for a resource.
+type CharmResource struct {
 	// Name identifies the resource.
 	Name string `json:"name"`
 
@@ -33,12 +33,12 @@ type ResourceInfo struct {
 	// Comment contains user-facing info about the resource.
 	Comment string `json:"comment,omitempty"`
 
+	// Origin is where the resource will come from.
+	Origin string `json:"origin"`
+
 	// Revision is the revision, if applicable.
 	Revision int `json:"revision"`
 
 	// Fingerprint is the SHA-384 checksum for the resource blob.
 	Fingerprint []byte `json:"fingerprint"`
-
-	// Origin is where the resource will come from.
-	Origin string `json:"origin"`
 }
