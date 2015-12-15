@@ -63,6 +63,10 @@ func (s *spaceShim) Name() string {
 	return s.space.Name()
 }
 
+func (s *spaceShim) ProviderId() network.Id {
+	return s.space.ProviderId()
+}
+
 func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
 	results, err := s.space.Subnets()
 	if err != nil {
