@@ -27,11 +27,9 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 	}, {
 		cons:     constraints.Value{Mem: uint64p(1024)},
 		expected: url.Values{"mem": {"1024"}},
-	}, {
-		cons: constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
-		expected: url.Values{
-			"networks":     {"space:foo,space:bar"},
-			"not_networks": {"space:baz,space:oof"}},
+	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
+		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
+		expected: url.Values{},
 	}, {
 		cons: constraints.Value{Tags: stringslicep("tag1", "tag2", "^tag3", "^tag4")},
 		expected: url.Values{
@@ -44,9 +42,6 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 	}, { // RootDisk is ignored.
 		cons:     constraints.Value{RootDisk: uint64p(8192)},
 		expected: url.Values{},
-	}, {
-		cons:     constraints.Value{Spaces: stringslicep("foo", "bar")},
-		expected: url.Values{"networks": {"space:foo,space:bar"}},
 	}, {
 		cons:     constraints.Value{Tags: stringslicep("foo", "bar")},
 		expected: url.Values{"tags": {"foo,bar"}},
@@ -61,13 +56,11 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 			Tags:     stringslicep("^tag1", "tag2"),
 		},
 		expected: url.Values{
-			"arch":         {"arm"},
-			"cpu_count":    {"4"},
-			"mem":          {"1024"},
-			"networks":     {"space:foo"},
-			"not_networks": {"space:bar"},
-			"tags":         {"tag2"},
-			"not_tags":     {"tag1"},
+			"arch":      {"arm"},
+			"cpu_count": {"4"},
+			"mem":       {"1024"},
+			"tags":      {"tag2"},
+			"not_tags":  {"tag1"},
 		},
 	}} {
 		c.Logf("test #%d: cons=%s", i, test.cons.String())
@@ -136,70 +129,6 @@ func (*environSuite) TestConvertTagsToParams(c *gc.C) {
 		c.Logf("test #%d: tags=%v", i, test.tags)
 		var vals = url.Values{}
 		convertTagsToParams(vals, test.tags)
-		c.Check(vals, jc.DeepEquals, test.expected)
-	}
-}
-
-func (*environSuite) TestConvertSpacesToParams(c *gc.C) {
-	for i, test := range []struct {
-		spaces   *[]string
-		expected url.Values
-	}{{
-		spaces:   nil,
-		expected: url.Values{},
-	}, {
-		spaces:   &nilStringSlice,
-		expected: url.Values{},
-	}, {
-		spaces:   &[]string{},
-		expected: url.Values{},
-	}, {
-		spaces:   stringslicep(""),
-		expected: url.Values{},
-	}, {
-		spaces: stringslicep("foo"),
-		expected: url.Values{
-			"networks": {"space:foo"},
-		},
-	}, {
-		spaces: stringslicep("^bar"),
-		expected: url.Values{
-			"not_networks": {"space:bar"},
-		},
-	}, {
-		spaces: stringslicep("foo", "^bar", "baz", "^oof"),
-		expected: url.Values{
-			"networks":     {"space:foo,space:baz"},
-			"not_networks": {"space:bar,space:oof"},
-		},
-	}, {
-		spaces: stringslicep("", "^bar", "  ", "^oof"),
-		expected: url.Values{
-			"networks":     {"space:  "},
-			"not_networks": {"space:bar,space:oof"},
-		},
-	}, {
-		spaces: stringslicep("foo", "^", " b a z  ", "^^ ^"),
-		expected: url.Values{
-			"networks":     {"space:foo,space: b a z  "},
-			"not_networks": {"space:^ ^"},
-		},
-	}, {
-		spaces: stringslicep("", "^bar", "  ", " ^ o of "),
-		expected: url.Values{
-			"networks":     {"space:  ,space: ^ o of "},
-			"not_networks": {"space:bar"},
-		},
-	}, {
-		spaces: stringslicep("foo", "foo", "^bar", "^bar"),
-		expected: url.Values{
-			"networks":     {"space:foo,space:foo"},
-			"not_networks": {"space:bar,space:bar"},
-		},
-	}} {
-		c.Logf("test #%d: spaces=%v", i, test.spaces)
-		var vals = url.Values{}
-		convertSpacesToParams(vals, test.spaces)
 		c.Check(vals, jc.DeepEquals, test.expected)
 	}
 }
@@ -395,13 +324,27 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
 		nil, nil,
 	)
-
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(nodeValues[0].Get("networks"), gc.Equals, "space:space1,space:space3")
-	c.Assert(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
+	c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
+	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
+}
+
+func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
+	var shortLimit uint = 0
+	suite.PatchValue(&numericLabelLimit, shortLimit)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
+
+	_, err := env.acquireNode(
+		"", "",
+		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
+		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, `too many conflicting numeric labels, giving up.`)
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
@@ -441,27 +384,47 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
+	// Add some constraints, including spaces to verify specified bindings
+	// always override any spaces constraints.
+	cons := constraints.Value{
+		Spaces: stringslicep("foo", "^bar"),
+	}
+
 	for i, test := range []struct {
-		interfaces    []interfaceBinding
-		expectedValue string
-		expectedError string
-	}{{
-		interfaces:    nil,
-		expectedValue: "",
-		expectedError: "",
+		interfaces        []interfaceBinding
+		expectedPositives string
+		expectedNegatives string
+		expectedError     string
+	}{{ // without specified bindings, spaces constraints are used instead.
+		interfaces:        nil,
+		expectedPositives: "0:space=foo",
+		expectedNegatives: "space:bar",
+		expectedError:     "",
 	}, {
-		interfaces:    []interfaceBinding{{"name-1", "space-1"}},
-		expectedValue: "name-1:space=space-1",
+		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
+		expectedPositives: "name-1:space=space-1;0:space=foo",
+		expectedNegatives: "space:bar",
 	}, {
 		interfaces: []interfaceBinding{
 			{"name-1", "space-1"},
 			{"name-2", "space-2"},
 			{"name-3", "space-3"},
 		},
-		expectedValue: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3",
+		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3;0:space=foo",
+		expectedNegatives: "space:bar",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
+	}, {
+		interfaces:    []interfaceBinding{{"shared-db", "bar"}},
+		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"shared-db", "dup-space"},
+			{"db", "dup-space"},
+		},
+		expectedPositives: "shared-db:space=dup-space;db:space=dup-space;0:space=foo",
+		expectedNegatives: "space:bar",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
@@ -502,7 +465,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
 		env := suite.makeEnviron()
 		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-		_, err := env.acquireNode("", "", constraints.Value{}, test.interfaces, nil)
+		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -512,7 +475,8 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
 		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedValue)
+		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
+		c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
 		suite.testMAASObject.TestServer.Clear()
 	}
 }

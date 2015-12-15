@@ -48,7 +48,6 @@ func convertConstraints(cons constraints.Value) url.Values {
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
-	convertSpacesToParams(params, cons.Spaces)
 	convertTagsToParams(params, cons.Tags)
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
@@ -73,39 +72,13 @@ func convertTagsToParams(params url.Values, tags *[]string) {
 	}
 }
 
-// convertSpacesToParams converts a list of positive/negative spaces from
-// constraints into two comma-delimited lists of values (each one prefixed with
-// "space:"), which can then be passed to MAAS using the "networks" and
-// "not_networks" arguments to acquire. If either list of spaces is empty, the
-// respective argument is not added to params.
-func convertSpacesToParams(params url.Values, spaces *[]string) {
+// convertSpacesFromConstraints extracts spaces from constraints and converts
+// them to two lists of positive and negative spaces.
+func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
-		return
+		return nil, nil
 	}
-	convert := func(parsed []string) []string {
-		if len(parsed) == 0 {
-			return nil
-		}
-		converted := make([]string, 0, len(parsed))
-		for _, space := range parsed {
-			if space == "" {
-				continue
-			}
-			converted = append(converted, fmt.Sprintf("space:%s", space))
-
-		}
-		if len(converted) > 0 {
-			return converted
-		}
-		return nil
-	}
-	positives, negatives := parseDelimitedValues(*spaces)
-	if networks := convert(positives); len(networks) > 0 {
-		params.Add("networks", strings.Join(networks, ","))
-	}
-	if notNetworks := convert(negatives); len(notNetworks) > 0 {
-		params.Add("not_networks", strings.Join(notNetworks, ","))
-	}
+	return parseDelimitedValues(*spaces)
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
@@ -139,37 +112,96 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 type interfaceBinding struct {
 	Name            string
 	SpaceProviderId string
+
 	// add more as needed.
 }
 
-// addInterfaces converts a slice of interface bindings to the format MAAS
-// expects for the "interfaces" argument to acquire node. Returns an error
-// satisfying errors.IsNotValid() if bindings contains duplicates or empty
-// Name/SpaceName.
-func addInterfaces(params url.Values, bindings []interfaceBinding) error {
-	if len(bindings) == 0 {
-		return nil
-	}
-	var items []string
+// numericLabelLimit is a sentinel value used in addInterfaces to limit the
+// number of disabmiguation inner loop iterations in case named labels clash
+// with numeric labels for spaces coming from constraints. It's defined here to
+// facilitate testing this behavior.
+var numericLabelLimit uint = 0xffff
+
+// addInterfaces converts a slice of interface bindings, postiveSpaces and
+// negativeSpaces coming from constraints to the format MAAS expects for the
+// "interfaces" and "not_networks" arguments to acquire node. Returns an error
+// satisfying errors.IsNotValid() if the bindings contains duplicates, empty
+// Name/SpaceProviderId, or if negative spaces clash with specified bindings.
+// Duplicates between specified bindings and positiveSpaces are silently
+// skipped.
+func addInterfaces(
+	params url.Values,
+	bindings []interfaceBinding,
+	positiveSpaces, negativeSpaces []string,
+) error {
+	var (
+		index            uint
+		combinedBindings []string
+	)
 	namesSet := set.NewStrings()
+	spacesSet := set.NewStrings()
 	for _, binding := range bindings {
 		switch {
 		case binding.Name == "":
 			return errors.NewNotValid(nil, "interface bindings cannot have empty names")
 		case binding.SpaceProviderId == "":
 			return errors.NewNotValid(nil, fmt.Sprintf(
-				"invalid interface binding %q: space provider ID is required", binding.Name),
-			)
+				"invalid interface binding %q: space provider ID is required",
+				binding.Name,
+			))
 		case namesSet.Contains(binding.Name):
 			return errors.NewNotValid(nil, fmt.Sprintf(
-				"duplicated interface binding %q", binding.Name),
-			)
+				"duplicated interface binding %q",
+				binding.Name,
+			))
 		}
 		namesSet.Add(binding.Name)
-		items = append(items, fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId))
+		spacesSet.Add(binding.SpaceProviderId)
+
+		item := fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId)
+		combinedBindings = append(combinedBindings, item)
 	}
-	if len(items) > 0 {
-		params.Add("interfaces", strings.Join(items, ";"))
+
+	for _, space := range positiveSpaces {
+		if spacesSet.Contains(space) {
+			// Skip duplicates in positiveSpaces.
+			continue
+		}
+		spacesSet.Add(space)
+		// Make sure we pick a label that doesn't clash with possible bindings.
+		var label string
+		for {
+			label = fmt.Sprintf("%v", index)
+			if !namesSet.Contains(label) {
+				break
+			}
+			if index > numericLabelLimit { // ...just to make sure we won't loop forever.
+				return errors.Errorf("too many conflicting numeric labels, giving up.")
+			}
+			index++
+		}
+		namesSet.Add(label)
+		item := fmt.Sprintf("%s:space=%s", label, space)
+		combinedBindings = append(combinedBindings, item)
+		index++
+	}
+
+	var negatives []string
+	for _, space := range negativeSpaces {
+		if spacesSet.Contains(space) {
+			return errors.NewNotValid(nil, fmt.Sprintf(
+				"negative space %q from constraints clashes with interface bindings",
+				space,
+			))
+		}
+		negatives = append(negatives, fmt.Sprintf("space:%s", space))
+	}
+
+	if len(combinedBindings) > 0 {
+		params.Add("interfaces", strings.Join(combinedBindings, ";"))
+	}
+	if len(negatives) > 0 {
+		params.Add("not_networks", strings.Join(negatives, ","))
 	}
 	return nil
 }
