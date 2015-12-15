@@ -154,11 +154,6 @@ func addInterfaces(
 				"duplicated interface binding %q",
 				binding.Name,
 			))
-		case spacesSet.Contains(binding.SpaceProviderId):
-			return errors.NewNotValid(nil, fmt.Sprintf(
-				"duplicated space %q in interface binding %q",
-				binding.SpaceProviderId, binding.Name,
-			))
 		}
 		namesSet.Add(binding.Name)
 		spacesSet.Add(binding.SpaceProviderId)

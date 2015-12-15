@@ -423,7 +423,8 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"shared-db", "dup-space"},
 			{"db", "dup-space"},
 		},
-		expectedError: `duplicated space "dup-space" in interface binding "db"`,
+		expectedPositives: "shared-db:space=dup-space;db:space=dup-space;0:space=foo",
+		expectedNegatives: "space:bar",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
