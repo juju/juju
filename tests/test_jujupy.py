@@ -193,7 +193,7 @@ class FakeJujuClient:
 
     @property
     def juju_home(self):
-        return self.env.juju_home
+        raise ValueError
 
     def get_matching_agent_version(self):
         return '1.2-alpha3'

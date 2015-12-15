@@ -387,7 +387,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 @contextmanager
 def temp_juju_home(client, new_home):
     """Temporarily override the client's home directory."""
-    old_home = client.juju_home
+    old_home = client.env.juju_home
     client.env.juju_home = new_home
     try:
         yield
@@ -548,7 +548,7 @@ class BootstrapManager:
         for machine in ssh_machines:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
-        jenv_path = get_jenv_path(self.client.juju_home,
+        jenv_path = get_jenv_path(self.client.env.juju_home,
                                   self.client.env.environment)
         torn_down = False
         if os.path.isfile(jenv_path):
@@ -558,16 +558,16 @@ class BootstrapManager:
             torn_down = True
         else:
             jes_home = jes_home_path(
-                self.client.juju_home, self.client.env.environment)
+                self.client.env.juju_home, self.client.env.environment)
             with temp_juju_home(self.client, jes_home):
-                cache_path = get_cache_path(self.client.juju_home)
+                cache_path = get_cache_path(self.client.env.juju_home)
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
                     self.tear_down(try_jes=True)
                     torn_down = True
         ensure_deleted(jenv_path)
-        with temp_bootstrap_env(self.client.juju_home, self.client,
+        with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent):
             try:
                 try:
@@ -621,7 +621,7 @@ class BootstrapManager:
             if self.jes_enabled:
                 runtime_config = get_cache_path(self.client.juju_home)
             else:
-                runtime_config = get_jenv_path(self.client.juju_home,
+                runtime_config = get_jenv_path(self.client.env.juju_home,
                                                self.client.env.environment)
             dump_env_logs_known_hosts(
                 self.client, self.log_dir, runtime_config,
