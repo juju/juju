@@ -9,11 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/resource"
 )
 
-func NewInfo(c *gc.C, name, suffix, comment, fingerprint string) resource.Info {
+func NewCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
 	var fp charmresource.Fingerprint
 	if fingerprint == "" {
 		built, err := charmresource.GenerateFingerprint([]byte(name))
@@ -25,26 +23,24 @@ func NewInfo(c *gc.C, name, suffix, comment, fingerprint string) resource.Info {
 		fp = wrapped
 	}
 
-	info := resource.Info{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    name,
-				Type:    charmresource.TypeFile,
-				Path:    name + suffix,
-				Comment: comment,
-			},
-			Revision:    0,
-			Fingerprint: fp,
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    name,
+			Type:    charmresource.TypeFile,
+			Path:    name + suffix,
+			Comment: comment,
 		},
-		Origin: resource.OriginKindUpload,
+		Origin:      charmresource.OriginUpload,
+		Revision:    0,
+		Fingerprint: fp,
 	}
-	err := info.Validate()
+	err := res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	return info
+	return res
 }
 
-func NewInfos(c *gc.C, names ...string) []resource.Info {
-	var infos []resource.Info
+func NewCharmResources(c *gc.C, names ...string) []charmresource.Resource {
+	var resources []charmresource.Resource
 	for _, name := range names {
 		var comment string
 		parts := strings.SplitN(name, ":", 2)
@@ -53,8 +49,8 @@ func NewInfos(c *gc.C, names ...string) []resource.Info {
 			comment = parts[1]
 		}
 
-		info := NewInfo(c, name, ".tgz", comment, "")
-		infos = append(infos, info)
+		res := NewCharmResource(c, name, ".tgz", comment, "")
+		resources = append(resources, res)
 	}
-	return infos
+	return resources
 }

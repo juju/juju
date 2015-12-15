@@ -7,17 +7,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
-
-	"github.com/juju/juju/resource"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
 type stubCharmStore struct {
 	stub *testing.Stub
 
-	ReturnListResources [][]resource.Info
+	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]resource.Info, error) {
+func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charmURLs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

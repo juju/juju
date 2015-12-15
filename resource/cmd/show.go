@@ -7,16 +7,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/resource"
 )
 
 // CharmStore has the charm store API methods needed by ShowCommand.
 type CharmStore interface {
 	// ListResources lists the resources for each of the identified charms.
-	ListResources(charmURLs []charm.URL) ([][]resource.Info, error)
+	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
 
 	// Close closes the client.
 	Close() error
@@ -105,17 +105,17 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	infoList, err := apiclient.ListResources(charmURLs)
+	resources, err := apiclient.ListResources(charmURLs)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(infoList) != 1 {
+	if len(resources) != 1 {
 		return errors.New("got bad data from charm store")
 	}
 
 	// Note that we do not worry about c.CompatVersion
 	// for show-charm-resources...
-	formatter := newInfoListFormatter(infoList[0])
+	formatter := newCharmResourcesFormatter(resources[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

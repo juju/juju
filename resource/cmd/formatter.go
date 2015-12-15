@@ -4,43 +4,43 @@
 package cmd
 
 import (
-	"github.com/juju/juju/resource"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-type infoListFormatter struct {
-	infoList []resource.Info
+type charmResourcesFormatter struct {
+	resources []charmresource.Resource
 }
 
-func newInfoListFormatter(infoList []resource.Info) *infoListFormatter {
+func newCharmResourcesFormatter(resources []charmresource.Resource) *charmResourcesFormatter {
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
-	lf := infoListFormatter{
-		infoList: infoList,
+	crf := charmResourcesFormatter{
+		resources: resources,
 	}
-	return &lf
+	return &crf
 }
 
-func (lf *infoListFormatter) format() []FormattedInfo {
-	if lf.infoList == nil {
+func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
+	if crf.resources == nil {
 		return nil
 	}
 
-	var formatted []FormattedInfo
-	for _, info := range lf.infoList {
-		formatted = append(formatted, FormatInfo(info))
+	var formatted []FormattedCharmResource
+	for _, res := range crf.resources {
+		formatted = append(formatted, FormatCharmResource(res))
 	}
 	return formatted
 }
 
-// FormatInfo converts the resource info into a FormattedInfo.
-func FormatInfo(info resource.Info) FormattedInfo {
-	return FormattedInfo{
-		Name:        info.Name,
-		Type:        info.Type.String(),
-		Path:        info.Path,
-		Comment:     info.Comment,
-		Revision:    info.Revision,
-		Origin:      info.Origin.String(),
-		Fingerprint: info.Fingerprint.String(),
+// FormatCharmResource converts the resource info into a FormattedCharmResource.
+func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
+	return FormattedCharmResource{
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Revision:    res.Revision,
+		Origin:      res.Origin.String(),
+		Fingerprint: res.Fingerprint.String(),
 	}
 }

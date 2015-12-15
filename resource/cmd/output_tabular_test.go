@@ -7,8 +7,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/cmd"
 )
 
@@ -19,7 +19,7 @@ type OutputTabularSuite struct {
 }
 
 func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
-	info := cmd.NewInfo(c, "spam", ".tgz", "...", "")
+	info := cmd.NewCharmResource(c, "spam", ".tgz", "...", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -32,7 +32,7 @@ spam     upload -   ...
 }
 
 func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
-	info := cmd.NewInfo(c, "spam", "", "", "")
+	info := cmd.NewCharmResource(c, "spam", "", "", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -46,11 +46,11 @@ spam     upload -
 
 func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	formatted := formatInfos(
-		cmd.NewInfo(c, "spam", ".tgz", "spamspamspamspam", ""),
-		cmd.NewInfo(c, "eggs", "", "...", ""),
-		cmd.NewInfo(c, "somethingbig", ".zip", "", ""),
-		cmd.NewInfo(c, "song", ".mp3", "your favorite", ""),
-		cmd.NewInfo(c, "avatar", ".png", "your picture", ""),
+		cmd.NewCharmResource(c, "spam", ".tgz", "spamspamspamspam", ""),
+		cmd.NewCharmResource(c, "eggs", "", "...", ""),
+		cmd.NewCharmResource(c, "somethingbig", ".zip", "", ""),
+		cmd.NewCharmResource(c, "song", ".mp3", "your favorite", ""),
+		cmd.NewCharmResource(c, "avatar", ".png", "your picture", ""),
 	)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -73,10 +73,10 @@ func (s *OutputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
-func formatInfos(infos ...resource.Info) []cmd.FormattedInfo {
-	var formatted []cmd.FormattedInfo
-	for _, info := range infos {
-		formatted = append(formatted, cmd.FormatInfo(info))
+func formatInfos(resources ...charmresource.Resource) []cmd.FormattedCharmResource {
+	var formatted []cmd.FormattedCharmResource
+	for _, res := range resources {
+		formatted = append(formatted, cmd.FormatCharmResource(res))
 	}
 	return formatted
 }

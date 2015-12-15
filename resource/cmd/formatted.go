@@ -3,8 +3,8 @@
 
 package cmd
 
-// FormattedInfo holds the formatted representation of a resource's info.
-type FormattedInfo struct {
+// FormattedCharmResource holds the formatted representation of a resource's info.
+type FormattedCharmResource struct {
 	// These fields are exported for the sake of serialization.
 	Name        string `json:"name" yaml:"name"`
 	Type        string `json:"type" yaml:"type"`

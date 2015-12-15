@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/cmd"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -71,11 +70,11 @@ For cs:~user/trusty/mysql
 }
 
 func (s *ShowSuite) TestOkay(c *gc.C) {
-	infos := cmd.NewInfos(c,
+	resources := cmd.NewCharmResources(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
-	s.client.ReturnListResources = [][]resource.Info{infos}
+	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
 	command := cmd.NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "cs:a-charm")
@@ -101,7 +100,7 @@ music    upload -   mp3 of your backing vocals
 }
 
 func (s *ShowSuite) TestNoResources(c *gc.C) {
-	s.client.ReturnListResources = [][]resource.Info{{}}
+	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
 	command := cmd.NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "cs:a-charm")
@@ -120,11 +119,11 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint([]byte("xyz"))
 	c.Assert(err, jc.ErrorIsNil)
-	infos := []resource.Info{
-		cmd.NewInfo(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
-		cmd.NewInfo(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
+	resources := []charmresource.Resource{
+		cmd.NewCharmResource(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
+		cmd.NewCharmResource(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
-	s.client.ReturnListResources = [][]resource.Info{infos}
+	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
 	formats := map[string]string{
 		"tabular": `

@@ -23,10 +23,10 @@ func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(data)
 	c.Assert(err, jc.ErrorIsNil)
 	fingerprint := string(fp.Bytes())
-	info := cmd.NewInfo(c, "spam", ".tgz", "X", fingerprint)
-	formatted := cmd.FormatInfo(info)
+	res := cmd.NewCharmResource(c, "spam", ".tgz", "X", fingerprint)
+	formatted := cmd.FormatCharmResource(res)
 
-	c.Check(formatted, jc.DeepEquals, cmd.FormattedInfo{
+	c.Check(formatted, jc.DeepEquals, cmd.FormattedCharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
