@@ -619,7 +619,7 @@ class BootstrapManager:
         finally:
             safe_print_status(self.client)
             if self.jes_enabled:
-                runtime_config = get_cache_path(self.client.juju_home)
+                runtime_config = get_cache_path(self.client.env.juju_home)
             else:
                 runtime_config = get_jenv_path(self.client.env.juju_home,
                                                self.client.env.environment)

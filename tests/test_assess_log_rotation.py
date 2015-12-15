@@ -191,5 +191,5 @@ class TestMakeClientFromArgs(TestCase):
                 bootstrap_host=None, machine=[]
                 ))
         self.assertIsInstance(client, EnvJujuClient)
-        self.assertIn('/jes-homes/bar', client.juju_home)
+        self.assertIn('/jes-homes/bar', client.env.juju_home)
         td_func.assert_called_once_with(client, True)

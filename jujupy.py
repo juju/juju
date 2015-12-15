@@ -246,10 +246,6 @@ class EnvJujuClient:
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
 
-    @property
-    def juju_home(self):
-        return self.env.juju_home
-
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
@@ -259,7 +255,7 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
-        env['JUJU_HOME'] = self.juju_home
+        env['JUJU_HOME'] = self.env.juju_home
         return env
 
     def add_ssh_machines(self, machines):
@@ -314,7 +310,7 @@ class EnvJujuClient:
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
         if delete_jenv:
-            jenv_path = get_jenv_path(self.juju_home, self.env.environment)
+            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
 
     def kill_controller(self):
@@ -941,7 +937,7 @@ def make_safe_config(client):
     # ensure MAASAccount knows what the name will be.
     config['name'] = client.env.environment
     if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(client.juju_home,
+        config.setdefault('root-dir', get_local_root(client.env.juju_home,
                           client.env))
         # MongoDB requires a lot of free disk space, and the only
         # visible error message is from "juju bootstrap":

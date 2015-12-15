@@ -1099,10 +1099,10 @@ class TestBootContext(FakeHomeTestCase):
             1)
         self.assertEqual(po_count, po_mock.call_count)
         if jes:
-            runtime_config = os.path.join(client.juju_home, 'environments',
+            runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'cache.yaml')
         else:
-            runtime_config = os.path.join(client.juju_home, 'environments',
+            runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'bar.jenv')
         dl_mock.assert_called_once_with(
                 client, log_dir, runtime_config, {'0': 'foo'})

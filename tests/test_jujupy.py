@@ -191,10 +191,6 @@ class FakeJujuClient:
         self.env = env
         self._jes_enabled = False
 
-    @property
-    def juju_home(self):
-        raise ValueError
-
     def get_matching_agent_version(self):
         return '1.2-alpha3'
 
@@ -1316,7 +1312,7 @@ class TestEnvJujuClient(ClientTest):
             client.set_env_option(
                 'tools-metadata-url', 'https://example.org/juju/tools')
         environ = dict(os.environ)
-        environ['JUJU_HOME'] = client.juju_home
+        environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
@@ -1349,7 +1345,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_call') as mock:
             client.juju('foo', ('bar', 'baz'))
         environ = dict(os.environ)
-        environ['JUJU_HOME'] = client.juju_home
+        environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
                                  'bar', 'baz'))
 
@@ -1366,7 +1362,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, None)
         environ = dict(os.environ)
-        environ['JUJU_HOME'] = client.juju_home
+        environ['JUJU_HOME'] = client.env.juju_home
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
@@ -1409,7 +1405,7 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_extra_env(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, None)
-        extra_env = {'JUJU': '/juju', 'JUJU_HOME': client.juju_home}
+        extra_env = {'JUJU': '/juju', 'JUJU_HOME': client.env.juju_home}
 
         def check_env(*args, **kwargs):
             self.assertEqual('/juju', os.environ['JUJU'])
@@ -1785,7 +1781,7 @@ class TestMakeJESHome(TestCase):
 
 
 def stub_bootstrap(client):
-    jenv_path = get_jenv_path(client.juju_home, 'qux')
+    jenv_path = get_jenv_path(client.env.juju_home, 'qux')
     os.mkdir(os.path.dirname(jenv_path))
     with open(jenv_path, 'w') as f:
         f.write('Bogus jenv')
@@ -1936,7 +1932,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             self.assertFalse(os.path.exists(get_jenv_path(tb_home,
                              client.env.environment)))
         self.assertFalse(os.path.exists(tb_home))
-        self.assertEqual(client.juju_home, fake_home)
+        self.assertEqual(client.env.juju_home, fake_home)
         self.assertNotEqual(tb_home,
                             jes_home_path(fake_home, client.env.environment))
 
@@ -1954,7 +1950,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             self.assertTrue(os.path.exists(get_jenv_path(tb_home,
                             client.env.environment)))
         self.assertFalse(os.path.exists(tb_home))
-        self.assertEqual(client.juju_home, tb_home)
+        self.assertEqual(client.env.juju_home, tb_home)
 
 
 class TestStatus(FakeHomeTestCase):
