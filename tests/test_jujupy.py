@@ -185,9 +185,9 @@ class FakeJujuClient:
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
-            'type': 'foo',
-            'default-series': 'angsty',
-            }, juju_home='foo')
+                'type': 'foo',
+                'default-series': 'angsty',
+                }, juju_home='foo')
         self.env = env
         self._jes_enabled = False
 
