@@ -37,8 +37,9 @@ type DeployServiceParams struct {
 	Placement []*instance.Placement
 	// Networks holds a list of networks to required to start on boot.
 	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
-	Networks []string
-	Storage  map[string]storage.Constraints
+	Networks         []string
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
 }
 
 type ServiceDeployer interface {
@@ -85,15 +86,16 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	}
 
 	asa := state.AddServiceArgs{
-		Name:      args.ServiceName,
-		Series:    args.Series,
-		Owner:     args.ServiceOwner,
-		Charm:     args.Charm,
-		Networks:  args.Networks,
-		Storage:   stateStorageConstraints(args.Storage),
-		Settings:  settings,
-		NumUnits:  args.NumUnits,
-		Placement: args.Placement,
+		Name:             args.ServiceName,
+		Series:           args.Series,
+		Owner:            args.ServiceOwner,
+		Charm:            args.Charm,
+		Networks:         args.Networks,
+		Storage:          stateStorageConstraints(args.Storage),
+		Settings:         settings,
+		NumUnits:         args.NumUnits,
+		Placement:        args.Placement,
+		EndpointBindings: args.EndpointBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {

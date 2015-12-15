@@ -375,24 +375,51 @@ func (s *serviceSuite) TestClientServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
-func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
-	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
-	c.Assert(err, jc.ErrorIsNil)
+func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
+	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
+
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName:      "service",
 		CharmUrl:         curl.String(),
 		NumUnits:         1,
 		Constraints:      cons,
-		EndpointBindings: map[string]string{"foo": "bar"},
+		EndpointBindings: endpointBindings,
 	}
+
 	results, err := s.serviceApi.ServicesDeployWithBindings(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	//TODO(dooferlad) - once the API endpoint does something, check it here
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service(args.ServiceName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	retrievedBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retrievedBindings, jc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+	s.State.AddSpace("a-space", "", nil, true)
+	expected := map[string]string{
+		"endpoint": "a-space",
+		"ring":     "default",
+		"admin":    "default",
+	}
+	endpointBindings := map[string]string{"endpoint": "a-space"}
+	s.testClientServicesDeployWithBindings(c, endpointBindings, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
+	expected := map[string]string{
+		"endpoint": "default",
+		"ring":     "default",
+		"admin":    "default",
+	}
+	s.testClientServicesDeployWithBindings(c, nil, expected)
 }
 
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client

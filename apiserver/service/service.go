@@ -104,9 +104,9 @@ func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.
 }
 
 // ServicesDeployWithBindings fetches the charms from the charm store and deploys them
-// using the specified placement directives and saving the specified space bindings.
+// using the specified placement directives and saving the specified endpoint bindings.
+// It is identical to ServicesDeployWithPlacement, but only exists when the API supports bindings.
 func (api *API) ServicesDeployWithBindings(args params.ServicesDeploy) (params.ErrorResults, error) {
-	// TODO(dooferlad): save those space bindings
 	return api.ServicesDeployWithPlacement(args)
 }
 
@@ -168,15 +168,16 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			ServiceName: args.ServiceName,
 			Series:      args.Series,
 			// TODO(dfc) ServiceOwner should be a tag
-			ServiceOwner:   owner,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
-			Placement:      args.Placement,
-			Networks:       requestedNetworks,
-			Storage:        args.Storage,
+			ServiceOwner:     owner,
+			Charm:            ch,
+			NumUnits:         args.NumUnits,
+			ConfigSettings:   settings,
+			Constraints:      args.Constraints,
+			ToMachineSpec:    args.ToMachineSpec,
+			Placement:        args.Placement,
+			Networks:         requestedNetworks,
+			Storage:          args.Storage,
+			EndpointBindings: args.EndpointBindings,
 		})
 	return err
 }
