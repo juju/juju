@@ -24,6 +24,7 @@ var facadeVersions = map[string]int{
 	"Client":                       0,
 	"Cleaner":                      1,
 	"Deployer":                     0,
+	"DiscoverSpaces":               1,
 	"DiskManager":                  1,
 	"EntityWatcher":                1,
 	"Environment":                  0,

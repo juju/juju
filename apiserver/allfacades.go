@@ -18,6 +18,7 @@ import (
 	_ "github.com/juju/juju/apiserver/cleaner"
 	_ "github.com/juju/juju/apiserver/client"
 	_ "github.com/juju/juju/apiserver/deployer"
+	_ "github.com/juju/juju/apiserver/discoverspaces"
 	_ "github.com/juju/juju/apiserver/diskmanager"
 	_ "github.com/juju/juju/apiserver/environment"
 	_ "github.com/juju/juju/apiserver/environmentmanager"
