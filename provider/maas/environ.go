@@ -876,17 +876,24 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 			return nil, "", errors.Annotatef(err, "getNetworkMACs failed")
 		}
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
+
+		var defaultGateway network.Address
+		if netw.DefaultGateway != "" {
+			defaultGateway = network.NewAddress(netw.DefaultGateway)
+		}
+
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
 				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
-					MACAddress:    mac,
-					InterfaceName: ifinfo.InterfaceName,
-					DeviceIndex:   ifinfo.DeviceIndex,
-					CIDR:          netCIDR.String(),
-					VLANTag:       netw.VLANTag,
-					ProviderId:    network.Id(netw.Name),
-					NetworkName:   netw.Name,
-					Disabled:      disabled || ifinfo.Disabled,
+					MACAddress:     mac,
+					InterfaceName:  ifinfo.InterfaceName,
+					DeviceIndex:    ifinfo.DeviceIndex,
+					CIDR:           netCIDR.String(),
+					VLANTag:        netw.VLANTag,
+					ProviderId:     network.Id(netw.Name),
+					NetworkName:    netw.Name,
+					Disabled:       disabled || ifinfo.Disabled,
+					GatewayAddress: defaultGateway,
 				})
 			}
 		}
@@ -1787,9 +1794,15 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			ifaceInfo.VLANTag = details.VLANTag
 			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
 			mask := net.IPMask(net.ParseIP(details.Mask))
-			cidr := net.IPNet{net.ParseIP(details.IP), mask}
+			cidr := net.IPNet{
+				IP:   net.ParseIP(details.IP),
+				Mask: mask,
+			}
 			ifaceInfo.CIDR = cidr.String()
 			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
+			if details.DefaultGateway != "" {
+				ifaceInfo.GatewayAddress = network.NewAddress(details.DefaultGateway)
+			}
 			result = append(result, ifaceInfo)
 		}
 	}
@@ -1976,11 +1989,12 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 
 // networkDetails holds information about a MAAS network.
 type networkDetails struct {
-	Name        string
-	IP          string
-	Mask        string
-	VLANTag     int
-	Description string
+	Name           string
+	IP             string
+	Mask           string
+	VLANTag        int
+	Description    string
+	DefaultGateway string
 }
 
 // getInstanceNetworks returns a list of all MAAS networks for a given node.
@@ -2006,41 +2020,57 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 	for i, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "parsing network details")
 		}
+
 		name, err := fields["name"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get name: %v", err)
+			return nil, errors.Annotate(err, "cannot get name")
 		}
+
 		ip, err := fields["ip"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get ip: %v", err)
+			return nil, errors.Annotate(err, "cannot get ip")
 		}
+
+		defaultGateway := ""
+		defaultGatewayField, ok := fields["default_gateway"]
+		if ok && !defaultGatewayField.IsNil() {
+			// default_gateway is optional, so ignore it when unset or null.
+			defaultGateway, err = defaultGatewayField.GetString()
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot get default_gateway")
+			}
+		}
+
 		netmask, err := fields["netmask"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get netmask: %v", err)
+			return nil, errors.Annotate(err, "cannot get netmask")
 		}
+
 		vlanTag := 0
 		vlanTagField, ok := fields["vlan_tag"]
 		if ok && !vlanTagField.IsNil() {
 			// vlan_tag is optional, so assume it's 0 when missing or nil.
 			vlanTagFloat, err := vlanTagField.GetFloat64()
 			if err != nil {
-				return nil, fmt.Errorf("cannot get vlan_tag: %v", err)
+				return nil, errors.Annotate(err, "cannot get vlan_tag")
 			}
 			vlanTag = int(vlanTagFloat)
 		}
+
 		description, err := fields["description"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get description: %v", err)
+			return nil, errors.Annotate(err, "cannot get description")
 		}
 
 		networks[i] = networkDetails{
-			Name:        name,
-			IP:          ip,
-			Mask:        netmask,
-			VLANTag:     vlanTag,
-			Description: description,
+			Name:           name,
+			IP:             ip,
+			Mask:           netmask,
+			DefaultGateway: defaultGateway,
+			VLANTag:        vlanTag,
+			Description:    description,
 		}
 	}
 	return networks, nil
