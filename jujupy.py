@@ -155,19 +155,6 @@ class EnvJujuClient:
         except JESNotSupported:
             return False
 
-    def _has_controllers(self):
-        """Does this client support controllers?
-
-        Juju 2.x has controllers in multi-environments, Juju 1.25.x does not.
-        """
-        try:
-            # All tested Juju versions that create controllers and require
-            # a separate JUJU_HOME have a list-controllers command.
-            self.get_juju_output('list-controllers', '--help')
-            return True
-        except subprocess.CalledProcessError:
-            return False
-
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
@@ -176,8 +163,6 @@ class EnvJujuClient:
 
         :raises: JESNotSupported when the version of Juju does not expose
             a JES command.
-        :raises: EnvironmentCannotBeTornDown when controllers are supported,
-            but the command to kill them is unknown.
         :return: The JES command.
         """
         commands = self.get_juju_output('help', 'commands', include_e=False)
@@ -185,10 +170,6 @@ class EnvJujuClient:
             for cmd in _jes_cmds.keys():
                 if line.startswith(cmd):
                     return cmd
-        if self._has_controllers():
-            # This is probably 1.26-alpha / 2.0-alpha where JES is enabled
-            # but the commands have changed.
-            raise EnvironmentCannotBeTornDown()
         raise JESNotSupported()
 
     def enable_jes(self):
@@ -774,6 +755,16 @@ class EnvJujuClient26(EnvJujuClient):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
         self._use_container_address_allocation = False
+        self._ensure_is_jes_enabled()
+
+    def _ensure_is_jes_enabled(self):
+        # The 1.26-alpha version transitions from supported to default.
+        # It is safer to always ensure controllers are enabled and use
+        # the kill command to tear down.
+        if not self.is_jes_enabled():
+            self._use_jes = True
+        if not self.is_jes_enabled():
+            raise EnvironmentCannotBeTornDown()
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -819,6 +810,9 @@ class EnvJujuClient26(EnvJujuClient):
 
 class EnvJujuClient25(EnvJujuClient26):
     """Drives Juju 2.5-series clients."""
+
+    def _ensure_is_jes_enabled(self):
+        pass
 
 
 class EnvJujuClient24(EnvJujuClient25):
