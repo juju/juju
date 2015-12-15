@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ServiceSuite struct {
@@ -2046,4 +2048,41 @@ func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c
 		mysqlBaseMeta+oneMultipleLocationStorageMeta,
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
+}
+
+func (s *ServiceSuite) TestCollectMetrics(c *gc.C) {
+	unit1, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	unit2, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher1, err := unit1.WatchMetricsCollection()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher2, err := unit2.WatchMetricsCollection()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher1.Changes():
+		c.Fatal("unexpected metrics collection event")
+	default:
+	}
+	select {
+	case <-watcher2.Changes():
+		c.Fatal("unexpected metrics collection event")
+	default:
+	}
+
+	err = s.mysql.CollectMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-watcher1.Changes():
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("metrics collection event timeout")
+	}
+	select {
+	case <-watcher2.Changes():
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("metrics collection event timeout")
+	}
 }

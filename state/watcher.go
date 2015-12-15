@@ -2722,3 +2722,53 @@ func (w *blockDevicesWatcher) loop() error {
 		}
 	}
 }
+
+func newChannelWatcher() *channelWatcher {
+	return &channelWatcher{changes: make(chan struct{}, 1)}
+}
+
+var _ NotifyWatcher = (*channelWatcher)(nil)
+
+// channelWatcher is part of all client watchers.
+type channelWatcher struct {
+	changes chan struct{}
+}
+
+// Stop implements the Watcher interface.
+func (w *channelWatcher) Stop() error {
+	close(w.changes)
+	return nil
+}
+
+// Kill implements the Watcher interface.
+func (w *channelWatcher) Kill() {
+	close(w.changes)
+}
+
+// Wait implements the Watcher interface.
+func (w *channelWatcher) Wait() error {
+	return nil
+}
+
+// Err implements the Watcher interface.
+func (w *channelWatcher) Err() error {
+	return nil
+}
+
+// Changes implements the NotifyWatcher interface.
+func (w *channelWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+func (w *channelWatcher) trigger() {
+	select {
+	case w.changes <- struct{}{}:
+	default:
+	}
+}
+
+// WatchMetricsCollection returns a watcher observing changes that signal the affected unit
+// should collect and flush metrics.
+func (u *Unit) WatchMetricsCollection() (NotifyWatcher, error) {
+	return u.st.getMetricsCollectionWatcher(u.Name())
+}
