@@ -8,42 +8,42 @@ import (
 )
 
 // These are the valid kinds of resource origin.
-var (
-	OriginKindUpload = OriginKind{"upload"}
-	OriginKindStore  = OriginKind{"store"}
+const (
+	originKindUnknown OriginKind = iota
+	OriginKindUpload
+	OriginKindStore
 )
 
-var knownOriginKinds = map[OriginKind]bool{
-	OriginKindUpload: true,
-	OriginKindStore:  true,
+var knownOriginKinds = map[OriginKind]string{
+	OriginKindUpload: "upload",
+	OriginKindStore:  "store",
 }
 
 // OriginKind identifies the kind of a resource origin.
-type OriginKind struct {
-	str string
-}
+type OriginKind int
 
 // ParseOriginKind converts the provided string into an OriginKind.
 // If it is not a known origin kind then an error is returned.
 func ParseOriginKind(value string) (OriginKind, error) {
-	for kind := range knownOriginKinds {
-		if value == kind.str {
+	for kind, str := range knownOriginKinds {
+		if value == str {
 			return kind, nil
 		}
 	}
-	return OriginKind{}, errors.Errorf("unknown origin %q", value)
+	return originKindUnknown, errors.Errorf("unknown origin %q", value)
 }
 
 // String returns the printable representation of the origin kind.
 func (o OriginKind) String() string {
-	return o.str
+	return knownOriginKinds[o]
 }
 
 // Validate ensures that the origin is correct.
 func (o OriginKind) Validate() error {
-	// Only the zero value is invalid.
-	var zero OriginKind
-	if o == zero {
+	// Ideally, only the (unavoidable) zero value would be invalid.
+	// However, typedef'ing int means that the use of int literals
+	// could result in invalid Type values other than the zero value.
+	if _, ok := knownOriginKinds[o]; !ok {
 		return errors.NewNotValid(nil, "unknown origin")
 	}
 	return nil
