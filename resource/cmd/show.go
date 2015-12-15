@@ -14,8 +14,8 @@ import (
 
 // CharmStore has the charm store API methods needed by ShowCommand.
 type CharmStore interface {
-	// ListResources lists the resources for each of the given charms.
-	ListResources(charms []string) ([][]resource.Info, error)
+	// ListResources lists the resources for each of the identified charms.
+	ListResources(charmURLs []string) ([][]resource.Info, error)
 
 	// Close closes the client.
 	Close() error
@@ -24,8 +24,8 @@ type CharmStore interface {
 // ShowCommand implements the show-resources command.
 type ShowCommand struct {
 	envcmd.EnvCommandBase
-	out     cmd.Output
-	charmID string
+	out      cmd.Output
+	charmURL string
 
 	newAPIClient func(c *ShowCommand) (CharmStore, error)
 }
@@ -68,7 +68,7 @@ func (c *ShowCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing charm ID")
 	}
-	c.charmID = args[0]
+	c.charmURL = args[0]
 
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Trace(err)
@@ -88,8 +88,8 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	charms := []string{c.charmID}
-	infos, err := apiclient.ListResources(charms)
+	charmURLs := []string{c.charmURL}
+	infos, err := apiclient.ListResources(charmURLs)
 	if err != nil {
 		return errors.Trace(err)
 	}
