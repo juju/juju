@@ -19,7 +19,7 @@ type OutputTabularSuite struct {
 }
 
 func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
-	info := cmd.NewCharmResource(c, "spam", ".tgz", "...", "")
+	info := newCharmResource(c, "spam", ".tgz", "...", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -32,7 +32,7 @@ spam     upload -   ...
 }
 
 func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
-	info := cmd.NewCharmResource(c, "spam", "", "", "")
+	info := newCharmResource(c, "spam", "", "", "")
 	formatted := formatInfos(info)
 
 	data, err := cmd.FormatTabular(formatted)
@@ -46,11 +46,11 @@ spam     upload -
 
 func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	formatted := formatInfos(
-		cmd.NewCharmResource(c, "spam", ".tgz", "spamspamspamspam", ""),
-		cmd.NewCharmResource(c, "eggs", "", "...", ""),
-		cmd.NewCharmResource(c, "somethingbig", ".zip", "", ""),
-		cmd.NewCharmResource(c, "song", ".mp3", "your favorite", ""),
-		cmd.NewCharmResource(c, "avatar", ".png", "your picture", ""),
+		newCharmResource(c, "spam", ".tgz", "spamspamspamspam", ""),
+		newCharmResource(c, "eggs", "", "...", ""),
+		newCharmResource(c, "somethingbig", ".zip", "", ""),
+		newCharmResource(c, "song", ".mp3", "your favorite", ""),
+		newCharmResource(c, "avatar", ".png", "your picture", ""),
 	)
 
 	data, err := cmd.FormatTabular(formatted)

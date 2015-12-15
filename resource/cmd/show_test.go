@@ -70,7 +70,7 @@ For cs:~user/trusty/mysql
 }
 
 func (s *ShowSuite) TestOkay(c *gc.C) {
-	resources := cmd.NewCharmResources(c,
+	resources := newCharmResources(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
@@ -120,8 +120,8 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 	fp2, err := charmresource.GenerateFingerprint([]byte("xyz"))
 	c.Assert(err, jc.ErrorIsNil)
 	resources := []charmresource.Resource{
-		cmd.NewCharmResource(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
-		cmd.NewCharmResource(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
+		newCharmResource(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
+		newCharmResource(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 

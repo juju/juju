@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-func NewCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
+func newCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
 	var fp charmresource.Fingerprint
 	if fingerprint == "" {
 		built, err := charmresource.GenerateFingerprint([]byte(name))
@@ -39,7 +39,7 @@ func NewCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmr
 	return res
 }
 
-func NewCharmResources(c *gc.C, names ...string) []charmresource.Resource {
+func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for _, name := range names {
 		var comment string
@@ -49,7 +49,7 @@ func NewCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 			comment = parts[1]
 		}
 
-		res := NewCharmResource(c, name, ".tgz", comment, "")
+		res := newCharmResource(c, name, ".tgz", comment, "")
 		resources = append(resources, res)
 	}
 	return resources
