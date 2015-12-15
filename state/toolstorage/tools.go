@@ -260,7 +260,7 @@ func validateVersion(v version.Binary) error {
 	if err := bson.Unmarshal(data, &doc); err != nil {
 		return errors.Trace(err)
 	}
-	if v != doc.Version {
+	if v.String() != doc.Version.String() {
 		return errors.Errorf("version %q != %q", v, doc.Version)
 	}
 	return nil
