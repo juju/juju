@@ -686,30 +686,37 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 		}
 	}()
 
-	machine, err := st.Agent().Entity(a.Tag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// All other workers must wait for the upgrade steps to complete before starting.
 	runner := newConnRunner(st)
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.postUpgradeAPIWorker(st, a.CurrentConfig(), machine.Jobs())
+		return a.startAPIWorkers(st, a.CurrentConfig())
 	})
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
-func (a *MachineAgent) postUpgradeAPIWorker(
+func (a *MachineAgent) startAPIWorkers(
 	st api.Connection,
 	agentConfig agent.Config,
-	machineJobs []multiwatcher.MachineJob,
 ) (worker.Worker, error) {
 
-	var isEnvironManager bool
-	for _, job := range machineJobs {
-		if job == multiwatcher.JobManageEnviron {
+	entity, err := st.Agent().Entity(a.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var isEnvironManager, isUnitHoster, isNetworkManager bool
+	for _, job := range entity.Jobs() {
+		switch job {
+		case multiwatcher.JobManageEnviron:
 			isEnvironManager = true
-			break
+		case multiwatcher.JobHostUnits:
+			isUnitHoster = true
+		case multiwatcher.JobManageNetworking:
+			isNetworkManager = true
+		case multiwatcher.JobManageStateDeprecated:
+			// Legacy environments may set this, but we ignore it.
+		default:
+			// TODO(dimitern): Once all workers moved over to using
+			// the API, report "unknown job type" here.
 		}
 	}
 
@@ -727,15 +734,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 		return w, nil
 	})
-
-	if isEnvironManager {
-		runner.StartWorker("resumer", func() (worker.Worker, error) {
-			// The action of resumer is so subtle that it is not tested,
-			// because we can't figure out how to do so without
-			// brutalising the transaction log.
-			return newResumer(st.Resumer()), nil
-		})
-	}
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
@@ -818,20 +816,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
-	if !isEnvironManager {
-		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
-			// TODO(fwereade): this worker needs its own facade.
-			handler := conv2state.New(st.Machiner(), a)
-			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-				Handler: handler,
-			})
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start state server promoter worker")
-			}
-			return w, nil
-		})
-	}
-
 	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 		api, err := st.DiskManager()
 		if err != nil {
@@ -863,13 +847,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return w, nil
 	})
 
-	if isEnvironManager {
-		// Start worker that stores missing published image metadata in state.
-		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			return newMetadataUpdater(st.MetadataUpdater()), nil
-		})
-	}
-
 	// Check if the network management is disabled.
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
@@ -877,14 +854,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	// Start networker depending on configuration and job.
-	intrusiveMode := false
-	for _, job := range machineJobs {
-		if job == multiwatcher.JobManageNetworking {
-			intrusiveMode = true
-			break
-		}
-	}
-	intrusiveMode = intrusiveMode && !disableNetworkManagement
+	intrusiveMode := isNetworkManager && !disableNetworkManagement
 	runner.StartWorker("networker", func() (worker.Worker, error) {
 		w, err := newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
 		if err != nil {
@@ -914,43 +884,62 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
-	for _, job := range machineJobs {
-		switch job {
-		case multiwatcher.JobHostUnits:
-			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				apiDeployer := st.Deployer()
-				context := newDeployContext(apiDeployer, agentConfig)
-				w, err := deployer.NewDeployer(apiDeployer, context)
-				if err != nil {
-					return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
-				}
-				return w, nil
-			})
-		case multiwatcher.JobManageEnviron:
-			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
-				inner := func(<-chan struct{}) error {
-					agentConfig := a.CurrentConfig()
-					return agent.WriteSystemIdentityFile(agentConfig)
-				}
-				return worker.NewSimpleWorker(inner), nil
-			})
-			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
-				// 4 times a day seems a decent enough amount of checks.
-				checkerParams := toolsversionchecker.VersionCheckerParams{
-					CheckInterval: time.Hour * 6,
-				}
-				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
-			})
 
-		case multiwatcher.JobManageStateDeprecated:
-			// Legacy environments may set this, but we ignore it.
-		default:
-			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here.
-		}
+	if isUnitHoster {
+		runner.StartWorker("deployer", func() (worker.Worker, error) {
+			apiDeployer := st.Deployer()
+			context := newDeployContext(apiDeployer, agentConfig)
+			w, err := deployer.NewDeployer(apiDeployer, context)
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
+			}
+			return w, nil
+		})
 	}
 
-	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+	if isEnvironManager {
+		runner.StartWorker("resumer", func() (worker.Worker, error) {
+			// The action of resumer is so subtle that it is not tested,
+			// because we can't figure out how to do so without
+			// brutalising the transaction log.
+			return newResumer(st.Resumer()), nil
+		})
+
+		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
+			inner := func(<-chan struct{}) error {
+				agentConfig := a.CurrentConfig()
+				return agent.WriteSystemIdentityFile(agentConfig)
+			}
+			return worker.NewSimpleWorker(inner), nil
+		})
+
+		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+			// 4 times a day seems a decent enough amount of checks.
+			checkerParams := toolsversionchecker.VersionCheckerParams{
+				CheckInterval: time.Hour * 6,
+			}
+			return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+		})
+
+		// Start worker that stores missing published image metadata in state.
+		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+			return newMetadataUpdater(st.MetadataUpdater()), nil
+		})
+	} else {
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			// TODO(fwereade): this worker needs its own facade.
+			handler := conv2state.New(st.Machiner(), a)
+			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+				Handler: handler,
+			})
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot start state server promoter worker")
+			}
+			return w, nil
+		})
+	}
+
+	return runner, nil
 }
 
 // Restart restarts the agent's service.
