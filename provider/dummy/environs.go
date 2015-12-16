@@ -1090,6 +1090,12 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
+// TODO: (mfoord) make this configurable.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	return true, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
 // TODO(mfoord): This should be configurable.
 func (env *environ) SupportSpaceDiscovery() (bool, error) {
 	return false, nil
