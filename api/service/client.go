@@ -31,6 +31,13 @@ func NewClient(caller base.APICallCloser) *Client {
 	return &Client{base.NewFacadeCaller(caller, "Service")}
 }
 
+// Close the connection to the API server.
+func (c *Client) Close() error {
+	// We know RawAPICaller() is an APICallerCloser since
+	// it's passed in as such above in NewClient.
+	return c.FacadeCaller.RawAPICaller().(base.APICallCloser).Close()
+}
+
 // SetMetricCredentials sets the metric credentials for the service specified.
 func (c *Client) SetMetricCredentials(service string, credentials []byte) error {
 	creds := []params.ServiceMetricCredential{
@@ -149,4 +156,18 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	}
 
 	return c.FacadeCall("ServiceUpdate", args, nil)
+}
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.FacadeCall("AddRelation", params, &addRelRes)
+	return &addRelRes, err
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	return c.FacadeCall("DestroyRelation", params, nil)
 }

@@ -27,6 +27,10 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.client = service.NewClient(s.APIState)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.client.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 	c.Assert(s.client, gc.NotNil)
 }
 

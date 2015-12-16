@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
@@ -40,10 +41,11 @@ func (c *removeRelationCommand) Init(args []string) error {
 }
 
 func (c *removeRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.NewAPIClient()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return err
 	}
+	client := service.NewClient(root)
 	defer client.Close()
 	return block.ProcessBlockedError(client.DestroyRelation(c.Endpoints...), block.BlockRemove)
 }

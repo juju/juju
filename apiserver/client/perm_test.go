@@ -208,7 +208,7 @@ func opClientCharmInfo(c *gc.C, st api.Connection, mst *state.State) (func(), er
 }
 
 func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
+	_, err := service.NewClient(st).AddRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -216,7 +216,7 @@ func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), 
 }
 
 func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	err := service.NewClient(st).DestroyRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

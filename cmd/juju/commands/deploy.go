@@ -522,6 +522,8 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	if err != nil {
 		return err
 	}
+	defer serviceClient.Close()
+
 	if serviceClient.BestAPIVersion() < 1 {
 		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 1.24 or later")
 	}

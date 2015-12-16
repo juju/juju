@@ -52,6 +52,12 @@ type Service interface {
 	// ServiceGetCharmURL returns the charm URL the given service is
 	// running at present.
 	ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error)
+
+	// AddRelation adds a relation between the specified endpoints and returns the relation info.
+	AddRelation(args params.AddRelation) (params.AddRelationResults, error)
+
+	// DestroyRelation removes the relation between the specified endpoints.
+	DestroyRelation(args params.DestroyRelation) error
 }
 
 // API implements the service interface and is the concrete
@@ -347,4 +353,44 @@ func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult,
 	}
 	charmURL, _ := service.CharmURL()
 	return params.StringResult{Result: charmURL.String()}, nil
+}
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+	inEps, err := api.state.InferEndpoints(args.Endpoints...)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	rel, err := api.state.AddRelation(inEps...)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	outEps := make(map[string]charm.Relation)
+	for _, inEp := range inEps {
+		outEp, err := rel.Endpoint(inEp.ServiceName)
+		if err != nil {
+			return params.AddRelationResults{}, err
+		}
+		outEps[inEp.ServiceName] = outEp.Relation
+	}
+	return params.AddRelationResults{Endpoints: outEps}, nil
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (api *API) DestroyRelation(args params.DestroyRelation) error {
+	if err := api.check.RemoveAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	eps, err := api.state.InferEndpoints(args.Endpoints...)
+	if err != nil {
+		return err
+	}
+	rel, err := api.state.EndpointsRelation(eps...)
+	if err != nil {
+		return err
+	}
+	return rel.Destroy()
 }

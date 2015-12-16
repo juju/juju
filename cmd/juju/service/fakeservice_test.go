@@ -93,6 +93,10 @@ type fakeServiceAPI struct {
 	err         error
 }
 
+func (f *fakeServiceAPI) Close() error {
+	return nil
+}
+
 func (f *fakeServiceAPI) ServiceUpdate(args params.ServiceUpdate) error {
 	if f.err != nil {
 		return f.err

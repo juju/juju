@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -42,11 +43,11 @@ var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
 func newAddRelationCommand() cmd.Command {
 	addRelationCmd := &addRelationCommand{}
 	addRelationCmd.newAPIFunc = func() (AddRelationAPI, error) {
-		client, err := addRelationCmd.NewAPIClient()
+		root, err := addRelationCmd.NewAPIRoot()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return client, nil
+		return service.NewClient(root), nil
 	}
 	return envcmd.Wrap(addRelationCmd)
 }
