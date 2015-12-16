@@ -199,6 +199,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		SizeHintGB:         mibToGib(p.Size),
 		Name:               volumeName,
 		PersistentDiskType: persistentType,
+		Description:        v.envUUID,
 	}
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
@@ -282,6 +283,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 	}
 	var volumes []string
 	for _, zone := range azs {
+		// FIXME(perrito666) Check Description for UUID
 		disks, err := v.gce.Disks(zone.Name())
 		if err != nil {
 			// maybe use available and status also.
@@ -289,6 +291,9 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 			continue
 		}
 		for _, disk := range disks {
+			if disk.Description != v.envUUID && disk.Description != "" {
+				continue
+			}
 			volumes = append(volumes, disk.Name)
 		}
 	}

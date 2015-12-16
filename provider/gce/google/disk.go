@@ -89,6 +89,9 @@ type DiskSpec struct {
 	// characters must be a dash, lowercase letter, or digit, except the
 	// last character, which cannot be a dash.
 	Name string
+	// Description holds a description of the disk, it currently holds
+	// envUUID.
+	Description string
 }
 
 // TooSmall checks the spec's size hint and indicates whether or not
@@ -122,7 +125,7 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 	if ds.Readonly {
 		mode = ModeRO
 	}
-
+	// FIXME: Add description uuid here too.
 	disk := compute.AttachedDisk{
 		Type:       diskType,
 		Boot:       ds.Boot,
@@ -155,6 +158,7 @@ func (ds *DiskSpec) newDetached() (*compute.Disk, error) {
 		SizeGb:      int64(ds.SizeGB()),
 		SourceImage: ds.ImageURL,
 		Type:        string(ds.PersistentDiskType),
+		Description: ds.Description,
 	}, nil
 }
 
@@ -177,6 +181,8 @@ type Disk struct {
 	Id uint64
 	// Name is a unique identifier string for each disk.
 	Name string
+	// Description holds the description field for a disk, we store env UUID here.
+	Description string
 	// Size is the size in mbit.
 	Size uint64
 	// Type is one of the available disk types supported by
@@ -190,12 +196,13 @@ type Disk struct {
 
 func NewDisk(cd *compute.Disk) *Disk {
 	d := &Disk{
-		Id:     cd.Id,
-		Name:   cd.Name,
-		Size:   gibToMib(cd.SizeGb),
-		Type:   DiskType(cd.Type),
-		Zone:   cd.Zone,
-		Status: DiskStatus(cd.Status),
+		Id:          cd.Id,
+		Name:        cd.Name,
+		Description: cd.Description,
+		Size:        gibToMib(cd.SizeGb),
+		Type:        DiskType(cd.Type),
+		Zone:        cd.Zone,
+		Status:      DiskStatus(cd.Status),
 	}
 	return d
 }

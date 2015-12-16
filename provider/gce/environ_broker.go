@@ -169,6 +169,11 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.globalFirewallName(),
 		machineID,
 	}
+	cfg := env.Config()
+	eUUID, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("cannot find UUID necessary to create the instance disk")
+	}
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
@@ -176,7 +181,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	instSpec := google.InstanceSpec{
 		ID:                machineID,
 		Type:              spec.InstanceType.Name,
-		Disks:             getDisks(spec, args.Constraints, args.InstanceConfig.Series),
+		Disks:             getDisks(spec, args.Constraints, args.InstanceConfig.Series, eUUID),
 		NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata:          metadata,
 		Tags:              tags,
@@ -229,16 +234,17 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, series string) []google.DiskSpec {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, series, eUUID string) []google.DiskSpec {
 	size := common.MinRootDiskSizeGiB(series)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}
 	dSpec := google.DiskSpec{
-		SizeHintGB: size,
-		ImageURL:   imageBasePath + spec.Image.Id,
-		Boot:       true,
-		AutoDelete: true,
+		SizeHintGB:  size,
+		ImageURL:    imageBasePath + spec.Image.Id,
+		Boot:        true,
+		AutoDelete:  true,
+		Description: eUUID,
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
