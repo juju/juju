@@ -133,25 +133,24 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
+		logger.Errorf("Created space %v with %v subnets", spaceName, len(space.Subnets))
 		for _, subnet := range space.Subnets {
-			if !names.IsValidSubnet(subnet.CIDR) {
-				// XXX generate a valid name here
-				logger.Errorf("invalid  subnet %v", subnet.CIDR)
-				return errors.Errorf("invalid subnet: %q", subnet.CIDR)
-			}
-			subnetTag := names.NewSubnetTag(subnet.CIDR)
 			args := params.AddSubnetsParams{
 				Subnets: []params.AddSubnetParams{{
-					SubnetTag:        subnetTag.String(),
 					SubnetProviderId: string(subnet.ProviderId),
 					SpaceTag:         spaceTag.String(),
 					Zones:            subnet.AvailabilityZones,
 				}}}
 			// XXX check the error result too.
-			_, err = dw.api.AddSubnets(args)
+			logger.Errorf("Adding subnet %v", subnet.CIDR)
+			result, err := dw.api.AddSubnets(args)
 			if err != nil {
 				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)
+			}
+			if result.Results[0].Error != nil {
+				logger.Errorf("error creating subnet %v", result.Results[0].Error)
+				return errors.Errorf("error creating subnet %v", result.Results[0].Error)
 			}
 		}
 	}
