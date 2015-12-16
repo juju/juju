@@ -26,7 +26,7 @@ def assess_TEMPLATE(client):
     client.juju("deploy", ('local:trusty/my-charm',))
     # Wait for the deployment to finish.
     client.wait_for_started()
-    logging.info("TODO: Add log line about any test")
+    log.info("TODO: Add log line about any test")
     # TODO: Add specific functional testing actions here.
 
 
