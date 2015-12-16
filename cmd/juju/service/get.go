@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-func newGetCommand() cmd.Command {
+func NewGetCommand() cmd.Command {
 	return envcmd.Wrap(&getCommand{})
 }
 
@@ -30,7 +30,7 @@ The command output includes the service and charm names, a detailed list of all 
 settings for <service>, including the setting name, whether it uses the default value
 or not ("default: true"), description (if set), type, and current value. Example:
 
-$ juju service get wordpress
+$ juju get-config wordpress
 
 charm: wordpress
 service: wordpress
@@ -55,7 +55,7 @@ default value. It does not indicate the default value for the setting.
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get",
+		Name:    "get-config",
 		Args:    "<service>",
 		Purpose: "get service configuration options",
 		Doc:     getDoc,
@@ -79,7 +79,7 @@ func (c *getCommand) Init(args []string) error {
 }
 
 // GetServiceAPI defines the methods on the client API
-// that the service get command calls.
+// that the get-config command calls.
 type GetServiceAPI interface {
 	Close() error
 	ServiceGet(service string) (*params.ServiceGetResults, error)

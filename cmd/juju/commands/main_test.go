@@ -40,9 +40,8 @@ var _ = gc.Suite(&MainSuite{})
 func deployHelpText() string {
 	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
 }
-
-func setHelpText() string {
-	return cmdtesting.HelpText(service.NewSetCommand(), "juju service set")
+func setconfigHelpText() string {
+	return cmdtesting.HelpText(service.NewSetCommand(), "juju set-config")
 }
 
 func syncToolsHelpText() string {
@@ -106,20 +105,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju help set shows the default help without global options",
-		args:    []string{"help", "set"},
+		summary: "juju --help set-config shows the same help as 'help set-config'",
+		args:    []string{"--help", "set-config"},
 		code:    0,
-		out:     setHelpText(),
+		out:     setconfigHelpText(),
 	}, {
-		summary: "juju --help set shows the same help as 'help set'",
-		args:    []string{"--help", "set"},
+		summary: "juju set-config --help shows the same help as 'help set-config'",
+		args:    []string{"set-config", "--help"},
 		code:    0,
-		out:     setHelpText(),
-	}, {
-		summary: "juju set --help shows the same help as 'help set'",
-		args:    []string{"set", "--help"},
-		code:    0,
-		out:     setHelpText(),
+		out:     setconfigHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -229,7 +223,7 @@ var commandNames = []string{
 	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
-	"get",
+	"get-config",
 	"get-constraints",
 	"get-user-credentials",
 	"get-env", // alias for get-environment
@@ -257,8 +251,7 @@ var commandNames = []string{
 	"retry-provisioning",
 	"run",
 	"scp",
-	"service",
-	"set",
+	"set-config",
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
@@ -280,7 +273,6 @@ var commandNames = []string{
 	"use-model", // alias for use-environment
 	"unblock",
 	"unexpose",
-	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
 	"unset-model", // alias for unset-environment

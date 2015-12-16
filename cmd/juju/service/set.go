@@ -30,7 +30,9 @@ type setCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
+	Options         []string
 	SettingsYAML    cmd.FileVar
+	SetDefault      bool
 	clientApi       ClientAPI
 	serviceApi      ServiceAPI
 }
@@ -52,7 +54,7 @@ const maxValueSize = 5242880
 
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set",
+		Name:    "set-config",
 		Args:    "<service> name=value ...",
 		Purpose: "set service config options",
 		Doc:     setDoc,
@@ -61,6 +63,7 @@ func (c *setCommand) Info() *cmd.Info {
 
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
+	f.BoolVar(&c.SetDefault, "to-default", false, "set service option value to default")
 }
 
 func (c *setCommand) Init(args []string) error {
@@ -71,6 +74,14 @@ func (c *setCommand) Init(args []string) error {
 		return errors.New("cannot specify --config when using key=value arguments")
 	}
 	c.ServiceName = args[0]
+	if c.SetDefault == true {
+		fmt.Println("In set default")
+		c.Options = args[1:]
+		if len(c.Options) == 0 {
+			return errors.New("no configuration options specified")
+		}
+		return nil
+	}
 	settings, err := keyvalues.Parse(args[1:], true)
 	if err != nil {
 		return err
@@ -80,12 +91,13 @@ func (c *setCommand) Init(args []string) error {
 }
 
 // ClientAPI defines the methods on the client API
-// that the service set command calls.
+// that the set-config command calls.
 // TODO(wallyworld) - Juju 2.0 move remaining methods to service facade
 type ClientAPI interface {
 	Close() error
 	ServiceGet(service string) (*params.ServiceGetResults, error)
 	ServiceSet(service string, options map[string]string) error
+	ServiceUnset(service string, options []string) error
 }
 
 func (c *setCommand) getClientAPI() (ClientAPI, error) {
@@ -96,7 +108,7 @@ func (c *setCommand) getClientAPI() (ClientAPI, error) {
 }
 
 // ServiceAPI defines the methods on the client API
-// that the service set command calls.
+// that the set-config command calls.
 type ServiceAPI interface {
 	ServiceUpdate(args params.ServiceUpdate) error
 }
@@ -135,6 +147,8 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 			ServiceName:  c.ServiceName,
 			SettingsYAML: string(b),
 		}), block.BlockChange)
+	} else if c.SetDefault == true {
+		return block.ProcessBlockedError(api.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
