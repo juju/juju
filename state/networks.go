@@ -6,11 +6,14 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/network"
 )
+
+// TODO(dimitern): Drop networksC collection and the related code as we're using
+// subnetsC instead now.
 
 // Network represents the state of a network.
 type Network struct {
@@ -103,19 +106,9 @@ func (n *Network) IsVLAN() bool {
 }
 
 // Interfaces returns all network interfaces on the network.
+//
+// TODO(dimitern): No longer used, drop it in a follow-up along with the whole
+// collection.
 func (n *Network) Interfaces() ([]*NetworkInterface, error) {
-	networkInterfaces, closer := n.st.getCollection(networkInterfacesC)
-	defer closer()
-
-	docs := []networkInterfaceDoc{}
-	sel := bson.D{{"networkname", n.doc.Name}}
-	err := networkInterfaces.Find(sel).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	ifaces := make([]*NetworkInterface, len(docs))
-	for i, doc := range docs {
-		ifaces[i] = newNetworkInterface(n.st, &doc)
-	}
-	return ifaces, nil
+	return nil, errors.NotImplementedf("Interfaces")
 }

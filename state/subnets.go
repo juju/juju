@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -72,6 +73,11 @@ func (s *Subnet) Life() Life {
 // ID returns the unique id for the subnet, for other entities to reference it
 func (s *Subnet) ID() string {
 	return s.doc.DocID
+}
+
+// Tag returns a tag identifying the subnet.
+func (s *Subnet) Tag() names.Tag {
+	return names.NewSubnetTag(s.CIDR())
 }
 
 // String implements fmt.Stringer.
@@ -153,6 +159,23 @@ func (s *Subnet) CIDR() string {
 	return s.doc.CIDR
 }
 
+// AddressFamily returns the address family of the subnet's range (e.g. "inet"
+// for IPv4, "inet6" for IPv6, "unknown" otherwise).
+func (s *Subnet) AddressFamily() (string, error) {
+	ip, _, err := net.ParseCIDR(s.doc.CIDR)
+	if err != nil {
+		// Should never happen as CIDRs are validated before adding the doc.
+		return "", errors.Trace(err)
+	}
+	switch {
+	case ip.To16() != nil:
+		return "inet6", nil
+	case ip.To4() != nil:
+		return "inet", nil
+	}
+	return "unknown", nil
+}
+
 // VLANTag returns the subnet VLAN tag. It's a number between 1 and
 // 4094 for VLANs and 0 if the network is not a VLAN.
 func (s *Subnet) VLANTag() int {
@@ -176,7 +199,7 @@ func (s *Subnet) AvailabilityZone() string {
 }
 
 // SpaceName returns the space the subnet is associated with. If the subnet is
-// in the default space it will be the empty string.
+// in the default space it may be the empty string.
 func (s *Subnet) SpaceName() string {
 	return s.doc.SpaceName
 }

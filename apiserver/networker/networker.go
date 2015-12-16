@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -87,20 +88,26 @@ func (n *NetworkerAPI) oneMachineConfig(id string) ([]params.NetworkConfig, erro
 	}
 	configs := make([]params.NetworkConfig, len(ifaces))
 	for i, iface := range ifaces {
-		nw, err := n.st.Network(iface.NetworkName())
+		subnet, err := n.st.Subnet(iface.SubnetID())
+		if err != nil {
+			return nil, err
+		}
+		addrFamily, err := subnet.AddressFamily()
 		if err != nil {
 			return nil, err
 		}
 		configs[i] = params.NetworkConfig{
-			MACAddress:    iface.MACAddress(),
-			CIDR:          nw.CIDR(),
-			NetworkName:   iface.NetworkName(),
-			ProviderId:    string(nw.ProviderId()),
-			VLANTag:       nw.VLANTag(),
-			InterfaceName: iface.RawInterfaceName(),
-			Disabled:      iface.IsDisabled(),
-			// TODO(dimitern) Add the rest of the fields, once we
-			// store them in state.
+			DeviceIndex:      iface.DeviceIndex(),
+			InterfaceName:    iface.DeviceName(),
+			MACAddress:       iface.MACAddress(),
+			CIDR:             subnet.CIDR(),
+			ProviderId:       string(iface.ProviderID()),
+			ProviderSubnetId: string(subnet.ProviderId()),
+			VLANTag:          subnet.VLANTag(),
+			AddressFamily:    addrFamily,
+			Disabled:         false,
+			// TODO(dimitern): Drop this in a follow-up.
+			NetworkName: network.DefaultPublic,
 		}
 	}
 	return configs, nil

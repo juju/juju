@@ -793,25 +793,25 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, errors.Errorf("machine is not dead")
 	}
+	ifaces, err := m.NetworkInterfaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: isDeadDoc,
 	}}
-	sel := bson.D{{"machineid", m.doc.Id}}
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-	defer closer()
 
-	iter := networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-	var doc networkInterfaceDoc
-	for iter.Next(&doc) {
+	for _, iface := range ifaces {
 		ops = append(ops, txn.Op{
-			C:      networkInterfacesC,
-			Id:     doc.Id,
+			C:      interfacesC,
+			Id:     iface.ID(),
 			Remove: true,
 		})
 	}
-	return ops, iter.Close()
+	return ops, nil
 }
 
 // Remove removes the machine from state. It will fail if the machine
@@ -1103,29 +1103,21 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	_ []NetworkInfo, // no longer used.
+	interfaces []NetworkInterfaceInfo,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// Add the networks and interfaces first.
-	for _, network := range networks {
-		_, err := m.st.AddNetwork(network)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing networks.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing network interfaces.
-			continue
-		} else if err != nil {
+		nic, err := m.AddNetworkInterface(iface)
+		if err != nil {
 			return errors.Trace(err)
 		}
+		logger.Debugf(
+			"added %s, with MAC address %q, on subnet %q",
+			nic.String(), nic.MACAddress(), nic.SubnetID(),
+		)
 	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
@@ -1487,98 +1479,131 @@ func (m *Machine) Networks() ([]*Network, error) {
 // NetworkInterfaces returns the list of configured network interfaces
 // of the machine.
 func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
+	interfaces, closer := m.st.getCollection(interfacesC)
 	defer closer()
 
-	docs := []networkInterfaceDoc{}
-	err := networkInterfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
+	var docs []interfaceDoc
+	err := interfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 	ifaces := make([]*NetworkInterface, len(docs))
 	for i, doc := range docs {
-		ifaces[i] = newNetworkInterface(m.st, &doc)
+		ifaces[i] = &NetworkInterface{st: m.st, doc: doc}
 	}
 	return ifaces, nil
 }
 
-// AddNetworkInterface creates a new network interface with the given
-// args for this machine. The machine must be alive and not yet
-// provisioned, and there must be no other interface with the same MAC
-// address on the same network, or the same name on that machine for
-// this to succeed. If a network interface already exists, the
-// returned error satisfies errors.IsAlreadyExists.
+// AddNetworkInterface creates a new network interface with the given args for
+// this machine. For this to succeed, the machine and subnet must be both alive,
+// the machine not yet provisioned, and there must be no other interface with
+// the same MAC address on the same subnet and device name. If a network
+// interface already exists, the returned error satisfies
+// errors.IsAlreadyExists(). If there was an validation error with one or more
+// fields in args, an error satisfying errors.IsNotValid() is returned.
 func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *NetworkInterface, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add network interface %q to machine %q", args.InterfaceName, m.doc.Id)
+	defer errors.DeferredAnnotatef(&err, "cannot add network interface %q to machine %q", args.DeviceName, m.doc.Id)
 
 	if args.MACAddress == "" {
-		return nil, fmt.Errorf("MAC address must be not empty")
+		return nil, errors.NewNotValid(nil, "MAC address cannot be empty")
+	} else if _, err1 := net.ParseMAC(args.MACAddress); err1 != nil {
+		return nil, errors.NewNotValid(err1, "")
 	}
-	if _, err = net.ParseMAC(args.MACAddress); err != nil {
-		return nil, err
+
+	if args.DeviceName == "" {
+		return nil, errors.NewNotValid(nil, "device name cannot be empty")
+	} else if !isValidDeviceName(args.DeviceName) {
+		return nil, errors.NewNotValid(nil, "invalid device name")
 	}
-	if args.InterfaceName == "" {
-		return nil, fmt.Errorf("interface name must be not empty")
+
+	if args.SubnetID == "" {
+		return nil, errors.NewNotValid(nil, "subnet ID cannot be empty")
+	} else if !names.IsValidSubnet(args.SubnetID) {
+		return nil, errors.NewNotValid(nil, "invalid subnet ID: "+args.SubnetID)
 	}
-	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
+
+	var uuid utils.UUID
+	if uuid, err = utils.NewUUID(); err != nil {
+		return nil, errors.Annotate(err, "cannot generate interface UUID")
+	} // TODO(dimitern): Make sure UUID is unique per environment.
+	aliveAndNotProvisioned := append(isAliveDoc, bson.DocElem{Name: "nonce", Value: ""})
+
+	localMachineID := m.st.localID(m.doc.Id)
+	key := interfaceGlobalKey(
+		localMachineID,
+		args.ProviderID,
+		args.DeviceName,
+		args.MACAddress,
+		args.SubnetID,
+	)
+	doc := interfaceDoc{
+		DocID:       key,
+		EnvUUID:     m.st.EnvironUUID(),
+		UUID:        uuid.String(),
+		ProviderID:  string(args.ProviderID),
+		DeviceIndex: args.DeviceIndex,
+		DeviceName:  args.DeviceName,
+		MACAddress:  args.MACAddress,
+		SubnetID:    args.SubnetID,
+		MachineID:   localMachineID,
+		IsVirtual:   args.IsVirtual,
+	}
 	ops := []txn.Op{
 		assertEnvAliveOp(m.st.EnvironUUID()),
 		{
-			C:      networksC,
-			Id:     m.st.docID(args.NetworkName),
-			Assert: txn.DocExists,
+			C:      subnetsC,
+			Id:     doc.SubnetID,
+			Assert: isAliveDoc,
 		}, {
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: isAliveDoc,
+			Assert: aliveAndNotProvisioned,
 		}, {
-			C:      networkInterfacesC,
-			Id:     doc.Id,
+			C:      interfacesC,
+			Id:     key,
 			Assert: txn.DocMissing,
 			Insert: doc,
 		},
 	}
 
-	err = m.st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if _, err = m.st.Network(args.NetworkName); err != nil {
-			return nil, err
+	txnerr := m.st.runTransaction(ops)
+	if txnerr == nil {
+		return &NetworkInterface{st: m.st, doc: doc}, nil
+	}
+
+	if txnerr == txn.ErrAborted {
+		if err = checkEnvLife(m.st); err != nil {
+			return nil, errors.Trace(err)
 		}
+
 		if err = m.Refresh(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if m.doc.Life != Alive {
-			return nil, fmt.Errorf("machine is not alive")
+			return nil, errors.New("machine is not alive")
+		} else if m.doc.Nonce != "" {
+			return nil, errors.New("machine is already provisioned")
 		}
-		// Should never happen.
-		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)
-	case nil:
-		// We have a unique key restrictions on the following fields:
-		// - InterfaceName, MachineId
-		// - MACAddress, NetworkName
-		// These will cause the insert to fail if there is another record
-		// with the same combination of values in the table.
-		// The txn logic does not report insertion errors, so we check
-		// that the record has actually been inserted correctly before
-		// reporting success.
-		networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
+
+		var subnet *Subnet
+		if subnet, err = m.st.Subnet(args.SubnetID); err != nil {
+			return nil, errors.Trace(err)
+		} else if subnet.Life() != Alive {
+			return nil, errors.Errorf("subnet %q is not alive", args.SubnetID)
+		}
+
+		interfaces, closer := m.st.getCollection(interfacesC)
 		defer closer()
 
-		if err = networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
-			return newNetworkInterface(m.st, doc), nil
+		if count, err1 := interfaces.FindId(key).Count(); err1 == nil && count > 0 {
+			return nil, errors.AlreadyExistsf("interface")
+		} else if err1 != nil {
+			return nil, errors.Trace(err1)
 		}
-		sel := bson.D{{"interfacename", args.InterfaceName}, {"machineid", m.doc.Id}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("%q on machine %q", args.InterfaceName, m.doc.Id)
-		}
-		sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
-		}
+
 		// Should never happen.
-		logger.Errorf("unknown error while adding network interface doc %#v", doc)
+		logger.Errorf("unhandled assert while adding interface doc %#v", doc)
 	}
-	return nil, err
+	return nil, errors.Trace(err)
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.

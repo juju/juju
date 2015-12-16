@@ -663,37 +663,26 @@ func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag
 	return m, nil
 }
 
-func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
-	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
-) {
-	stateNetworks := make([]state.NetworkInfo, len(networks))
-	for i, net := range networks {
-		tag, err := names.ParseNetworkTag(net.Tag)
-		if err != nil {
-			return nil, nil, err
-		}
-		stateNetworks[i] = state.NetworkInfo{
-			Name:       tag.Id(),
-			ProviderId: network.Id(net.ProviderId),
-			CIDR:       net.CIDR,
-			VLANTag:    net.VLANTag,
-		}
-	}
+func networkParamsToStateParams(st *state.State, ifaces []params.NetworkInterface) ([]state.NetworkInterfaceInfo, error) {
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
-		tag, err := names.ParseNetworkTag(iface.NetworkTag)
+		tag, err := names.ParseSubnetTag(iface.SubnetTag)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
+		}
+		if _, err := st.Subnet(tag.Id()); err != nil {
+			return nil, err
 		}
 		stateInterfaces[i] = state.NetworkInterfaceInfo{
-			MACAddress:    iface.MACAddress,
-			NetworkName:   tag.Id(),
-			InterfaceName: iface.InterfaceName,
-			IsVirtual:     iface.IsVirtual,
-			Disabled:      iface.Disabled,
+			MACAddress:  iface.MACAddress,
+			DeviceIndex: iface.DeviceIndex,
+			SubnetID:    tag.Id(),
+			ProviderID:  network.Id(iface.ProviderId),
+			DeviceName:  iface.InterfaceName,
+			IsVirtual:   iface.IsVirtual,
 		}
 	}
-	return stateNetworks, stateInterfaces, nil
+	return stateInterfaces, nil
 }
 
 // RequestedNetworks returns the requested networks for each given
@@ -782,7 +771,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		networks, interfaces, err := networkParamsToStateParams(arg.Networks, arg.Interfaces)
+		interfaces, err := networkParamsToStateParams(p.st, arg.Interfaces)
 		if err != nil {
 			return err
 		}
@@ -794,14 +783,13 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		if err = machine.SetInstanceInfo(
+		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			networks, interfaces, volumes, volumeAttachments); err != nil {
-			return errors.Annotatef(
-				err,
-				"cannot record provisioning info for %q",
-				arg.InstanceId,
-			)
+			nil, // networks no longer used.
+			interfaces, volumes, volumeAttachments,
+		)
+		if err != nil {
+			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)
 		}
 		return nil
 	}

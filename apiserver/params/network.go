@@ -78,8 +78,25 @@ type NetworkInterface struct {
 	// "eth1", even for for a VLAN eth1.42 virtual interface).
 	InterfaceName string `json:"InterfaceName"`
 
+	// DeviceIndex specifies the order in which the network interface
+	// appears on the host.
+	DeviceIndex int `json:"DeviceIndex"`
+
 	// NetworkTag is this interface's network tag.
+	//
+	// TODO(dimitern): Drop this in a follow-up in favor of SubnetTag.
 	NetworkTag string `json:"NetworkTag"`
+
+	// SubnetTag is this interface's subnet tag.
+	SubnetTag string `json:"SubnetTag"`
+
+	// ProviderId is the provider-specific ID for the interface (if supported,
+	// otherwise empty).
+	ProviderId string `json:"ProviderId,omitempty"`
+
+	// ProviderSubnetId the provider-specific ID for this interface's subnet (if supported,
+	// otherwise empty).
+	ProviderSubnetId string `json:"ProviderSubnetId,omitempty"`
 
 	// IsVirtual is true when the interface is a virtual device, as
 	// opposed to a physical device.
@@ -96,19 +113,20 @@ type NetworkInterface struct {
 // the API.
 type NetworkConfig struct {
 	// DeviceIndex specifies the order in which the network interface
-	// appears on the host. The primary interface has an index of 0.
+	// appears on the host.
 	DeviceIndex int `json:"DeviceIndex"`
 
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string `json:"MACAddress"`
 
-	// CIDR of the network, in 123.45.67.89/24 format.
+	// CIDR of the subnet in 123.45.67.89/24 format.
 	CIDR string `json:"CIDR"`
 
 	// NetworkName is juju-internal name of the network.
-	// TODO(dimitern) This should be removed or adapted to the model
-	// once spaces are introduced.
+	//
+	// TODO(dimitern): Drop this in a follow-up, as CIDR and/or ProviderSubnetId
+	// are now used instead.
 	NetworkName string `json:"NetworkName"`
 
 	// ProviderId is a provider-specific network interface id.
@@ -117,6 +135,10 @@ type NetworkConfig struct {
 	// ProviderSubnetId is a provider-specific subnet id, to which the
 	// interface is attached to.
 	ProviderSubnetId string `json:"ProviderSubnetId"`
+
+	// AddressFamily is the address family used for this interface (e.g.
+	// "inet" or "inet6").
+	AddressFamily string `json:"AddressFamily"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.

@@ -256,6 +256,35 @@ func allCollections() collectionSchema {
 				Key: []string{"env-uuid", "subnetid"},
 			}},
 		},
+		interfacesC:  {},
+		openedPortsC: {},
+		subnetsC: {
+			indexes: []mgo.Index{{
+				// TODO(dimitern): make unique per-environment, not globally.
+				// Note: currently in Mongodb sparse and unique
+				// indexes don't work for compound indexes.
+				Key: []string{"providerid"},
+				// Not always present; but, if present, must be unique; hence
+				// both unique and sparse.
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		endpointBindingsC: {},
+		spacesC: {
+			indexes: []mgo.Index{{
+				// TODO(mfood): make unique per-environment, not globally.
+				// Note: currently in Mongodb sparse and unique
+				// indexes don't work for compound indexes.
+				Key: []string{"providerid"},
+				// Not always present; but, if present, must be unique; hence
+				// both unique and sparse.
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		// TODO(dimitern): The following 3 collections are no longer used and will
+		// be dropped in a follow-up.
 		networkInterfacesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"env-uuid", "interfacename", "machineid"},
@@ -275,21 +304,7 @@ func allCollections() collectionSchema {
 				Unique: true,
 			}},
 		},
-		openedPortsC:       {},
 		requestedNetworksC: {},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-environment, not globally.
-				// Note: currently in Mongodb sparse and unique
-				// indexes don't work for compound indexes.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		endpointBindingsC: {},
 
 		// -----
 
@@ -328,18 +343,6 @@ func allCollections() collectionSchema {
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "globalkey"},
-			}},
-		},
-		spacesC: {
-			indexes: []mgo.Index{{
-				// TODO(mfood): make unique per-environment, not globally.
-				// Note: currently in Mongodb sparse and unique
-				// indexes don't work for compound indexes.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
-				Unique: true,
-				Sparse: true,
 			}},
 		},
 
@@ -387,6 +390,7 @@ const (
 	minUnitsC              = "minunits"
 	networkInterfacesC     = "networkinterfaces"
 	networksC              = "networks"
+	interfacesC            = "interfaces"
 	openedPortsC           = "openedPorts"
 	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"

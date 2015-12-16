@@ -2351,20 +2351,20 @@ func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// initial retrieves the currently known interfaces and stores
-// them together with their activation.
-func (w *machineInterfacesWatcher) initial() (map[bson.ObjectId]bool, error) {
-	known := make(map[bson.ObjectId]bool)
-	doc := networkInterfaceDoc{}
+// initial retrieves the currently known interfaces and stores them to prepare
+// the initial event.
+func (w *machineInterfacesWatcher) initial() (set.Strings, error) {
+	known := set.NewStrings()
+	doc := interfaceDoc{}
 	query := bson.D{{"machineid", w.machineId}}
-	fields := bson.D{{"_id", 1}, {"isdisabled", 1}}
+	fields := bson.D{{"_id", 1}, {"uuid", 1}}
 
-	networkInterfaces, closer := w.st.getCollection(networkInterfacesC)
+	interfaces, closer := w.st.getCollection(interfacesC)
 	defer closer()
 
-	iter := networkInterfaces.Find(query).Select(fields).Iter()
+	iter := interfaces.Find(query).Select(fields).Iter()
 	for iter.Next(&doc) {
-		known[doc.Id] = doc.IsDisabled
+		known.Add(doc.DocID)
 	}
 	if err := iter.Close(); err != nil {
 		return nil, err
@@ -2374,47 +2374,48 @@ func (w *machineInterfacesWatcher) initial() (map[bson.ObjectId]bool, error) {
 
 // merge compares a number of updates to the known state
 // and modifies changes accordingly.
-func (w *machineInterfacesWatcher) merge(changes, initial map[bson.ObjectId]bool, updates map[interface{}]bool) error {
-	networkInterfaces, closer := w.st.getCollection(networkInterfacesC)
+func (w *machineInterfacesWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
+	interfaces, closer := w.st.getCollection(interfacesC)
 	defer closer()
+
 	for id, exists := range updates {
 		switch id := id.(type) {
-		case bson.ObjectId:
-			isDisabled, known := initial[id]
+		case string:
+			known := initial.Contains(id)
 			if known && !exists {
 				// Well known interface has been removed.
-				delete(initial, id)
-				changes[id] = true
+				initial.Remove(id)
+				changes.Add(id)
 				continue
 			}
-			doc := networkInterfaceDoc{}
-			err := networkInterfaces.FindId(id).One(&doc)
+			doc := interfaceDoc{}
+			err := interfaces.FindId(id).One(&doc)
 			if err != nil && err != mgo.ErrNotFound {
 				return err
 			}
-			if doc.MachineId != w.machineId {
+			if doc.MachineID != w.machineId {
 				// Not our machine.
 				continue
 			}
-			if !known || isDisabled != doc.IsDisabled {
+			if !known {
 				// New interface or activation change.
-				initial[id] = doc.IsDisabled
-				changes[id] = true
+				initial.Add(id)
+				changes.Add(id)
 			}
 		default:
-			return errors.Errorf("id is not of type object ID, got %T", id)
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil
 }
 
 func (w *machineInterfacesWatcher) loop() error {
-	changes := make(map[bson.ObjectId]bool)
+	changes := set.NewStrings()
 	in := make(chan watcher.Change)
 	out := w.out
 
-	w.st.watcher.WatchCollection(networkInterfacesC, in)
-	defer w.st.watcher.UnwatchCollection(networkInterfacesC, in)
+	w.st.watcher.WatchCollection(interfacesC, in)
+	defer w.st.watcher.UnwatchCollection(interfacesC, in)
 
 	initial, err := w.initial()
 	if err != nil {
@@ -2436,13 +2437,13 @@ func (w *machineInterfacesWatcher) loop() error {
 			if err := w.merge(changes, initial, updates); err != nil {
 				return err
 			}
-			if len(changes) > 0 {
+			if !changes.IsEmpty() {
 				out = w.out
 			} else {
 				out = nil
 			}
 		case out <- struct{}{}:
-			changes = make(map[bson.ObjectId]bool)
+			changes = set.NewStrings()
 			out = nil
 		}
 	}
