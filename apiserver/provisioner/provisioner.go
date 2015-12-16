@@ -1565,7 +1565,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 		// so do not exit on error.
 		logger.Infof("could not get image metadata from state server: %v", err)
 	}
-	logger.Warningf("\n\n GOT FROM STATE %d METADATA \n\n", len(stateMetadata))
+	logger.Debugf("got from state server %d metadata", len(stateMetadata))
 	// No need to look in data sources if found in state.
 	if len(stateMetadata) != 0 {
 		return stateMetadata, nil
@@ -1581,7 +1581,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 			return nil, errors.Trace(err)
 		}
 	}
-	logger.Warningf("\n\n GOT FROM DATA SOURCES %d METADATA \n\n", len(dsMetadata))
+	logger.Warningf("got from data sources %d metadata", len(dsMetadata))
 
 	return dsMetadata, nil
 }
@@ -1630,6 +1630,7 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 			ImageId:         m.ImageId,
 			Stream:          m.Stream,
 			Region:          m.Region,
+			Version:         m.Version,
 			Series:          m.Series,
 			Arch:            m.Arch,
 			VirtType:        m.VirtType,
@@ -1656,6 +1657,13 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return nil, err
 	}
 
+	getStream := func(current string) string {
+		if current == "" {
+			return imagemetadata.ReleasedStream
+		}
+		return current
+	}
+
 	getSeries := func(id, version string) string {
 		// Translate version (eg.14.04) to a series (eg. "trusty")
 		s, err := series.VersionSeries(version)
@@ -1666,28 +1674,8 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return s
 	}
 
-	getStream := func(current string) string {
-		if current == "" {
-			return imagemetadata.ReleasedStream
-		}
-		return current
-	}
+	toModel := func(m *imagemetadata.ImageMetadata, mStream string, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
 
-	toParams := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) params.CloudImageMetadata {
-		return params.CloudImageMetadata{
-			ImageId:         m.Id,
-			Region:          m.RegionName,
-			Arch:            m.Arch,
-			VirtType:        m.VirtType,
-			RootStorageType: m.Storage,
-			Series:          mSeries,
-			Source:          source,
-			Priority:        priority,
-			Stream:          mStream,
-		}
-	}
-
-	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, mStream string, source string, priority int) cloudimagemetadata.Metadata {
 		return cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -1703,7 +1691,6 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		}
 	}
 
-	var all []params.CloudImageMetadata
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
 		// TODO (anastasiamac 2015-12-02) signedOnly for now defaulted to false... how do i get provider specific one?
@@ -1715,18 +1702,25 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
 		}
-		for _, m := range found {
-			mSeries := getSeries(m.Id, m.Version)
-			mStream := getStream(m.Stream)
 
-			all = append(all, toParams(m, mSeries, mStream, info.Source, source.Priority()))
+		for _, m := range found {
+			mStream := getStream(m.Stream)
+			mSeries := getSeries(m.Id, m.Version)
+
 			// Attempt to store in state for next time :D
-			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mSeries, mStream, info.Source, source.Priority()))
+			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, mSeries, info.Source, source.Priority()))
 			if err != nil {
 				// No need to react here, just take note
 				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
 			}
 		}
+	}
+
+	// Since we've fallen through to data sources search and have saved all needed images into state server,
+	// let's try to get them from state server to avoid duplication of conversion logic here.
+	all, err := p.imageMetadataFromState(constraint)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not read metadata from state server after saving it there from data sources")
 	}
 
 	if len(all) == 0 {

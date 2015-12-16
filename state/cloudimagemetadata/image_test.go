@@ -4,6 +4,8 @@
 package cloudimagemetadata_test
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -43,7 +45,8 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
-		Series:          "series",
+		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test"}
@@ -66,7 +69,8 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
@@ -102,7 +106,8 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
@@ -127,9 +132,10 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -141,9 +147,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "12"}
@@ -157,9 +164,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -176,9 +184,10 @@ func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDate
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, 0, "1"}
@@ -192,9 +201,10 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 
@@ -207,10 +217,11 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *g
 
 func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurrently(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream: "stream",
-		Series: "series",
-		Arch:   "arch",
-		Source: "public",
+		Stream:  "stream",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
+		Source:  "public",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "0"}
 
@@ -223,6 +234,37 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurr
 		metadata0,
 		metadata1,
 	)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataNoVersionPassed(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "trusty",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, metadata0)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataNoSeriesPassed(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	err := s.storage.SaveMetadata(metadata0)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`missing series: metadata for image 1 not valid`))
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataUnsupportedSeriesPassed(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "blah",
+		Arch:   "arch",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	err := s.storage.SaveMetadata(metadata0)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
 func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metadata1 cloudimagemetadata.Metadata, expected ...cloudimagemetadata.Metadata) {

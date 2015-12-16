@@ -105,6 +105,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		ImageId:         p.ImageId,
 		Stream:          p.Stream,
 		Region:          p.Region,
+		Version:         p.Version,
 		Series:          p.Series,
 		Arch:            p.Arch,
 		VirtType:        p.VirtType,
@@ -121,6 +122,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
 			Region:          p.Region,
+			Version:         p.Version,
 			Series:          p.Series,
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
@@ -190,21 +192,31 @@ func (api *API) retrievePublished() error {
 }
 
 func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) error {
+	metadata, parseErrs := convertToParams(info, priority, published)
+
 	// Store converted metadata.
 	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
-	errs, err := api.Save(convertToParams(info, priority, published))
+	errs, err := api.Save(metadata)
 	if err != nil {
 		return errors.Annotatef(err, "saving published images metadata")
 	}
-	return processErrors(errs.Results)
+
+	return processErrors(append(errs.Results, parseErrs...))
 }
 
 // convertToParams converts environment-specific images metadata to structured metadata format.
-var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
-	metadata := make([]params.CloudImageMetadata, len(published))
-	for i, p := range published {
-		metadata[i] = params.CloudImageMetadata{
+var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
+	metadata := []params.CloudImageMetadata{}
+	errs := []params.ErrorResult{}
+	for _, p := range published {
+		s, err := series.VersionSeries(p.Version)
+		if err != nil {
+			errs = append(errs, params.ErrorResult{Error: common.ServerError(err)})
+			continue
+		}
+
+		m := params.CloudImageMetadata{
 			Source:          info.Source,
 			ImageId:         p.Id,
 			Stream:          p.Stream,
@@ -212,18 +224,13 @@ var convertToParams = func(info *simplestreams.ResolveInfo, priority int, publis
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
+			Series:          s,
 			Priority:        priority,
 		}
-		// Translate version (eg.14.04) to a series (eg. "trusty")
-		s, err := series.VersionSeries(p.Version)
-		if err != nil {
-			logger.Warningf("could not determine series for image id %s: %v", p.Id, err)
-			continue
-		}
-		metadata[i].Series = s
-	}
 
-	return params.MetadataSaveParams{Metadata: metadata}
+		metadata = append(metadata, m)
+	}
+	return params.MetadataSaveParams{Metadata: metadata}, errs
 }
 
 func processErrors(errs []params.ErrorResult) error {
