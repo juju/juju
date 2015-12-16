@@ -122,6 +122,31 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 	return result.Results[0], nil
 }
 
+// NetworkConfig requests relation information from the server.
+func (st *State) NetworkConfig(relationTag, unitTag names.Tag) ([]params.NetworkConfig, error) {
+	// TODO: make this work
+	nothing := []params.NetworkConfig{}
+	var result params.NetworkConfigs
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{
+			{Relation: relationTag.String(), Unit: unitTag.String()},
+		},
+	}
+	err := st.facade.FacadeCall("NetworkConfig", args, &result)
+	if err != nil {
+		return nothing, err
+	}
+	if len(result.Results) == 0 {
+		return nothing, fmt.Errorf("expected at least 1 result, got 0")
+	}
+	for _, err := range result.Errors {
+		if err != nil {
+			return nothing, err
+		}
+	}
+	return result.Results, nil
+}
+
 // getOneAction retrieves a single Action from the state server.
 func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
 	nothing := params.ActionsQueryResult{}
