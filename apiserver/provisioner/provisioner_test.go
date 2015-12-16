@@ -1140,59 +1140,6 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	networks := []params.Network{{
-		Tag:        "network-net1",
-		ProviderId: "net1",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	}, {
-		Tag:        "network-vlan42",
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}, {
-		Tag:        "network-vlan69",
-		ProviderId: "vlan69",
-		CIDR:       "0.3.2.0/24",
-		VLANTag:    69,
-	}, {
-		Tag:        "network-vlan42", // duplicated; ignored
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}}
-	ifaces := []params.NetworkInterface{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth1.42",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkTag:    "network-vlan69",
-		InterfaceName: "eth0.69",
-		IsVirtual:     true,
-		Disabled:      true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth1", // duplicated name+machine id; ignored for machine 1.
-		IsVirtual:     false,
-	}}
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag().String(),
 		InstanceId: "i-was",
@@ -1202,15 +1149,11 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId:      "i-will",
 		Nonce:           "fake_nonce",
 		Characteristics: &hwChars,
-		Networks:        networks,
-		Interfaces:      ifaces,
 	}, {
 		Tag:             s.machines[2].Tag().String(),
 		InstanceId:      "i-am-too",
 		Nonce:           "fake",
 		Characteristics: nil,
-		Networks:        networks,
-		Interfaces:      ifaces,
 	}, {
 		Tag:        volumesMachine.Tag().String(),
 		InstanceId: "i-am-also",
@@ -1263,43 +1206,6 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	gotHardware, err := s.machines[1].HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
-	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine1, gc.HasLen, 4)
-	actual := make([]params.NetworkInterface, len(ifacesMachine1))
-	for i, iface := range ifacesMachine1 {
-		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkTag = iface.NetworkTag().String()
-		actual[i].MACAddress = iface.MACAddress()
-		actual[i].IsVirtual = iface.IsVirtual()
-		actual[i].Disabled = iface.IsDisabled()
-		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
-		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
-	}
-	c.Assert(actual, jc.SameContents, ifaces[:4])
-	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine2, gc.HasLen, 1)
-	c.Assert(ifacesMachine2[0].InterfaceName(), gc.Equals, ifaces[5].InterfaceName)
-	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
-	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
-	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
-	for i := range networks {
-		if i == 3 {
-			// Last one was ignored, so don't check.
-			break
-		}
-		tag, err := names.ParseNetworkTag(networks[i].Tag)
-		c.Assert(err, jc.ErrorIsNil)
-		networkName := tag.Id()
-		nw, err := s.State.Network(networkName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(nw.Name(), gc.Equals, networkName)
-		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
-		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
-	}
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
