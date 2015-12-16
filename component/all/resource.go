@@ -121,7 +121,7 @@ func (r resources) registerPublicCommands() {
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
-			NewClient: func(c *cmd.UploadCommand) (cmd.UploadAPI, error) {
+			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
 				return r.newClient(c)
 			},
 			OpenResource: func(s string) (io.ReadCloser, error) {

@@ -6,6 +6,7 @@ package client
 import (
 	"io"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -33,5 +34,6 @@ func NewClient(caller FacadeCaller, closer io.Closer) *Client {
 }
 
 func (c Client) Upload(service, name string, resource io.Reader) error {
-	return nil
+	// TODO(natefinch): implement this
+	return errors.NewNotImplemented(nil, "resources.Client.Upload is not implemented")
 }

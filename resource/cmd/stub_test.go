@@ -29,7 +29,8 @@ func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource
 
 func (s *stubCharmStore) Upload(service, name string, resource io.Reader) error {
 	s.stub.AddCall("Upload", service, name, resource)
-	return errors.Trace(s.stub.NextErr())
+	err := s.Stub.NextErr()
+	return errors.Trace(err)
 }
 
 func (s *stubCharmStore) Close() error {
