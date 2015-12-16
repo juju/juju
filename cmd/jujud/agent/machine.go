@@ -675,15 +675,13 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	// All other workers must wait for the upgrade steps to complete before starting.
 	runner := newConnRunner(st)
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.startAPIWorkers(st, a.CurrentConfig())
+		return a.startAPIWorkers(st)
 	})
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
-func (a *MachineAgent) startAPIWorkers(
-	apiConn api.Connection,
-	agentConfig agent.Config,
-) (worker.Worker, error) {
+func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
 
 	entity, err := apiConn.Agent().Entity(a.Tag())
 	if err != nil {
