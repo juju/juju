@@ -672,20 +672,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	}
 	reportOpenedAPI(st)
 
-	defer func() {
-		// TODO(fwereade): this is not properly tested. Old tests were evil
-		// (dependent on injecting an error in a patched-out upgrader API
-		// that shouldn't even be used at this level)... so I just deleted
-		// them. Not a major worry: this whole method will become redundant
-		// when we switch to the dependency engine (and specifically use
-		// worker/apicaller to connect).
-		if err != nil {
-			if err := st.Close(); err != nil {
-				logger.Errorf("while closing API: %v", err)
-			}
-		}
-	}()
-
 	// All other workers must wait for the upgrade steps to complete before starting.
 	runner := newConnRunner(st)
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
