@@ -302,6 +302,10 @@ func allCollections() collectionSchema {
 		// See payload/persistence/mongo.go.
 		"payloads": {},
 
+		// This collection holds information associated with charm resources.
+		// See resource/persistence/mongo.go.
+		"resources": {},
+
 		// -----
 
 		// The remaining non-global collections share the property of being
@@ -403,4 +407,5 @@ const (
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)
+	// "resources" (see resource/persistence/mongo.go)
 )
