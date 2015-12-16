@@ -681,11 +681,11 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 }
 
 func (a *MachineAgent) startAPIWorkers(
-	st api.Connection,
+	apiConn api.Connection,
 	agentConfig agent.Config,
 ) (worker.Worker, error) {
 
-	entity, err := st.Agent().Entity(a.Tag())
+	entity, err := apiConn.Agent().Entity(a.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -706,7 +706,7 @@ func (a *MachineAgent) startAPIWorkers(
 		}
 	}
 
-	runner := newConnRunner(st)
+	runner := newConnRunner(apiConn)
 
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
@@ -714,7 +714,7 @@ func (a *MachineAgent) startAPIWorkers(
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.New(st.Environment(), writeSystemFiles)
+		w, err := proxyupdater.New(apiConn.Environment(), writeSystemFiles)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
 		}
@@ -723,11 +723,11 @@ func (a *MachineAgent) startAPIWorkers(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
+			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
 		})
 	}
 
-	envConfig, err := st.Environment().EnvironConfig()
+	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
@@ -741,7 +741,7 @@ func (a *MachineAgent) startAPIWorkers(
 		logger.Infof("machine addresses not used, only addresses from provider")
 	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{st.Machiner()}
+		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
 		w, err := newMachiner(machiner.Config{
 			MachineAccessor: accessor,
 			Tag:             agentConfig.Tag().(names.MachineTag),
@@ -756,7 +756,7 @@ func (a *MachineAgent) startAPIWorkers(
 		return w, err
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
-		reboot, err := st.Reboot()
+		reboot, err := apiConn.Reboot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -772,7 +772,7 @@ func (a *MachineAgent) startAPIWorkers(
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater)
+		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start api address updater worker")
 		}
@@ -780,7 +780,7 @@ func (a *MachineAgent) startAPIWorkers(
 	})
 
 	runner.StartWorker("logger", func() (worker.Worker, error) {
-		w, err := workerlogger.NewLogger(st.Logger(), agentConfig)
+		w, err := workerlogger.NewLogger(apiConn.Logger(), agentConfig)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start logging config updater worker")
 		}
@@ -794,7 +794,7 @@ func (a *MachineAgent) startAPIWorkers(
 		}
 
 		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			w, err := cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
 			}
@@ -803,7 +803,7 @@ func (a *MachineAgent) startAPIWorkers(
 	}
 
 	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := st.DiskManager()
+		api, err := apiConn.DiskManager()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -811,7 +811,7 @@ func (a *MachineAgent) startAPIWorkers(
 	})
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
-		api, err := apistorageprovisioner.NewState(st, scope)
+		api, err := apistorageprovisioner.NewState(apiConn, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -842,7 +842,7 @@ func (a *MachineAgent) startAPIWorkers(
 	// Start networker depending on configuration and job.
 	intrusiveMode := isNetworkManager && !disableNetworkManagement
 	runner.StartWorker("networker", func() (worker.Worker, error) {
-		w, err := newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+		w, err := newNetworker(apiConn.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start networker worker")
 		}
@@ -854,7 +854,7 @@ func (a *MachineAgent) startAPIWorkers(
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.machineId != bootstrapMachineId {
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			w, err := authenticationworker.NewWorker(st.KeyUpdater(), agentConfig)
+			w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 			}
@@ -863,7 +863,7 @@ func (a *MachineAgent) startAPIWorkers(
 	}
 
 	// Perform the operations needed to set up hosting for containers.
-	if err := a.setupContainerSupport(runner, st, agentConfig); err != nil {
+	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
 		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
 			return nil, worker.ErrTerminateAgent
@@ -873,7 +873,7 @@ func (a *MachineAgent) startAPIWorkers(
 
 	if isUnitHoster {
 		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			apiDeployer := st.Deployer()
+			apiDeployer := apiConn.Deployer()
 			context := newDeployContext(apiDeployer, agentConfig)
 			w, err := deployer.NewDeployer(apiDeployer, context)
 			if err != nil {
@@ -888,7 +888,7 @@ func (a *MachineAgent) startAPIWorkers(
 			// The action of resumer is so subtle that it is not tested,
 			// because we can't figure out how to do so without
 			// brutalising the transaction log.
-			return newResumer(st.Resumer()), nil
+			return newResumer(apiConn.Resumer()), nil
 		})
 
 		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
@@ -904,17 +904,17 @@ func (a *MachineAgent) startAPIWorkers(
 			checkerParams := toolsversionchecker.VersionCheckerParams{
 				CheckInterval: time.Hour * 6,
 			}
-			return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			return toolsversionchecker.New(apiConn.Environment(), &checkerParams), nil
 		})
 
 		// Start worker that stores missing published image metadata in state.
 		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			return newMetadataUpdater(st.MetadataUpdater()), nil
+			return newMetadataUpdater(apiConn.MetadataUpdater()), nil
 		})
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
-			handler := conv2state.New(st.Machiner(), a)
+			handler := conv2state.New(apiConn.Machiner(), a)
 			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 				Handler: handler,
 			})
