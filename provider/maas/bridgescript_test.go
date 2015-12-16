@@ -20,9 +20,9 @@ import (
 type bridgeConfigSuite struct {
 	coretesting.BaseSuite
 
-	testConfig     string
-	testConfigPath string
-	testBridgeName string
+	testConfig       string
+	testConfigPath   string
+	testPythonScript string
 }
 
 var _ = gc.Suite(&bridgeConfigSuite{})
@@ -36,9 +36,11 @@ func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
 
 func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	s.testConfigPath = filepath.Join(c.MkDir(), "network-config")
+	s.testPythonScript = filepath.Join(c.MkDir(), bridgeScriptName)
 	s.testConfig = "# test network config\n"
-	s.testBridgeName = "test-bridge"
 	err := ioutil.WriteFile(s.testConfigPath, []byte(s.testConfig), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -100,9 +102,8 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
 }
 
 func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, bridgePrefix string) (output string, exitCode int) {
-	script := fmt.Sprintf("%s\npython -c %q --bridge-prefix=%q %q\n",
-		bridgeScriptPythonBashDef,
-		"$python_script",
+	script := fmt.Sprintf("%q --bridge-prefix=%q %q\n",
+		s.testPythonScript,
 		bridgePrefix,
 		configFile)
 
