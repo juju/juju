@@ -46,6 +46,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrader",
 		"upgradesteps",
 		"uninstaller",
+		"serving-info-setter",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }

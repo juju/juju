@@ -115,17 +115,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			WriteUninstallFile: config.WriteUninstallFile,
 		}),
+
+		// The serving-info-setter manifold sets grabs the state
+		// serving info from the API connection and writes it to the
+		// agent config.
+		servingInfoSetterName: ServingInfoSetterManifold(ServingInfoSetterConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		}),
 	}
 }
 
 const (
-	agentName            = "agent"
-	terminationName      = "termination"
-	apiCallerName        = "api-caller"
-	apiInfoGateName      = "api-info-gate"
-	upgradeStepsGateName = "upgrade-steps-gate"
-	upgradeCheckGateName = "upgrade-check-gate"
-	upgraderName         = "upgrader"
-	upgradeStepsName     = "upgradesteps"
-	uninstallerName      = "uninstaller"
+	agentName             = "agent"
+	terminationName       = "termination"
+	apiCallerName         = "api-caller"
+	apiInfoGateName       = "api-info-gate"
+	upgradeStepsGateName  = "upgrade-steps-gate"
+	upgradeCheckGateName  = "upgrade-check-gate"
+	upgraderName          = "upgrader"
+	upgradeStepsName      = "upgradesteps"
+	uninstallerName       = "uninstaller"
+	servingInfoSetterName = "serving-info-setter"
 )

@@ -64,7 +64,7 @@ func uninstallerManifold(config uninstallerManifoldConfig) dependency.Manifold {
 			// Check if the machine is dead and set the agent to
 			// uninstall if it is.
 			//
-			// TODO(mjs) - ideally this would be using its own agent.
+			// TODO(mjs) - ideally this would be using its own facade.
 			machine, err := apiConn.Agent().Entity(tag)
 			if err != nil {
 				return nil, err
