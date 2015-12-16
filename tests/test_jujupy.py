@@ -299,9 +299,9 @@ class TestEnvJujuClient26Init(ClientTest):
     def test_init_then_ensure_is_jes_enabled(self):
         env = SimpleEnvironment('bar', {'type': 'ec2'})
         with patch.object(EnvJujuClient26, '_ensure_is_jes_enabled',
-                          autospec=True) as eije_func:
+                          autospec=True) as eije_mock:
             client = EnvJujuClient26(env, None, '/foobar/baz')
-        eije_func.assert_called_once_with(client)
+        eije_mock.assert_called_once_with(client)
 
     def test_ensure_is_jes_enabled_optional(self):
         # client with optional support are enabled on init.
