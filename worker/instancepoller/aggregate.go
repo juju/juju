@@ -93,7 +93,11 @@ func (a *aggregator) loop() error {
 				} else {
 					reply.info, reply.err = a.instInfo(req.instId, insts[i])
 				}
-				req.reply <- reply
+				select {
+				case <-a.tomb.Dying():
+					return tomb.ErrDying
+				case req.reply <- reply:
+				}
 			}
 			reqs = nil
 		}
