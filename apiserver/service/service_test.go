@@ -1326,7 +1326,7 @@ func (s *serviceSuite) TestClientServiceUpdateNoParams(c *gc.C) {
 
 func (s *serviceSuite) TestClientServiceUpdateNoService(c *gc.C) {
 	err := s.serviceApi.ServiceUpdate(params.ServiceUpdate{})
-	c.Assert(err, gc.ErrorMatches, `"" is not a valid service name`)
+	c.Assert(err, gc.ErrorMatches, `service name "" not valid`)
 }
 
 func (s *serviceSuite) TestClientServiceUpdateInvalidService(c *gc.C) {
