@@ -33,7 +33,7 @@ func NewClient(caller base.APICallCloser) *Client {
 
 // Close the connection to the API server.
 func (c *Client) Close() error {
-	//We know .RawAPICaller() is an APICallerCloser since
+	// We know RawAPICaller() is an APICallerCloser since
 	// it's passed in as such above in NewClient.
 	return c.FacadeCaller.RawAPICaller().(base.APICallCloser).Close()
 }
