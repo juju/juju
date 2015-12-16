@@ -1397,15 +1397,29 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
-// updateDeviceHostname uses the given client to update the hostname of the
-// device with the given deviceID to have the specified hostnameSuffx.
-func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
-
-	hostnameParts := strings.SplitN(deviceHostname, ".", 2)
-	if len(hostnameParts) != 2 {
+// transformDeviceHostname transforms deviceHostname to include hostnameSuffix
+// after the first "." in deviceHostname. Returns errors if deviceHostname does
+// not contain any "." or hostnameSuffix is empty.
+func transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix string) (string, error) {
+	if hostnameSuffix == "" {
+		return "", errors.New("hostname suffix cannot be empty")
+	}
+	parts := strings.SplitN(deviceHostname, ".", 2)
+	if len(parts) != 2 {
 		return "", errors.Errorf("unexpected device %q hostname %q", deviceID, deviceHostname)
 	}
-	newHostname := fmt.Sprintf("%s-%s.%s", hostnameParts[0], hostnameSuffix, hostnameParts[1])
+	return fmt.Sprintf("%s-%s.%s", parts[0], hostnameSuffix, parts[1]), nil
+}
+
+// updateDeviceHostname updates the hostname of a MAAS device to be unique and
+// to contain the given hostnameSuff.
+func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
+
+	newHostname, err := transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	deviceObj := client.GetSubObject("devices").GetSubObject(deviceID)
 	params := make(url.Values)
 	params.Add("hostname", newHostname)

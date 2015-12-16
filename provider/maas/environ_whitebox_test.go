@@ -1354,9 +1354,9 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	// Work around the lack of support for devices PUT and POST without hostname
 	// set in gomaasapi's testservices
 	newParams := func(macAddress string, instId instance.Id, hostnameSuffix string) url.Values {
-		c.Check(macAddress, gc.Equals, "foo") // passed to AllocateAddress() below
+		c.Check(macAddress, gc.Equals, "aa:bb:cc:dd:ee:f0") // passed to AllocateAddress() below
 		c.Check(instId, gc.Equals, testInstance.Id())
-		c.Check(hostnameSuffix, gc.Equals, "bar") // passed to AllocateAddress() below
+		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
 		params := make(url.Values)
 		params.Add("mac_addresses", macAddress)
 		params.Add("hostname", "auto-generated.maas")
@@ -1367,15 +1367,21 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	updateHostname := func(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
 		c.Check(client, gc.NotNil)
 		c.Check(deviceID, gc.Matches, `node-[0-9a-f-]+`)
-		c.Check(deviceHostname, gc.Equals, "auto-generated.maas") // generated above in NewDeviceParams()
-		c.Check(hostnameSuffix, gc.Equals, "bar")                 // passed to AllocateAddress()
-		return "auto-generated-bar.maas", nil
+		c.Check(deviceHostname, gc.Equals, "auto-generated.maas")  // "generated" above in NewDeviceParams()
+		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
+		return "auto-generated-juju-lxc.maas", nil
 	}
 	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
 
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(
+		testInstance.Id(),
+		"LAN",
+		&network.Address{Value: "192.168.2.1"},
+		"aa:bb:cc:dd:ee:f0",
+		"juju-machine-0-kvm-5",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
@@ -1409,13 +1415,61 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := macMap["mac_address"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mac, gc.Equals, "foo")
+	c.Assert(mac, gc.Equals, "aa:bb:cc:dd:ee:f0")
+}
+
+func (suite *environSuite) TestTransformDeviceHostname(c *gc.C) {
+	for i, test := range []struct {
+		deviceHostname string
+		hostnameSuffix string
+
+		expectedOutput string
+		expectedError  string
+	}{{
+		deviceHostname: "shiny-town.maas",
+		hostnameSuffix: "juju-machine-1-lxc-2",
+		expectedOutput: "shiny-town-juju-machine-1-lxc-2.maas",
+	}, {
+		deviceHostname: "foo.subdomain.example.com",
+		hostnameSuffix: "suffix",
+		expectedOutput: "foo-suffix.subdomain.example.com",
+	}, {
+		deviceHostname: "bad-food.example.com",
+		hostnameSuffix: "suffix.example.org",
+		expectedOutput: "bad-food-suffix.example.org.example.com",
+	}, {
+		deviceHostname: "strangers-and.freaks",
+		hostnameSuffix: "just-this",
+		expectedOutput: "strangers-and-just-this.freaks",
+	}, {
+		deviceHostname: "no-dot-hostname",
+		hostnameSuffix: "anything",
+		expectedError:  `unexpected device "dev-id" hostname "no-dot-hostname"`,
+	}, {
+		deviceHostname: "anything",
+		hostnameSuffix: "",
+		expectedError:  "hostname suffix cannot be empty",
+	}} {
+		c.Logf(
+			"test #%d: %q + %q -> %q (err: %s)",
+			i, test.deviceHostname, test.hostnameSuffix,
+			test.expectedOutput, test.expectedError,
+		)
+		output, err := transformDeviceHostname("dev-id", test.deviceHostname, test.hostnameSuffix)
+		if test.expectedError != "" {
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(output, gc.Equals, "")
+			continue
+		}
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(output, gc.Equals, test.expectedOutput)
+	}
 }
 
 func (suite *environSuite) patchDeviceCreation() {
 	// Work around the lack of support for devices PUT and POST without hostname
 	// set in gomaasapi's testservices
-	newParams := func(macAddress string, instId instance.Id, hostnameSuffix string) url.Values {
+	newParams := func(macAddress string, instId instance.Id, _ string) url.Values {
 		params := make(url.Values)
 		params.Add("mac_addresses", macAddress)
 		params.Add("hostname", "auto-generated.maas")
@@ -1424,7 +1478,7 @@ func (suite *environSuite) patchDeviceCreation() {
 	}
 	suite.PatchValue(&NewDeviceParams, newParams)
 	updateHostname := func(_ *gomaasapi.MAASObject, _, _, _ string) (string, error) {
-		return "auto-generated-bar.maas", nil
+		return "auto-generated-juju-lxc.maas", nil
 	}
 	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
 }
@@ -1443,9 +1497,9 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 		"unexpected ip_addresses in response",
 		"IP in ip_addresses not a string",
 	}
-	reserveIP := func(devices gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
+	reserveIP := func(_ gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
 		c.Check(deviceID, gc.Matches, "node-[a-f0-9]+")
-		c.Check(macAddress, gc.Matches, "mac-address")
+		c.Check(macAddress, gc.Matches, "aa:bb:cc:dd:ee:f0")
 		c.Check(addr, jc.DeepEquals, network.Address{})
 		nextError := responses[0]
 		return network.Address{}, errors.New(nextError)
@@ -1454,7 +1508,10 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 
 	for len(responses) > 0 {
 		addr := &network.Address{}
-		err := env.AllocateAddress(testInstance.Id(), network.AnySubnet, addr, "mac-address", "hostname")
+		err := env.AllocateAddress(
+			testInstance.Id(), network.AnySubnet, addr,
+			"aa:bb:cc:dd:ee:f0", "juju-lxc",
+		)
 		c.Check(err, gc.ErrorMatches, responses[0])
 		responses = responses[1:]
 	}
@@ -1484,13 +1541,17 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 	suite.patchDeviceCreation()
 
 	addr := network.NewAddress("192.168.2.1")
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &addr, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &addr, "foo", "juju-lxc")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
-	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
+	// Since we're mocking out updateDeviceHostname, no need to check if the
+	// hostname was updated (only manually tested for now until we change
+	// gomaasapi).
+
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "juju-lxc")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray = suite.getDeviceArray(c)
@@ -1501,7 +1562,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
-	err := env.AllocateAddress(instId, "bar", &addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "bar", &addr, "foo", "juju-lxc")
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
