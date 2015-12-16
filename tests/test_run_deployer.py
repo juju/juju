@@ -16,7 +16,7 @@ from jujupy import (
 from run_deployer import (
     check_health,
     parse_args,
-    run_deployer
+    main as run_deployer
     )
 import tests
 

@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 import logging
 import subprocess
+import sys
 
 from deploy_stack import (
     assess_upgrade,
@@ -51,7 +52,20 @@ def check_health(cmd_path, env_name=''):
         raise
 
 
-def run_deployer(argv=None):
+def assess_deployer(args, client):
+    client.deployer(args.bundle_path, args.bundle_name)
+    client.wait_for_workloads()
+    if args.health_cmd:
+        check_health(args.health_cmd, args.temp_env_name)
+    if args.upgrade:
+        client.juju('status', ())
+        assess_upgrade(client, args.juju_bin)
+        client.wait_for_workloads()
+        if args.health_cmd:
+            check_health(args.health_cmd, args.temp_env_name)
+
+
+def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     env = SimpleEnvironment.from_config(args.env)
@@ -60,16 +74,9 @@ def run_deployer(argv=None):
     with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
                       args.keep_env, False, region=args.region):
-        client.deployer(args.bundle_path, args.bundle_name)
-        client.wait_for_workloads()
-        if args.health_cmd:
-            check_health(args.health_cmd, args.temp_env_name)
-        if args.upgrade:
-            client.juju('status', ())
-            assess_upgrade(client, args.juju_bin)
-            client.wait_for_workloads()
-            if args.health_cmd:
-                check_health(args.health_cmd, args.temp_env_name)
+        assess_deployer(args, client)
+    return 0
+
 
 if __name__ == '__main__':
-    run_deployer()
+    sys.exit(main())
