@@ -4276,6 +4276,169 @@ func (s *upgradesSuite) TestChangeStatusUpdatedFromTimeToInt64(c *gc.C) {
 	c.Assert(updatedTime, gc.Equals, nanoTime)
 }
 
+func (s *upgradesSuite) addServiceWithMissingUnitStatus(c *gc.C, serviceName string) {
+	series := "precise"
+	unitName := serviceName + "/0"
+	unitName1 := serviceName + "/1"
+	unitName2 := serviceName + "/2"
+	docID := s.state.docID(unitName)
+	docID1 := s.state.docID(unitName1)
+	docID2 := s.state.docID(unitName2)
+	envUUID := s.state.EnvironUUID()
+
+	udoc := &unitDoc{
+		DocID:   docID,
+		Name:    unitName,
+		EnvUUID: envUUID,
+		Service: serviceName,
+		Series:  series,
+		Life:    Alive,
+	}
+	udoc1 := &unitDoc{
+		DocID:   docID1,
+		Name:    unitName1,
+		EnvUUID: envUUID,
+		Service: serviceName,
+		Series:  series,
+		Life:    Alive,
+	}
+	udoc2 := &unitDoc{
+		DocID:   docID2,
+		Name:    unitName2,
+		EnvUUID: envUUID,
+		Service: serviceName,
+		Series:  series,
+		Life:    Alive,
+	}
+
+	agentStatusDoc := statusDoc{
+		Status:  StatusUnknown,
+		EnvUUID: s.state.EnvironUUID(),
+	}
+	agentStatusDoc1 := statusDoc{
+		Status:  StatusUnknown,
+		EnvUUID: s.state.EnvironUUID(),
+	}
+	agentStatusDoc2 := statusDoc{
+		Status:     StatusUnknown,
+		StatusInfo: StorageReadyMessage,
+		EnvUUID:    s.state.EnvironUUID(),
+	}
+
+	ops := []txn.Op{
+		createStatusOp(s.state, "u#"+unitName, agentStatusDoc),
+		createStatusOp(s.state, "u#"+unitName1, agentStatusDoc1),
+		createStatusOp(s.state, "u#"+unitName2, agentStatusDoc2),
+		createStatusOp(s.state, unitGlobalKey(unitName2), agentStatusDoc2),
+		{
+			C:      unitsC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: udoc,
+		}, {
+			C:      unitsC,
+			Id:     docID1,
+			Assert: txn.DocMissing,
+			Insert: udoc1,
+		}, {
+			C:      unitsC,
+			Id:     docID2,
+			Assert: txn.DocMissing,
+			Insert: udoc2,
+		},
+		{
+			C:  servicesC,
+			Id: s.state.docID(serviceName),
+			Insert: bson.D{
+				{"series", series},
+				{"name", serviceName},
+				{"env-uuid", envUUID},
+				{"life", Alive},
+				{"unitcount", 1},
+			},
+		},
+	}
+
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestAddMissingUnitStatus(c *gc.C) {
+	serviceName := "wordpress"
+	s.addServiceWithMissingUnitStatus(c, serviceName)
+	ser, err := s.state.Service(serviceName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := ser.AllUnits()
+	c.Assert(units, gc.HasLen, 3)
+	_, err = units[0].Status()
+	c.Assert(err, gc.ErrorMatches, "cannot get status: unit not found")
+	_, err = units[1].Status()
+	c.Assert(err, gc.ErrorMatches, "cannot get status: unit not found")
+	_, err = units[2].Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddMissingUnitStatus(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = units[0].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := units[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+
+	err = units[1].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err = units[1].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+
+	err = units[2].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err = units[2].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+	c.Assert(status.Message, gc.Equals, StorageReadyMessage)
+}
+
+func (s *upgradesSuite) TestAddMissingUnitStatusIdempotent(c *gc.C) {
+	serviceName := "wordpress"
+	s.addServiceWithMissingUnitStatus(c, serviceName)
+	ser, err := s.state.Service(serviceName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := ser.AllUnits()
+	c.Assert(units, gc.HasLen, 3)
+	_, err = units[0].Status()
+	c.Assert(err, gc.ErrorMatches, "cannot get status: unit not found")
+
+	err = AddMissingUnitStatus(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddMissingUnitStatus(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = units[0].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := units[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+
+	err = units[1].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err = units[1].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+
+	err = units[2].Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	status, err = units[2].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Status, gc.Equals, StatusUnknown)
+	c.Assert(status.Message, gc.Equals, StorageReadyMessage)
+
+}
+
 func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
 	uuid1 := s.makeEnvironment(c)
