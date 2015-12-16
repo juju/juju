@@ -32,33 +32,6 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (*UploadSuite) TestAddResource(c *gc.C) {
-	u := UploadCommand{resources: map[string]string{}}
-
-	err := u.addResource("foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resources, gc.DeepEquals, map[string]string{"foo": "bar"})
-
-	err = u.addResource("foo=bar")
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsAlreadyExists)
-
-	err = u.addResource("foobar")
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-
-	err = u.addResource("=foobar")
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-
-	err = u.addResource("foobar=")
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-
-	err = u.addResource("baz=bat")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resources, gc.DeepEquals, map[string]string{
-		"foo": "bar",
-		"baz": "bat",
-	})
-}
-
 func (*UploadSuite) TestInitEmpty(c *gc.C) {
 	u := UploadCommand{resources: map[string]string{}}
 
@@ -72,13 +45,32 @@ func (*UploadSuite) TestInitOneArg(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
-func (*UploadSuite) TestInitCallsAddResource(c *gc.C) {
+func (*UploadSuite) TestInitJustName(c *gc.C) {
 	u := UploadCommand{resources: map[string]string{}}
 
-	// full testing of bad resources is tested in TestAddResource, this just
-	// tests that we're actually passing the errors through.
 	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (*UploadSuite) TestInitDuplicate(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
+
+	err := u.Init([]string{"foo", "foo=bar", "foo=baz"})
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsAlreadyExists)
+}
+
+func (*UploadSuite) TestInitNoName(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
+
+	err := u.Init([]string{"foo", "=foobar"})
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+}
+
+func (*UploadSuite) TestInitNoPath(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
+
+	err := u.Init([]string{"foo", "foobar="})
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitGood(c *gc.C) {
