@@ -106,7 +106,7 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmStore, error) {
+	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
 		//apiCaller, err := command.NewAPIRoot()
 		//if err != nil {
 		//	return nil, errors.Trace(err)
