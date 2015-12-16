@@ -23,13 +23,15 @@ type UploadClient interface {
 // UploadDeps is a type that contains external functions that Upload depends on
 // to function.
 type UploadDeps struct {
-	NewClient    func(c *UploadCommand) (UploadClient, error)
+	// NewClient returns the value that wraps the API for uploading to the server.
+	NewClient func(*UploadCommand) (UploadClient, error)
+	// OpenResource handles creating a reader from the resource path.
 	OpenResource func(path string) (io.ReadCloser, error)
 }
 
 // UploadCommand implements the upload command.
 type UploadCommand struct {
-	UploadDeps
+	deps UploadDeps
 	envcmd.EnvCommandBase
 	service   string
 	resources map[string]string
@@ -38,20 +40,19 @@ type UploadCommand struct {
 // NewUploadCommand returns a new command that lists resources defined
 // by a charm.
 func NewUploadCommand(deps UploadDeps) *UploadCommand {
-	return &UploadCommand{UploadDeps: deps}
+	return &UploadCommand{deps: deps}
 }
 
-const uploadDoc = `
-This command uploads a file from your local disk to the juju controller to be
-used as a resource for a service.
-`
-
+// Info implements cmd.Command.Info
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upload",
 		Args:    "service name=file [name2=file2 ...]",
 		Purpose: "upload a file as a resource for a service",
-		Doc:     uploadDoc,
+		Doc: `
+This command uploads a file from your local disk to the juju controller to be
+used as a resource for a service.
+`,
 	}
 }
 
@@ -82,7 +83,7 @@ func (c *UploadCommand) Init(args []string) error {
 func (c *UploadCommand) addResource(arg string) error {
 	vals := strings.SplitN(arg, "=", 2)
 	if len(vals) < 2 || vals[0] == "" || vals[1] == "" {
-		return errors.NotValidf("resource %q", arg)
+		return errors.NotValidf("resource given: %q, but expected name=path format", arg)
 	}
 	name := vals[0]
 	if _, ok := c.resources[name]; ok {
@@ -94,27 +95,43 @@ func (c *UploadCommand) addResource(arg string) error {
 
 // Run implements cmd.Command.Run.
 func (c *UploadCommand) Run(*cmd.Context) error {
-	apiclient, err := c.NewClient(c)
+	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 
+	errs := []error{}
+
 	for name, file := range c.resources {
+		// don't want to do a bulk upload since we're doing potentially large
+		// file uploads.
 		if err := c.upload(c.service, name, file, apiclient); err != nil {
-			return errors.Trace(err)
+			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", name))
 		}
 	}
-	return nil
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errs[0]
+	default:
+		msgs := make([]string, len(errs))
+		for i := range errs {
+			msgs[i] = errs[i].Error()
+		}
+		return errors.Errorf(strings.Join(msgs, "\n"))
+	}
 }
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // service with the given name.
 func (c *UploadCommand) upload(service, name, file string, client UploadClient) error {
-	f, err := c.OpenResource(file)
+	f, err := c.deps.OpenResource(file)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	return client.Upload(service, name, f)
+	err = client.Upload(service, name, f)
+	return errors.Trace(err)
 }

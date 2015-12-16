@@ -18,35 +18,18 @@ var _ = gc.Suite(&UploadSuite{})
 type UploadSuite struct {
 	testing.IsolationSuite
 
-	stub   *testing.Stub
-	client *StubClient
-	file   *stubFile
+	stubDeps *stubUploadDeps
 }
 
 func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
-	s.client = &StubClient{Stub: s.stub}
-	s.file = &stubFile{stub: s.stub}
-}
-
-func (s *UploadSuite) NewClient(c *UploadCommand) (UploadClient, error) {
-	s.stub.AddCall("NewClient", c)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+	stub := &testing.Stub{}
+	s.stubDeps = &stubUploadDeps{
+		stub:   stub,
+		file:   &stubFile{stub: stub},
+		client: &StubClient{Stub: stub},
 	}
-
-	return s.client, nil
-}
-
-func (s *UploadSuite) OpenResource(path string) (io.ReadCloser, error) {
-	s.stub.AddCall("OpenResource", path)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.file, nil
 }
 
 func (*UploadSuite) TestAddResource(c *gc.C) {
@@ -76,33 +59,47 @@ func (*UploadSuite) TestAddResource(c *gc.C) {
 	})
 }
 
-func (*UploadSuite) TestInit(c *gc.C) {
+func (*UploadSuite) TestInitEmpty(c *gc.C) {
 	u := UploadCommand{resources: map[string]string{}}
 
 	err := u.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
 
-	err = u.Init([]string{"foo"})
+func (*UploadSuite) TestInitOneArg(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
+	err := u.Init([]string{"foo"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+}
+
+func (*UploadSuite) TestInitCallsAddResource(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
 
 	// full testing of bad resources is tested in TestAddResource, this just
 	// tests that we're actually passing the errors through.
-	err = u.Init([]string{"foo", "bar"})
+	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
 
-	err = u.Init([]string{"foo", "bar=baz"})
+func (*UploadSuite) TestInitGood(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
+
+	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.resources, gc.DeepEquals, map[string]string{"bar": "baz"})
 	c.Assert(u.service, gc.Equals, "foo")
+}
 
-	u = UploadCommand{resources: map[string]string{}}
+func (*UploadSuite) TestInitTwoResources(c *gc.C) {
+	u := UploadCommand{resources: map[string]string{}}
 
-	err = u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
+	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.resources, gc.DeepEquals, map[string]string{
 		"bar":  "baz",
 		"fizz": "buzz",
 	})
+	c.Assert(u.service, gc.Equals, "foo")
 }
 
 func (s *UploadSuite) TestInfo(c *gc.C) {
@@ -122,9 +119,9 @@ used as a resource for a service.
 
 func (s *UploadSuite) TestRun(c *gc.C) {
 	u := UploadCommand{
-		UploadDeps: UploadDeps{
-			NewClient:    s.NewClient,
-			OpenResource: s.OpenResource,
+		deps: UploadDeps{
+			NewClient:    s.stubDeps.NewClient,
+			OpenResource: s.stubDeps.OpenResource,
 		},
 		resources: map[string]string{"foo": "bar", "baz": "bat"},
 		service:   "svc",
@@ -133,13 +130,13 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 	err := u.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkCall(c, s.stub, "OpenResource", [][]interface{}{
+	checkCall(c, s.stubDeps.stub, "OpenResource", [][]interface{}{
 		{"bar"},
 		{"bat"},
 	})
-	checkCall(c, s.stub, "Upload", [][]interface{}{
-		{"svc", "foo", s.file},
-		{"svc", "baz", s.file},
+	checkCall(c, s.stubDeps.stub, "Upload", [][]interface{}{
+		{"svc", "foo", s.stubDeps.file},
+		{"svc", "baz", s.stubDeps.file},
 	})
 }
 
@@ -153,6 +150,30 @@ func checkCall(c *gc.C, stub *testing.Stub, funcname string, args [][]interface{
 		}
 	}
 	c.Assert(actual, jc.DeepEquals, args)
+}
+
+type stubUploadDeps struct {
+	stub   *testing.Stub
+	file   *stubFile
+	client *StubClient
+}
+
+func (s *stubUploadDeps) NewClient(c *UploadCommand) (UploadClient, error) {
+	s.stub.AddCall("NewClient", c)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.client, nil
+}
+
+func (s *stubUploadDeps) OpenResource(path string) (io.ReadCloser, error) {
+	s.stub.AddCall("OpenResource", path)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.file, nil
 }
 
 type stubFile struct {
