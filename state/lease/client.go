@@ -271,18 +271,18 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 func (client *client) readSkews(collection mongo.Collection) (map[string]Skew, error) {
 
 	// Read the clock document, recording the time before and after completion.
-	readBefore := client.config.Clock.Now()
+	beginning := client.config.Clock.Now()
 	var clockDoc clockDoc
 	if err := collection.FindId(client.clockDocId()).One(&clockDoc); err != nil {
 		return nil, errors.Trace(err)
 	}
-	readAfter := client.config.Clock.Now()
+	end := client.config.Clock.Now()
 	if err := clockDoc.validate(); err != nil {
 		return nil, errors.Annotatef(err, "corrupt clock document")
 	}
 
 	// Create skew entries for each known writer...
-	skews, err := clockDoc.skews(readBefore, readAfter)
+	skews, err := clockDoc.skews(beginning, end)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

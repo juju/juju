@@ -154,8 +154,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return environs.Destroy(systemEnviron, store)
 	}
 
-	// Attempt to destroy the system with destroyEnvs and ignoreBlocks = true
-	err = api.DestroySystem(true, true)
+	// Attempt to destroy the system with destroyEnvs.
+	err = api.DestroySystem(true)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.
@@ -164,8 +164,25 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	if err != nil {
 		ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+		return environs.Destroy(systemEnviron, store)
 	}
 
+	ctx.Infof(`
+Destroying system %q
+Waiting for resources to be reclaimed
+`[1:], c.systemName)
+
+	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
+
+		ctx.Infof(fmtCtrStatus(ctrStatus))
+
+		for _, envStatus := range envsStatus {
+			ctx.Verbosef(fmtEnvStatus(envStatus))
+		}
+	}
+
+	ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
 	return environs.Destroy(systemEnviron, store)
 }
 

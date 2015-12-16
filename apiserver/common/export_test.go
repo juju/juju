@@ -4,12 +4,13 @@
 package common
 
 var (
-	MachineJobFromParams = machineJobFromParams
-	ValidateNewFacade    = validateNewFacade
-	WrapNewFacade        = wrapNewFacade
-	NilFacadeRecord      = facadeRecord{}
-	EnvtoolsFindTools    = &envtoolsFindTools
-	SendMetrics          = &sendMetrics
+	MachineJobFromParams    = machineJobFromParams
+	ValidateNewFacade       = validateNewFacade
+	WrapNewFacade           = wrapNewFacade
+	NilFacadeRecord         = facadeRecord{}
+	EnvtoolsFindTools       = &envtoolsFindTools
+	SendMetrics             = &sendMetrics
+	MockableDestroyMachines = destroyMachines
 )
 
 type Patcher interface {

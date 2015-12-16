@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
@@ -147,8 +146,6 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // Set Metadata requests to be served by the filecontent supplied.
 func UseExternalTestImageMetadata(creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
@@ -157,12 +154,10 @@ func UseExternalTestImageMetadata(creds *auth.Credentials) {
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-	imagemetadata.DefaultBaseURL = "test://host"
 }
 
 func UnregisterExternalTestImageMetadata() {
 	testRoundTripper.Sub = nil
-	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that

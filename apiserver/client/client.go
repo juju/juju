@@ -5,7 +5,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
@@ -53,6 +53,7 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
+	compat
 	api   *API
 	check *common.BlockChecker
 }
@@ -68,7 +69,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 	}
 	apiState := getState(st)
 	urlGetter := common.NewToolsURLGetter(apiState.EnvironUUID(), apiState)
-	return &Client{
+	client := &Client{
 		api: &API{
 			stateAccessor: apiState,
 			auth:          authorizer,
@@ -76,7 +77,10 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
 			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
 		},
-		check: common.NewBlockChecker(st)}, nil
+		check: common.NewBlockChecker(st)}
+	// Plug in compatibility shims.
+	client.compat = compat{client}
+	return client, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -133,19 +137,6 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 		settings[option] = nil
 	}
 	return svc.UpdateConfigSettings(settings)
-}
-
-// ServiceSetYAML implements the server side of Client.ServerSetYAML.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return err
-	}
-	return serviceSetSettingsYAML(svc, p.Config)
 }
 
 // ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
@@ -286,103 +277,6 @@ func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }
 
-// ServiceUpdate updates the service attributes, including charm URL,
-// minimum number of units, settings and constraints.
-// All parameters in params.ServiceUpdate except the service name are optional.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	if !args.ForceCharmUrl {
-		if err := c.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	// Set the charm for the given service.
-	if args.CharmUrl != "" {
-		if err = c.serviceSetCharm(svc, args.CharmUrl, args.ForceCharmUrl); err != nil {
-			return err
-		}
-	}
-	// Set the minimum number of units for the given service.
-	if args.MinUnits != nil {
-		if err = svc.SetMinUnits(*args.MinUnits); err != nil {
-			return err
-		}
-	}
-	// Set up service's settings.
-	if args.SettingsYAML != "" {
-		if err = serviceSetSettingsYAML(svc, args.SettingsYAML); err != nil {
-			return err
-		}
-	} else if len(args.SettingsStrings) > 0 {
-		if err = service.ServiceSetSettingsStrings(svc, args.SettingsStrings); err != nil {
-			return err
-		}
-	}
-	// Update service's constraints.
-	if args.Constraints != nil {
-		return svc.SetConstraints(*args.Constraints)
-	}
-	return nil
-}
-
-// serviceSetCharm sets the charm for the given service.
-func (c *Client) serviceSetCharm(service *state.Service, url string, force bool) error {
-	curl, err := charm.ParseURL(url)
-	if err != nil {
-		return err
-	}
-	sch, err := c.api.stateAccessor.Charm(curl)
-	if errors.IsNotFound(err) {
-		// Charms should be added before trying to use them, with
-		// AddCharm or AddLocalCharm API calls. When they're not,
-		// we're reverting to 1.16 compatibility mode.
-		return c.serviceSetCharm1dot16(service, curl, force)
-	}
-	if err != nil {
-		return err
-	}
-	return service.SetCharm(sch, force)
-}
-
-// serviceSetCharm1dot16 sets the charm for the given service in 1.16
-// compatibility mode. Remove this when support for 1.16 is dropped.
-func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, force bool) error {
-	if curl.Schema != "cs" {
-		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-	}
-	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
-	}
-	err := c.AddCharm(params.CharmURL{
-		URL: curl.String(),
-	})
-	if err != nil {
-		return err
-	}
-	ch, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return err
-	}
-	return service.SetCharm(ch, force)
-}
-
-// serviceSetSettingsYAML updates the settings for the given service,
-// taking the configuration from a YAML string.
-func serviceSetSettingsYAML(service *state.Service, settings string) error {
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := ch.Config().ParseSettingsYAML([]byte(settings), service.Name())
-	if err != nil {
-		return err
-	}
-	return service.UpdateConfigSettings(changes)
-}
-
 // newServiceSetSettingsStringsForClientAPI updates the settings for the given
 // service, taking the configuration from a map of strings.
 //
@@ -401,22 +295,6 @@ func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings m
 	}
 
 	return service.UpdateConfigSettings(changes)
-}
-
-// ServiceSetCharm sets the charm for a given service.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
-	// when forced, don't block
-	if !args.Force {
-		if err := c.check.ChangeAllowed(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	service, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	return c.serviceSetCharm(service, args.CharmUrl, args.Force)
 }
 
 // addServiceUnits adds a given number of units to a service.
@@ -492,7 +370,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 			errs = append(errs, err.Error())
 		}
 	}
-	return destroyErr("units", args.UnitNames, errs)
+	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
 // ServiceDestroy destroys a given service.
@@ -720,30 +598,11 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	var errs []string
-	for _, id := range args.MachineNames {
-		machine, err := c.api.stateAccessor.Machine(id)
-		switch {
-		case errors.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case args.Force:
-			err = machine.ForceDestroy()
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			{
-				if err := c.check.RemoveAllowed(); err != nil {
-					return errors.Trace(err)
-				}
-				err = machine.Destroy()
-			}
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
+	if err := c.check.RemoveAllowed(); !args.Force && err != nil {
+		return errors.Trace(err)
 	}
-	return destroyErr("machines", args.MachineNames, errs)
+
+	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -813,7 +672,8 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.stateAccessor.AddEnvironmentUser(user, createdBy, "")
+			_, err := c.api.stateAccessor.AddEnvironmentUser(
+				state.EnvUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -983,7 +843,28 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+	// Before changing the agent version to trigger an upgrade or downgrade,
+	// we'll do a very basic check to ensure the
+	cfg, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := getEnvironment(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := environs.CheckProviderAPI(env); err != nil {
+		return err
+	}
 	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
+}
+
+var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -998,18 +879,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	return c.api.toolsFinder.FindTools(args)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 func (c *Client) AddCharm(args params.CharmURL) error {

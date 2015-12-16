@@ -34,9 +34,17 @@ import (
 
 var logger = loggo.GetLogger("juju.api")
 
-// PingPeriod defines how often the internal connection health check
-// will run. It's a variable so it can be changed in tests.
-var PingPeriod = 1 * time.Minute
+// TODO(fwereade): we should be injecting a Clock; and injecting these values;
+// across the board, instead of using these global variables.
+var (
+	// PingPeriod defines how often the internal connection health check
+	// will run.
+	PingPeriod = 1 * time.Minute
+
+	// PingTimeout defines how long a health check can take before we
+	// consider it to have failed.
+	PingTimeout = 30 * time.Second
+)
 
 // state is the internal implementation of the Connection interface.
 type state struct {
@@ -489,9 +497,28 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 	}
 }
 
+func callWithTimeout(f func() error, timeout time.Duration) bool {
+	result := make(chan error, 1)
+	go func() {
+		// Note that result is buffered so that we don't leak this
+		// goroutine when a timeout happens.
+		result <- f()
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			logger.Debugf("health ping failed: %v", err)
+		}
+		return err == nil
+	case <-time.After(timeout):
+		logger.Errorf("health ping timed out after %s", timeout)
+		return false
+	}
+}
+
 func (s *state) heartbeatMonitor() {
 	for {
-		if err := s.Ping(); err != nil {
+		if !callWithTimeout(s.Ping, PingTimeout) {
 			close(s.broken)
 			return
 		}

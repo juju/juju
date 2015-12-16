@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -93,19 +95,61 @@ p7vH1ewg+vd9ySST0+OkWXYpbMOIARfBKyrGM3nu
 `
 
 const (
-	// The location where Ubuntu cloud image metadata is published for
+	// The location where Ubuntu generic cloud image metadata is published for
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
+
+	// The ;ocation of juju specific image metadata including non-Ubuntu images
+	// in public clouds.
+	JujuStreamsImagesURL = "https://streams.canonical.com/juju/images"
+
 	// The path where released image metadata is found.
 	ReleasedImagesPath = "releases"
 )
 
 // This needs to be a var so we can override it for testing and in bootstrap.
-var DefaultBaseURL = UbuntuCloudImagesURL
+var (
+	//
+	DefaultUbuntuBaseURL = UbuntuCloudImagesURL
+	DefaultJujuBaseURL   = JujuStreamsImagesURL
+)
 
-// PrivateMetadataDir is a directory possibly containing private image
-// metadata, used during bootstrap.
-var PrivateMetadataDir string
+// OfficialDataSources returns the simplestreams datasources where official
+// image metadata can be found.
+func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
+	var result []simplestreams.DataSource
+
+	// New images metadata for centos and windows and existing clouds.
+	defaultJujuURL, err := ImageMetadataURL(DefaultJujuBaseURL, stream)
+	if err != nil {
+		return nil, err
+	}
+	if defaultJujuURL != "" {
+		publicKey, err := simplestreams.UserPublicSigningKey()
+		if err != nil {
+			return nil, err
+		}
+		if publicKey == "" {
+			publicKey = simplestreamsImagesPublicKey
+		}
+		result = append(
+			result,
+			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames))
+	}
+
+	// Fallback to image metadata for existing Ubuntu images.
+	defaultUbuntuURL, err := ImageMetadataURL(DefaultUbuntuBaseURL, stream)
+	if err != nil {
+		return nil, err
+	}
+	if defaultUbuntuURL != "" {
+		result = append(
+			result,
+			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+	}
+
+	return result, nil
+}
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
@@ -199,7 +243,6 @@ func Fetch(
 			DataType:      ImageIds,
 			FilterFunc:    appendMatchingImages,
 			ValueTemplate: ImageMetadata{},
-			PublicKey:     simplestreamsImagesPublicKey,
 		},
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)

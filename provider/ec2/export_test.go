@@ -11,7 +11,6 @@ import (
 	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -80,19 +79,15 @@ func init() {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		imagemetadata.DefaultBaseURL = "test:"
 		signedImageDataOnly = false
 	} else {
 		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
-		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 
