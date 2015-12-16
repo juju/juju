@@ -48,38 +48,19 @@ class TestParseArgs(tests.TestCase):
 class TestMain(tests.FakeHomeTestCase):
 
     def test_basic_args(self):
-        args = Namespace(
-            temp_env_name='foo', env='bar', series=None, agent_url=None,
-            agent_stream=None, juju_bin='', logs=None, keep_env=False,
-            health_cmd=None, debug=False, bundle_path='', bundle_name='',
-            verbose=logging.INFO, region=None, upgrade=False)
-        env = SimpleEnvironment('bar')
+        args = ['bundles', 'an-env', '/bin/juju', 'logs', 'deployer-env']
+        env = SimpleEnvironment('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
-        with patch('run_deployer.parse_args', return_value=args):
-            with patch('run_deployer.SimpleEnvironment.from_config',
-                       return_value=env) as e_mock:
-                with patch('run_deployer.EnvJujuClient.by_version',
-                           return_value=client) as c_mock:
-                    with patch('run_deployer.boot_context'):
-                        with patch('run_deployer.assess_deployer') as ad_mock:
-                            main()
-        e_mock.assert_called_once_with('bar')
-        c_mock.assert_called_once_with(env, '', debug=False)
-        ad_mock.assert_called_once_with(args, client)
-
-    def test_region(self):
-        client = EnvJujuClient(SimpleEnvironment('bar'), '1.234-76', None)
-        with patch('run_deployer.SimpleEnvironment.from_config',
-                   return_value=client.env):
-            with patch('run_deployer.EnvJujuClient.by_version',
-                       return_value=client):
-                with patch('run_deployer.boot_context') as bc_mock:
-                    with patch('run_deployer.assess_deployer', autospec=True):
-                        main(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
-                              '--region', 'region-foo'])
-        bc_mock.assert_called_once_with(
-            'quxx', client, None, [], None, None, None, 'qux', False, False,
-            region='region-foo')
+        with patch('jujupy.SimpleEnvironment.from_config',
+                   return_value=env) as e_mock:
+            with patch('jujupy.EnvJujuClient.by_version',
+                       return_value=client) as c_mock:
+                with patch('run_deployer.boot_context'):
+                    with patch('run_deployer.assess_deployer') as ad_mock:
+                        main(args)
+        e_mock.assert_called_once_with('an-env')
+        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        ad_mock.assert_called_once_with(parse_args(args), client)
 
 
 class TestAssessDeployer(tests.TestCase):

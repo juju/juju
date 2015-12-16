@@ -2430,20 +2430,23 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(expected, list(gen))
 
     def test_iter_units_no_subordinates(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'started'},
+        unit_with_subordinate = {
+            'agent-state': 'started',
+            'subordinates': {
+                'ntp/0': {'agent-state': 'started'},
             },
+        }
+        status = Status({
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/0': {'agent-state': 'started'},
+                        'jenkins/0': unit_with_subordinate,
                     }
                 },
             }
         }, '')
         expected = [
-            ('jenkins/0', {'agent-state': 'started'}),
+            ('jenkins/0', unit_with_subordinate),
         ]
         gen = status.iter_units(include_subordinates=False)
         self.assertIsInstance(gen, types.GeneratorType)
