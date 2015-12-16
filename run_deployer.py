@@ -61,12 +61,15 @@ def run_deployer(argv=None):
                       args.agent_url, args.agent_stream, args.logs,
                       args.keep_env, False, region=args.region):
         client.deployer(args.bundle_path, args.bundle_name)
+        client.wait_for_workloads()
         if args.health_cmd:
             check_health(args.health_cmd, args.temp_env_name)
         if args.upgrade:
             client.juju('status', ())
             assess_upgrade(client, args.juju_bin)
+            client.wait_for_workloads()
             if args.health_cmd:
                 check_health(args.health_cmd, args.temp_env_name)
+
 if __name__ == '__main__':
     run_deployer()

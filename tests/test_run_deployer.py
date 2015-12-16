@@ -4,7 +4,7 @@ import os
 import stat
 import subprocess
 from tempfile import NamedTemporaryFile
-from unittest import TestCase
+import unittest
 
 from mock import patch
 
@@ -18,9 +18,10 @@ from run_deployer import (
     parse_args,
     run_deployer
     )
+import tests
 
 
-class TestParseArgs(TestCase):
+class TestParseArgs(tests.TestCase):
 
     def test_parse_args(self):
         args = parse_args(['/bundle/path', 'test_env', 'new/bin/juju',
@@ -40,7 +41,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.verbose, logging.INFO)
 
 
-class TestRunDeployer(TestCase):
+class TestRunDeployer(tests.FakeHomeTestCase):
 
     def test_run_deployer(self):
         with patch('run_deployer.boot_context'):
@@ -59,8 +60,9 @@ class TestRunDeployer(TestCase):
                                    upgrade=False)):
                         with patch(
                                 'run_deployer.EnvJujuClient.deployer') as dm:
-                            with patch('run_deployer.check_health') as hm:
-                                run_deployer()
+                            with patch('run_deployer.EnvJujuClient.wait_for_workloads', autospec=True, return_value=None):
+                                with patch('run_deployer.check_health') as hm:
+                                    run_deployer()
         self.assertEqual(dm.call_count, 1)
         self.assertEqual(hm.call_count, 0)
 
@@ -80,8 +82,9 @@ class TestRunDeployer(TestCase):
                                    verbose=logging.INFO, region=None,
                                    upgrade=False)):
                         with patch('run_deployer.EnvJujuClient.deployer'):
-                            with patch('run_deployer.check_health') as hm:
-                                run_deployer()
+                            with patch('run_deployer.EnvJujuClient.wait_for_workloads', autospec=True, return_value=None):
+                                with patch('run_deployer.check_health') as hm:
+                                    run_deployer()
         self.assertEqual(hm.call_count, 1)
 
     def test_run_deployer_region(self):
@@ -89,15 +92,16 @@ class TestRunDeployer(TestCase):
             with patch('subprocess.check_output', return_value='foo'):
                 with patch('subprocess.check_call', return_value='foo'):
                     with patch('run_deployer.boot_context') as bc_mock:
-                        run_deployer(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
-                                      '--region', 'region-foo'])
+                        with patch('run_deployer.EnvJujuClient.wait_for_workloads', autospec=True, return_value=None):
+                            run_deployer(['foo', 'bar', 'baz/juju', 'qux',
+                                          'quxx', '--region', 'region-foo'])
         client = bc_mock.mock_calls[0][1][1]
         bc_mock.assert_called_once_with(
             'quxx', client, None, [], None, None, None, 'qux', False, False,
             region='region-foo')
 
 
-class TestIsHealthy(TestCase):
+class TestIsHealthy(unittest.TestCase):
 
     def test_check_health(self):
         SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
