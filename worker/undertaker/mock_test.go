@@ -37,24 +37,25 @@ func (m *mockClient) mockCall(call string) {
 }
 
 func (m *mockClient) ProcessDyingEnviron() error {
-	m.mockCall("ProcessDyingEnviron")
+	defer m.mockCall("ProcessDyingEnviron")
 	if m.mockEnviron.HasMachinesAndServices {
 		return errors.Errorf("found documents for environment with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
 	}
 	m.mockEnviron.Life = state.Dead
 	t := time.Now()
 	m.mockEnviron.TimeOfDeath = &t
+
 	return nil
 }
 
 func (m *mockClient) RemoveEnviron() error {
-	m.mockCall("RemoveEnviron")
+	defer m.mockCall("RemoveEnviron")
 	m.mockEnviron.Removed = true
 	return nil
 }
 
 func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	m.mockCall("EnvironInfo")
+	defer m.mockCall("EnvironInfo")
 	result := params.UndertakerEnvironInfo{
 		Life:        params.Life(m.mockEnviron.Life.String()),
 		UUID:        m.mockEnviron.UUID,
