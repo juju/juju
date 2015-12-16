@@ -499,7 +499,7 @@ class EnvJujuClient:
             yield self.get_status()
 
     def _wait_for_status(self, reporter, translate, exception=StatusNotMet,
-                        timeout=1200, start=None):
+                         timeout=1200, start=None):
         """Wait till status reaches an expected state with pretty reporting.
 
         Always tries to get status at least once. Each status call has an
@@ -569,7 +569,7 @@ class EnvJujuClient:
             return versions
         reporter = GroupReporter(sys.stdout, version)
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
-                             timeout=timeout, start=start)
+                              timeout=timeout, start=start)
 
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
@@ -625,7 +625,7 @@ class EnvJujuClient:
             return unit_states
         reporter = GroupReporter(sys.stdout, final_states)
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
-                             timeout=timeout, start=start)
+                              timeout=timeout, start=start)
 
     def wait_for(self, thing, search_type, timeout=300):
         """ Wait for a something (thing) matching none/all/some machines.
