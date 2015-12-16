@@ -40,6 +40,18 @@ type Service interface {
 	// ServicesDeployWithPlacement fetches the charms from the charm store and deploys them
 	// using the specified placement directives.
 	ServicesDeployWithPlacement(args params.ServicesDeploy) (params.ErrorResults, error)
+
+	// ServiceUpdate updates the service attributes, including charm URL,
+	// minimum number of units, settings and constraints.
+	// All parameters in params.ServiceUpdate except the service name are optional.
+	ServiceUpdate(args params.ServiceUpdate) error
+
+	// ServiceSetCharm sets the charm for a given service.
+	ServiceSetCharm(args params.ServiceSetCharm) error
+
+	// ServiceGetCharmURL returns the charm URL the given service is
+	// running at present.
+	ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error)
 }
 
 // API implements the service interface and is the concrete
