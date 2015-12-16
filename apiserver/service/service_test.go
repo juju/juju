@@ -432,7 +432,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
-	err = s.APIState.Client().AddCharm(curl)
+	err = s.ApiState.Client().AddCharm(curl)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied`)
 
 	tryAs := func(user string) error {
@@ -467,7 +467,7 @@ func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
-	client := s.APIState.Client()
+	client := s.ApiState.Client()
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
 
 	// Try adding the same charm concurrently from multiple goroutines
@@ -522,7 +522,7 @@ func (s *serviceSuite) assertUploaded(c *gc.C, storage statestorage.Storage, sto
 }
 
 func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	client := s.APIState.Client()
+	client := s.ApiState.Client()
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
@@ -862,7 +862,7 @@ func (s *serviceSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCha
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
-	err = s.APIState.Client().AddCharm(curl)
+	err = s.ApiState.Client().AddCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }
@@ -1405,4 +1405,224 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
+}
+
+func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
+	c.Assert(endpoints["wordpress"], gc.DeepEquals, charm.Relation{
+		Name:      "db",
+		Role:      charm.RelationRole("requirer"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     1,
+		Scope:     charm.RelationScope("global"),
+	})
+	c.Assert(endpoints["mysql"], gc.DeepEquals, charm.Relation{
+		Name:      "server",
+		Role:      charm.RelationRole("provider"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     0,
+		Scope:     charm.RelationScope("global"),
+	})
+}
+
+func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkEndpoints(c, res.Endpoints)
+	// Show that the relation was added.
+	wpSvc, err := s.State.Service("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rels, err := wpSvc.Relations()
+	// There are 2 relations - the logging-wordpress one set up in the
+	// scenario and the one created in this test.
+	c.Assert(len(rels), gc.Equals, 2)
+	mySvc, err := s.State.Service("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rels, err = mySvc.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(rels), gc.Equals, 1)
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRelation(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestBlockDestroyAddRelation(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddRelation")
+	s.assertAddRelation(c, []string{"wordpress", "mysql"})
+}
+func (s *serviceSuite) TestBlockRemoveAddRelation(c *gc.C) {
+	s.BlockRemoveObject(c, "TestBlockRemoveAddRelation")
+	s.assertAddRelation(c, []string{"wordpress", "mysql"})
+}
+
+func (s *serviceSuite) TestBlockChangesAddRelation(c *gc.C) {
+	s.setupServiceSetCharm(c)
+	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
+	_, err := s.serviceApi.AddRelation(params.AddRelation{[]string{"wordpress", "mysql"}})
+	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
+}
+
+func assertLife(c *gc.C, entity state.Living, life state.Life) {
+	err := entity.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Life(), gc.Equals, life)
+}
+
+func (s *serviceSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql"}
+	relation := s.setupRelationScenario(c, endpoints)
+	// block remove-objects
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroyRelation")
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroyRelation")
+	assertLife(c, relation, state.Alive)
+}
+
+func (s *serviceSuite) TestBlockChangeDestroyRelation(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql"}
+	relation := s.setupRelationScenario(c, endpoints)
+	s.BlockAllChanges(c, "TestBlockChangeDestroyRelation")
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	s.AssertBlocked(c, err, "TestBlockChangeDestroyRelation")
+	assertLife(c, relation, state.Alive)
+}
+
+func (s *serviceSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
+	endpoints := []string{"wordpress", "mysql"}
+	s.assertDestroyRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
+	// Show that the order of the services listed in the AddRelation call
+	// does not matter.  This is a repeat of the previous test with the service
+	// names swapped.
+	endpoints := []string{"mysql", "wordpress"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql", "logging"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
+}
+
+func (s *serviceSuite) TestAddAlreadyAddedRelation(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// Add a relation between wordpress and mysql.
+	endpoints := []string{"wordpress", "mysql"}
+	eps, err := s.State.InferEndpoints(endpoints...)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	// And try to add it again.
+	_, err = s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+}
+
+func (s *serviceSuite) setupRelationScenario(c *gc.C, endpoints []string) *state.Relation {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	// Add a relation between the endpoints.
+	eps, err := s.State.InferEndpoints(endpoints...)
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	return relation
+}
+
+func (s *serviceSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
+	s.assertDestroyRelationSuccess(
+		c,
+		s.setupRelationScenario(c, endpoints),
+		endpoints)
+}
+
+func (s *serviceSuite) assertDestroyRelationSuccess(c *gc.C, relation *state.Relation, endpoints []string) {
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, jc.ErrorIsNil)
+	// Show that the relation was removed.
+	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *serviceSuite) TestSuccessfulDestroyRelation(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql"}
+	s.assertDestroyRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestSuccessfullyDestroyRelationSwapped(c *gc.C) {
+	// Show that the order of the services listed in the DestroyRelation call
+	// does not matter.  This is a repeat of the previous test with the service
+	// names swapped.
+	endpoints := []string{"mysql", "wordpress"}
+	s.assertDestroyRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestNoRelation(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	endpoints := []string{"wordpress", "mysql"}
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+}
+
+func (s *serviceSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
+	endpoints := []string{"riak", "wordpress"}
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	endpoints := []string{"wordpress"}
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
+	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
+
+	endpoints := []string{"riak:ring"}
+	err := s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+}
+
+func (s *serviceSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// Add a relation between wordpress and mysql.
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	endpoints := []string{"wordpress", "mysql"}
+	err = s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	// Show that the relation was removed.
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	// And try to destroy it again.
+	err = s.serviceApi.DestroyRelation(params.DestroyRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }

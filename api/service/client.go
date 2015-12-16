@@ -150,3 +150,17 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 
 	return c.FacadeCall("ServiceUpdate", args, nil)
 }
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.FacadeCall("AddRelation", params, &addRelRes)
+	return &addRelRes, err
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	return c.FacadeCall("DestroyRelation", params, nil)
+}

@@ -54,7 +54,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 
 	err := s.runAddRelation(c, "local:/u/user/servicename2", "servicename")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
+	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *
 func (s *AddRemoteRelationSuiteNewAPI) assertAddedRelation(c *gc.C, args ...string) {
 	err := s.runAddRelation(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
+	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation")
 	s.mockAPI.CheckCall(c, 1, "AddRelation", args)
 }
 
@@ -184,11 +184,6 @@ type mockAddRelationAPI struct {
 func (m *mockAddRelationAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	m.AddCall("AddRelation", endpoints)
 	return m.addRelation(endpoints...)
-}
-
-func (m *mockAddRelationAPI) Close() error {
-	m.AddCall("Close")
-	return nil
 }
 
 func (m *mockAddRelationAPI) BestAPIVersion() int {

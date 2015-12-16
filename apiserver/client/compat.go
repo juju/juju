@@ -79,3 +79,21 @@ func (c *compat) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult
 	}
 	return serviceApi.ServiceGetCharmURL(args)
 }
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *compat) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	serviceApi, err := service.NewAPI(c.client.api.state(), c.client.api.resources, c.client.api.auth)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	return serviceApi.AddRelation(args)
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *compat) DestroyRelation(args params.DestroyRelation) error {
+	serviceApi, err := service.NewAPI(c.client.api.state(), c.client.api.resources, c.client.api.auth)
+	if err != nil {
+		return err
+	}
+	return serviceApi.DestroyRelation(args)
+}

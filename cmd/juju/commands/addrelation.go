@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -42,11 +43,11 @@ var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
 func newAddRelationCommand() cmd.Command {
 	addRelationCmd := &addRelationCommand{}
 	addRelationCmd.newAPIFunc = func() (AddRelationAPI, error) {
-		client, err := addRelationCmd.NewAPIClient()
+		root, err := addRelationCmd.NewAPIRoot()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		return client, nil
+		return service.NewClient(root), nil
 	}
 	return envcmd.Wrap(addRelationCmd)
 }
@@ -86,7 +87,6 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer api.Close()
 
 	if api.BestAPIVersion() < 2 {
 		if c.hasRemoteEndpoints {
@@ -152,7 +152,6 @@ func validateLocalEndpoint(endpoint string, sep string) error {
 
 // AddRelationAPI defines the API methods that can add relation between services.
 type AddRelationAPI interface {
-	Close() error
 	BestAPIVersion() int
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
 }
