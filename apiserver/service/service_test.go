@@ -432,7 +432,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
-	err = s.ApiState.Client().AddCharm(curl)
+	err = s.APIState.Client().AddCharm(curl)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied`)
 
 	tryAs := func(user string) error {
@@ -862,7 +862,7 @@ func (s *serviceSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCha
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
-	err = s.ApiState.Client().AddCharm(curl)
+	err = s.APIState.Client().AddCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }

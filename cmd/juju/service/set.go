@@ -98,6 +98,7 @@ func (c *setCommand) getClientAPI() (ClientAPI, error) {
 // ServiceAPI defines the methods on the client API
 // that the service set command calls.
 type ServiceAPI interface {
+	Close() error
 	ServiceUpdate(args params.ServiceUpdate) error
 }
 
@@ -125,6 +126,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer serviceApi.Close()
 
 	if c.SettingsYAML.Path != "" {
 		b, err := c.SettingsYAML.Read(ctx)

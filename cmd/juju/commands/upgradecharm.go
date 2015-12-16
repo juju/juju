@@ -159,6 +159,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer serviceClient.Close()
 
 	oldURL, err := serviceClient.ServiceGetCharmURL(c.ServiceName)
 	if err != nil {

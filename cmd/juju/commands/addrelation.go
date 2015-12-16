@@ -87,6 +87,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer api.Close()
 
 	if api.BestAPIVersion() < 2 {
 		if c.hasRemoteEndpoints {
@@ -152,6 +153,7 @@ func validateLocalEndpoint(endpoint string, sep string) error {
 
 // AddRelationAPI defines the API methods that can add relation between services.
 type AddRelationAPI interface {
+	Close() error
 	BestAPIVersion() int
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
 }

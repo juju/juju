@@ -31,6 +31,13 @@ func NewClient(caller base.APICallCloser) *Client {
 	return &Client{base.NewFacadeCaller(caller, "Service")}
 }
 
+// Close the connection to the API server.
+func (c *Client) Close() error {
+	//We know .RawAPICaller() is an APICallerCloser since
+	// it's passed in as such above in NewClient.
+	return c.FacadeCaller.RawAPICaller().(base.APICallCloser).Close()
+}
+
 // SetMetricCredentials sets the metric credentials for the service specified.
 func (c *Client) SetMetricCredentials(service string, credentials []byte) error {
 	creds := []params.ServiceMetricCredential{
