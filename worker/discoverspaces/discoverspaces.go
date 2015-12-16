@@ -135,19 +135,26 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// don't already know about.
 		logger.Errorf("Created space %v with %v subnets", spaceName, len(space.Subnets))
 		for _, subnet := range space.Subnets {
+			zones := subnet.AvailabilityZones
+			if len(zones) == 0 {
+				zones = []string{"default"}
+			}
 			args := params.AddSubnetsParams{
 				Subnets: []params.AddSubnetParams{{
 					SubnetProviderId: string(subnet.ProviderId),
 					SpaceTag:         spaceTag.String(),
-					Zones:            subnet.AvailabilityZones,
+					Zones:            zones,
 				}}}
 			// XXX check the error result too.
-			logger.Errorf("Adding subnet %v", subnet.CIDR)
+			logger.Tracef("Adding subnet %v", subnet.CIDR)
 			result, err := dw.api.AddSubnets(args)
 			if err != nil {
 				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)
 			}
+
+			// XXX needs doing properly (check len(result.Results
+			// == 1).
 			if result.Results[0].Error != nil {
 				logger.Errorf("error creating subnet %v", result.Results[0].Error)
 				return errors.Errorf("error creating subnet %v", result.Results[0].Error)
