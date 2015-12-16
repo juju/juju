@@ -18,12 +18,12 @@ type FacadeCaller interface {
 
 // Client is the public client for the resources API facade.
 type Client struct {
-	*specClient
+	// Add the sub-client here.
 }
 
 // NewClient returns a new Client for the given raw API caller.
 func NewClient(raw FacadeCaller) *Client {
 	return &Client{
-		specClient: &specClient{raw},
+	// Add the sub-client here.
 	}
 }

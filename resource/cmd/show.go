@@ -4,20 +4,19 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/resource"
 )
 
-// ShowAPI has the API methods needed by ShowCommand.
-type ShowAPI interface {
-	// ListSpecs lists the resource specs for each of the given services.
-	ListSpecs(services []string) ([]resource.SpecsResult, error)
+// CharmResourceLister has the charm store API methods needed by ShowCommand.
+type CharmResourceLister interface {
+	// ListResources lists the resources for each of the identified charms.
+	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
 
 	// Close closes the client.
 	Close() error
@@ -26,33 +25,42 @@ type ShowAPI interface {
 // ShowCommand implements the show-resources command.
 type ShowCommand struct {
 	envcmd.EnvCommandBase
-	out       cmd.Output
-	serviceID string
+	out   cmd.Output
+	charm string
 
-	newAPIClient func(c *ShowCommand) (ShowAPI, error)
+	newResourceLister func(c *ShowCommand) (CharmResourceLister, error)
 }
 
 // NewShowCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowCommand(newAPIClient func(c *ShowCommand) (ShowAPI, error)) *ShowCommand {
+func NewShowCommand(newResourceLister func(c *ShowCommand) (CharmResourceLister, error)) *ShowCommand {
 	cmd := &ShowCommand{
-		newAPIClient: newAPIClient,
+		newResourceLister: newResourceLister,
 	}
 	return cmd
 }
 
 var showDoc = `
-This command will report the resources defined by a charm.
+This command will report the resources for a charm in the charm store.
 
-The resources are looked up in the service's charm metadata.
+<charm> can be a charm URL, or an unambiguously condensed form of it;
+assuming a current series of "trusty", the following forms will be
+accepted:
+
+For cs:trusty/mysql
+  mysql
+  trusty/mysql
+
+For cs:~user/trusty/mysql
+  cs:~user/mysql
 `
 
 // Info implements cmd.Command.
 func (c *ShowCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-resources",
-		Args:    "service-id",
-		Purpose: "display the charm-defined resources for a service",
+		Name:    "show-charm-resources",
+		Args:    "<charm>",
+		Purpose: "display the resources for a charm in the charm store",
 		Doc:     showDoc,
 	}
 }
@@ -70,9 +78,9 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements cmd.Command.
 func (c *ShowCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing service ID")
+		return errors.New("missing charm")
 	}
-	c.serviceID = args[0]
+	c.charm = args[0]
 
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Trace(err)
@@ -81,36 +89,58 @@ func (c *ShowCommand) Init(args []string) error {
 	return nil
 }
 
-// TODO(ericsnow) Move this to a common place, like cmd/envcmd?
-const connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
-
-Error details:
-%v
-`
-
 // Run implements cmd.Command.
 func (c *ShowCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.newAPIClient(c)
+	// TODO(ericsnow) Adjust this to the charm store.
+
+	apiclient, err := c.newResourceLister(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		// TODO(ericsnow) Return a more user-friendly error?
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	services := []string{c.serviceID}
-	results, err := apiclient.ListSpecs(services)
+	charmURLs, err := resolveCharms(c.charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var specs []resource.Spec
-	if len(results) == 1 {
-		// TODO(ericsnow) Handle results[0].Error?
-		specs = results[0].Specs
+	resources, err := apiclient.ListResources(charmURLs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(resources) != 1 {
+		return errors.New("got bad data from charm store")
 	}
 
-	// Note that we do not worry about c.CompatVersion for show-resources...
-	formatter := newSpecListFormatter(specs)
+	// Note that we do not worry about c.CompatVersion
+	// for show-charm-resources...
+	formatter := newCharmResourcesFormatter(resources[0])
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
+}
+
+func resolveCharms(charms ...string) ([]charm.URL, error) {
+	var charmURLs []charm.URL
+	for _, raw := range charms {
+		charmURL, err := resolveCharm(raw)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		charmURLs = append(charmURLs, *charmURL)
+	}
+	return charmURLs, nil
+}
+
+func resolveCharm(raw string) (*charm.URL, error) {
+	charmURL, err := charm.ParseURL(raw)
+	if err != nil {
+		return charmURL, errors.Trace(err)
+	}
+
+	if charmURL.Series == "bundle" {
+		return charmURL, errors.Errorf("charm bundles are not supported")
+	}
+
+	return charmURL, nil
 }

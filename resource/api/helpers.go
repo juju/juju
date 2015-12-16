@@ -3,14 +3,11 @@
 
 package api
 
-// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
-
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 )
 
@@ -31,79 +28,90 @@ func ServiceTag2ID(tagStr string) (string, error) {
 	return tag.Id(), nil
 }
 
-// ResourceSpec2API converts a resource.Spec into
-// a ResourceSpec struct.
-func ResourceSpec2API(r resource.Spec) ResourceSpec {
-	info := r.Definition
-	return ResourceSpec{
-		Name:     info.Name,
-		Type:     info.Type.String(),
-		Path:     info.Path,
-		Comment:  info.Comment,
-		Origin:   r.Origin.String(),
-		Revision: r.Revision.String(),
+// Resource2API converts a resource.Resource into
+// a Resource struct.
+func Resource2API(res resource.Resource) Resource {
+	return Resource{
+		CharmResource: CharmResource2API(res.Resource),
+		Username:      res.Username,
+		Timestamp:     res.Timestamp,
 	}
 }
 
-// API2ResourceSpec converts an API ResourceSpec info struct into
-// a resource.Spec.
-func API2ResourceSpec(apiSpec ResourceSpec) (resource.Spec, error) {
-	var spec resource.Spec
+// API2Resource converts an API Resource struct into
+// a resource.Resource.
+func API2Resource(apiRes Resource) (resource.Resource, error) {
+	var res resource.Resource
 
-	rtype, ok := charmresource.ParseType(apiSpec.Type)
-	if !ok {
-		// This will be handled later during spec.Validate().
-	}
-
-	info := charmresource.Info{
-		Name:    apiSpec.Name,
-		Type:    rtype,
-		Path:    apiSpec.Path,
-		Comment: apiSpec.Comment,
-	}
-	spec.Definition = info
-
-	origin, ok := resource.ParseOriginKind(apiSpec.Origin)
-	if !ok {
-		// This will be handled later during spec.Validate().
-	}
-	spec.Origin = origin
-
-	rev, err := resource.ParseRevision(apiSpec.Revision)
+	charmRes, err := API2CharmResource(apiRes.CharmResource)
 	if err != nil {
-		return spec, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
-	spec.Revision = rev
 
-	if err := spec.Validate(); err != nil {
-		return spec, errors.Trace(err)
+	res = resource.Resource{
+		Resource:  charmRes,
+		Username:  apiRes.Username,
+		Timestamp: apiRes.Timestamp,
 	}
-	return spec, nil
+
+	if err := res.Validate(); err != nil {
+		return res, errors.Trace(err)
+	}
+
+	return res, nil
 }
 
-// API2SpecsResult converts a ResourceSpecsResult into a resource.SpecsResult.
-func API2SpecsResult(service string, apiResult ResourceSpecsResult) (resource.SpecsResult, error) {
-	result := resource.SpecsResult{
-		Service: service,
+// CharmResource2API converts a charm resource into
+// a CharmResource struct.
+func CharmResource2API(res charmresource.Resource) CharmResource {
+	return CharmResource{
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Origin:      res.Origin.String(),
+		Revision:    res.Revision,
+		Fingerprint: res.Fingerprint.Bytes(),
+	}
+}
+
+// API2CharmResource converts an API CharmResource struct into
+// a charm resource.
+func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
+	var res charmresource.Resource
+
+	rtype, err := charmresource.ParseType(apiInfo.Type)
+	if err != nil {
+		return res, errors.Trace(err)
 	}
 
-	result.Error, _ = common.RestoreError(apiResult.Error)
-
-	var failure error
-	for _, apiSpec := range apiResult.Specs {
-		spec, err := API2ResourceSpec(apiSpec)
-		if err != nil {
-			// This could happen if the server is misbehaving
-			// or non-conforming.
-			if result.Error == nil {
-				result.Error = errors.Annotate(err, "got bad data from server")
-				// TODO(ericsnow) Aggregate the errors instead of returning the last one?
-				failure = result.Error
-			}
-			// TODO(ericsnow) Set an empty spec?
-		}
-		result.Specs = append(result.Specs, spec)
+	origin, err := charmresource.ParseOrigin(apiInfo.Origin)
+	if err != nil {
+		return res, errors.Trace(err)
 	}
 
-	return result, failure
+	fp, err := charmresource.NewFingerprint(apiInfo.Fingerprint)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+	if err := fp.Validate(); err != nil {
+		return res, errors.Trace(err)
+	}
+
+	res = charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    apiInfo.Name,
+			Type:    rtype,
+			Path:    apiInfo.Path,
+			Comment: apiInfo.Comment,
+		},
+		Origin:      origin,
+		Revision:    apiInfo.Revision,
+		Fingerprint: fp,
+	}
+
+	if err := res.Validate(); err != nil {
+		return res, errors.Trace(err)
+	}
+	return res, nil
 }

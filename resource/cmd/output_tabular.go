@@ -10,6 +10,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
 var (
@@ -26,9 +27,9 @@ var (
 
 // FormatTabular returns a tabular summary of payloads.
 func FormatTabular(value interface{}) ([]byte, error) {
-	specs, valueConverted := value.([]FormattedSpec)
+	resources, valueConverted := value.([]FormattedCharmResource)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", specs, value)
+		return nil, errors.Errorf("expected value of type %T, got %T", resources, value)
 	}
 
 	// TODO(ericsnow) sort the rows first?
@@ -41,18 +42,18 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	// We do not print a section label.
 	fmt.Fprintln(tw, tabularHeader)
 
-	// Print each spec to its own row.
-	for _, spec := range specs {
-		rev := spec.Revision
-		if rev == "" {
-			rev = "-"
+	// Print each info to its own row.
+	for _, res := range resources {
+		rev := "-"
+		if res.Origin == charmresource.OriginStore.String() {
+			rev = fmt.Sprintf("%d", res.Revision)
 		}
 		// tabularColumns must be kept in sync with these.
 		fmt.Fprintf(tw, tabularRow+"\n",
-			spec.Name,
-			spec.Origin,
+			res.Name,
+			res.Origin,
 			rev,
-			spec.Comment,
+			res.Comment,
 		)
 	}
 	tw.Flush()

@@ -6,26 +6,26 @@ package cmd_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-
-	"github.com/juju/juju/resource"
+	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-type stubClient struct {
+type stubCharmStore struct {
 	stub *testing.Stub
 
-	ReturnListSpecs []resource.SpecsResult
+	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubClient) ListSpecs(serviceIDs []string) ([]resource.SpecsResult, error) {
-	s.stub.AddCall("ListSpecs", serviceIDs)
+func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+	s.stub.AddCall("ListResources", charmURLs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnListSpecs, nil
+	return s.ReturnListResources, nil
 }
 
-func (s *stubClient) Close() error {
+func (s *stubCharmStore) Close() error {
 	s.stub.AddCall("Close")
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

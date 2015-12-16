@@ -7,6 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource/cmd"
 )
@@ -17,16 +18,21 @@ type FormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *FormatterSuite) TestFormatSpecOkay(c *gc.C) {
-	spec := cmd.NewSpec(c, "spam", ".tgz", "X")
-	formatted := cmd.FormatSpec(spec)
+func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
+	data := []byte("spamspamspam")
+	fp, err := charmresource.GenerateFingerprint(data)
+	c.Assert(err, jc.ErrorIsNil)
+	fingerprint := string(fp.Bytes())
+	res := newCharmResource(c, "spam", ".tgz", "X", fingerprint)
+	formatted := cmd.FormatCharmResource(res)
 
-	c.Check(formatted, jc.DeepEquals, cmd.FormattedSpec{
-		Name:     "spam",
-		Type:     "file",
-		Path:     "spam.tgz",
-		Comment:  "X",
-		Origin:   "upload",
-		Revision: "",
+	c.Check(formatted, jc.DeepEquals, cmd.FormattedCharmResource{
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Comment:     "X",
+		Revision:    0,
+		Fingerprint: fp.String(),
+		Origin:      "upload",
 	})
 }

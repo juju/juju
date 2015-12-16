@@ -4,43 +4,43 @@
 package cmd
 
 import (
-	"github.com/juju/juju/resource"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-type specListFormatter struct {
-	specs []resource.Spec
+type charmResourcesFormatter struct {
+	resources []charmresource.Resource
 }
 
-func newSpecListFormatter(specs []resource.Spec) *specListFormatter {
+func newCharmResourcesFormatter(resources []charmresource.Resource) *charmResourcesFormatter {
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
-	lf := specListFormatter{
-		specs: specs,
+	crf := charmResourcesFormatter{
+		resources: resources,
 	}
-	return &lf
+	return &crf
 }
 
-func (lf *specListFormatter) format() []FormattedSpec {
-	if lf.specs == nil {
+func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
+	if crf.resources == nil {
 		return nil
 	}
 
-	var formatted []FormattedSpec
-	for _, spec := range lf.specs {
-		formatted = append(formatted, FormatSpec(spec))
+	var formatted []FormattedCharmResource
+	for _, res := range crf.resources {
+		formatted = append(formatted, FormatCharmResource(res))
 	}
 	return formatted
 }
 
-// FormatSpec converts the resource spec into a FormattedSpec.
-func FormatSpec(spec resource.Spec) FormattedSpec {
-	info := spec.Definition
-	return FormattedSpec{
-		Name:     info.Name,
-		Type:     info.Type.String(),
-		Path:     info.Path,
-		Comment:  info.Comment,
-		Origin:   spec.Origin.String(),
-		Revision: spec.Revision.String(),
+// FormatCharmResource converts the resource info into a FormattedCharmResource.
+func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
+	return FormattedCharmResource{
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Revision:    res.Revision,
+		Origin:      res.Origin.String(),
+		Fingerprint: res.Fingerprint.String(),
 	}
 }

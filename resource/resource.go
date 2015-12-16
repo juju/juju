@@ -6,54 +6,36 @@
 package resource
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable/resource"
 )
-
-var originRevisionTypes = map[OriginKind]RevisionType{
-	OriginKindUpload: RevisionTypeDate,
-}
 
 // Resource defines a single resource within Juju state.
 type Resource struct {
-	// Spec is the backing resource spec.
-	Spec Spec
+	resource.Resource
 
-	// Origin identifies the where the resource came from.
-	Origin Origin
+	// Username is the ID of the user that added the revision
+	// to the model (whether implicitly or explicitly).
+	Username string
 
-	// Revision is the actual revision of the resource.
-	Revision Revision
-
-	// Fingerprint is the MD5 checksum for the resource blob.
-	Fingerprint string
+	// Timestamp indicates when the resource was added to the model.
+	Timestamp time.Time
 }
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
-	if err := res.Spec.Validate(); err != nil {
-		return errors.Annotate(err, "bad spec")
+	if err := res.Resource.Validate(); err != nil {
+		return errors.Annotate(err, "bad info")
 	}
 
-	if err := res.Origin.Validate(); err != nil {
-		return errors.Annotate(err, "bad origin")
-	}
-	if res.Origin.Kind != res.Spec.Origin {
-		return errors.NotValidf("origin kind does not match spec (expected %q)", res.Spec.Origin)
+	if len(res.Username) == 0 {
+		return errors.NewNotValid(nil, "missing username")
 	}
 
-	if err := res.Revision.Validate(); err != nil {
-		return errors.Annotate(err, "bad revision")
-	}
-
-	revType := res.Revision.Type
-	if originRevisionTypes[res.Origin.Kind] != revType {
-		return errors.NewNotValid(nil, fmt.Sprintf("resource origin %q does not support revision type %q", res.Origin, revType))
-	}
-
-	if res.Fingerprint == "" {
-		return errors.NewNotValid(nil, "missing fingerprint")
+	if res.Timestamp.IsZero() {
+		return errors.NewNotValid(nil, "missing timestamp")
 	}
 
 	return nil

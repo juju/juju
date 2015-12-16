@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"strings"
@@ -9,29 +9,38 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/resource"
 )
 
-func NewSpec(c *gc.C, name, suffix, comment string) resource.Spec {
-	info := charmresource.Info{
-		Name:    name,
-		Type:    charmresource.TypeFile,
-		Path:    name + suffix,
-		Comment: comment,
+func newCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
+	var fp charmresource.Fingerprint
+	if fingerprint == "" {
+		built, err := charmresource.GenerateFingerprint([]byte(name))
+		c.Assert(err, jc.ErrorIsNil)
+		fp = built
+	} else {
+		wrapped, err := charmresource.NewFingerprint([]byte(fingerprint))
+		c.Assert(err, jc.ErrorIsNil)
+		fp = wrapped
 	}
-	spec := resource.Spec{
-		Definition: info,
-		Origin:     resource.OriginKindUpload,
-		Revision:   resource.NoRevision,
+
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    name,
+			Type:    charmresource.TypeFile,
+			Path:    name + suffix,
+			Comment: comment,
+		},
+		Origin:      charmresource.OriginUpload,
+		Revision:    0,
+		Fingerprint: fp,
 	}
-	err := spec.Validate()
+	err := res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
-	return spec
+	return res
 }
 
-func NewSpecs(c *gc.C, names ...string) []resource.Spec {
-	var specs []resource.Spec
+func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
+	var resources []charmresource.Resource
 	for _, name := range names {
 		var comment string
 		parts := strings.SplitN(name, ":", 2)
@@ -40,8 +49,8 @@ func NewSpecs(c *gc.C, names ...string) []resource.Spec {
 			comment = parts[1]
 		}
 
-		spec := NewSpec(c, name, ".tgz", comment)
-		specs = append(specs, spec)
+		res := newCharmResource(c, name, ".tgz", comment, "")
+		resources = append(resources, res)
 	}
-	return specs
+	return resources
 }
