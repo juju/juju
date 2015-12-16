@@ -1821,7 +1821,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if instId != instance.UnknownId {
 		logger.Debugf("instance %q has subnets %v", instId, subnets)
 	} else {
-		logger.Debugf("found subnets %v", instId, subnets)
+		logger.Debugf("found subnets %v", subnets)
 	}
 
 	return subnets, nil
