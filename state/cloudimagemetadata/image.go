@@ -197,41 +197,17 @@ func buildKey(m Metadata) string {
 }
 
 func validateMetadata(m *imagesMetadataDoc) error {
-	// Either version or series must be supplied.
-	if m.Version == "" && m.Series == "" {
-		return errors.NotValidf("missing version and series: metadata for image %v", m.ImageId)
+	// series must be supplied.
+	if m.Series == "" {
+		return errors.NotValidf("missing series: metadata for image %v", m.ImageId)
 	}
 
-	var v, s string
-	var err error
-
-	if m.Series != "" {
-		// based on the check above, by this stage, series is 100% provided
-		v, err = series.SeriesVersion(m.Series)
-		if err != nil {
-			return err
-		}
-		if m.Version == "" {
-			m.Version = v
-			// no need to keep validating - version and series match as one is deduced from the other
-			return nil
-		}
-	}
-	if m.Version != "" {
-		s, err = series.VersionSeries(m.Version)
-		if err != nil {
-			return err
-		}
-		if m.Series == "" {
-			m.Series = s
-			// no need to keep validating - version and series match as one is deduced from the other
-			return nil
-		}
+	v, err := series.SeriesVersion(m.Series)
+	if err != nil {
+		return err
 	}
 
-	if m.Version != v || m.Series != s {
-		return errors.NotValidf("version %v for series %v", m.Version, m.Series)
-	}
+	m.Version = v
 	return nil
 }
 

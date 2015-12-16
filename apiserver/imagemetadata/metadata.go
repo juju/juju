@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -191,21 +192,31 @@ func (api *API) retrievePublished() error {
 }
 
 func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) error {
+	metadata, parseErrs := convertToParams(info, priority, published)
+
 	// Store converted metadata.
 	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
-	errs, err := api.Save(convertToParams(info, priority, published))
+	errs, err := api.Save(metadata)
 	if err != nil {
 		return errors.Annotatef(err, "saving published images metadata")
 	}
-	return processErrors(errs.Results)
+
+	return processErrors(append(errs.Results, parseErrs...))
 }
 
 // convertToParams converts environment-specific images metadata to structured metadata format.
-var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
-	metadata := make([]params.CloudImageMetadata, len(published))
-	for i, p := range published {
-		metadata[i] = params.CloudImageMetadata{
+var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
+	metadata := []params.CloudImageMetadata{}
+	errs := []params.ErrorResult{}
+	for _, p := range published {
+		s, err := series.VersionSeries(p.Version)
+		if err != nil {
+			errs = append(errs, params.ErrorResult{Error: common.ServerError(err)})
+			continue
+		}
+
+		m := params.CloudImageMetadata{
 			Source:          info.Source,
 			ImageId:         p.Id,
 			Stream:          p.Stream,
@@ -213,11 +224,13 @@ var convertToParams = func(info *simplestreams.ResolveInfo, priority int, publis
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
-			Version:         p.Version,
+			Series:          s,
 			Priority:        priority,
 		}
+
+		metadata = append(metadata, m)
 	}
-	return params.MetadataSaveParams{Metadata: metadata}
+	return params.MetadataSaveParams{Metadata: metadata}, errs
 }
 
 func processErrors(errs []params.ErrorResult) error {

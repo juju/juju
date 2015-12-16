@@ -5,11 +5,11 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -110,9 +110,16 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
-	m.Version = ""
-
+	m.Series = ""
+	// Series will default to config default, for e.g. "trusty"
 	s.assertValidAddImageMetadata(c, m)
+}
+
+func (s *addImageSuite) TestAddImageMetadataInvalidSeries(c *gc.C) {
+	m := constructTestImageMetadata()
+	m.Series = "blah"
+
+	s.assertAddImageMetadataErr(c, m, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
@@ -124,12 +131,13 @@ func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
 
 func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImageMetadata) {
 	args := getAddImageMetadataCmdFlags(c, m)
+
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Need to make sure that defaults are populated
-	if m.Version == "" {
-		m.Version = "14.04"
+	if m.Series == "" {
+		m.Series = "trusty"
 	}
 	if m.Arch == "" {
 		m.Arch = "amd64"
@@ -155,7 +163,7 @@ func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId: "im-33333",
-		Version: "14.04",
+		Series:  "trusty",
 		Arch:    "arch",
 		Source:  "custom",
 	}
@@ -168,16 +176,13 @@ func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []stri
 		if value != "" {
 			args = append(args, flag, value)
 		} else {
-			args = append(args, flag, defaultValue)
+			if defaultValue != "" {
+				args = append(args, flag, defaultValue)
+			}
 		}
 	}
 
-	if data.Version != "" {
-		s, err := series.VersionSeries(data.Version)
-		c.Assert(err, jc.ErrorIsNil)
-		addFlag("--series", s, "trusty")
-	}
-
+	addFlag("--series", data.Series, "")
 	addFlag("--region", data.Region, "")
 	addFlag("--arch", data.Arch, "amd64")
 	addFlag("--virt-type", data.VirtType, "")

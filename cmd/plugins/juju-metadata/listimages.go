@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -169,16 +168,9 @@ func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, 
 	info := make([]MetadataInfo, len(details))
 	errs := []string{}
 	for i, one := range details {
-		s, err := series.VersionSeries(one.Version)
-		if err != nil {
-			errs = append(errs, err.Error())
-			// just return a record with version instead of series
-			s = one.Version
-		}
-
 		info[i] = MetadataInfo{
 			Source:          one.Source,
-			Series:          s,
+			Series:          one.Series,
 			Arch:            one.Arch,
 			Region:          one.Region,
 			ImageId:         one.ImageId,

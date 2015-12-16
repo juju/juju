@@ -766,6 +766,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This metadata should have also been written to state...
+	// m.Version would be deduced from m.Series
+	m.Version = "14.04"
 	assertWrittenToState(c, m)
 }
 

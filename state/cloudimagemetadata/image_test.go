@@ -243,69 +243,28 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoVersionPassed(c *gc.C) {
 		Arch:   "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-
-	// make sure that version has been deduced
-	metadata0.Version = "14.04"
 	s.assertRecordMetadata(c, metadata0)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadataNoSeriesPassed(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:  "stream",
-		Version: "14.04",
-		Arch:    "arch",
-	}
-	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-
-	// make sure that series has been deduced
-	metadata0.Series = "trusty"
-	s.assertRecordMetadata(c, metadata0)
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataWrongSeriesPassed(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:  "stream",
-		Series:  "blah",
-		Version: "14.04",
-		Arch:    "arch",
-	}
-	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.storage.SaveMetadata(metadata0)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown version for series: "blah"`))
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataWrongVersionPassed(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:  "stream",
-		Series:  "trusty",
-		Version: "blah",
-		Arch:    "arch",
-	}
-	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.storage.SaveMetadata(metadata0)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown series for version: "blah"`))
-}
-
-func (s *cloudImageMetadataSuite) TestSaveMetadataNeitherSeriesVersionPassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Arch:   "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	err := s.storage.SaveMetadata(metadata0)
-	c.Assert(err, gc.ErrorMatches, `missing version and series: metadata for image 1 not valid`)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`missing series: metadata for image 1 not valid`))
 }
 
-func (s *cloudImageMetadataSuite) TestSaveMetadataSeriesVersionMismatch(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveMetadataUnsupportedSeriesPassed(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:  "stream",
-		Series:  "trusty",
-		Version: "12.10",
-		Arch:    "arch",
+		Stream: "stream",
+		Series: "blah",
+		Arch:   "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	err := s.storage.SaveMetadata(metadata0)
-	c.Assert(err, gc.ErrorMatches, `version 12.10 for series trusty not valid`)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
 func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metadata1 cloudimagemetadata.Metadata, expected ...cloudimagemetadata.Metadata) {

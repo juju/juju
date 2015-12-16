@@ -280,7 +280,7 @@ func (s mockListAPI) List(stream, region string, ser, arch []string, virtType, r
 var testData = []params.CloudImageMetadata{
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "15.04",
+		Series:          "vivid",
 		Arch:            "amd64",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -290,7 +290,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "15.04",
+		Series:          "vivid",
 		Arch:            "amd64",
 		Region:          "us",
 		ImageId:         "im-21",
@@ -300,7 +300,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "15.04",
+		Series:          "vivid",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -310,7 +310,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "public",
-		Version:         "15.04",
+		Series:          "vivid",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -320,7 +320,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "amd64",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -330,7 +330,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -340,7 +340,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "custom",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "i386",
 		Region:          "asia",
 		ImageId:         "im-21",
@@ -350,7 +350,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "public",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-21",
@@ -360,7 +360,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "public",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -370,7 +370,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:          "public",
-		Version:         "14.04",
+		Series:          "trusty",
 		Arch:            "i386",
 		Region:          "europe",
 		ImageId:         "im-42",
@@ -379,7 +379,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:   "public",
-		Version:  "14.04",
+		Series:   "trusty",
 		Arch:     "i386",
 		Region:   "europe",
 		ImageId:  "im-42",
@@ -388,7 +388,7 @@ var testData = []params.CloudImageMetadata{
 	},
 	params.CloudImageMetadata{
 		Source:  "public",
-		Version: "14.04",
+		Series:  "trusty",
 		Arch:    "i386",
 		Region:  "europe",
 		ImageId: "im-42",

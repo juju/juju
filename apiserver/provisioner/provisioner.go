@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1663,7 +1664,18 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return current
 	}
 
-	toModel := func(m *imagemetadata.ImageMetadata, mStream string, source string, priority int) cloudimagemetadata.Metadata {
+	getSeries := func(id, version string) string {
+		// Translate version (eg.14.04) to a series (eg. "trusty")
+		s, err := series.VersionSeries(version)
+		if err != nil {
+			logger.Warningf("could not determine series for image id %s: %v", id, err)
+			return ""
+		}
+		return s
+	}
+
+	toModel := func(m *imagemetadata.ImageMetadata, mStream string, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
+
 		return cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
@@ -1671,7 +1683,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				VirtType:        m.VirtType,
 				RootStorageType: m.Storage,
 				Source:          source,
-				Version:         m.Version,
+				Series:          mSeries,
 				Stream:          mStream,
 			},
 			priority,
@@ -1693,8 +1705,10 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 
 		for _, m := range found {
 			mStream := getStream(m.Stream)
+			mSeries := getSeries(m.Id, m.Version)
+
 			// Attempt to store in state for next time :D
-			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, info.Source, source.Priority()))
+			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, mSeries, info.Source, source.Priority()))
 			if err != nil {
 				// No need to react here, just take note
 				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
