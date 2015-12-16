@@ -43,19 +43,19 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND = 'kill-controller'
+DEFAULT_JES_COMMAND_2x = 'controller'
+DEFAULT_JES_COMMAND_1x = 'destroy-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
-_jes_cmds = {
-    DEFAULT_JES_COMMAND: {
-        'create': 'create-environment',
-        'kill': DEFAULT_JES_COMMAND,
-        },
-    OPTIONAL_JES_COMMAND: {
-        'create': '{} create-environment'.format(OPTIONAL_JES_COMMAND),
-        'kill': '{} kill'.format(OPTIONAL_JES_COMMAND),
+_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
+    'create': 'create-environment',
+    'kill': DEFAULT_JES_COMMAND_1x,
     }}
-
+for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
+    _jes_cmds[super_cmd] = {
+        'create': '{} create-environment'.format(super_cmd),
+        'kill': '{} kill'.format(super_cmd),
+        }
 
 log = logging.getLogger("jujupy")
 
@@ -106,13 +106,6 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
-class EnvironmentCannotBeTornDown(Exception):
-
-    def __init__(self):
-        super(EnvironmentCannotBeTornDown, self).__init__(
-            'This client does not know how to destroy the environment.')
-
-
 def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
@@ -158,7 +151,8 @@ class EnvJujuClient:
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
-        Juju 2.x has 'kill-controller'.
+        Juju 2.x has 'controller kill'.
+        Juju 1.26 has 'destroy-controller'.
         Juju 1.25 has 'system kill' when the jes feature flag is set.
 
         :raises: JESNotSupported when the version of Juju does not expose
@@ -758,17 +752,6 @@ class EnvJujuClient26(EnvJujuClient):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
         self._use_container_address_allocation = False
-        self._ensure_is_jes_enabled()
-
-    def _ensure_is_jes_enabled(self):
-        # The 1.26-alpha version transitions from supported to default.
-        # It is safer to always ensure controllers are enabled and use
-        # the kill command to tear down.
-        if self.is_jes_enabled():
-            return
-        self._use_jes = True
-        if not self.is_jes_enabled():
-            raise EnvironmentCannotBeTornDown()
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -814,9 +797,6 @@ class EnvJujuClient26(EnvJujuClient):
 
 class EnvJujuClient25(EnvJujuClient26):
     """Drives Juju 2.5-series clients."""
-
-    def _ensure_is_jes_enabled(self):
-        pass
 
 
 class EnvJujuClient24(EnvJujuClient25):
@@ -876,7 +856,7 @@ def maybe_jes(client, jes_enabled, try_jes):
 def tear_down(client, jes_enabled, try_jes=False):
     """Tear down a JES or non-JES environment.
 
-    JES environments are torn down via 'kill-controller' or 'system kill',
+    JES environments are torn down via 'controller kill' or 'system kill',
     and non-JES environments are torn down via 'destroy-environment --force.'
     """
     with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:
