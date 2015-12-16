@@ -167,11 +167,12 @@ func (s *Subnet) AddressFamily() (string, error) {
 		// Should never happen as CIDRs are validated before adding the doc.
 		return "", errors.Trace(err)
 	}
-	switch {
-	case ip.To16() != nil:
-		return "inet6", nil
-	case ip.To4() != nil:
+	ipv4, ipv6 := ip.To4(), ip.To16()
+	if ipv4 != nil && len(ipv4) == net.IPv4len {
 		return "inet", nil
+	}
+	if ipv6 != nil && len(ipv6) == net.IPv6len {
+		return "inet6", nil
 	}
 	return "unknown", nil
 }

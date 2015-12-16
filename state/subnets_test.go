@@ -23,36 +23,53 @@ type SubnetSuite struct {
 var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
+	subnetInfos := []state.SubnetInfo{{
 		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
 		VLANTag:           79,
 		AllocatableIPLow:  "192.168.1.0",
 		AllocatableIPHigh: "192.168.1.1",
 		AvailabilityZone:  "Timbuktu",
-		SpaceName:         "foo",
+		SpaceName:         "foo1",
+	}, {
+		ProviderId:        "bar",
+		CIDR:              "2001:db8::/64",
+		VLANTag:           0,
+		AllocatableIPLow:  "2001:db8::100",
+		AllocatableIPHigh: "2001:db8::200",
+		AvailabilityZone:  "Mars",
+		SpaceName:         "bar0",
+	}}
+
+	checkSubnet := func(subnet *state.Subnet, info state.SubnetInfo, expAddrFam string) {
+		c.Check(subnet.ProviderId(), gc.Equals, info.ProviderId)
+		c.Check(subnet.CIDR(), gc.Equals, info.CIDR)
+		c.Check(subnet.VLANTag(), gc.Equals, info.VLANTag)
+		c.Check(subnet.AllocatableIPLow(), gc.Equals, info.AllocatableIPLow)
+		c.Check(subnet.AllocatableIPHigh(), gc.Equals, info.AllocatableIPHigh)
+		c.Check(subnet.AvailabilityZone(), gc.Equals, info.AvailabilityZone)
+		c.Check(subnet.String(), gc.Equals, info.CIDR)
+		c.Check(subnet.GoString(), gc.Equals, info.CIDR)
+		c.Check(subnet.SpaceName(), gc.Equals, info.SpaceName)
+		addrFamily, err := subnet.AddressFamily()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(addrFamily, gc.Equals, expAddrFam)
 	}
 
-	assertSubnet := func(subnet *state.Subnet) {
-		c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
-		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.VLANTag(), gc.Equals, 79)
-		c.Assert(subnet.AllocatableIPLow(), gc.Equals, "192.168.1.0")
-		c.Assert(subnet.AllocatableIPHigh(), gc.Equals, "192.168.1.1")
-		c.Assert(subnet.AvailabilityZone(), gc.Equals, "Timbuktu")
-		c.Assert(subnet.String(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.GoString(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.SpaceName(), gc.Equals, "foo")
+	for _, subnetInfo := range subnetInfos {
+		subnet, err := s.State.AddSubnet(subnetInfo)
+		c.Check(err, jc.ErrorIsNil)
+		addrFamily := "inet"
+		if subnetInfo.ProviderId == "bar" {
+			addrFamily = "inet6"
+		}
+		checkSubnet(subnet, subnetInfo, addrFamily)
+
+		// check it's been stored in state by fetching it back again
+		subnetFromDB, err := s.State.Subnet(subnetInfo.CIDR)
+		c.Check(err, jc.ErrorIsNil)
+		checkSubnet(subnetFromDB, subnetInfo, addrFamily)
 	}
-
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	assertSubnet(subnet)
-
-	// check it's been stored in state by fetching it back again
-	subnetFromDB, err := s.State.Subnet("192.168.1.0/24")
-	c.Assert(err, jc.ErrorIsNil)
-	assertSubnet(subnetFromDB)
 }
 
 func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
