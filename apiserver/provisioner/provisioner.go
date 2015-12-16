@@ -1201,8 +1201,9 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 			subnetInfo = sub
 			interfaceInfo = subnetIdToInterface[sub.ProviderId]
 
-			// Since with addressable containers the host acts like a gateway, we
-			// use the host's primary NIC's address as gateway.
+			// Since with addressable containers the host acts like a gateway
+			// for the containers, instead of using the same gateway for the
+			// containers as their host's
 			interfaceInfo.GatewayAddress.Value = interfaceInfo.Address.Value
 
 			success = true

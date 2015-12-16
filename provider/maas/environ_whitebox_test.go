@@ -567,13 +567,16 @@ func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultG
 		defaultGateway = fmt.Sprintf("%q", defaultGateway)
 	}
 
-	input := fmt.Sprintf(
-		`{ "name": %q,
-"ip":"192.168.%d.2",
-"netmask": "255.255.255.0",
-"vlan_tag": %s,
-"description": "%s_%d_%d",
-"default_gateway": %s }`,
+	// TODO(dimitern): Use JSON tags on structs, JSON encoder, or at least
+	// text/template below and in similar cases.
+	input := fmt.Sprintf(`{
+		"name": %q,
+		"ip":"192.168.%d.2",
+		"netmask": "255.255.255.0",
+		"vlan_tag": %s,
+		"description": "%s_%d_%d",
+		"default_gateway": %s
+	}`,
 		name,
 		id,
 		vlan,

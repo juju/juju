@@ -1412,7 +1412,7 @@ func transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix string) (s
 }
 
 // updateDeviceHostname updates the hostname of a MAAS device to be unique and
-// to contain the given hostnameSuff.
+// to contain the given hostnameSuffix.
 func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
 
 	newHostname, err := transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix)
@@ -1432,7 +1432,7 @@ func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname
 // newDeviceParams prepares the params to call "devices new" API. Declared
 // separately so it can be mocked out in the test to work around the gomaasapi's
 // testservice limitation.
-func newDeviceParams(macAddress string, instId instance.Id, hostnameSuffx string) url.Values {
+func newDeviceParams(macAddress string, instId instance.Id, _ string) url.Values {
 	params := make(url.Values)
 	params.Add("mac_addresses", macAddress)
 	// We create the device without a hostname, to allow MAAS to create a unique
