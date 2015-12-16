@@ -20,21 +20,20 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type networkerSuite struct {
 	testing.JujuConnSuite
 
-	networks []state.NetworkInfo
+	subnets []state.SubnetInfo
 
 	machine         *state.Machine
 	container       *state.Machine
 	nestedContainer *state.Machine
 
-	machineIfaces         []state.NetworkInterfaceInfo
-	containerIfaces       []state.NetworkInterfaceInfo
-	nestedContainerIfaces []state.NetworkInterfaceInfo
+	machineIfaces   []state.NetworkInterfaceInfo
+	containerIfaces []state.NetworkInterfaceInfo
+	nestedIfaces    []state.NetworkInterfaceInfo
 
 	st        api.Connection
 	networker networker.State
@@ -42,34 +41,33 @@ type networkerSuite struct {
 
 var _ = gc.Suite(&networkerSuite{})
 
-// Create several networks.
-func (s *networkerSuite) setUpNetworks(c *gc.C) {
-	s.networks = []state.NetworkInfo{{
-		Name:       "net1",
+// Create several subnets.
+func (s *networkerSuite) setUpSubnets(c *gc.C) {
+	s.subnets = []state.SubnetInfo{{
 		ProviderId: "net1",
 		CIDR:       "0.1.2.0/24",
 		VLANTag:    0,
 	}, {
-		Name:       "vlan42",
 		ProviderId: "vlan42",
 		CIDR:       "0.2.2.0/24",
 		VLANTag:    42,
 	}, {
-		Name:       "vlan69",
 		ProviderId: "vlan69",
 		CIDR:       "0.3.2.0/24",
 		VLANTag:    69,
 	}, {
-		Name:       "vlan123",
 		ProviderId: "vlan123",
 		CIDR:       "0.4.2.0/24",
 		VLANTag:    123,
 	}, {
-		Name:       "net2",
 		ProviderId: "net2",
 		CIDR:       "0.5.2.0/24",
 		VLANTag:    0,
 	}}
+	for _, info := range s.subnets {
+		_, err := s.State.AddSubnet(info)
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 // Create a machine and login to it.
@@ -83,33 +81,32 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
 	s.machineIfaces = []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
+		MACAddress: "aa:bb:cc:dd:ee:f0",
+		DeviceName: "eth0",
+		SubnetID:   "0.1.2.0/24",
+		IsVirtual:  false,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
+		MACAddress: "aa:bb:cc:dd:ee:f1",
+		DeviceName: "eth1",
+		SubnetID:   "0.1.2.0/24",
+		IsVirtual:  false,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1.42",
-		NetworkName:   "vlan42",
-		IsVirtual:     true,
+		MACAddress: "aa:bb:cc:dd:ee:f1",
+		DeviceName: "eth1.42",
+		SubnetID:   "0.2.2.0/24",
+		IsVirtual:  true,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0.69",
-		NetworkName:   "vlan69",
-		IsVirtual:     true,
+		MACAddress: "aa:bb:cc:dd:ee:f0",
+		DeviceName: "eth0.69",
+		SubnetID:   "0.3.2.0/24",
+		IsVirtual:  true,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		InterfaceName: "eth2",
-		NetworkName:   "net2",
-		IsVirtual:     false,
-		Disabled:      true,
+		MACAddress: "aa:bb:cc:dd:ee:f2",
+		DeviceName: "eth2",
+		SubnetID:   "0.5.2.0/24",
+		IsVirtual:  false,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces, nil, nil)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, s.machineIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -125,43 +122,41 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	s.containerIfaces = []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:e0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
+		MACAddress: "aa:bb:cc:dd:ee:e0",
+		DeviceName: "eth0",
+		SubnetID:   "0.1.2.0/24",
+		IsVirtual:  false,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:e1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
+		MACAddress: "aa:bb:cc:dd:ee:e1",
+		DeviceName: "eth1",
+		SubnetID:   "0.1.2.0/24",
+		IsVirtual:  false,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:e1",
-		InterfaceName: "eth1.42",
-		NetworkName:   "vlan42",
-		IsVirtual:     true,
+		MACAddress: "aa:bb:cc:dd:ee:e1",
+		DeviceName: "eth1.42",
+		SubnetID:   "0.2.2.0/24",
+		IsVirtual:  true,
 	}}
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
-		s.containerIfaces, nil, nil)
+	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, nil, s.containerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	s.nestedContainerIfaces = []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:d0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
+	s.nestedIfaces = []state.NetworkInterfaceInfo{{
+		MACAddress: "aa:bb:cc:dd:ee:d0",
+		DeviceName: "eth0",
+		SubnetID:   "0.1.2.0/24",
+		IsVirtual:  false,
 	}}
-	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
-		s.nestedContainerIfaces, nil, nil)
+	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, nil, s.nestedIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.setUpNetworks(c)
+	s.setUpSubnets(c)
 	s.setUpMachine(c)
 	s.setUpContainers(c)
 
@@ -224,12 +219,6 @@ func (o orderedIfc) Less(i, j int) bool {
 	if o[i].CIDR > o[j].CIDR {
 		return false
 	}
-	if o[i].NetworkName < o[j].NetworkName {
-		return true
-	}
-	if o[i].NetworkName > o[j].NetworkName {
-		return false
-	}
 	return o[i].VLANTag < o[j].VLANTag
 }
 
@@ -247,90 +236,80 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	expectedMachineInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.1.2.0/24",
-		NetworkName:   "net1",
-		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.1.2.0/24",
-		NetworkName:   "net1",
-		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.2.2.0/24",
-		NetworkName:   "vlan42",
-		ProviderId:    "vlan42",
 		VLANTag:       42,
-		InterfaceName: "eth1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.3.2.0/24",
-		NetworkName:   "vlan69",
-		ProviderId:    "vlan69",
 		VLANTag:       69,
-		InterfaceName: "eth0",
+		InterfaceName: "eth0.69",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		CIDR:          "0.5.2.0/24",
-		NetworkName:   "net2",
-		ProviderId:    "net2",
 		VLANTag:       0,
 		InterfaceName: "eth2",
-		Disabled:      true,
+		NetworkName:   "juju-public",
 	}}
 	sort.Sort(orderedIfc(expectedMachineInfo))
 
 	expectedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
-		NetworkName:   "net1",
-		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.1.2.0/24",
-		NetworkName:   "net1",
-		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
+		NetworkName:   "juju-public",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.2.2.0/24",
-		NetworkName:   "vlan42",
-		ProviderId:    "vlan42",
 		VLANTag:       42,
-		InterfaceName: "eth1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "juju-public",
 	}}
 	sort.Sort(orderedIfc(expectedContainerInfo))
 
 	expectedNestedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
-		NetworkName:   "net1",
-		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
+		NetworkName:   "juju-public",
 	}}
 	sort.Sort(orderedIfc(expectedNestedContainerInfo))
 
 	results, err := s.networker.MachineNetworkConfig(names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(orderedIfc(results))
-	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
+	c.Assert(results, jc.DeepEquals, expectedMachineInfo)
 
 	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(orderedIfc(results))
-	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
+	c.Assert(results, jc.DeepEquals, expectedContainerInfo)
 
 	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(orderedIfc(results))
-	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
+	c.Assert(results, jc.DeepEquals, expectedNestedContainerInfo)
 }
 
 func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
@@ -338,79 +317,4 @@ func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(w, gc.IsNil)
-}
-
-func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
-	// Read dynamically generated document Ids.
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 5)
-
-	// Start network interface watcher.
-	w, err := s.networker.WatchInterfaces(names.NewMachineTag("0"))
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-	wc.AssertOneChange()
-
-	// Disable the first interface.
-	err = ifaces[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Disable the first interface again, should not report.
-	err = ifaces[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Enable the first interface.
-	err = ifaces[0].Enable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Enable the first interface again, should not report.
-	err = ifaces[0].Enable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface.
-	err = ifaces[0].Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Add the new interface.
-	_, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:f3",
-		InterfaceName: "eth3",
-		NetworkName:   "net2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Add the new interface on the container, should not report.
-	_, err = s.container.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:e3",
-		InterfaceName: "eth3",
-		NetworkName:   "net2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Read dynamically generated document Ids.
-	containerIfaces, err := s.container.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerIfaces, gc.HasLen, 4)
-
-	// Disable the first interface on the second machine, should not report.
-	err = containerIfaces[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface on the second machine, should not report.
-	err = containerIfaces[0].Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Stop watcher; check Changes chan closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

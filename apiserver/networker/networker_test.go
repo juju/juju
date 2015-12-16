@@ -28,9 +28,9 @@ type networkerSuite struct {
 	container       *state.Machine
 	nestedContainer *state.Machine
 
-	machineIfaces         []state.NetworkInterfaceInfo
-	containerIfaces       []state.NetworkInterfaceInfo
-	nestedContainerIfaces []state.NetworkInterfaceInfo
+	machineIfaces   []state.NetworkInterfaceInfo
+	containerIfaces []state.NetworkInterfaceInfo
+	nestedIfaces    []state.NetworkInterfaceInfo
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -64,39 +64,35 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	s.machineIfaces = []state.NetworkInterfaceInfo{{
-		DeviceIndex:   0,
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		SubnetId:      "0.1.2.0/24",
-		ProviderId:    "iface-1",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-		IsDisabled:    false,
+		DeviceIndex: 0,
+		MACAddress:  "aa:bb:cc:dd:ee:f0",
+		SubnetID:    "0.1.2.0/24",
+		ProviderID:  "iface-1",
+		DeviceName:  "eth0",
+		IsVirtual:   false,
 	}, {
-		DeviceIndex:   1,
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		SubnetId:      "0.1.2.0/24",
-		ProviderId:    "iface-2",
-		InterfaceName: "eth1",
-		IsVirtual:     false,
-		IsDisabled:    false,
+		DeviceIndex: 1,
+		MACAddress:  "aa:bb:cc:dd:ee:f1",
+		SubnetID:    "0.1.2.0/24",
+		ProviderID:  "iface-2",
+		DeviceName:  "eth1",
+		IsVirtual:   false,
 	}, {
-		DeviceIndex:   1,
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		SubnetId:      "2001:db8::/64",
-		ProviderId:    "iface-2",
-		InterfaceName: "eth1",
-		IsVirtual:     false,
-		IsDisabled:    false,
+		DeviceIndex: 1,
+		MACAddress:  "aa:bb:cc:dd:ee:f1",
+		SubnetID:    "2001:db8::/64",
+		ProviderID:  "iface-2",
+		DeviceName:  "eth1",
+		IsVirtual:   false,
 	}, {
-		DeviceIndex:   2,
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		SubnetId:      "0.3.2.0/24",
-		ProviderId:    "iface-3",
-		InterfaceName: "eth1",
-		IsVirtual:     true,
-		IsDisabled:    true,
+		DeviceIndex: 2,
+		MACAddress:  "aa:bb:cc:dd:ee:f2",
+		SubnetID:    "0.3.2.0/24",
+		ProviderID:  "iface-3",
+		DeviceName:  "eth1",
+		IsVirtual:   true,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.machineIfaces, nil, nil)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, s.machineIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -110,42 +106,38 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	s.containerIfaces = []state.NetworkInterfaceInfo{{
-		DeviceIndex:   0,
-		MACAddress:    "aa:bb:cc:dd:ee:e0",
-		SubnetId:      "0.1.2.0/24",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-		IsDisabled:    false,
+		DeviceIndex: 0,
+		MACAddress:  "aa:bb:cc:dd:ee:e0",
+		SubnetID:    "0.1.2.0/24",
+		DeviceName:  "eth0",
+		IsVirtual:   false,
 	}, {
-		DeviceIndex:   0,
-		MACAddress:    "aa:bb:cc:dd:ee:e0",
-		SubnetId:      "2001:db8::/64",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-		IsDisabled:    false,
+		DeviceIndex: 0,
+		MACAddress:  "aa:bb:cc:dd:ee:e0",
+		SubnetID:    "2001:db8::/64",
+		DeviceName:  "eth0",
+		IsVirtual:   false,
 	}, {
-		DeviceIndex:   1,
-		MACAddress:    "aa:bb:cc:dd:ee:e1",
-		SubnetId:      "0.3.2.0/24",
-		InterfaceName: "eth1",
-		IsVirtual:     true,
-		IsDisabled:    true,
+		DeviceIndex: 1,
+		MACAddress:  "aa:bb:cc:dd:ee:e1",
+		SubnetID:    "0.3.2.0/24",
+		DeviceName:  "eth1",
+		IsVirtual:   true,
 	}}
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.containerIfaces, nil, nil)
+	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, nil, s.containerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	s.nestedContainerIfaces = []state.NetworkInterfaceInfo{{
-		DeviceIndex:   0,
-		MACAddress:    "aa:bb:cc:dd:ee:d0",
-		SubnetId:      "0.1.2.0/24",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-		IsDisabled:    false,
+	s.nestedIfaces = []state.NetworkInterfaceInfo{{
+		DeviceIndex: 0,
+		MACAddress:  "aa:bb:cc:dd:ee:d0",
+		SubnetID:    "0.1.2.0/24",
+		DeviceName:  "eth0",
+		IsVirtual:   false,
 	}}
-	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.nestedContainerIfaces, nil, nil)
+	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, nil, s.nestedIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -252,6 +244,7 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet",
 		VLANTag:          0,
 		InterfaceName:    "eth0",
+		NetworkName:      "juju-public",
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -261,6 +254,7 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet",
 		VLANTag:          0,
 		InterfaceName:    "eth1",
+		NetworkName:      "juju-public",
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -270,6 +264,7 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet6",
 		VLANTag:          0,
 		InterfaceName:    "eth1",
+		NetworkName:      "juju-public",
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
@@ -277,9 +272,9 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		ProviderSubnetId: "subnet-3",
 		ProviderId:       "iface-3",
 		AddressFamily:    "inet",
-		VLANTag:          69,
+		VLANTag:          42,
 		InterfaceName:    "eth1",
-		Disabled:         true,
+		NetworkName:      "juju-public",
 	}}
 	expectedContainerConfig := []params.NetworkConfig{{
 		DeviceIndex:      0,
@@ -289,6 +284,7 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet",
 		VLANTag:          0,
 		InterfaceName:    "eth0",
+		NetworkName:      "juju-public",
 	}, {
 		DeviceIndex:      0,
 		MACAddress:       "aa:bb:cc:dd:ee:e0",
@@ -297,15 +293,16 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet6",
 		VLANTag:          0,
 		InterfaceName:    "eth0",
+		NetworkName:      "juju-public",
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:e1",
 		CIDR:             "0.3.2.0/24",
 		ProviderSubnetId: "subnet-3",
 		AddressFamily:    "inet",
-		VLANTag:          69,
+		VLANTag:          42,
 		InterfaceName:    "eth1",
-		Disabled:         true,
+		NetworkName:      "juju-public",
 	}}
 	expectedNestedContainerConfig := []params.NetworkConfig{{
 		DeviceIndex:      0,
@@ -315,6 +312,7 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		AddressFamily:    "inet",
 		VLANTag:          0,
 		InterfaceName:    "eth0",
+		NetworkName:      "juju-public",
 	}}
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
