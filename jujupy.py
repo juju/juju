@@ -124,12 +124,31 @@ class CannotConnectEnv(subprocess.CalledProcessError):
         super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
 
 
-class AgentsNotStarted(Exception):
+class StatusNotMet(Exception):
 
-    def __init__(self, environment, status):
-        super(AgentsNotStarted, self).__init__(
-            'Timed out waiting for agents to start in %s.' % environment)
+    _fmt = 'Expected status not reached in {env}.'
+
+    def __init__(self, environment_name, status):
+        self.env = environment_name
         self.status = status
+
+    def __str__(self):
+        return self._fmt.format(env=self.env)
+
+
+class AgentsNotStarted(StatusNotMet):
+
+    _fmt = 'Timed out waiting for agents to start in {env}.'
+
+
+class VersionsNotUpdated(StatusNotMet):
+
+    _fmt = 'Some versions did not update.'
+
+
+class WorkloadsNotReady(StatusNotMet):
+
+    _fmt = 'Workloads not ready in {env}.'
 
 
 class EnvJujuClient:
@@ -352,6 +371,7 @@ class EnvJujuClient:
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
+        # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
             try:
                 if raw:
@@ -478,76 +498,78 @@ class EnvJujuClient:
         for remaining in until_timeout(timeout, start=start):
             yield self.get_status()
 
-    def wait_for_started(self, timeout=1200, start=None):
-        """Wait until all unit/machine agents are 'started'."""
+    def _wait_for_status(self, reporter, translate, exception=StatusNotMet,
+                        timeout=1200, start=None):
+        """Wait till status reaches an expected state with pretty reporting.
+
+        Always tries to get status at least once. Each status call has an
+        internal timeout of 60 seconds. This is independent of the timeout for
+        the whole wait, note this means this function may be overrun.
+
+        :param reporter: A GroupReporter instance for output.
+        :param translate: A callable that takes status to make states dict.
+        :param exception: Optional StatusNotMet subclass to raise on timeout.
+        :param timeout: Optional number of seconds to wait before timing out.
+        :param start: Optional time to count from when determining timeout.
+        """
         status = None
-        reporter = GroupReporter(sys.stdout, 'started')
         try:
-            for ignored in chain([None], until_timeout(timeout, start=start)):
+            for _ in chain([None], until_timeout(timeout, start=start)):
                 try:
                     status = self.get_status()
                 except CannotConnectEnv:
                     log.info('Suppressing "Unable to connect to environment"')
                     continue
-                states = status.check_agents_started()
+                states = translate(status)
                 if states is None:
                     break
                 reporter.update(states)
             else:
-                log.error(status.status_text)
-                raise AgentsNotStarted(self.env.environment, status)
+                if status is not None:
+                    log.error(status.status_text)
+                raise exception(self.env.environment, status)
         finally:
             reporter.finish()
         return status
+
+    def wait_for_started(self, timeout=1200, start=None):
+        """Wait until all unit/machine agents are 'started'."""
+        reporter = GroupReporter(sys.stdout, 'started')
+        return self._wait_for_status(
+            reporter, Status.check_agents_started, AgentsNotStarted,
+            timeout=timeout, start=start)
 
     def wait_for_subordinate_units(self, service, unit_prefix, timeout=1200,
                                    start=None):
         """Wait until all service units have a started subordinate with
         unit_prefix."""
-        status = None
+        def status_to_subordinate_states(status):
+            service_unit_count = status.get_service_unit_count(service)
+            subordinate_unit_count = 0
+            unit_states = defaultdict(list)
+            for name, unit in status.service_subordinate_units(service):
+                if name.startswith(unit_prefix + '/'):
+                    subordinate_unit_count += 1
+                    unit_states[unit.get(
+                        'agent-state', 'no-agent')].append(name)
+            if (subordinate_unit_count == service_unit_count and
+                    unit_states.keys() == ['started']):
+                return None
+            return unit_states
         reporter = GroupReporter(sys.stdout, 'started')
-        try:
-            for ignored in chain([None], until_timeout(timeout, start=start)):
-                try:
-                    status = self.get_status()
-                except CannotConnectEnv:
-                    log.info('Suppressing "Unable to connect to environment"')
-                    continue
-                service_unit_count = status.get_service_unit_count(service)
-                subordinate_unit_count = 0
-                unit_states = defaultdict(list)
-                for name, unit in status.service_subordinate_units(service):
-                    if name.startswith(unit_prefix + '/'):
-                        subordinate_unit_count += 1
-                        unit_states[unit.get(
-                            'agent-state', 'no-agent')].append(name)
-                reporter.update(unit_states)
-                if (subordinate_unit_count == service_unit_count and
-                        unit_states.keys() == ['started']):
-                    break
-            else:
-                log.error(status.status_text)
-                raise AgentsNotStarted(self.env.environment, status)
-        finally:
-            reporter.finish()
-        return status
+        self._wait_for_status(
+            reporter, status_to_subordinate_states, AgentsNotStarted,
+            timeout=timeout, start=start)
 
-    def wait_for_version(self, version, timeout=300):
+    def wait_for_version(self, version, timeout=300, start=None):
+        def status_to_version(status):
+            versions = status.get_agent_versions()
+            if versions.keys() == [version]:
+                return None
+            return versions
         reporter = GroupReporter(sys.stdout, version)
-        try:
-            for ignored in until_timeout(timeout):
-                try:
-                    versions = self.get_status(300).get_agent_versions()
-                except CannotConnectEnv:
-                    log.info('Suppressing "Unable to connect to environment"')
-                    continue
-                if versions.keys() == [version]:
-                    break
-                reporter.update(versions)
-            else:
-                raise Exception('Some versions did not update.')
-        finally:
-            reporter.finish()
+        self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
+                             timeout=timeout, start=start)
 
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
@@ -587,6 +609,23 @@ class EnvJujuClient:
                 return
         else:
             raise Exception('Timed out waiting for services to start.')
+
+    def wait_for_workloads(self, timeout=180, start=None):
+        """Wait until all unit workloads are in a ready state."""
+        final_states = frozenset(('unknown', 'active'))
+
+        def status_to_workloads(status):
+            unit_states = defaultdict(list)
+            for name, unit in status.iter_units():
+                workload = unit.get('workload-status')
+                if workload is not None:
+                    unit_states[workload['current']].append(name)
+            if final_states.issuperset(unit_states):
+                return None
+            return unit_states
+        reporter = GroupReporter(sys.stdout, final_states)
+        self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
+                             timeout=timeout, start=start)
 
     def wait_for(self, thing, search_type, timeout=300):
         """ Wait for a something (thing) matching none/all/some machines.
@@ -1044,14 +1083,20 @@ class Status:
                 continue
             yield machine, data
 
+    def iter_units(self, include_subordinates=True):
+        for service_name, service in sorted(self.status['services'].items()):
+            for unit_name, unit in sorted(service.get('units', {}).items()):
+                yield unit_name, unit
+                if include_subordinates:
+                    subordinates = unit.get('subordinates', ())
+                    for sub_name in sorted(subordinates):
+                        yield sub_name, subordinates[sub_name]
+
     def agent_items(self):
         for machine_name, machine in self.iter_machines(containers=True):
             yield machine_name, machine
-        for service in sorted(self.status['services'].values()):
-            for unit_name, unit in service.get('units', {}).items():
-                yield unit_name, unit
-                for sub_name, sub in unit.get('subordinates', {}).items():
-                    yield sub_name, sub
+        for unit_name, unit in self.iter_units():
+            yield unit_name, unit
 
     def agent_states(self):
         """Map agent states to the units and machines in those states."""
@@ -1173,7 +1218,10 @@ class GroupReporter:
 
     def __init__(self, stream, expected):
         self.stream = stream
-        self.expected = expected
+        if isinstance(expected, (frozenset, set)):
+            self.matches = expected.__contains__
+        else:
+            self.matches = expected.__eq__
         self.last_group = None
         self.ticks = 0
         self.wrap_offset = 0
@@ -1196,7 +1244,7 @@ class GroupReporter:
             return
         value_listing = []
         for value, entries in sorted(group.items()):
-            if value == self.expected:
+            if self.matches(value):
                 continue
             value_listing.append('%s: %s' % (value, ', '.join(entries)))
         string = ' | '.join(value_listing)
