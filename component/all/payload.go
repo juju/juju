@@ -54,6 +54,10 @@ func (payloads) newPublicFacade(st *state.State, resources *common.Resources, au
 }
 
 func (c payloads) registerPublicFacade() {
+	if !markRegistered(payload.ComponentName, "public-facade") {
+		return
+	}
+
 	common.RegisterStandardFacade(
 		payload.ComponentName,
 		0,
@@ -188,6 +192,10 @@ func (payloads) registerHookContextCommands() {
 }
 
 func (payloads) registerState() {
+	if !markRegistered(payload.ComponentName, "state") {
+		return
+	}
+
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
