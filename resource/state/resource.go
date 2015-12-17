@@ -54,3 +54,43 @@ func (st resourceState) ListResources(serviceID string) ([]resource.Resource, er
 
 	return resources, nil
 }
+
+// TODO(ericsnow) Separate setting the metadata from storing the blob?
+
+// SetResource stores the resource in the Juju model.
+func (st resourceState) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
+	if err := res.Validate(); err != nil {
+		return errors.Annotate(err, "bad resource metadata")
+	}
+	hash := string(res.Fingerprint.Bytes())
+
+	// TODO(ericsnow) Do something else if r is nil?
+
+	// We use a staging approach for adding the resource metadata
+	// to the model. This is necessary because the resource data
+	// is stored separately and adding to both should be an atomic
+	// operation.
+
+	if err := st.persist.SetStagedResource(serviceID, res); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := st.storage.Put(hash, r, res.Size); err != nil {
+		if err := st.persist.UnstageResource(serviceID, res.Name); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
+		}
+		return errors.Trace(err)
+	}
+
+	if err := st.persist.SetResource(serviceID, res); err != nil {
+		if err := st.storage.Delete(hash); err != nil {
+			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
+		}
+		if err := st.persist.UnstageResource(serviceID, res.Name); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
+		}
+		return errors.Trace(err)
+	}
+
+	return nil
+}
