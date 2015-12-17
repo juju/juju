@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -1145,6 +1146,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
 
 	series := args.Series
 	if series == "" {
@@ -1160,7 +1165,23 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data.placementType() == directivePlacement {
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, series, subordinate, storagePools,
+			); err != nil {
+				return nil, errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
 			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1233,7 +1254,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1242,7 +1263,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if x < len(args.Placement) {
 			placement = *args.Placement[x]
 		}
-		ops = append(ops, assignUnitOps(st, unit, placement)...)
+		ops = append(ops, assignUnitOps(unitName, placement)...)
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
@@ -1264,9 +1285,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
-func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
+func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:     unit,
+		DocId:     unitName,
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}
