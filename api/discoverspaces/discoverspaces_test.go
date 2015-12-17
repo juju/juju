@@ -22,20 +22,20 @@ var _ = gc.Suite(&DiscoverSpacesSuite{})
 
 func (s *DiscoverSpacesSuite) TestNewAPI(c *gc.C) {
 	var called int
-	apiCaller := clientErrorAPICaller(c, "CleanupIPAddresses", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "ListSpaces", nil, &called)
 	api := discoverspaces.NewAPI(apiCaller)
 	c.Check(api, gc.NotNil)
 	c.Check(called, gc.Equals, 0)
 
 	// Make a call so that an error will be returned.
-	err, _ := api.ListSpaces()
+	_, err := api.ListSpaces()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 }
 
 func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}, numCalls *int) base.APICaller {
 	args := &apitesting.CheckArgs{
-		Facade:        "Addresser",
+		Facade:        "DiscoverSpaces",
 		VersionIsZero: true,
 		IdIsEmpty:     true,
 		Method:        method,
