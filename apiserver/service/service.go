@@ -7,14 +7,18 @@
 package service
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	jjj "github.com/juju/juju/juju"
+	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 )
@@ -63,9 +67,10 @@ type Service interface {
 // API implements the service interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	check      *common.BlockChecker
-	state      *state.State
-	authorizer common.Authorizer
+	check                   *common.BlockChecker
+	state                   *state.State
+	serviceOffersAPIFactory crossmodel.ServiceOffersAPIFactory
+	authorizer              common.Authorizer
 }
 
 // NewAPI returns a new service API facade.
@@ -77,11 +82,12 @@ func NewAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
+	apiFactory := resources.Get("serviceOffersApiFactory").(crossmodel.ServiceOffersAPIFactory)
 	return &API{
-		state:      st,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
+		state:                   st,
+		authorizer:              authorizer,
+		serviceOffersAPIFactory: apiFactory,
+		check: common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -355,12 +361,50 @@ func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult,
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
+// serviceUrlEndpointParse is used to split a service url and optional
+// relation name into url and relation name.
+var serviceUrlEndpointParse = regexp.MustCompile("(?P<url>.*/[^:]*)(:(?P<relname>.*))?")
+
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	inEps, err := api.state.InferEndpoints(args.Endpoints...)
+
+	endpoints := make([]string, len(args.Endpoints))
+	// We may have a remote service passed in as the endpoint spec.
+	// We'll iterate the endpoints to check.
+	for i, ep := range args.Endpoints {
+		endpoints[i] = ep
+
+		// If the endpoint is not remote, skip it.
+		// We first need to strip off any relation name
+		// which may have been appended to the URL, then
+		// we try parsing the URL.
+		possibleURL := serviceUrlEndpointParse.ReplaceAllString(ep, "$url")
+		relName := serviceUrlEndpointParse.ReplaceAllString(ep, "$relname")
+
+		// If the URL parses, we need to look up the remote service
+		// details and save to state.
+		url, err := jujucrossmodel.ParseServiceURL(possibleURL)
+		if err != nil {
+			// Not a URL.
+			continue
+		}
+		// Save the remote service details into state.
+		rs, err := saveRemoteService(api.state, api.serviceOffersAPIFactory, *url)
+		if err != nil {
+			return params.AddRelationResults{}, errors.Trace(err)
+		}
+		// The endpoint is named after the remote service name,
+		// not the service name from the URL.
+		endpoints[i] = rs.Name()
+		if relName != "" {
+			endpoints[i] = rs.Name() + ":" + relName
+		}
+	}
+
+	inEps, err := api.state.InferEndpoints(endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
@@ -377,6 +421,70 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		outEps[inEp.ServiceName] = outEp.Relation
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
+}
+
+// saveRemoteService takes a remote service URL and retrieves the details of the service from
+// the relevant service directory. These details are saved to the state model so relations to
+// the remote service can be created.
+func saveRemoteService(
+	st *state.State, apiFactory crossmodel.ServiceOffersAPIFactory, url jujucrossmodel.ServiceURL,
+) (*state.RemoteService, error) {
+	offersAPI, err := apiFactory.ServiceOffers(url.Directory)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	offers, err := offersAPI.ListOffers(params.OfferFilters{
+		Directory: url.Directory,
+		Filters: []params.OfferFilter{
+			{
+				ServiceURL: url.String(),
+			},
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if offers.Error != nil {
+		return nil, errors.Trace(offers.Error)
+	}
+	// The offers query succeeded but there were no offers matching the URL.
+	if len(offers.Offers) == 0 {
+		return nil, errors.NotFoundf("service offer %q", url.String())
+	}
+
+	// Create a remote service entry in the model for the consumed service.
+	offer := offers.Offers[0]
+	rs, err := st.RemoteService(url.ServiceName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err == nil {
+		// TODO (wallyworld) - update service if it exists already with any additional endpoints
+		return rs, nil
+	}
+	remoteEps := make([]charm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
+		remoteEps[j] = charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+	rs, err = st.AddRemoteService(url.ServiceName, url.String(), remoteEps)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return nil, errors.Trace(err)
+		}
+		// Remote service didn't exist but now there's a clash
+		// trying to save it. It could be a local service with the
+		// same name or a remote service with the same name but we
+		// have no idea whether endpoints are compatible or not.
+		// Best just to error.
+		return nil, errors.Annotatef(err, "saving endpoints for service at URL %q", url.String())
+	}
+	return rs, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.

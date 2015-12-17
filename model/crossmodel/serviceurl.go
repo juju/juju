@@ -104,7 +104,7 @@ func ParseServiceURL(urlStr string) (*ServiceURL, error) {
 	}
 
 	if !names.IsValidService(parts[servicePart]) {
-		return nil, errors.NotValidf("service name %q", parts[2])
+		return nil, errors.NotValidf("service name %q", parts[servicePart])
 	}
 	result.ServiceName = parts[servicePart]
 	return &result, nil

@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -127,4 +128,40 @@ varnishservice:
       role: provider
   description: Another popular database
 `[1:])
+}
+
+func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingService(c, "wordpress", ch)
+	ch = s.AddTestingCharm(c, "mysql")
+	s.AddTestingService(c, "mysql", ch)
+
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+		"mysql:server", "local:/u/me/hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runJujuCommand(c, "add-relation", "wordpress", "local:/u/me/hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err := s.State.RemoteService("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := svc.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel, gc.HasLen, 1)
+	c.Assert(rel[0].Endpoints(), jc.SameContents, []state.Endpoint{
+		{
+			ServiceName: "wordpress",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      "requirer",
+				Interface: "mysql",
+				Limit:     1,
+				Scope:     "global",
+			},
+		}, {
+			ServiceName: "hosted-mysql",
+			Relation: charm.Relation{Name: "server",
+				Role:      "provider",
+				Interface: "mysql",
+				Scope:     "global"},
+		},
+	})
 }

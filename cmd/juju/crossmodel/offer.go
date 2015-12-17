@@ -60,7 +60,7 @@ type offerCommand struct {
 	CrossModelCommandBase
 	newAPIFunc func() (OfferAPI, error)
 
-	// Service stores service name.
+	// Service stores service name to be offered.
 	Service string
 
 	// Endpoints stores a list of endpoints that are being offered.

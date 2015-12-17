@@ -19,7 +19,9 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -41,9 +43,10 @@ type serviceSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	serviceApi service.Service
-	service    *state.Service
-	authorizer apiservertesting.FakeAuthorizer
+	serviceApi       service.Service
+	service          *state.Service
+	authorizer       apiservertesting.FakeAuthorizer
+	offersApiFactory *mockServiceOffersFactory
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -72,7 +75,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.serviceApi, err = service.NewAPI(s.State, nil, s.authorizer)
+	s.offersApiFactory = &mockServiceOffersFactory{}
+	resources := common.NewResources()
+	resources.RegisterNamed("serviceOffersApiFactory", s.offersApiFactory)
+	s.serviceApi, err = service.NewAPI(s.State, resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1407,7 +1413,7 @@ func (s *recordingStorage) Remove(path string) error {
 	return nil
 }
 
-func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
+func (s *serviceSuite) checkEndpoints(c *gc.C, mysqlServiceName string, endpoints map[string]charm.Relation) {
 	c.Assert(endpoints["wordpress"], gc.DeepEquals, charm.Relation{
 		Name:      "db",
 		Role:      charm.RelationRole("requirer"),
@@ -1416,7 +1422,7 @@ func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relati
 		Limit:     1,
 		Scope:     charm.RelationScope("global"),
 	})
-	c.Assert(endpoints["mysql"], gc.DeepEquals, charm.Relation{
+	c.Assert(endpoints[mysqlServiceName], gc.DeepEquals, charm.Relation{
 		Name:      "server",
 		Role:      charm.RelationRole("provider"),
 		Interface: "mysql",
@@ -1436,7 +1442,6 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 
 	res, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, res.Endpoints)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1444,9 +1449,20 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	// There are 2 relations - the logging-wordpress one set up in the
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)
-	mySvc, err := s.State.Service("mysql")
+
+	// We may be related to a local service or a remote.
+	var mySqlService state.ServiceEntity
+	mySqlService, err = s.State.RemoteService("hosted-mysql")
+	if errors.IsNotFound(err) {
+		mySqlService, err = s.State.Service("mysql")
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEndpoints(c, "mysql", res.Endpoints)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+	}
 	c.Assert(err, jc.ErrorIsNil)
-	rels, err = mySvc.Relations()
+	rels, err = mySqlService.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(rels), gc.Equals, 1)
 }
@@ -1454,6 +1470,111 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 func (s *serviceSuite) TestSuccessfullyAddRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertAddRelation(c, endpoints)
+}
+
+type mockServiceOffersFactory struct {
+	common.Resource
+	offers []params.ServiceOffer
+}
+
+type mockServiceOffersAPI struct {
+	crossmodel.ServiceOffersAPI
+	offers []params.ServiceOffer
+}
+
+func (m *mockServiceOffersFactory) ServiceOffers(directory string) (crossmodel.ServiceOffersAPI, error) {
+	return &mockServiceOffersAPI{
+		offers: m.offers,
+	}, nil
+}
+
+func (m *mockServiceOffersAPI) ListOffers(filters params.OfferFilters) (params.ServiceOfferResults, error) {
+	return params.ServiceOfferResults{
+		Offers: m.offers,
+	}, nil
+}
+
+func remoteOffers() []params.ServiceOffer {
+	return []params.ServiceOffer{
+		{
+			ServiceURL:  "local:/u/me/prod/hosted-mysql",
+			ServiceName: "mysqlremote",
+			Endpoints: []params.RemoteEndpoint{
+				{
+					Name:      "server",
+					Role:      "provider",
+					Interface: "mysql",
+					Scope:     "global",
+				},
+			},
+		},
+	}
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:server"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"local:/u/me/prod/hosted-mysql"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	// Add a relation between wordpress and mysql.
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	s.assertAddRelation(c, endpoints)
+
+	// And try to add it again.
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation already exists`)
+}
+
+func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:nope"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `remote service "hosted-mysql" has no "nope" relation`)
+}
+
+func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = []params.ServiceOffer{
+		{
+			ServiceURL:  "local:/u/me/prod/hosted-mysql",
+			ServiceName: "mysqlremote",
+			Endpoints: []params.RemoteEndpoint{
+				{
+					Name:      "admin",
+					Role:      "provider",
+					Interface: "admin",
+					Scope:     "global",
+				},
+			},
+		},
+	}
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestRemoteRelationServiceNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/unknown"}
+	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `service offer "local:/u/me/prod/unknown" not found`)
 }
 
 func (s *serviceSuite) TestBlockDestroyAddRelation(c *gc.C) {

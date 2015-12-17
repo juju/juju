@@ -284,11 +284,6 @@ func (s *RemoteService) Relations() (relations []*Relation, err error) {
 	return serviceRelations(s.st, s.doc.Name)
 }
 
-var (
-	errSameNameLocalServiceExists = errors.Errorf("local service with same name already exists")
-	errRemoteServiceExists        = errors.Errorf("remote service already exists")
-)
-
 // AddRemoteService creates a new remote service record, having the supplied relation endpoints,
 // with the supplied name (which must be unique across all services, local and remote).
 func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) (service *RemoteService, err error) {
@@ -347,13 +342,13 @@ func (st *State) AddRemoteService(name, url string, endpoints []charm.Relation) 
 			if localExists, err := isNotDead(st, servicesC, name); err != nil {
 				return nil, errors.Trace(err)
 			} else if localExists {
-				return nil, errSameNameLocalServiceExists
+				return nil, errors.AlreadyExistsf("local service with same name")
 			}
 			// Ensure a remote service with the same name doesn't exist.
 			if exists, err := isNotDead(st, remoteServicesC, name); err != nil {
 				return nil, errors.Trace(err)
 			} else if exists {
-				return nil, errRemoteServiceExists
+				return nil, errors.AlreadyExistsf("remote service")
 			}
 		}
 		ops := []txn.Op{
