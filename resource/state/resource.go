@@ -4,6 +4,8 @@
 package state
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/resource"
@@ -14,8 +16,14 @@ type resourcePersistence interface {
 	ListResources(serviceID string) ([]resource.Resource, error)
 }
 
+type resourceStorage interface {
+	// Put stores the content of the reader into the storage.
+	Put(hash string, r io.Reader, length int64) error
+}
+
 type resourceState struct {
 	persist resourcePersistence
+	storage resourceStorage
 }
 
 // ListResources returns the resource data for the given service ID.
