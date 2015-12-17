@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/keyvalue"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -146,6 +147,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 			CharmDirName:          CharmDirName,
+			KeyValueStoreName:     UniterKeyValueStoreName,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.
@@ -161,10 +163,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The metric collect worker executes the collect-metrics hook in a
 		// restricted context that can safely run concurrently with other hooks.
 		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
-			AgentName:       AgentName,
-			APICallerName:   APICallerName,
-			MetricSpoolName: MetricSpoolName,
-			CharmDirName:    CharmDirName,
+			AgentName:               AgentName,
+			UniterKeyValueStoreName: UniterKeyValueStoreName,
+			MetricSpoolName:         MetricSpoolName,
+			CharmDirName:            CharmDirName,
 		}),
 
 		// The meter status worker executes the meter-status-changed hook when it detects
@@ -183,6 +185,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
+		}),
+
+		// The uniter key-value store manifold hold value that
+		// the uniter sets for use by other manifolds - those manifolds
+		// do not depend directly on the uniter manifold and are therefore
+		// not affected by uniter bounces.
+		UniterKeyValueStoreName: keyvalue.Manifold(keyvalue.ManifoldConfig{
+			AgentName: AgentName,
 		}),
 	}
 }
@@ -204,4 +214,5 @@ const (
 	MeterStatusName          = "meter-status"
 	MetricCollectName        = "metric-collect"
 	MetricSenderName         = "metric-sender"
+	UniterKeyValueStoreName  = "uniter-keyvalue-store"
 )

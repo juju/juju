@@ -103,6 +103,8 @@ type context struct {
 	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
+
+	charmURLHolder *charmURLSetter
 }
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
@@ -449,6 +451,35 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
+type waitCharmURL struct {
+	charmURL string
+}
+
+func (w waitCharmURL) step(c *gc.C, ctx *context) {
+	timeout := time.After(worstCase)
+
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for charm url to be set")
+		case <-time.After(coretesting.ShortWait):
+			if ctx.charmURLHolder.charmURL == w.charmURL {
+				return
+			}
+			c.Logf("waiting for charm url %q, got %q", w.charmURL, ctx.charmURLHolder.charmURL)
+		}
+	}
+}
+
+type charmURLSetter struct {
+	charmURL string
+}
+
+func (s *charmURLSetter) Set(_ string, data interface{}) error {
+	s.charmURL, _ = data.(string)
+	return nil
+}
+
 type startUniter struct {
 	unitTag         string
 	newExecutorFunc uniter.NewExecutorFunc
@@ -476,6 +507,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		operationExecutor = s.newExecutorFunc
 	}
 
+	ctx.charmURLHolder = &charmURLSetter{}
+
 	uniterParams := uniter.UniterParams{
 		UniterFacade:         ctx.api,
 		UnitTag:              tag,
@@ -486,6 +519,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
+		KeyValueSetter:       ctx.charmURLHolder,
 		// TODO(axw) 2015-11-02 #1512191
 		// update tests that rely on timing to advance clock
 		// appropriately.
