@@ -1229,6 +1229,8 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	return ops, nil
 }
 
+// validateUnitMachineAssignment validates the parameters for assigning a unit
+// to a specified machine.
 func validateUnitMachineAssignment(
 	m *Machine,
 	series string,
@@ -1273,6 +1275,8 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	return validateDynamicMachineStoragePools(m, pools)
 }
 
+// machineStoragePools returns the names of storage pools in each of the
+// volume, filesystem and attachments in the machine storage parameters.
 func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
@@ -1322,10 +1326,9 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 	return pools, nil
 }
 
-// validateDynamicMachineStoragePools validates that all storage providers
-// required for provisioning the storage in params support dynamic storage.
-// If any provider doesn't support dynamic storage, then an IsNotSupported
-// error is returned.
+// validateDynamicMachineStoragePools validates that all of the specified
+// storage pools support dynamic storage provisioning. If any provider doesn't
+// support dynamic storage, then an IsNotSupported error is returned.
 func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 	if pools.IsEmpty() {
 		return nil
@@ -1344,10 +1347,9 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 	return validateDynamicStoragePools(m.st, pools)
 }
 
-// validateDynamicStoragePools validates that all storage providers required
-// for provisioning the storage in params support dynamic storage. If any
-// provider doesn't support dynamic storage, then an IsNotSupported error is
-// returned.
+// validateDynamicStoragePools validates that all of the specified storage
+// providers support dynamic storage provisioning. If any provider doesn't
+// support dynamic storage, then an IsNotSupported error is returned.
 func validateDynamicStoragePools(st *State, pools set.Strings) error {
 	for pool := range pools {
 		providerType, provider, err := poolStorageProvider(st, pool)
