@@ -27,8 +27,7 @@ type resourcePersistence interface {
 	UnstageResource(id, serviceID string) error
 
 	// SetResource stores the resource info. If the resource
-	// is already staged then it is unstaged, unless the staged
-	// resource is different. In that case the request will fail.
+	// is already staged then it is unstaged.
 	SetResource(id, serviceID string, res resource.Resource) error
 }
 
