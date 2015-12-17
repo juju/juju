@@ -21,7 +21,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gomaasapi"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"

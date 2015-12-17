@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"launchpad.net/gomaasapi"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/environs/storage"
 )
