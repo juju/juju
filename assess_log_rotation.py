@@ -201,7 +201,7 @@ def main():
                       agent_url=args.agent_url, agent_stream=args.agent_stream,
                       log_dir=args.logs, keep_env=args.keep_env,
                       upload_tools=args.upload_tools,
-                      permanent=client.is_jes_enabled(), region=args.region):
+                      region=args.region):
         client.juju("deploy", ('local:trusty/fill-logs',))
         if args.agent == "unit":
             test_unit_rotation(client)

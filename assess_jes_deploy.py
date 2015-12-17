@@ -82,8 +82,7 @@ def jes_setup(args):
             args.agent_url,
             args.agent_stream,
             args.logs, args.keep_env,
-            False,
-            permanent=True,
+            upload_tools=False,
             region=args.region,
             ):
         yield client, charm_prefix, base_env

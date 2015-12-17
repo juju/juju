@@ -105,7 +105,6 @@ class TestScaleOut(TestCase):
             args.logs,
             args.keep_env,
             args.upload_tools,
-            permanent=False,
             region=args.region)
         bv_mock.assert_called_once_with(fake_env, '/path/juju', False)
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
@@ -148,7 +147,6 @@ class TestScaleOut(TestCase):
             args.logs,
             args.keep_env,
             args.upload_tools,
-            permanent=False,
             region=args.region)
 
     def test_deploy_charms(self):

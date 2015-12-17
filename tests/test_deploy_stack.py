@@ -860,6 +860,15 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
 
+    def test_jes_not_permanent(self):
+        with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
+                                     ' if jes_enabled is True.'):
+            BootstrapManager(
+                jes_enabled=True, permanent=False,
+                temp_env_name=None, client=None, tear_down_client=None,
+                bootstrap_host=None, machines=[], series=None, agent_url=None,
+                agent_stream=None, region=None, log_dir=None, keep_env=None)
+
     def test_aws_machines_updates_bootstrap_host(self):
         client = FakeJujuClient()
         client.env.config['type'] = 'manual'
