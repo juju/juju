@@ -45,6 +45,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-check-gate",
 		"upgrader",
 		"upgradesteps",
+		"upgradewaiter",
 		"uninstaller",
 		"serving-info-setter",
 	}

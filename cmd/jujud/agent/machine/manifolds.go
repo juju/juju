@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/worker/upgradewaiter"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -123,6 +124,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		}),
+
+		// The upgradewaiter manifold aggregates the
+		// upgrade-steps-gate and upgrade-check-gate manifolds into
+		// one boolean output. It makes it easy to create manifolds
+		// which must only run after these upgrade events have
+		// occured.
+		upgradeWaiterName: upgradewaiter.Manifold(upgradewaiter.ManifoldConfig{
+			UpgradeStepsWaiterName: upgradeStepsGateName,
+			UpgradeCheckWaiterName: upgradeCheckGateName,
+		}),
 	}
 }
 
@@ -135,6 +146,7 @@ const (
 	upgradeCheckGateName  = "upgrade-check-gate"
 	upgraderName          = "upgrader"
 	upgradeStepsName      = "upgradesteps"
+	upgradeWaiterName     = "upgradewaiter"
 	uninstallerName       = "uninstaller"
 	servingInfoSetterName = "serving-info-setter"
 )
