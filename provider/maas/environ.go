@@ -1079,9 +1079,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() string {
-	return fmt.Sprintf("trap 'rm -f %q' EXIT; if [ -f %q ]; then %q --bridge-prefix=%q --one-time-backup --activate %q; fi\n",
-		bridgeScriptPath,
-		bridgeScriptPath,
+	return fmt.Sprintf("trap 'rm -f %[1]q' EXIT; if [ -f %[1]q ]; then %[1]q --bridge-prefix=%q --one-time-backup --activate %q; fi\n",
 		bridgeScriptPath,
 		instancecfg.DefaultBridgePrefix,
 		"/etc/network/interfaces")
