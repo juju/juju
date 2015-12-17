@@ -1,5 +1,5 @@
-from collections import defaultdict
 from contextlib import contextmanager
+import copy
 from datetime import (
     datetime,
     timedelta,
@@ -12,6 +12,7 @@ import StringIO
 import subprocess
 import sys
 from textwrap import dedent
+import types
 
 from mock import (
     call,
@@ -1055,9 +1056,7 @@ class TestEnvJujuClient(ClientTest):
                     with patch('jujupy.GroupReporter.finish') as finish_mock:
                         client.wait_for_subordinate_units(
                             'jenkins', 'sub1', start=now - timedelta(1200))
-        expected_states = defaultdict(list)
-        expected_states['started'].append('sub1/0')
-        update_mock.assert_called_once_with(expected_states)
+        self.assertEqual([], update_mock.call_args_list)
         finish_mock.assert_called_once_with()
 
     def test_wait_for_multiple_subordinate_units(self):
@@ -1085,10 +1084,7 @@ class TestEnvJujuClient(ClientTest):
                     with patch('jujupy.GroupReporter.finish') as finish_mock:
                         client.wait_for_subordinate_units(
                             'ubuntu', 'sub', start=now - timedelta(1200))
-        expected_states = defaultdict(list)
-        expected_states['started'].append('sub/0')
-        expected_states['started'].append('sub/1')
-        update_mock.assert_called_once_with(expected_states)
+        self.assertEqual([], update_mock.call_args_list)
         finish_mock.assert_called_once_with()
 
     def test_wait_for_subordinate_units_checks_slash_in_unit_name(self):
@@ -1135,6 +1131,32 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
+    def test_wait_for_workload(self):
+        initial_status = Status.from_text("""\
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    workload-status:
+                      current: waiting
+                  subordinates:
+                    ntp/0:
+                      workload-status:
+                        current: unknown
+        """)
+        final_status = Status(copy.deepcopy(initial_status.status), None)
+        final_status.status['services']['jenkins']['units']['jenkins/0'][
+            'workload-status']['current'] = 'active'
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        writes = []
+        with patch('utility.until_timeout', autospec=True, return_value=[1]):
+            with patch.object(client, 'get_status', autospec=True,
+                              side_effect=[initial_status, final_status]):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    client.wait_for_workloads()
+        self.assertEqual(writes, ['waiting: jenkins/0', '\n'])
+
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {
@@ -1160,12 +1182,14 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
-            with patch.object(GroupReporter, '_write', autospec=True,
-                              side_effect=lambda _, s: writes.append(s)):
-                with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for voting to be enabled.'):
-                    client.wait_for_ha(0.01)
+            with patch('jujupy.until_timeout', autospec=True,
+                       return_value=[2, 1]):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    with self.assertRaisesRegexp(
+                            Exception,
+                            'Timed out waiting for voting to be enabled.'):
+                        client.wait_for_ha()
             self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
             self.assertEqual(writes[2:-1], ['.'] * (len(writes) - 3))
             self.assertEqual(writes[-1:], ['\n'])
@@ -1227,11 +1251,15 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_version_timeout(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
+        writes = []
+        with patch('jujupy.until_timeout', lambda x, start=None: [x]):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with self.assertRaisesRegexp(
-                        Exception, 'Some versions did not update'):
-                    client.wait_for_version('1.17.2')
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    with self.assertRaisesRegexp(
+                            Exception, 'Some versions did not update'):
+                        client.wait_for_version('1.17.2')
+        self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
     def test_wait_for_version_handles_connection_error(self):
         err = subprocess.CalledProcessError(2, 'foo')
@@ -2370,6 +2398,44 @@ class TestStatus(FakeHomeTestCase):
             'services': {'jenkins': {'units': {'jenkins/0': {
                 'agent-state': 'horsefeathers'}}}}
         })
+
+    def test_iter_units(self):
+        started_unit = {'agent-state': 'started'}
+        unit_with_subordinates = {
+            'agent-state': 'started',
+            'subordinates': {
+                'ntp/0': started_unit,
+                'nrpe/0': started_unit,
+            },
+        }
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'started'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/0': unit_with_subordinates,
+                    }
+                },
+                'application': {
+                    'units': {
+                        'application/0': started_unit,
+                        'application/1': started_unit,
+                    }
+                },
+            }
+        }, '')
+        expected = [
+            ('application/0', started_unit),
+            ('application/1', started_unit),
+            ('jenkins/0', unit_with_subordinates),
+            ('nrpe/0', started_unit),
+            ('ntp/0', started_unit),
+        ]
+        gen = status.iter_units()
+        self.assertIsInstance(gen, types.GeneratorType)
+        self.assertEqual(expected, list(gen))
 
 
 def fast_timeout(count):
