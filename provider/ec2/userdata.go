@@ -18,9 +18,9 @@ type AmazonRenderer struct{}
 func (AmazonRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return renderers.RenderYAML(cfg, os, utils.Gzip)
+		return renderers.RenderYAML(cfg, utils.Gzip)
 	case jujuos.Windows:
-		return renderers.RenderYAML(cfg, os, renderers.WinEmbedInScript, renderers.AddPowershellTags)
+		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript, renderers.AddPowershellTags)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

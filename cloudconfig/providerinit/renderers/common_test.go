@@ -10,7 +10,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
@@ -54,7 +53,7 @@ func (s *RenderersSuite) TestRenderYAML(c *gc.C) {
 	d2 := func(in []byte) []byte {
 		return []byte("2." + string(in))
 	}
-	out, err := renderers.RenderYAML(cloudcfg, os.Windows, d2, d1)
+	out, err := renderers.RenderYAML(cloudcfg, d2, d1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), jc.DeepEquals, "1.2.yaml")
 	cloudcfg.CheckCallNames(c, "RenderYAML")
@@ -68,7 +67,7 @@ func (s *RenderersSuite) TestRenderScript(c *gc.C) {
 	d2 := func(in []byte) []byte {
 		return []byte("2." + string(in))
 	}
-	out, err := renderers.RenderScript(cloudcfg, os.Windows, d2, d1)
+	out, err := renderers.RenderScript(cloudcfg, d2, d1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), jc.DeepEquals, "1.2.script")
 	cloudcfg.CheckCallNames(c, "RenderScript")

@@ -19,7 +19,7 @@ type lxdRenderer struct{}
 func (lxdRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return renderers.RenderYAML(cfg, os)
+		return renderers.RenderYAML(cfg)
 	default:
 		return nil, errors.Errorf("cannot encode userdata for OS %q", os)
 	}

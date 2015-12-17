@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/utils"
-	"github.com/juju/utils/os"
 )
 
 // ToBase64 just transforms whatever userdata it gets to base64 format
@@ -40,7 +39,7 @@ type Decorator func([]byte) []byte
 
 // RenderYAML renders the given cloud-config as YAML, and then passes the
 // YAML through the given decorators.
-func RenderYAML(cfg cloudinit.RenderConfig, os os.OSType, ds ...Decorator) ([]byte, error) {
+func RenderYAML(cfg cloudinit.RenderConfig, ds ...Decorator) ([]byte, error) {
 	out, err := cfg.RenderYAML()
 	if err != nil {
 		return nil, err
@@ -50,7 +49,7 @@ func RenderYAML(cfg cloudinit.RenderConfig, os os.OSType, ds ...Decorator) ([]by
 
 // RenderScript renders the given cloud-config as a script, and then passes the
 // script through the given decorators.
-func RenderScript(cfg cloudinit.RenderConfig, os os.OSType, ds ...Decorator) ([]byte, error) {
+func RenderScript(cfg cloudinit.RenderConfig, ds ...Decorator) ([]byte, error) {
 	out, err := cfg.RenderScript()
 	if err != nil {
 		return nil, err
