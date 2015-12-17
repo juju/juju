@@ -38,7 +38,7 @@ type serviceOffersAPI struct {
 
 // createServiceDirectoryAPI returns a new cross model API facade.
 func createServiceOffersAPI(
-	resources *common.Resources,
+	serviceAPIFactory ServiceOffersAPIFactory,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
 	if !authorizer.AuthClient() {
@@ -47,23 +47,17 @@ func createServiceOffersAPI(
 
 	return &serviceOffersAPI{
 		authorizer:              authorizer,
-		serviceOffersAPIFactory: resources.Get(offersApiFactoryResource).(ServiceOffersAPIFactory),
+		serviceOffersAPIFactory: serviceAPIFactory,
 	}, nil
 }
-
-const offersApiFactoryResource = "serviceOffersApiFactory"
 
 func newServiceOffersAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
-	apiFactory, err := ServiceOffersAPIFactoryResource(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	resources.RegisterNamed(offersApiFactoryResource, apiFactory)
-	return createServiceOffersAPI(resources, authorizer)
+	apiFactory := resources.Get("serviceOffersApiFactory").(ServiceOffersAPIFactory)
+	return createServiceOffersAPI(apiFactory, authorizer)
 }
 
 // TODO(wallyworld) - add Remove() and Update()

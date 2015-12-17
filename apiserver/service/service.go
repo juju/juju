@@ -73,21 +73,6 @@ type API struct {
 	authorizer              common.Authorizer
 }
 
-const offersApiFactoryResource = "serviceOffersApiFactory"
-
-func createNewAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (Service, error) {
-	return &API{
-		state:                   st,
-		authorizer:              authorizer,
-		serviceOffersAPIFactory: resources.Get(offersApiFactoryResource).(crossmodel.ServiceOffersAPIFactory),
-		check: common.NewBlockChecker(st),
-	}, nil
-}
-
 // NewAPI returns a new service API facade.
 func NewAPI(
 	st *state.State,
@@ -97,13 +82,13 @@ func NewAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
-	apiFactory, err := crossmodel.ServiceOffersAPIFactoryResource(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	resources.RegisterNamed(offersApiFactoryResource, apiFactory)
-	return createNewAPI(st, resources, authorizer)
+	apiFactory := resources.Get("serviceOffersApiFactory").(crossmodel.ServiceOffersAPIFactory)
+	return &API{
+		state:                   st,
+		authorizer:              authorizer,
+		serviceOffersAPIFactory: apiFactory,
+		check: common.NewBlockChecker(st),
+	}, nil
 }
 
 // SetMetricCredentials sets credentials on the service.

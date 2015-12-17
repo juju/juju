@@ -27,6 +27,7 @@ var _ = gc.Suite(&crossmodelMockSuite{})
 
 func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	service := "shared"
+	serviceAlias := "shared-alias"
 	endPointA := "endPointA"
 	endPointB := "endPointB"
 	url := "url"
@@ -51,6 +52,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 
 			offer := args.Offers[0]
 			c.Assert(offer.ServiceName, gc.DeepEquals, service)
+			c.Assert(offer.ServiceAlias, gc.DeepEquals, serviceAlias)
 			c.Assert(offer.Endpoints, jc.SameContents, []string{endPointA, endPointB})
 			c.Assert(offer.ServiceURL, gc.DeepEquals, url)
 			c.Assert(offer.ServiceDescription, gc.DeepEquals, desc)
@@ -68,7 +70,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer(service, []string{endPointA, endPointB}, url, []string{user1, user2}, desc)
+	results, err := client.Offer(service, serviceAlias, []string{endPointA, endPointB}, url, []string{user1, user2}, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
@@ -93,7 +95,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer("", nil, "", nil, "")
+	results, err := client.Offer("", "", nil, "", nil, "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

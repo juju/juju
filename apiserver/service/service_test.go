@@ -78,7 +78,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.offersApiFactory = &mockServiceOffersFactory{}
 	resources := common.NewResources()
 	resources.RegisterNamed("serviceOffersApiFactory", s.offersApiFactory)
-	s.serviceApi, err = service.CreateNewAPI(s.State, resources, s.authorizer)
+	s.serviceApi, err = service.NewAPI(s.State, resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -60,8 +60,11 @@ type offerCommand struct {
 	CrossModelCommandBase
 	newAPIFunc func() (OfferAPI, error)
 
-	// Service stores service name.
+	// Service stores service name to be offered.
 	Service string
+
+	// ServiceAlias stores an alias for the offered service.
+	ServiceAlias string
 
 	// Endpoints stores a list of endpoints that are being offered.
 	Endpoints []string
@@ -110,6 +113,7 @@ func (c *offerCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CrossModelCommandBase.SetFlags(f)
+	f.StringVar(&c.ServiceAlias, "service-alias", "", "alias for offered service")
 	f.Var(cmd.NewStringsValue(nil, &c.Users), "to", "users that these endpoints are offered to")
 }
 
@@ -130,7 +134,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	}
 
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
-	results, err := api.Offer(c.Service, c.Endpoints, c.URL, userTags, "")
+	results, err := api.Offer(c.Service, c.ServiceAlias, c.Endpoints, c.URL, userTags, "")
 	if err != nil {
 		return err
 	}
@@ -140,7 +144,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
+	Offer(service, serviceAlias string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
 }
 
 func (c *offerCommand) parseEndpoints(arg string) error {

@@ -68,14 +68,13 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 		func() jujucrossmodel.ServiceDirectory { return s.serviceDirectory },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.resources.RegisterNamed("serviceOffersApiFactory", serviceAPIFactory)
-	s.api, err = crossmodel.CreateServiceOffersAPI(s.resources, s.authoriser)
+	s.api, err = crossmodel.CreateServiceOffersAPI(serviceAPIFactory, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceDirectorySuite) TestUnauthorised(c *gc.C) {
 	s.authoriser = testing.FakeAuthorizer{}
-	_, err := crossmodel.CreateServiceOffersAPI(s.resources, s.authoriser)
+	_, err := crossmodel.CreateServiceOffersAPI(nil, s.authoriser)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 

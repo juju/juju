@@ -36,13 +36,13 @@ type baseCrossmodelSuite struct {
 	serviceBackend *mockServiceBackend
 }
 
-func (s *baseCrossmodelSuite) addService(c *gc.C, name string) jujucrossmodel.OfferedService {
+func (s *baseCrossmodelSuite) addService(c *gc.C, name, alias string) jujucrossmodel.OfferedService {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, name, ch)
 
 	return jujucrossmodel.OfferedService{
 		ServiceURL:  "local:/u/me/" + name,
-		ServiceName: name,
+		ServiceName: alias,
 		CharmName:   ch.Meta().Name,
 		Endpoints:   map[string]string{"db": "db"},
 		Description: ch.Meta().Description,

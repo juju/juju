@@ -78,6 +78,9 @@ type ServiceOfferParams struct {
 	// ServiceName contains name of service being offered.
 	ServiceName string `json:"servicename"`
 
+	// ServiceAlias contains the advertised name of service being offered.
+	ServiceAlias string `json:"servicealias"`
+
 	// Description is description for the offered service.
 	// For now, this defaults to description provided in the charm or
 	// is supplied by the user.

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -72,6 +73,13 @@ func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier 
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	apiFactory, err := crossmodel.ServiceOffersAPIFactoryResource(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := r.resources.RegisterNamed("serviceOffersApiFactory", apiFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
