@@ -18,6 +18,9 @@ const discoverspacesFacade = "DiscoverSpaces"
 
 // API provides access to the DiscoverSpaces API facade.
 type API struct {
+	// TODO(mfoord): we should drop EnvironWatcher and consider moving
+	// access to the provider methods needed (SupportsSpaceDiscovery and
+	// ListSubnets) onto the apiserver.
 	*common.EnvironWatcher
 	facade base.FacadeCaller
 }

@@ -4,11 +4,12 @@
 package networkingcommon
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/names"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
