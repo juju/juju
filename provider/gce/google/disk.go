@@ -108,6 +108,11 @@ type DiskSpec struct {
 	Name string
 	// Description holds a description of the disk, it currently holds
 	// envUUID.
+	// This field is used instead of a tag or metadata because, at the moment of writing
+	// this feature, compute (v1) API does not support any way to add extra data
+	// to disks.
+	// Description was picked because it is not mutable (actually no field is) for disks.
+	// There is a metadata API but it is not supported for disks for the moment.
 	Description string
 }
 

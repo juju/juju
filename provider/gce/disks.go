@@ -298,7 +298,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 			if disk.Description != v.envUUID && disk.Description != "" {
 				continue
 			}
-			// We don't want tolay hads on disks we did not create.
+			// We don't want to lay hands on disks we did not create.
 			if isValidVolume(disk.Name) {
 				volumes = append(volumes, disk.Name)
 			}
