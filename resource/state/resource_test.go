@@ -24,6 +24,7 @@ type ResourceSuite struct {
 	stub    *testing.Stub
 	raw     *stubRawState
 	persist *stubPersistence
+	storage *stubStorage
 }
 
 func (s *ResourceSuite) SetUpTest(c *gc.C) {
@@ -32,7 +33,9 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.raw = &stubRawState{stub: s.stub}
 	s.persist = &stubPersistence{stub: s.stub}
+	s.storage = &stubStorage{stub: s.stub}
 	s.raw.ReturnPersistence = s.persist
+	s.raw.ReturnStorage = s.storage
 }
 
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
@@ -77,27 +80,33 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 	var resources []resource.Resource
 	for _, name := range names {
-		fp, err := charmresource.GenerateFingerprint([]byte(name))
-		c.Assert(err, jc.ErrorIsNil)
-
-		res := resource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name: name,
-					Type: charmresource.TypeFile,
-					Path: name + ".tgz",
-				},
-				Origin:      charmresource.OriginUpload,
-				Revision:    0,
-				Fingerprint: fp,
-			},
-			Username:  "a-user",
-			Timestamp: time.Now(),
-		}
-		err = res.Validate()
-		c.Assert(err, jc.ErrorIsNil)
-
+		res := newUploadResource(c, name, name)
 		resources = append(resources, res)
 	}
 	return resources
+}
+
+func newUploadResource(c *gc.C, name, data string) resource.Resource {
+	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: name,
+				Type: charmresource.TypeFile,
+				Path: name + ".tgz",
+			},
+			Origin:      charmresource.OriginUpload,
+			Revision:    0,
+			Fingerprint: fp,
+			Size:        int64(len(data)),
+		},
+		Username:  "a-user",
+		Timestamp: time.Now(),
+	}
+	err = res.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return res
 }
