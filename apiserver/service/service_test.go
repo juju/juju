@@ -1452,14 +1452,14 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 
 	// We may be related to a local service or a remote.
 	var mySqlService state.ServiceEntity
-	mySqlService, err = s.State.RemoteService("mysqlremote")
+	mySqlService, err = s.State.RemoteService("hosted-mysql")
 	if errors.IsNotFound(err) {
 		mySqlService, err = s.State.Service("mysql")
 		c.Assert(err, jc.ErrorIsNil)
 		s.checkEndpoints(c, "mysql", res.Endpoints)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
-		s.checkEndpoints(c, "mysqlremote", res.Endpoints)
+		s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err = mySqlService.Relations()
@@ -1497,7 +1497,7 @@ func (m *mockServiceOffersAPI) ListOffers(filters params.OfferFilters) (params.S
 func remoteOffers() []params.ServiceOffer {
 	return []params.ServiceOffer{
 		{
-			ServiceURL:  "local:/u/me/prod/mysql",
+			ServiceURL:  "local:/u/me/prod/hosted-mysql",
 			ServiceName: "mysqlremote",
 			Endpoints: []params.RemoteEndpoint{
 				{
@@ -1513,19 +1513,19 @@ func remoteOffers() []params.ServiceOffer {
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
 	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
 	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"wordpress", "local:/u/me/prod/mysql:server"}
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:server"}
 	s.assertAddRelation(c, endpoints)
 }
 
 func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 	s.offersApiFactory.offers = remoteOffers()
-	endpoints := []string{"local:/u/me/prod/mysql"}
+	endpoints := []string{"local:/u/me/prod/hosted-mysql"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
@@ -1533,26 +1533,26 @@ func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 	s.offersApiFactory.offers = remoteOffers()
 	// Add a relation between wordpress and mysql.
-	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
 	s.assertAddRelation(c, endpoints)
 
 	// And try to add it again.
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysqlremote:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation already exists`)
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	s.offersApiFactory.offers = remoteOffers()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "local:/u/me/prod/mysql:nope"}
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:nope"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `remote service "mysqlremote" has no "nope" relation`)
+	c.Assert(err, gc.ErrorMatches, `remote service "hosted-mysql" has no "nope" relation`)
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	s.offersApiFactory.offers = []params.ServiceOffer{
 		{
-			ServiceURL:  "local:/u/me/prod/mysql",
+			ServiceURL:  "local:/u/me/prod/hosted-mysql",
 			ServiceName: "mysqlremote",
 			Endpoints: []params.RemoteEndpoint{
 				{
@@ -1565,7 +1565,7 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 		},
 	}
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
