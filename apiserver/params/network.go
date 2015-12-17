@@ -162,6 +162,12 @@ type NetworkConfig struct {
 	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 
+// NetworkConfigs holds the network configuration for multiple networks
+type NetworkConfigs struct {
+	Results []NetworkConfig
+	Errors  []error
+}
+
 // Port encapsulates a protocol and port number. It is used in API
 // requests/responses. See also network.Port, from/to which this is
 // transformed.
@@ -423,6 +429,19 @@ type RequestedNetworkResult struct {
 // RequestedNetworksResults holds multiple requested networks results.
 type RequestedNetworksResults struct {
 	Results []RequestedNetworkResult `json:"Results"`
+}
+
+// UnitNetworkConfigResult holds network configuration for a single unit.
+type UnitNetworkConfigResult struct {
+	Error *Error `json:"Error"`
+
+	// Tagged to Info due to compatibility reasons.
+	Config []NetworkConfig `json:"Info"`
+}
+
+// UnitNetworkConfigResults holds network configuration for multiple machines.
+type UnitNetworkConfigResults struct {
+	Results []UnitNetworkConfigResult `json:"Results"`
 }
 
 // MachineNetworkConfigResult holds network configuration for a single machine.

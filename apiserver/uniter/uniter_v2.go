@@ -7,6 +7,7 @@
 package uniter
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -21,7 +22,7 @@ func init() {
 	common.RegisterStandardFacade("Uniter", 2, NewUniterAPIV2)
 }
 
-// UniterAPI implements the API version 2, used by the uniter worker.
+// UniterAPIV2 implements the API version 2, used by the uniter worker.
 type UniterAPIV2 struct {
 	UniterAPIV1
 	StorageAPI
@@ -65,6 +66,85 @@ func (u *UniterAPIV2) AddMetricBatches(args params.MetricBatchParams) (params.Er
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// NetworkConfig returns information about all given relation/unit pairs,
+// including their id, key and the local endpoint.
+func (u *UniterAPIV2) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+	result := params.UnitNetworkConfigResults{
+		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
+	}
+
+	canAccess, err := u.UniterAPIV1.accessUnit()
+	if err != nil {
+		return params.UnitNetworkConfigResults{}, err
+	}
+
+	for i, rel := range args.RelationUnits {
+		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+		if err == nil {
+			result.Results[i].Config = netConfig
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(tagUnit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !canAccess(unitTag) {
+		return nil, common.ErrPerm
+	}
+
+	relTag, err := names.ParseRelationTag(tagRel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rel, err := u.UniterAPIV1.st.KeyRelation(relTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("got relation %q (%s) with endpoints: %+v", rel.Id(), rel.Tag(), rel.Endpoints())
+
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineID, err := unit.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return u.oneMachineNetworkConfig(machineID)
+}
+
+func (u *UniterAPIV2) oneMachineNetworkConfig(id string) ([]params.NetworkConfig, error) {
+	machine, err := u.UniterAPIV1.st.Machine(id)
+	if err != nil {
+		return nil, err
+	}
+	ifaces, err := machine.NetworkInterfaces()
+	if err != nil {
+		return nil, err
+	}
+	configs := make([]params.NetworkConfig, len(ifaces))
+	for i, iface := range ifaces {
+		configs[i] = params.NetworkConfig{
+			MACAddress:    iface.MACAddress(),
+			NetworkName:   iface.NetworkName(),
+			InterfaceName: iface.RawInterfaceName(),
+			Disabled:      iface.IsDisabled(),
+			// TODO(dimitern) Add the rest of the fields, once we
+			// store them in state.
+		}
+	}
+	return configs, nil
 }
 
 // NewUniterAPIV2 creates a new instance of the Uniter API, version 2.
