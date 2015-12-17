@@ -67,9 +67,25 @@ type Service interface {
 // API implements the service interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	check      *common.BlockChecker
-	state      *state.State
-	authorizer common.Authorizer
+	check                   *common.BlockChecker
+	state                   *state.State
+	serviceOffersAPIFactory crossmodel.ServiceOffersAPIFactory
+	authorizer              common.Authorizer
+}
+
+const offersApiFactoryResource = "serviceOffersApiFactory"
+
+func createNewAPI(
+	st *state.State,
+	resources *common.Resources,
+	authorizer common.Authorizer,
+) (Service, error) {
+	return &API{
+		state:                   st,
+		authorizer:              authorizer,
+		serviceOffersAPIFactory: resources.Get(offersApiFactoryResource).(crossmodel.ServiceOffersAPIFactory),
+		check: common.NewBlockChecker(st),
+	}, nil
 }
 
 // NewAPI returns a new service API facade.
@@ -82,11 +98,12 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 
-	return &API{
-		state:      st,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
-	}, nil
+	apiFactory, err := crossmodel.ServiceOffersAPIFactoryResource(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	resources.RegisterNamed(offersApiFactoryResource, apiFactory)
+	return createNewAPI(st, resources, authorizer)
 }
 
 // SetMetricCredentials sets credentials on the service.
@@ -359,6 +376,10 @@ func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult,
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
+// serviceUrlEndpointParse is used to split a service url and optional
+// relation name into url and relation name.
+var serviceUrlEndpointParse = regexp.MustCompile("(?P<url>.*/[^:]*)(:(?P<relname>.*))?")
+
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -368,10 +389,6 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	endpoints := make([]string, len(args.Endpoints))
 	// We may have a remote service passed in as the endpoint spec.
 	// We'll iterate the endpoints to check.
-	apiFactory, err := crossmodel.DefaultServiceOffersAPIFactory(api.state)
-	if err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
 	for i, ep := range args.Endpoints {
 		endpoints[i] = ep
 
@@ -379,9 +396,8 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		// We first need to strip off any relation name
 		// which may have been appended to the URL, then
 		// we try parsing the URL.
-		reg := regexp.MustCompile("(?P<url>.*/[^:]*)(:(?P<relname>.*))?")
-		possibleURL := reg.ReplaceAllString(ep, "$url")
-		relName := reg.ReplaceAllString(ep, "$relname")
+		possibleURL := serviceUrlEndpointParse.ReplaceAllString(ep, "$url")
+		relName := serviceUrlEndpointParse.ReplaceAllString(ep, "$relname")
 
 		// If the URL parses, we need to look up the remote service
 		// details and save to state.
@@ -391,7 +407,7 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 			continue
 		}
 		// Save the remote service details into state.
-		rs, err := saveRemoteService(api.state, apiFactory, *url)
+		rs, err := saveRemoteService(api.state, api.serviceOffersAPIFactory, *url)
 		if err != nil {
 			return params.AddRelationResults{}, errors.Trace(err)
 		}
@@ -461,21 +477,27 @@ func saveRemoteService(
 		// TODO (wallyworld) - update service if it exists already with any additional endpoints
 		return rs, nil
 	}
-	if errors.IsNotFound(err) {
-		remoteEps := make([]charm.Relation, len(offer.Endpoints))
-		for j, ep := range offer.Endpoints {
-			remoteEps[j] = charm.Relation{
-				Name:      ep.Name,
-				Role:      ep.Role,
-				Interface: ep.Interface,
-				Limit:     ep.Limit,
-				Scope:     ep.Scope,
-			}
+	remoteEps := make([]charm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
+		remoteEps[j] = charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
 		}
-		rs, err = st.AddRemoteService(offer.ServiceName, url.String(), remoteEps)
-		if err != nil && !errors.IsNotFound(err) {
+	}
+	rs, err = st.AddRemoteService(offer.ServiceName, url.String(), remoteEps)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
 			return nil, errors.Trace(err)
 		}
+		// Remote service didn't exist but now there's a clash
+		// trying to save it. It could be a local service with the
+		// same name or a remote service with the same name but we
+		// have no idea whether endpoints are compatible or not.
+		// Best just to error.
+		return nil, errors.Annotatef(err, "saving endpoints for service at URL %q", url.String())
 	}
 	return rs, nil
 }

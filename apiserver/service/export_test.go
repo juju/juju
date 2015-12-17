@@ -6,4 +6,5 @@ package service
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	NewStateStorage         = &newStateStorage
+	CreateNewAPI            = createNewAPI
 )

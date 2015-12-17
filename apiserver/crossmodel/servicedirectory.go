@@ -38,7 +38,6 @@ type serviceOffersAPI struct {
 
 // createServiceDirectoryAPI returns a new cross model API facade.
 func createServiceOffersAPI(
-	serviceAPIFactory ServiceOffersAPIFactory,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
@@ -48,28 +47,23 @@ func createServiceOffersAPI(
 
 	return &serviceOffersAPI{
 		authorizer:              authorizer,
-		serviceOffersAPIFactory: serviceAPIFactory,
+		serviceOffersAPIFactory: resources.Get(offersApiFactoryResource).(ServiceOffersAPIFactory),
 	}, nil
 }
 
-// DefaultServiceOffersAPIFactory is a function which returns the service offer api factory
-// to be used in production code.
-var DefaultServiceOffersAPIFactory = func(st *state.State) (ServiceOffersAPIFactory, error) {
-	return newServiceAPIFactory(func() crossmodel.ServiceDirectory {
-		return state.NewServiceDirectory(st)
-	})
-}
+const offersApiFactoryResource = "serviceOffersApiFactory"
 
 func newServiceOffersAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
-	apiFactory, err := DefaultServiceOffersAPIFactory(st)
+	apiFactory, err := ServiceOffersAPIFactoryResource(st)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return createServiceOffersAPI(apiFactory, resources, authorizer)
+	resources.RegisterNamed(offersApiFactoryResource, apiFactory)
+	return createServiceOffersAPI(resources, authorizer)
 }
 
 // TODO(wallyworld) - add Remove() and Update()

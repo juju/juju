@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
@@ -42,9 +43,10 @@ type serviceSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	serviceApi service.Service
-	service    *state.Service
-	authorizer apiservertesting.FakeAuthorizer
+	serviceApi       service.Service
+	service          *state.Service
+	authorizer       apiservertesting.FakeAuthorizer
+	offersApiFactory *mockServiceOffersFactory
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -73,7 +75,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.serviceApi, err = service.NewAPI(s.State, nil, s.authorizer)
+	s.offersApiFactory = &mockServiceOffersFactory{}
+	resources := common.NewResources()
+	resources.RegisterNamed("serviceOffersApiFactory", s.offersApiFactory)
+	s.serviceApi, err = service.CreateNewAPI(s.State, resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1468,6 +1473,7 @@ func (s *serviceSuite) TestSuccessfullyAddRelation(c *gc.C) {
 }
 
 type mockServiceOffersFactory struct {
+	common.Resource
 	offers []params.ServiceOffer
 }
 
@@ -1506,38 +1512,26 @@ func remoteOffers() []params.ServiceOffer {
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := remoteOffers()
-		return &mockServiceOffersFactory{offers}, nil
-	})
+	s.offersApiFactory.offers = remoteOffers()
 	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := remoteOffers()
-		return &mockServiceOffersFactory{offers}, nil
-	})
+	s.offersApiFactory.offers = remoteOffers()
 	endpoints := []string{"wordpress", "local:/u/me/prod/mysql:server"}
 	s.assertAddRelation(c, endpoints)
 }
 
 func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := remoteOffers()
-		return &mockServiceOffersFactory{offers}, nil
-	})
+	s.offersApiFactory.offers = remoteOffers()
 	endpoints := []string{"local:/u/me/prod/mysql"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := remoteOffers()
-		return &mockServiceOffersFactory{offers}, nil
-	})
+	s.offersApiFactory.offers = remoteOffers()
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
 	s.assertAddRelation(c, endpoints)
@@ -1548,10 +1542,7 @@ func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := remoteOffers()
-		return &mockServiceOffersFactory{offers}, nil
-	})
+	s.offersApiFactory.offers = remoteOffers()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "local:/u/me/prod/mysql:nope"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
@@ -1559,23 +1550,20 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		offers := []params.ServiceOffer{
-			{
-				ServiceURL:  "local:/u/me/prod/mysql",
-				ServiceName: "mysqlremote",
-				Endpoints: []params.RemoteEndpoint{
-					{
-						Name:      "admin",
-						Role:      "provider",
-						Interface: "admin",
-						Scope:     "global",
-					},
+	s.offersApiFactory.offers = []params.ServiceOffer{
+		{
+			ServiceURL:  "local:/u/me/prod/mysql",
+			ServiceName: "mysqlremote",
+			Endpoints: []params.RemoteEndpoint{
+				{
+					Name:      "admin",
+					Role:      "provider",
+					Interface: "admin",
+					Scope:     "global",
 				},
 			},
-		}
-		return &mockServiceOffersFactory{offers}, nil
-	})
+		},
+	}
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "local:/u/me/prod/mysql"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
@@ -1583,9 +1571,6 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationServiceNotFound(c *gc.C) {
-	s.PatchValue(&crossmodel.DefaultServiceOffersAPIFactory, func(st *state.State) (crossmodel.ServiceOffersAPIFactory, error) {
-		return &mockServiceOffersFactory{}, nil
-	})
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "local:/u/me/prod/unknown"}
 	_, err := s.serviceApi.AddRelation(params.AddRelation{endpoints})
