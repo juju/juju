@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/model/crossmodel"
 )
 
-// ServiceAPIFactory instances create ServiceDirectory instance.
+// ServiceOffersAPIFactory instances create ServiceDirectory instance.
 type ServiceOffersAPIFactory interface {
 
 	// ServiceOffers returns a service directory used to look up services
@@ -23,6 +23,8 @@ type serviceOffersAPIFactory struct {
 	createLocalServiceDirectory createServiceDirectoryFunc
 }
 
+// newServiceAPIFactory creates a ServiceOffersAPIFactory instance which
+// is used to provide access to services for specified directories eg "local" or "vendor".
 func newServiceAPIFactory(createFunc createServiceDirectoryFunc) (ServiceOffersAPIFactory, error) {
 	return &serviceOffersAPIFactory{createFunc}, nil
 }

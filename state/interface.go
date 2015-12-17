@@ -182,4 +182,7 @@ type ServiceEntity interface {
 
 	// Endpoint returns the relation endpoint with the supplied name, if it exists.
 	Endpoint(relationName string) (Endpoint, error)
+
+	// Relations returns a Relation for every relation the service is in.
+	Relations() (relations []*Relation, err error)
 }

@@ -52,14 +52,20 @@ func createServiceOffersAPI(
 	}, nil
 }
 
+// DefaultServiceOffersAPIFactory is a function which returns the service offer api factory
+// to be used in production code.
+var DefaultServiceOffersAPIFactory = func(st *state.State) (ServiceOffersAPIFactory, error) {
+	return newServiceAPIFactory(func() crossmodel.ServiceDirectory {
+		return state.NewServiceDirectory(st)
+	})
+}
+
 func newServiceOffersAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (ServiceOffersAPI, error) {
-	apiFactory, err := newServiceAPIFactory(func() crossmodel.ServiceDirectory {
-		return state.NewServiceDirectory(st)
-	})
+	apiFactory, err := DefaultServiceOffersAPIFactory(st)
 	if err != nil {
 		return nil, err
 	}
