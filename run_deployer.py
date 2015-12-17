@@ -73,7 +73,7 @@ def main(argv=None):
     client = EnvJujuClient.by_version(env, start_juju_path, debug=args.debug)
     with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
-                      args.keep_env, False, region=args.region):
+                      args.keep_env, upload_tools=False, region=args.region):
         assess_deployer(args, client)
     return 0
 

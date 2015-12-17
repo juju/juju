@@ -113,7 +113,7 @@ class TestJES(unittest.TestCase):
         configure_logging_func.assert_called_once_with(True)
         boot_context_func.assert_called_once_with(
             'jesjob', expected_client, 'localhost', ['0'], 'trusty',
-            'some_url', 'devel', 'log/dir', True, False, permanent=True,
+            'some_url', 'devel', 'log/dir', True, upload_tools=False,
             region='region-foo')
 
         # Setup jes with a client that requires a call to enable_jes.

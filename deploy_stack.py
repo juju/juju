@@ -441,6 +441,9 @@ class BootstrapManager:
         self.region = region
         self.log_dir = log_dir
         self.keep_env = keep_env
+        if jes_enabled and not permanent:
+            raise ValueError('Cannot set permanent False if jes_enabled is'
+                             ' True.')
         self.permanent = permanent
         self.jes_enabled = jes_enabled
         self.known_hosts = {}
@@ -661,7 +664,7 @@ class BootstrapManager:
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
-                 permanent=False, region=None):
+                 region=None):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -692,8 +695,8 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
         temp_env_name, client, client, bootstrap_host, machines, series,
-        agent_url, agent_stream, region, log_dir, keep_env, permanent,
-        jes_enabled)
+        agent_url, agent_stream, region, log_dir, keep_env,
+        permanent=jes_enabled, jes_enabled=jes_enabled)
     with bs_manager.booted_context(upload_tools) as new_machines:
         machines[:] = new_machines
         yield
