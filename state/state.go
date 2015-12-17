@@ -21,6 +21,8 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -1151,13 +1153,45 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		storagePools.Add(storageParams.Pool)
 	}
 
-	series := args.Series
-	if series == "" {
-		series = args.Charm.URL().Series
-	}
-	// Should not happen, but just in case.
-	if series == "" {
-		return nil, errors.New("series is empty")
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return nil, errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		seriesOS, err := series.GetOSFromSeries(args.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		supportedOperatingSystems := make(map[os.OSType]bool)
+		for _, supportedSeries := range supportedSeries {
+			os, err := series.GetOSFromSeries(supportedSeries)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			supportedOperatingSystems[os] = true
+		}
+		if !supportedOperatingSystems[seriesOS] {
+			return nil, errors.NewNotSupported(errors.Errorf(
+				"series %q (OS %q) not supported by charm",
+				args.Series, seriesOS,
+			), "")
+		}
 	}
 
 	for _, placement := range args.Placement {
@@ -1174,7 +1208,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			}
 			subordinate := args.Charm.Meta().Subordinate
 			if err := validateUnitMachineAssignment(
-				m, series, subordinate, storagePools,
+				m, args.Series, subordinate, storagePools,
 			); err != nil {
 				return nil, errors.Annotatef(
 					err, "cannot deploy to machine %s", m,
@@ -1182,7 +1216,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			}
 
 		case directivePlacement:
-			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+			if err := st.precheckInstance(args.Series, args.Constraints, data.directive); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1195,7 +1229,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		DocID:         serviceID,
 		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        series,
+		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
