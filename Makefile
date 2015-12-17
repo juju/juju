@@ -19,4 +19,11 @@ install-deps: juju-ci-tools.common_0.1.0-0_all.deb apt-update
 	sudo apt-get install -y juju-local juju juju-quickstart juju-deployer
 	sudo apt-get install -y python-pip
 	./pipdeps.py install
-.PHONY: lint test apt-update install-deps
+name=NAMEHERE
+assess_file=assess_$(name).py
+test_assess_file=tests/test_assess_$(name).py
+new-assess:
+	install -m 755 template_assess.py.tmpl $(assess_file)
+	install -m 644 template_test.py.tmpl $(test_assess_file)
+	sed -i -e "s/TEMPLATE/$(name)/g" $(assess_file) $(test_assess_file)
+.PHONY: lint test cover clean new-assess apt-update install-deps
