@@ -7,6 +7,7 @@
 package uniter
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -69,49 +70,62 @@ func (u *UniterAPIV2) AddMetricBatches(args params.MetricBatchParams) (params.Er
 
 // NetworkConfig returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *uniterBaseAPI) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+func (u *UniterAPIV2) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
 	result := params.UnitNetworkConfigResults{
 		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+
+	canAccess, err := u.UniterAPIV1.accessUnit()
 	if err != nil {
 		return params.UnitNetworkConfigResults{}, err
 	}
+
 	for i, rel := range args.RelationUnits {
-		relParams, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
 		if err == nil {
-			result.Results[i] = relParams
+			result.Results[i].Config = netConfig
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (u *uniterBaseAPI) getOneNetworkConfig(canAccess common.AuthFunc, relTag, unitTag string) (params.UnitNetworkConfigResult, error) {
-	nothing := params.UnitNetworkConfigResult{}
-
-	tag, err := names.ParseUnitTag(unitTag)
+func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(tagUnit)
 	if err != nil {
-		return nothing, common.ErrPerm
+		return nil, errors.Trace(err)
 	}
 
-	_, unit, err := u.getRelationAndUnit(canAccess, relTag, tag)
-	if err != nil {
-		return nothing, err
+	if !canAccess(unitTag) {
+		return nil, common.ErrPerm
 	}
 
-	id, err := unit.AssignedMachineId()
+	relTag, err := names.ParseRelationTag(tagRel)
 	if err != nil {
-		return nothing, err
+		return nil, errors.Trace(err)
 	}
 
-	u.oneMachineNetworkConfig(id) // TODO: probably just want a MachineId, but this will do for now
+	rel, err := u.UniterAPIV1.st.KeyRelation(relTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("got relation %q (%s) with endpoints: %+v", rel.Id(), rel.Tag(), rel.Endpoints())
 
-	return params.UnitNetworkConfigResult{}, nil // TODO
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineID, err := unit.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return u.oneMachineNetworkConfig(machineID)
 }
 
-func (u *uniterBaseAPI) oneMachineNetworkConfig(id string) ([]params.NetworkConfig, error) {
-	machine, err := u.st.Machine(id)
+func (u *UniterAPIV2) oneMachineNetworkConfig(id string) ([]params.NetworkConfig, error) {
+	machine, err := u.UniterAPIV1.st.Machine(id)
 	if err != nil {
 		return nil, err
 	}
@@ -121,16 +135,9 @@ func (u *uniterBaseAPI) oneMachineNetworkConfig(id string) ([]params.NetworkConf
 	}
 	configs := make([]params.NetworkConfig, len(ifaces))
 	for i, iface := range ifaces {
-		nw, err := u.st.Network(iface.NetworkName())
-		if err != nil {
-			return nil, err
-		}
 		configs[i] = params.NetworkConfig{
 			MACAddress:    iface.MACAddress(),
-			CIDR:          nw.CIDR(),
 			NetworkName:   iface.NetworkName(),
-			ProviderId:    string(nw.ProviderId()),
-			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
 			Disabled:      iface.IsDisabled(),
 			// TODO(dimitern) Add the rest of the fields, once we
