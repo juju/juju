@@ -14,10 +14,14 @@ from jujupy import (
     _temp_env as temp_env,
     )
 from run_deployer import (
+    apply_condition,
     check_health,
+    CLOCK_SKEW_SCRIPT,
+    ErrUnitCondition,
     parse_args,
     run_deployer
     )
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(TestCase):
@@ -38,6 +42,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.series, None)
         self.assertEqual(args.debug, False)
         self.assertEqual(args.verbose, logging.INFO)
+        self.assertEqual(args.upgrade, False)
+        self.assertEqual(args.upgrade_condition, None)
 
 
 class TestRunDeployer(TestCase):
@@ -95,6 +101,54 @@ class TestRunDeployer(TestCase):
         bc_mock.assert_called_once_with(
             'quxx', client, None, [], None, None, None, 'qux', False, False,
             region='region-foo')
+
+    def test_run_deployer_upgrade(self):
+        with temp_env({'environments': {'bar': {'type': 'bar'}}}):
+            with patch('subprocess.check_output', return_value='foo'):
+                with patch('subprocess.check_call', return_value='foo'):
+                    with patch('run_deployer.boot_context'):
+                        with patch('run_deployer.EnvJujuClient.deployer'):
+                            with patch('run_deployer.apply_condition') as ac:
+                                with patch(
+                                        'run_deployer.assess_upgrade') as au:
+                                    run_deployer(['foo', 'bar', 'baz/juju',
+                                                  'qux', 'quxx', '--upgrade',
+                                                  '--upgrade-condition',
+                                                  'bla/0:clock_skew'])
+        self.assertEqual(ac.call_count, 1)
+        self.assertEqual(au.call_count, 1)
+
+
+class FakeRemote():
+
+    def __init__(self):
+        self.series = 'foo'
+
+    def is_windows(self):
+        return False
+
+    def run(self, command):
+        self.command = command
+
+
+class TestApplyCondition(TestCase):
+
+    def test_apply_condition_clock_skew(self):
+        client = FakeJujuClient()
+        remote = FakeRemote()
+        with patch('run_deployer.remote_from_unit',
+                   return_value=remote) as ru_mock:
+            apply_condition(client, 'bla/0:clock_skew')
+        self.assertEqual(ru_mock.call_count, 1)
+        ru_mock.assert_called_once_with(client, 'bla/0')
+        self.assertEqual(CLOCK_SKEW_SCRIPT, remote.command)
+
+    def test_apply_condition_raises_ErrUnitCondition(self):
+        client = FakeJujuClient()
+        remote = FakeRemote()
+        with patch('run_deployer.remote_from_unit', return_value=remote):
+            with self.assertRaises(ErrUnitCondition):
+                apply_condition(client, 'bla/0:foo')
 
 
 class TestIsHealthy(TestCase):
