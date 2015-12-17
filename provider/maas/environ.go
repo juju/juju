@@ -323,6 +323,11 @@ func (env *maasEnviron) SupportsSpaces() (bool, error) {
 	return env.supportsNetworkDeploymentUbuntu, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
+	return env.supportsNetworkDeploymentUbuntu, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
@@ -1813,7 +1818,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 	if instId != instance.UnknownId {
 		logger.Debugf("instance %q has subnets %v", instId, subnets)
 	} else {
-		logger.Debugf("found subnets %v", instId, subnets)
+		logger.Debugf("found subnets %v", subnets)
 	}
 
 	return subnets, nil

@@ -233,6 +233,11 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {

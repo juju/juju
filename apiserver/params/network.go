@@ -551,6 +551,7 @@ type CreateSpaceParams struct {
 	SubnetTags []string `json:"SubnetTags"`
 	SpaceTag   string   `json:"SpaceTag"`
 	Public     bool     `json:"Public"`
+	ProviderId string   `json:"ProviderId,omitempty"`
 }
 
 // ListSpacesResults holds the list of all available spaces.
@@ -563,4 +564,17 @@ type Space struct {
 	Name    string   `json:"Name"`
 	Subnets []Subnet `json:"Subnets"`
 	Error   *Error   `json:"Error,omitempty"`
+}
+
+// DiscoverSpacesResults holds the list of all provider spaces.
+type DiscoverSpacesResults struct {
+	Results []ProviderSpace `json:"Results"`
+}
+
+// ProviderSpace holds the information about a single space and its associated subnets.
+type ProviderSpace struct {
+	Name       string   `json:"Name"`
+	ProviderId string   `json:"ProviderId"`
+	Subnets    []Subnet `json:"Subnets"`
+	Error      *Error   `json:"Error,omitempty"`
 }

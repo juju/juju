@@ -1,9 +1,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package networkingcommon
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -123,4 +125,26 @@ type NetworkBacking interface {
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
+}
+
+func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
+	cidr := subnet.CIDR()
+	vlantag := subnet.VLANTag()
+	providerid := subnet.ProviderId()
+	zones := subnet.AvailabilityZones()
+	status := subnet.Status()
+	var spaceTag names.SpaceTag
+	if subnet.SpaceName() != "" {
+		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+	}
+
+	return params.Subnet{
+		CIDR:       cidr,
+		VLANTag:    vlantag,
+		ProviderId: string(providerid),
+		Zones:      zones,
+		Status:     status,
+		SpaceTag:   spaceTag.String(),
+		Life:       subnet.Life(),
+	}
 }
