@@ -4,8 +4,13 @@ package maas
 
 //go:generate make -q
 
-const bridgeScriptPythonBashDef = `python_script=$(cat <<'PYTHON_SCRIPT'
-#!/usr/bin/env python
+import "path"
+
+const bridgeScriptName = "add-juju-bridge.py"
+
+var bridgeScriptPath = path.Join("/tmp", bridgeScriptName)
+
+const bridgeScriptPython = `#!/usr/bin/env python
 
 # Copyright 2015 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
@@ -330,5 +335,4 @@ def main(args):
 
 if __name__ == '__main__':
     main(arg_parser().parse_args())
-PYTHON_SCRIPT
-)`
+`
