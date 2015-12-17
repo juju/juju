@@ -498,7 +498,7 @@ class EnvJujuClient:
         for remaining in until_timeout(timeout, start=start):
             yield self.get_status()
 
-    def _wait_for_status(self, reporter, translate, exception=StatusNotMet,
+    def _wait_for_status(self, reporter, translate, exc_type=StatusNotMet,
                          timeout=1200, start=None):
         """Wait till status reaches an expected state with pretty reporting.
 
@@ -508,7 +508,7 @@ class EnvJujuClient:
 
         :param reporter: A GroupReporter instance for output.
         :param translate: A callable that takes status to make states dict.
-        :param exception: Optional StatusNotMet subclass to raise on timeout.
+        :param exc_type: Optional StatusNotMet subclass to raise on timeout.
         :param timeout: Optional number of seconds to wait before timing out.
         :param start: Optional time to count from when determining timeout.
         """
@@ -527,7 +527,7 @@ class EnvJujuClient:
             else:
                 if status is not None:
                     log.error(status.status_text)
-                raise exception(self.env.environment, status)
+                raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
         return status
@@ -612,18 +612,18 @@ class EnvJujuClient:
 
     def wait_for_workloads(self, timeout=180, start=None):
         """Wait until all unit workloads are in a ready state."""
-        final_states = frozenset(('unknown', 'active'))
-
         def status_to_workloads(status):
             unit_states = defaultdict(list)
             for name, unit in status.iter_units():
                 workload = unit.get('workload-status')
                 if workload is not None:
-                    unit_states[workload['current']].append(name)
-            if final_states.issuperset(unit_states):
+                    state = workload['current']
+                    if state != 'unknown':
+                        unit_states[state].append(name)
+            if unit_states.keys() == ['active']:
                 return None
             return unit_states
-        reporter = GroupReporter(sys.stdout, final_states)
+        reporter = GroupReporter(sys.stdout, 'active')
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
@@ -1083,14 +1083,13 @@ class Status:
                 continue
             yield machine, data
 
-    def iter_units(self, include_subordinates=True):
+    def iter_units(self):
         for service_name, service in sorted(self.status['services'].items()):
             for unit_name, unit in sorted(service.get('units', {}).items()):
                 yield unit_name, unit
-                if include_subordinates:
-                    subordinates = unit.get('subordinates', ())
-                    for sub_name in sorted(subordinates):
-                        yield sub_name, subordinates[sub_name]
+                subordinates = unit.get('subordinates', ())
+                for sub_name in sorted(subordinates):
+                    yield sub_name, subordinates[sub_name]
 
     def agent_items(self):
         for machine_name, machine in self.iter_machines(containers=True):
@@ -1218,10 +1217,7 @@ class GroupReporter:
 
     def __init__(self, stream, expected):
         self.stream = stream
-        if isinstance(expected, (frozenset, set)):
-            self.matches = expected.__contains__
-        else:
-            self.matches = expected.__eq__
+        self.expected = expected
         self.last_group = None
         self.ticks = 0
         self.wrap_offset = 0
@@ -1244,7 +1240,7 @@ class GroupReporter:
             return
         value_listing = []
         for value, entries in sorted(group.items()):
-            if self.matches(value):
+            if value == self.expected:
                 continue
             value_listing.append('%s: %s' % (value, ', '.join(entries)))
         string = ' | '.join(value_listing)

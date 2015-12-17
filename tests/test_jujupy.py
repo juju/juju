@@ -2429,29 +2429,6 @@ class TestStatus(FakeHomeTestCase):
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
 
-    def test_iter_units_no_subordinates(self):
-        unit_with_subordinate = {
-            'agent-state': 'started',
-            'subordinates': {
-                'ntp/0': {'agent-state': 'started'},
-            },
-        }
-        status = Status({
-            'services': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/0': unit_with_subordinate,
-                    }
-                },
-            }
-        }, '')
-        expected = [
-            ('jenkins/0', unit_with_subordinate),
-        ]
-        gen = status.iter_units(include_subordinates=False)
-        self.assertIsInstance(gen, types.GeneratorType)
-        self.assertEqual(expected, list(gen))
-
 
 def fast_timeout(count):
     if False:
@@ -2646,16 +2623,6 @@ working: 1 ....................................................................
         ])
         reporter.finish()
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
-
-    def test_multiple_expected(self):
-        sio = StringIO.StringIO()
-        reporter = GroupReporter(sio, frozenset(("done", "unknown")))
-        reporter.update({"working": ["1", "2"], "unknown": ["3"]})
-        self.assertEqual(sio.getvalue(), "working: 1, 2")
-        reporter.update({"working": ["1"], "done": ["2"], "unknown": ["3"]})
-        self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1")
-        reporter.update({"done": ["1", "2"], "unknown": ["3"]})
-        self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1\n")
 
 
 class TestMakeClient(TestCase):
