@@ -19,6 +19,7 @@ from build_package import (
     create_source_package,
     create_source_package_branch,
     CREATE_SPB_TEMPLATE,
+    DEBS_NOT_FOUND,
     DEFAULT_SPB,
     get_args,
     juju_series,
@@ -200,6 +201,18 @@ class BuildPackageTestCase(unittest.TestCase):
         md_mock.assert_called_with(
             'build_dir', '~/workspace', verbose=False)
 
+    @autopatch('build_package.move_debs', return_value=False)
+    @autopatch('build_package.teardown_lxc', return_value=True)
+    @autopatch('build_package.build_in_lxc')
+    @autopatch('build_package.setup_lxc', return_value='trusty-i386')
+    @autopatch('build_package.setup_local', return_value='build_dir')
+    @autopatch('build_package.parse_dsc', return_value=['orig', 'debian'])
+    def test_build_binary_debs_not_found(
+            self, pd_mock, sl_mock, l_mock, bl_mock, tl_mock, md_mock):
+        code = build_binary(
+            'my.dsc', '~/workspace', 'trusty', 'i386', verbose=False)
+        self.assertEqual(DEBS_NOT_FOUND, code)
+
     @patch('build_package.build_in_lxc', side_effect=Exception)
     @patch('build_package.setup_lxc', return_value='trusty-i386')
     @patch('build_package.setup_local')
@@ -310,6 +323,13 @@ class BuildPackageTestCase(unittest.TestCase):
             self.assertTrue(found)
             self.assertFalse(os.path.isfile(deb_file))
             self.assertTrue(os.path.isfile(os.path.join(workspace, 'my.deb')))
+
+    def test_move_debs_not_found(self):
+        with temp_dir() as workspace:
+            build_dir = os.path.join(workspace, 'juju-build-trusty-i386')
+            os.makedirs(build_dir)
+            found = move_debs(build_dir, workspace)
+            self.assertFalse(found)
 
     @autopatch('build_package.create_source_package')
     @autopatch('build_package.create_source_package_branch',

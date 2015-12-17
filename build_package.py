@@ -14,6 +14,8 @@ import sys
 __metaclass__ = type
 
 
+DEBS_NOT_FOUND = 3
+
 # This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
 
@@ -255,7 +257,9 @@ def build_binary(dsc_path, location, series, arch, ppa=None, verbose=False):
         build_in_lxc(container, build_dir, ppa=ppa, verbose=verbose)
     finally:
         teardown_lxc(container, verbose=False)
-    move_debs(build_dir, location, verbose=verbose)
+    found = move_debs(build_dir, location, verbose=verbose)
+    if not found:
+        return DEBS_NOT_FOUND
     return 0
 
 
