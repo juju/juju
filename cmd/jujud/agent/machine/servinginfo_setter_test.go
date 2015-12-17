@@ -99,7 +99,8 @@ func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *ServingInfoSetterSuite) TestSetsStateServingInfo(c *gc.C) {
+func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
+	// State serving info should be set for machines with JobManageEnviron.
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
@@ -136,7 +137,17 @@ func (s *ServingInfoSetterSuite) TestSetsStateServingInfo(c *gc.C) {
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
 }
 
-func (s *ServingInfoSetterSuite) TestNotStateServer(c *gc.C) {
+func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
+	// State serving info should not be set for JobHostUnits.
+	s.checkNotStateServer(c, multiwatcher.JobHostUnits)
+}
+
+func (s *ServingInfoSetterSuite) TestJobManageNetworking(c *gc.C) {
+	// State serving info should NOT be set for JobManageNetworking.
+	s.checkNotStateServer(c, multiwatcher.JobManageNetworking)
+}
+
+func (s *ServingInfoSetterSuite) checkNotStateServer(c *gc.C, job multiwatcher.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
@@ -146,7 +157,7 @@ func (s *ServingInfoSetterSuite) TestNotStateServer(c *gc.C) {
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+					Jobs: []multiwatcher.MachineJob{job},
 				}}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
@@ -161,7 +172,7 @@ func (s *ServingInfoSetterSuite) TestNotStateServer(c *gc.C) {
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 
-	// State serving info shouldn't have been set for JobHostUnits
+	// State serving info shouldn't have been set for this job type.
 	c.Assert(a.conf.ssiSet, jc.IsFalse)
 }
 
