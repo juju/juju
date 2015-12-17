@@ -395,7 +395,7 @@ var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
 // DefaultBridgePrefix is the prefix for all network bridge device
 // name used for LXC and KVM containers.
-const DefaultBridgePrefix = "juju-br-"
+const DefaultBridgePrefix = "br-"
 
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
