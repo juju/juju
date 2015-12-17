@@ -26,13 +26,11 @@ func (s *crossmodelSuite) SetUpTest(c *gc.C) {
 
 func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	serviceName := "test"
-	serviceAlias := "test-alias"
-	expectedOffer := s.addService(c, serviceName, serviceAlias)
+	expectedOffer := s.addService(c, serviceName)
 	one := params.ServiceOfferParams{
-		ServiceURL:   "local:/u/me/test",
-		ServiceName:  serviceName,
-		ServiceAlias: serviceAlias,
-		Endpoints:    []string{"db"},
+		ServiceURL:  "local:/u/me/test",
+		ServiceName: serviceName,
+		Endpoints:   []string{"db"},
 	}
 	all := params.ServiceOffersParams{[]params.ServiceOfferParams{one}}
 	expectedOfferParams := params.AddServiceOffer{
@@ -40,7 +38,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 			ServiceURL:         "local:/u/me/test",
 			SourceEnvironTag:   "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			SourceLabel:        "dummyenv",
-			ServiceName:        "test-alias",
+			ServiceName:        "test",
 			ServiceDescription: "A pretty popular blog engine",
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "db",
@@ -66,7 +64,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	serviceName := "test"
-	s.addService(c, serviceName, serviceName)
+	s.addService(c, serviceName)
 	one := params.ServiceOfferParams{
 		ServiceName: serviceName,
 	}
@@ -241,7 +239,7 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 	serviceName := "test"
 	url := "local:/u/fred/hosted-db2"
 
-	s.addService(c, serviceName, serviceName)
+	s.addService(c, serviceName)
 
 	s.serviceBackend.listOfferedServices = func(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
 		return []crossmodel.OfferedService{

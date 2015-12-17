@@ -25,11 +25,10 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares service's endpoints for consumption.
-func (c *Client) Offer(service, serviceAlias string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
+func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
 	offers := []params.ServiceOfferParams{
 		params.ServiceOfferParams{
 			ServiceName:        service,
-			ServiceAlias:       serviceAlias,
 			ServiceDescription: desc,
 			Endpoints:          endpoints,
 			ServiceURL:         url,

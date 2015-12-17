@@ -137,9 +137,9 @@ func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
 	s.AddTestingService(c, "mysql", ch)
 
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"mysql:server", "local:/u/me/mysql", "--service-alias", "hosted-mysql")
+		"mysql:server", "local:/u/me/hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runJujuCommand(c, "add-relation", "wordpress", "local:/u/me/mysql")
+	_, err = runJujuCommand(c, "add-relation", "wordpress", "local:/u/me/hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteService("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)

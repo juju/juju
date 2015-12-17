@@ -72,17 +72,12 @@ func (s *offerSuite) TestOfferDataErred(c *gc.C) {
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
 	s.args = []string{"tst:db"}
-	s.assertOfferOutput(c, "tst", "", []string{"db"}, "local:/u/user-test/testing/tst", nil)
-}
-
-func (s *offerSuite) TestOfferAlias(c *gc.C) {
-	s.args = []string{"tst:db", "--service-alias", "alias"}
-	s.assertOfferOutput(c, "tst", "alias", []string{"db"}, "local:/u/user-test/testing/tst", nil)
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", nil)
 }
 
 func (s *offerSuite) TestOfferWithURL(c *gc.C) {
 	s.args = []string{"tst:db", "/u/user/offer"}
-	s.assertOfferOutput(c, "tst", "", []string{"db"}, "/u/user/offer", nil)
+	s.assertOfferOutput(c, "tst", []string{"db"}, "/u/user/offer", nil)
 }
 
 func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
@@ -92,37 +87,35 @@ func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
 
 func (s *offerSuite) TestOfferToUser(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah"}
-	s.assertOfferOutput(c, "tst", "", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah"})
 }
 
 func (s *offerSuite) TestOfferToUsers(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah,fluff"}
-	s.assertOfferOutput(c, "tst", "", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah", "user-fluff"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "local:/u/user-test/testing/tst", []string{"user-blah", "user-fluff"})
 }
 
 func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
 	s.args = []string{"tst:db,admin"}
-	s.assertOfferOutput(c, "tst", "", []string{"db", "admin"}, "local:/u/user-test/testing/tst", nil)
+	s.assertOfferOutput(c, "tst", []string{"db", "admin"}, "local:/u/user-test/testing/tst", nil)
 }
 
 func (s *offerSuite) TestOfferAllArgs(c *gc.C) {
 	s.args = []string{"tst:db", "/u/user/offer", "--to", "blah"}
-	s.assertOfferOutput(c, "tst", "", []string{"db"}, "/u/user/offer", []string{"user-blah"})
+	s.assertOfferOutput(c, "tst", []string{"db"}, "/u/user/offer", []string{"user-blah"})
 }
 
-func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService, alias string, endpoints []string, url string, users []string) {
+func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService string, endpoints []string, url string, users []string) {
 	_, err := s.runOffer(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.offers[expectedService], jc.SameContents, endpoints)
-	c.Assert(s.mockAPI.aliases[expectedService], gc.Equals, alias)
-	c.Assert(s.mockAPI.urls[expectedService], gc.Equals, url)
+	c.Assert(s.mockAPI.urls[expectedService], jc.DeepEquals, url)
 	c.Assert(s.mockAPI.users[expectedService], jc.SameContents, users)
 }
 
 type mockOfferAPI struct {
 	errCall, errData bool
 	offers           map[string][]string
-	aliases          map[string]string
 	users            map[string][]string
 	urls             map[string]string
 	descs            map[string]string
@@ -131,7 +124,6 @@ type mockOfferAPI struct {
 func NewMockOfferAPI() *mockOfferAPI {
 	mock := &mockOfferAPI{}
 	mock.offers = make(map[string][]string)
-	mock.aliases = make(map[string]string)
 	mock.users = make(map[string][]string)
 	mock.urls = make(map[string]string)
 	mock.descs = make(map[string]string)
@@ -142,7 +134,7 @@ func (s mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s mockOfferAPI) Offer(service, alias string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
+func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
@@ -152,7 +144,6 @@ func (s mockOfferAPI) Offer(service, alias string, endpoints []string, url strin
 		return result, nil
 	}
 	s.offers[service] = endpoints
-	s.aliases[service] = alias
 	s.urls[service] = url
 	s.users[service] = users
 	s.descs[service] = desc

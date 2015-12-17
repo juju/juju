@@ -110,13 +110,9 @@ func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucross
 	}
 
 	// offer is used to record the offered service in the host environment.
-	alias := p.ServiceAlias
-	if alias == "" {
-		service.Name()
-	}
 	offer := jujucrossmodel.OfferedService{
 		ServiceURL:  p.ServiceURL,
-		ServiceName: alias,
+		ServiceName: service.Name(),
 		CharmName:   curl.Name,
 		Endpoints:   epNames,
 		Description: p.ServiceDescription,

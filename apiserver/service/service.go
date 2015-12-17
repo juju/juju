@@ -454,7 +454,7 @@ func saveRemoteService(
 
 	// Create a remote service entry in the model for the consumed service.
 	offer := offers.Offers[0]
-	rs, err := st.RemoteService(offer.ServiceName)
+	rs, err := st.RemoteService(url.ServiceName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -472,7 +472,7 @@ func saveRemoteService(
 			Scope:     ep.Scope,
 		}
 	}
-	rs, err = st.AddRemoteService(offer.ServiceName, url.String(), remoteEps)
+	rs, err = st.AddRemoteService(url.ServiceName, url.String(), remoteEps)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return nil, errors.Trace(err)
