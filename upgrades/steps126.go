@@ -4,8 +4,11 @@
 package upgrades
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
+	"github.com/juju/juju/version"
 )
 
 // stepsFor126 returns upgrade steps for Juju 1.26.
@@ -39,6 +42,18 @@ func stateStepsFor126() []Step {
 				// package from provider-specific upgrades.
 				st := context.State()
 				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
+			},
+		},
+		&upgradeStep{
+			description: "provider side upgrades",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				st := context.State()
+				env, err := utils.GetEnvironment(st)
+				if err != nil {
+					return errors.Annotate(err, "getting provider for upgrade")
+				}
+				return upgradeProviderChanges(env, st, version.Number{Major: 1, Minor: 26})
 			},
 		},
 		&upgradeStep{

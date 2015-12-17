@@ -1050,9 +1050,13 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("UUID in environ config")
+	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
-		e.Config().Name(),
+		eUUID,
 	)
 
 	var server *nova.Entity
@@ -1259,7 +1263,16 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
+	cfg := e.Config()
+	eUUID, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("environment UUID")
+	}
 	for _, server := range servers {
+		envUUID, ok := server.Metadata[tags.JujuEnv]
+		if !ok || envUUID != eUUID {
+			continue
+		}
 		if e.isAliveServer(server) {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
@@ -1294,7 +1307,8 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Config().Name()))
+	eUUID, _ := e.Config().UUID()
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
 	return filter
 }
 
