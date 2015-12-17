@@ -9,5 +9,8 @@ bridgescript.go: add-juju-bridge.py Makefile
 	cat add-juju-bridge.py >> $@
 	echo -n 'PYTHON_SCRIPT\n)`\n' >> $@
 
+format:
+	pyfmt -i add-juju-bridge.py
+
 clean:
 	$(RM) bridgescript.go
