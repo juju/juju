@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import datetime
+from itertools import count
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ from textwrap import dedent
 import yaml
 
 from deploy_stack import (
+    BootstrapManager,
     wait_for_state_server_to_shutdown,
     )
 from jujupy import (
@@ -21,7 +23,6 @@ from jujupy import (
     EnvJujuClient,
     get_machine_dns_name,
     SimpleEnvironment,
-    temp_bootstrap_env,
     uniquify_local,
     )
 from substrate import (
@@ -43,6 +44,16 @@ DENSITY = 'density'
 FULL = 'full'
 BACKUP = 'backup'
 UPGRADE = 'upgrade'
+
+
+class LoggedException(BaseException):
+    """Raised in place of an exception that has already been logged.
+
+    This is a wrapper to avoid double-printing real Exceptions while still
+    unwinding the stack appropriately.
+    """
+    def __init__(self, exception):
+        self.exception = exception
 
 
 class StageInfo:
@@ -77,15 +88,14 @@ class MultiIndustrialTest:
         config = SimpleEnvironment.from_config(args.env).config
         stages = cls.get_stages(suite, config)
         return cls(args.env, args.new_juju_path,
-                   stages, args.attempts, args.attempts * 2,
+                   stages, args.log_dir, args.attempts, args.attempts * 2,
                    args.new_agent_url, args.debug, args.old_stable)
 
     @staticmethod
     def get_stages(suite, config):
-        stages = list(suites[suite])
-        return stages
+        return suites[suite]
 
-    def __init__(self, env, new_juju_path, stages, attempt_count=2,
+    def __init__(self, env, new_juju_path, stages, log_dir, attempt_count=2,
                  max_attempts=1, new_agent_url=None, debug=False,
                  really_old_path=None):
         self.env = env
@@ -96,20 +106,21 @@ class MultiIndustrialTest:
         self.attempt_count = attempt_count
         self.max_attempts = max_attempts
         self.debug = debug
+        self.log_parent_dir = log_dir
+        self._log_dir_count = count()
 
     def make_results(self):
         """Return a results list for use in run_tests."""
         results = []
-        for stage in self.stages:
-            for test_id, info in stage.get_test_info().items():
-                results.append({
-                    'title': info['title'],
-                    'test_id': test_id,
-                    'report_on': info.get('report_on', True),
-                    'attempts': 0,
-                    'old_failures': 0,
-                    'new_failures': 0,
-                    })
+        for test_id, info in self.stages.get_test_info().items():
+            results.append({
+                'title': info['title'],
+                'test_id': test_id,
+                'report_on': info.get('report_on', True),
+                'attempts': 0,
+                'old_failures': 0,
+                'new_failures': 0,
+                })
         return {'results': results}
 
     def run_tests(self):
@@ -148,8 +159,8 @@ class MultiIndustrialTest:
         stable_path = EnvJujuClient.get_full_path()
         paths = [self.really_old_path, stable_path, self.new_juju_path]
         upgrade_sequence = [p for p in paths if p is not None]
-        stage_attempts = [stage.factory(upgrade_sequence)
-                          for stage in self.stages]
+        stage_attempts = [self.stages.factory(upgrade_sequence,
+                                              self.log_parent_dir)]
         return IndustrialTest.from_args(self.env, self.new_juju_path,
                                         stage_attempts, self.new_agent_url,
                                         self.debug)
@@ -222,14 +233,12 @@ class IndustrialTest:
 
     def run_attempt(self):
         """Perform this attempt, with initial cleanup."""
-        self.destroy_both()
         try:
             return list(self.run_stages())
         except CannotUpgradeToOldClient:
             raise
         except Exception as e:
             logging.exception(e)
-            self.destroy_both()
             sys.exit(1)
 
     def destroy_both(self):
@@ -245,18 +254,22 @@ class IndustrialTest:
         Iteration stops when one client has a False result.
         """
         for attempt in self.stage_attempts:
+            result_iter = attempt.iter_test_results(self.old_client,
+                                                    self.new_client)
             try:
-                for result in attempt.iter_test_results(self.old_client,
-                                                        self.new_client):
+                for result in result_iter:
                     yield result
             except CannotUpgradeToClient as e:
                 if e.client is not self.old_client:
                     raise
                 raise CannotUpgradeToOldClient(e.client)
-            # If a stage ends with a failure, no further stages should be run.
-            if False in result[1:]:
-                self.destroy_both()
-                return
+            else:
+                # If a stage ends with a failure, no further stages should be
+                # run.
+                if False in result[1:]:
+                    return
+            finally:
+                result_iter.close()
 
 
 class SteppedStageAttempt:
@@ -314,8 +327,7 @@ class SteppedStageAttempt:
                 last_result = result
             yield result
 
-    @classmethod
-    def _iter_test_results(cls, old_iter, new_iter):
+    def _iter_test_results(self, old_iter, new_iter):
         """Iterate through none-or-result to get result for each operation.
 
         Yield the result as a tuple of (test-id, old_result, new_result).
@@ -324,25 +336,39 @@ class SteppedStageAttempt:
         responsiveness; an itererator can start a long-running operation,
         yield, then acquire the result of the operation.
         """
-        while True:
-            old_result = None
-            new_result = None
-            while None in (old_result, new_result):
-                try:
-                    if old_result is None:
-                        old_result = old_iter.next()
-                    if new_result is None:
-                        new_result = new_iter.next()
-                except StopIteration:
-                    return
-            if old_result['test_id'] != new_result['test_id']:
-                raise ValueError('Test id mismatch.')
-            results = (old_result['result'], new_result['result'])
-            result_strings = ['succeeded' if r else 'failed' for r in results]
-            logging.info('{}: old {}, new {}.'.format(
-                cls.get_test_info()[old_result['test_id']]['title'],
-                *result_strings))
-            yield (old_result['test_id'],) + results
+        try:
+            while True:
+                old_result = None
+                new_result = None
+                while None in (old_result, new_result):
+                    try:
+                        if old_result is None:
+                            old_result = old_iter.next()
+                        if new_result is None:
+                            new_result = new_iter.next()
+                    except StopIteration:
+                        return
+                if old_result['test_id'] != new_result['test_id']:
+                    raise ValueError('Test id mismatch: {} {}'.format(
+                        old_result['test_id'], new_result['test_id']))
+                results = (old_result['result'], new_result['result'])
+                result_strings = ['succeeded' if r else 'failed'
+                                  for r in results]
+                logging.info('{}: old {}, new {}.'.format(
+                    self.get_test_info()[old_result['test_id']]['title'],
+                    *result_strings))
+                yield (old_result['test_id'],) + results
+        except CannotUpgradeToClient:
+            raise
+        except Exception as e:
+            logging.exception(e)
+            raise LoggedException(e)
+        finally:
+            # Shut down both iterators, including destroy-environment
+            try:
+                old_iter.close()
+            finally:
+                new_iter.close()
 
     @classmethod
     def get_test_info(cls):
@@ -364,14 +390,16 @@ class BootstrapAttempt(SteppedStageAttempt):
         """Describe the tests provided by this Stage."""
         return {'bootstrap': {'title': 'bootstrap'}}
 
+    def get_bootstrap_client(self, client):
+        return client
+
     def iter_steps(self, client):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'bootstrap'}
         yield results
-        with temp_bootstrap_env(client.env.juju_home, client, set_home=False):
-            logging.info('Performing async bootstrap')
-            with client.bootstrap_async():
-                yield results
+        logging.info('Performing async bootstrap')
+        with client.bootstrap_async():
+            yield results
         with wait_for_started(client):
             yield results
         results['result'] = True
@@ -391,15 +419,17 @@ class CannotUpgradeToOldClient(CannotUpgradeToClient):
     """UpgradeJujuAttempt cannot upgrade to the old client."""
 
 
-class UpgradeJujuAttempt(SteppedStageAttempt):
+class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
 
-    @staticmethod
-    def get_test_info():
-        return OrderedDict([
-            ('prepare-upgrade-juju',
-                {'title': 'Prepare upgrade-juju', 'report_on': False}),
-            ('upgrade-juju', {'title': 'Upgrade Juju'}),
-            ])
+    prepare_upgrade = StageInfo(
+        'prepare-upgrade-juju',
+        'Prepare upgrade-juju',
+        report_on=False,
+        )
+
+    @classmethod
+    def get_test_info(cls):
+        return dict([cls.prepare_upgrade.as_tuple()])
 
     @classmethod
     def factory(cls, upgrade_sequence):
@@ -410,21 +440,38 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         return cls(bootstrap_paths)
 
     def __init__(self, bootstrap_paths):
-        super(UpgradeJujuAttempt, self).__init__()
+        super(PrepareUpgradeJujuAttempt, self).__init__()
         self.bootstrap_paths = bootstrap_paths
 
-    def iter_steps(self, client):
-        ba = BootstrapAttempt()
+    def get_bootstrap_client(self, client):
         try:
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
             raise CannotUpgradeToClient(client)
-        bootstrap_client = client.by_version(
+        return client.by_version(
             client.env, bootstrap_path, client.debug)
-        for result in ba.iter_steps(bootstrap_client):
-            result = dict(result)
-            result['test_id'] = 'prepare-upgrade-juju'
-            yield result
+
+    def iter_steps(self, client):
+        bootstrap_client = self.get_bootstrap_client(client)
+        import pdb; pdb.set_trace()
+        yield self.prepare_upgrade.as_result()
+        steps_iter = BootstrapAttempt().iter_steps(bootstrap_client)
+        try:
+            for result in steps_iter:
+                result = dict(result)
+                result['test_id'] = 'prepare-upgrade-juju'
+                yield result
+        finally:
+            steps_iter.close()
+
+
+class UpgradeJujuAttempt(SteppedStageAttempt):
+
+    @staticmethod
+    def get_test_info():
+        return {'upgrade-juju': {'title': 'Upgrade Juju'}}
+
+    def iter_steps(self, client):
         result = {'test_id': 'upgrade-juju'}
         yield result
         client.upgrade_juju()
@@ -630,7 +677,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 'title': 'remove many machines (instance)'}),
             ])
 
-    def __init__(self, host_count=5, container_count=8):
+    def __init__(self, host_count=1, container_count=1):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
@@ -742,16 +789,102 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         yield results
 
 
+def get_test_info(suite):
+    result = OrderedDict(suite.bootstrap_attempt.get_test_info())
+    for attempt in suite.attempt_list:
+        result.update(attempt.get_test_info())
+    result.update(DestroyEnvironmentAttempt.get_test_info())
+    return result
+
+
+class AttemptSuiteFactory:
+
+    def __init__(self, attempt_list, bootstrap_attempt=None):
+        if bootstrap_attempt is None:
+            bootstrap_attempt = BootstrapAttempt
+        self.bootstrap_attempt = bootstrap_attempt
+        self.attempt_list = attempt_list
+
+    def factory(self, upgrade_sequence, log_dir):
+        attempt_list = [
+            a.factory(upgrade_sequence) for a in self.attempt_list]
+        bootstrap_attempt = self.bootstrap_attempt.factory(upgrade_sequence)
+        return AttemptSuite(attempt_list, bootstrap_attempt, log_dir)
+
+    def get_test_info(self):
+        """Describe the tests provided by this Stage."""
+        return get_test_info(self)
+
+
+class AttemptSuite(SteppedStageAttempt):
+
+    def __init__(self, attempt_list, bootstrap_attempt, log_dir):
+        if bootstrap_attempt is None:
+            bootstrap_attempt = BootstrapAttempt
+        self.bootstrap_attempt = bootstrap_attempt
+        self.attempt_list = attempt_list
+        self.log_dir = log_dir
+
+    def get_test_info(self):
+        """Describe the tests provided by this Stage."""
+        return get_test_info(self)
+
+    def iter_steps(self, client):
+        bs_client = self.bootstrap_attempt.get_bootstrap_client(client)
+        bs_jes_enabled = bs_client.is_jes_enabled()
+        jes_enabled = client.is_jes_enabled()
+        bs_manager = BootstrapManager(
+            client.env.environment, bs_client, bs_client,
+            bootstrap_host=None,
+            machines=[], series=None, agent_url=None, agent_stream=None,
+            region=None, log_dir=make_log_dir(self.log_dir), keep_env=True,
+            permanent=jes_enabled, jes_enabled=bs_jes_enabled)
+        with bs_manager.top_context() as machines:
+            with bs_manager.bootstrap_context(machines):
+                try:
+                    bs_steps = self.bootstrap_attempt.iter_steps(client)
+                    for result in bs_steps:
+                        yield result
+                finally:
+                    bs_steps.close()
+            with bs_manager.runtime_context(machines):
+                bs_manager.client = client
+                bs_manager.tear_down_client = client
+                bs_manager.jes_enabled = jes_enabled
+                for attempt in self.attempt_list:
+                    attempt_steps = attempt.iter_steps(client)
+                    try:
+                        for result in attempt_steps:
+                            yield result
+                    finally:
+                        attempt_steps.close()
+                # We don't want BootstrapManager.tear_down to run-- we want
+                # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
+                # to finish up before we run DestroyEnvironmentAttempt.
+                bs_manager.keep_env = True
+            try:
+                destroy_steps = DestroyEnvironmentAttempt().iter_steps(client)
+                try:
+                    for result in destroy_steps:
+                        yield result
+                finally:
+                    destroy_steps.close()
+            except:
+                bs_manager.tear_down()
+                raise
+            finally:
+                bs_manager.keep_env = False
+
+
 suites = {
-    QUICK: (BootstrapAttempt, DestroyEnvironmentAttempt),
-    DENSITY: (BootstrapAttempt, DeployManyAttempt,
-              DestroyEnvironmentAttempt),
-    FULL: (BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
-           BackupRestoreAttempt, EnsureAvailabilityAttempt,
-           DestroyEnvironmentAttempt),
-    BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
-             DestroyEnvironmentAttempt),
-    UPGRADE: (UpgradeJujuAttempt, DestroyEnvironmentAttempt),
+    QUICK: AttemptSuiteFactory([]),
+    DENSITY: AttemptSuiteFactory([DeployManyAttempt]),
+    FULL: AttemptSuiteFactory([
+        UpgradeCharmAttempt, DeployManyAttempt, BackupRestoreAttempt,
+        EnsureAvailabilityAttempt]),
+    BACKUP: AttemptSuiteFactory([BackupRestoreAttempt]),
+    UPGRADE: AttemptSuiteFactory(
+        [UpgradeJujuAttempt], bootstrap_attempt=PrepareUpgradeJujuAttempt),
     }
 
 
@@ -765,12 +898,22 @@ def suite_list(suite_str):
     return suite_list
 
 
+_log_dir_count = count()
+
+
+def make_log_dir(log_parent_dir):
+    new_log_dir = os.path.join(log_parent_dir, str(_log_dir_count.next()))
+    os.mkdir(new_log_dir)
+    return new_log_dir
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
     parser.add_argument('suite', type=suite_list)
+    parser.add_argument('log_dir')
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
@@ -796,17 +939,13 @@ def run_single(args):
         env, debug=args.debug)
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
-    client.destroy_environment()
     for suite in args.suite:
-        stages = MultiIndustrialTest.get_stages(suite, env.config)
+        factory = MultiIndustrialTest.get_stages(suite, env.config)
         upgrade_sequence = [upgrade_client.full_path, client.full_path]
-        try:
-            for stage in stages:
-                for step in stage.factory(upgrade_sequence).iter_steps(client):
-                    print(step)
-        except BaseException as e:
-            logging.exception(e)
-            client.destroy_environment()
+        suite = factory.factory(upgrade_sequence, args.log_dir)
+        steps_iter = suite.iter_steps(client)
+        for step in steps_iter:
+            print(step)
 
 
 def main():
@@ -825,6 +964,8 @@ def main():
                 raise
             sys.stderr.write('Upgade tests require --old-stable.\n')
             sys.exit(1)
+        except LoggedException:
+            continue
     results = MultiIndustrialTest.combine_results(results_list)
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
