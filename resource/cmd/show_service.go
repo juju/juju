@@ -74,4 +74,10 @@ func (c *ShowServiceCommand) Run(*cmd.Context) error {
 	}
 	defer apiclient.Close()
 
+	err = apiclient.ShowService(c.service)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

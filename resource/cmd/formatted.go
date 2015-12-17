@@ -14,3 +14,15 @@ type FormattedCharmResource struct {
 	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
 	Origin      string `json:"origin" yaml:"origin"`
 }
+
+// FormattedServiceResource holds the formatted representation of a resource's info.
+type FormattedServiceResource struct {
+	// These fields are exported for the sake of serialization.
+	Name        string `json:"name" yaml:"name"`
+	Type        string `json:"type" yaml:"type"`
+	Path        string `json:"path" yaml:"path"`
+	State       string `json:"state" yaml:"state"`
+	Revision    int    `json:"revision,omitempty" yaml:"revision,omitempty"`
+	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
+	Origin      string `json:"origin" yaml:"origin"`
+}
