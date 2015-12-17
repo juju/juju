@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -97,7 +96,7 @@ func (c *UploadCommand) addResource(arg string) error {
 func (c *UploadCommand) Run(*cmd.Context) error {
 	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Annotatef(err, "can't connect to %s", c.ConnectionName())
 	}
 	defer apiclient.Close()
 

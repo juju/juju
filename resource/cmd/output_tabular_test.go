@@ -1,15 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package cmd
 
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&OutputTabularSuite{})
@@ -22,7 +20,7 @@ func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 	info := newCharmResource(c, "spam", ".tgz", "...", "")
 	formatted := formatInfos(info)
 
-	data, err := cmd.FormatTabular(formatted)
+	data, err := FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
@@ -35,7 +33,7 @@ func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
 	info := newCharmResource(c, "spam", "", "", "")
 	formatted := formatInfos(info)
 
-	data, err := cmd.FormatTabular(formatted)
+	data, err := FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
@@ -53,7 +51,7 @@ func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 		newCharmResource(c, "avatar", ".png", "your picture", ""),
 	)
 
-	data, err := cmd.FormatTabular(formatted)
+	data, err := FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
@@ -68,15 +66,15 @@ avatar       upload -   your picture
 
 func (s *OutputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
 	bogus := "should have been []formattedInfo"
-	_, err := cmd.FormatTabular(bogus)
+	_, err := FormatTabular(bogus)
 
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
-func formatInfos(resources ...charmresource.Resource) []cmd.FormattedCharmResource {
-	var formatted []cmd.FormattedCharmResource
+func formatInfos(resources ...charmresource.Resource) []FormattedCharmResource {
+	var formatted []FormattedCharmResource
 	for _, res := range resources {
-		formatted = append(formatted, cmd.FormatCharmResource(res))
+		formatted = append(formatted, FormatCharmResource(res))
 	}
 	return formatted
 }

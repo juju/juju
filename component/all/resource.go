@@ -89,19 +89,6 @@ func (client resourcesAPIClient) Close() error {
 	return client.closeConnFunc()
 }
 
-// newAPIClient builds a new resources public API client from
-// the provided API caller.
-func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient, error) {
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
-
-	cl := &resourcesAPIClient{
-		Client:        client.NewClient(caller),
-		closeConnFunc: apiCaller.Close,
-	}
-
-	return cl, nil
-}
-
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -118,6 +105,9 @@ func (r resources) registerPublicCommands() {
 		// TODO(ericsnow) finish!
 		return nil, errors.Errorf("not implemented")
 	}
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		return cmd.NewShowCommand(newShowAPIClient)
+	})
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{

@@ -28,7 +28,7 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.stubDeps = &stubUploadDeps{
 		stub:   stub,
 		file:   &stubFile{stub: stub},
-		client: &StubClient{Stub: stub},
+		client: &stubCharmStore{stub: stub},
 	}
 }
 
@@ -147,7 +147,7 @@ func checkCall(c *gc.C, stub *testing.Stub, funcname string, args [][]interface{
 type stubUploadDeps struct {
 	stub   *testing.Stub
 	file   *stubFile
-	client *StubClient
+	client *stubCharmStore
 }
 
 func (s *stubUploadDeps) NewClient(c *UploadCommand) (UploadClient, error) {

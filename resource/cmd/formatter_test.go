@@ -1,15 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package cmd
 
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&FormatterSuite{})
@@ -24,9 +22,9 @@ func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fingerprint := string(fp.Bytes())
 	res := newCharmResource(c, "spam", ".tgz", "X", fingerprint)
-	formatted := cmd.FormatCharmResource(res)
+	formatted := FormatCharmResource(res)
 
-	c.Check(formatted, jc.DeepEquals, cmd.FormattedCharmResource{
+	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
