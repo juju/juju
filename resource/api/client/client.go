@@ -4,6 +4,9 @@
 package client
 
 import (
+	"io"
+
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -19,11 +22,18 @@ type FacadeCaller interface {
 // Client is the public client for the resources API facade.
 type Client struct {
 	// Add the sub-client here.
+	io.Closer
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(raw FacadeCaller) *Client {
+func NewClient(caller FacadeCaller, closer io.Closer) *Client {
 	return &Client{
-	// Add the sub-client here.
+		// Add the sub-client here.
+		Closer: closer,
 	}
+}
+
+func (c Client) Upload(service, name string, resource io.Reader) error {
+	// TODO(natefinch): implement this
+	return errors.NewNotImplemented(nil, "resources.Client.Upload is not implemented")
 }

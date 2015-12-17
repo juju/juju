@@ -4,10 +4,13 @@
 package all
 
 import (
+	"io"
+	"os"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	coreapi "github.com/juju/juju/api"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
@@ -86,19 +89,6 @@ func (client resourcesAPIClient) Close() error {
 	return client.closeConnFunc()
 }
 
-// newAPIClient builds a new resources public API client from
-// the provided API caller.
-func (resources) newAPIClient(apiCaller coreapi.Connection) (*resourcesAPIClient, error) {
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
-
-	cl := &resourcesAPIClient{
-		Client:        client.NewClient(caller),
-		closeConnFunc: apiCaller.Close,
-	}
-
-	return cl, nil
-}
-
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -118,4 +108,30 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
 	})
+
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		return cmd.NewUploadCommand(cmd.UploadDeps{
+			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
+				return r.newClient(c)
+			},
+			OpenResource: func(s string) (io.ReadCloser, error) {
+				return os.Open(s)
+			},
+		})
+
+	})
+}
+
+type apicommand interface {
+	NewAPIRoot() (api.Connection, error)
+}
+
+func (resources) newClient(command apicommand) (*client.Client, error) {
+	apiCaller, err := command.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
+
+	return client.NewClient(caller, apiCaller), nil
 }

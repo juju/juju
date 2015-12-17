@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package cmd
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource/cmd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -35,7 +34,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
+func (s *ShowSuite) newAPIClient(c *ShowCommand) (CharmResourceLister, error) {
 	s.stub.AddCall("newAPIClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -45,7 +44,7 @@ func (s *ShowSuite) newAPIClient(c *cmd.ShowCommand) (cmd.CharmResourceLister, e
 }
 
 func (s *ShowSuite) TestInfo(c *gc.C) {
-	var command cmd.ShowCommand
+	var command ShowCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -76,7 +75,7 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 	)
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := cmd.NewShowCommand(s.newAPIClient)
+	command := NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -102,7 +101,7 @@ music    upload -   mp3 of your backing vocals
 func (s *ShowSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := cmd.NewShowCommand(s.newAPIClient)
+	command := NewShowCommand(s.newAPIClient)
 	code, stdout, stderr := runShow(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -167,7 +166,7 @@ music    upload -   mp3 of your backing vocals
 			"  ", "", -1),
 	}
 	for format, expected := range formats {
-		command := cmd.NewShowCommand(s.newAPIClient)
+		command := NewShowCommand(s.newAPIClient)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -180,7 +179,7 @@ music    upload -   mp3 of your backing vocals
 	}
 }
 
-func runShow(c *gc.C, command *cmd.ShowCommand, args ...string) (int, string, string) {
+func runShow(c *gc.C, command *ShowCommand, args ...string) (int, string, string) {
 	ctx := coretesting.Context(c)
 	code := jujucmd.Main(command, ctx, args)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()

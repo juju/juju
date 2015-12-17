@@ -1,9 +1,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd_test
+package cmd
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -23,6 +25,12 @@ func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubCharmStore) Upload(service, name string, resource io.Reader) error {
+	s.stub.AddCall("Upload", service, name, resource)
+	err := s.stub.NextErr()
+	return errors.Trace(err)
 }
 
 func (s *stubCharmStore) Close() error {
