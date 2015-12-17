@@ -29,7 +29,7 @@ type Client struct {
 func NewClient(caller FacadeCaller, closer io.Closer) *Client {
 	return &Client{
 		// Add the sub-client here.
-		Closer:     closer,
+		Closer: closer,
 	}
 }
 
