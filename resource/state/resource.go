@@ -35,6 +35,9 @@ type resourcePersistence interface {
 type resourceStorage interface {
 	// Put stores the content of the reader into the storage.
 	Put(hash string, r io.Reader, length int64) error
+
+	// Delete removes the identified data from the storage.
+	Delete(hash string) error
 }
 
 type resourceState struct {

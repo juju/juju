@@ -89,6 +89,15 @@ func (s *stubStorage) Put(hash string, r io.Reader, length int64) error {
 	return nil
 }
 
+func (s *stubStorage) Delete(hash string) error {
+	s.stub.AddCall("Delete", hash)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 type stubReader struct {
 	stub *testing.Stub
 
