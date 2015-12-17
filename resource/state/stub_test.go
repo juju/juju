@@ -49,8 +49,8 @@ func (s *stubPersistence) ListResources(serviceID string) ([]resource.Resource, 
 	return s.ReturnListResources, nil
 }
 
-func (s *stubPersistence) SetStagedResource(serviceID string, res resource.Resource) error {
-	s.stub.AddCall("SetStagedResource", serviceID, res)
+func (s *stubPersistence) SetStagedResource(id, serviceID string, res resource.Resource) error {
+	s.stub.AddCall("SetStagedResource", id, serviceID, res)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -58,8 +58,8 @@ func (s *stubPersistence) SetStagedResource(serviceID string, res resource.Resou
 	return nil
 }
 
-func (s *stubPersistence) UnstageResource(serviceID, resName string) error {
-	s.stub.AddCall("UnstageResource", serviceID, resName)
+func (s *stubPersistence) UnstageResource(id, serviceID string) error {
+	s.stub.AddCall("UnstageResource", id, serviceID)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -67,8 +67,8 @@ func (s *stubPersistence) UnstageResource(serviceID, resName string) error {
 	return nil
 }
 
-func (s *stubPersistence) SetResource(serviceID string, res resource.Resource) error {
-	s.stub.AddCall("SetResource", serviceID, res)
+func (s *stubPersistence) SetResource(id, serviceID string, res resource.Resource) error {
+	s.stub.AddCall("SetResource", id, serviceID, res)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

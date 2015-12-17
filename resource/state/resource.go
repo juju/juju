@@ -19,17 +19,17 @@ type resourcePersistence interface {
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
 	// is staged.
-	SetStagedResource(serviceID string, res resource.Resource) error
+	SetStagedResource(id, serviceID string, res resource.Resource) error
 
 	// UnstageResource ensures that the resource is removed
 	// from the staging area. If it isn't in the staging area
 	// then this is a noop.
-	UnstageResource(serviceID, resName string) error
+	UnstageResource(id, serviceID string) error
 
 	// SetResource stores the resource info. If the resource
 	// is already staged then it is unstaged, unless the staged
 	// resource is different. In that case the request will fail.
-	SetResource(serviceID string, res resource.Resource) error
+	SetResource(id, serviceID string, res resource.Resource) error
 }
 
 type resourceStorage interface {
@@ -62,6 +62,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource metadata")
 	}
+	id := res.Name
 	hash := string(res.Fingerprint.Bytes())
 
 	// TODO(ericsnow) Do something else if r is nil?
@@ -71,22 +72,22 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	// is stored separately and adding to both should be an atomic
 	// operation.
 
-	if err := st.persist.SetStagedResource(serviceID, res); err != nil {
+	if err := st.persist.SetStagedResource(id, serviceID, res); err != nil {
 		return errors.Trace(err)
 	}
 
 	if err := st.storage.Put(hash, r, res.Size); err != nil {
-		if err := st.persist.UnstageResource(serviceID, res.Name); err != nil {
+		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
 		return errors.Trace(err)
 	}
 
-	if err := st.persist.SetResource(serviceID, res); err != nil {
+	if err := st.persist.SetResource(id, serviceID, res); err != nil {
 		if err := st.storage.Delete(hash); err != nil {
 			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
 		}
-		if err := st.persist.UnstageResource(serviceID, res.Name); err != nil {
+		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
 		return errors.Trace(err)
