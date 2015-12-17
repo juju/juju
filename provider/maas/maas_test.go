@@ -6,8 +6,8 @@ package maas
 import (
 	"time"
 
-	gc "gopkg.in/check.v1"
 	"github.com/juju/gomaasapi"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
