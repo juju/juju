@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"github.com/juju/juju/network"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -392,4 +393,71 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	result, err := parseInterfaces([]byte(exampleJSON))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, expected)
+}
+
+func (s *interfacesSuite) TestMAASInterfacesToInterfaceInfo(c *gc.C) {
+	input := []maasInterface{{
+		ID:         91,
+		Name:       "eth0",
+		Enabled:    true,
+		MACAddress: "52:54:00:70:9b:fe",
+		VLAN:       maasVLAN{VID: 0},
+		Links: []maasInterfaceLink{{
+			Subnet: &maasSubnet{
+				ID:         3,
+				Space:      "default",
+				GatewayIP:  "10.20.19.2",
+				DNSServers: []string{"10.20.19.2", "10.20.19.3"},
+				CIDR:       "10.20.19.0/24",
+			},
+			IPAddress: "10.20.19.103",
+			Mode:      "static",
+		}},
+		Children: []string{"eth0.100"},
+	}, {
+		ID:         150,
+		Name:       "eth0.100",
+		Enabled:    true,
+		MACAddress: "52:54:00:70:9b:fe",
+		VLAN:       maasVLAN{VID: 100},
+		Links: []maasInterfaceLink{{
+			Subnet: &maasSubnet{
+				ID:   5,
+				CIDR: "10.100.19.0/24",
+			},
+			IPAddress: "10.100.19.111",
+			Mode:      "auto",
+		}},
+		Parents: []string{"eth0"},
+	}}
+
+	expected := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "52:54:00:70:9b:fe",
+		ProviderId:       network.Id("91"),
+		ProviderSubnetId: network.Id("3"),
+		CIDR:             "10.20.19.0/24",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigStatic,
+		Address:          network.NewScopedAddress("10.20.19.103", network.ScopeCloudLocal),
+		GatewayAddress:   network.NewAddress("10.20.19.2"),
+		DNSServers:       network.NewAddresses("10.20.19.2", "10.20.19.3"),
+	}, {
+		DeviceIndex:      1,
+		MACAddress:       "52:54:00:70:9b:fe",
+		ProviderId:       network.Id("150"),
+		ProviderSubnetId: network.Id("5"),
+		CIDR:             "10.100.19.0/24",
+		VLANTag:          100,
+		InterfaceName:    "eth0.100",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigStatic,
+		Address:          network.NewScopedAddress("10.100.19.111", network.ScopeCloudLocal),
+	}}
+
+	c.Check(maasInterfacesToInterfaceInfo(input), jc.DeepEquals, expected)
 }

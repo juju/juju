@@ -100,7 +100,7 @@ func (mi *maasInstance) interfaces() ([]network.InterfaceInfo, error) {
 	if !ok || jsonObj.IsNil() {
 		return nil, errors.New("missing or nil interface_set")
 	}
-	rawBytes, err := jsonObj.GetBytes()
+	rawBytes, err := jsonObj.MarshalJSON()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get JSON bytes")
 	}
@@ -109,55 +109,7 @@ func (mi *maasInstance) interfaces() ([]network.InterfaceInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]network.InterfaceInfo, len(interfaces))
-	for i, iface := range interfaces {
-		nicInfo := network.InterfaceInfo{
-			DeviceIndex:   i,
-			MACAddress:    iface.MACAddress,
-			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:       iface.VLAN.VID,
-			InterfaceName: iface.Name,
-			Disabled:      !iface.Enabled,
-			NoAutoStart:   !iface.Enabled,
-		}
-		// TODO(dimitern): For now we ignore all but the first link.
-		for _, link := range iface.Links {
-			switch link.Mode {
-			case modeUnknown:
-				nicInfo.ConfigType = network.ConfigUnknown
-			case modeDHCP:
-				nicInfo.ConfigType = network.ConfigDHCP
-			case modeStatic, modeLinkUp:
-				nicInfo.ConfigType = network.ConfigStatic
-			default:
-				nicInfo.ConfigType = network.ConfigManual
-			}
-
-			if link.IPAddress != "" {
-				ipAddr := network.NewScopedAddress(link.IPAddress, network.ScopeCloudLocal)
-				nicInfo.Address = ipAddr
-			} else {
-				logger.Warningf("interface %q has no address", iface.Name)
-			}
-
-			if link.Subnet == nil {
-				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
-				infos[i] = nicInfo
-				continue
-			}
-
-			sub := link.Subnet
-			nicInfo.CIDR = sub.CIDR
-			gwAddr := network.NewScopedAddress(sub.GatewayIP, network.ScopeCloudLocal)
-			nicInfo.GatewayAddress = gwAddr
-			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.DNSServers = network.NewAddresses(sub.DNSServers...)
-			// TODO: DNSSearch (get from get-curtin-config?), MTU, parent/child
-			// relationships will be nice..
-		}
-		infos[i] = nicInfo
-	}
-	return infos, nil
+	return maasInterfacesToInterfaceInfo(interfaces), nil
 }
 
 func (mi *maasInstance) architecture() (arch, subarch string, err error) {

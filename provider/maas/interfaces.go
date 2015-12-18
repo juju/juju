@@ -5,6 +5,7 @@ package maas
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
@@ -81,6 +82,66 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 		return nil, errors.Annotate(err, "parsing interfaces")
 	}
 	return interfaces, nil
+}
+
+func maasInterfacesToInterfaceInfo(interfaces []maasInterface) []network.InterfaceInfo {
+	infos := make([]network.InterfaceInfo, len(interfaces))
+	for i, iface := range interfaces {
+		nicInfo := network.InterfaceInfo{
+			DeviceIndex:   i,
+			MACAddress:    iface.MACAddress,
+			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
+			VLANTag:       iface.VLAN.VID,
+			InterfaceName: iface.Name,
+			Disabled:      !iface.Enabled,
+			NoAutoStart:   !iface.Enabled,
+		}
+
+		if len(iface.Links) < 1 {
+			logger.Warningf("interface %q not linked to any subnets", iface.Name)
+			infos[i] = nicInfo
+			continue
+		}
+
+		// TODO(dimitern): For now we ignore all but the first link.
+		link := iface.Links[0]
+		switch link.Mode {
+		case modeLinkUp:
+			nicInfo.ConfigType = network.ConfigManual
+		case modeDHCP:
+			nicInfo.ConfigType = network.ConfigDHCP
+		case modeStatic, modeAuto:
+			nicInfo.ConfigType = network.ConfigStatic
+		default:
+			nicInfo.ConfigType = network.ConfigUnknown
+		}
+
+		if link.IPAddress != "" {
+			ipAddr := network.NewScopedAddress(link.IPAddress, network.ScopeCloudLocal)
+			nicInfo.Address = ipAddr
+		} else {
+			logger.Warningf("interface %q has no address", iface.Name)
+		}
+
+		if link.Subnet == nil {
+			logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
+			infos[i] = nicInfo
+			continue
+		}
+
+		sub := link.Subnet
+		nicInfo.CIDR = sub.CIDR
+		if sub.GatewayIP != "" {
+			gwAddr := network.NewScopedAddress(sub.GatewayIP, network.ScopeCloudLocal)
+			nicInfo.GatewayAddress = gwAddr
+		}
+		nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+		nicInfo.DNSServers = network.NewAddresses(sub.DNSServers...)
+		// TODO: DNSSearch (get from get-curtin-config?), MTU, parent/child
+		// relationships will be nice..
+		infos[i] = nicInfo
+	}
+	return infos
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
