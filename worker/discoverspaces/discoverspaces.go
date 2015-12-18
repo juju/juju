@@ -60,6 +60,8 @@ func (dw *discoverspacesWorker) loop() (err error) {
 	networkingEnviron, ok := environs.SupportsNetworking(environ)
 
 	if ok {
+		// TODO: (mfoord) API should be switched off until this is
+		// completed.
 		err = dw.handleSubnets(networkingEnviron)
 		if err != nil {
 			return errors.Trace(err)
@@ -94,6 +96,15 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	listSpacesResult, err := dw.api.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	stateSubnets, err := dw.api.ListSubnets(params.SubnetsFilters{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stateSubnetIds := make(set.Strings)
+	for _, subnet := range stateSubnets.Results {
+		stateSubnetIds.Add(subnet.ProviderId)
 	}
 	stateSpaceMap := make(map[string]params.ProviderSpace)
 	spaceNames := make(set.Strings)
@@ -133,8 +144,11 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
-		logger.Errorf("Created space %v with %v subnets", spaceName, len(space.Subnets))
+		logger.Debugf("Created space %v with %v subnets", spaceName, len(space.Subnets))
 		for _, subnet := range space.Subnets {
+			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
+				continue
+			}
 			zones := subnet.AvailabilityZones
 			if len(zones) == 0 {
 				zones = []string{"default"}

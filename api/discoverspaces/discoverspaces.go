@@ -62,3 +62,11 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 	}
 	return result, nil
 }
+
+func (api *API) ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResults, error) {
+	var result params.ListSubnetsResults
+	if err := api.facade.FacadeCall("ListSubnets", args, &result); err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
+}
