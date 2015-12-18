@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -30,7 +29,7 @@ import (
 // This provides the content for code accessing test:///... URLs. This allows
 // us to set the responses for things like the Metadata server, by pointing
 // metadata requests at test:///... rather than http://169.254.169.254
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	testRoundTripper.RegisterForScheme("test")
