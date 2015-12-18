@@ -462,12 +462,12 @@ class EnvJujuClient:
             args.extend([service])
         return self.juju('deploy', tuple(args))
 
-    def deployer(self, bundle, name=None):
+    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
         args = (
             '--debug',
-            '--deploy-delay', '10',
-            '--timeout', '60',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
             '--config', bundle,
         )
         if name:
