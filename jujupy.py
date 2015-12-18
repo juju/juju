@@ -467,6 +467,7 @@ class EnvJujuClient:
         args = (
             '--debug',
             '--deploy-delay', '10',
+            '--timeout', '60',
             '--config', bundle,
         )
         if name:
