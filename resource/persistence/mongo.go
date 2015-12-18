@@ -122,6 +122,7 @@ type resourceDoc struct {
 	Origin      string `bson:"origin"`
 	Revision    int    `bson:"revision"`
 	Fingerprint []byte `bson:"fingerprint"`
+	Size        int64  `bson:"size"`
 
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
@@ -141,6 +142,7 @@ func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
 		Fingerprint: res.Fingerprint.Bytes(),
+		Size:        res.Size,
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
@@ -177,6 +179,7 @@ func doc2resource(doc resourceDoc) (resource.Resource, error) {
 			Origin:      origin,
 			Revision:    doc.Revision,
 			Fingerprint: fp,
+			Size:        doc.Size,
 		},
 		Username:  doc.Username,
 		Timestamp: doc.Timestamp,
