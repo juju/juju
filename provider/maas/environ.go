@@ -1942,11 +1942,7 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 // JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
 // error satisfying errors.IsNotSupported will be returned.
 func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
-	ok, err := environ.SupportsSpaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !ok {
+	if !environ.supportsNetworkDeploymentUbuntu {
 		return nil, errors.NotSupportedf("Spaces")
 	}
 	client := environ.getMAASClient().GetSubObject("subnets")
@@ -1994,11 +1990,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	ok, err := environ.SupportsSpaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if ok {
+	if environ.supportsNetworkDeploymentUbuntu {
 		return environ.subnetsWithSpaces(instId, subnetIds)
 	}
 	// When not using MAAS API with spaces support, we require both instance ID
