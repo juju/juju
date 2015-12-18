@@ -144,7 +144,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
-		logger.Errorf("Created space %v with %v subnets", spaceName, len(space.Subnets))
+		logger.Debugf("Created space %v with %v subnets", spaceName, len(space.Subnets))
 		for _, subnet := range space.Subnets {
 			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
 				continue
