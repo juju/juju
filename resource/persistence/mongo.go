@@ -18,8 +18,6 @@ const (
 	resourcesC = "resources"
 )
 
-// TODO(ericsnow) Move the methods under their own type (resourcecollection?).
-
 // resourceID converts an external resource ID into an internal one.
 func (p Persistence) resourceID(id, serviceID string) string {
 	return fmt.Sprintf("resource#%s#%s", serviceID, id)
