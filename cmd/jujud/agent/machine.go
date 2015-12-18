@@ -705,6 +705,13 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (worker.Worker, e
 	}
 
 	runner := newConnRunner(apiConn)
+	defer func() {
+		// If startAPIWorkers exits early with an error, stop the
+		// runner so that any already started runners aren't leaked.
+		if outErr != nil {
+			worker.Stop(runner)
+		}
+	}()
 
 	// TODO(fwereade): this is *still* a hideous layering violation, but at least
 	// it's confined to jujud rather than extending into the worker itself.
