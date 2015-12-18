@@ -80,7 +80,7 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
@@ -127,7 +127,7 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
@@ -147,7 +147,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
@@ -168,7 +168,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
@@ -190,7 +190,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
@@ -237,7 +237,7 @@ func newUploadResource(c *gc.C, name, data string) resource.Resource {
 			Size:        int64(len(data)),
 		},
 		Username:  "a-user",
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)

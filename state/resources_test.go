@@ -54,7 +54,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, data string) resource.Resource {
-	fp, err := charmresource.GenerateFingerprint([]byte(name))
+	fp, err := charmresource.GenerateFingerprint([]byte(data))
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := resource.Resource{

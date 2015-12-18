@@ -63,7 +63,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 		return errors.Annotate(err, "bad resource metadata")
 	}
 	id := res.Name
-	hash := string(res.Fingerprint.Bytes())
+	hash := res.Fingerprint.String()
 
 	// TODO(ericsnow) Do something else if r is nil?
 
