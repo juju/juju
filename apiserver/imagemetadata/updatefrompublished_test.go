@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -25,7 +24,7 @@ import (
 )
 
 var (
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	testRoundTripper = &testing.ProxyRoundTripper{}
 )
 
 func init() {
@@ -36,7 +35,7 @@ func init() {
 // useTestImageData causes the given content to be served when published metadata is requested.
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		testRoundTripper.Sub = nil
