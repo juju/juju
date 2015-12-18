@@ -95,6 +95,15 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	stateSubnets, err := dw.api.ListSubnets(params.SubnetsFilters{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stateSubnetIds := make(set.Strings)
+	for _, subnet := range stateSubnets.Results {
+		stateSubnetIds.Add(subnet.ProviderId)
+	}
 	stateSpaceMap := make(map[string]params.ProviderSpace)
 	spaceNames := make(set.Strings)
 	for _, space := range listSpacesResult.Results {
@@ -135,6 +144,9 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// don't already know about.
 		logger.Errorf("Created space %v with %v subnets", spaceName, len(space.Subnets))
 		for _, subnet := range space.Subnets {
+			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
+				continue
+			}
 			zones := subnet.AvailabilityZones
 			if len(zones) == 0 {
 				zones = []string{"default"}
