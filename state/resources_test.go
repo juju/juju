@@ -71,7 +71,7 @@ func newResource(c *gc.C, name, data string) resource.Resource {
 			Size:        int64(len(data)),
 		},
 		Username:  "a-user",
-		Timestamp: time.Now(),
+		Timestamp: time.Unix(time.Now().UTC().Unix(), 0),
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)

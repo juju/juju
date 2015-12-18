@@ -130,6 +130,8 @@ type resourceDoc struct {
 
 // resource2doc converts the resource into a DB doc.
 func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
+	// TODO(ericsnow) We may need to limit the resolution of timestamps
+	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,

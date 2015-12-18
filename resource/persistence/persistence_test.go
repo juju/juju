@@ -267,7 +267,7 @@ func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDo
 			Fingerprint: fp,
 		},
 		Username:  "a-user",
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 
 	doc := resourceDoc{
