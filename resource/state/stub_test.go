@@ -80,8 +80,8 @@ type stubStorage struct {
 	stub *testing.Stub
 }
 
-func (s *stubStorage) Put(hash string, r io.Reader, length int64) error {
-	s.stub.AddCall("Put", hash, r, length)
+func (s *stubStorage) Put(path, hash string, length int64, r io.Reader) error {
+	s.stub.AddCall("Put", path, hash, length, r)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -89,8 +89,8 @@ func (s *stubStorage) Put(hash string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *stubStorage) Delete(hash string) error {
-	s.stub.AddCall("Delete", hash)
+func (s *stubStorage) Delete(path string) error {
+	s.stub.AddCall("Delete", path)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

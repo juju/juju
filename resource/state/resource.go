@@ -5,6 +5,7 @@ package state
 
 import (
 	"io"
+	"path"
 
 	"github.com/juju/errors"
 
@@ -33,10 +34,10 @@ type resourcePersistence interface {
 
 type resourceStorage interface {
 	// Put stores the content of the reader into the storage.
-	Put(hash string, r io.Reader, length int64) error
+	Put(path, hash string, length int64, r io.Reader) error
 
 	// Delete removes the identified data from the storage.
-	Delete(hash string) error
+	Delete(path string) error
 }
 
 type resourceState struct {
@@ -75,7 +76,8 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 		return errors.Trace(err)
 	}
 
-	if err := st.storage.Put(hash, r, res.Size); err != nil {
+	path := storagePath(res.Name, serviceID)
+	if err := st.storage.Put(path, hash, res.Size, r); err != nil {
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
@@ -83,7 +85,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	}
 
 	if err := st.persist.SetResource(id, serviceID, res); err != nil {
-		if err := st.storage.Delete(hash); err != nil {
+		if err := st.storage.Delete(path); err != nil {
 			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
 		}
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
@@ -93,4 +95,8 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	}
 
 	return nil
+}
+
+func storagePath(id, serviceID string) string {
+	return path.Join("service-"+serviceID, "resources", id)
 }
