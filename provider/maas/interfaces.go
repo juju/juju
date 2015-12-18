@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type maasLinkMode string
@@ -79,4 +81,17 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 		return nil, errors.Annotate(err, "parsing interfaces")
 	}
 	return interfaces, nil
+}
+
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if !environ.supportsNetworkDeploymentUbuntu {
+		return environ.legacyNetworkInterfaces(instId)
+	}
+
+	inst, err := environ.getInstance(instId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return inst.(*maasInstance).interfaces()
 }
