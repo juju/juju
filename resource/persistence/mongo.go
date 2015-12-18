@@ -74,8 +74,8 @@ type resourceDoc struct {
 	Timestamp time.Time `bson:"timestamp-when-added"`
 }
 
-// resource returns the resource.Resource represented by the doc.
-func (doc resourceDoc) resource() (resource.Resource, error) {
+// doc2resource returns the resource.Resource represented by the doc.
+func doc2resource(doc resourceDoc) (resource.Resource, error) {
 	var res resource.Resource
 
 	resType, err := charmresource.ParseType(doc.Type)

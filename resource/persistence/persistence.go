@@ -46,7 +46,7 @@ func (p Persistence) ListResources(serviceID string) ([]resource.Resource, error
 
 	var results []resource.Resource
 	for _, doc := range docs {
-		res, err := doc.resource()
+		res, err := doc2resource(doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
