@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
@@ -141,7 +140,7 @@ func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 // This provides the content for code accessing test://host/... URLs. This allows
 // us to set the responses for things like the Metadata server, by pointing
 // metadata requests at test://host/...
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	testRoundTripper.RegisterForScheme("test")
@@ -156,7 +155,7 @@ func UseExternalTestImageMetadata(creds *auth.Credentials) {
 		"/streams/v1/index.json":                            metadata.String(),
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+	testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 	imagemetadata.DefaultBaseURL = "test://host"
 }
 
@@ -171,7 +170,7 @@ func RegisterMachinesEndpoint() {
 	files := map[string]string{
 		"/test/machines": "",
 	}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+	testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 }
 
 // UnregisterMachinesEndpoint resets the machines endpoint.
