@@ -445,6 +445,7 @@ func (s *interfacesSuite) TestMAASInterfacesToInterfaceInfo(c *gc.C) {
 		Address:          network.NewScopedAddress("10.20.19.103", network.ScopeCloudLocal),
 		GatewayAddress:   network.NewAddress("10.20.19.2"),
 		DNSServers:       network.NewAddresses("10.20.19.2", "10.20.19.3"),
+		NetworkName:      network.DefaultPrivate,
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "52:54:00:70:9b:fe",
@@ -457,6 +458,7 @@ func (s *interfacesSuite) TestMAASInterfacesToInterfaceInfo(c *gc.C) {
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigStatic,
 		Address:          network.NewScopedAddress("10.100.19.111", network.ScopeCloudLocal),
+		NetworkName:      network.DefaultPrivate,
 	}}
 
 	c.Check(maasInterfacesToInterfaceInfo(input), jc.DeepEquals, expected)

@@ -95,6 +95,9 @@ func maasInterfacesToInterfaceInfo(interfaces []maasInterface) []network.Interfa
 			InterfaceName: iface.Name,
 			Disabled:      !iface.Enabled,
 			NoAutoStart:   !iface.Enabled,
+			// TODO(dimitern): Drop this in a follow-up - without it
+			// provisioning fails as it's validated.
+			NetworkName: network.DefaultPrivate,
 		}
 
 		if len(iface.Links) < 1 {
