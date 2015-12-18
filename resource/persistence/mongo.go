@@ -20,14 +20,6 @@ const (
 
 // TODO(ericsnow) Move the methods under their own type (resourcecollection?).
 
-// all updates the provided "docs" with all the resource docs in mongo.
-func (p Persistence) all(query bson.D, docs interface{}) error {
-	if err := p.base.All(resourcesC, query, docs); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // resourceID converts an external resource ID into an internal one.
 func (p Persistence) resourceID(id, serviceID string) string {
 	return fmt.Sprintf("resource#%s#%s", serviceID, id)
@@ -59,7 +51,7 @@ func (p Persistence) newResourcDoc(id, serviceID string, res resource.Resource) 
 func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 	var docs []resourceDoc
 	query := bson.D{{"service-id", serviceID}}
-	if err := p.all(query, &docs); err != nil {
+	if err := p.base.All(resourcesC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil
