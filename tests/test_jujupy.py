@@ -1604,8 +1604,9 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--config',
-                         'bundle:~juju-qa/some-bundle'), True
+            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
+            True
         )
 
     def test_deployer_with_bundle_name(self):
@@ -1614,8 +1615,10 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--config',
-                         'bundle:~juju-qa/some-bundle', 'name'), True
+            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle',
+                         'name'),
+            True
         )
 
     def test_quickstart_maas(self):
