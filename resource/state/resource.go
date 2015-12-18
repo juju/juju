@@ -33,11 +33,11 @@ type resourcePersistence interface {
 }
 
 type resourceStorage interface {
-	// Put stores the content of the reader into the storage.
-	Put(path, hash string, length int64, r io.Reader) error
+	// PutAndCheckHash stores the content of the reader into the storage.
+	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
 
-	// Delete removes the identified data from the storage.
-	Delete(path string) error
+	// Remove removes the identified data from the storage.
+	Remove(path string) error
 }
 
 type resourceState struct {
@@ -77,7 +77,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	}
 
 	path := storagePath(res.Name, serviceID)
-	if err := st.storage.Put(path, hash, res.Size, r); err != nil {
+	if err := st.storage.PutAndCheckHash(path, r, res.Size, hash); err != nil {
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
@@ -85,7 +85,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	}
 
 	if err := st.persist.SetResource(id, serviceID, res); err != nil {
-		if err := st.storage.Delete(path); err != nil {
+		if err := st.storage.Remove(path); err != nil {
 			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
 		}
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
