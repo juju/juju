@@ -621,10 +621,12 @@ class EnvJujuClient:
                 workload = unit.get('workload-status')
                 if workload is not None:
                     state = workload['current']
-                    if state != 'unknown':
-                        unit_states[state].append(name)
-            if unit_states.keys() == ['active']:
+                else:
+                    state = 'unknown'
+                unit_states[state].append(name)
+            if set(('active', 'unknown')).issuperset(unit_states):
                 return None
+            unit_states.pop('unknown', None)
             return unit_states
         reporter = GroupReporter(sys.stdout, 'active')
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
