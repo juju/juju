@@ -60,6 +60,8 @@ func (dw *discoverspacesWorker) loop() (err error) {
 	networkingEnviron, ok := environs.SupportsNetworking(environ)
 
 	if ok {
+		// TODO: (mfoord) API should be switched off until this is
+		// completed.
 		err = dw.handleSubnets(networkingEnviron)
 		if err != nil {
 			return errors.Trace(err)
