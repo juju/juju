@@ -909,7 +909,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
+	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -947,21 +947,30 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
-
 	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny",
+		imageMetadata,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
-
 	env := s.Open(c)
-	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+	_, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large",
+		imageMetadata,
+	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 

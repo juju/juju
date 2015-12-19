@@ -1015,7 +1015,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-	})
+	}, args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}

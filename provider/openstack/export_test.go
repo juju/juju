@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -287,15 +288,18 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 	return nil
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+func FindInstanceSpec(
+	e environs.Environ,
+	series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
-	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
+	return findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.ecfg().region(),
 		Constraints: constraints.MustParse(cons),
-	})
-	return
+	}, imageMetadata)
 }
 
 func ControlBucketName(e environs.Environ) string {
