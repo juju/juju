@@ -440,7 +440,7 @@ var seriesFromVersion = series.VersionSeries
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
+	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 	return storeImageMetadataFromFiles(st, env, datasource)
 }
 
@@ -458,7 +458,7 @@ func storeImageMetadataFromFiles(st *state.State, env environs.Environ, source s
 		imageConstraint.CloudSpec = cloud
 	}
 
-	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint, false)
+	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot read image metadata")
 	}

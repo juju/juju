@@ -6,8 +6,10 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -18,6 +20,8 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
@@ -41,15 +45,23 @@ type ToolsFixture struct {
 	// upload in UploadFakeTools. If empty, it will default
 	// to just arch.HostArch()
 	UploadArches []string
+
+	// origPublicKey is an Original Public Key :D
+	origPublicKey string
 }
 
 func (s *ToolsFixture) SetUpTest(c *gc.C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
 	envtools.DefaultBaseURL = s.DefaultBaseURL
+
+	s.origPublicKey = envtools.SimplestreamsToolsPublicKey
+	envtools.SimplestreamsToolsPublicKey = sstesting.SignedMetadataPublicKey
 }
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
+
+	envtools.SimplestreamsToolsPublicKey = s.origPublicKey
 }
 
 // UploadFakeToolsToDirectory uploads fake tools of the architectures in
@@ -189,7 +201,71 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
+	err := SignTestTools(stor)
+	if err != nil {
+		return nil, err
+	}
 	return agentTools, nil
+}
+
+const (
+	unsignedJsonSuffix = ".json"
+	signedJsonSuffix   = ".sjson"
+)
+
+func SignTestTools(stor storage.Storage) error {
+	files, err := stor.List("")
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, unsignedJsonSuffix) {
+			// only sign .json files and data
+			if err := SignFileData(stor, file); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func SignFileData(stor storage.Storage, fileName string) error {
+	r, err := stor.Get(fileName)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	fileData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	signedName, signedContent, err := SignMetadata(fileName, fileData)
+	if err != nil {
+		return err
+	}
+
+	err = stor.Put(signedName, strings.NewReader(string(signedContent)), int64(len(string(signedContent))))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
+	signString := func(unsigned string) string {
+		return strings.Replace(unsigned, unsignedJsonSuffix, signedJsonSuffix, -1)
+	}
+
+	// Make sure that contents point to signed files too.
+	signedFileData := signString(string(fileData))
+	signedBytes, err := simplestreams.Encode(strings.NewReader(signedFileData), sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return signString(fileName), signedBytes, nil
 }
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.

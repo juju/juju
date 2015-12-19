@@ -361,7 +361,6 @@ func UnsignedMirror(streamsVersion string) string {
 type GetMetadataParams struct {
 	StreamsVersion   string
 	LookupConstraint LookupConstraint
-	OnlySigned       bool
 	ValueParams      ValueParams
 }
 
@@ -374,7 +373,7 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 		logger.Tracef("searching for metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
-		if err != nil && len(items) == 0 && !params.OnlySigned {
+		if err != nil && len(items) == 0 && !source.RequireSigned() {
 			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
@@ -518,7 +517,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned, params.PublicKey)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames, source.Priority())
+			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames, source.Priority(), source.RequireSigned())
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)

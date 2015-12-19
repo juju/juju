@@ -533,10 +533,9 @@ var imageData = map[string]string{
 `,
 }
 
-var testRoundTripper *testing.ProxyRoundTripper
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
-	testRoundTripper = &testing.ProxyRoundTripper{}
 	testRoundTripper.RegisterForScheme("test")
 }
 

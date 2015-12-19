@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -174,6 +175,7 @@ func (srv *localServer) stopServer(c *gc.C) {
 type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
+
 	srv                localServer
 	restoreEC2Patching func()
 }
@@ -185,6 +187,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.BaseSuite.SetUpSuite(c)
+
 	t.srv.createRootDisks = true
 }
 
@@ -1202,6 +1205,8 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	coretesting.BaseSuite
+	sstesting.TestDataSuite
+
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ
@@ -1209,11 +1214,17 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
+	t.TestDataSuite.SetUpSuite(c)
+
+	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&tools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+
 	t.restoreEC2Patching = patchEC2ForTesting()
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
 	t.restoreEC2Patching()
+	t.TestDataSuite.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
 

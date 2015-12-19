@@ -176,7 +176,7 @@ func (api *API) retrievePublished() error {
 	// We want all relevant metadata from all data sources.
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
-		metadata, info, err := envmetadata.Fetch([]simplestreams.DataSource{source}, cons, false)
+		metadata, info, err := envmetadata.Fetch([]simplestreams.DataSource{source}, cons)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.
 			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())

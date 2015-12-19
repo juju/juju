@@ -30,11 +30,13 @@ var _ = gc.Suite(&OpenSuite{})
 
 func (s *OpenSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 

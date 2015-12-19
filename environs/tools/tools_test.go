@@ -202,7 +202,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 2*len(sources); i++ {
+	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
 			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
 			jc.SimpleMessage{loggo.TRACE, `cannot load index .*`})

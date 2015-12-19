@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,24 +19,28 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
-var (
-	testRoundTripper = &testing.ProxyRoundTripper{}
-)
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 // useTestImageData causes the given content to be served when published metadata is requested.
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+		all := make(map[string]string)
+		for name, content := range files {
+			all[name] = content
+			// Sign file content
+			r := strings.NewReader(content)
+			bytes, _ := ioutil.ReadAll(r)
+			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
+			all[signedName] = string(signedContent)
+		}
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		testRoundTripper.Sub = nil
@@ -164,10 +169,6 @@ func (s *imageMetadataUpdateSuite) TearDownSuite(c *gc.C) {
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *imageMetadataUpdateSuite) SetUpTest(c *gc.C) {
-	s.baseImageMetadataSuite.SetUpTest(c)
-}
-
 func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithNoRegions(c *gc.C) {
 	// This will save all available image metadata.
 	saved := []cloudimagemetadata.Metadata{}
@@ -252,17 +253,21 @@ type regionMetadataSuite struct {
 }
 
 func (s *regionMetadataSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.baseImageMetadataSuite.SetUpSuite(c)
 
 	s.provider = mockEnvironProvider{}
 	s.env = &mockEnviron{}
 	environs.RegisterProvider("mock", s.provider)
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
 	useTestImageData(testImagesData)
 }
 
 func (s *regionMetadataSuite) TearDownSuite(c *gc.C) {
 	useTestImageData(nil)
-	s.BaseSuite.TearDownSuite(c)
+	s.baseImageMetadataSuite.TearDownSuite(c)
 }
 
 func (s *regionMetadataSuite) SetUpTest(c *gc.C) {
@@ -398,7 +403,7 @@ func (s *regionMetadataSuite) createTestDataSource(c *gc.C, dsID string, files [
 	metadataDir := c.MkDir()
 	writeTempFiles(c, metadataDir, files)
 
-	ds := simplestreams.NewURLDataSource(dsID, "file://"+metadataDir, false, 20)
+	ds := simplestreams.NewURLDataSource(dsID, "file://"+metadataDir, false, 20, false)
 	environs.RegisterImageDataSourceFunc(dsID, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})

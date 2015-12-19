@@ -4,6 +4,9 @@
 package provisioner_test
 
 import (
+	"io/ioutil"
+	"strings"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,23 +14,27 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
-var (
-	testRoundTripper = &testing.ProxyRoundTripper{}
-)
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 // useTestImageData causes the given content to be served when published metadata is requested.
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+		all := make(map[string]string)
+		for name, content := range files {
+			all[name] = content
+			// Sign file content
+			r := strings.NewReader(content)
+			bytes, _ := ioutil.ReadAll(r)
+			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
+			all[signedName] = string(signedContent)
+		}
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		testRoundTripper.Sub = nil
@@ -46,6 +53,8 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	testRoundTripper.RegisterForScheme("test")
 	useTestImageData(nil)
 }
 

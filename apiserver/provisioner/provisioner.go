@@ -1693,10 +1693,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
-		// TODO (anastasiamac 2015-12-02) signedOnly for now defaulted to false... how do i get provider specific one?
-		// do i need to add another property to metadata, like signed?
-		// Fix this when fixing DS in the follow-up PR to contain signed/unsigned bool.
-		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint, false)
+		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.
 			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())

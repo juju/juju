@@ -20,8 +20,11 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	//	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
+	//	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tags"
+	//	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
@@ -56,6 +59,7 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 type ebsVolumeSuite struct {
 	testing.BaseSuite
 	jujutest.Tests
+	//	sstesting.TestDataSuite
 	srv                localServer
 	restoreEC2Patching func()
 
@@ -69,9 +73,13 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = localConfigAttrs
 	s.restoreEC2Patching = patchEC2ForTesting()
 	s.BaseSuite.SetUpSuite(c)
+	//	s.TestDataSuite.SetUpSuite(c)
+	//	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	//	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	//	s.TestDataSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }

@@ -56,7 +56,7 @@ func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, s
 
 	id := "SupportedArchitectures"
 	environs.RegisterImageDataSourceFunc(id, func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false, simplestreams.DEFAULT_CLOUD_DATA), nil
+		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false, simplestreams.DEFAULT_CLOUD_DATA, false), nil
 	})
 	s.AddCleanup(func(*gc.C) {
 		environs.UnregisterImageDataSourceFunc(id)

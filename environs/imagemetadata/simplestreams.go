@@ -37,7 +37,7 @@ const (
 // authenticate the simple streams data on http://cloud-images.ubuntu.com.
 // Declared as a var so it can be overidden for testing.
 // See http://bazaar.launchpad.net/~smoser/simplestreams/trunk/view/head:/examples/keys/cloud-images.pub
-var simplestreamsImagesPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+var SimplestreamsImagesPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
 mQINBFCMc9EBEADDKn9mOi9VZhW+0cxmu3aFZWMg0p7NEKuIokkEdd6P+BRITccO
@@ -189,17 +189,16 @@ func (im *ImageMetadata) productId() string {
 // then unsigned data is used.
 func Fetch(
 	sources []simplestreams.DataSource, cons *ImageConstraint,
-	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
+) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
-		OnlySigned:       onlySigned,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
 			DataType:      ImageIds,
 			FilterFunc:    appendMatchingImages,
 			ValueTemplate: ImageMetadata{},
-			PublicKey:     simplestreamsImagesPublicKey,
+			PublicKey:     SimplestreamsImagesPublicKey,
 		},
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)

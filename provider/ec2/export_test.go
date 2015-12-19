@@ -5,6 +5,8 @@ package ec2
 
 import (
 	"io"
+	"io/ioutil"
+	"strings"
 
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -73,11 +76,6 @@ func DeleteBucket(s storage.Storage) error {
 
 var testRoundTripper = &testing.ProxyRoundTripper{}
 
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
-
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
 var origImagesUrl = imagemetadata.DefaultBaseURL
@@ -86,11 +84,18 @@ var origImagesUrl = imagemetadata.DefaultBaseURL
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+		all := make(map[string]string)
+		for name, content := range files {
+			all[name] = content
+			// Sign file content
+			r := strings.NewReader(content)
+			bytes, _ := ioutil.ReadAll(r)
+			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
+			all[signedName] = string(signedContent)
+		}
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
 		imagemetadata.DefaultBaseURL = "test:"
-		signedImageDataOnly = false
 	} else {
-		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
 		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
@@ -173,14 +178,14 @@ var TestImagesData = map[string]string{
             "com.ubuntu.cloud:server:12.10:i386",
             "com.ubuntu.cloud:server:13.04:i386"
            ],
-           "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
+           "path": "streams/v1/com.ubuntu.cloud:released:aws.json"
           }
          },
          "updated": "Wed, 01 May 2013 13:31:26 +0000",
          "format": "index:1.0"
         }
 `,
-	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
+	"/streams/v1/com.ubuntu.cloud:released:aws.json": `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
