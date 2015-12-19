@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
@@ -59,16 +61,31 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, series string, _ environs.BootstrapFinalizer, err error) {
+) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	series = config.PreferredSeries(env.Config())
-	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
+	selectedSeries = config.PreferredSeries(env.Config())
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{
+		Series: selectedSeries,
+	})
 	if err != nil {
 		return nil, "", nil, err
+	}
+
+	// Filter image metadata to the selected series.
+	var imageMetadata []*imagemetadata.ImageMetadata
+	seriesVersion, err := series.SeriesVersion(selectedSeries)
+	if err != nil {
+		return nil, "", nil, errors.Trace(err)
+	}
+	for _, m := range args.ImageMetadata {
+		if m.Version != seriesVersion {
+			continue
+		}
+		imageMetadata = append(imageMetadata, m)
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -80,7 +97,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.Constraints, selectedSeries,
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -107,7 +126,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
-		ImageMetadata:  args.ImageMetadata,
+		ImageMetadata:  imageMetadata,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
@@ -131,7 +150,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		maybeSetBridge(icfg)
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
 	}
-	return result, series, finalize, nil
+	return result, selectedSeries, finalize, nil
 }
 
 // FinishBootstrap completes the bootstrap process by connecting

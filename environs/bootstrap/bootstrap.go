@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -115,6 +116,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// For providers that support make use of simplestreams image metadata,
 	// search public image metadata. We need to pass this onto Bootstrap
 	// for selecting images.
+	var imageMetadata []*imagemetadata.ImageMetadata
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	if hasRegion, ok := environ.(simplestreams.HasRegion); ok {
 		sources, err := environs.ImageMetadataSources(environ)
@@ -132,10 +134,35 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			Stream:    environ.Config().ImageStream(),
 		})
 		const onlySigned = false // TODO(axw)
-		publicImageMetadata, _, err = imagemetadata.Fetch(sources, imageConstraint, onlySigned)
+		publicImageMetadata, _, err = imagemetadata.Fetch(
+			sources, imageConstraint, onlySigned,
+		)
 		if err != nil {
 			return errors.Annotate(err, "searching image metadata")
 		}
+
+		// Filter custom image metadata to the ones we're interested in for
+		// bootstrapping the initial instance.
+		seriesVersions := make([]string, len(imageConstraint.Series))
+		for i, constraintSeries := range imageConstraint.Series {
+			seriesVersion, err := series.SeriesVersion(constraintSeries)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			seriesVersions[i] = seriesVersion
+		}
+		for _, image := range customImageMetadata {
+			if matchImageMetadata(
+				image,
+				imageConstraint.CloudSpec,
+				seriesVersions,
+				imageConstraint.Arches,
+				imageConstraint.Stream,
+			) {
+				imageMetadata = append(imageMetadata, image)
+			}
+		}
+		imageMetadata = append(imageMetadata, publicImageMetadata...)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -161,7 +188,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
-		ImageMetadata:  append(customImageMetadata, publicImageMetadata...),
+		ImageMetadata:  imageMetadata,
 	})
 	if err != nil {
 		return err
@@ -206,6 +233,28 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	ctx.Infof("Bootstrap agent installed")
 	return nil
+}
+
+func matchImageMetadata(
+	image *imagemetadata.ImageMetadata,
+	cloudSpec simplestreams.CloudSpec,
+	seriesVersions []string, arches []string,
+	stream string,
+) bool {
+	return image.Stream == stream &&
+		image.RegionName == cloudSpec.Region &&
+		image.Endpoint == cloudSpec.Endpoint &&
+		sliceContainsString(seriesVersions, image.Version) &&
+		sliceContainsString(arches, image.Arch)
+}
+
+func sliceContainsString(values []string, search string) bool {
+	for _, value := range values {
+		if value == search {
+			return true
+		}
+	}
+	return false
 }
 
 // setBootstrapTools returns the newest tools from the given tools list,
