@@ -5,13 +5,12 @@ package ec2
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
@@ -171,10 +170,14 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		if len(stor) == 0 {
 			stor = []string{ssdStorage, ebsStorage}
 		}
+		// We need to filter the image metadata to the test's
+		// arches and series; the provisioner and bootstrap
+		// code will do this.
+		imageMetadata := filterImageMetadata(
+			c, TestImageMetadata, test.series, test.arches,
+		)
 		spec, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
-			"released",
+			imageMetadata,
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      test.series,
@@ -190,9 +193,6 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
 
-	source := []simplestreams.DataSource{
-		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
-	}
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
 		Series:      testing.FakeDefaultSeries,
@@ -200,7 +200,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 	}
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
-	findInstanceSpec(source, "released", instanceConstraint)
+	findInstanceSpec(TestImageMetadata, instanceConstraint)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 }
@@ -212,10 +212,6 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: "bad",
-		arches: both,
-		err:    `unknown version for series: "bad"`,
-	}, {
 		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
 		err:    `no "trusty" images in test with arches \[arm\]`,
@@ -235,10 +231,14 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
+		// We need to filter the image metadata to the test's
+		// arches and series; the provisioner and bootstrap
+		// code will do this.
+		imageMetadata := filterImageMetadata(
+			c, TestImageMetadata, t.series, t.arches,
+		)
 		_, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
-			"released",
+			imageMetadata,
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
@@ -247,6 +247,29 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			})
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
+}
+
+func filterImageMetadata(
+	c *gc.C,
+	in []*imagemetadata.ImageMetadata,
+	filterSeries string, filterArches []string,
+) []*imagemetadata.ImageMetadata {
+	var imageMetadata []*imagemetadata.ImageMetadata
+	for _, im := range in {
+		version, err := series.SeriesVersion(filterSeries)
+		c.Assert(err, jc.ErrorIsNil)
+		if im.Version != version {
+			continue
+		}
+		match := false
+		for _, arch := range filterArches {
+			match = match || im.Arch == arch
+		}
+		if match {
+			imageMetadata = append(imageMetadata, im)
+		}
+	}
+	return imageMetadata
 }
 
 func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {

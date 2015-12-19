@@ -84,10 +84,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
-	var imageMetadata []*imagemetadata.ImageMetadata
+	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		imageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
 		if err != nil {
 			return err
 		}
@@ -110,6 +110,32 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
+	}
+
+	// For providers that support make use of simplestreams image metadata,
+	// search public image metadata. We need to pass this onto Bootstrap
+	// for selecting images.
+	var publicImageMetadata []*imagemetadata.ImageMetadata
+	if hasRegion, ok := environ.(simplestreams.HasRegion); ok {
+		sources, err := environs.ImageMetadataSources(environ)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		region, err := hasRegion.Region()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+			CloudSpec: region,
+			Series:    availableTools.AllSeries(),
+			Arches:    availableTools.Arches(),
+			Stream:    environ.Config().ImageStream(),
+		})
+		const onlySigned = false // TODO(axw)
+		publicImageMetadata, _, err = imagemetadata.Fetch(sources, imageConstraint, onlySigned)
+		if err != nil {
+			return errors.Annotate(err, "searching image metadata")
+		}
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -135,6 +161,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
+		ImageMetadata:  append(customImageMetadata, publicImageMetadata...),
 	})
 	if err != nil {
 		return err
@@ -173,7 +200,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig.Tools = selectedTools
-	instanceConfig.CustomImageMetadata = imageMetadata
+	instanceConfig.CustomImageMetadata = customImageMetadata
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}

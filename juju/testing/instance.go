@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -157,14 +158,14 @@ func StartInstanceWithParams(
 ) (
 	*environs.StartInstanceResult, error,
 ) {
-	series := config.PreferredSeries(env.Config())
+	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return nil, errors.New("missing agent version in environment config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
-		Series: series,
+		Series: preferredSeries,
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
@@ -174,6 +175,18 @@ func StartInstanceWithParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if params.ImageMetadata == nil {
+		if err := SetImageMetadata(
+			env,
+			possibleTools.AllSeries(),
+			possibleTools.Arches(),
+			&params.ImageMetadata,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
@@ -181,7 +194,7 @@ func StartInstanceWithParams(
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
-		series,
+		preferredSeries,
 		true,
 		networks,
 		stateInfo,
@@ -193,4 +206,32 @@ func StartInstanceWithParams(
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)
+}
+
+func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+	hasRegion, ok := env.(simplestreams.HasRegion)
+	if !ok {
+		return nil
+	}
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	region, err := hasRegion.Region()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: region,
+		Series:    series,
+		Arches:    arches,
+		Stream:    env.Config().ImageStream(),
+	})
+	const onlySigned = false // TODO(axw)
+	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint, onlySigned)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	*out = imageMetadata
+	return nil
 }

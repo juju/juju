@@ -107,6 +107,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
+		ImageMetadata:  args.ImageMetadata,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
