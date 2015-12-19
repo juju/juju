@@ -345,7 +345,12 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 	env := s.Prepare(c)
-	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: "kvm",
+	}}
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G", imageMetadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
 	c.Check(spec.Image.Arch, gc.Equals, "amd64")
@@ -357,7 +362,7 @@ func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
-	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 

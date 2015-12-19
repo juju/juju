@@ -170,14 +170,17 @@ func UnregisterMachinesEndpoint() {
 	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+func FindInstanceSpec(
+	e environs.Environ, series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
 	env := e.(*joyentEnviron)
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.Ecfg().Region(),
 		Constraints: constraints.MustParse(cons),
-	})
+	}, imageMetadata)
 	return
 }
 
