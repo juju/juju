@@ -19,9 +19,6 @@ CPCS = {
     'canonistack': (
         "https://swift.canonistack.canonical.com"
         "/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist"),
-    'hp': (
-        "https://region-a.geo-1.objects.hpcloudsvc.com"
-        "/v1/60502529753910/juju-dist"),
     'joyent': (
         "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"),
     }
@@ -102,7 +99,7 @@ def parse_args(argv=None):
         help='The path to the local tree of all streams (tools/).')
     parser.add_argument(
         'cloud', help='The destination cloud.',
-        choices=['streams', 'aws', 'azure', 'hp', 'joyent', 'canonistack'])
+        choices=['streams', 'aws', 'azure', 'joyent', 'canonistack'])
     return parser.parse_args(argv)
 
 

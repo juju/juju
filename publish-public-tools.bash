@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 # Release public tools.
 #
-# Publish to Canonistack, HP, AWS, and Azure.
+# Publish to Canonistack, AWS, and Azure.
 # This script requires that the user has credentials to upload the tools
-# to Canonistack, HP Cloud, AWS, and Azure
+# to Canonistack, Cloud, AWS, and Azure
 
 set -e
 
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 AWS_SITE="http://juju-dist.s3.amazonaws.com"
-HP_SITE="https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist"
 CAN_SITE="https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist"
 AZURE_SITE="https://jujutools.blob.core.windows.net/juju-tools"
 JOYENT_SITE="https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
@@ -53,7 +52,6 @@ verify_stream() {
 validate_cpcs() {
     verify_stream $AWS_SITE $STREAM_PATH
     verify_stream $CAN_SITE $STREAM_PATH
-    verify_stream $HP_SITE $STREAM_PATH
     verify_stream $AZURE_SITE $STREAM_PATH
     verify_stream $JOYENT_SITE $STREAM_PATH
     rm -r $WORK
@@ -68,13 +66,12 @@ check_deps() {
     which swift || has_deps=0
     which s3cmd || has_deps=0
     test -f $JUJU_DIR/canonistacktoolsrc || has_deps=0
-    test -f $JUJU_DIR/hptoolsrc || has_deps=0
     test -f $JUJU_DIR/s3cfg || has_deps=0
     test -f $JUJU_DIR/azuretoolsrc || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install python-swiftclient, and s3cmd"
         echo "Your $JUJU_DIR dir must contain rc files to publish:"
-        echo "  canonistacktoolsrc, hptoolsrc, s3cfg, azuretoolsrc"
+        echo "  canonistacktoolsrc, s3cfg, azuretoolsrc"
         exit 2
     fi
 }
@@ -135,38 +132,6 @@ publish_to_canonistack() {
     cd $JUJU_DIST/tools/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
     verify_stream $CAN_SITE $JUJU_DIST/tools
-}
-
-
-publish_to_hp() {
-    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'hp' ]] || return 0
-    if [[ $PURPOSE == "released" ]]; then
-        local destination="tools"
-    else
-        local destination="$PURPOSE/tools"
-    fi
-    source $JUJU_DIR/hptoolsrc
-    if [[ ! $PURPOSE =~ ^(devel|proposed)$ ]]; then
-        echo "Phase 4: Publishing $PURPOSE to HP Cloud."
-
-        cd $STREAM_PATH/releases/
-        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
-        cd $STREAM_PATH/streams/v1
-        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-        verify_stream $HP_SITE $STREAM_PATH
-    fi
-    #
-    # New one-tree support.
-    #
-    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
-        return
-    fi
-    echo "Phase 4.1: Publishing $PURPOSE to HP Cloud one-tree."
-    cd $JUJU_DIST/tools/$PURPOSE/
-    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
-    verify_stream $HP_SITE $JUJU_DIST/tools
 }
 
 
@@ -265,7 +230,7 @@ if [[ ! -d $STREAM_PATH/releases && ! -d $STREAM_PATH/streams ]]; then
 fi
 
 DESTINATIONS=$3
-if [[ ! $DESTINATIONS =~ ^(aws|azure|canonistack|hp|joyent|cpc|streams)$ ]]; then
+if [[ ! $DESTINATIONS =~ ^(aws|azure|canonistack|joyent|cpc|streams)$ ]]; then
     echo "Invalid DESTINATIONS."
     usage
 fi
@@ -279,7 +244,6 @@ fi
 publish_to_aws
 publish_to_azure
 publish_to_joyent
-publish_to_hp
 publish_to_canonistack
 publish_to_streams
 rm -r $WORK
