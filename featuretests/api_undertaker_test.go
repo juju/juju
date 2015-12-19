@@ -159,6 +159,17 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(otherSt.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
 }
 
+func (s *undertakerSuite) TestHostedEnvironConfig(c *gc.C) {
+	undertakerClient, otherSt := s.hostedAPI(c)
+	defer otherSt.Close()
+
+	cfg, err := undertakerClient.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, ok := cfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, otherSt.EnvironUUID())
+}
+
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
 	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "hosted_env"})
 

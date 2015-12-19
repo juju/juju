@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -36,6 +37,9 @@ type State interface {
 
 	// AllServices returns all deployed services in the environment.
 	AllServices() ([]Service, error)
+
+	// EnvironConfig retrieves the environment configuration.
+	EnvironConfig() (*config.Config, error)
 }
 
 type stateShim struct {
