@@ -148,10 +148,7 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
-	s.FakeImages.Metadata = s.imageMetadata
-	s.FakeImages.ResolveInfo = s.resolveInfo
-
-	spec, err := gce.FindInstanceSpec(s.Env, s.Env.Config().ImageStream(), s.ic)
+	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec, gc.DeepEquals, s.spec)
