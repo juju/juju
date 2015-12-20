@@ -59,7 +59,6 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 type ebsVolumeSuite struct {
 	testing.BaseSuite
 	jujutest.Tests
-	//	sstesting.TestDataSuite
 	srv                localServer
 	restoreEC2Patching func()
 
@@ -73,13 +72,11 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = localConfigAttrs
 	s.restoreEC2Patching = patchEC2ForTesting()
 	s.BaseSuite.SetUpSuite(c)
-	//	s.TestDataSuite.SetUpSuite(c)
-	//	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	//	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+	s.Tests.SetUpSuite(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
-	//	s.TestDataSuite.TearDownSuite(c)
+	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }

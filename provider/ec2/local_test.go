@@ -187,11 +187,12 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.BaseSuite.SetUpSuite(c)
-
+	t.Tests.SetUpSuite(c)
 	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
 }
