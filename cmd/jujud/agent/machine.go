@@ -135,7 +135,6 @@ var (
 	newAddresser             = addresser.NewWorker
 	newMetadataUpdater       = imagemetadataworker.NewWorker
 	reportOpenedState        = func(io.Closer) {}
-	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -447,7 +446,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return err
 	}
 	a.runner.StartWorker("engine", createEngine)
-	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 
 	// At this point, all workers will have been configured to start
@@ -487,6 +485,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
+			StartAPIWorkers:      a.startAPIWorkers,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -663,24 +662,14 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 	}
 }
 
-// APIWorker returns a Worker that connects to the API and starts any
-// workers that need an API connection.
-func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, err := apicaller.OpenAPIState(a)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	reportOpenedAPI(st)
-
-	// All other workers must wait for the upgrade steps to complete before starting.
-	runner := newConnRunner(st)
-	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.startAPIWorkers(st)
-	})
-	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
-}
-
-func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (worker.Worker, error) {
+// startAPIWorkers is called to start workers which rely on the
+// machine agent's API connection (via the apiworkers manifold). It
+// returns a Runner with a number of workers attached to it.
+//
+// The workers started here need to be converted to run under the
+// dependency engine. Once they have all been converted, this method -
+// and the apiworkers manifold - can be removed.
+func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker, outErr error) {
 	agentConfig := a.CurrentConfig()
 
 	entity, err := apiConn.Agent().Entity(a.Tag())
@@ -797,7 +786,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (worker.Worker, e
 		if isEnvironManager {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 		}
-
 		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
 			if err != nil {
@@ -929,7 +917,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (worker.Worker, e
 			return w, nil
 		})
 	}
-
 	return runner, nil
 }
 
@@ -1121,7 +1108,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
-			// Implemented in APIWorker.
+			// Implemented elsewhere with workers that use the API.
 		case state.JobManageEnviron:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
@@ -1893,6 +1880,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		// For backwards compatibility, handle lack of AgentServiceName.
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
+
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {

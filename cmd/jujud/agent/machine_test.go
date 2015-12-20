@@ -226,7 +226,8 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	machineAgentFactory := MachineAgentFactoryFn(
 		&agentConf, logsCh, &mockLoopDeviceManager{}, c.MkDir(),
 	)
-	return machineAgentFactory(m.Id())
+	a := machineAgentFactory(m.Id())
+	return a
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
@@ -495,7 +496,15 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
 		ctx.st = st
 		ctx.agentConfig = agentConfig
-		close(ctx.inited)
+
+		// This might get called more than once.
+		select {
+		case <-ctx.inited:
+			// Already closed.
+		default:
+			close(ctx.inited)
+		}
+
 		return ctx
 	}
 	return ctx, func() { newDeployContext = orig }
@@ -967,16 +976,6 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 	}
 }
 
-func (s *MachineSuite) assertJobWithAPI(
-	c *gc.C,
-	job state.MachineJob,
-	test func(agent.Config, api.Connection),
-) {
-	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st interface{}) {
-		test(cfg, st.(api.Connection))
-	})
-}
-
 func (s *MachineSuite) assertJobWithState(
 	c *gc.C,
 	job state.MachineJob,
@@ -1211,40 +1210,22 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-func (s *MachineSuite) TestOpenStateFailsForJobHostUnits(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
-		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
-func (s *MachineSuite) TestOpenStateFailsForJobManageNetworking(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageNetworking, func(conf agent.Config, st api.Connection) {
-		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
-func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
-		s.AssertCanOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
 func (s *MachineSuite) TestOpenAPIStateWorksForJobHostUnits(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobHostUnits)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
 func (s *MachineSuite) TestOpenAPIStateWorksForJobManageNetworking(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobManageNetworking)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
 func (s *MachineSuite) TestOpenAPIStateWorksForJobManageEnviron(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobManageEnviron)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
-func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
+func (s *MachineSuite) runOpenAPIStateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
 	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
 
 	// Set a failing password...
@@ -1303,7 +1284,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
-	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+	_, done := s.waitForOpenState(c, &reportOpenedState, a)
 
 	// Symlinks should have been created
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
@@ -1335,7 +1316,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	}
 
 	// Start the agent and wait for it be running.
-	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+	_, done := s.waitForOpenState(c, &reportOpenedState, a)
 
 	// juju-run symlink should have been recreated.
 	for _, link := range links {
@@ -1348,8 +1329,11 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
 
-func (s *MachineSuite) TestProxyUpdater(c *gc.C) {
+func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
 	s.assertProxyUpdater(c, true)
+}
+
+func (s *MachineSuite) TestProxyUpdaterNoSystemFileUpdate(c *gc.C) {
 	s.assertProxyUpdater(c, false)
 }
 
@@ -1383,24 +1367,29 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 			c.Check(actualSettings, jc.DeepEquals, expectSettings)
 		}
 		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
-			close(started)
+			// This might called more than once.
+			select {
+			case <-started:
+				// Already closed.
+			default:
+				close(started)
+			}
 			return nil
 		}), nil
 	}
 	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
-	s.primeAgent(c, state.JobHostUnits)
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
-		for {
-			select {
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timeout while waiting for proxy updater to start")
-			case <-started:
-				c.Assert(gotConf, jc.DeepEquals, conf)
-				return
-			}
-		}
-	})
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for proxy updater to start")
+	case <-started:
+		c.Assert(gotConf, jc.DeepEquals, a.CurrentConfig())
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
@@ -1433,18 +1422,22 @@ func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
 
 func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.AgentSuite.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
-	s.assertJobWithAPI(c, job, func(conf agent.Config, st api.Connection) {
-		select {
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timeout while waiting for rsyslog worker to be created")
-		case mode := <-created:
-			c.Assert(mode, gc.Equals, expectedMode)
-		}
-	})
+
+	stm, _, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for rsyslog worker to be created")
+	case mode := <-created:
+		c.Assert(mode, gc.Equals, expectedMode)
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
