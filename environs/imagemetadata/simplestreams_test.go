@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -17,9 +17,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/testing"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -33,7 +33,7 @@ type liveTestData struct {
 
 var liveUrls = map[string]liveTestData{
 	"ec2": {
-		baseURL:        imagemetadata.DefaultBaseURL,
+		baseURL:        imagemetadata.DefaultUbuntuBaseURL,
 		requireSigned:  true,
 		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
 	},
@@ -44,7 +44,7 @@ var liveUrls = map[string]liveTestData{
 	},
 }
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	if *live {
 		if *vendor == "" {
 			t.Fatal("missing vendor")
@@ -108,6 +108,25 @@ func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 	s.TestDataSuite.TearDownSuite(c)
 	s.LocalLiveSimplestreamsSuite.TearDownSuite(c)
+}
+
+func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
+	origKey := imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	defer func() {
+		imagemetadata.SetSigningPublicKey(origKey)
+	}()
+	ds, err := imagemetadata.OfficialDataSources("daily")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ds, gc.HasLen, 2)
+	url, err := ds[0].URL("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "https://streams.canonical.com/juju/images/daily/")
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
+
+	url, err = ds[1].URL("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
+	c.Assert(ds[1].PublicSigningKey(), gc.Equals, sstesting.SignedMetadataPublicKey)
 }
 
 var fetchTests = []struct {
@@ -334,10 +353,10 @@ type signedSuite struct {
 	origKey string
 }
 
-var testRoundTripper *jujutest.ProxyRoundTripper
+var testRoundTripper *testing.ProxyRoundTripper
 
 func init() {
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	testRoundTripper = &testing.ProxyRoundTripper{}
 	testRoundTripper.RegisterForScheme("signedtest")
 }
 
@@ -366,7 +385,7 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/image_metadata.sjson"] = string(signedData)
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+	testRoundTripper.Sub = testing.NewCannedRoundTripper(
 		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
 	s.origKey = imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
 }
@@ -377,7 +396,9 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLSignedDataSource(
+		"test", "signedtest://host/signed", sstesting.SignedMetadataPublicKey, utils.VerifySSLHostnames,
+	)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

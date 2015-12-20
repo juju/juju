@@ -2207,15 +2207,15 @@ func (s *serverSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	result, err := s.APIState.Client().FindTools(2, -1, "", "")
+	result, err := s.APIState.Client().FindTools(99, -1, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.12.0-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
 	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
 		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
