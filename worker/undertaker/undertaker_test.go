@@ -24,27 +24,26 @@ type undertakerSuite struct {
 var _ = gc.Suite(&undertakerSuite{})
 
 type clock struct {
+	*testing.Clock
 
 	// advanceDurationAfterNow is the duration to advance the clock after the
 	// next call to Now().
-	advanceDurationAfterNow *int64
-
-	*testing.Clock
+	advanceDurationAfterNow int64
 }
 
-func (c clock) Now() time.Time {
+func (c *clock) Now() time.Time {
 	now := c.Clock.Now()
-	d := atomic.LoadInt64(c.advanceDurationAfterNow)
-	if d != int64(0) {
+	d := atomic.LoadInt64(&c.advanceDurationAfterNow)
+	if d != 0 {
 		c.Clock.Advance(time.Duration(d))
-		atomic.SwapInt64(c.advanceDurationAfterNow, int64(0))
+		atomic.StoreInt64(&c.advanceDurationAfterNow, 0)
 	}
 
 	return now
 }
 
-func (c clock) advanceAfterNextNow(d time.Duration) {
-	atomic.SwapInt64(c.advanceDurationAfterNow, int64(d))
+func (c *clock) advanceAfterNextNow(d time.Duration) {
+	atomic.StoreInt64(&c.advanceDurationAfterNow, int64(d))
 }
 
 func (s *undertakerSuite) TestAPICalls(c *gc.C) {
@@ -63,8 +62,8 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := &clock{
 		Clock: testing.NewClock(startTime),
-		advanceDurationAfterNow: new(int64),
 	}
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
@@ -113,11 +112,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 
 	wg.Wait()
 
-	select {
-	case call := <-client.calls:
-		c.Fatalf("unexpected API call: %q", call)
-	case <-time.After(testing.ShortWait):
-	}
+	assertNoMoreCalls(c, client)
 }
 
 func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) {
@@ -136,7 +131,6 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := &clock{
 		Clock: testing.NewClock(startTime),
-		advanceDurationAfterNow: new(int64),
 	}
 
 	wg := sync.WaitGroup{}
@@ -179,11 +173,7 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 
 	wg.Wait()
 
-	select {
-	case call := <-client.calls:
-		c.Fatalf("unexpected API call: %q", call)
-	case <-time.After(testing.ShortWait):
-	}
+	assertNoMoreCalls(c, client)
 }
 
 func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
@@ -243,6 +233,10 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 
 	wg.Wait()
 
+	assertNoMoreCalls(c, client)
+}
+
+func assertNoMoreCalls(c *gc.C, client *mockClient) {
 	select {
 	case call := <-client.calls:
 		c.Fatalf("unexpected API call: %q", call)
