@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -140,20 +141,21 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 		// Filter custom image metadata to the ones we're interested in for
 		// bootstrapping the initial instance.
-		seriesVersions := make([]string, len(imageConstraint.Series))
-		for i, constraintSeries := range imageConstraint.Series {
+		seriesVersions := set.NewStrings()
+		for _, constraintSeries := range imageConstraint.Series {
 			seriesVersion, err := series.SeriesVersion(constraintSeries)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			seriesVersions[i] = seriesVersion
+			seriesVersions.Add(seriesVersion)
 		}
+		arches := set.NewStrings(imageConstraint.Arches...)
 		for _, image := range customImageMetadata {
 			if matchImageMetadata(
 				image,
 				imageConstraint.CloudSpec,
 				seriesVersions,
-				imageConstraint.Arches,
+				arches,
 				imageConstraint.Stream,
 			) {
 				imageMetadata = append(imageMetadata, image)
@@ -235,23 +237,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 func matchImageMetadata(
 	image *imagemetadata.ImageMetadata,
 	cloudSpec simplestreams.CloudSpec,
-	seriesVersions []string, arches []string,
+	seriesVersions, arches set.Strings,
 	stream string,
 ) bool {
 	return image.Stream == stream &&
 		image.RegionName == cloudSpec.Region &&
 		image.Endpoint == cloudSpec.Endpoint &&
-		sliceContainsString(seriesVersions, image.Version) &&
-		sliceContainsString(arches, image.Arch)
-}
-
-func sliceContainsString(values []string, search string) bool {
-	for _, value := range values {
-		if value == search {
-			return true
-		}
-	}
-	return false
+		seriesVersions.Contains(image.Version) &&
+		arches.Contains(image.Arch)
 }
 
 // setBootstrapTools returns the newest tools from the given tools list,
