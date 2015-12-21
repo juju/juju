@@ -1703,7 +1703,6 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"name":            "sample-no-swift",
 		"type":            "openstack",
 		"auth-mode":       "userpass",
-		"control-bucket":  "juju-test-no-swift",
 		"username":        s.cred.User,
 		"password":        s.cred.Secrets,
 		"region":          s.cred.Region,
