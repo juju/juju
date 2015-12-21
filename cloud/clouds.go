@@ -18,20 +18,20 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-//go:generate go run ../generate/fallbackpubliccloudyaml.go fallback-public-cloud.yaml fallback_public_cloud.go
+//go:generate go run ../generate/yamltoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015
 
 // AuthType is the type of authentication used by the cloud.
 type AuthType string
 
-var (
+const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
-	AccessKeyAuthType = "access-key"
+	AccessKeyAuthType = AuthType("access-key")
 
 	// UserPassAuthType is an authentication type using a username and password.
-	UserPassAuthType = "userpass"
+	UserPassAuthType = AuthType("userpass")
 
 	// OAuthAuthType is an authentication type using oauth2.
-	OAuthAuthType = "oauth2"
+	OAuthAuthType = AuthType("oauth2")
 )
 
 // Clouds is a struct containing cloud definitions.
@@ -96,9 +96,6 @@ func ParseCloudMetadata(data []byte) (*Clouds, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
-	//	if valueTemplate != nil {
-	//		err = metadata.construct(reflect.TypeOf(valueTemplate))
-	//	}
 	metadata.denormaliseMetadata()
 	return &metadata, nil
 }
@@ -110,7 +107,6 @@ func (metadata *Clouds) denormaliseMetadata() {
 	for _, cloud := range metadata.Clouds {
 		for name, region := range cloud.Regions {
 			r := region
-			//			inherit(&cloud, &r)
 			inherit(&r, &cloud)
 			cloud.Regions[name] = r
 		}
