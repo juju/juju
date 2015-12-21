@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/testing"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -334,13 +333,6 @@ type signedSuite struct {
 	origKey string
 }
 
-var testRoundTripper *testing.ProxyRoundTripper
-
-func init() {
-	testRoundTripper = &testing.ProxyRoundTripper{}
-	testRoundTripper.RegisterForScheme("signedtest")
-}
-
 func (s *signedSuite) SetUpSuite(c *gc.C) {
 	var imageData = map[string]string{
 		"/unsigned/streams/v1/index.json":          unsignedIndex,
@@ -366,18 +358,17 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/image_metadata.sjson"] = string(signedData)
-	testRoundTripper.Sub = testing.NewCannedRoundTripper(
-		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	sstesting.SetRoundTripperFiles(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 	s.origKey = imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
-	testRoundTripper.Sub = nil
+	sstesting.SetRoundTripperFiles(nil, nil)
 	imagemetadata.SetSigningPublicKey(s.origKey)
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
+	signedSource := simplestreams.NewURLDataSource("test", "test://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
@@ -390,13 +381,13 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    true,
-		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		IndexURL:  "test://host/signed/streams/v1/index.sjson",
 		MirrorURL: "",
 	})
 }
 
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
+	signedSource := simplestreams.NewURLDataSource("test", "test://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

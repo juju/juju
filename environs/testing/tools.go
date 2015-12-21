@@ -20,7 +20,6 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -208,18 +207,13 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	return agentTools, nil
 }
 
-const (
-	unsignedJsonSuffix = ".json"
-	signedJsonSuffix   = ".sjson"
-)
-
 func SignTestTools(stor storage.Storage) error {
 	files, err := stor.List("")
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		if strings.HasSuffix(file, unsignedJsonSuffix) {
+		if strings.HasSuffix(file, sstesting.UnsignedJsonSuffix) {
 			// only sign .json files and data
 			if err := SignFileData(stor, file); err != nil {
 				return err
@@ -241,7 +235,7 @@ func SignFileData(stor storage.Storage, fileName string) error {
 		return err
 	}
 
-	signedName, signedContent, err := SignMetadata(fileName, fileData)
+	signedName, signedContent, err := sstesting.SignMetadata(fileName, fileData)
 	if err != nil {
 		return err
 	}
@@ -251,21 +245,6 @@ func SignFileData(stor storage.Storage, fileName string) error {
 		return err
 	}
 	return nil
-}
-
-func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
-	signString := func(unsigned string) string {
-		return strings.Replace(unsigned, unsignedJsonSuffix, signedJsonSuffix, -1)
-	}
-
-	// Make sure that contents point to signed files too.
-	signedFileData := signString(string(fileData))
-	signedBytes, err := simplestreams.Encode(strings.NewReader(signedFileData), sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return signString(fileName), signedBytes, nil
 }
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.

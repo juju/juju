@@ -1021,13 +1021,6 @@ type signedSuite struct {
 	origKey string
 }
 
-var testRoundTripper *coretesting.ProxyRoundTripper
-
-func init() {
-	testRoundTripper = &coretesting.ProxyRoundTripper{}
-	testRoundTripper.RegisterForScheme("signedtest")
-}
-
 func (s *signedSuite) SetUpSuite(c *gc.C) {
 	var imageData = map[string]string{
 		"/unsigned/streams/v1/index.json":          unsignedIndex,
@@ -1053,18 +1046,17 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
-	testRoundTripper.Sub = coretesting.NewCannedRoundTripper(
-		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	sstesting.SetRoundTripperFiles(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
-	testRoundTripper.Sub = nil
+	sstesting.SetRoundTripperFiles(nil, nil)
 	tools.SetSigningPublicKey(s.origKey)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
+	signedSource := simplestreams.NewURLDataSource("test", "test://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
@@ -1079,7 +1071,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    true,
-		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		IndexURL:  "test://host/signed/streams/v1/index.sjson",
 		MirrorURL: "",
 	})
 }

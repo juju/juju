@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -240,7 +241,7 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 		// add unsigned
 		objects = append(objects, metadataFile{fileName, content})
 
-		signedFilename, signedContent, err := envtesting.SignMetadata(fileName, content)
+		signedFilename, signedContent, err := sstesting.SignMetadata(fileName, content)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// add signed
@@ -252,7 +253,7 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 		addTools(simplestreams.UnsignedIndex("v1", 1), legacyIndex)
 	}
 	for stream, metadata := range products {
-		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
+		addTools(tools.ProductMetadataPath(stream), metadata)
 	}
 	return objects
 }
