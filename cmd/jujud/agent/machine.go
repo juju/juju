@@ -89,7 +89,6 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
-	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
@@ -758,14 +757,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start api address updater worker")
-		}
-		return w, nil
-	})
-
-	runner.StartWorker("logger", func() (worker.Worker, error) {
-		w, err := workerlogger.NewLogger(apiConn.Logger(), agentConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start logging config updater worker")
 		}
 		return w, nil
 	})
