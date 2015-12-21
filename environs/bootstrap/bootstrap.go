@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -84,10 +86,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
-	var imageMetadata []*imagemetadata.ImageMetadata
+	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		imageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
 		if err != nil {
 			return err
 		}
@@ -110,6 +112,56 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
+	}
+
+	// For providers that support make use of simplestreams image metadata,
+	// search public image metadata. We need to pass this onto Bootstrap
+	// for selecting images.
+	var imageMetadata []*imagemetadata.ImageMetadata
+	var publicImageMetadata []*imagemetadata.ImageMetadata
+	if hasRegion, ok := environ.(simplestreams.HasRegion); ok {
+		sources, err := environs.ImageMetadataSources(environ)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		region, err := hasRegion.Region()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+			CloudSpec: region,
+			Series:    availableTools.AllSeries(),
+			Arches:    availableTools.Arches(),
+			Stream:    environ.Config().ImageStream(),
+		})
+		publicImageMetadata, _, err = imagemetadata.Fetch(sources, imageConstraint)
+		if err != nil {
+			return errors.Annotate(err, "searching image metadata")
+		}
+
+		// Filter custom image metadata to the ones we're interested in for
+		// bootstrapping the initial instance.
+		seriesVersions := set.NewStrings()
+		for _, constraintSeries := range imageConstraint.Series {
+			seriesVersion, err := series.SeriesVersion(constraintSeries)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			seriesVersions.Add(seriesVersion)
+		}
+		arches := set.NewStrings(imageConstraint.Arches...)
+		for _, image := range customImageMetadata {
+			if matchImageMetadata(
+				image,
+				imageConstraint.CloudSpec,
+				seriesVersions,
+				arches,
+				imageConstraint.Stream,
+			) {
+				imageMetadata = append(imageMetadata, image)
+			}
+		}
+		imageMetadata = append(imageMetadata, publicImageMetadata...)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -135,6 +187,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
 		AvailableTools: availableTools,
+		ImageMetadata:  imageMetadata,
 	})
 	if err != nil {
 		return err
@@ -173,12 +226,25 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig.Tools = selectedTools
-	instanceConfig.CustomImageMetadata = imageMetadata
+	instanceConfig.CustomImageMetadata = customImageMetadata
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")
 	return nil
+}
+
+func matchImageMetadata(
+	image *imagemetadata.ImageMetadata,
+	cloudSpec simplestreams.CloudSpec,
+	seriesVersions, arches set.Strings,
+	stream string,
+) bool {
+	return image.Stream == stream &&
+		image.RegionName == cloudSpec.Region &&
+		image.Endpoint == cloudSpec.Endpoint &&
+		seriesVersions.Contains(image.Version) &&
+		arches.Contains(image.Arch)
 }
 
 // setBootstrapTools returns the newest tools from the given tools list,

@@ -141,6 +141,38 @@ func (s *ec2storage) ResetMadeBucket() {
 	s.madeBucket = false
 }
 
+func makeImage(id, storage, virtType, arch, version, region string) *imagemetadata.ImageMetadata {
+	return &imagemetadata.ImageMetadata{
+		Id:         id,
+		Storage:    storage,
+		VirtType:   virtType,
+		Arch:       arch,
+		Version:    version,
+		RegionName: region,
+		Endpoint:   "https://ec2.endpoint.com",
+		Stream:     "released",
+	}
+}
+
+var TestImageMetadata = []*imagemetadata.ImageMetadata{
+	// 14.04:amd64
+	makeImage("ami-00000033", "ssd", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000039", "ebs", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000035", "ssd", "hvm", "amd64", "14.04", "test"),
+
+	// 14.04:i386
+	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
+
+	// 12.10:amd64
+	makeImage("ami-01000035", "ssd", "hvm", "amd64", "12.10", "test"),
+
+	// 12.10:i386
+	makeImage("ami-01000034", "ssd", "pv", "i386", "12.10", "test"),
+
+	// 13.04:i386
+	makeImage("ami-02000034", "ssd", "pv", "i386", "13.04", "test"),
+}
+
 var TestImagesData = map[string]string{
 	"/streams/v1/index.json": `
         {

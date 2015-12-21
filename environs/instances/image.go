@@ -24,13 +24,14 @@ type InstanceConstraint struct {
 	Arches      []string
 	Constraints constraints.Value
 
-	// Optional filtering criteria not supported by all providers. These attributes are not specified
-	// by the user as a constraint but rather passed in by the provider implementation to restrict the
-	// choice of available images.
+	// Optional filtering criteria not supported by all providers. These
+	// attributes are not specified by the user as a constraint but rather
+	// passed in by the provider implementation to restrict the choice of
+	// available images.
 
 	// Storage specifies a list of storage types, in order of preference.
-	// eg ["ssd", "ebs"] means find images with ssd storage, but if none exist,
-	// find those with ebs instead.
+	// eg ["ssd", "ebs"] means find images with ssd storage, but if none
+	// exist, find those with ebs instead.
 	Storage []string
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/tools"
 )
 
@@ -30,6 +31,11 @@ type BootstrapParams struct {
 	// network bridge device to use for LXC and KVM containers. See
 	// also instancecfg.DefaultBridgeName.
 	ContainerBridgeName string
+
+	// ImageMetadata contains simplestreams image metadata for providers
+	// that rely on it for selecting images. This will be empty for
+	// providers that do not implements simplestreams.HasRegion.
+	ImageMetadata []*imagemetadata.ImageMetadata
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.

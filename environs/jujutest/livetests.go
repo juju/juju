@@ -741,11 +741,21 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
-	result, err := t.Env.StartInstance(environs.StartInstanceParams{
+	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
+		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
+	))
+	params := environs.StartInstanceParams{
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
-	})
+	}
+	err = jujutesting.SetImageMetadata(
+		t.Env,
+		possibleTools.AllSeries(),
+		possibleTools.Arches(),
+		&params.ImageMetadata,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	result, err := t.Env.StartInstance(params)
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())
 		c.Check(err, jc.ErrorIsNil)

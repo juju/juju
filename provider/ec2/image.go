@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 )
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
@@ -41,7 +40,9 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(
-	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	allImageMetadata []*imagemetadata.ImageMetadata,
+	ic *instances.InstanceConstraint,
+) (*instances.InstanceSpec, error) {
 
 	// If the instance type is set, don't also set a default CPU power
 	// as this is implied.
@@ -49,21 +50,7 @@ func findInstanceSpec(
 	if cons.CpuPower == nil && (cons.InstanceType == nil || *cons.InstanceType == "") {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	ec2Region := allRegions[ic.Region]
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-		Stream:    stream,
-	})
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint)
-	if err != nil {
-		return nil, err
-	}
-	if len(matchingImages) == 0 {
-		logger.Warningf("no matching image meta data for constraints: %v", ic)
-	}
-	suitableImages := filterImages(matchingImages, ic)
+	suitableImages := filterImages(allImageMetadata, ic)
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
