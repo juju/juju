@@ -31,10 +31,9 @@ func replaceNameWithID(oldName, envName, eUUID string) (string, bool, error) {
 	if !strings.HasPrefix(oldName, prefix) {
 		return "", false, nil
 	}
-	if len(prefix) < len(oldName) {
-		if oldName[len(prefix)] != '-' {
-			return "", false, nil
-		}
+	// This might be an env with a name that shares prefix with our current one.
+	if len(prefix) < len(oldName) && !strings.HasPrefix(oldName, prefix+"-") {
+		return "", false, nil
 	}
 	newPrefix := "juju-" + eUUID
 	return strings.Replace(oldName, prefix, newPrefix, -1), true, nil
