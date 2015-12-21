@@ -251,8 +251,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             self.assertEqual(
                 ['machine-2'],
                 sorted(os.listdir(artifacts_dir)))
-        self.assertEqual(
-                (client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
+        self.assertEqual((client, {'0': '10.10.0.1'}), gm_mock.call_args[0])
         self.assertEqual(
             [(self.r2, '%s/machine-2' % artifacts_dir)],
             [cal[0] for cal in crl_mock.call_args_list])
@@ -861,6 +860,15 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
 
+    def test_jes_not_permanent(self):
+        with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
+                                     ' if jes_enabled is True.'):
+            BootstrapManager(
+                jes_enabled=True, permanent=False,
+                temp_env_name=None, client=None, tear_down_client=None,
+                bootstrap_host=None, machines=[], series=None, agent_url=None,
+                agent_stream=None, region=None, log_dir=None, keep_env=None)
+
     def test_aws_machines_updates_bootstrap_host(self):
         client = FakeJujuClient()
         client.env.config['type'] = 'manual'
@@ -1105,8 +1113,8 @@ class TestBootContext(FakeHomeTestCase):
         else:
             runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'bar.jenv')
-        dl_mock.assert_called_once_with(
-                client, log_dir, runtime_config, {'0': 'foo'})
+        dl_mock.assert_called_once_with(client, log_dir, runtime_config,
+                                        {'0': 'foo'})
         if keep_env:
             tear_down_count = 1
         else:

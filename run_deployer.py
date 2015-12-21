@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 import logging
 import subprocess
+import sys
 
 from deploy_stack import (
     assess_upgrade,
@@ -82,8 +83,25 @@ def apply_condition(client, condition):
             raise ErrUnitCondition("%s: Unknown condition type." % action)
 
 
-def run_deployer(argv=None):
+def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
+    client.deployer(args.bundle_path, args.bundle_name)
+    # Curtis disabled this because no deployer-based tests are passing.
+    # client.wait_for_workloads()
+    if args.health_cmd:
+        check_health(args.health_cmd, args.temp_env_name)
+    if args.upgrade:
+        client.juju('status', ())
+        if args.upgrade_condition:
+            for condition in args.upgrade_condition:
+                apply_condition(client, condition)
+        assess_upgrade(client, args.juju_bin)
+        client.wait_for_workloads()
+        if args.health_cmd:
+            check_health(args.health_cmd, args.temp_env_name)
+
+
+def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     env = SimpleEnvironment.from_config(args.env)
@@ -91,17 +109,11 @@ def run_deployer(argv=None):
     client = EnvJujuClient.by_version(env, start_juju_path, debug=args.debug)
     with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
-                      args.keep_env, False, region=args.region):
-        client.deployer(args.bundle_path, args.bundle_name)
-        if args.health_cmd:
-            check_health(args.health_cmd, args.temp_env_name)
-        if args.upgrade:
-            client.juju('status', ())
-            if args.upgrade_condition:
-                for condition in args.upgrade_condition:
-                    apply_condition(client, condition)
-            assess_upgrade(client, args.juju_bin)
-            if args.health_cmd:
-                check_health(args.health_cmd, args.temp_env_name)
+                      args.keep_env, upload_tools=args.upload_tools,
+                      region=args.region):
+        assess_deployer(args, client)
+    return 0
+
+
 if __name__ == '__main__':
-    run_deployer()
+    sys.exit(main())

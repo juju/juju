@@ -4,27 +4,34 @@ import os
 import stat
 import subprocess
 from tempfile import NamedTemporaryFile
-from unittest import TestCase
+import unittest
 
-from mock import patch
+from mock import (
+    call,
+    Mock,
+    patch,
+)
 
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
-    _temp_env as temp_env,
     )
 from run_deployer import (
     apply_condition,
+    assess_deployer,
     check_health,
     CLOCK_SKEW_SCRIPT,
     ErrUnitCondition,
+    main,
     parse_args,
-    run_deployer
     )
 from tests.test_jujupy import FakeJujuClient
 
 
-class TestParseArgs(TestCase):
+import tests
+
+
+class TestParseArgs(tests.TestCase):
 
     def test_parse_args(self):
         args = parse_args(['/bundle/path', 'test_env', 'new/bin/juju',
@@ -46,74 +53,91 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.upgrade_condition, None)
 
 
-class TestRunDeployer(TestCase):
+class TestMain(tests.FakeHomeTestCase):
 
-    def test_run_deployer(self):
-        with patch('run_deployer.boot_context'):
-            with patch('run_deployer.SimpleEnvironment.from_config',
-                       return_value=SimpleEnvironment('bar')) as env:
-                with patch('run_deployer.EnvJujuClient.by_version',
-                           return_value=EnvJujuClient(env, '1.234-76', None)):
-                    with patch('run_deployer.parse_args',
-                               return_value=Namespace(
-                                   temp_env_name='foo', env='bar', series=None,
-                                   agent_url=None, agent_stream=None,
-                                   juju_bin='', logs=None, keep_env=False,
-                                   health_cmd=None, debug=False,
-                                   bundle_path='', bundle_name='',
-                                   verbose=logging.INFO, region=None,
-                                   upgrade=False)):
-                        with patch(
-                                'run_deployer.EnvJujuClient.deployer') as dm:
-                            with patch('run_deployer.check_health') as hm:
-                                run_deployer()
-        self.assertEqual(dm.call_count, 1)
-        self.assertEqual(hm.call_count, 0)
+    def test_basic_args(self):
+        args = ['bundles', 'an-env', '/bin/juju', 'logs', 'deployer-env']
+        env = SimpleEnvironment('an-env')
+        client = EnvJujuClient(env, '1.234-76', None)
+        with patch('jujupy.SimpleEnvironment.from_config',
+                   return_value=env) as e_mock:
+            with patch('jujupy.EnvJujuClient.by_version',
+                       return_value=client) as c_mock:
+                with patch('run_deployer.boot_context'):
+                    with patch('run_deployer.assess_deployer') as ad_mock:
+                        main(args)
+        e_mock.assert_called_once_with('an-env')
+        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        ad_mock.assert_called_once_with(parse_args(args), client)
 
-    def test_run_deployer_health(self):
-        with patch('run_deployer.boot_context'):
-            with patch('run_deployer.SimpleEnvironment.from_config',
-                       return_value=SimpleEnvironment('bar')) as env:
-                with patch('run_deployer.EnvJujuClient.by_version',
-                           return_value=EnvJujuClient(env, '1.234-76', None)):
-                    with patch('run_deployer.parse_args',
-                               return_value=Namespace(
-                                   temp_env_name='foo', env='bar', series=None,
-                                   agent_url=None, agent_stream=None,
-                                   juju_bin='', logs=None, keep_env=False,
-                                   health_cmd='/tmp/check', debug=False,
-                                   bundle_path='', bundle_name='',
-                                   verbose=logging.INFO, region=None,
-                                   upgrade=False)):
-                        with patch('run_deployer.EnvJujuClient.deployer'):
-                            with patch('run_deployer.check_health') as hm:
-                                run_deployer()
-        self.assertEqual(hm.call_count, 1)
 
-    def test_run_deployer_region(self):
-        with temp_env({'environments': {'bar': {'type': 'bar'}}}):
-            with patch('subprocess.check_output', return_value='foo'):
-                with patch('subprocess.check_call', return_value='foo'):
-                    with patch('run_deployer.boot_context') as bc_mock:
-                        run_deployer(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
-                                      '--region', 'region-foo'])
-        client = bc_mock.mock_calls[0][1][1]
-        bc_mock.assert_called_once_with(
-            'quxx', client, None, [], None, None, None, 'qux', False, False,
-            region='region-foo')
+class TestAssessDeployer(tests.TestCase):
+
+    def test_health(self):
+        args = Namespace(
+            temp_env_name='foo', env='bar', series=None, agent_url=None,
+            agent_stream=None, juju_bin='', logs=None, keep_env=False,
+            health_cmd='/tmp/check', debug=False, bundle_path='bundle.yaml',
+            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=False)
+        client_mock = Mock(spec=EnvJujuClient)
+        with patch('run_deployer.check_health', autospec=True) as ch_mock:
+            assess_deployer(args, client_mock)
+        client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
+        # Curtis disabled this because no deployer-based tests are passing.
+        # client_mock.wait_for_workloads.assert_called_once_with()
+        ch_mock.assert_called_once_with('/tmp/check', 'foo')
+
+    def test_upgrade(self):
+        args = Namespace(
+            temp_env_name='foo', env='bar', series=None, agent_url=None,
+            agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
+            health_cmd=None, debug=False, bundle_path='bundle.yaml',
+            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
+            upgrade_condition=[])
+        client_mock = Mock(spec=EnvJujuClient)
+        with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
+            assess_deployer(args, client_mock)
+        client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
+        client_mock.juju.assert_called_once_with('status', ())
+        au_mock.assert_called_once_with(client_mock, 'new/juju')
+        # Curtis disabled this because no deployer-based tests are passing.
+        # self.assertEqual(
+        #     client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+
+    def test_upgrade_and_health(self):
+        args = Namespace(
+            temp_env_name='foo', env='bar', series=None, agent_url=None,
+            agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
+            health_cmd='/tmp/check', debug=False, bundle_path='bundle.yaml',
+            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
+            upgrade_condition=[])
+        client_mock = Mock(spec=EnvJujuClient)
+        with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
+            with patch('run_deployer.check_health', autospec=True) as ch_mock:
+                assess_deployer(args, client_mock)
+        client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
+        client_mock.juju.assert_called_once_with('status', ())
+        au_mock.assert_called_once_with(client_mock, 'new/juju')
+        # Curtis disabled this because no deployer-based tests are passing.
+        # self.assertEqual(
+        #     client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+        self.assertEqual(
+            ch_mock.call_args_list, [call('/tmp/check', 'foo')] * 2)
 
     @patch('run_deployer.SimpleEnvironment.from_config')
     @patch('run_deployer.boot_context', autospec=True)
     def test_run_deployer_upgrade(self, *args):
+        args = Namespace(
+            env='foo', juju_bin='baz/juju', logs=None, temp_env_name='foo_t',
+            bundle_path='bundle.yaml', bundle_name='bundle',
+            health_cmd=None, debug=False, upgrade=True,
+            upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
         client = FakeJujuClient()
         with patch('run_deployer.EnvJujuClient.by_version',
                    return_value=client):
             with patch('run_deployer.apply_condition') as ac_mock:
                 with patch('run_deployer.assess_upgrade') as au_mock:
-                    run_deployer(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
-                                  '--upgrade',
-                                  '--upgrade-condition', 'bla/0:clock_skew',
-                                  '--upgrade-condition', 'foo/1:fill_disk'])
+                    assess_deployer(args, client)
         self.assertEqual(2, ac_mock.call_count)
         args, kwargs = ac_mock.call_args_list[0]
         self.assertEqual(args[0], client)
@@ -136,7 +160,7 @@ class FakeRemote():
         self.command = command
 
 
-class TestApplyCondition(TestCase):
+class TestApplyCondition(tests.TestCase):
 
     def test_apply_condition_clock_skew(self):
         client = FakeJujuClient()
@@ -156,7 +180,7 @@ class TestApplyCondition(TestCase):
                 apply_condition(client, 'bla/0:foo')
 
 
-class TestIsHealthy(TestCase):
+class TestIsHealthy(unittest.TestCase):
 
     def test_check_health(self):
         SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""

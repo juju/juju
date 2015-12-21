@@ -47,7 +47,6 @@ def scaleout_setup(args):
             args.agent_stream,
             args.logs, args.keep_env,
             args.upload_tools,
-            permanent=False,
             region=args.region,
             ):
         if args.machine is not None:
