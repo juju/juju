@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/model"
@@ -247,6 +248,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewLoginCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewUseModelCommand())
+
+	// Manage clouds
+	r.Register(cloud.NewListCloudsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

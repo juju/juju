@@ -241,6 +241,7 @@ var commandNames = []string{
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",
+	"list-clouds",
 	"list-controllers",
 	"list-models",
 	"list-shares",
