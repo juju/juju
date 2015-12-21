@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -117,47 +116,37 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 func (env *environ) buildInstanceSpec(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
-	spec, err := findInstanceSpec(env, env.Config().ImageStream(), &instances.InstanceConstraint{
-		Region:      env.ecfg.region(),
-		Series:      series,
-		Arches:      arches,
-		Constraints: args.Constraints,
-	})
+	spec, err := findInstanceSpec(
+		env, &instances.InstanceConstraint{
+			Region:      env.ecfg.region(),
+			Series:      series,
+			Arches:      arches,
+			Constraints: args.Constraints,
+		},
+		args.ImageMetadata,
+	)
 	return spec, errors.Trace(err)
 }
 
-var findInstanceSpec = func(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(stream, ic)
+var findInstanceSpec = func(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(ic, imageMetadata)
 }
 
-// findInstanceSpec initializes a new instance spec for the given stream
-// (and constraints) and returns it. This only covers populating the
-// initial data for the spec. However, it does include fetching the
-// correct simplestreams image data.
-func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: env.cloudSpec(ic.Region),
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-		Stream:    stream,
-	})
-
-	matchingImages, _, err := imageMetadataFetch(sources, imageConstraint)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	images := instances.ImageMetadataToImages(matchingImages)
+// findInstanceSpec initializes a new instance spec for the given
+// constraints and returns it. This only covers populating the
+// initial data for the spec.
+func (env *environ) findInstanceSpec(
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	return spec, errors.Trace(err)
 }
-
-var imageMetadataFetch = imagemetadata.Fetch
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that

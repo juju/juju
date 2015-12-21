@@ -250,7 +250,6 @@ type BaseSuite struct {
 	FakeConn    *fakeConn
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
-	FakeImages  *fakeImages
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -259,7 +258,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeConn = &fakeConn{}
 	s.FakeCommon = &fakeCommon{}
 	s.FakeEnviron = &fakeEnviron{}
-	s.FakeImages = &fakeImages{}
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
@@ -275,7 +273,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
-	s.PatchValue(&imageMetadataFetch, s.FakeImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -406,24 +403,17 @@ func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceP
 	return fe.Inst, fe.err()
 }
 
-func (fe *fakeEnviron) FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) FindInstanceSpec(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	fe.addCall("FindInstanceSpec", FakeCallArgs{
-		"env":    env,
-		"stream": stream,
-		"ic":     ic,
+		"env":           env,
+		"ic":            ic,
+		"imageMetadata": imageMetadata,
 	})
 	return fe.Spec, fe.err()
-}
-
-type fakeImages struct {
-	fake
-
-	Metadata    []*imagemetadata.ImageMetadata
-	ResolveInfo *simplestreams.ResolveInfo
-}
-
-func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
-	return fi.Metadata, fi.ResolveInfo, fi.err()
 }
 
 // TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.

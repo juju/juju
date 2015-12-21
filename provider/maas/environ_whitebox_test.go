@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -753,15 +752,6 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
-}
-
-func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
-	rc, _, err := source.Fetch(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	defer rc.Close()
-	retrieved, err := ioutil.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
