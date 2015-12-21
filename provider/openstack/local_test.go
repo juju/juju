@@ -800,12 +800,6 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
-	// Storage should be empty; it is not used anymore.
-	stor := env.(environs.EnvironStorage).Storage()
-	entries, err := stor.List("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entries, gc.HasLen, 0)
-
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
@@ -1033,51 +1027,6 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
-func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.(environs.EnvironStorage).Storage()
-	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
-		content := []byte{a}
-		name := string(content)
-		err := stor.Put(name, bytes.NewBuffer(content),
-			int64(len(content)))
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	reader, err := storage.Get(stor, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "a")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "a")
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.(environs.EnvironStorage).Storage()
-	// 6*26 = 156 items
-	for _, a := range []byte("abcdef") {
-		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
-			content := []byte{a, b}
-			name := string(content)
-			err := stor.Put(name, bytes.NewBuffer(content),
-				int64(len(content)))
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	reader, err := storage.Get(stor, "ab")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "ab")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "ab")
-	c.Assert(err, gc.NotNil)
-}
-
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
@@ -1202,17 +1151,8 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	env, err := environs.NewFromAttrs(newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
+	_, err = env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	// However, it works just fine if you use the one with the credentials set
-	err = s.env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	reader, err := s.env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, jc.ErrorIsNil)
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(string(contents), gc.Equals, "content")
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
