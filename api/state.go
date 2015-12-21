@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
@@ -359,11 +358,6 @@ func (st *state) Addresser() *addresser.API {
 // Environment returns access to the Environment API
 func (st *state) Environment() *environment.Facade {
 	return environment.NewFacade(st)
-}
-
-// Logger returns access to the Logger API
-func (st *state) Logger() *apilogger.State {
-	return apilogger.NewState(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API
