@@ -24,14 +24,15 @@ const (
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
 type environmentStorageDataSource struct {
-	stor     storage.Storage
-	priority int
+	stor          storage.Storage
+	priority      int
+	requireSigned bool
 }
 
 // NewEnvironmentStorageDataSource returns a new datasource that retrieves
 // metadata from environment storage.
-func NewEnvironmentStorageDataSource(stor storage.Storage, priority int) simplestreams.DataSource {
-	return environmentStorageDataSource{stor, priority}
+func NewEnvironmentStorageDataSource(stor storage.Storage, priority int, requireSigned bool) simplestreams.DataSource {
+	return environmentStorageDataSource{stor, priority, requireSigned}
 }
 
 // Description is defined in simplestreams.DataSource.
@@ -71,9 +72,14 @@ func (d environmentStorageDataSource) Priority() int {
 	return d.priority
 }
 
+// RequireSigned is defined in simplestreams.DataSource.
+func (d environmentStorageDataSource) RequireSigned() bool {
+	return d.requireSigned
+}
+
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
-func registerSimplestreamsDataSource(stor storage.Storage) {
-	ds := NewEnvironmentStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA)
+func registerSimplestreamsDataSource(stor storage.Storage, requireSigned bool) {
+	ds := NewEnvironmentStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA, requireSigned)
 	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})

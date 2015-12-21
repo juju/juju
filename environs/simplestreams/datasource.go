@@ -31,6 +31,8 @@ type DataSource interface {
 	// Priority is an importance factor for Data Source. Higher number means higher priority.
 	// This is will allow to sort data sources in order of importance.
 	Priority() int
+	// RequireSigned indicates whether this data source requires signed data.
+	RequireSigned() bool
 }
 
 const (
@@ -61,15 +63,17 @@ type urlDataSource struct {
 	baseURL              string
 	hostnameVerification utils.SSLHostnameVerification
 	priority             int
+	requireSigned        bool
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification, priority int) DataSource {
+func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification, priority int, requireSigned bool) DataSource {
 	return &urlDataSource{
 		description:          description,
 		baseURL:              baseURL,
 		hostnameVerification: hostnameVerification,
 		priority:             priority,
+		requireSigned:        requireSigned,
 	}
 }
 
@@ -131,4 +135,9 @@ func (h *urlDataSource) SetAllowRetry(allow bool) {
 // Priority is defined in simplestreams.DataSource.
 func (h *urlDataSource) Priority() int {
 	return h.priority
+}
+
+// RequireSigned is defined in simplestreams.DataSource.
+func (h *urlDataSource) RequireSigned() bool {
+	return h.requireSigned
 }

@@ -1061,7 +1061,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	reportOpenedState(st)
 
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
+	registerSimplestreamsDataSource(stor, false)
 
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)

@@ -67,10 +67,10 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA), nil
+		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false), nil
 	})
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA), nil
+		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
 	})
 	// overwrite the one previously registered against id1
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {

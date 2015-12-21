@@ -20,20 +20,12 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
-
-// This provides the content for code accessing test:///... URLs. This allows
-// us to set the responses for things like the Metadata server, by pointing
-// metadata requests at test:///... rather than http://169.254.169.254
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
-func init() {
-	testRoundTripper.RegisterForScheme("test")
-}
 
 var (
 	ShortAttempt   = &shortAttempt
@@ -268,11 +260,12 @@ func UseTestImageData(stor envstorage.Storage, cred *identity.Credentials) {
 	stor.Put(simplestreams.UnsignedIndex("v1", 1), bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
+
+	envtesting.SignTestTools(stor)
 }
 
 func RemoveTestImageData(stor envstorage.Storage) {
-	stor.Remove(simplestreams.UnsignedIndex("v1", 1))
-	stor.Remove(productMetadatafile)
+	stor.RemoveAll()
 }
 
 // DiscardSecurityGroup cleans up a security group, it is not an error to

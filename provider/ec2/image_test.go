@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
 )
 
@@ -19,19 +21,26 @@ var _ = gc.Suite(&specSuite{})
 
 type specSuite struct {
 	testing.BaseSuite
+	sstesting.TestDataSuite
 }
 
 func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	UseTestImageData(TestImagesData)
+	s.TestDataSuite.SetUpSuite(c)
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+
+	UseTestImageData(c, TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)
 }
 
 func (s *specSuite) TearDownSuite(c *gc.C) {
 	UseTestInstanceTypeData(nil)
-	UseTestImageData(nil)
+	UseTestImageData(c, nil)
 	UseTestRegionData(nil)
+	s.TestDataSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
@@ -164,7 +173,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		}
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -182,7 +191,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
 
 	source := []simplestreams.DataSource{
-		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA),
+		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
 	}
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
@@ -228,7 +237,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",

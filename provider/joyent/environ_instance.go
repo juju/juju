@@ -32,7 +32,6 @@ import (
 var (
 	vTypeSmartmachine   = "smartmachine"
 	vTypeVirtualmachine = "kvm"
-	signedImageDataOnly = false
 	defaultCpuCores     = uint64(1)
 )
 
@@ -365,7 +364,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		return nil, err
 	}
 
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return nil, err
 	}

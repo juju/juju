@@ -47,10 +47,9 @@ const (
 
 var currentStreamsVersion = StreamsVersionV1
 
-// simplestreamsToolsPublicKey is the public key required to
+// SimplestreamsToolsPublicKey is the public key required to
 // authenticate the simple streams data on http://streams.canonical.com.
-// Declared as a var so it can be overidden for testing.
-var simplestreamsToolsPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+var SimplestreamsToolsPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
 mQINBFJN1n8BEAC1vt2w08Y4ztJrv3maOycMezBb7iUs6DLH8hOZoqRO9EW9558W
@@ -221,18 +220,17 @@ func (t *ToolsMetadata) productId() (string, error) {
 // then unsigned data is used.
 func Fetch(
 	sources []simplestreams.DataSource, cons *ToolsConstraint,
-	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
+) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
-		OnlySigned:       onlySigned,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
 			DataType:        ContentDownload,
 			FilterFunc:      appendMatchingTools,
 			MirrorContentId: ToolsContentId(cons.Stream),
 			ValueTemplate:   ToolsMetadata{},
-			PublicKey:       simplestreamsToolsPublicKey,
+			PublicKey:       SimplestreamsToolsPublicKey,
 		},
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
@@ -409,13 +407,12 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
 func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
+	metadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, toolsConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}

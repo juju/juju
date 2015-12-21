@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -49,6 +50,7 @@ type LiveTests struct {
 	gitjujutesting.CleanupSuite
 
 	envtesting.ToolsFixture
+	sstesting.TestDataSuite
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
@@ -81,6 +83,7 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
+	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
 }
 
@@ -112,6 +115,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	t.Destroy(c)
+	t.TestDataSuite.TearDownSuite(c)
 	t.CleanupSuite.TearDownSuite(c)
 }
 

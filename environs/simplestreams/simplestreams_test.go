@@ -26,7 +26,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA),
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
 			RequireSigned:  false,
 			DataType:       "image-ids",
 			StreamsVersion: "v1",
@@ -330,7 +330,11 @@ func (s *countingSource) URL(path string) (string, error) {
 func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	source := &countingSource{
 		DataSource: simplestreams.NewURLDataSource(
-			"test", "test:/daily", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA,
+			"test",
+			"test:/daily",
+			utils.VerifySSLHostnames,
+			simplestreams.DEFAULT_CLOUD_DATA,
+			false,
 		),
 	}
 	sources := []simplestreams.DataSource{source, source, source}

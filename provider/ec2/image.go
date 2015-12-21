@@ -11,10 +11,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
-// signedImageDataOnly is defined here to allow tests to override the content.
-// If true, only inline PGP signed image metadata will be used.
-var signedImageDataOnly = true
-
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
 // constraint exists, preventing the smallest instance from being chosen unless
@@ -60,7 +56,7 @@ func findInstanceSpec(
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return nil, err
 	}

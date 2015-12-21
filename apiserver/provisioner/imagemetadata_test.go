@@ -11,26 +11,17 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/testing"
 )
-
-var (
-	testRoundTripper = &testing.ProxyRoundTripper{}
-)
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
 
 // useTestImageData causes the given content to be served when published metadata is requested.
-func useTestImageData(files map[string]string) {
+func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
-		testRoundTripper.Sub = nil
+		sstesting.SetRoundTripperFiles(nil, nil)
 		imagemetadata.DefaultBaseURL = ""
 	}
 }
@@ -46,11 +37,12 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
-	useTestImageData(nil)
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	useTestImageData(c, nil)
 }
 
 func (s *ImageMetadataSuite) TearDownSuite(c *gc.C) {
-	useTestImageData(nil)
+	useTestImageData(c, nil)
 	s.provisionerSuite.TearDownSuite(c)
 }
 
@@ -74,7 +66,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	// ensure metadata in data sources and not in state
-	useTestImageData(testImagesData)
+	useTestImageData(c, testImagesData)
 
 	criteria := cloudimagemetadata.MetadataFilter{Stream: "released"}
 	found, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)

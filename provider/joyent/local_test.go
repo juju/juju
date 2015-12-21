@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -123,7 +124,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
@@ -146,6 +147,9 @@ type localServerSuite struct {
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&tools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+
 	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
@@ -165,7 +169,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {

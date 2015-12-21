@@ -27,7 +27,7 @@ var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*
 		return nil, err
 	}
 
-	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
+	matchingImages, _, err := imagemetadata.Fetch(sources, ic)
 	if err != nil {
 		return nil, err
 	}

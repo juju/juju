@@ -422,7 +422,7 @@ type fakeImages struct {
 	ResolveInfo *simplestreams.ResolveInfo
 }
 
-func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint, onlySigned bool) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
+func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
 	return fi.Metadata, fi.ResolveInfo, fi.err()
 }
 
