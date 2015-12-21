@@ -96,7 +96,7 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 		}
 		// TODO(wallyworld) - we should be smarter about handling
 		// long region text, for now we'll display the first 7 as
-		// that covers all clouds except AWS ans Azure and will
+		// that covers all clouds except AWS and Azure and will
 		// prevent wrapping on a reasonable terminal width.
 		regionCount := len(regions)
 		if regionCount > 7 {

@@ -12,7 +12,7 @@ import (
 )
 
 var fileTemplate = `
-// Copyright 2015 Canonical Ltd.
+// Copyright {{.CopyrightYear}} Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloud
@@ -21,16 +21,16 @@ package cloud
 
 // fallbackPublicCloudInfo is the last resort public
 // cloud info to use if none other is found.
-const fallbackPublicCloudInfo = {{.Content}}
+const {{.ConstName}} = {{.Content}}
 `[1:]
 
-// This generator reads public cloud YAML and generates a file with that YAML
+// This generator reads YAML from a file and generates a Go file with that YAML
 // assigned to a go constant.
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: generatepubliccloudyaml <inyaml> <outgo>")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: generatepubliccloudyaml <constname> <inyaml> <outgo> <copyrightyear>")
 	}
-	data, err := ioutil.ReadFile(os.Args[1])
+	data, err := ioutil.ReadFile(os.Args[2])
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -43,11 +43,17 @@ func main() {
 	}
 	var buf bytes.Buffer
 	type content struct {
-		Content string
+		ConstName     string
+		Content       string
+		CopyrightYear string
 	}
-	t.Execute(&buf, content{fmt.Sprintf("`\n%s`", string(data))})
+	t.Execute(&buf, content{
+		ConstName:     os.Args[1],
+		Content:       fmt.Sprintf("`\n%s`", string(data)),
+		CopyrightYear: os.Args[4],
+	})
 
-	err = ioutil.WriteFile(os.Args[2], buf.Bytes(), 0644)
+	err = ioutil.WriteFile(os.Args[3], buf.Bytes(), 0644)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
