@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/helptopics"
@@ -230,6 +231,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
 		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
 	}
+
+	// Manage clouds
+	r.Register(cloud.NewListCloudsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
