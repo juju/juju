@@ -31,14 +31,14 @@ func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
 
-	UseTestImageData(TestImagesData)
+	UseTestImageData(c, TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)
 }
 
 func (s *specSuite) TearDownSuite(c *gc.C) {
 	UseTestInstanceTypeData(nil)
-	UseTestImageData(nil)
+	UseTestImageData(c, nil)
 	UseTestRegionData(nil)
 	s.TestDataSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)

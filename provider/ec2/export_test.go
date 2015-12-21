@@ -5,20 +5,18 @@ package ec2
 
 import (
 	"io"
-	"io/ioutil"
-	"strings"
 
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 func EBSProvider() jujustorage.Provider {
@@ -74,29 +72,18 @@ func DeleteBucket(s storage.Storage) error {
 	return deleteBucket(s.(*ec2storage))
 }
 
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
 var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-func UseTestImageData(files map[string]string) {
+func UseTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		all := make(map[string]string)
-		for name, content := range files {
-			all[name] = content
-			// Sign file content
-			r := strings.NewReader(content)
-			bytes, _ := ioutil.ReadAll(r)
-			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
-			all[signedName] = string(signedContent)
-		}
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
-		testRoundTripper.Sub = nil
+		sstesting.SetRoundTripperFiles(nil, nil)
 		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
@@ -107,7 +94,6 @@ func UseTestRegionData(content map[string]aws.Region) {
 	} else {
 		allRegions = aws.Regions
 	}
-
 }
 
 // UseTestInstanceTypeData causes the given instance type
