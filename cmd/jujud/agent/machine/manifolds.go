@@ -5,8 +5,10 @@ package machine
 
 import (
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
@@ -44,6 +46,11 @@ type ManifoldsConfig struct {
 	// WriteUninstallFile is a function the uninstaller manifold uses
 	// to write the agent uninstall file.
 	WriteUninstallFile func() error
+
+	// StartAPIWorkers is passed to the apiworkers manifold. It starts
+	// workers which rely on an API connection (which have not yet
+	// been converted to work directly with the dependency engine).
+	StartAPIWorkers func(api.Connection) (worker.Worker, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -134,6 +141,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsWaiterName: upgradeStepsGateName,
 			UpgradeCheckWaiterName: upgradeCheckGateName,
 		}),
+
+		// The apiworkers manifold starts workers which rely on the
+		// machine agent's API connection but have not been converted
+		// to work directly under the dependency engine. It waits for
+		// upgrades to be finished before starting these workers.
+		apiWorkersName: APIWorkersManifold(APIWorkersConfig{
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+			StartAPIWorkers:   config.StartAPIWorkers,
+		}),
 	}
 }
 
@@ -149,4 +166,5 @@ const (
 	upgradeWaiterName     = "upgradewaiter"
 	uninstallerName       = "uninstaller"
 	servingInfoSetterName = "serving-info-setter"
+	apiWorkersName        = "apiworkers"
 )

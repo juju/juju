@@ -499,7 +499,6 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// anyway).
 		case ErrBounce:
 			// The task exited but wanted to restart immediately.
-			logger.Debugf("%q manifold worker requested immediate restart")
 			engine.requestStart(name, engine.config.BounceDelay)
 		case ErrUninstall:
 			// The task should never run again, and can be removed completely.
