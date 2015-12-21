@@ -542,7 +542,7 @@ func createVirtualMachine(
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating storage profile")
 	}
 
-	osProfile, err := newOSProfile(vmName, instanceConfig)
+	osProfile, seriesOS, err := newOSProfile(vmName, instanceConfig)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating OS profile")
 	}
@@ -588,37 +588,19 @@ func createVirtualMachine(
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating virtual machine")
 	}
 
-	// On Windows, we must add the CustomScriptExtension VM extension
-	// to run the CustomData script.
-	if osProfile.WindowsConfiguration != nil {
-		const extensionName = "JujuCustomScriptExtension"
-		extensionSettings := map[string]*string{
-			"commandToExecute": to.StringPtr(
-				`move C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1 && ` +
-					`powershell.exe -ExecutionPolicy Unrestricted -File C:\AzureData\CustomData.ps1 && ` +
-					`del /q C:\AzureData\CustomData.ps1`,
-			),
-		}
-		extension := compute.VirtualMachineExtension{
-			Location: to.StringPtr(location),
-			Tags:     toTagsPtr(vmTags),
-			Properties: &compute.VirtualMachineExtensionProperties{
-				Publisher:               to.StringPtr("Microsoft.Compute"),
-				Type:                    to.StringPtr("CustomScriptExtension"),
-				TypeHandlerVersion:      to.StringPtr("1.4"),
-				AutoUpgradeMinorVersion: to.BoolPtr(true),
-				Settings:                &extensionSettings,
-			},
-		}
-		if _, err := vmExtensionClient.CreateOrUpdate(
-			resourceGroup, vmName, extensionName, extension,
+	// On Windows and CentOS, we must add the CustomScript VM
+	// extension to run the CustomData script.
+	switch seriesOS {
+	case os.Windows, os.CentOS:
+		if err := createVMExtension(
+			vmExtensionClient, seriesOS,
+			resourceGroup, vmName, location, vmTags,
 		); err != nil {
 			return compute.VirtualMachine{}, errors.Annotate(
-				err, "creating CustomScript extension",
+				err, "creating virtual machine extension",
 			)
 		}
 	}
-
 	return vm, nil
 }
 
@@ -754,12 +736,12 @@ func newStorageProfile(
 	}, nil
 }
 
-func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*compute.OSProfile, error) {
+func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*compute.OSProfile, os.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
 	if err != nil {
-		return nil, errors.Annotate(err, "composing user data")
+		return nil, os.Unknown, errors.Annotate(err, "composing user data")
 	}
 
 	osProfile := &compute.OSProfile{
@@ -769,7 +751,7 @@ func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*c
 
 	seriesOS, err := jujuseries.GetOSFromSeries(instanceConfig.Series)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, os.Unknown, errors.Trace(err)
 	}
 	switch seriesOS {
 	case os.Ubuntu, os.CentOS, os.Arch:
@@ -797,9 +779,9 @@ func newOSProfile(vmName string, instanceConfig *instancecfg.InstanceConfig) (*c
 			// TODO(?) add WinRM configuration here.
 		}
 	default:
-		return nil, errors.NotSupportedf("%s", seriesOS)
+		return nil, os.Unknown, errors.NotSupportedf("%s", seriesOS)
 	}
-	return osProfile, nil
+	return osProfile, seriesOS, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

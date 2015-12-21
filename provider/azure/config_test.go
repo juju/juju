@@ -64,7 +64,7 @@ func (s *configSuite) TestValidateLocation(c *gc.C) {
 
 func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
 	s.assertConfigInvalid(c, testing.Attrs{"application-id": ""}, `"application-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"application-key": ""}, `"application-key" config not specified`)
+	s.assertConfigInvalid(c, testing.Attrs{"application-password": ""}, `"application-password" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"tenant-id": ""}, `"tenant-id" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"subscription-id": ""}, `"subscription-id" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"controller-resource-group": ""}, `"controller-resource-group" config not specified`)
@@ -101,7 +101,7 @@ func makeTestEnvironConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 		"type":                      "azure",
 		"application-id":            fakeApplicationId,
 		"tenant-id":                 fakeTenantId,
-		"application-key":           "opensezme",
+		"application-password":      "opensezme",
 		"subscription-id":           fakeSubscriptionId,
 		"location":                  "westus",
 		"controller-resource-group": "arbitrary",

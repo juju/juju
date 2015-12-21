@@ -148,10 +148,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(newInitCommand())
-	r.RegisterDeprecated(common.NewGetConstraintsCommand(),
-		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
-	r.RegisterDeprecated(common.NewSetConstraintsCommand(),
-		twoDotOhDeprecation("environment set-constraints or service set-constraints"))
+	r.Register(common.NewGetConstraintsCommand())
+	r.Register(common.NewSetConstraintsCommand())
 	r.Register(newExposeCommand())
 	r.Register(newSyncToolsCommand())
 	r.Register(newUnexposeCommand())
@@ -184,10 +182,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage machines
 	r.Register(machine.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
-	r.RegisterSuperAlias("destroy-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
-	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+	r.RegisterSuperAlias("add-machine", "machine", "add", nil)
+	r.RegisterSuperAlias("remove-machine", "machine", "remove", nil)
+	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
+	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
 
 	// Mangage environment
 	r.Register(environment.NewGetCommand())
@@ -208,10 +206,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
-	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
-	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
-	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
-	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
+	r.RegisterSuperAlias("get", "service", "get", nil)
+	r.RegisterSuperAlias("set", "service", "set", nil)
+	r.RegisterSuperAlias("unset", "service", "unset", nil)
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

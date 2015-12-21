@@ -113,6 +113,12 @@ func stateStepsFor125() []Step {
 				st := context.State()
 				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			}},
+		&upgradeStep{
+			description: "sets an unknown unit status for missing unit statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingUnitStatus(context.State())
+			}},
 	}
 }
 

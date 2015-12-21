@@ -28,13 +28,15 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "")
+	envUser, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(envUser.ReadOnly(), jc.IsFalse)
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
 	when, err := envUser.LastConnection()
@@ -47,6 +49,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(envUser.ReadOnly(), jc.IsFalse)
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
 	when, err = envUser.LastConnection()
@@ -54,11 +57,31 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
+func (s *EnvUserSuite) TestAddReadOnlyEnvironmentUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	envUser, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag(), ReadOnly: true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(envUser.ReadOnly(), jc.IsTrue)
+
+	// Make sure that it is set when we read the user out.
+	envUser, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(envUser.ReadOnly(), jc.IsTrue)
+}
+
 func (s *EnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.State.AddEnvironmentUser(names.NewUserTag("Bob@RandomProvider"), env.Owner(), "")
+	user, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User:      names.NewUserTag("Bob@RandomProvider"),
+		CreatedBy: env.Owner()})
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.UserName(), gc.Equals, "Bob@RandomProvider")
 	c.Assert(user.ID(), gc.Equals, state.DocID(s.State, "bob@randomprovider"))
@@ -69,7 +92,9 @@ func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
 
-	_, err = s.State.AddEnvironmentUser(names.NewUserTag("boB@ubuntuone"), env.Owner(), "")
+	_, err = s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User:      names.NewUserTag("boB@ubuntuone"),
+		CreatedBy: env.Owner()})
 	c.Assert(err, gc.ErrorMatches, `environment user "boB@ubuntuone" already exists`)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
@@ -115,13 +140,17 @@ func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
 
 func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddEnvironmentUser(names.NewLocalUserTag("validusername"), createdBy.UserTag(), "")
+	_, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User:      names.NewLocalUserTag("validusername"),
+		CreatedBy: createdBy.UserTag()})
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewLocalUserTag("createdby"), "")
+	_, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+		User:      user.UserTag(),
+		CreatedBy: names.NewLocalUserTag("createdby")})
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
@@ -170,7 +199,9 @@ func (s *EnvUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
 	// Create a second environment and add the same user to this.
 	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
-	envUser2, err := st2.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "ignored")
+	envUser2, err := st2.AddEnvironmentUser(state.EnvUserSpec{
+		User:      user.UserTag(),
+		CreatedBy: createdBy.UserTag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now we have two environment users with the same username. Ensure we get
@@ -259,7 +290,8 @@ func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) 
 	newEnv, err := envState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = envState.AddEnvironmentUser(user, newEnv.Owner(), "")
+	_, err = envState.AddEnvironmentUser(state.EnvUserSpec{
+		User: user, CreatedBy: newEnv.Owner()})
 	c.Assert(err, jc.ErrorIsNil)
 	return newEnv
 }

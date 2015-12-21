@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/utils"
 )
 
@@ -31,4 +32,34 @@ func AddPowershellTags(udata []byte) []byte {
 	return []byte(`<powershell>` +
 		string(udata) +
 		`</powershell>`)
+}
+
+// Decorator is a function that can be used as part of a rendering pipeline.
+type Decorator func([]byte) []byte
+
+// RenderYAML renders the given cloud-config as YAML, and then passes the
+// YAML through the given decorators.
+func RenderYAML(cfg cloudinit.RenderConfig, ds ...Decorator) ([]byte, error) {
+	out, err := cfg.RenderYAML()
+	if err != nil {
+		return nil, err
+	}
+	return applyDecorators(out, ds), nil
+}
+
+// RenderScript renders the given cloud-config as a script, and then passes the
+// script through the given decorators.
+func RenderScript(cfg cloudinit.RenderConfig, ds ...Decorator) ([]byte, error) {
+	out, err := cfg.RenderScript()
+	if err != nil {
+		return nil, err
+	}
+	return applyDecorators([]byte(out), ds), nil
+}
+
+func applyDecorators(out []byte, ds []Decorator) []byte {
+	for _, d := range ds {
+		out = d(out)
+	}
+	return out
 }

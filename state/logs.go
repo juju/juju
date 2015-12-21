@@ -249,7 +249,7 @@ func (t *logTailer) processCollection() error {
 		}
 	}
 
-	iter := query.Sort("t", "_id").Iter()
+	iter := query.Sort("t").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		select {
