@@ -227,8 +227,7 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 		Arches:    arches,
 		Stream:    env.Config().ImageStream(),
 	})
-	const onlySigned = false // TODO(axw)
-	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint, onlySigned)
+	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
 	}

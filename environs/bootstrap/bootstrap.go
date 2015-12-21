@@ -133,10 +133,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			Arches:    availableTools.Arches(),
 			Stream:    environ.Config().ImageStream(),
 		})
-		const onlySigned = false // TODO(axw)
-		publicImageMetadata, _, err = imagemetadata.Fetch(
-			sources, imageConstraint, onlySigned,
-		)
+		publicImageMetadata, _, err = imagemetadata.Fetch(sources, imageConstraint)
 		if err != nil {
 			return errors.Annotate(err, "searching image metadata")
 		}
