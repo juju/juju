@@ -182,7 +182,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		// We may not need this anymore.
 		// At the very least, there could be an upgrade step to read the data
 		// and add it to structured data.
-		registerSimplestreamsDataSource(stor, true)
+		registerSimplestreamsDataSource(stor, false)
 
 		// This state-dependent data source will be useless
 		// once state is closed in previous defer - un-register it.
