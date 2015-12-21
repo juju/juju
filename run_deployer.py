@@ -37,9 +37,9 @@ def parse_args(argv=None):
                         help='A binary for checking the health of the'
                         ' deployed bundle.')
     parser.add_argument('--upgrade-condition', action='append', default=None,
-                        help='Unit_name:<conditions>'
+                        help='unit_name:<conditions>'
                         ' One or more of the following conditions to apply'
-                        ' to the given Unit_name: clock_skew, exausted_disk.')
+                        ' to the given unit_name: clock_skew.')
     return parser.parse_args(argv)
 
 
