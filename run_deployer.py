@@ -70,9 +70,8 @@ CLOCK_SKEW_SCRIPT = """
 
 
 def apply_condition(client, condition):
-    unit_action = condition.split(':')
-    unit = unit_action[0]
-    action = unit_action[1]
+    """Apply an adverse condition to the given unit."""
+    unit, action = condition.split(':', 1)
     logging.info('Applying {} to unit {}'.format(action, unit))
     remote = remote_from_unit(client, unit)
     if not remote.is_windows():
@@ -84,6 +83,7 @@ def apply_condition(client, condition):
 
 
 def run_deployer(argv=None):
+    """Run juju-deployer, based on command line configuration values."""
     args = parse_args(argv)
     configure_logging(args.verbose)
     env = SimpleEnvironment.from_config(args.env)

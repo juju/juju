@@ -102,21 +102,26 @@ class TestRunDeployer(TestCase):
             'quxx', client, None, [], None, None, None, 'qux', False, False,
             region='region-foo')
 
-    def test_run_deployer_upgrade(self):
-        with temp_env({'environments': {'bar': {'type': 'bar'}}}):
-            with patch('subprocess.check_output', return_value='foo'):
-                with patch('subprocess.check_call', return_value='foo'):
-                    with patch('run_deployer.boot_context'):
-                        with patch('run_deployer.EnvJujuClient.deployer'):
-                            with patch('run_deployer.apply_condition') as ac:
-                                with patch(
-                                        'run_deployer.assess_upgrade') as au:
-                                    run_deployer(['foo', 'bar', 'baz/juju',
-                                                  'qux', 'quxx', '--upgrade',
-                                                  '--upgrade-condition',
-                                                  'bla/0:clock_skew'])
-        self.assertEqual(ac.call_count, 1)
-        self.assertEqual(au.call_count, 1)
+    @patch('run_deployer.SimpleEnvironment.from_config')
+    @patch('run_deployer.boot_context', autospec=True)
+    def test_run_deployer_upgrade(self, *args):
+        client = FakeJujuClient()
+        with patch('run_deployer.EnvJujuClient.by_version',
+                   return_value=client):
+            with patch('run_deployer.apply_condition') as ac_mock:
+                with patch('run_deployer.assess_upgrade') as au_mock:
+                    run_deployer(['foo', 'bar', 'baz/juju', 'qux', 'quxx',
+                                  '--upgrade',
+                                  '--upgrade-condition', 'bla/0:clock_skew',
+                                  '--upgrade-condition', 'foo/1:fill_disk'])
+        self.assertEqual(2, ac_mock.call_count)
+        args, kwargs = ac_mock.call_args_list[0]
+        self.assertEqual(args[0], client)
+        self.assertEqual(args[1], 'bla/0:clock_skew')
+        args, kwargs = ac_mock.call_args_list[1]
+        self.assertEqual(args[0], client)
+        self.assertEqual(args[1], 'foo/1:fill_disk')
+        au_mock.assert_called_once_with(client, 'baz/juju')
 
 
 class FakeRemote():
