@@ -16,7 +16,7 @@ func upgradeProviderChanges(env environs.Environ, reader environConfigReader, ve
 		return errors.Annotate(err, "reading environment config")
 	}
 
-	upgrader, ok := env.(provider.Upgradable)
+	upgrader, ok := env.(provider.Upgradeable)
 	if !ok {
 		logger.Debugf("provider %q has no upgrades", cfg.Type())
 		return nil

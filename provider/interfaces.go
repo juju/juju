@@ -5,8 +5,8 @@ package provider
 
 import "github.com/juju/juju/version"
 
-// Upgradable represents a provider that supports upgrade steps
+// Upgradeable represents a provider that supports upgrade steps
 // if present, these steps will get called upon upgrading.
-type Upgradable interface {
+type Upgradeable interface {
 	RunUpgradeStepsFor(version.Number) error
 }

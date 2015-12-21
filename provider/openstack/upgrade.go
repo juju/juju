@@ -26,17 +26,18 @@ func (e *Environ) RunUpgradeStepsFor(ver version.Number) error {
 	return nil
 }
 
-func replaceNameWithID(oldName, envName, eUUID string) (string, error, bool) {
-	nameStart := strings.LastIndex(oldName, envName)
-	if nameStart <= -1 {
-		uuidPresent := strings.LastIndex(oldName, eUUID)
-		if uuidPresent < 0 {
-			return "", nil, false
-		}
-		return oldName, nil, false
+func replaceNameWithID(oldName, envName, eUUID string) (string, bool, error) {
+	prefix := "juju-" + envName
+	if !strings.HasPrefix(oldName, prefix) {
+		return "", false, nil
 	}
-	partial := oldName[nameStart:]
-	return fmt.Sprintf("%s%s", oldName[:nameStart], strings.Replace(partial, envName, eUUID, -1)), nil, true
+	if len(prefix) < len(oldName) {
+		if oldName[len(prefix)] != '-' {
+			return "", false, nil
+		}
+	}
+	newPrefix := "juju-" + eUUID
+	return strings.Replace(oldName, prefix, newPrefix, -1), true, nil
 }
 
 func addUUIDToSecurityGroupNames(e *Environ) error {
@@ -52,7 +53,7 @@ func addUUIDToSecurityGroupNames(e *Environ) error {
 		return errors.NotFoundf("environment uuid for environment %q", eName)
 	}
 	for _, group := range groups {
-		newName, err, ok := replaceNameWithID(group.Name, eName, eUUID)
+		newName, ok, err := replaceNameWithID(group.Name, eName, eUUID)
 		if err != nil {
 			return errors.Annotate(err, "generating the new security group name")
 		}
@@ -90,7 +91,7 @@ func addUUIDToMachineNames(e *Environ) error {
 		return errors.NotFoundf("environment uuid for environment %q", eName)
 	}
 	for _, server := range servers {
-		newName, err, ok := replaceNameWithID(server.Name, eName, eUUID)
+		newName, ok, err := replaceNameWithID(server.Name, eName, eUUID)
 		if err != nil {
 			return errors.Annotate(err, "generating the new server name")
 		}
