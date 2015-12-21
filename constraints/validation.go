@@ -79,11 +79,30 @@ func (v *validator) RegisterVocabulary(attributeName string, allowedValues inter
 	}
 	// Convert the vocab to a slice of interface{}
 	var allowedSlice []interface{}
+	unique := map[interface{}]bool{}
 	val := reflect.ValueOf(allowedValues)
 	for i := 0; i < val.Len(); i++ {
-		allowedSlice = append(allowedSlice, val.Index(i).Interface())
+		one := val.Index(i).Interface()
+		allowedSlice = append(allowedSlice, one)
+		unique[one] = true
 	}
-	v.vocab[attributeName] = allowedSlice
+
+	currentValues, ok := v.vocab[attributeName]
+	if !ok {
+		v.vocab[attributeName] = allowedSlice
+		return
+	}
+
+	// merge existing values with new, ensuring uniqueness
+	for _, one := range currentValues {
+		unique[one] = true
+	}
+
+	var merged []interface{}
+	for one, _ := range unique {
+		merged = append(merged, one)
+	}
+	v.vocab[attributeName] = merged
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.

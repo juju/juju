@@ -119,7 +119,23 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	if validator == nil {
 		return nil, fmt.Errorf("policy returned nil constraints validator without an error")
 	}
+
+	err = st.addStoredSupportedArchitectures(validator)
+	if err != nil {
+		return nil, err
+	}
 	return validator, nil
+}
+
+func (st *State) addStoredSupportedArchitectures(validator constraints.Validator) error {
+	stored, err := st.CloudImageMetadataStorage.SupportedArchitectures()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(stored) != 0 {
+		validator.RegisterVocabulary(constraints.Arch, stored)
+	}
+	return nil
 }
 
 // resolveConstraints combines the given constraints with the environ constraints to get

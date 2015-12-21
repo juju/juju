@@ -64,6 +64,10 @@ type Storage interface {
 	// Empty criteria will return all cloud image metadata.
 	// Returned result is grouped by source type and ordered by date created.
 	FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error)
+
+	// SupportedArchitectures returns collection of unique architectures
+	// that stored metadata contains.
+	SupportedArchitectures() ([]string, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.
