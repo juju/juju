@@ -45,7 +45,6 @@ type ToolsFixture struct {
 	// to just arch.HostArch()
 	UploadArches []string
 
-	// origPublicKey is an Original Public Key :D
 	origPublicKey string
 }
 
