@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,30 +19,18 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
 // useTestImageData causes the given content to be served when published metadata is requested.
-func useTestImageData(files map[string]string) {
+func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		all := make(map[string]string)
-		for name, content := range files {
-			all[name] = content
-			// Sign file content
-			r := strings.NewReader(content)
-			bytes, _ := ioutil.ReadAll(r)
-			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
-			all[signedName] = string(signedContent)
-		}
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
-		testRoundTripper.Sub = nil
+		sstesting.SetRoundTripperFiles(nil, nil)
 		imagemetadata.DefaultBaseURL = ""
 	}
 }
@@ -161,11 +148,11 @@ type imageMetadataUpdateSuite struct {
 
 func (s *imageMetadataUpdateSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	useTestImageData(testImagesData)
+	useTestImageData(c, testImagesData)
 }
 
 func (s *imageMetadataUpdateSuite) TearDownSuite(c *gc.C) {
-	useTestImageData(nil)
+	useTestImageData(c, nil)
 	s.BaseSuite.TearDownSuite(c)
 }
 
@@ -261,12 +248,11 @@ func (s *regionMetadataSuite) SetUpSuite(c *gc.C) {
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-	useTestImageData(testImagesData)
+	useTestImageData(c, testImagesData)
 }
 
 func (s *regionMetadataSuite) TearDownSuite(c *gc.C) {
-	useTestImageData(nil)
+	useTestImageData(c, nil)
 	s.baseImageMetadataSuite.TearDownSuite(c)
 }
 

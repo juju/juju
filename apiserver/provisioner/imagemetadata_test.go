@@ -4,9 +4,6 @@
 package provisioner_test
 
 import (
-	"io/ioutil"
-	"strings"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,29 +12,16 @@ import (
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/environs/imagemetadata"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/testing"
 )
 
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
 // useTestImageData causes the given content to be served when published metadata is requested.
-func useTestImageData(files map[string]string) {
+func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		all := make(map[string]string)
-		for name, content := range files {
-			all[name] = content
-			// Sign file content
-			r := strings.NewReader(content)
-			bytes, _ := ioutil.ReadAll(r)
-			signedName, signedContent, _ := envtesting.SignMetadata(name, bytes)
-			all[signedName] = string(signedContent)
-		}
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(all, nil)
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 		imagemetadata.DefaultBaseURL = "test:"
 	} else {
-		testRoundTripper.Sub = nil
+		sstesting.SetRoundTripperFiles(nil, nil)
 		imagemetadata.DefaultBaseURL = ""
 	}
 }
@@ -54,12 +38,11 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	testRoundTripper.RegisterForScheme("test")
-	useTestImageData(nil)
+	useTestImageData(c, nil)
 }
 
 func (s *ImageMetadataSuite) TearDownSuite(c *gc.C) {
-	useTestImageData(nil)
+	useTestImageData(c, nil)
 	s.provisionerSuite.TearDownSuite(c)
 }
 
@@ -83,7 +66,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	// ensure metadata in data sources and not in state
-	useTestImageData(testImagesData)
+	useTestImageData(c, testImagesData)
 
 	criteria := cloudimagemetadata.MetadataFilter{Stream: "released"}
 	found, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
