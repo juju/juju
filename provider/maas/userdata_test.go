@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/provider/maas"
 	"github.com/juju/juju/testing"
@@ -25,31 +26,33 @@ var _ = gc.Suite(&RenderersSuite{})
 
 func (s *RenderersSuite) TestMAASUnix(c *gc.C) {
 	renderer := maas.MAASRenderer{}
-	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, os.Ubuntu)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	result, err := renderer.Render(cloudcfg, os.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	expected := base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
 	c.Assert(string(result), jc.DeepEquals, expected)
 
-	data = []byte("test")
-	result, err = renderer.EncodeUserdata(data, os.CentOS)
+	result, err = renderer.Render(cloudcfg, os.CentOS)
 	c.Assert(err, jc.ErrorIsNil)
-	expected = base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	expected = base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
 func (s *RenderersSuite) TestMAASWindows(c *gc.C) {
 	renderer := maas.MAASRenderer{}
-	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, os.Windows)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	result, err := renderer.Render(cloudcfg, os.Windows)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := base64.StdEncoding.EncodeToString(renderers.WinEmbedInScript(data))
+	expected := base64.StdEncoding.EncodeToString(renderers.WinEmbedInScript(cloudcfg.YAML))
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
 func (s *RenderersSuite) TestMAASUnknownOS(c *gc.C) {
 	renderer := maas.MAASRenderer{}
-	result, err := renderer.EncodeUserdata(nil, os.Arch)
+	cloudcfg := &cloudinittest.CloudConfig{}
+	result, err := renderer.Render(cloudcfg, os.Arch)
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Arch")
 }

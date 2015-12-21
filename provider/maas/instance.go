@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"launchpad.net/gomaasapi"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"

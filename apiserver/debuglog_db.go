@@ -52,8 +52,6 @@ func handleDebugLogDBRequest(
 			}
 		}
 	}
-
-	return nil
 }
 
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {

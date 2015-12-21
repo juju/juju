@@ -9,6 +9,7 @@ import (
 	"path"
 	"sort"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -18,6 +19,14 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 )
+
+// PatchOfficialDataSources is used by tests.
+// We replace one of the urls with the supplied value
+// and prevent the other from being used.
+func PatchOfficialDataSources(s *testing.CleanupSuite, url string) {
+	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
+	s.PatchValue(&imagemetadata.DefaultJujuBaseURL, url)
+}
 
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.
 func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {

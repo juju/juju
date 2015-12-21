@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
@@ -22,7 +23,7 @@ type archSuite struct {
 var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, simplestreams.CloudSpec) {
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := &mockEnviron{
 		config: configGetter(c),
 	}
