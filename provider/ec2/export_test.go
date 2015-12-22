@@ -11,10 +11,10 @@ import (
 	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 func EBSProvider() jujustorage.Provider {
@@ -70,7 +70,7 @@ func DeleteBucket(s storage.Storage) error {
 	return deleteBucket(s.(*ec2storage))
 }
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	// Prepare mock http transport for overriding metadata and images output in tests.
@@ -83,7 +83,7 @@ func init() {
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 		signedImageDataOnly = false
 	} else {
 		signedImageDataOnly = true

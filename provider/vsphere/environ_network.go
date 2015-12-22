@@ -28,7 +28,7 @@ func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr net
 		return errors.Trace(err)
 	}
 	inst := instances[0].(*environInstance)
-	_, client, err := inst.getSshClient()
+	_, client, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -37,9 +37,9 @@ func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr net
 		interfaceName = "eth1"
 	}
 	if add {
-		err = client.addIpAddress(interfaceName, addr.Value)
+		err = client.AddIpAddress(interfaceName, addr.Value)
 	} else {
-		err = client.releaseIpAddress(interfaceName, addr.Value)
+		err = client.ReleaseIpAddress(addr.Value)
 	}
 
 	return errors.Trace(err)

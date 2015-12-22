@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -1402,6 +1402,7 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
@@ -1411,6 +1412,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
@@ -1418,6 +1420,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1442,6 +1445,7 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
