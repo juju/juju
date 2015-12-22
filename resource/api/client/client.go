@@ -8,6 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 )
 
 var logger = loggo.GetLogger("juju.resource.api.client")
@@ -21,16 +24,50 @@ type FacadeCaller interface {
 
 // Client is the public client for the resources API facade.
 type Client struct {
-	// Add the sub-client here.
+	FacadeCaller
 	io.Closer
 }
 
 // NewClient returns a new Client for the given raw API caller.
 func NewClient(caller FacadeCaller, closer io.Closer) *Client {
 	return &Client{
-		// Add the sub-client here.
-		Closer: closer,
+		FacadeCaller: caller,
+		Closer:       closer,
 	}
+}
+
+// ListResources calls the ListResources API server method with
+// the given service names.
+func (c Client) ListResources(services []string) ([][]resource.Resource, error) {
+	args, err := api.NewListResourcesArgs(services...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var apiResults api.ResourcesResults
+	if err := c.FacadeCall("ListResources", &args, &apiResults); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(apiResults.Results) != len(services) {
+		// We don't bother returning the results we *did* get since
+		// something bad happened on the server.
+		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(services), len(apiResults.Results))
+	}
+
+	results := make([][]resource.Resource, len(services))
+	for i := range services {
+		apiResult := apiResults.Results[i]
+
+		result, err := api.APIResult2Resources(apiResult)
+		if err != nil {
+			// TODO(ericsnow) Aggregate errors?
+			return nil, errors.Trace(err)
+		}
+		results[i] = result
+	}
+
+	return results, nil
 }
 
 func (c Client) Upload(service, name string, resource io.Reader) error {
