@@ -54,7 +54,6 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
 	s.assertRecordMetadata(c, added)
 	s.assertMetadataRecorded(c, attrs, added)
-
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
@@ -290,6 +289,110 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 		groups[one.Source] = append(groups[one.Source], one)
 	}
 	c.Assert(metadata, jc.DeepEquals, groups)
+}
+
+func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
+	stream := "stream"
+	region := "region-test"
+
+	arch1 := "arch"
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          stream,
+		Region:          region,
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            arch1,
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+
+	addedNonUnique := cloudimagemetadata.Metadata{attrs, 0, "21"}
+	s.assertRecordMetadata(c, addedNonUnique)
+	s.assertMetadataRecorded(c, attrs, addedNonUnique)
+
+	arch2 := "anotherArch"
+	attrs.Arch = arch2
+	added2 := cloudimagemetadata.Metadata{attrs, 0, "21"}
+	s.assertRecordMetadata(c, added2)
+	s.assertMetadataRecorded(c, attrs, added2)
+
+	expected := []string{arch1, arch2}
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniqueArches, gc.DeepEquals, expected)
+}
+
+func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreams(c *gc.C) {
+	stream := "stream"
+	region := "region-test"
+
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "new-stream",
+		Region:          region,
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniqueArches, gc.DeepEquals, []string{})
+}
+
+func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedRegions(c *gc.C) {
+	stream := "stream"
+	region := "region-test"
+
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          stream,
+		Region:          "new-region",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniqueArches, gc.DeepEquals, []string{})
+}
+
+func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreamsAndRegions(c *gc.C) {
+	stream := "stream"
+	region := "region-test"
+
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "new-stream",
+		Region:          "new-region",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniqueArches, gc.DeepEquals, []string{})
 }
 
 type TestMongo struct {
