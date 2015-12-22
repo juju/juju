@@ -8,6 +8,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -121,13 +124,12 @@ func (r resources) registerPublicCommands() {
 	}
 
 	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
-		//apiCaller, err := command.NewAPIRoot()
-		//if err != nil {
-		//	return nil, errors.Trace(err)
-		//}
-		//return r.newAPIClient(apiCaller)
-		// TODO(ericsnow) finish!
-		return nil, errors.Errorf("not implemented")
+		//return newCharmstore()
+		store, err := newCharmstore()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmstore{store}, nil
 	}
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
@@ -144,6 +146,28 @@ func (r resources) registerPublicCommands() {
 		})
 
 	})
+}
+
+func newCharmstore() (charmrepo.Interface, error) {
+	// Also see apiserver/service/charmstore.go.
+	var args charmrepo.NewCharmStoreParams
+	store := charmrepo.NewCharmStore(args)
+	return store, nil
+}
+
+// TODO(ericsnow) Get rid of charmstore one charmrepo.Interface grows the methods.
+
+type charmstore struct {
+	charmrepo.Interface
+}
+
+func (charmstore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+	// TODO(ericsnow) finish!
+	return nil, errors.Errorf("not implemented")
+}
+
+func (charmstore) Close() error {
+	return nil
 }
 
 type apicommand interface {
