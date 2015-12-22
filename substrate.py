@@ -441,7 +441,7 @@ class MAASAccount:
         is the address used for virsh access and ssh.
         """
         allocated = self.get_allocated_nodes()
-        ips = {k: v['ip_addresses'][0] for k, v in allocated.items()}
+        ips = {k: v['ip_addresses'][0] for k, v in allocated.items() if v['ip_addresses']}
         return ips
 
 
