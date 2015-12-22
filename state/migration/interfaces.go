@@ -13,9 +13,9 @@ type Description interface {
 }
 
 type Model interface {
-	Id() names.EnvironTag
-	Name() string
+	Tag() names.EnvironTag
 	Owner() names.UserTag
+	Config() map[string]interface{}
 
 	Machines() []Machine
 }

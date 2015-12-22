@@ -41,6 +41,33 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
 }
 
+func (*ModelSerializationSuite) TestParsing(c *gc.C) {
+	configMap := map[string]interface{}{
+		"name": "awesome",
+		"uuid": "some-uuid",
+	}
+	model, err := importModel(map[string]interface{}{
+		"version": 1,
+		"owner":   "magic",
+		"config":  configMap,
+		"machines": map[string]interface{}{
+			"version": 1,
+			"machines": []interface{}{
+				map[string]interface{}{
+					"id":         "0",
+					"containers": []interface{}{},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Owner_, gc.Equals, "magic")
+	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
+	c.Assert(model.Config_, jc.DeepEquals, configMap)
+	c.Assert(model.Machines_.Machines_, gc.HasLen, 1)
+	c.Assert(model.Machines_.Machines_[0].Id_, gc.Equals, "0")
+}
+
 type MachineSerializationSuite struct {
 	testing.BaseSuite
 }

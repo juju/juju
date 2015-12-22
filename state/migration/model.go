@@ -23,6 +23,22 @@ type description struct {
 	// Charms
 }
 
+type ModelArgs struct {
+	Owner  names.UserTag
+	Config map[string]interface{}
+}
+
+func NewDescription(args ModelArgs) Description {
+	return &description{
+		version: 1,
+		model: &model{
+			Version: 1,
+			Owner_:  args.Owner.Canonical(),
+			Config_: args.Config,
+		},
+	}
+}
+
 func (d *description) Model() Model {
 	return d.model
 }
@@ -30,9 +46,8 @@ func (d *description) Model() Model {
 type model struct {
 	Version int `yaml:"version"`
 
-	UUID   string `yaml:"model-uuid"`
-	Name_  string `yaml:"name"`
-	Owner_ string `yaml:"owner"`
+	Owner_  string                 `yaml:"owner"`
+	Config_ map[string]interface{} `yaml:"config"`
 
 	Machines_ machines `yaml:"machines"`
 
@@ -49,16 +64,24 @@ type machines struct {
 	Machines_ []*machine `yaml:"machines"`
 }
 
-func (m *model) Id() names.EnvironTag {
-	return names.NewEnvironTag(m.UUID)
-}
-
-func (m *model) Name() string {
-	return m.Name_
+func (m *model) Tag() names.EnvironTag {
+	// Here we make the assumption that the environment UUID is set
+	// correctly in the Config.
+	value := m.Config_["uuid"]
+	// Explicitly ignore the 'ok' aspect of the cast. If we don't have it
+	// and it is wrong, we panic. Here we fully expect it to exist, but
+	// paranoia says 'never panic', so worst case is we have an empty string.
+	uuid, _ := value.(string)
+	return names.NewEnvironTag(uuid)
 }
 
 func (m *model) Owner() names.UserTag {
 	return names.NewUserTag(m.Owner_)
+}
+
+func (m *model) Config() map[string]interface{} {
+	// TODO: consider returning a deep copy.
+	return m.Config_
 }
 
 func (m *model) Machines() []Machine {

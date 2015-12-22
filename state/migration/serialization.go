@@ -8,7 +8,7 @@ import (
 	"github.com/juju/schema"
 )
 
-// NewModel constructs a new Model from a map that in normal usage situations
+// importModel constructs a new Model from a map that in normal usage situations
 // will be the result of interpreting a large YAML document.
 //
 // This method is a package internal serialisation method.
@@ -36,10 +36,9 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	result := &model{Version: 1}
 
 	fields := schema.Fields{
-		"model-uuid": schema.String(),
-		"name":       schema.String(),
-		"owner":      schema.String(),
-		"machines":   schema.StringMap(schema.Any()),
+		"owner":    schema.String(),
+		"config":   schema.StringMap(schema.Any()),
+		"machines": schema.StringMap(schema.Any()),
 	}
 	checker := schema.FieldMap(fields, nil) // no defaults
 
@@ -51,12 +50,11 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	result.UUID = valid["model-uuid"].(string)
-	result.Name_ = valid["name"].(string)
 	result.Owner_ = valid["owner"].(string)
+	result.Config_ = valid["config"].(map[string]interface{})
 
-	machineList := valid["machines"].(map[string]interface{})
-	machines, err := importMachines(machineList)
+	machineMap := valid["machines"].(map[string]interface{})
+	machines, err := importMachines(machineMap)
 	if err != nil {
 		return nil, errors.Annotatef(err, "machines")
 	}
