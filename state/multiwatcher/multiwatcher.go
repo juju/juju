@@ -96,6 +96,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(MachineInfo)
 	case "service":
 		d.Entity = new(ServiceInfo)
+	case "remoteservice":
+		d.Entity = new(RemoteServiceInfo)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
