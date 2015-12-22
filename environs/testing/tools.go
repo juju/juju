@@ -44,22 +44,15 @@ type ToolsFixture struct {
 	// upload in UploadFakeTools. If empty, it will default
 	// to just arch.HostArch()
 	UploadArches []string
-
-	origPublicKey string
 }
 
 func (s *ToolsFixture) SetUpTest(c *gc.C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
 	envtools.DefaultBaseURL = s.DefaultBaseURL
-
-	s.origPublicKey = envtools.SimplestreamsToolsPublicKey
-	envtools.SimplestreamsToolsPublicKey = sstesting.SignedMetadataPublicKey
 }
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
-
-	envtools.SimplestreamsToolsPublicKey = s.origPublicKey
 }
 
 // UploadFakeToolsToDirectory uploads fake tools of the architectures in

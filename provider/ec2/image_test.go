@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"

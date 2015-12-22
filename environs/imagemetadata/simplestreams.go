@@ -134,7 +134,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		}
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
 	}
 
 	// Fallback to image metadata for existing Ubuntu images.
@@ -145,7 +145,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	if defaultUbuntuURL != "" {
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, SimplestreamsImagesPublicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
 	}
 
 	return result, nil
