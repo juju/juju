@@ -1633,6 +1633,15 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	ch := s.AddTestingCharm(c, "mysql")
+	s.AddTestingService(c, "mysql", ch)
+	ch = s.AddTestingCharm(c, "wordpress")
+	s.AddTestingService(c, "wordpress", ch)
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -1641,22 +1650,75 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
-	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:                 s.State.EnvironUUID(),
-			Id:                      m.Id(),
-			InstanceId:              "i-0",
-			Status:                  multiwatcher.Status("pending"),
-			StatusData:              map[string]interface{}{},
-			Life:                    multiwatcher.Life("alive"),
-			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
-			Addresses:               []network.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
+
+	// Zero out any times.
+	for _, d := range deltas {
+		if d.Entity.EntityId().Kind == "service" {
+			d.Entity.(*multiwatcher.ServiceInfo).Status.Since = nil
+		}
+	}
+	if !c.Check(deltas, jc.DeepEquals, []multiwatcher.Delta{
+		{
+			Entity: &multiwatcher.MachineInfo{
+				EnvUUID:                 s.State.EnvironUUID(),
+				Id:                      m.Id(),
+				InstanceId:              "i-0",
+				Status:                  multiwatcher.Status("pending"),
+				StatusData:              map[string]interface{}{},
+				Life:                    multiwatcher.Life("alive"),
+				Series:                  "quantal",
+				Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
+				Addresses:               []network.Address{},
+				HardwareCharacteristics: &instance.HardwareCharacteristics{},
+				HasVote:                 false,
+				WantsVote:               true,
+			},
+		}, {
+			Entity: &multiwatcher.ServiceInfo{
+				EnvUUID:  s.State.EnvironUUID(),
+				Name:     "mysql",
+				CharmURL: "local:quantal/mysql-1",
+				OwnerTag: "user-dummy-admin@local",
+				Life:     multiwatcher.Life("alive"),
+				Config:   map[string]interface{}{},
+				Status: multiwatcher.StatusInfo{
+					Current: "unknown",
+					Message: "Waiting for agent initialization to finish",
+					Data:    map[string]interface{}{},
+				},
+			},
+		}, {
+			Entity: &multiwatcher.ServiceInfo{
+				EnvUUID:  s.State.EnvironUUID(),
+				Name:     "wordpress",
+				CharmURL: "local:quantal/wordpress-3",
+				OwnerTag: "user-dummy-admin@local",
+				Life:     multiwatcher.Life("alive"),
+				Config:   map[string]interface{}{},
+				Status: multiwatcher.StatusInfo{
+					Current: "unknown",
+					Message: "Waiting for agent initialization to finish",
+					Data:    map[string]interface{}{},
+				},
+			},
+		}, {
+			// Relations come last.
+			Entity: &multiwatcher.RelationInfo{
+				EnvUUID: s.State.EnvironUUID(),
+				Key:     "wordpress:db mysql:server",
+				Id:      0,
+				Endpoints: []multiwatcher.Endpoint{
+					{
+						ServiceName: "mysql",
+						Relation:    charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"},
+					}, {
+						ServiceName: "wordpress",
+						Relation:    charm.Relation{Name: "db", Role: "requirer", Interface: "mysql", Optional: false, Limit: 1, Scope: "global"},
+					},
+				},
+			},
 		},
-	}}) {
+	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
