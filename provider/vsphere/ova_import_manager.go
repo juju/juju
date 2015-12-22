@@ -186,7 +186,6 @@ func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
 	file, err := os.Open(ovfFilePath)
 	defer file.Close()
 	if err != nil {

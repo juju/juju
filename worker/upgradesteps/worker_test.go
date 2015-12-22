@@ -424,7 +424,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
 	return st, func() { st.Close() }, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isStateServer bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isStateServer, isMasterStateServer bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}

@@ -16,10 +16,9 @@ import (
 
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/testing"
+	testing "github.com/juju/juju/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -34,7 +33,7 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	// Prepare mock http transport for overriding metadata and images output in tests.
@@ -97,5 +96,5 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*im
 		"/streams/v1/index.json":                string(index),
 		"/" + imagemetadata.ProductMetadataPath: string(products),
 	}
-	s.PatchValue(&testRoundTripper.Sub, jujutest.NewCannedRoundTripper(files, nil))
+	s.PatchValue(&testRoundTripper.Sub, testing.NewCannedRoundTripper(files, nil))
 }
