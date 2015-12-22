@@ -66,6 +66,7 @@ func (s *serviceDirectorySuite) SetUpTest(c *gc.C) {
 	var err error
 	serviceAPIFactory, err := crossmodel.NewServiceAPIFactory(
 		func() jujucrossmodel.ServiceDirectory { return s.serviceDirectory },
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = crossmodel.CreateServiceOffersAPI(serviceAPIFactory, s.authoriser)
