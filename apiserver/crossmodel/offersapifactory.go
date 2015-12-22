@@ -72,7 +72,6 @@ func ServiceOffersAPIFactoryResource(st *state.State) (common.Resource, error) {
 			return nil, errors.Trace(err)
 		}
 		closer = ssState
-		logger.Debugf("ssState env: %s", ssState.EnvironTag())
 	}
 	return newServiceAPIFactory(
 		func() crossmodel.ServiceDirectory {
