@@ -47,6 +47,7 @@ func (environStatePolicy) ConstraintsValidator(cfg *config.Config, querier state
 	}
 
 	// Ensure that supported architectures are filtered based on cloud specification.
+	// TODO (anastasiamac 2015-12-22) this cries for a test \o/
 	region := ""
 	if cloudEnv, ok := env.(simplestreams.HasRegion); ok {
 		cloudCfg, err := cloudEnv.Region()
