@@ -289,22 +289,6 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
 	err:  `failed to bootstrap environment: ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
-	info: "bad --series",
-	args: []string{"--series", "1bad1"},
-	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
-}, {
-	info: "lonely --series",
-	args: []string{"--series", "fine"},
-	err:  `--series requires --upload-tools`,
-}, {
-	info: "lonely --upload-series",
-	args: []string{"--upload-series", "fine"},
-	err:  `--upload-series requires --upload-tools`,
-}, {
-	info: "--upload-series with --series",
-	args: []string{"--upload-tools", "--upload-series", "foo", "--series", "bar"},
-	err:  `--upload-series and --series can't be used together`,
-}, {
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
@@ -447,34 +431,6 @@ type mockBootstrapInstance struct {
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
-}
-
-func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
-	ctx := s.checkSeriesArg(c, "--series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
-}
-
-func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
-	ctx := s.checkSeriesArg(c, "--upload-series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
-}
-
-func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
-	_bootstrap := &fakeBootstrapFuncs{}
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return _bootstrap
-	})
-	resetJujuHome(c, "devenv")
-	s.PatchValue(&allInstances, func(environ environs.Environ) ([]instance.Instance, error) {
-		return []instance.Instance{&mockBootstrapInstance{}}, nil
-	})
-
-	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "--upload-tools", argVariant, "foo,bar")
-
-	c.Assert(err, jc.ErrorIsNil)
-	return ctx
 }
 
 // In the case where we cannot examine an environment, we want the
