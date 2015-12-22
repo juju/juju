@@ -9,6 +9,33 @@ import (
 	"time"
 )
 
+// FormattedCharmResource holds the formatted representation of a resource's info.
+type FormattedCharmResource struct {
+	// These fields are exported for the sake of serialization.
+	Name        string `json:"name" yaml:"name"`
+	Type        Type   `json:"type" yaml:"type"`
+	Path        string `json:"path" yaml:"path"`
+	Comment     string `json:"comment,omitempty" yaml:"comment,omitempty"`
+	Revision    int    `json:"revision,omitempty" yaml:"revision,omitempty"`
+	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
+	Origin      Origin `json:"origin" yaml:"origin"`
+}
+
+// FormattedSvcResource holds the formatted representation of a resource's info.
+type FormattedSvcResource struct {
+	// These fields are exported for the sake of serialization.
+	Name        string    `json:"name" yaml:"name"`
+	Type        Type      `json:"type" yaml:"type"`
+	Path        string    `json:"path" yaml:"path"`
+	Comment     string    `json:"comment,omitempty" yaml:"comment,omitempty"`
+	Revision    int       `json:"revision,omitempty" yaml:"revision,omitempty"`
+	Fingerprint string    `json:"fingerprint" yaml:"fingerprint"`
+	Origin      Origin    `json:"origin" yaml:"origin"`
+	Used        bool      `json:"used" yaml:"used"`
+	Timestamp   time.Time `json:"timestamp" yaml:"timestamp"`
+	Username    string    `json:"username" yaml:"username"`
+}
+
 //go:generate stringer -type=Origin
 
 // Origin defines where a resource came from.
@@ -60,31 +87,4 @@ func (t Type) MarshalYAML() (interface{}, error) {
 func (t Type) lower() string {
 	// 4 being the length of "Type".
 	return strings.ToLower(t.String())[4:]
-}
-
-// FormattedCharmResource holds the formatted representation of a resource's info.
-type FormattedCharmResource struct {
-	// These fields are exported for the sake of serialization.
-	Name        string `json:"name" yaml:"name"`
-	Type        Type   `json:"type" yaml:"type"`
-	Path        string `json:"path" yaml:"path"`
-	Comment     string `json:"comment,omitempty" yaml:"comment,omitempty"`
-	Revision    int    `json:"revision,omitempty" yaml:"revision,omitempty"`
-	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
-	Origin      Origin `json:"origin" yaml:"origin"`
-}
-
-// FormattedSvcResource holds the formatted representation of a resource's info.
-type FormattedSvcResource struct {
-	// These fields are exported for the sake of serialization.
-	Name        string    `json:"name" yaml:"name"`
-	Type        Type      `json:"type" yaml:"type"`
-	Path        string    `json:"path" yaml:"path"`
-	Comment     string    `json:"comment,omitempty" yaml:"comment,omitempty"`
-	Revision    int       `json:"revision,omitempty" yaml:"revision,omitempty"`
-	Fingerprint string    `json:"fingerprint" yaml:"fingerprint"`
-	Origin      Origin    `json:"origin" yaml:"origin"`
-	Used        bool      `json:"used" yaml:"used"`
-	Timestamp   time.Time `json:"timestamp" yaml:"timestamp"`
-	Username    string    `json:"username" yaml:"username"`
 }
