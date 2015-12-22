@@ -119,8 +119,8 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 	fp2, err := charmresource.GenerateFingerprint([]byte("xyz"))
 	c.Assert(err, jc.ErrorIsNil)
 	resources := []charmresource.Resource{
-		newCharmResource(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
-		newCharmResource(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
+		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
+		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 

@@ -4,21 +4,25 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/resource"
 )
 
-var _ = gc.Suite(&OutputTabularSuite{})
+var _ = gc.Suite(&CharmTabularSuite{})
 
-type OutputTabularSuite struct {
+type CharmTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *OutputTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
-	info := newCharmResource(c, "spam", ".tgz", "...", "")
-	formatted := formatInfos(info)
+func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
+	res := charmRes(c, "spam", ".tgz", "...", "")
+	formatted := []FormattedCharmResource{FormatCharmResource(res)}
 
 	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -29,9 +33,9 @@ spam     upload -   ...
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
-	info := newCharmResource(c, "spam", "", "", "")
-	formatted := formatInfos(info)
+func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
+	res := charmRes(c, "spam", "", "", "")
+	formatted := []FormattedCharmResource{FormatCharmResource(res)}
 
 	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -42,14 +46,14 @@ spam     upload -
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
-	formatted := formatInfos(
-		newCharmResource(c, "spam", ".tgz", "spamspamspamspam", ""),
-		newCharmResource(c, "eggs", "", "...", ""),
-		newCharmResource(c, "somethingbig", ".zip", "", ""),
-		newCharmResource(c, "song", ".mp3", "your favorite", ""),
-		newCharmResource(c, "avatar", ".png", "your picture", ""),
-	)
+func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
+	formatted := []FormattedCharmResource{
+		FormatCharmResource(charmRes(c, "spam", ".tgz", "spamspamspamspam", "")),
+		FormatCharmResource(charmRes(c, "eggs", "", "...", "")),
+		FormatCharmResource(charmRes(c, "somethingbig", ".zip", "", "")),
+		FormatCharmResource(charmRes(c, "song", ".mp3", "your favorite", "")),
+		FormatCharmResource(charmRes(c, "avatar", ".png", "your picture", "")),
+	}
 
 	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,17 +68,111 @@ avatar       upload -   your picture
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
-	bogus := "should have been []formattedInfo"
+func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
+	bogus := "should have been something else"
 	_, err := FormatCharmTabular(bogus)
 
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
-func formatInfos(resources ...charmresource.Resource) []FormattedCharmResource {
-	var formatted []FormattedCharmResource
-	for _, res := range resources {
-		formatted = append(formatted, FormatCharmResource(res))
+var _ = gc.Suite(&SvcTabularSuite{})
+
+type SvcTabularSuite struct {
+	testing.IsolationSuite
+}
+
+func (s *SvcTabularSuite) TestFormatOkay(c *gc.C) {
+	res := resource.Resource{
+
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "openjdk",
+				Comment: "the java runtime",
+			},
+			Origin:   charmresource.OriginStore,
+			Revision: 7,
+		},
+		Timestamp: time.Now(),
 	}
-	return formatted
+
+	formatted := []FormattedSvcResource{FormatSvcResource(res)}
+
+	data, err := FormatSvcTabular(formatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(string(data), gc.Equals, `
+RESOURCE ORIGIN REV USED COMMENT
+openjdk  store  7   yes  the java runtime
+`[1:])
+}
+
+func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
+	res := []resource.Resource{
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name:    "openjdk",
+					Comment: "the java runtime",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 7,
+			},
+		},
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name:    "website",
+					Comment: "your website data",
+				},
+				Origin: charmresource.OriginUpload,
+			},
+			Username: "Sandra User",
+		},
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name:    "openjdk",
+					Comment: "the java runtime",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 8,
+			},
+			Timestamp: time.Now().Add(-2 * time.Hour * 24 * 365),
+		},
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name:    "website",
+					Comment: "your website data",
+				},
+				Origin: charmresource.OriginUpload,
+			},
+			Username:  "Bill User",
+			Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
+		},
+	}
+
+	formatted := make([]FormattedSvcResource, len(res))
+	for i := range res {
+		formatted[i] = FormatSvcResource(res[i])
+	}
+
+	data, err := FormatSvcTabular(formatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Notes: sorted by name, then by revision, newest first.
+	c.Check(string(data), gc.Equals, `
+RESOURCE ORIGIN      REV        USED COMMENT
+openjdk  store       8          yes  the java runtime
+openjdk  store       7          no   the java runtime
+website  Bill User   2014-22-12 yes  your website data
+website  Sandra User -          no   your website data
+`[1:])
+}
+
+func (s *SvcTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
+	bogus := "should have been something else"
+	_, err := FormatSvcTabular(bogus)
+
+	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }

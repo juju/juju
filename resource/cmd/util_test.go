@@ -11,7 +11,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-func newCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
+func charmRes(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
 	var fp charmresource.Fingerprint
 	if fingerprint == "" {
 		built, err := charmresource.GenerateFingerprint([]byte(name))
@@ -49,7 +49,7 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 			comment = parts[1]
 		}
 
-		res := newCharmResource(c, name, ".tgz", comment, "")
+		res := charmRes(c, name, ".tgz", comment, "")
 		resources = append(resources, res)
 	}
 	return resources
