@@ -7,6 +7,7 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +15,8 @@ import (
 	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.crossmodel")
 
 func init() {
 	common.RegisterStandardFacade("CrossModelRelations", 1, NewAPI)

@@ -10,11 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
+	apicrossmodel "github.com/juju/juju/api/crossmodel"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
 	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type crossmodelSuite struct {
@@ -101,6 +105,45 @@ local:
         interface: varnish
         role: provider
 `[1:])
+}
+
+func (s *crossmodelSuite) TestLocalURLOtherEnvironment(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingService(c, "riakservice", ch)
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+		"riakservice:endpoint", "local:/u/me/riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		NoEnvUser: true,
+		Password:  "super-secret",
+	})
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "first", Owner: user.Tag()})
+	defer otherState.Close()
+
+	info := s.APIInfo(c)
+	info.EnvironTag = otherState.EnvironTag()
+	info.Tag = user.Tag()
+	info.Password = "super-secret"
+	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer otherAPIState.Close()
+
+	apiClient := apicrossmodel.NewClient(otherAPIState)
+	offer, err := apiClient.ServiceOffer("local:/u/me/riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offer, jc.DeepEquals, params.ServiceOffer{
+		ServiceURL:         "local:/u/me/riak",
+		SourceEnvironTag:   "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		SourceLabel:        "dummyenv",
+		ServiceName:        "riakservice",
+		ServiceDescription: "Scalable K/V Store in Erlang with Clocks :-)",
+		Endpoints: []params.RemoteEndpoint{
+			params.RemoteEndpoint{
+				Name: "endpoint", Role: "provider", Interface: "http", Scope: "global"},
+		},
+	})
 }
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {
