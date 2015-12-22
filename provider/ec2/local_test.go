@@ -1219,7 +1219,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 
 	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	t.PatchValue(&tools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 }

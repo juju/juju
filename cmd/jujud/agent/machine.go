@@ -963,7 +963,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 
 	// Ensure storage is available during upgrades.
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
+	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
 		unregisterSimplestreamsDataSource()

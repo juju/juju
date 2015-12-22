@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/testing"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

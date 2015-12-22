@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 func EBSProvider() jujustorage.Provider {
@@ -80,10 +79,8 @@ func DeleteBucket(s storage.Storage) error {
 func UseTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
-		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 
