@@ -46,7 +46,7 @@ type Cloud struct {
 	Type string `yaml:"type"`
 
 	// AuthTypes are the authentication modes supported by the cloud.
-	AuthTypes []AuthType `yaml:"auth-types"`
+	AuthTypes []AuthType `yaml:"auth-types,omitempty,flow"`
 
 	// Endpoint is the default endpoint for the cloud regions, may be
 	// overridden by a region.
