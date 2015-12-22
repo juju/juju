@@ -111,7 +111,10 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	validator, err := st.policy.ConstraintsValidator(cfg, &cloudimagemetadata.MetadataArchitectureQuerier{st.CloudImageMetadataStorage})
+	validator, err := st.policy.ConstraintsValidator(
+		cfg,
+		&cloudimagemetadata.MetadataArchitectureQuerier{st.CloudImageMetadataStorage},
+	)
 	if errors.IsNotImplemented(err) {
 		return defaultValidator, nil
 	} else if err != nil {
