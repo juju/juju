@@ -5,8 +5,6 @@ package cloud
 
 // Generated code - do not edit.
 
-// fallbackPublicCloudInfo is the last resort public
-// cloud info to use if none other is found.
 const fallbackPublicCloudInfo = `
 # DO NOT EDIT, will be overwritten, use “juju update-clouds” to refresh.
 clouds:
