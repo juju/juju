@@ -109,7 +109,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 
 	fields := schema.Fields{
 		"id":         schema.String(),
-		"containers": schema.List(schema.Any()),
+		"containers": schema.List(schema.StringMap(schema.Any())),
 	}
 	checker := schema.FieldMap(fields, nil) // no defaults
 

@@ -6,6 +6,7 @@ package migration
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/testing"
 )
@@ -163,4 +164,54 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 		},
 	}
 	c.Assert(machines, jc.DeepEquals, expected)
+}
+
+func (*MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	initial := machines{
+		Version: 1,
+		Machines_: []*machine{
+			&machine{
+				Id_: "0",
+			},
+			&machine{
+				Id_: "1",
+				Containers_: []*machine{
+					&machine{
+						Id_: "1/lxc/0",
+					},
+					&machine{
+						Id_: "1/lxc/1",
+					},
+				},
+			},
+			&machine{
+				Id_: "2",
+				Containers_: []*machine{
+					&machine{
+						Id_: "2/kvm/0",
+						Containers_: []*machine{
+							&machine{
+								Id_: "2/kvm/0/lxc/0",
+							},
+							&machine{
+								Id_: "2/kvm/0/lxc/1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var source map[string]interface{}
+	err = yaml.Unmarshal(bytes, &source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machines, err := importMachines(source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(machines, jc.DeepEquals, initial.Machines_)
 }
