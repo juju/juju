@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -121,7 +122,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// We do not want to pull published image metadata for tests...
-	imagemetadata.DefaultBaseURL = ""
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	// We want an image to start test instances
 	m := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{

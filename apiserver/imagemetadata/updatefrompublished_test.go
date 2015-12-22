@@ -29,10 +29,8 @@ import (
 func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
-		imagemetadata.DefaultBaseURL = ""
 	}
 }
 
