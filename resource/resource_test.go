@@ -21,11 +21,21 @@ type ResourceSuite struct {
 
 var _ = gc.Suite(&ResourceSuite{})
 
-func (ResourceSuite) TestValidateUploadFull(c *gc.C) {
+func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "a-user",
 		Timestamp: time.Now(),
+	}
+
+	err := res.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
+	res := resource.Resource{
+		Resource: newFullCharmResource(c, "spam"),
 	}
 
 	err := res.Validate()
@@ -39,6 +49,7 @@ func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
 	err := res.Validate()
 
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
 func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
@@ -46,9 +57,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 	c.Assert(charmRes.Validate(), gc.NotNil)
 
 	res := resource.Resource{
-		Resource:  charmRes,
-		Username:  "a-user",
-		Timestamp: time.Now(),
+		Resource: charmRes,
 	}
 
 	err := res.Validate()
@@ -57,7 +66,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
+func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "",
@@ -66,11 +75,10 @@ func (ResourceSuite) TestValidateBadUsername(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*missing username.*`)
+	c.Check(err, jc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateBadTimestamp(c *gc.C) {
+func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
 		Username:  "a-user",
