@@ -303,11 +303,13 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
-	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	bootstrapCons := constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
+	environCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
 		"--env-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
-		"--constraints", tcons.String(),
+		"--bootstrap-constraints", bootstrapCons.String(),
+		"--environ-constraints", environCons.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -322,16 +324,17 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, tcons)
+	c.Assert(cons, gc.DeepEquals, environCons)
 
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	cons, err = machines[0].Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, tcons)
+	c.Assert(cons, gc.DeepEquals, bootstrapCons)
 }
 
 func uint64p(v uint64) *uint64 {

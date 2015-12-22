@@ -61,12 +61,13 @@ var (
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	EnvConfig        map[string]interface{}
-	Constraints      constraints.Value
-	Hardware         instance.HardwareCharacteristics
-	InstanceId       string
-	AdminUsername    string
-	ImageMetadataDir string
+	EnvConfig            map[string]interface{}
+	BootstrapConstraints constraints.Value
+	EnvironConstraints   constraints.Value
+	Hardware             instance.HardwareCharacteristics
+	InstanceId           string
+	AdminUsername        string
+	ImageMetadataDir     string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -87,7 +88,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "environ-constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -247,12 +249,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
-				Addresses:       addrs,
-				Constraints:     c.Constraints,
-				Jobs:            jobs,
-				InstanceId:      instanceId,
-				Characteristics: c.Hardware,
-				SharedSecret:    sharedSecret,
+				Addresses:            addrs,
+				BootstrapConstraints: c.BootstrapConstraints,
+				EnvironConstraints:   c.EnvironConstraints,
+				Jobs:                 jobs,
+				InstanceId:           instanceId,
+				Characteristics:      c.Hardware,
+				SharedSecret:         sharedSecret,
 			},
 			dialOpts,
 			environs.NewStatePolicy(),

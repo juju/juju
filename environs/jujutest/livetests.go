@@ -155,7 +155,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
+		BootstrapConstraints: cons,
+		EnvironConstraints:   cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }

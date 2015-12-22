@@ -35,7 +35,9 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 			return imagesByStorage[storageType]
 		}
 	}
-	return nil
+	// If the user specifies an image ID during bootstrap, then it will not
+	// have a storage type.
+	return imagesByStorage[""]
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.

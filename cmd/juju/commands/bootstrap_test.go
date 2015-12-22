@@ -179,11 +179,12 @@ type bootstrapTest struct {
 	err     string
 	// binary version string for expected tools; if set, no default tools
 	// will be uploaded before running the test.
-	upload      string
-	constraints constraints.Value
-	placement   string
-	hostArch    string
-	keepBroken  bool
+	upload               string
+	constraints          constraints.Value
+	bootstrapConstraints constraints.Value
+	placement            string
+	hostArch             string
+	keepBroken           bool
 }
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, envName string) {
@@ -251,7 +252,11 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
+	if test.bootstrapConstraints == (constraints.Value{}) {
+		test.bootstrapConstraints = test.constraints
+	}
+	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
@@ -287,7 +292,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `failed to bootstrap environment: ambiguous constraints: "instance-type" overlaps with "mem"`,
+	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
@@ -297,6 +302,11 @@ var bootstrapTests = []bootstrapTest{{
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+}, {
+	info:                 "bootstrap and environ constraints",
+	args:                 []string{"--constraints", "mem=4G cpu-cores=4", "--bootstrap-constraints", "mem=8G"},
+	constraints:          constraints.MustParse("mem=4G cpu-cores=4"),
+	bootstrapConstraints: constraints.MustParse("mem=8G cpu-cores=4"),
 }, {
 	info:        "unsupported constraint passed through but no error",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},

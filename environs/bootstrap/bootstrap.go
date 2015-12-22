@@ -39,9 +39,23 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
+	// EnvironConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the new
+	// environment's state.
+	EnvironConstraints constraints.Value
+
+	// BootstrapConstraints are used to choose the initial instance.
+	// BootstrapConstraints does not affect the environment-level
+	// constraints.
+	BootstrapConstraints constraints.Value
+
+	// BootstrapSeries, if specified, is the series to use for the
+	// initial bootstrap machine.
+	BootstrapSeries string
+
+	// BootstrapImage, if specified, is the image ID to use for the
+	// initial bootstrap machine.
+	BootstrapImage string
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -95,17 +109,39 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.Constraints); err != nil {
+	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
+		return err
+	}
+	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
+		return err
+	}
+
+	constraintsValidator, err := environ.ConstraintsValidator()
+	if err != nil {
+		return err
+	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		args.EnvironConstraints, args.BootstrapConstraints,
+	)
+	if err != nil {
 		return err
 	}
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
 
+	var bootstrapSeries *string
+	if args.BootstrapSeries != "" {
+		bootstrapSeries = &args.BootstrapSeries
+	}
+
 	ctx.Infof("Bootstrapping environment %q", cfg.Name())
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
-	availableTools, err := findAvailableTools(environ, args.AgentVersion, args.Constraints.Arch, args.UploadTools)
+	availableTools, err := findAvailableTools(
+		environ, args.AgentVersion, bootstrapConstraints.Arch,
+		bootstrapSeries, args.UploadTools,
+	)
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
 	} else if err != nil {
@@ -115,54 +151,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
 	}
 
-	// For providers that support make use of simplestreams image metadata,
-	// search public image metadata. We need to pass this onto Bootstrap
-	// for selecting images.
-	var imageMetadata []*imagemetadata.ImageMetadata
-	var publicImageMetadata []*imagemetadata.ImageMetadata
-	if hasRegion, ok := environ.(simplestreams.HasRegion); ok {
-		sources, err := environs.ImageMetadataSources(environ)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		region, err := hasRegion.Region()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-			CloudSpec: region,
-			Series:    availableTools.AllSeries(),
-			Arches:    availableTools.Arches(),
-			Stream:    environ.Config().ImageStream(),
-		})
-		publicImageMetadata, _, err = imagemetadata.Fetch(sources, imageConstraint)
-		if err != nil {
-			return errors.Annotate(err, "searching image metadata")
-		}
-
-		// Filter custom image metadata to the ones we're interested in for
-		// bootstrapping the initial instance.
-		seriesVersions := set.NewStrings()
-		for _, constraintSeries := range imageConstraint.Series {
-			seriesVersion, err := series.SeriesVersion(constraintSeries)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			seriesVersions.Add(seriesVersion)
-		}
-		arches := set.NewStrings(imageConstraint.Arches...)
-		for _, image := range customImageMetadata {
-			if matchImageMetadata(
-				image,
-				imageConstraint.CloudSpec,
-				seriesVersions,
-				arches,
-				imageConstraint.Stream,
-			) {
-				imageMetadata = append(imageMetadata, image)
-			}
-		}
-		imageMetadata = append(imageMetadata, publicImageMetadata...)
+	imageMetadata, err := bootstrapImageMetadata(
+		environ, availableTools,
+		args.BootstrapImage,
+		customImageMetadata,
+	)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -185,10 +180,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Infof("Starting new instance for initial state server")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		Constraints:    args.Constraints,
-		Placement:      args.Placement,
-		AvailableTools: availableTools,
-		ImageMetadata:  imageMetadata,
+		EnvironConstraints:   args.EnvironConstraints,
+		BootstrapConstraints: args.BootstrapConstraints,
+		Placement:            args.Placement,
+		AvailableTools:       availableTools,
+		ImageMetadata:        imageMetadata,
 	})
 	if err != nil {
 		return err
@@ -226,7 +222,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series, publicKey)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
+	)
 	if err != nil {
 		return err
 	}
@@ -254,6 +252,96 @@ func userPublicSigningKey() (string, error) {
 		signingKey = string(b)
 	}
 	return signingKey, nil
+}
+
+func bootstrapImageMetadata(
+	environ environs.Environ,
+	availableTools coretools.List,
+	bootstrapImageId string,
+	customImageMetadata []*imagemetadata.ImageMetadata,
+) ([]*imagemetadata.ImageMetadata, error) {
+
+	hasRegion, ok := environ.(simplestreams.HasRegion)
+	if !ok {
+		if bootstrapImageId != "" {
+			return nil, errors.NotSupportedf("specifying bootstrap image")
+		}
+		return nil, nil
+	}
+	region, err := hasRegion.Region()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if bootstrapImageId != "" {
+		arches := availableTools.Arches()
+		if len(arches) != 1 {
+			return nil, errors.NotValidf("multiple architectures with bootstrap bootstrap image")
+		}
+		allSeries := availableTools.AllSeries()
+		if len(allSeries) != 1 {
+			return nil, errors.NotValidf("multiple series with bootstrap bootstrap image")
+		}
+		seriesVersion, err := series.SeriesVersion(allSeries[0])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// The returned metadata does not have information about the
+		// storage or virtualisation type. Any provider that wants to
+		// filter on those properties should allow for empty values.
+		return []*imagemetadata.ImageMetadata{{
+			Id:         bootstrapImageId,
+			Arch:       arches[0],
+			Version:    seriesVersion,
+			RegionName: region.Region,
+			Endpoint:   region.Endpoint,
+			Stream:     environ.Config().ImageStream(),
+		}}, nil
+	}
+
+	// For providers that support make use of simplestreams
+	// image metadata, search public image metadata. We need
+	// to pass this onto Bootstrap for selecting images.
+	sources, err := environs.ImageMetadataSources(environ)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: region,
+		Series:    availableTools.AllSeries(),
+		Arches:    availableTools.Arches(),
+		Stream:    environ.Config().ImageStream(),
+	})
+	publicImageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
+	if err != nil {
+		return nil, errors.Annotate(err, "searching image metadata")
+	}
+
+	// Filter custom image metadata to the ones we're interested in for
+	// bootstrapping the initial instance.
+	seriesVersions := set.NewStrings()
+	for _, constraintSeries := range imageConstraint.Series {
+		seriesVersion, err := series.SeriesVersion(constraintSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		seriesVersions.Add(seriesVersion)
+	}
+	arches := set.NewStrings(imageConstraint.Arches...)
+	var imageMetadata []*imagemetadata.ImageMetadata
+	for _, image := range customImageMetadata {
+		if matchImageMetadata(
+			image,
+			imageConstraint.CloudSpec,
+			seriesVersions,
+			arches,
+			imageConstraint.Stream,
+		) {
+			imageMetadata = append(imageMetadata, image)
+		}
+	}
+	imageMetadata = append(imageMetadata, publicImageMetadata...)
+	return imageMetadata, nil
 }
 
 func matchImageMetadata(

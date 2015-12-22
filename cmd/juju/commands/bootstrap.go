@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
@@ -96,6 +97,9 @@ func newBootstrapCommand() cmd.Command {
 type bootstrapCommand struct {
 	envcmd.EnvCommandBase
 	Constraints           constraints.Value
+	BootstrapConstraints  constraints.Value
+	BootstrapSeries       string
+	BootstrapImage        string
 	UploadTools           bool
 	MetadataSource        string
 	Placement             string
@@ -115,6 +119,9 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "specify bootstrap machine constraints")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "specify the series of the bootstrap machine")
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "specify the image of the bootstrap machine")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
@@ -129,6 +136,21 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if c.AgentVersionParam != "" && c.NoAutoUpgrade {
 		return fmt.Errorf("--agent-version and --no-auto-upgrade can't be used together")
+	}
+	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
+		return errors.NotValidf("series %q", c.BootstrapSeries)
+	}
+	if c.BootstrapImage != "" {
+		if c.BootstrapSeries == "" {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		}
+		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !cons.HasArch() {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
+		}
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -261,12 +283,27 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 
+	// Merge environ and bootstrap-specific constraints.
+	constraintsValidator, err := environ.ConstraintsValidator()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		c.Constraints, c.BootstrapConstraints,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		Constraints:  c.Constraints,
-		Placement:    c.Placement,
-		UploadTools:  c.UploadTools,
-		AgentVersion: c.AgentVersion,
-		MetadataDir:  metadataDir,
+		EnvironConstraints:   c.Constraints,
+		BootstrapConstraints: bootstrapConstraints,
+		BootstrapSeries:      c.BootstrapSeries,
+		BootstrapImage:       c.BootstrapImage,
+		Placement:            c.Placement,
+		UploadTools:          c.UploadTools,
+		AgentVersion:         c.AgentVersion,
+		MetadataDir:          metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")

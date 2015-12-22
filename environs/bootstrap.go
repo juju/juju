@@ -15,9 +15,15 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
+	// EnvironConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the new
+	// environment's state.
+	EnvironConstraints constraints.Value
+
+	// BootstrapConstraints, in conjunction with EnvironConstraints,
+	// are used to choose the initial instance. BootstrapConstraints
+	// will not be stored in state for the environment.
+	BootstrapConstraints constraints.Value
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
