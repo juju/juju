@@ -1157,6 +1157,47 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_workloads()
         self.assertEqual(writes, ['waiting: jenkins/0', '\n'])
 
+    def test_wait_for_workload_all_unknown(self):
+        status = Status.from_text("""\
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    workload-status:
+                      current: unknown
+                  subordinates:
+                    ntp/0:
+                      workload-status:
+                        current: unknown
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        writes = []
+        with patch('utility.until_timeout', autospec=True, return_value=[]):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    client.wait_for_workloads(timeout=1)
+        self.assertEqual(writes, [])
+
+    def test_wait_for_workload_no_workload_status(self):
+        status = Status.from_text("""\
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    agent-state: active
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        writes = []
+        with patch('utility.until_timeout', autospec=True, return_value=[]):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    client.wait_for_workloads(timeout=1)
+        self.assertEqual(writes, [])
+
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {

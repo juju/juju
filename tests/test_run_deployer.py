@@ -75,8 +75,7 @@ class TestAssessDeployer(tests.TestCase):
         with patch('run_deployer.check_health', autospec=True) as ch_mock:
             assess_deployer(args, client_mock)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
-        # Curtis disabled this because no deployer-based tests are passing.
-        # client_mock.wait_for_workloads.assert_called_once_with()
+        client_mock.wait_for_workloads.assert_called_once_with()
         ch_mock.assert_called_once_with('/tmp/check', 'foo')
 
     def test_upgrade(self):
@@ -91,9 +90,8 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
         client_mock.juju.assert_called_once_with('status', ())
         au_mock.assert_called_once_with(client_mock, 'new/juju')
-        # Curtis disabled this because no deployer-based tests are passing.
-        # self.assertEqual(
-        #     client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+        self.assertEqual(
+            client_mock.wait_for_workloads.call_args_list, [call()] * 2)
 
     def test_upgrade_and_health(self):
         args = Namespace(
@@ -108,9 +106,8 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
         client_mock.juju.assert_called_once_with('status', ())
         au_mock.assert_called_once_with(client_mock, 'new/juju')
-        # Curtis disabled this because no deployer-based tests are passing.
-        # self.assertEqual(
-        #     client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+        self.assertEqual(
+            client_mock.wait_for_workloads.call_args_list, [call()] * 2)
         self.assertEqual(
             ch_mock.call_args_list, [call('/tmp/check', 'foo')] * 2)
 
