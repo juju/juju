@@ -270,6 +270,7 @@ var commandNames = []string{
 	"share-model",
 	"show-action-output",
 	"show-action-status",
+	"show-cloud",
 	"show-status",
 	"show-storage",
 	"show-user",
