@@ -52,6 +52,12 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// Use longAttempt to poll for short-term events or for retrying API calls.
+var longAttempt = utils.AttemptStrategy{
+	Total: 60 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -1146,6 +1152,15 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
+func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
+	for _, tag := range ec2Tags {
+		if tag.Key == key {
+			return tag.Value, true
+		}
+	}
+	return "", false
+}
+
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
@@ -1160,10 +1175,19 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
+			tagUUID, ok := getTagByKey(tags.JujuEnv, inst.Tags)
+			if ok && tagUUID != eUUID {
+				continue
+			}
+
 			// TODO(wallyworld): lookup the details to fill in the instance type data
 			insts = append(insts, &ec2Instance{e: e, Instance: &inst})
 		}
@@ -1174,6 +1198,9 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
+	}
+	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
+		logger.Errorf("cannot delete default security group: %v", err)
 	}
 	return e.Storage().RemoveAll()
 }
@@ -1298,12 +1325,69 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
+func (e *environ) deletableInstanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+	ec2inst := e.ec2()
+	strInstID := make([]string, len(instIDs))
+	for i := range instIDs {
+		strInstID[i] = string(instIDs[i])
+	}
+	resp, err := ec2inst.Instances(strInstID, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
+	}
+
+	deletables := []ec2.SecurityGroup{}
+	for _, res := range resp.Reservations {
+		for _, inst := range res.Instances {
+			deletables = append(deletables, inst.SecurityGroups...)
+		}
+	}
+	return deletables, nil
+}
+
+func (e *environ) cleanEnvironmentSecurityGroup() error {
+	ec2inst := e.ec2()
+	var err error
+	jujuGroup := e.jujuGroupName()
+	g, err := e.groupByName(jujuGroup)
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
+	}
+	for a := longAttempt.Start(); a.Next(); {
+		_, err = ec2inst.DeleteSecurityGroup(g)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.Annotatef(err, "cannot delete default security group")
+}
+
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	var err error
+	deletables, err := e.deletableInstanceSecurityGroups(ids)
+	if err != nil {
+		// We should not stop termination because of this.
+		logger.Errorf("cannot determine security groups to delete: %v", err)
+	}
 	ec2inst := e.ec2()
+	defer func() {
+		jujuGroup := e.jujuGroupName()
+		for _, deletable := range deletables {
+			if deletable.Name != jujuGroup {
+				for a := longAttempt.Start(); a.Next(); {
+					_, err := ec2inst.DeleteSecurityGroup(deletable)
+					if err != nil {
+						logger.Errorf("could not delete security group %q: %v", deletable.Name, err)
+					} else {
+						break
+					}
+				}
+			}
+		}
+	}()
+
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
@@ -1333,6 +1417,13 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	return firstErr
 }
 
+func (e *environ) uuid() string {
+	// the bool component of uuid is for legacy compatibility
+	// and does not apply in this context.
+	eUUID, _ := e.Config().UUID()
+	return eUUID
+}
+
 func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
@@ -1342,6 +1433,10 @@ func (e *environ) machineGroupName(machineId string) string {
 }
 
 func (e *environ) jujuGroupName() string {
+	return "juju-" + e.uuid()
+}
+
+func (e *environ) jujuLegacyGroupName() string {
 	return "juju-" + e.name
 }
 
