@@ -80,9 +80,9 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM   REV COMMENT                    
-website  upload -   .tgz of your website       
-music    upload -   mp3 of your backing vocals 
+RESOURCE FROM   REV COMMENT
+website  upload -   .tgz of your website
+music    upload -   mp3 of your backing vocals
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -106,7 +106,7 @@ func (s *ShowSuite) TestNoResources(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM REV COMMENT 
+RESOURCE FROM REV COMMENT
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -126,9 +126,9 @@ func (s *ShowSuite) TestOutputFormats(c *gc.C) {
 
 	formats := map[string]string{
 		"tabular": `
-RESOURCE FROM   REV COMMENT                    
-website  upload -   .tgz of your website       
-music    upload -   mp3 of your backing vocals 
+RESOURCE FROM   REV COMMENT
+website  upload -   .tgz of your website
+music    upload -   mp3 of your backing vocals
 
 `[1:],
 		"yaml": `

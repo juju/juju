@@ -26,11 +26,11 @@ func (s *FormatterSuite) TestFormatInfoOkay(c *gc.C) {
 
 	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
 		Name:        "spam",
-		Type:        "file",
+		Type:        TypeFile,
 		Path:        "spam.tgz",
 		Comment:     "X",
 		Revision:    0,
 		Fingerprint: fp.String(),
-		Origin:      "upload",
+		Origin:      OriginUpload,
 	})
 }

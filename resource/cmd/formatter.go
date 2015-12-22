@@ -38,49 +38,47 @@ func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
 func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	return FormattedCharmResource{
 		Name:        res.Name,
-		Type:        res.Type.String(),
+		Type:        convType(res.Type),
 		Path:        res.Path,
 		Comment:     res.Comment,
 		Revision:    res.Revision,
-		Origin:      res.Origin.String(),
+		Origin:      convOrigin(res.Origin),
 		Fingerprint: res.Fingerprint.String(),
 	}
-}
-
-type svcResourcesFormatter struct {
-	resources []resource.Resource
-}
-
-func newSvcResourcesFormatter(resources []resource.Resource) *svcResourcesFormatter {
-	// Note that unlike the "juju status" code, we don't worry
-	// about "compatVersion".
-	return &svcResourcesFormatter{
-		resources: resources,
-	}
-}
-
-func (s *svcResourcesFormatter) format() []FormattedServiceResource {
-	if s.resources == nil {
-		return nil
-	}
-
-	formatted := make([]FormattedServiceResource, len(s.resources))
-	for i := range s.resources {
-		formatted[i] = FormatSvcResource(s.resources[i])
-	}
-	return formatted
 }
 
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
-func FormatSvcResource(res resource.Resource) FormattedServiceResource {
-	return FormattedServiceResource{
-		Name: res.Name,
-		Type: res.Type.String(),
-		Path: res.Path,
-		//TODO(natefinch): uncomment this when we know what "state" means
-		//State:       res.State,
+func FormatSvcResource(res resource.Resource) FormattedSvcResource {
+	return FormattedSvcResource{
+		Name:        res.Name,
+		Type:        convType(res.Type),
+		Path:        res.Path,
+		Used:        !res.Timestamp.IsZero(),
 		Revision:    res.Revision,
-		Origin:      res.Origin.String(),
+		Origin:      convOrigin(res.Origin),
 		Fingerprint: res.Fingerprint.String(),
+		Comment:     res.Comment,
+		Timestamp:   res.Timestamp,
+		Username:    res.Username,
+	}
+}
+
+func convOrigin(origin charmresource.Origin) Origin {
+	switch origin {
+	case charmresource.OriginStore:
+		return OriginStore
+	case charmresource.OriginUpload:
+		return OriginUpload
+	default:
+		return OriginUnknown
+	}
+}
+
+func convType(typ charmresource.Type) Type {
+	switch typ {
+	case charmresource.TypeFile:
+		return TypeFile
+	default:
+		return TypeUnknown
 	}
 }

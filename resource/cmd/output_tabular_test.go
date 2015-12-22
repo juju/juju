@@ -16,33 +16,33 @@ type OutputTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *OutputTabularSuite) TestFormatTabularOkay(c *gc.C) {
+func (s *OutputTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 	info := newCharmResource(c, "spam", ".tgz", "...", "")
 	formatted := formatInfos(info)
 
-	data, err := FormatTabular(formatted)
+	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE FROM   REV COMMENT 
-spam     upload -   ...     
+RESOURCE FROM   REV COMMENT
+spam     upload -   ...
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
+func (s *OutputTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 	info := newCharmResource(c, "spam", "", "", "")
 	formatted := formatInfos(info)
 
-	data, err := FormatTabular(formatted)
+	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE FROM   REV COMMENT 
-spam     upload -           
+RESOURCE FROM   REV COMMENT
+spam     upload -   
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
+func (s *OutputTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 	formatted := formatInfos(
 		newCharmResource(c, "spam", ".tgz", "spamspamspamspam", ""),
 		newCharmResource(c, "eggs", "", "...", ""),
@@ -51,22 +51,22 @@ func (s *OutputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 		newCharmResource(c, "avatar", ".png", "your picture", ""),
 	)
 
-	data, err := FormatTabular(formatted)
+	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE     FROM   REV COMMENT          
-spam         upload -   spamspamspamspam 
-eggs         upload -   ...              
-somethingbig upload -                    
-song         upload -   your favorite    
-avatar       upload -   your picture     
+RESOURCE     FROM   REV COMMENT
+spam         upload -   spamspamspamspam
+eggs         upload -   ...
+somethingbig upload -   
+song         upload -   your favorite
+avatar       upload -   your picture
 `[1:])
 }
 
-func (s *OutputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
+func (s *OutputTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
 	bogus := "should have been []formattedInfo"
-	_, err := FormatTabular(bogus)
+	_, err := FormatCharmTabular(bogus)
 
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
