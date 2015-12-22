@@ -326,6 +326,29 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(uniqueArches, gc.DeepEquals, expected)
 }
 
+func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreams(c *gc.C) {
+	stream := "stream"
+	region := "region-test"
+
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "new-stream",
+		Region:          region,
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniqueArches, gc.DeepEquals, []string{})
+}
+
 type TestMongo struct {
 	database *mgo.Database
 	runner   txn.Runner
