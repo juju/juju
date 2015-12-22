@@ -48,7 +48,7 @@ func main() {
 	}
 	contextData := fmt.Sprintf("\n%s", string(data))
 	// Quote any ` in the data.
-	contextData = strings.Replace(contextData, "`", fmt.Sprintf("`+%q+`", "`"), -1)
+	contextData = strings.Replace(contextData, "`", "`+\"`\"+`", -1)
 	t.Execute(&buf, content{
 		ConstName:     os.Args[1],
 		Content:       fmt.Sprintf("`%s`", contextData),

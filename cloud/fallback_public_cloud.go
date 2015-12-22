@@ -45,52 +45,79 @@ clouds:
   google:
     type: gce
     auth-types: [ oauth2 ]
-    endpoint: https://www.googleapis.com
     regions:
       us-east1:
+        endpoint: https://www.googleapis.com
       us-central1:
+        endpoint: https://www.googleapis.com
       europe-west1:
+        endpoint: https://www.googleapis.com
       asia-east1:
+        endpoint: https://www.googleapis.com
   azure:
     type: azure
     auth-types: [ userpass ]
-    endpoint: https://management.core.windows.net/
     regions:
       Central US:
+        endpoint: https://management.core.windows.net/
       East US:
+        endpoint: https://management.core.windows.net/
       East US 2:
+        endpoint: https://management.core.windows.net/
       North Central US:
+        endpoint: https://management.core.windows.net/
       South Central US:
+        endpoint: https://management.core.windows.net/
       West US:
+        endpoint: https://management.core.windows.net/
       North Europe:
+        endpoint: https://management.core.windows.net/
       West Europe:
+        endpoint: https://management.core.windows.net/
       East Asia:
+        endpoint: https://management.core.windows.net/
       Southeast Asia:
+        endpoint: https://management.core.windows.net/
       Japan East:
+        endpoint: https://management.core.windows.net/
       Japan West:
+        endpoint: https://management.core.windows.net/
       Brazil South:
+        endpoint: https://management.core.windows.net/
       Australia East:
+        endpoint: https://management.core.windows.net/
       Australia Southeast:
+        endpoint: https://management.core.windows.net/
       Central India:
+        endpoint: https://management.core.windows.net/
       South India:
+        endpoint: https://management.core.windows.net/
       West India:
+        endpoint: https://management.core.windows.net/
   azure-china:
     type: azure
     auth-types: [ userpass ]
     endpoint: https://management.core.chinacloudapi.cn/
     regions:
       China East:
+        endpoint: https://management.core.chinacloudapi.cn/
       China North:
+        endpoint: https://management.core.chinacloudapi.cn/
   rackspace:
     type: openstack
     auth-types: [ access-key, userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
       Dallas-Fort Worth:
+        endpoint: https://identity.api.rackspacecloud.com/v2.0
       Chicago:
+        endpoint: https://identity.api.rackspacecloud.com/v2.0
       Northern Virginia:
+        endpoint: https://identity.api.rackspacecloud.com/v2.0
       London:
         endpoint: https://lon.identity.api.rackspacecloud.com/v2.0
       Sydney:
+        endpoint: https://identity.api.rackspacecloud.com/v2.0
       Hong Kong:
+        endpoint: https://identity.api.rackspacecloud.com/v2.0
 `
