@@ -27,6 +27,7 @@ The list-clouds command lists the clouds on which Juju workloads can be deployed
 The available clouds will be the publicly available clouds like AWS, Google, Azure,
 as well as any custom clouds make available by the add-cloud command.
 
+Example:
    juju list-clouds
 `
 

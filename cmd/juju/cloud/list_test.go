@@ -35,7 +35,7 @@ func (s *listSuite) TestListYAML(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws:[ ]*type: aws[ ]*auth-types:  - access-key.*`)
+	c.Assert(out, gc.Matches, `.*aws:[ ]*type: aws[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
