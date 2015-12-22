@@ -292,11 +292,13 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 }
 
 func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
-	arch1 := "arch"
+	stream := "stream"
+	region := "region-test"
 
+	arch1 := "arch"
 	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:          "stream",
-		Region:          "region-test",
+		Stream:          stream,
+		Region:          region,
 		Version:         "14.04",
 		Series:          "trusty",
 		Arch:            arch1,
@@ -318,7 +320,8 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {
 	s.assertMetadataRecorded(c, attrs, added2)
 
 	expected := []string{arch1, arch2}
-	uniqueArches, err := s.storage.SupportedArchitectures()
+	uniqueArches, err := s.storage.SupportedArchitectures(
+		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniqueArches, gc.DeepEquals, expected)
 }

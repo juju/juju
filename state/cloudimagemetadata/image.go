@@ -293,13 +293,26 @@ type MetadataFilter struct {
 }
 
 // SupportedArchitectures implements Storage.SupportedArchitectures.
-func (s *storage) SupportedArchitectures() ([]string, error) {
+func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	var arches []string
-	if err := coll.Find(nil).Distinct("arch", &arches); err != nil {
+	if err := coll.Find(buildSearchClauses(criteria)).Distinct("arch", &arches); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return arches, nil
+}
+
+// MetadataArchitectureQuerier isolates querying supported architectures.
+type MetadataArchitectureQuerier struct {
+	Storage Storage
+}
+
+// SupportedArchitectures implements state policy SupportedArchitecturesQuerier.SupportedArchitectures.
+func (q *MetadataArchitectureQuerier) SupportedArchitectures(stream, region string) ([]string, error) {
+	return q.Storage.SupportedArchitectures(MetadataFilter{
+		Stream: stream,
+		Region: region,
+	})
 }
