@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 func EBSProvider() jujustorage.Provider {
@@ -73,8 +74,6 @@ func DeleteBucket(s storage.Storage) error {
 }
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
-
-var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.

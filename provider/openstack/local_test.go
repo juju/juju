@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -189,7 +190,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -835,7 +836,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -846,7 +847,8 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Assert(urls[2], gc.Equals, fmt.Sprintf("https://streams.canonical.com/juju/images/%s/", officialSourcePath))
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -862,11 +864,12 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	env := s.Open(c)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 2)
+	c.Assert(sources, gc.HasLen, 3)
 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
 	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
+	c.Check(sources[2].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -903,9 +906,7 @@ func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
-	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
-
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
@@ -1043,7 +1044,8 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 	for _, s := range sources {
 		sourceIds = append(sourceIds, s.Description())
 	}
-	c.Assert(sourceIds, jc.DeepEquals, []string{"image-metadata-url", "my datasource", "keystone catalog", "default cloud images"})
+	c.Assert(sourceIds, jc.DeepEquals, []string{
+		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
@@ -1261,7 +1263,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -1804,7 +1806,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
 	openstack.UseTestImageData(imageStorage, s.cred)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, storageDir)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

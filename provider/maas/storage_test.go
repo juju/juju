@@ -13,9 +13,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs/storage"
 )

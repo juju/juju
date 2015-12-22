@@ -15,6 +15,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -52,7 +53,7 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	s.PatchValue(&signedImageDataOnly, false)
 	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
 		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil

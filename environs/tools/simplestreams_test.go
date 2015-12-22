@@ -1018,7 +1018,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 }
 
 type signedSuite struct {
-	origKey string
+	coretesting.BaseSuite
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
@@ -1047,16 +1047,15 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
 	sstesting.SetRoundTripperFiles(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
-	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
 	sstesting.SetRoundTripperFiles(nil, nil)
-	tools.SetSigningPublicKey(s.origKey)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "test://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
+	signedSource := simplestreams.NewURLSignedDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

@@ -150,10 +150,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(newInitCommand())
-	r.RegisterDeprecated(common.NewGetConstraintsCommand(),
-		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
-	r.RegisterDeprecated(common.NewSetConstraintsCommand(),
-		twoDotOhDeprecation("environment set-constraints or service set-constraints"))
+	r.Register(common.NewGetConstraintsCommand())
+	r.Register(common.NewSetConstraintsCommand())
 	r.Register(newExposeCommand())
 	r.Register(newSyncToolsCommand())
 	r.Register(newUnexposeCommand())
@@ -180,20 +178,20 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage machines
 	r.Register(machine.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
-	r.RegisterSuperAlias("destroy-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
-	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+	r.RegisterSuperAlias("add-machine", "machine", "add", nil)
+	r.RegisterSuperAlias("remove-machine", "machine", "remove", nil)
+	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
+	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
 
 	// Mangage environment
 	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
-	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
-	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
-	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
-	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
+	r.RegisterSuperAlias("get-environment", "environment", "get", nil)
+	r.RegisterSuperAlias("get-env", "environment", "get", nil)
+	r.RegisterSuperAlias("set-environment", "environment", "set", nil)
+	r.RegisterSuperAlias("set-env", "environment", "set", nil)
+	r.RegisterSuperAlias("unset-environment", "environment", "unset", nil)
+	r.RegisterSuperAlias("unset-env", "environment", "unset", nil)
+	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", nil)
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
@@ -203,10 +201,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
-	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
-	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
-	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
-	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
+	r.RegisterSuperAlias("get", "service", "get", nil)
+	r.RegisterSuperAlias("set", "service", "set", nil)
+	r.RegisterSuperAlias("unset", "service", "unset", nil)
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

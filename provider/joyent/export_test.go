@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/imagemetadata"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -138,8 +138,6 @@ func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 	return metadata
 }
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // Set Metadata requests to be served by the filecontent supplied.
 func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
@@ -148,12 +146,10 @@ func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
 	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-	imagemetadata.DefaultBaseURL = "test://host"
 }
 
 func UnregisterExternalTestImageMetadata() {
 	sstesting.SetRoundTripperFiles(nil, nil)
-	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that

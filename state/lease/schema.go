@@ -194,19 +194,28 @@ func (doc clockDoc) validate() error {
 // document, given that the document was read between the supplied local
 // times. It will return an error if the clock document is not valid, or
 // if the times don't make sense.
-func (doc clockDoc) skews(readAfter, readBefore time.Time) (map[string]Skew, error) {
+func (doc clockDoc) skews(beginning, end time.Time) (map[string]Skew, error) {
 	if err := doc.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if readBefore.Before(readAfter) {
-		return nil, errors.New("end of read window preceded beginning")
+	// beginning is expected to be earlier than end.
+	// If it isn't, it could be ntp rolling the clock back slowly, so we add
+	// a little wiggle room here.
+	if end.Before(beginning) {
+		// A later time, subtract an earlier time will give a positive duration.
+		difference := beginning.Sub(end)
+		if difference > 10*time.Millisecond {
+			return nil, errors.Errorf("end of read window preceded beginning (%s)", difference)
+
+		}
+		beginning = end
 	}
 	skews := make(map[string]Skew)
 	for writer, written := range doc.Writers {
 		skews[writer] = Skew{
-			LastWrite:  toTime(written),
-			ReadAfter:  readAfter,
-			ReadBefore: readBefore,
+			LastWrite: toTime(written),
+			Beginning: beginning,
+			End:       end,
 		}
 	}
 	return skews, nil

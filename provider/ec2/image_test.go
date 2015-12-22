@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"
@@ -27,6 +28,7 @@ func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.TestDataSuite.SetUpSuite(c)
 
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
 

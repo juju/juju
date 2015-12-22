@@ -6,13 +6,14 @@ package maas
 import (
 	"time"
 
+	"github.com/juju/gomaasapi"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/utils/arch"
@@ -42,6 +43,9 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	})
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
+	})
+	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
+		return addrs
 	})
 }
 
