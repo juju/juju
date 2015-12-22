@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"text/template"
 )
 
@@ -19,16 +20,14 @@ package cloud
 
 // Generated code - do not edit.
 
-// fallbackPublicCloudInfo is the last resort public
-// cloud info to use if none other is found.
 const {{.ConstName}} = {{.Content}}
 `[1:]
 
-// This generator reads YAML from a file and generates a Go file with that YAML
-// assigned to a go constant.
+// This generator reads from a file and generates a Go file with the
+// file's content assigned to a go constant.
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: generatepubliccloudyaml <constname> <inyaml> <outgo> <copyrightyear>")
+		fmt.Println("Usage: filetoconst <constname> <infile> <gofile> <copyrightyear>")
 	}
 	data, err := ioutil.ReadFile(os.Args[2])
 	if err != nil {
@@ -47,9 +46,12 @@ func main() {
 		Content       string
 		CopyrightYear string
 	}
+	contextData := fmt.Sprintf("\n%s", string(data))
+	// Quote any ` in the data.
+	contextData = strings.Replace(contextData, "`", fmt.Sprintf("`+%q+`", "`"), -1)
 	t.Execute(&buf, content{
 		ConstName:     os.Args[1],
-		Content:       fmt.Sprintf("`\n%s`", string(data)),
+		Content:       fmt.Sprintf("`%s`", contextData),
 		CopyrightYear: os.Args[4],
 	})
 
