@@ -539,6 +539,7 @@ var TestRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	TestRoundTripper.RegisterForScheme("test")
+	TestRoundTripper.RegisterForScheme("signedtest")
 }
 
 type TestDataSuite struct{}

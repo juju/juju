@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -28,10 +29,8 @@ import (
 func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
-		imagemetadata.DefaultBaseURL = ""
 	}
 }
 
@@ -90,7 +89,7 @@ var testImagesData = map[string]string{
        "virt": "pv",
        "crsn": "da2",
        "id": "ami-1136745463"
-      }      
+      }
      },
      "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
      "label": "release"
@@ -115,7 +114,7 @@ var testImagesData = map[string]string{
        "virt": "pv",
        "crsn": "da2",
        "id": "ami-1126745463"
-      }      
+      }
      },
      "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
      "label": "release"
@@ -148,6 +147,7 @@ type imageMetadataUpdateSuite struct {
 
 func (s *imageMetadataUpdateSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	useTestImageData(c, testImagesData)
 }
 
@@ -359,8 +359,8 @@ const (
                     "items": {
                         "%v": {
                             "id": "%v",
-                            "root_store": "%v", 
-                            "virt": "%v", 
+                            "root_store": "%v",
+                            "virt": "%v",
                             "region": "%v",
                             "endpoint": "%v"
                         }

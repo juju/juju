@@ -835,7 +835,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&envtools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, jc.ErrorIsNil)

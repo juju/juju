@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -19,10 +20,8 @@ import (
 func useTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
-		imagemetadata.DefaultBaseURL = ""
 	}
 }
 
@@ -37,6 +36,7 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	useTestImageData(c, nil)
 }

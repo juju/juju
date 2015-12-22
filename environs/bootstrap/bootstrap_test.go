@@ -5,6 +5,8 @@ package bootstrap_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -47,6 +50,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
@@ -249,11 +253,22 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 2)
+	c.Assert(datasources, gc.HasLen, 3)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -274,8 +289,9 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
+	c.Assert(datasources[1].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {

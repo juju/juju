@@ -24,6 +24,9 @@ import (
 var logger = loggo.GetLogger("juju.provider.azure")
 
 const (
+	centOSPublisher = "OpenLogic"
+	centOSOffering  = "CentOS"
+
 	ubuntuPublisher = "Canonical"
 	ubuntuOffering  = "UbuntuServer"
 
@@ -57,6 +60,7 @@ func SeriesImage(
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", series)
 		}
+
 	case os.Windows:
 		publisher = windowsPublisher
 		offering = windowsOffering
@@ -65,7 +69,20 @@ func SeriesImage(
 			sku = "2012-Datacenter"
 		case "win2012r2":
 			sku = "2012-R2-Datacenter"
+		default:
+			return nil, errors.NotSupportedf("deploying %s", series)
 		}
+
+	case os.CentOS:
+		publisher = centOSPublisher
+		offering = centOSOffering
+		switch series {
+		case "centos7":
+			sku = "7.1"
+		default:
+			return nil, errors.NotSupportedf("deploying %s", series)
+		}
+
 	default:
 		// TODO(axw) CentOS
 		return nil, errors.NotSupportedf("deploying %s", seriesOS)

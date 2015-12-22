@@ -21,6 +21,7 @@ import (
 // charm.
 type DeployServiceParams struct {
 	ServiceName    string
+	Series         string
 	ServiceOwner   string
 	Charm          *state.Charm
 	ConfigSettings charm.Settings
@@ -85,6 +86,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 
 	asa := state.AddServiceArgs{
 		Name:      args.ServiceName,
+		Series:    args.Series,
 		Owner:     args.ServiceOwner,
 		Charm:     args.Charm,
 		Networks:  args.Networks,

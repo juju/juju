@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -89,6 +90,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -1217,7 +1219,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 
 	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	t.PatchValue(&tools.SimplestreamsToolsPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 }

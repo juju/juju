@@ -263,3 +263,24 @@ func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
 	err := common.UnknownEnvironmentError("dead-beef")
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef"`)
 }
+
+func (s *errorsSuite) TestDestroyErr(c *gc.C) {
+	errs := []string{
+		"error one",
+		"error two",
+		"error three",
+	}
+	ids := []string{
+		"id1",
+		"id2",
+		"id3",
+	}
+
+	c.Assert(common.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
+
+	err := common.DestroyErr("entities", ids, errs)
+	c.Assert(err, gc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
+
+	err = common.DestroyErr("entities", ids, errs[1:])
+	c.Assert(err, gc.ErrorMatches, "some entities were not destroyed: error two; error three")
+}

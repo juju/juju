@@ -74,17 +74,13 @@ func DeleteBucket(s storage.Storage) error {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
 		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
-		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 

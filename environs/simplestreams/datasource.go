@@ -18,13 +18,19 @@ type DataSource interface {
 	// Description describes the origin of this datasource.
 	// eg agent-metadata-url, cloud storage, keystone catalog etc.
 	Description() string
+
 	// Fetch loads the data at the specified relative path. It returns a reader from which
 	// the data can be retrieved as well as the full URL of the file. The full URL is typically
 	// used in log messages to help diagnose issues accessing the data.
 	Fetch(path string) (io.ReadCloser, string, error)
+
 	// URL returns the full URL of the path, as applicable to this datasource.
 	// This method is used primarily for logging purposes.
 	URL(path string) (string, error)
+
+	// PublicSigningKey returns the public key used to validate signed metadata.
+	PublicSigningKey() string
+
 	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
 	// if it is not immediately available.
 	SetAllowRetry(allow bool)
@@ -62,6 +68,7 @@ type urlDataSource struct {
 	description          string
 	baseURL              string
 	hostnameVerification utils.SSLHostnameVerification
+	publicSigningKey     string
 	priority             int
 	requireSigned        bool
 }
@@ -71,6 +78,18 @@ func NewURLDataSource(description, baseURL string, hostnameVerification utils.SS
 	return &urlDataSource{
 		description:          description,
 		baseURL:              baseURL,
+		hostnameVerification: hostnameVerification,
+		priority:             priority,
+		requireSigned:        requireSigned,
+	}
+}
+
+// NewURLSignedDataSource returns a new datasource for signed metadata reading from the specified baseURL.
+func NewURLSignedDataSource(description, baseURL, publicKey string, hostnameVerification utils.SSLHostnameVerification, priority int, requireSigned bool) DataSource {
+	return &urlDataSource{
+		description:          description,
+		baseURL:              baseURL,
+		publicSigningKey:     publicKey,
 		hostnameVerification: hostnameVerification,
 		priority:             priority,
 		requireSigned:        requireSigned,
@@ -125,6 +144,11 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 // URL is defined in simplestreams.DataSource.
 func (h *urlDataSource) URL(path string) (string, error) {
 	return utils.MakeFileURL(urlJoin(h.baseURL, path)), nil
+}
+
+// PublicSigningKey is defined in simplestreams.DataSource.
+func (u *urlDataSource) PublicSigningKey() string {
+	return u.publicSigningKey
 }
 
 // SetAllowRetry is defined in simplestreams.DataSource.

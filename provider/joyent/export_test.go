@@ -138,8 +138,6 @@ func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 	return metadata
 }
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // Set Metadata requests to be served by the filecontent supplied.
 func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
@@ -148,12 +146,10 @@ func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
 	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
-	imagemetadata.DefaultBaseURL = "test://host"
 }
 
 func UnregisterExternalTestImageMetadata() {
 	sstesting.SetRoundTripperFiles(nil, nil)
-	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that

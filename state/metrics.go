@@ -201,7 +201,9 @@ func (st *State) CleanupOldMetrics() error {
 		"sent":        true,
 		"delete-time": bson.M{"$lte": now},
 	})
-	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	if err == nil {
+		metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	}
 	return errors.Trace(err)
 }
 

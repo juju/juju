@@ -57,12 +57,12 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	var icfg *instancecfg.InstanceConfig
 	var err error
 	if stateServer {
-		icfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
+		icfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series, "")
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.InstanceId = "instance-id"
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}

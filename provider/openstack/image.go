@@ -11,7 +11,7 @@ import (
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
 func findInstanceSpec(
-	e *environ,
+	e *Environ,
 	ic *instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (*instances.InstanceSpec, error) {

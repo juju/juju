@@ -149,6 +149,7 @@ func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "foo",
 	})
+
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.Close()
 

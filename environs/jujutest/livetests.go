@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
@@ -85,6 +86,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -737,7 +739,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", "", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)

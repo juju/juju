@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -221,7 +222,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series)
+	publicKey, err := userPublicSigningKey()
+	if err != nil {
+		return err
+	}
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, result.Series, publicKey)
 	if err != nil {
 		return err
 	}
@@ -232,6 +237,23 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	ctx.Infof("Bootstrap agent installed")
 	return nil
+}
+
+func userPublicSigningKey() (string, error) {
+	signingKeyFile := os.Getenv("JUJU_STREAMS_PUBLICKEY_FILE")
+	signingKey := ""
+	if signingKeyFile != "" {
+		path, err := utils.NormalizePath(signingKeyFile)
+		if err != nil {
+			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
+		}
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return "", errors.Annotatef(err, "invalid public key file: %s", path)
+		}
+		signingKey = string(b)
+	}
+	return signingKey, nil
 }
 
 func matchImageMetadata(

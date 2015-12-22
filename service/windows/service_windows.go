@@ -49,7 +49,7 @@ type serviceFailureActions struct {
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms685937(v=vs.85).aspx
 type serviceFailureActionsFlag struct {
-	failureActionsOnNonCrashFailures bool
+	failureActionsOnNonCrashFailures int32
 }
 
 // This is done so we can mock this function out
@@ -420,7 +420,7 @@ func (s *SvcManager) ensureRestartOnFailure(name string) (err error) {
 		return errors.Trace(err)
 	}
 	flag := serviceFailureActionsFlag{
-		failureActionsOnNonCrashFailures: true,
+		failureActionsOnNonCrashFailures: 1,
 	}
 	err = WinChangeServiceConfig2(handle, SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, (*byte)(unsafe.Pointer(&flag)))
 	if err != nil {
