@@ -4,10 +4,10 @@
 package migration
 
 import (
-	"github.com/juju/errors"
+	"github.com/juju/names"
 )
 
-type Description struct {
+type description struct {
 	// Version conceptually encapsulates an understanding of which fields
 	// exist and how they are populated. As extra fields and entities are
 	// added, the version should be incremented and tests written to ensure
@@ -16,21 +16,25 @@ type Description struct {
 	//
 	// The version is all about the serialization of the structures from
 	// the migration package. Each type will likely have a version.
-	Version int
-	Model   Model
+	version int
+	model   *model
 	// TODO: extra binaries...
 	// Tools
 	// Charms
 }
 
-type Model struct {
+func (d *description) Model() Model {
+	return d.model
+}
+
+type model struct {
 	Version int `yaml:"version"`
 
-	UUID  string `yaml:"model-uuid"`
-	Name  string `yaml:"name"`
-	Owner string `yaml:"owner"`
+	UUID   string `yaml:"model-uuid"`
+	Name_  string `yaml:"name"`
+	Owner_ string `yaml:"owner"`
 
-	Machines []Machine `yaml:"machines"`
+	Machines_ machines `yaml:"machines"`
 
 	// TODO: add extra entities, but initially focus on Machines.
 	// Services, and through them, Units
@@ -40,19 +44,51 @@ type Model struct {
 
 }
 
-// NewModel constructs a new Model from a map that in normal usage situations
-// will be the result of interpreting a large YAML document.
-func NewModel(source map[string]interface{}) (*Model, error) {
-	version, ok := source["version"]
-	if !ok {
-		return nil, errors.New("missing 'version'")
-	}
-
-	_ = version
-
-	return &Model{}, nil
+type machines struct {
+	Version   int        `yaml:"version"`
+	Machines_ []*machine `yaml:"machines"`
 }
 
-type Machine struct {
-	Version int `yaml:"version"`
+func (m *model) Id() names.EnvironTag {
+	return names.NewEnvironTag(m.UUID)
+}
+
+func (m *model) Name() string {
+	return m.Name_
+}
+
+func (m *model) Owner() names.UserTag {
+	return names.NewUserTag(m.Owner_)
+}
+
+func (m *model) Machines() []Machine {
+	var result []Machine
+	for _, machine := range m.Machines_.Machines_ {
+		result = append(result, machine)
+	}
+	return result
+}
+
+func (m *model) setMachines(machineList []*machine) {
+	m.Machines_ = machines{
+		Version:   1,
+		Machines_: machineList,
+	}
+}
+
+type machine struct {
+	Id_         string     `yaml:"id"`
+	Containers_ []*machine `yaml:"containers"`
+}
+
+func (m *machine) Id() names.MachineTag {
+	return names.NewMachineTag(m.Id_)
+}
+
+func (m *machine) Containers() []Machine {
+	var result []Machine
+	for _, container := range m.Containers_ {
+		result = append(result, container)
+	}
+	return result
 }
