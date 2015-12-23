@@ -117,29 +117,24 @@ type CharmResource struct {
 	Size int64
 }
 
-type UploadEntity struct {
-	Tag  string
-	Name string
-	Blob io.Reader
-}
-
+// UploadArgs
 type UploadArgs struct {
-	Entities []UploadEntity
+	params.Entity
+	Name string
 }
 
 // NewUploadArgs returns the arguments for the Upload endpoint.
-func NewUploadArgs(service string, name string, blob io.Reader) (UploadArgs, error) {
-	var args UploadArgs
+func NewUploadArgs(service string, name string) (UploadArgs, error) {
 	if !names.IsValidService(service) {
-		return args, errors.Errorf("invalid service %q", service)
+		return UploadArgs{}, errors.Errorf("invalid service %q", service)
 	}
 
-	args.Entities = append(args.Entities, UploadEntity{
-		Tag:  names.NewServiceTag(service).String(),
+	return UploadArgs{
+		Entity: params.Entity{
+			Tag: names.NewServiceTag(service).String(),
+		},
 		Name: name,
-		Blob: blob,
-	})
-	return args, nil
+	}, nil
 }
 
 type UploadResults struct {

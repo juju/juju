@@ -218,6 +218,10 @@ func (resources) newClient(command apicommand) (*client.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
+	doer, err := apiCaller.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	return client.NewClient(caller, apiCaller), nil
+	return client.NewClient(caller, doer, apiCaller), nil
 }
