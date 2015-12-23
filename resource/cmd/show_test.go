@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"bytes"
 	"strings"
 
 	jujucmd "github.com/juju/cmd"
@@ -14,8 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ShowSuite{})
@@ -76,7 +73,7 @@ func (s *ShowSuite) TestOkay(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
 	command := NewShowCommand(s.newAPIClient)
-	code, stdout, stderr := runShow(c, command, "cs:a-charm")
+	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
@@ -102,7 +99,7 @@ func (s *ShowSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
 	command := NewShowCommand(s.newAPIClient)
-	code, stdout, stderr := runShow(c, command, "cs:a-charm")
+	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
@@ -171,18 +168,10 @@ music    upload -   mp3 of your backing vocals
 			"--format", format,
 			"cs:a-charm",
 		}
-		code, stdout, stderr := runShow(c, command, args...)
+		code, stdout, stderr := runCmd(c, command, args...)
 		c.Check(code, gc.Equals, 0)
 
 		c.Check(stdout, gc.Equals, expected)
 		c.Check(stderr, gc.Equals, "")
 	}
-}
-
-func runShow(c *gc.C, command *ShowCommand, args ...string) (int, string, string) {
-	ctx := coretesting.Context(c)
-	code := jujucmd.Main(command, ctx, args)
-	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
-	stderr := ctx.Stderr.(*bytes.Buffer).Bytes()
-	return code, string(stdout), string(stderr)
 }

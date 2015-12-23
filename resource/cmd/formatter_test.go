@@ -79,3 +79,19 @@ func (s *SvcFormatterSuite) TestFormat(c *gc.C) {
 	})
 
 }
+
+func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
+	r := resource.Resource{
+		Timestamp: time.Time{},
+	}
+	f := FormatSvcResource(r)
+	c.Assert(f.Used, jc.IsFalse)
+}
+
+func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
+	r := resource.Resource{
+		Timestamp: time.Now(),
+	}
+	f := FormatSvcResource(r)
+	c.Assert(f.Used, jc.IsTrue)
+}

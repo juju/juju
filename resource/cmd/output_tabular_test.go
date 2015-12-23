@@ -137,7 +137,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 				Origin:   charmresource.OriginStore,
 				Revision: 8,
 			},
-			Timestamp: time.Now().Add(-2 * time.Hour * 24 * 365),
+			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		},
 		{
 			Resource: charmresource.Resource{
@@ -148,7 +148,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 				Origin: charmresource.OriginUpload,
 			},
 			Username:  "Bill User",
-			Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
+			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		},
 	}
 
@@ -165,7 +165,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 RESOURCE ORIGIN      REV        USED COMMENT
 openjdk  store       8          yes  the java runtime
 openjdk  store       7          no   the java runtime
-website  Bill User   2014-22-12 yes  your website data
+website  Bill User   2012-12-12 yes  your website data
 website  Sandra User -          no   your website data
 `[1:])
 }
