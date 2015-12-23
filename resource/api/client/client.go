@@ -83,6 +83,7 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 	return results, nil
 }
 
+// Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 	// hash resource
 	// upload resource
