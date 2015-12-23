@@ -263,6 +263,12 @@ class FakeJujuClient:
     def status_until(self, timeout):
         yield self.get_status()
 
+    def deployer(self, bundle, name=None):
+        pass
+
+    def wait_for_workloads(self):
+        pass
+
 
 class TestErroredUnit(TestCase):
 

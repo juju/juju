@@ -17,12 +17,16 @@ from jujupy import (
     SimpleEnvironment,
     )
 from run_deployer import (
+    apply_condition,
     assess_deployer,
     check_health,
+    CLOCK_SKEW_SCRIPT,
+    ErrUnitCondition,
     main,
     parse_args,
     )
 import tests
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(tests.TestCase):
@@ -43,6 +47,8 @@ class TestParseArgs(tests.TestCase):
         self.assertEqual(args.series, None)
         self.assertEqual(args.debug, False)
         self.assertEqual(args.verbose, logging.INFO)
+        self.assertEqual(args.upgrade, False)
+        self.assertEqual(args.upgrade_condition, None)
 
 
 class TestMain(tests.FakeHomeTestCase):
@@ -83,7 +89,8 @@ class TestAssessDeployer(tests.TestCase):
             temp_env_name='foo', env='bar', series=None, agent_url=None,
             agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
             health_cmd=None, debug=False, bundle_path='bundle.yaml',
-            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True)
+            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
+            upgrade_condition=[])
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             assess_deployer(args, client_mock)
@@ -98,7 +105,8 @@ class TestAssessDeployer(tests.TestCase):
             temp_env_name='foo', env='bar', series=None, agent_url=None,
             agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
             health_cmd='/tmp/check', debug=False, bundle_path='bundle.yaml',
-            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True)
+            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
+            upgrade_condition=[])
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             with patch('run_deployer.check_health', autospec=True) as ch_mock:
@@ -110,6 +118,61 @@ class TestAssessDeployer(tests.TestCase):
             client_mock.wait_for_workloads.call_args_list, [call()] * 2)
         self.assertEqual(
             ch_mock.call_args_list, [call('/tmp/check', 'foo')] * 2)
+
+    @patch('run_deployer.SimpleEnvironment.from_config')
+    @patch('run_deployer.boot_context', autospec=True)
+    def test_run_deployer_upgrade(self, *args):
+        args = Namespace(
+            env='foo', juju_bin='baz/juju', logs=None, temp_env_name='foo_t',
+            bundle_path='bundle.yaml', bundle_name='bundle',
+            health_cmd=None, debug=False, upgrade=True,
+            upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
+        client = FakeJujuClient()
+        with patch('run_deployer.EnvJujuClient.by_version',
+                   return_value=client):
+            with patch('run_deployer.apply_condition') as ac_mock:
+                with patch('run_deployer.assess_upgrade') as au_mock:
+                    assess_deployer(args, client)
+        self.assertEqual(2, ac_mock.call_count)
+        self.assertEqual(
+            ac_mock.call_args_list,
+            [call(client, 'bla/0:clock_skew'),
+             call(client, 'foo/1:fill_disk')])
+        au_mock.assert_called_once_with(client, 'baz/juju')
+
+
+class FakeRemote():
+    """Fake remote class for testing."""
+
+    def __init__(self):
+        self.series = 'foo'
+
+    def is_windows(self):
+        return False
+
+    def run(self, command):
+        self.command = command
+
+
+class TestApplyCondition(tests.TestCase):
+
+    def test_apply_condition_clock_skew(self):
+        client = FakeJujuClient()
+        remote = FakeRemote()
+        with patch('run_deployer.remote_from_unit',
+                   return_value=remote, autospec=True) as ru_mock:
+            apply_condition(client, 'bla/0:clock_skew')
+        ru_mock.assert_called_once_with(client, 'bla/0')
+        self.assertEqual(CLOCK_SKEW_SCRIPT, remote.command)
+
+    def test_apply_condition_raises_ErrUnitCondition(self):
+        client = FakeJujuClient()
+        remote = FakeRemote()
+        with patch('run_deployer.remote_from_unit',
+                   return_value=remote) as rfu_mock:
+            with self.assertRaises(ErrUnitCondition):
+                apply_condition(client, 'bla/0:foo')
+            rfu_mock.assert_called_once_with(client, 'bla/0')
 
 
 class TestIsHealthy(unittest.TestCase):
