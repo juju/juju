@@ -6,6 +6,7 @@ package api
 // TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
+	"io"
 	"strings"
 	"time"
 
@@ -114,6 +115,43 @@ type CharmResource struct {
 
 	// Size is the size of the resource, in bytes.
 	Size int64
+}
+
+type UploadEntity struct {
+	Tag  string
+	Name string
+	Blob io.Reader
+}
+
+type UploadArgs struct {
+	Entities []UploadEntity
+}
+
+// NewUploadArgs returns the arguments for the Upload endpoint.
+func NewUploadArgs(service string, name string, blob io.Reader) (UploadArgs, error) {
+	var args UploadArgs
+	if !names.IsValidService(service) {
+		return args, errors.Errorf("invalid service %q", service)
+	}
+
+	args.Entities = append(args.Entities, UploadEntity{
+		Tag:  names.NewServiceTag(service).String(),
+		Name: name,
+		Blob: blob,
+	})
+	return args, nil
+}
+
+type UploadResults struct {
+	Results []UploadResult
+}
+
+type UploadResult struct {
+	params.ErrorResult
+}
+
+func NewUploadResult(tag string, name string, blob io.Reader) (UploadResult, error) {
+	return UploadResult{}, nil
 }
 
 func resolveErrors(errs []error) error {
