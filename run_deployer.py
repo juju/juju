@@ -86,8 +86,7 @@ def apply_condition(client, condition):
 def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
     client.deployer(args.bundle_path, args.bundle_name)
-    # Curtis disabled this because no deployer-based tests are passing.
-    # client.wait_for_workloads()
+    client.wait_for_workloads()
     if args.health_cmd:
         check_health(args.health_cmd, args.temp_env_name)
     if args.upgrade:
