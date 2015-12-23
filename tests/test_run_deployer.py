@@ -25,10 +25,8 @@ from run_deployer import (
     main,
     parse_args,
     )
-from tests.test_jujupy import FakeJujuClient
-
-
 import tests
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(tests.TestCase):
@@ -136,16 +134,15 @@ class TestAssessDeployer(tests.TestCase):
                 with patch('run_deployer.assess_upgrade') as au_mock:
                     assess_deployer(args, client)
         self.assertEqual(2, ac_mock.call_count)
-        args, kwargs = ac_mock.call_args_list[0]
-        self.assertEqual(args[0], client)
-        self.assertEqual(args[1], 'bla/0:clock_skew')
-        args, kwargs = ac_mock.call_args_list[1]
-        self.assertEqual(args[0], client)
-        self.assertEqual(args[1], 'foo/1:fill_disk')
+        self.assertEqual(
+            ac_mock.call_args_list,
+            [call(client, 'bla/0:clock_skew'),
+             call(client, 'foo/1:fill_disk')])
         au_mock.assert_called_once_with(client, 'baz/juju')
 
 
 class FakeRemote():
+    """Fake remote class for testing."""
 
     def __init__(self):
         self.series = 'foo'
@@ -163,18 +160,19 @@ class TestApplyCondition(tests.TestCase):
         client = FakeJujuClient()
         remote = FakeRemote()
         with patch('run_deployer.remote_from_unit',
-                   return_value=remote) as ru_mock:
+                   return_value=remote, autospec=True) as ru_mock:
             apply_condition(client, 'bla/0:clock_skew')
-        self.assertEqual(ru_mock.call_count, 1)
         ru_mock.assert_called_once_with(client, 'bla/0')
         self.assertEqual(CLOCK_SKEW_SCRIPT, remote.command)
 
     def test_apply_condition_raises_ErrUnitCondition(self):
         client = FakeJujuClient()
         remote = FakeRemote()
-        with patch('run_deployer.remote_from_unit', return_value=remote):
+        with patch('run_deployer.remote_from_unit',
+                   return_value=remote) as rfu_mock:
             with self.assertRaises(ErrUnitCondition):
                 apply_condition(client, 'bla/0:foo')
+            rfu_mock.assert_called_once_with(client, 'bla/0')
 
 
 class TestIsHealthy(unittest.TestCase):
