@@ -18,6 +18,8 @@ import (
 
 var logger = loggo.GetLogger("juju.resource.api.client")
 
+const HTTPEndpoint = "/environment/%s/services/%s/resources/%s"
+
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
 
 // FacadeCaller has the api/base.FacadeCaller methods needed for the component.
@@ -34,15 +36,17 @@ type Doer interface {
 type Client struct {
 	FacadeCaller
 	io.Closer
-	doer Doer
+	doer    Doer
+	envUUID string
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
+func NewClient(caller FacadeCaller, doer Doer, envUUID string, closer io.Closer) *Client {
 	return &Client{
 		FacadeCaller: caller,
 		Closer:       closer,
 		doer:         doer,
+		envUUID:      envUUID,
 	}
 }
 
@@ -85,26 +89,22 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 
 // Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
-	// hash resource
-	// upload resource
+	if !names.IsValidService(service) {
+		return errors.Errorf("invalid service %q", service)
+	}
+	path := fmt.Sprintf(HTTPEndpoint, c.envUUID, service, name)
 
-	args, err := api.NewUploadArgs(service, name)
+	req, err := http.NewRequest("PUT", path, nil)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	// We do not bother setting the Content-Type header
+	// since it isn't readily available *and* isn't needed.
+
+	if err := c.doer.Do(req, reader, nil); err != nil {
 		return errors.Trace(err)
 	}
 
-	req, err := http.NewRequest("PUT", "/"+resource.ComponentName, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	body, contentType, err := httpattachment.NewBody(reader, args, "juju-resource-"+service+"-"+name)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create multipart body")
-	}
-	req.Header.Set("Content-Type", contentType)
-	if err := c.doer.Do(req, body, nil); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
