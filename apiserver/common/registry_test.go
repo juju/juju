@@ -4,9 +4,11 @@
 package common_test
 
 import (
+	"net/http"
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -365,4 +367,146 @@ func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{1}},
 	})
+}
+
+type HTTPHandlerRegistrySuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&HTTPHandlerRegistrySuite{})
+
+func (s *HTTPHandlerRegistrySuite) newHandler(common.NewHTTPHandlerArgs) http.Handler {
+	return nil
+}
+
+func (s *HTTPHandlerRegistrySuite) copySpecData(spec common.HTTPHandlerSpec) common.HTTPHandlerSpec {
+	return common.HTTPHandlerSpec{
+		AuthKind:           spec.AuthKind,
+		StrictValidation:   spec.StrictValidation,
+		StateServerEnvOnly: spec.StateServerEnvOnly,
+	}
+}
+
+func (s *HTTPHandlerRegistrySuite) checkSpecData(c *gc.C, spec, expected common.HTTPHandlerSpec, pat string) {
+	c.Check(spec.Pattern(), gc.Equals, pat)
+	c.Check(s.copySpecData(spec), jc.DeepEquals, s.copySpecData(expected))
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterFull(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		AuthKind:           names.UserTagKind,
+		StrictValidation:   true,
+		StateServerEnvOnly: true,
+		NewHTTPHandler:     s.newHandler,
+	}
+
+	err := registry.Register("/spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	registered := registry.All()
+	c.Assert(registered, gc.HasLen, 1)
+	s.checkSpecData(c, registered[0], spec, "/spam")
+	// TODO(ericsnow) Check spec.NewHTTPHandler?
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterBasic(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.Register("/spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	registered := registry.All()
+	s.checkSpecData(c, registered[0], spec, "/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterTrailingSlash(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.Register("/spam/", spec)
+	c.Assert(err, jc.ErrorIsNil)
+	registered := registry.All()[0]
+
+	c.Check(registered.Pattern(), gc.Equals, "/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterRelativePath(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.Register("spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+	registered := registry.All()[0]
+
+	c.Check(registered.Pattern(), gc.Equals, "/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterNested(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.Register("/spam/eggs//spam/spam/spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+	registered := registry.All()[0]
+
+	c.Check(registered.Pattern(), gc.Equals, "/spam/eggs/spam/spam/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedOkay(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.RegisterEnvBased("/spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	registered := registry.All()
+	c.Assert(registered, gc.HasLen, 1)
+	s.checkSpecData(c, registered[0], spec, "/environment/:envuuid/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedRelativePath(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	spec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := registry.RegisterEnvBased("/spam", spec)
+	c.Assert(err, jc.ErrorIsNil)
+	registered := registry.All()[0]
+
+	c.Check(registered.Pattern(), gc.Equals, "/environment/:envuuid/spam")
+}
+
+func (s *HTTPHandlerRegistrySuite) TestAll(c *gc.C) {
+	registry := new(common.HTTPHandlerRegistry)
+	specs := []common.HTTPHandlerSpec{{
+		NewHTTPHandler: s.newHandler,
+	}, {
+		NewHTTPHandler: s.newHandler,
+	}, {
+		NewHTTPHandler: s.newHandler,
+	}}
+	expected := []string{"/spam/eggs", "/spam", "/eggs"}
+	for i, pat := range expected {
+		err := registry.Register(pat, specs[i])
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	registered := registry.All()
+
+	for i, spec := range registered {
+		s.checkSpecData(c, spec, specs[i], expected[i])
+	}
 }
