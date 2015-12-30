@@ -24,13 +24,13 @@ var (
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
+func validateUploadAllowed(env environs.Environ, toolsArch string) error {
 	// Now check that the architecture for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := arch.HostArch()
 	// We can't build tools for a different architecture if one is specified.
-	if toolsArch != nil && *toolsArch != hostArch {
-		return fmt.Errorf("cannot build tools for %q using a machine running on %q", *toolsArch, hostArch)
+	if toolsArch != "" && toolsArch != hostArch {
+		return fmt.Errorf("cannot build tools for %q using a machine running on %q", toolsArch, hostArch)
 	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
 	supportedArchitectures, err := env.SupportedArchitectures()
@@ -56,7 +56,12 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
 // including tools that may be locally built and then
 // uploaded. Tools that need to be built will have an
 // empty URL.
-func findAvailableTools(env environs.Environ, vers *version.Number, arch *string, upload bool) (coretools.List, error) {
+func findAvailableTools(env environs.Environ, vers *version.Number, toolsArch *string, upload bool) (coretools.List, error) {
+	arch := arch.HostArch()
+	if toolsArch != nil {
+		arch = *toolsArch
+	}
+
 	if upload {
 		// We're forcing an upload: ensure we can do so.
 		if err := validateUploadAllowed(env, arch); err != nil {
@@ -77,7 +82,7 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 		}
 	}
 	logger.Infof("looking for bootstrap tools: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, vers, arch)
+	toolsList, findToolsErr := findBootstrapTools(env, vers, &arch)
 	if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
 		return nil, findToolsErr
 	}

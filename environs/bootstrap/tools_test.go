@@ -33,8 +33,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	arch := arch.PPC64EL
-	err := bootstrap.ValidateUploadAllowed(env, &arch)
+	err := bootstrap.ValidateUploadAllowed(env, arch.PPC64EL)
 	c.Assert(err, gc.ErrorMatches, `cannot build tools for "ppc64el" using a machine running on "amd64"`)
 }
 
@@ -48,16 +47,15 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.ValidateUploadAllowed(env, nil)
+	err := bootstrap.ValidateUploadAllowed(env, "")
 	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "ppc64el"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
-	arm64 := "arm64"
-	s.PatchValue(&arch.HostArch, func() string { return arm64 })
-	err := bootstrap.ValidateUploadAllowed(env, &arm64)
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	err := bootstrap.ValidateUploadAllowed(env, arch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
