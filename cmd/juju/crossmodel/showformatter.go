@@ -15,10 +15,10 @@ import (
 
 const (
 	// To wrap long lines within a column.
-	maxColumnLength = 100
+	maxColumnLength = 180
 	truncatedSuffix = "..."
 	maxFieldLength  = maxColumnLength - len(truncatedSuffix)
-	columnWidth     = 30
+	columnWidth     = 45
 
 	// To format things into columns.
 	minwidth = 0
@@ -41,7 +41,6 @@ func formatShowTabular(value interface{}) ([]byte, error) {
 // formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
 func formatOfferedEndpointsTabular(all map[string]ShowRemoteService) ([]byte, error) {
 	var out bytes.Buffer
-	const ()
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
@@ -117,6 +116,7 @@ func breakLines(text string) []string {
 		tp := fmt.Sprintf("%v %v", lines[index], aWord)
 		if len(tp) > columnWidth {
 			index++
+			lines[index] = aWord
 			continue
 		}
 		lines[index] = tp

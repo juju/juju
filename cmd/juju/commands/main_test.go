@@ -62,6 +62,10 @@ func showEndpointsHelpText() string {
 	return cmdtesting.HelpText(crossmodel.NewShowOfferedEndpointCommand(), "juju show-endpoints")
 }
 
+func findEndpointsHelpText() string {
+	return cmdtesting.HelpText(crossmodel.NewFindEndpointCommand(), "juju find-endpoints")
+}
+
 func (s *MainSuite) TestRunMain(c *gc.C) {
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
@@ -194,6 +198,16 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     "error: must specify endpoint URL\n",
 	}, {
+		summary: "check find-endpoints command has help",
+		args:    []string{"find-endpoints", "-h"},
+		code:    0,
+		out:     showEndpointsHelpText(),
+	}, {
+		summary: "check find-endpoints command registered properly",
+		args:    []string{"find-endpoints"},
+		code:    0,
+		out:     "error: must specify at the minimum a URL fragment\n",
+	}, {
 		summary: "check list-offers command registered properly",
 		args:    []string{"list-offers"},
 		code:    0,
@@ -255,6 +269,7 @@ var commandNames = []string{
 	"env", // alias for switch
 	"environment",
 	"expose",
+	"find-endpoints",
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",

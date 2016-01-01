@@ -257,6 +257,7 @@ func (s *serviceDirectory) ListOffers(filter ...crossmodel.ServiceOfferFilter) (
 	serviceOffersCollection, closer := s.st.getCollection(localServiceDirectoryC)
 	defer closer()
 
+	// TODO(wallyworld) - add support for filtering on endpoints
 	var mgoTerms []bson.D
 	for _, term := range filter {
 		elems := s.makeFilterTerm(term)

@@ -173,6 +173,32 @@ varnishservice:
 `[1:])
 }
 
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingService(c, "riakservice", ch)
+	ch = s.AddTestingCharm(c, "varnish")
+	s.AddTestingService(c, "varnishservice", ch)
+
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
+		"riakservice:endpoint", "local:/u/you/riak")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
+		"varnishservice:webcache", "local:/u/me/varnish")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(wallyworld) - find with interface and endpoint name filters when supported
+	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+		"local:/u/me", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+local:/u/me/varnish:
+  endpoints:
+    webcache:
+      interface: varnish
+      role: provider
+`[1:])
+}
+
 func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)

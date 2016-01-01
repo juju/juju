@@ -37,3 +37,10 @@ func NewListEndpointsCommandForTest(api ListAPI) cmd.Command {
 	}}
 	return envcmd.Wrap(aCmd)
 }
+
+func NewFindEndpointsCommandForTest(api FindAPI) cmd.Command {
+	aCmd := &findCommand{newAPIFunc: func() (FindAPI, error) {
+		return api, nil
+	}}
+	return envcmd.Wrap(aCmd)
+}

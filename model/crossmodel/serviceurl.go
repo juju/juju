@@ -119,3 +119,65 @@ func ServiceDirectoryForURL(urlStr string) (string, error) {
 	}
 	return url.Directory, nil
 }
+
+// ParseServiceURLParts parses a partial URL, filling out what parts are supplied.
+func ParseServiceURLParts(urlStr string) (*ServiceURL, error) {
+	url, err := gourl.Parse(urlStr)
+	if err != nil {
+		return nil, errors.Errorf("cannot parse service URL: %q", urlStr)
+	}
+	if url.RawQuery != "" || url.Fragment != "" || url.User != nil {
+		return nil, errors.Errorf("service URL %q has unrecognized parts", urlStr)
+	}
+
+	var result ServiceURL
+	if url.Scheme != "" {
+		result.Directory = url.Scheme
+	}
+	urlPath := strings.Trim(url.Path, "/")
+	parts := strings.Split(urlPath, "/")
+
+	if len(parts) < 2 {
+		switch len(parts) {
+		case 1:
+			result.ServiceName = parts[0]
+		}
+		return &result, nil
+	}
+
+	if parts[0] == "u" {
+		if !names.IsValidUser(parts[1]) {
+			return nil, errors.NotValidf("user name %q", parts[1])
+		}
+		result.User = parts[1]
+	} else {
+		if len(parts) > 2 {
+			return nil, fmt.Errorf("service URL has too many parts: %q", urlStr)
+		}
+		result.EnvironmentName = parts[0]
+		result.ServiceName = parts[1]
+		return &result, nil
+	}
+
+	if len(parts) == 2 {
+		return &result, nil
+	}
+
+	// Figure out what other URL parts we have.
+	envPart := -1
+	servicePart := 2
+	if len(parts) == 4 {
+		envPart = 2
+		servicePart = 3
+	}
+
+	if envPart > 0 {
+		result.EnvironmentName = parts[envPart]
+	}
+
+	if !names.IsValidService(parts[servicePart]) {
+		return nil, errors.NotValidf("service name %q", parts[servicePart])
+	}
+	result.ServiceName = parts[servicePart]
+	return &result, nil
+}

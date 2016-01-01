@@ -63,8 +63,8 @@ func (s *funcSuite) TestBreakLinesManyWordsManyLines(c *gc.C) {
 	aWord := "aWord aWord aWord aWord aWord aWord aWord aWord aWord aWord"
 	c.Assert(crossmodel.BreakLines(aWord), gc.DeepEquals,
 		[]string{
-			"aWord aWord aWord aWord aWord",
-			"aWord aWord aWord aWord",
+			"aWord aWord aWord aWord aWord aWord aWord",
+			"aWord aWord aWord",
 		})
 }
 
@@ -74,7 +74,7 @@ func (s *funcSuite) TestBreakOneWord(c *gc.C) {
 }
 
 func (s *funcSuite) TestBreakOneLongWord(c *gc.C) {
-	aWord := "aVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryaWord"
+	aWord := "aVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryaWordaWordaWordaWordaWordaWord"
 	c.Assert(crossmodel.BreakOneWord(aWord), gc.DeepEquals,
 		[]string{
 			aWord[0:crossmodel.ColumnWidth],

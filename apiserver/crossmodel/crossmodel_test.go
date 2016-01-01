@@ -285,3 +285,75 @@ func (s *crossmodelSuite) TestListError(c *gc.C) {
 	s.serviceBackend.CheckCallNames(c, listOfferedServicesBackendCall)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
 }
+
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	serviceName := "test"
+	url := "local:/u/fred/hosted-db2"
+
+	filter := params.OfferFilterParams{
+		Filters: []params.OfferFilters{
+			{
+				Directory: "local",
+				Filters: []params.OfferFilter{
+					{
+						ServiceURL:  "local:/u/fred/hosted-db2",
+						ServiceName: "test",
+					},
+				},
+			},
+		},
+	}
+	anOffer := params.ServiceOffer{
+		ServiceName:        serviceName,
+		ServiceDescription: "description",
+		ServiceURL:         url,
+		SourceEnvironTag:   "environment-",
+		SourceLabel:        "label",
+		Endpoints:          []params.RemoteEndpoint{{Name: "db"}},
+	}
+
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+		c.Assert(filter, jc.DeepEquals, params.OfferFilters{
+			Directory: "local",
+			Filters: []params.OfferFilter{
+				{
+					ServiceURL:  "local:/u/fred/hosted-db2",
+					ServiceName: "test",
+				},
+			},
+		})
+		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer}}, nil
+	}
+
+	found, err := s.api.FindServiceOffers(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.DeepEquals,
+		params.FindServiceOffersResults{
+			Results: []params.ServiceOfferResults{
+				{
+					Offers: []params.ServiceOffer{
+						{
+							ServiceName:        serviceName,
+							ServiceDescription: "description",
+							ServiceURL:         url,
+							SourceEnvironTag:   "environment-",
+							SourceLabel:        "label",
+							Endpoints:          []params.RemoteEndpoint{{Name: "db"}}}},
+				}}})
+	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestFindError(c *gc.C) {
+	filter := params.OfferFilterParams{Filters: []params.OfferFilters{{}}}
+	msg := "fail"
+
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+		return params.ServiceOfferResults{}, errors.New(msg)
+	}
+
+	found, err := s.api.FindServiceOffers(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+}

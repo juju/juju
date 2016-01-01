@@ -7,11 +7,18 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
+// OfferFilterParams contains filters used to query service offers
+// from one or more directories.
+type OfferFilterParams struct {
+	Filters []OfferFilters `json:"filters"`
+}
+
 // EndpointFilterAttributes is used to filter offers matching the
 // specified endpoint criteria.
 type EndpointFilterAttributes struct {
 	Role      charm.RelationRole `json:"role"`
 	Interface string             `json:"interface"`
+	Name      string             `json:"name"`
 }
 
 // OfferFilters is used to query offers in a service directory.
@@ -93,6 +100,12 @@ type ServiceOfferParams struct {
 // ServiceOffersParams contains a collection of offers to allow adding offers in bulk.
 type ServiceOffersParams struct {
 	Offers []ServiceOfferParams `json:"offers"`
+}
+
+// FindServiceOffersResults is a result of finding remote service offers.
+type FindServiceOffersResults struct {
+	// Results contains service offers matching each filter.
+	Results []ServiceOfferResults `json:"results"`
 }
 
 // ServiceOfferResult is a result of listing a remote service offer.
