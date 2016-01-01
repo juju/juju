@@ -4,12 +4,13 @@
 package crossmodel
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/model/crossmodel"
