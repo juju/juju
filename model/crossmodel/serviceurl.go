@@ -120,8 +120,11 @@ func ServiceDirectoryForURL(urlStr string) (string, error) {
 	return url.Directory, nil
 }
 
+// ServiceURLParts contains various attributes of a URL.
+type ServiceURLParts ServiceURL
+
 // ParseServiceURLParts parses a partial URL, filling out what parts are supplied.
-func ParseServiceURLParts(urlStr string) (*ServiceURL, error) {
+func ParseServiceURLParts(urlStr string) (*ServiceURLParts, error) {
 	url, err := gourl.Parse(urlStr)
 	if err != nil {
 		return nil, errors.Errorf("cannot parse service URL: %q", urlStr)
@@ -130,7 +133,7 @@ func ParseServiceURLParts(urlStr string) (*ServiceURL, error) {
 		return nil, errors.Errorf("service URL %q has unrecognized parts", urlStr)
 	}
 
-	var result ServiceURL
+	var result ServiceURLParts
 	if url.Scheme != "" {
 		result.Directory = url.Scheme
 	}
