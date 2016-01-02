@@ -95,6 +95,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.services, context.units, context.latestCharms, err =
 		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
+	} else if context.remoteServices, err =
+		fetchRemoteServices(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch services and units")
 	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
@@ -104,6 +107,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 
 	logger.Debugf("Services: %v", context.services)
+	logger.Debugf("Remote Services: %v", context.remoteServices)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -150,6 +154,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 		}
 
+		// TODO(wallyworld) - filter remote services
+
 		// Filter machines
 		for status, machineList := range context.machines {
 			filteredList := make([]*state.Machine, 0, len(machineList))
@@ -186,6 +192,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
 		Services:         context.processServices(),
+		RemoteServices:   context.processRemoteServices(),
 		Networks:         context.processNetworks(),
 		Relations:        context.processRelations(),
 	}, nil
@@ -237,11 +244,13 @@ type statusContext struct {
 	// this machine.
 	machines map[string][]*state.Machine
 	// services: service name -> service
-	services     map[string]*state.Service
-	relations    map[string][]*state.Relation
-	units        map[string]map[string]*state.Unit
-	networks     map[string]*state.Network
-	latestCharms map[charm.URL]string
+	services map[string]*state.Service
+	// remote services: service name -> service
+	remoteServices map[string]*state.RemoteService
+	relations      map[string][]*state.Relation
+	units          map[string]map[string]*state.Unit
+	networks       map[string]*state.Network
+	latestCharms   map[charm.URL]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -321,6 +330,19 @@ func fetchAllServicesAndUnits(
 		latestCharms[baseURL] = ch.String()
 	}
 	return svcMap, unitMap, latestCharms, nil
+}
+
+// fetchRemoteServices returns a map from service name to remote service.
+func fetchRemoteServices(st stateInterface) (map[string]*state.RemoteService, error) {
+	svcMap := make(map[string]*state.RemoteService)
+	services, err := st.AllRemoteServices()
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range services {
+		svcMap[s.Name()] = s
+	}
+	return svcMap, nil
 }
 
 // fetchUnitMachineIds returns a set of IDs for machines that
@@ -621,6 +643,49 @@ func (context *statusContext) processService(service *state.Service) (status par
 	return status
 }
 
+func (context *statusContext) processRemoteServices() map[string]params.RemoteServiceStatus {
+	servicesMap := make(map[string]params.RemoteServiceStatus)
+	for _, s := range context.remoteServices {
+		servicesMap[s.Name()] = context.processRemoteService(s)
+	}
+	return servicesMap
+}
+
+func (context *statusContext) processRemoteService(service *state.RemoteService) (status params.RemoteServiceStatus) {
+	status.ServiceURL = service.URL()
+	status.ServiceName = service.Name()
+	eps, err := service.Endpoints()
+	if err != nil {
+		status.Err = err
+		return
+	}
+	status.Endpoints = make([]params.RemoteEndpoint, len(eps))
+	for i, ep := range eps {
+		status.Endpoints[i] = params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		}
+	}
+	status.Life = processLife(service)
+
+	status.Relations, err = context.processRemoteServiceRelations(service)
+	if err != nil {
+		status.Err = err
+		return
+	}
+	serviceStatus, err := service.Status()
+	if err != nil {
+		status.Err = err
+		return
+	}
+	status.Status.Status = params.Status(serviceStatus.Status)
+	status.Status.Info = serviceStatus.Message
+	status.Status.Data = serviceStatus.Data
+	status.Status.Since = serviceStatus.Since
+	return status
+}
+
 func isColorStatus(code state.MeterStatusCode) bool {
 	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
 }
@@ -717,6 +782,30 @@ func (context *statusContext) processServiceRelations(service *state.Service) (r
 		related[relationName] = sn.SortedValues()
 	}
 	return related, subordSet.SortedValues(), nil
+}
+
+func (context *statusContext) processRemoteServiceRelations(service *state.RemoteService) (related map[string][]string, err error) {
+	related = make(map[string][]string)
+	relations := context.relations[service.Name()]
+	for _, relation := range relations {
+		ep, err := relation.Endpoint(service.Name())
+		if err != nil {
+			return nil, err
+		}
+		relationName := ep.Relation.Name
+		eps, err := relation.RelatedEndpoints(service.Name())
+		if err != nil {
+			return nil, err
+		}
+		for _, ep := range eps {
+			related[relationName] = append(related[relationName], ep.ServiceName)
+		}
+	}
+	for relationName, serviceNames := range related {
+		sn := set.NewStrings(serviceNames...)
+		related[relationName] = sn.SortedValues()
+	}
+	return related, nil
 }
 
 type lifer interface {

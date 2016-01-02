@@ -27,6 +27,7 @@ import (
 //   - Units: Displays total #, and then # in each state.
 //   - Services: Displays total #, their names, and how many of each
 //     are exposed.
+//   - RemoteServices: Displays total #, their names.
 func FormatSummary(value interface{}) ([]byte, error) {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
@@ -57,6 +58,13 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
+	}
+	p(" ")
+
+	p("# REMOTE:", fmt.Sprintf(" (%d)", len(fs.RemoteServices)))
+	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.RemoteServices)) {
+		s := fs.RemoteServices[svcName]
+		p(svcName, "", s.ServiceURL)
 	}
 	f.tw.Flush()
 

@@ -29,7 +29,8 @@ type ServiceURL struct {
 	ServiceName string
 }
 
-func (u *ServiceURL) path() string {
+// Path returns the path component of the URL.
+func (u *ServiceURL) Path() string {
 	var parts []string
 	if u.User != "" {
 		parts = append(parts, "u", u.User)
@@ -42,7 +43,7 @@ func (u *ServiceURL) path() string {
 }
 
 func (u *ServiceURL) String() string {
-	return fmt.Sprintf("%s:/%s", u.Directory, u.path())
+	return fmt.Sprintf("%s:/%s", u.Directory, u.Path())
 }
 
 var supportedURLDirectories = []string{

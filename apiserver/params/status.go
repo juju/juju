@@ -28,6 +28,7 @@ type FullStatus struct {
 	AvailableVersion string
 	Machines         map[string]MachineStatus
 	Services         map[string]ServiceStatus
+	RemoteServices   map[string]RemoteServiceStatus
 	Networks         map[string]NetworkStatus
 	Relations        []RelationStatus
 }
@@ -71,6 +72,17 @@ type ServiceStatus struct {
 	Units         map[string]UnitStatus
 	MeterStatuses map[string]MeterStatus
 	Status        AgentStatus
+}
+
+// RemoteServiceStatus holds status info about a remote service.
+type RemoteServiceStatus struct {
+	Err         error
+	ServiceURL  string
+	ServiceName string
+	Endpoints   []RemoteEndpoint
+	Life        string
+	Relations   map[string][]string
+	Status      AgentStatus
 }
 
 // MeterStatus represents the meter status of a unit.
