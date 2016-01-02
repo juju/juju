@@ -47,6 +47,9 @@ const (
 // containers.
 type Scope string
 
+// SpaceName holds the Juju space name of an address.
+type SpaceName string
+
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
@@ -62,6 +65,7 @@ type Address struct {
 	Type        AddressType
 	NetworkName string
 	Scope
+	SpaceName
 }
 
 // String returns a string representation of the address,
