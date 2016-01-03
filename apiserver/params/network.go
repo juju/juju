@@ -259,6 +259,8 @@ type Address struct {
 	Type        string `json:"Type"`
 	NetworkName string `json:"NetworkName"`
 	Scope       string `json:"Scope"`
+
+	SpaceName string `json:"SpaceName,omitempty"`
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter
@@ -269,6 +271,7 @@ func FromNetworkAddress(naddr network.Address) Address {
 		Type:        string(naddr.Type),
 		NetworkName: naddr.NetworkName,
 		Scope:       string(naddr.Scope),
+		SpaceName:   string(naddr.SpaceName),
 	}
 }
 
@@ -280,6 +283,7 @@ func (addr Address) NetworkAddress() network.Address {
 		Type:        network.AddressType(addr.Type),
 		NetworkName: addr.NetworkName,
 		Scope:       network.Scope(addr.Scope),
+		SpaceName:   network.SpaceName(addr.SpaceName),
 	}
 }
 

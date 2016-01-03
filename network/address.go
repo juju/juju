@@ -208,6 +208,32 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
+// SelectAddressBySpace picks the first address from the given slice that has
+// the given space name associated.
+func SelectAddressBySpace(addresses []Address, spaceName string) (Address, bool) {
+	for _, addr := range addresses {
+		if addr.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
+			return addr, true
+		}
+	}
+	logger.Warningf("no addresses found in space %q", spaceName)
+	return Address{}, false
+}
+
+// SelectHostPortBySpace picks the first HostPort from the given slice that has
+// the given space name associated.
+func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
+	for _, hp := range hps {
+		if hp.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first hostPort in space %q", hp.Value, spaceName)
+			return hp, true
+		}
+	}
+	logger.Warningf("no hostPorts found in space %q", spaceName)
+	return HostPort{}, false
+}
+
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, then ok is false (and an empty address is

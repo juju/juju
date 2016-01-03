@@ -596,7 +596,15 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
+		// First try selecting the correct address using the default space all
+		// API servers should be accessible on.
+		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
+		if ok {
+			addrs = append(addrs, serverHP.NetAddr())
+		} else {
+			// Fallback to the legacy approach using scope-based selection.
+			addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
+		}
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)

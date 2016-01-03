@@ -81,6 +81,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // mongo replica set peer address by selecting it from the given addresses. If
 // no addresses are available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
+	logger.Debugf("selecting mongo peer address from %+v", addrs)
+	// First try to select the correct address using the default space where all
+	// API servers should be accessible on.
+	spaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	if ok {
+		return spaceAddr.Value
+	}
+	// Fallback to using the scope instead.
 	addr, _ := network.SelectInternalAddress(addrs, true)
 	return addr.Value
 }
@@ -88,6 +96,14 @@ func SelectPeerAddress(addrs []network.Address) string {
 // SelectPeerHostPort returns the HostPort to use as the
 // mongo replica set peer by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
+	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
+	// First try to select the correct HostPort using the default space where all
+	// API servers should be accessible on.
+	spaceHP, ok := network.SelectHostPortBySpace(hostPorts, network.DefaultSpace)
+	if ok {
+		return spaceHP.NetAddr()
+	}
+	// Fallback to using the scope instead.
 	return network.SelectInternalHostPort(hostPorts, true)
 }
 
