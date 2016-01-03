@@ -105,15 +105,34 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		return nil, errors.Trace(err)
 	}
 
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	service, err := unit.Service()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	bindings, err := service.EndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	rel, err := u.UniterAPIV1.st.KeyRelation(relTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("got relation %q (%s) with endpoints: %+v", rel.Id(), rel.Tag(), rel.Endpoints())
 
-	unit, err := u.getUnit(unitTag)
+	endpoint, err := rel.Endpoint(service.Name())
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	boundSpace, ok := bindings[endpoint.Name]
+	if !ok {
+		return nil, errors.Errorf("endpoint %q not bound to any space", endpoint.Name)
 	}
 
 	machineID, err := unit.AssignedMachineId()
@@ -121,30 +140,32 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		return nil, errors.Trace(err)
 	}
 
-	return u.oneMachineNetworkConfig(machineID)
-}
+	machine, err := u.UniterAPIV1.st.Machine(machineID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-func (u *UniterAPIV2) oneMachineNetworkConfig(id string) ([]params.NetworkConfig, error) {
-	machine, err := u.UniterAPIV1.st.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	ifaces, err := machine.NetworkInterfaces()
-	if err != nil {
-		return nil, err
-	}
-	configs := make([]params.NetworkConfig, len(ifaces))
-	for i, iface := range ifaces {
-		configs[i] = params.NetworkConfig{
-			MACAddress:    iface.MACAddress(),
-			NetworkName:   iface.NetworkName(),
-			InterfaceName: iface.RawInterfaceName(),
-			Disabled:      iface.IsDisabled(),
-			// TODO(dimitern) Add the rest of the fields, once we
-			// store them in state.
+	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
+	// the PoC to enable minimal network-get implementation returning just the
+	// primary address.
+	addresses := machine.ProviderAddresses()
+
+	var results []params.NetworkConfig
+	for _, addr := range addresses {
+		space := string(addr.SpaceName)
+		if space != boundSpace {
+			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
+			continue
 		}
+		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
+
+		// TODO(dimitern): Fill in the rest later.
+		results = append(results, params.NetworkConfig{
+			Address: addr.Value,
+		})
 	}
-	return configs, nil
+
+	return results, nil
 }
 
 // NewUniterAPIV2 creates a new instance of the Uniter API, version 2.

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
@@ -31,62 +32,19 @@ func (s *uniterV2NetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	networks := []state.NetworkInfo{{
-		Name:       "net1",
-		ProviderId: "net1",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	}, {
-		Name:       "vlan42",
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}, {
-		Name:       "vlan69",
-		ProviderId: "vlan69",
-		CIDR:       "0.3.2.0/24",
-		VLANTag:    69,
-	}, {
-		Name:       "vlan123",
-		ProviderId: "vlan123",
-		CIDR:       "0.4.2.0/24",
-		VLANTag:    123,
-	}, {
-		Name:       "net2",
-		ProviderId: "net2",
-		CIDR:       "0.5.2.0/24",
-		VLANTag:    0,
-	}}
+	_, err = s.State.AddSpace("internal", "internal", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
 
-	machineIfaces := []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1.42",
-		NetworkName:   "vlan42",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0.69",
-		NetworkName:   "vlan69",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		InterfaceName: "eth2",
-		NetworkName:   "net2",
-		IsVirtual:     false,
-		Disabled:      true,
-	}}
+	providerAddresses := network.NewAddresses("8.8.8.8", "10.0.0.1", "10.0.0.2", "fc00::1")
+	providerAddresses[0].SpaceName = network.SpaceName(network.DefaultSpace)
+	providerAddresses[1].SpaceName = network.SpaceName("internal")
+	providerAddresses[2].SpaceName = network.SpaceName("internal")
+	providerAddresses[3].SpaceName = network.SpaceName(network.DefaultSpace)
 
-	err = s.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, networks, machineIfaces, nil, nil)
+	err = s.machine0.SetProviderAddresses(providerAddresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory := jujuFactory.NewFactory(s.State)
@@ -94,11 +52,15 @@ func (s *uniterV2NetworkConfigSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
-		Name:    "wordpress",
-		Charm:   s.wpCharm,
-		Creator: s.AdminUserTag(c),
+	s.wordpress, err = s.State.AddService(state.AddServiceArgs{
+		Name:  "wordpress",
+		Charm: s.wpCharm,
+		Owner: s.AdminUserTag(c).String(),
+		EndpointBindings: map[string]string{
+			"db": "internal",
+		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.wordpress,
 		Machine: s.machine0,
@@ -163,34 +125,14 @@ func (s *uniterV2NetworkConfigSuite) TestNetworkConfig(c *gc.C) {
 		{Relation: "relation-42", Unit: s.wordpressUnit.Tag().String()},
 	}}
 
-	expectedConfig := []params.NetworkConfig{
-		{
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			NetworkName:   "net1",
-			InterfaceName: "eth0",
-			Disabled:      false,
-		}, {
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			NetworkName:   "net1",
-			InterfaceName: "eth1",
-			Disabled:      false,
-		}, {
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			NetworkName:   "vlan42",
-			InterfaceName: "eth1",
-			Disabled:      false,
-		}, {
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			NetworkName:   "vlan69",
-			InterfaceName: "eth0",
-			Disabled:      false,
-		}, {
-			MACAddress:    "aa:bb:cc:dd:ee:f2",
-			NetworkName:   "net2",
-			InterfaceName: "eth2",
-			Disabled:      true,
-		},
-	}
+	// For the relation "wordpress:db mysql:server" we expect to see only
+	// addresses bound to the "internal" space, where the "db" endpoint itself
+	// is bound to.
+	expectedConfig := []params.NetworkConfig{{
+		Address: "10.0.0.1",
+	}, {
+		Address: "10.0.0.2",
+	}}
 
 	result, err := s.uniter.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
