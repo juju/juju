@@ -22,7 +22,6 @@ import (
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
-	"gopkg.in/goose.v1/swift"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -262,15 +260,7 @@ func (p EnvironProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
+	return cfg, nil
 }
 
 func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
@@ -357,11 +347,10 @@ type Environ struct {
 	// for which images can be instantiated.
 	supportedArchitectures []string
 
-	ecfgMutex       sync.Mutex
-	ecfgUnlocked    *environConfig
-	client          client.AuthenticatingClient
-	novaUnlocked    *nova.Client
-	storageUnlocked storage.Storage
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
+	client       client.AuthenticatingClient
+	novaUnlocked *nova.Client
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -692,13 +681,6 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
-func (e *Environ) Storage() storage.Storage {
-	e.ecfgMutex.Lock()
-	stor := e.storageUnlocked
-	e.ecfgMutex.Unlock()
-	return stor
-}
-
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
@@ -793,16 +775,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	e.client = authClient(ecfg)
 
 	e.novaUnlocked = nova.New(e.client)
-
-	// To support upgrading from old environments, we continue to interface
-	// with Swift object storage. We do not use it except for upgrades, so
-	// new environments will work with OpenStack deployments that lack Swift.
-	e.storageUnlocked = &openstackstorage{
-		containerName: ecfg.controlBucket(),
-		// this is possibly just a hack - if the ACL is swift.Private,
-		// the machine won't be able to get the tools (401 error)
-		containerACL: swift.PublicRead,
-		swift:        swift.New(e.client)}
 	return nil
 }
 
