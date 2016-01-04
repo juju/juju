@@ -100,31 +100,31 @@ func (s *ServiceURLSuite) TestServiceDirectoryForURLError(c *gc.C) {
 
 var urlPartsTests = []struct {
 	s, err string
-	url    *crossmodel.ServiceURL
+	url    *crossmodel.ServiceURLParts
 }{{
 	s:   "local:/u/user/servicename",
-	url: &crossmodel.ServiceURL{"local", "user", "", "servicename"},
+	url: &crossmodel.ServiceURLParts{"local", "user", "", "servicename"},
 }, {
 	s:   "u/user/servicename",
-	url: &crossmodel.ServiceURL{"", "user", "", "servicename"},
+	url: &crossmodel.ServiceURLParts{"", "user", "", "servicename"},
 }, {
 	s:   "u/user/prod/servicename",
-	url: &crossmodel.ServiceURL{"", "user", "prod", "servicename"},
+	url: &crossmodel.ServiceURLParts{"", "user", "prod", "servicename"},
 }, {
 	s:   "u/user",
-	url: &crossmodel.ServiceURL{"", "user", "", ""},
+	url: &crossmodel.ServiceURLParts{"", "user", "", ""},
 }, {
 	s:   "service",
-	url: &crossmodel.ServiceURL{"", "", "", "service"},
+	url: &crossmodel.ServiceURLParts{"", "", "", "service"},
 }, {
 	s:   "prod/service",
-	url: &crossmodel.ServiceURL{"", "", "prod", "service"},
+	url: &crossmodel.ServiceURLParts{"", "", "prod", "service"},
 }, {
 	s:   "local:/service",
-	url: &crossmodel.ServiceURL{"local", "", "", "service"},
+	url: &crossmodel.ServiceURLParts{"local", "", "", "service"},
 }, {
 	s:   "",
-	url: &crossmodel.ServiceURL{},
+	url: &crossmodel.ServiceURLParts{},
 }, {
 	s:   "a/b/c",
 	err: `service URL has too many parts: "a/b/c"`,

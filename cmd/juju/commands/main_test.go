@@ -63,7 +63,7 @@ func showEndpointsHelpText() string {
 }
 
 func findEndpointsHelpText() string {
-	return cmdtesting.HelpText(crossmodel.NewFindEndpointCommand(), "juju find-endpoints")
+	return cmdtesting.HelpText(crossmodel.NewFindEndpointsCommand(), "juju find-endpoints")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -201,12 +201,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check find-endpoints command has help",
 		args:    []string{"find-endpoints", "-h"},
 		code:    0,
-		out:     showEndpointsHelpText(),
+		out:     findEndpointsHelpText(),
 	}, {
 		summary: "check find-endpoints command registered properly",
 		args:    []string{"find-endpoints"},
 		code:    0,
-		out:     "error: must specify at the minimum a URL fragment\n",
+		out:     "ERROR environment is not prepared\n",
 	}, {
 		summary: "check list-offers command registered properly",
 		args:    []string{"list-offers"},
