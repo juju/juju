@@ -124,6 +124,7 @@ func ServiceDirectoryForURL(urlStr string) (string, error) {
 type ServiceURLParts ServiceURL
 
 // ParseServiceURLParts parses a partial URL, filling out what parts are supplied.
+// TODO(wallyworld) update ParseServiceURL to use this method and perform additional validation on top.
 func ParseServiceURLParts(urlStr string) (*ServiceURLParts, error) {
 	url, err := gourl.Parse(urlStr)
 	if err != nil {

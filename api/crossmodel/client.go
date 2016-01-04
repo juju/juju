@@ -68,7 +68,7 @@ func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
 func (c *Client) FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]params.ServiceOffer, error) {
 	// We need at least one filter. The default filter will list all local services.
 	if len(filters) == 0 {
-		filters = []crossmodel.ServiceOfferFilter{{ServiceOffer: crossmodel.ServiceOffer{ServiceURL: "local:"}}}
+		return nil, errors.New("at least one filter must be specified")
 	}
 	var paramsFilter params.OfferFilterParams
 	for _, f := range filters {

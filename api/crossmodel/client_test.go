@@ -462,36 +462,20 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	}})
 }
 
-func (s *crossmodelMockSuite) TestFindDefaultFilter(c *gc.C) {
-	called := false
+func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindServiceOffers")
-
-			called = true
-			args, ok := a.(params.OfferFilterParams)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Filters, gc.HasLen, 1)
-			c.Assert(args.Filters[0].Directory, gc.Equals, "local")
-			c.Assert(args.Filters[0].Filters, jc.DeepEquals, []params.OfferFilter{{ServiceURL: "local:"}})
-			if results, ok := result.(*params.FindServiceOffersResults); ok {
-				results.Results = []params.ServiceOfferResults{{
-					Offers: []params.ServiceOffer{},
-				}}
-			}
+			c.Fail()
 			return nil
 		})
 
 	client := crossmodel.NewClient(apiCaller)
 	_, err := client.FindServiceOffers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
 
 func (s *crossmodelMockSuite) TestFindMultipleResults(c *gc.C) {
@@ -515,7 +499,10 @@ func (s *crossmodelMockSuite) TestFindMultipleResults(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.FindServiceOffers()
+	filter := model.ServiceOfferFilter{
+		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	}
+	_, err := client.FindServiceOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
 	c.Assert(called, jc.IsTrue)
 }
@@ -544,7 +531,10 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.FindServiceOffers()
+	filter := model.ServiceOfferFilter{
+		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	}
+	_, err := client.FindServiceOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -564,7 +554,10 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.FindServiceOffers()
+	filter := model.ServiceOfferFilter{
+		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	}
+	results, err := client.FindServiceOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

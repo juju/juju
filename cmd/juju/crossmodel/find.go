@@ -4,8 +4,6 @@
 package crossmodel
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -61,20 +59,24 @@ func NewFindEndpointsCommand() cmd.Command {
 
 // Init implements Command.Init.
 func (c *findCommand) Init(args []string) (err error) {
-	if len(args) > 1 {
+	url, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
 		return errors.Errorf("unrecognized args: %q", args[1:])
 	}
 
-	if len(args) == 1 {
+	if url != "" {
 		if c.url != "" {
 			return errors.New("URL term cannot be specified twice")
 		}
-		c.url = args[0]
+		c.url = url
 	}
 	if c.url != "" {
 		if _, err := crossmodel.ParseServiceURLParts(c.url); err != nil {
 			return err
 		}
+	} else {
+		// We need at least one filter. The default filter will list all local services.
+		c.url = "local:"
 	}
 	return nil
 }
@@ -92,11 +94,11 @@ func (c *findCommand) Info() *cmd.Info {
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CrossModelCommandBase.SetFlags(f)
 	f.StringVar(&c.url, "url", "", "service URL")
-	f.StringVar(&c.interfaceName, "interface", "", "service URL")
-	f.StringVar(&c.endpoint, "endpoint", "", "service URL")
-	f.StringVar(&c.user, "user", "", "service URL")
-	f.StringVar(&c.charm, "charm", "", "service URL")
-	f.StringVar(&c.author, "author", "", "service URL")
+	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
+	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
+	f.StringVar(&c.user, "user", "", "return results with the user in the URL")
+	f.StringVar(&c.charm, "charm", "", "return results for the charm name")
+	f.StringVar(&c.author, "author", "", "return results matching the charm author")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -137,8 +139,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	if len(output) == 0 {
-		fmt.Fprintln(ctx.Stdout, "no matching service offers found")
-		return nil
+		return errors.New("no matching service offers found")
 	}
 	return c.out.Write(ctx, output)
 }

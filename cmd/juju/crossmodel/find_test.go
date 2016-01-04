@@ -37,6 +37,24 @@ func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.mockAPI), args...)
 }
 
+func (s *findSuite) TestFindNoArgs(c *gc.C) {
+	s.mockAPI.c = c
+	s.mockAPI.expectedFilter = &jujucrossmodel.ServiceOfferFilter{
+		ServiceOffer: jujucrossmodel.ServiceOffer{
+			ServiceURL: "local:",
+		},
+	}
+	s.assertFind(
+		c,
+		[]string{},
+		`
+URL                       INTERFACES
+local:/u/fred/hosted-db2  http:db2, http:log
+
+`[1:],
+	)
+}
+
 func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
 }
@@ -49,11 +67,10 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 		},
 	}
 	s.mockAPI.results = []params.ServiceOffer{}
-	s.assertFind(
+	s.assertFindError(
 		c,
 		[]string{"--url", "local:/u/none"},
-		`no matching service offers found
-`,
+		`no matching service offers found`,
 	)
 }
 
