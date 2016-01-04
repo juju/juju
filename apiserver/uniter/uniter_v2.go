@@ -148,6 +148,8 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
 	// primary address.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
 	addresses := machine.ProviderAddresses()
 
 	var results []params.NetworkConfig
@@ -159,7 +161,7 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		}
 		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
 
-		// TODO(dimitern): Fill in the rest later.
+		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
 		results = append(results, params.NetworkConfig{
 			Address: addr.Value,
 		})

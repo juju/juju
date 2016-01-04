@@ -259,8 +259,7 @@ type Address struct {
 	Type        string `json:"Type"`
 	NetworkName string `json:"NetworkName"`
 	Scope       string `json:"Scope"`
-
-	SpaceName string `json:"SpaceName,omitempty"`
+	SpaceName   string `json:"SpaceName,omitempty"`
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter

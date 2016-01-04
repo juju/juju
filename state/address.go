@@ -51,19 +51,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		// First try to select the correct HostPort using the default space where all
-		// API servers should be accessible on.
-		spaceAddr, ok := network.SelectAddressBySpace(naddrs, network.DefaultSpace)
+		addr, ok := network.SelectControllerAddress(naddrs, false)
 		if ok {
-			apiAddrs = append(apiAddrs, spaceAddr.Value)
-			logger.Debugf("selected %q as state address, using space %q", spaceAddr.Value, network.DefaultSpace)
-		} else {
-			// Fallback to using the scope instead.
-			addr, ok := network.SelectInternalAddress(naddrs, false)
-			if ok {
-				apiAddrs = append(apiAddrs, addr.Value)
-				logger.Debugf("selected %q as state address, using scope %q", addr.Value, addr.Scope)
-			}
+			apiAddrs = append(apiAddrs, addr.Value)
 		}
 	}
 	if len(apiAddrs) == 0 {

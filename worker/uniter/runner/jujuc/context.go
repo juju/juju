@@ -265,6 +265,8 @@ type ContextRelation interface {
 	//
 	// TODO(dimitern): Currently, only the Address is populated, add the
 	// rest later.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
 	NetworkConfig() ([]params.NetworkConfig, error)
 }
 

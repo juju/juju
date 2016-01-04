@@ -596,14 +596,14 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		// First try selecting the correct address using the default space all
-		// API servers should be accessible on.
+		// Try the preferred approach first.
 		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
 		if ok {
 			addrs = append(addrs, serverHP.NetAddr())
 		} else {
-			// Fallback to the legacy approach using scope-based selection.
-			addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
+			// Fallback to the legacy approach.
+			hps := network.SelectInternalHostPorts(serverHostPorts, false)
+			addrs = append(addrs, hps...)
 		}
 	}
 	c.apiDetails.addresses = addrs
