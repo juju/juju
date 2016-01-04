@@ -30,8 +30,11 @@ const (
 	// UserPassAuthType is an authentication type using a username and password.
 	UserPassAuthType = AuthType("userpass")
 
-	// OAuthAuthType is an authentication type using oauth2.
-	OAuthAuthType = AuthType("oauth2")
+	// OAuthAuth1Type is an authentication type using oauth1.
+	OAuthAuth1Type = AuthType("oauth1")
+
+	// OAuthAuth2Type is an authentication type using oauth2.
+	OAuthAuth2Type = AuthType("oauth2")
 )
 
 // Clouds is a struct containing cloud definitions.
