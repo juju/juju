@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
@@ -61,6 +62,63 @@ func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
 		return params.ServiceOffer{}, errors.Trace(theOne.Error)
 	}
 	return theOne.Result, nil
+}
+
+// FindServiceOffers returns all service offers matching the supplied filter.
+func (c *Client) FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]params.ServiceOffer, error) {
+	// We need at least one filter. The default filter will list all local services.
+	if len(filters) == 0 {
+		return nil, errors.New("at least one filter must be specified")
+	}
+	var paramsFilter params.OfferFilterParams
+	for _, f := range filters {
+		urlParts, err := crossmodel.ParseServiceURLParts(f.ServiceURL)
+		if err != nil {
+			return nil, err
+		}
+		if urlParts.Directory == "" {
+			return nil, errors.Errorf("service offer filter needs a directory: %#v", f)
+		}
+		// TODO(wallyworld) - include allowed users
+		filterTerm := params.OfferFilter{
+			ServiceURL:         f.ServiceURL,
+			ServiceName:        f.ServiceName,
+			ServiceDescription: f.ServiceDescription,
+			SourceLabel:        f.SourceLabel,
+		}
+		if f.SourceEnvUUID != "" {
+			filterTerm.SourceEnvUUIDTag = names.NewEnvironTag(f.SourceEnvUUID).String()
+		}
+		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
+		for i, ep := range f.Endpoints {
+			filterTerm.Endpoints[i].Name = ep.Name
+			filterTerm.Endpoints[i].Interface = ep.Interface
+			filterTerm.Endpoints[i].Role = ep.Role
+		}
+		paramsFilter.Filters = append(paramsFilter.Filters, params.OfferFilters{
+			Directory: urlParts.Directory,
+			Filters:   []params.OfferFilter{filterTerm},
+		})
+	}
+
+	out := params.FindServiceOffersResults{}
+	err := c.facade.FacadeCall("FindServiceOffers", paramsFilter, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := out.Results
+	// Since only one filters set was sent, expecting only one back
+	if len(result) != 1 {
+		return nil, errors.Errorf("expected to find one result but found %d", len(result))
+
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return nil, errors.Trace(theOne.Error)
+	}
+	return theOne.Offers, nil
 }
 
 // ListOffers gets all remote services that have been offered from this Juju model.

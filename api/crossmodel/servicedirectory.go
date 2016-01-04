@@ -105,6 +105,7 @@ func (s *serviceOffersAPI) ListOffers(directory string, filters ...crossmodel.Se
 		eps := make([]params.EndpointFilterAttributes, len(filter.Endpoints))
 		for j, ep := range filter.Endpoints {
 			eps[j] = params.EndpointFilterAttributes{
+				Name:      ep.Name,
 				Interface: ep.Interface,
 				Role:      ep.Role,
 			}

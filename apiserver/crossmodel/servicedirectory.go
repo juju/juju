@@ -137,6 +137,7 @@ func makeOfferFilterFromParams(filters []params.OfferFilter) ([]crossmodel.Servi
 			}
 			offerFilters[i].SourceEnvUUID = envTag.Id()
 		}
+		// TODO(wallyworld) - add support for Endpoint filter attribute
 	}
 	return offerFilters, nil
 }

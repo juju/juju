@@ -97,3 +97,61 @@ func (s *ServiceURLSuite) TestServiceDirectoryForURLError(c *gc.C) {
 	_, err := crossmodel.ServiceDirectoryForURL("error")
 	c.Assert(err, gc.ErrorMatches, "service URL has invalid form.*")
 }
+
+var urlPartsTests = []struct {
+	s, err string
+	url    *crossmodel.ServiceURLParts
+}{{
+	s:   "local:/u/user/servicename",
+	url: &crossmodel.ServiceURLParts{"local", "user", "", "servicename"},
+}, {
+	s:   "u/user/servicename",
+	url: &crossmodel.ServiceURLParts{"", "user", "", "servicename"},
+}, {
+	s:   "u/user/prod/servicename",
+	url: &crossmodel.ServiceURLParts{"", "user", "prod", "servicename"},
+}, {
+	s:   "u/user",
+	url: &crossmodel.ServiceURLParts{"", "user", "", ""},
+}, {
+	s:   "service",
+	url: &crossmodel.ServiceURLParts{"", "", "", "service"},
+}, {
+	s:   "prod/service",
+	url: &crossmodel.ServiceURLParts{"", "", "prod", "service"},
+}, {
+	s:   "local:/service",
+	url: &crossmodel.ServiceURLParts{"local", "", "", "service"},
+}, {
+	s:   "",
+	url: &crossmodel.ServiceURLParts{},
+}, {
+	s:   "a/b/c",
+	err: `service URL has too many parts: "a/b/c"`,
+}, {
+	s:   "local:/u/user/service.bad",
+	err: `service name "service.bad" not valid`,
+}, {
+	s:   "local:/u/user[bad/service",
+	err: `user name "user\[bad" not valid`,
+}, {
+	s:   ":foo",
+	err: `cannot parse service URL: $URL`,
+}}
+
+func (s *ServiceURLSuite) TestParseURLParts(c *gc.C) {
+	for i, t := range urlPartsTests {
+		c.Logf("test %d: %q", i, t.s)
+		url, err := crossmodel.ParseServiceURLParts(t.s)
+
+		if t.url != nil {
+			c.Check(err, gc.IsNil)
+			c.Check(url, gc.DeepEquals, t.url)
+		}
+		if t.err != "" {
+			t.err = strings.Replace(t.err, "$URL", regexp.QuoteMeta(fmt.Sprintf("%q", t.s)), -1)
+			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(url, gc.IsNil)
+		}
+	}
+}

@@ -56,7 +56,7 @@ type ServiceDirectory interface {
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer ServiceOffer) error
 
-	// List offers returns the offers satisfying the specified filter.
+	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 
 	// Remove removes the service offer at the specified URL.
@@ -119,7 +119,7 @@ func RegisteredFilter(registered bool) OfferedServiceFilter {
 	return filter
 }
 
-// An OfferedService instance holds service offers from this environment.
+// OfferedServices instances hold service offers from this environment.
 type OfferedServices interface {
 
 	// AddOffer adds a new service offer.
@@ -134,11 +134,11 @@ type OfferedServices interface {
 	// SetOfferRegistered marks a previously saved offer as registered or not.
 	SetOfferRegistered(url string, registered bool) error
 
-	// Remove removes the service offer at the specified URL.
+	// RemoveOffer removes the service offer at the specified URL.
 	RemoveOffer(url string) error
 }
 
-// RemoteEndpoint represents a remote endpoint filter.
+// EndpointFilterTerm represents a remote endpoint filter.
 type EndpointFilterTerm struct {
 	// Name is an endpoint name.
 	Name string

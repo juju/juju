@@ -215,6 +215,25 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 	return params.ServiceOffersResults{results}, nil
 }
 
+// FindServiceOffers gets details about remote services that match given filter.
+func (api *API) FindServiceOffers(filters params.OfferFilterParams) (params.FindServiceOffersResults, error) {
+	var result params.FindServiceOffersResults
+	result.Results = make([]params.ServiceOfferResults, len(filters.Filters))
+
+	for i, filter := range filters.Filters {
+		offers, err := api.backend.ListDirectoryOffers(filter)
+		if err == nil && offers.Error != nil {
+			err = offers.Error
+		}
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i] = offers
+	}
+	return result, nil
+}
+
 // ListOffers gets all remote services that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
 func (api *API) ListOffers(args params.OfferedServiceFilters) (params.ListOffersResults, error) {

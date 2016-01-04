@@ -8,7 +8,7 @@ import (
 )
 
 type ServiceOfferLister interface {
-	// List offers returns the offers from the specified directory satisfying the specified filter.
+	// ListOffers returns the offers from the specified directory satisfying the specified filter.
 	ListOffers(directory string, filter ...ServiceOfferFilter) ([]ServiceOffer, error)
 }
 
