@@ -2312,6 +2312,85 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 20
+		"a remote service",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		addAliveUnit{"wordpress", "1"},
+
+		addCharm{"mysql"},
+		addRemoteService{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		relateServices{"wordpress", "hosted-mysql"},
+
+		expect{
+			"a remote service",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"service-endpoints": M{
+					"hosted-mysql": M{
+						"url": "local:/u/me/mysql",
+						"endpoints": M{
+							"server": M{
+								"interface": "mysql",
+								"role":      "provider",
+							},
+						},
+						"service-status": M{
+							"current": "unknown",
+							"message": "waiting for remote connection",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"server": L{"wordpress"},
+						},
+					},
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": false,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"db": L{"hosted-mysql"},
+						},
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "pending",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "dummyenv-1.dns",
+							},
+						},
+					},
+				},
+			},
+		},
+	),
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
@@ -2509,6 +2588,29 @@ func (as addService) step(c *gc.C, ctx *context) {
 		err = svc.SetConstraints(as.cons)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+type addRemoteService struct {
+	name      string
+	url       string
+	charm     string
+	endpoints []string
+}
+
+func (as addRemoteService) step(c *gc.C, ctx *context) {
+	ch, ok := ctx.charms[as.charm]
+	c.Assert(ok, jc.IsTrue)
+	var endpoints []charm.Relation
+	for _, ep := range as.endpoints {
+		r, ok := ch.Meta().Requires[ep]
+		if !ok {
+			r, ok = ch.Meta().Provides[ep]
+		}
+		c.Assert(ok, jc.IsTrue)
+		endpoints = append(endpoints, r)
+	}
+	_, err := ctx.st.AddRemoteService(as.name, as.url, endpoints)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setServiceExposed struct {
@@ -3015,6 +3117,8 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
+		addCharm{"riak"},
+		addRemoteService{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3065,6 +3169,9 @@ Utilizing ports:
      logging  1/1 exposed
        mysql  1/1 exposed
    wordpress  1/1 exposed
+            
+   # REMOTE:  (1)
+ hosted-riak      local:/u/me/riak
 
 `[1:])
 }
@@ -3166,6 +3273,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
+		addCharm{"riak"},
+		addRemoteService{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3221,6 +3330,10 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 [Environment]     
 UPGRADE-AVAILABLE 
 %s
+
+[Service Endpoints] 
+NAME                STATUS  STORE URL       INTERFACES    
+hosted-riak         unknown local u/me/riak http:endpoint 
 
 [Services] 
 NAME       STATUS      EXPOSED CHARM                  
@@ -3764,6 +3877,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				Containers:     map[string]machineStatus{},
 			},
 		},
-		Services: map[string]serviceStatus{},
+		Services:       map[string]serviceStatus{},
+		RemoteServices: map[string]remoteServiceStatus{},
 	})
 }

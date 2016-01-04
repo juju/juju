@@ -36,6 +36,7 @@ type stateInterface interface {
 	Machine(string) (*state.Machine, error)
 	AllMachines() ([]*state.Machine, error)
 	AllServices() ([]*state.Service, error)
+	AllRemoteServices() ([]*state.RemoteService, error)
 	AllRelations() ([]*state.Relation, error)
 	AllNetworks() ([]*state.Network, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)

@@ -12,11 +12,12 @@ import (
 )
 
 type formattedStatus struct {
-	Environment       string                   `json:"environment"`
-	EnvironmentStatus *environmentStatus       `json:"environment-status,omitempty" yaml:"environment-status,omitempty"`
-	Machines          map[string]machineStatus `json:"machines"`
-	Services          map[string]serviceStatus `json:"services"`
-	Networks          map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Environment       string                         `json:"environment"`
+	EnvironmentStatus *environmentStatus             `json:"environment-status,omitempty" yaml:"environment-status,omitempty"`
+	Machines          map[string]machineStatus       `json:"machines"`
+	RemoteServices    map[string]remoteServiceStatus `json:"service-endpoints,omitempty" yaml:"service-endpoints,omitempty"`
+	Services          map[string]serviceStatus       `json:"services"`
+	Networks          map[string]networkStatus       `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {
@@ -88,6 +89,36 @@ func (s serviceStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.Err.Error()}, nil
 	}
 	return serviceStatusNoMarshal(s), nil
+}
+
+type remoteEndpoint struct {
+	Interface string `json:"interface" yaml:"interface"`
+	Role      string `json:"role" yaml:"role"`
+}
+
+type remoteServiceStatus struct {
+	Err        error                     `json:"-" yaml:",omitempty"`
+	ServiceURL string                    `json:"url" yaml:"url"`
+	Endpoints  map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life       string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo statusInfoContents        `json:"service-status,omitempty" yaml:"service-status"`
+	Relations  map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+}
+
+type remoteServiceStatusNoMarshal remoteServiceStatus
+
+func (s remoteServiceStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return json.Marshal(errorStatus{s.Err.Error()})
+	}
+	return json.Marshal(remoteServiceStatusNoMarshal(s))
+}
+
+func (s remoteServiceStatus) MarshalYAML() (interface{}, error) {
+	if s.Err != nil {
+		return errorStatus{s.Err.Error()}, nil
+	}
+	return remoteServiceStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {

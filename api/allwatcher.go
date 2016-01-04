@@ -72,9 +72,27 @@ func (o orderedDeltas) Len() int {
 	return len(o)
 }
 
+func (o orderedDeltas) kindPriority(kind string) int {
+	switch kind {
+	case "machine":
+		return 1
+	case "service":
+		return 2
+	case "relation":
+		return 3
+	}
+	return 0
+}
+
 func (o orderedDeltas) Less(i, j int) bool {
 	// All we care about is having relation deltas last.
-	return o[j].Entity.EntityId().Kind == "relation"
+	// We'll add extra checks though to make the order more
+	// deterministic for tests.
+	pi, pj := o.kindPriority(o[i].Entity.EntityId().Kind), o.kindPriority(o[j].Entity.EntityId().Kind)
+	if pi == pj {
+		return o[i].Entity.EntityId().Id < o[j].Entity.EntityId().Id
+	}
+	return pi < pj
 }
 
 func (o orderedDeltas) Swap(i, j int) {

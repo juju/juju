@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/model/crossmodel"
 )
 
 // FormatTabular returns a tabular summary of machines, services, and
@@ -41,6 +42,33 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		if envStatus.AvailableVersion != "" {
 			p("UPGRADE-AVAILABLE")
 			p(envStatus.AvailableVersion)
+		}
+		p()
+		tw.Flush()
+	}
+
+	if len(fs.RemoteServices) > 0 {
+		p("[Service Endpoints]")
+		p("NAME\tSTATUS\tSTORE\tURL\tINTERFACES")
+		for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.RemoteServices)) {
+			svc := fs.RemoteServices[svcName]
+			var store, urlPath string
+			url, err := crossmodel.ParseServiceURL(svc.ServiceURL)
+			if err == nil {
+				store = url.Directory
+				urlPath = url.Path()
+			} else {
+				// This is not expected.
+				logger.Errorf("invalid service URL %q: %v", svc.ServiceURL, err)
+				store = "unknown"
+				urlPath = svc.ServiceURL
+			}
+			interfaces := make([]string, len(svc.Endpoints))
+			for i, name := range common.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
+				ep := svc.Endpoints[name]
+				interfaces[i] = fmt.Sprintf("%s:%s", ep.Interface, name)
+			}
+			p(svcName, svc.StatusInfo.Current, store, urlPath, strings.Join(interfaces, ", "))
 		}
 		p()
 		tw.Flush()

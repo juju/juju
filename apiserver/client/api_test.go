@@ -201,6 +201,7 @@ var scenarioStatus = &params.FullStatus{
 			WantsVote:      false,
 		},
 	},
+	RemoteServices: map[string]params.RemoteServiceStatus{},
 	Services: map[string]params.ServiceStatus{
 		"logging": {
 			Charm: "local:quantal/logging-1",

@@ -36,9 +36,10 @@ func (sf *statusFormatter) format() formattedStatus {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment: sf.status.EnvironmentName,
-		Machines:    make(map[string]machineStatus),
-		Services:    make(map[string]serviceStatus),
+		Environment:    sf.status.EnvironmentName,
+		Machines:       make(map[string]machineStatus),
+		Services:       make(map[string]serviceStatus),
+		RemoteServices: make(map[string]remoteServiceStatus),
 	}
 	if sf.status.AvailableVersion != "" {
 		out.EnvironmentStatus = &environmentStatus{
@@ -51,6 +52,9 @@ func (sf *statusFormatter) format() formattedStatus {
 	}
 	for sn, s := range sf.status.Services {
 		out.Services[sn] = sf.formatService(sn, s)
+	}
+	for sn, s := range sf.status.RemoteServices {
+		out.RemoteServices[sn] = sf.formatRemoteService(sn, s)
 	}
 	for k, n := range sf.status.Networks {
 		if out.Networks == nil {
@@ -113,6 +117,24 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	return out
 }
 
+func (sf *statusFormatter) formatRemoteService(name string, service params.RemoteServiceStatus) remoteServiceStatus {
+	out := remoteServiceStatus{
+		Err:        service.Err,
+		ServiceURL: service.ServiceURL,
+		Life:       service.Life,
+		Relations:  service.Relations,
+		StatusInfo: sf.getAgentStatusInfo(service.Status),
+	}
+	out.Endpoints = make(map[string]remoteEndpoint)
+	for _, ep := range service.Endpoints {
+		out.Endpoints[ep.Name] = remoteEndpoint{
+			Interface: ep.Interface,
+			Role:      string(ep.Role),
+		}
+	}
+	return out
+}
+
 func (sf *statusFormatter) formatService(name string, service params.ServiceStatus) serviceStatus {
 	out := serviceStatus{
 		Err:           service.Err,
@@ -124,7 +146,7 @@ func (sf *statusFormatter) formatService(name string, service params.ServiceStat
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
-		StatusInfo:    sf.getServiceStatusInfo(service),
+		StatusInfo:    sf.getAgentStatusInfo(service.Status),
 	}
 	if len(service.Networks.Enabled) > 0 {
 		out.Networks["enabled"] = service.Networks.Enabled
@@ -143,15 +165,15 @@ func (sf *statusFormatter) formatService(name string, service params.ServiceStat
 	return out
 }
 
-func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) statusInfoContents {
+func (sf *statusFormatter) getAgentStatusInfo(status params.AgentStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     service.Status.Err,
-		Current: service.Status.Status,
-		Message: service.Status.Info,
-		Version: service.Status.Version,
+		Err:     status.Err,
+		Current: status.Status,
+		Message: status.Info,
+		Version: status.Version,
 	}
-	if service.Status.Since != nil {
-		info.Since = common.FormatTime(service.Status.Since, sf.isoTime)
+	if status.Since != nil {
+		info.Since = common.FormatTime(status.Since, sf.isoTime)
 	}
 	return info
 }
@@ -168,8 +190,8 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	sf.updateUnitStatusInfo(&info.unit, info.serviceName)
 
 	out := unitStatus{
-		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
-		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit),
+		WorkloadStatusInfo: sf.getAgentStatusInfo(info.unit.Workload),
+		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit.UnitAgent),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
 		PublicAddress:      info.unit.PublicAddress,
@@ -202,32 +224,6 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		})
 	}
 	return out
-}
-
-func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
-	info := statusInfoContents{
-		Err:     unit.Workload.Err,
-		Current: unit.Workload.Status,
-		Message: unit.Workload.Info,
-		Version: unit.Workload.Version,
-	}
-	if unit.Workload.Since != nil {
-		info.Since = common.FormatTime(unit.Workload.Since, sf.isoTime)
-	}
-	return info
-}
-
-func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
-	info := statusInfoContents{
-		Err:     unit.UnitAgent.Err,
-		Current: unit.UnitAgent.Status,
-		Message: unit.UnitAgent.Info,
-		Version: unit.UnitAgent.Version,
-	}
-	if unit.UnitAgent.Since != nil {
-		info.Since = common.FormatTime(unit.UnitAgent.Since, sf.isoTime)
-	}
-	return info
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
