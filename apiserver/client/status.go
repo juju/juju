@@ -97,7 +97,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
 	} else if context.remoteServices, err =
 		fetchRemoteServices(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch services and units")
+		return noStatus, errors.Annotate(err, "could not fetch remote services")
 	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {

@@ -59,6 +59,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 				urlPath = url.Path()
 			} else {
 				// This is not expected.
+				logger.Errorf("invalid service URL %q: %v", svc.ServiceURL, err)
 				store = "unknown"
 				urlPath = svc.ServiceURL
 			}

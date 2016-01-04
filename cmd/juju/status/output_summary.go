@@ -27,7 +27,7 @@ import (
 //   - Units: Displays total #, and then # in each state.
 //   - Services: Displays total #, their names, and how many of each
 //     are exposed.
-//   - RemoteServices: Displays total #, their names.
+//   - RemoteServices: Displays total #, their names and URLs.
 func FormatSummary(value interface{}) ([]byte, error) {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {

@@ -2327,8 +2327,9 @@ var statusTests = []testCase{
 		addService{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
-		addCharm{"riak"},
-		addRemoteService{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addCharm{"mysql"},
+		addRemoteService{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
 			"a remote service",
@@ -2339,11 +2340,11 @@ var statusTests = []testCase{
 					"1": machine1,
 				},
 				"service-endpoints": M{
-					"hosted-riak": M{
-						"url": "local:/u/me/riak",
+					"hosted-mysql": M{
+						"url": "local:/u/me/mysql",
 						"endpoints": M{
-							"endpoint": M{
-								"interface": "http",
+							"server": M{
+								"interface": "mysql",
 								"role":      "provider",
 							},
 						},
@@ -2351,6 +2352,9 @@ var statusTests = []testCase{
 							"current": "unknown",
 							"message": "waiting for remote connection",
 							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"server": L{"wordpress"},
 						},
 					},
 				},
@@ -2362,6 +2366,9 @@ var statusTests = []testCase{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"db": L{"hosted-mysql"},
 						},
 						"units": M{
 							"wordpress/0": M{
