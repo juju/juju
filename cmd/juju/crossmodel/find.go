@@ -61,7 +61,7 @@ func NewFindEndpointsCommand() cmd.Command {
 func (c *findCommand) Init(args []string) (err error) {
 	url, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
-		return errors.Errorf("unrecognized args: %q", args[1:])
+		return err
 	}
 
 	if url != "" {
