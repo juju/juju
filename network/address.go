@@ -242,6 +242,12 @@ func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
 // can't be selected by space both ScopeCloudLocal and ScopeMachineLocal
 // addresses are considered during the selection, otherwise just ScopeCloudLocal
 // are.
+//
+// TODO(dimitern): This needs to change to not assume the default space name is
+// always "default", once we can determine this. Also, in case we're using
+// IPv6-only deployments on MAAS, it's still possible to get a node provisioned
+// with an IPv6 address not part of the default space (which should be possible
+// to detect early and/or prevent by using stricter node selection constraints).
 func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
 	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
 	if ok {
