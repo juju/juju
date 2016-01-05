@@ -45,7 +45,7 @@ type baseImageMetadataSuite struct {
 
 func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 }
 
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {

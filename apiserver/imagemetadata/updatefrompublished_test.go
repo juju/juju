@@ -307,7 +307,7 @@ func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
 
-	tempCalls := []string{environConfig}
+	tempCalls := []string{environConfig, environConfig}
 	for _ = range s.expected {
 		tempCalls = append(tempCalls, saveMetadata)
 	}
