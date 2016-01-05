@@ -74,9 +74,6 @@ func SetResultError(result *ResourcesResult, err error) {
 type Resource struct {
 	CharmResource
 
-	// Charm identifies the resource's charm.
-	Charm names.CharmTag
-
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
 	Username string `json:"username"`
