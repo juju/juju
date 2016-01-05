@@ -86,6 +86,8 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	return network.ResolvableHostnames(addrs), nil
 }
 
+// TODO(dimitern): In a follow-up, reuse maasObjectNetworkInterfaces to extract
+// the addresses below.
 func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 	// Extract the "interface_set" list, and process all the links of each
 	// interface to get the mapping between assigned address and the space it
