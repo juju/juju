@@ -20,6 +20,11 @@ type resourcePersistence interface {
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
 	// is staged.
+	//
+	// A separate staging area is necessary because we are dealing with
+	// the DB and storage at the same time for the same resource in some
+	// operations (e.g. SetResource).  Resources are staged in the DB,
+	// added to storage, and then finalized in the DB.
 	SetStagedResource(id, serviceID string, res resource.Resource) error
 
 	// UnstageResource ensures that the resource is removed
