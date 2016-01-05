@@ -99,14 +99,14 @@ func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	)
 }
 
-func (s *PersistenceSuite) TestSetStagedResourceOkay(c *gc.C) {
+func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
 	doc.DocID += "#staged"
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
-	err := p.SetStagedResource(res.Name, "a-service", res)
+	err := p.StageResource(res.Name, "a-service", res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
@@ -118,14 +118,14 @@ func (s *PersistenceSuite) TestSetStagedResourceOkay(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetStagedResourceExists(c *gc.C) {
+func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
 	doc.DocID += "#staged"
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 
-	err := p.SetStagedResource(res.Name, "a-service", res)
+	err := p.StageResource(res.Name, "a-service", res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
@@ -142,12 +142,12 @@ func (s *PersistenceSuite) TestSetStagedResourceExists(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetStagedResourceBadResource(c *gc.C) {
+func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
 	res.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
 
-	err := p.SetStagedResource(res.Name, "a-service", res)
+	err := p.StageResource(res.Name, "a-service", res)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource.*`)

@@ -61,10 +61,10 @@ func (p Persistence) ListResources(serviceID string) ([]resource.Resource, error
 	return results, nil
 }
 
-// SetStagedResource adds the resource in a separate staging area
+// StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
 // errors.AlreadyExists is returned.
-func (p Persistence) SetStagedResource(id, serviceID string, res resource.Resource) error {
+func (p Persistence) StageResource(id, serviceID string, res resource.Resource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	if err := res.Validate(); err != nil {

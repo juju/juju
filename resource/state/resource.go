@@ -16,7 +16,7 @@ type resourcePersistence interface {
 	// ListResources returns the resource data for the given service ID.
 	ListResources(serviceID string) ([]resource.Resource, error)
 
-	// SetStagedResource adds the resource in a separate staging area
+	// StageResource adds the resource in a separate staging area
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
 	// is staged.
@@ -25,7 +25,7 @@ type resourcePersistence interface {
 	// the DB and storage at the same time for the same resource in some
 	// operations (e.g. SetResource).  Resources are staged in the DB,
 	// added to storage, and then finalized in the DB.
-	SetStagedResource(id, serviceID string, res resource.Resource) error
+	StageResource(id, serviceID string, res resource.Resource) error
 
 	// UnstageResource ensures that the resource is removed
 	// from the staging area. If it isn't in the staging area
@@ -77,7 +77,7 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	// is stored separately and adding to both should be an atomic
 	// operation.
 
-	if err := st.persist.SetStagedResource(id, serviceID, res); err != nil {
+	if err := st.persist.StageResource(id, serviceID, res); err != nil {
 		return errors.Trace(err)
 	}
 
