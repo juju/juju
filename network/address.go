@@ -125,17 +125,28 @@ func NewScopedAddress(value string, scope Scope) Address {
 
 // NewAddressOnSpace creates a new Address, deriving its type and scope from the
 // value and associating it with the given spaceName.
-func NewAddressOnSpace(value string, spaceName string) Address {
+func NewAddressOnSpace(spaceName string, value string) Address {
 	addr := NewAddress(value)
 	addr.SpaceName = SpaceName(spaceName)
 	return addr
 }
 
-// NewAddresses is a convenience function to create addresses from a
-// string slice.
+// NewAddresses is a convenience function to create addresses from a a variable
+// number of string arguments.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
-	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddress(address)
+	}
+	return outAddresses
+}
+
+// NewAddressesOnSpace is a convenience function to create addresses on the same
+// space, from a a variable number of string arguments.
+func NewAddressesOnSpace(spaceName string, inAddresses ...string) (outAddresses []Address) {
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddressOnSpace(spaceName, address)
 	}
 	return outAddresses
 }

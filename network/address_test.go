@@ -117,10 +117,39 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 }
 
 func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
-	addr1 := network.NewAddressOnSpace("0.1.2.3", "foo")
-	addr2 := network.NewAddressOnSpace("0.1.2.4", "")
-	c.Check(addr1.SpaceName, gc.Equals, network.SpaceName("foo"))
-	c.Check(addr2.SpaceName, gc.Equals, network.SpaceName(""))
+	addr1 := network.NewAddressOnSpace("foo", "0.1.2.3")
+	addr2 := network.NewAddressOnSpace("", "2001:db8::123")
+	c.Check(addr1, jc.DeepEquals, network.Address{
+		Value:       "0.1.2.3",
+		Type:        "ipv4",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "foo",
+	})
+	c.Check(addr2, jc.DeepEquals, network.Address{
+		Value:       "2001:db8::123",
+		Type:        "ipv6",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "",
+	})
+}
+
+func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
+	addrs := network.NewAddressesOnSpace("bar", "0.2.3.4", "fc00::1")
+	c.Check(addrs, jc.DeepEquals, []network.Address{{
+		Value:       "0.2.3.4",
+		Type:        "ipv4",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "bar",
+	}, {
+		Value:       "fc00::1",
+		Type:        "ipv6",
+		Scope:       "local-cloud",
+		NetworkName: "",
+		SpaceName:   "bar",
+	}})
 }
 
 func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
