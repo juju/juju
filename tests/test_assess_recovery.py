@@ -107,6 +107,7 @@ class TestMain(FakeHomeTestCase):
     def test_ha(self, so_mock, cc_mock, co_mock,
                 dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
+        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             main(['./', 'foo', 'log_dir',
@@ -131,6 +132,7 @@ class TestMain(FakeHomeTestCase):
                       dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         error = Exception()
         client = make_mocked_client('foo', status_error=error)
+        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             with self.assertRaises(SystemExit):
@@ -156,6 +158,7 @@ class TestMain(FakeHomeTestCase):
                                    dns_mock, ds_mock, di_mock, ws_mock,
                                    ns_mock, dl_mock):
         client = make_mocked_client('foo')
+        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client', autospec=True,
                    return_value=client):
             with patch.object(client, 'bootstrap', side_effect=Exception):

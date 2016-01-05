@@ -323,7 +323,7 @@ class EnvJujuClient:
             force_arg = ('--force',)
         else:
             force_arg = ()
-        self.juju(
+        exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
@@ -331,6 +331,7 @@ class EnvJujuClient:
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
+        return exit_status
 
     def kill_controller(self):
         """Kill a controller and its environments."""
@@ -905,7 +906,8 @@ def tear_down(client, jes_enabled, try_jes=False):
         if jes_enabled:
             client.kill_controller()
         else:
-            client.destroy_environment()
+            if client.destroy_environment(force=False) != 0:
+                client.destroy_environment(force=True)
 
 
 def uniquify_local(env):
