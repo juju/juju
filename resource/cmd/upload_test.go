@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"io"
+	"reflect"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -133,15 +134,34 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 }
 
 // checkCall checks that the given function has been called exactly len(args)
-// times, and that the args passed to the Nth call match args[N].
-func checkCall(c *gc.C, stub *testing.Stub, funcname string, args [][]interface{}) {
+// times, and that the args passed to the Nth call match expected[N].
+func checkCall(c *gc.C, stub *testing.Stub, funcname string, expected [][]interface{}) {
 	var actual [][]interface{}
 	for _, call := range stub.Calls() {
 		if call.FuncName == funcname {
 			actual = append(actual, call.Args)
 		}
 	}
-	c.Assert(actual, jc.DeepEquals, args)
+	checkSameContent(c, actual, expected)
+}
+
+func checkSameContent(c *gc.C, actual, expected [][]interface{}) {
+	for i, args := range actual {
+		if len(expected) == 0 {
+			c.Check(actual[i:], gc.HasLen, 0, gc.Commentf("unexpected call"))
+			break
+		}
+		matched := false
+		for j, expect := range expected {
+			if reflect.DeepEqual(args, expect) {
+				expected = append(expected[:j], expected[j+1:]...)
+				matched = true
+				break
+			}
+		}
+		c.Check(matched, jc.IsTrue, gc.Commentf("extra call %#v", args))
+	}
+	c.Check(expected, gc.HasLen, 0, gc.Commentf("unmatched calls %#v", expected))
 }
 
 type stubUploadDeps struct {
