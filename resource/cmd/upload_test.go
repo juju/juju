@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"io"
-	"reflect"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -29,7 +28,6 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.stubDeps = &stubUploadDeps{
 		stub:   s.stub,
-		file:   &stubFile{stub: s.stub},
 		client: &stubAPIClient{stub: s.stub},
 	}
 }
@@ -121,6 +119,8 @@ used as a resource for a service.
 }
 
 func (s *UploadSuite) TestRun(c *gc.C) {
+	file := &stubFile{stub: s.stub}
+	s.stubDeps.file = file
 	u := UploadCommand{
 		deps: UploadDeps{
 			NewClient:    s.stubDeps.NewClient,
@@ -141,45 +141,20 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 	err := u.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkCall(c, s.stub, "OpenResource", [][]interface{}{
-		{"bar"},
-		{"bat"},
-	})
-	checkCall(c, s.stub, "Upload", [][]interface{}{
-		{"svc", "foo", s.stubDeps.file},
-		{"svc", "baz", s.stubDeps.file},
-	})
-}
-
-// checkCall checks that the given function has been called exactly len(args)
-// times, and that the args passed to the Nth call match expected[N].
-func checkCall(c *gc.C, stub *testing.Stub, funcname string, expected [][]interface{}) {
-	var actual [][]interface{}
-	for _, call := range stub.Calls() {
-		if call.FuncName == funcname {
-			actual = append(actual, call.Args)
-		}
-	}
-	checkSameContent(c, actual, expected)
-}
-
-func checkSameContent(c *gc.C, actual, expected [][]interface{}) {
-	for i, args := range actual {
-		if len(expected) == 0 {
-			c.Check(actual[i:], gc.HasLen, 0, gc.Commentf("unexpected call"))
-			break
-		}
-		matched := false
-		for j, expect := range expected {
-			if reflect.DeepEqual(args, expect) {
-				expected = append(expected[:j], expected[j+1:]...)
-				matched = true
-				break
-			}
-		}
-		c.Check(matched, jc.IsTrue, gc.Commentf("extra call %#v", args))
-	}
-	c.Check(expected, gc.HasLen, 0, gc.Commentf("unmatched calls %#v", expected))
+	s.stub.CheckCallNames(c,
+		"NewClient",
+		"OpenResource",
+		"Upload",
+		"FileClose",
+		"OpenResource",
+		"Upload",
+		"FileClose",
+		"Close",
+	)
+	s.stub.CheckCall(c, 1, "OpenResource", "bar")
+	s.stub.CheckCall(c, 2, "Upload", "svc", "foo", file)
+	s.stub.CheckCall(c, 4, "OpenResource", "bat")
+	s.stub.CheckCall(c, 5, "Upload", "svc", "baz", file)
 }
 
 type stubUploadDeps struct {
