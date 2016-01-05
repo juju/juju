@@ -110,7 +110,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 	for _, rf := range c.resourceFiles {
 		// don't want to do a bulk upload since we're doing potentially large
 		// file uploads.
-		if err := c.upload(rf.service, rf.name, rf.filename, apiclient); err != nil {
+		if err := c.upload(rf, apiclient); err != nil {
 			name := rf.service + "/" + rf.name
 			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", name))
 		}
@@ -131,12 +131,12 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // service with the given name.
-func (c *UploadCommand) upload(service, name, file string, client UploadClient) error {
-	f, err := c.deps.OpenResource(file)
+func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
+	f, err := c.deps.OpenResource(rf.filename)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(service, name, f)
+	err = client.Upload(rf.service, rf.name, f)
 	return errors.Trace(err)
 }
