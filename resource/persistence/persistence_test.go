@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -98,6 +99,146 @@ func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	)
 }
 
+func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
+	res, doc := newResource(c, "a-service", "spam")
+	doc.DocID += "#staged"
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, ignoredErr)
+
+	err := p.StageResource(res.Name, "a-service", res)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "RunTransaction")
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}})
+}
+
+func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
+	res, doc := newResource(c, "a-service", "spam")
+	doc.DocID += "#staged"
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
+
+	err := p.StageResource(res.Name, "a-service", res)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}})
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Assert: &doc,
+	}})
+}
+
+func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
+	res, _ := newResource(c, "a-service", "spam")
+	res.Timestamp = time.Time{}
+	p := NewPersistence(s.base)
+
+	err := p.StageResource(res.Name, "a-service", res)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `bad resource.*`)
+
+	s.stub.CheckNoCalls(c)
+}
+
+func (s *PersistenceSuite) TestUnstageResourceOkay(c *gc.C) {
+	res, _ := newResource(c, "a-service", "spam")
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, ignoredErr)
+
+	err := p.UnstageResource(res.Name, "a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "RunTransaction")
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Remove: true,
+	}})
+}
+
+func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
+	res, doc := newResource(c, "a-service", "spam")
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, ignoredErr)
+
+	err := p.SetResource(res.Name, "a-service", res)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "RunTransaction")
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Remove: true,
+	}})
+}
+
+func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
+	res, doc := newResource(c, "a-service", "spam")
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
+
+	err := p.SetResource(res.Name, "a-service", res)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Remove: true,
+	}})
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service#spam",
+		Assert: txn.DocExists,
+		Update: &doc,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service#spam#staged",
+		Remove: true,
+	}})
+}
+
+func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
+	res, _ := newResource(c, "a-service", "spam")
+	res.Timestamp = time.Time{}
+	p := NewPersistence(s.base)
+
+	err := p.SetResource(res.Name, "a-service", res)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `bad resource.*`)
+
+	s.stub.CheckNoCalls(c)
+}
+
 func newResources(c *gc.C, serviceID string, names ...string) ([]resource.Resource, []resourceDoc) {
 	var resources []resource.Resource
 	var docs []resourceDoc
@@ -126,7 +267,7 @@ func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDo
 			Fingerprint: fp,
 		},
 		Username:  "a-user",
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 
 	doc := resourceDoc{

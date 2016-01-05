@@ -32,6 +32,11 @@ type Storage interface {
 	// Put stores data from reader at path, namespaced to the environment.
 	Put(path string, r io.Reader, length int64) error
 
+	// PutAndCheckHash stores data from reader at path, namespaced
+	// to the environment. It also ensures the stored data has the
+	// correct hash.
+	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
+
 	// Remove removes data at path, namespaced to the environment.
 	Remove(path string) error
 }
@@ -54,8 +59,8 @@ func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
 }
 
 func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
-	session, ms := s.blobstore()
-	r, length, err = ms.GetForEnvironment(s.envUUID, path)
+	session, managedStorage := s.blobstore()
+	r, length, err = managedStorage.GetForEnvironment(s.envUUID, path)
 	if err != nil {
 		session.Close()
 		return nil, -1, err
@@ -64,15 +69,21 @@ func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error
 }
 
 func (s stateStorage) Put(path string, r io.Reader, length int64) error {
-	session, ms := s.blobstore()
+	session, managedStorage := s.blobstore()
 	defer session.Close()
-	return ms.PutForEnvironment(s.envUUID, path, r, length)
+	return managedStorage.PutForEnvironment(s.envUUID, path, r, length)
+}
+
+func (s stateStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
+	session, managedStorage := s.blobstore()
+	defer session.Close()
+	return managedStorage.PutForEnvironmentAndCheckHash(s.envUUID, path, r, length, hash)
 }
 
 func (s stateStorage) Remove(path string) error {
-	session, ms := s.blobstore()
+	session, managedStorage := s.blobstore()
 	defer session.Close()
-	return ms.RemoveForEnvironment(s.envUUID, path)
+	return managedStorage.RemoveForEnvironment(s.envUUID, path)
 }
 
 type stateStorageReadCloser struct {
