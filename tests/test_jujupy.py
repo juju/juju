@@ -128,6 +128,7 @@ class FakeEnvironmentState:
 
     def destroy_environment(self):
         self._clear()
+        return 0
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -242,7 +243,7 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
-    def destroy_environment(self):
+    def destroy_environment(self, force=True):
         self._backing_state.destroy_environment()
 
     def add_ssh_machines(self, machines):
@@ -430,8 +431,19 @@ class TestTearDown(TestCase):
 
     def test_tear_down_no_jes(self):
         client = MagicMock()
+        client.destroy_environment.return_value = 0
         tear_down(client, False)
-        client.destroy_environment.assert_called_once_with()
+        client.destroy_environment.assert_called_once_with(force=False)
+        self.assertEqual(0, client.kill_controller.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_no_jes_exception(self):
+        client = MagicMock()
+        client.destroy_environment.side_effect = [1, 0]
+        tear_down(client, False)
+        self.assertEqual(
+            client.destroy_environment.mock_calls,
+            [call(force=False), call(force=True)])
         self.assertEqual(0, client.kill_controller.call_count)
         self.assertEqual(0, client.disable_jes.call_count)
 
@@ -466,15 +478,16 @@ class TestTearDown(TestCase):
 
     def test_tear_down_try_jes_not_supported(self):
 
-        def check_jes():
+        def check_jes(force=True):
             client.enable_jes.assert_called_once_with()
+            return 0
 
         client = MagicMock()
         client.enable_jes.side_effect = JESNotSupported
         client.destroy_environment.side_effect = check_jes
 
         tear_down(client, jes_enabled=False, try_jes=True)
-        client.destroy_environment.assert_called_once_with()
+        client.destroy_environment.assert_called_once_with(force=False)
         self.assertEqual(0, client.disable_jes.call_count)
 
 
