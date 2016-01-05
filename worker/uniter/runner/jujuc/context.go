@@ -260,6 +260,14 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+
+	// NetworkConfig returns the network configuration for the relation.
+	//
+	// TODO(dimitern): Currently, only the Address is populated, add the
+	// rest later.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
+	NetworkConfig() ([]params.NetworkConfig, error)
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with
