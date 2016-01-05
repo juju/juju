@@ -124,12 +124,8 @@ func (r resources) registerPublicCommands() {
 	}
 
 	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
-		//return newCharmstore()
-		store, err := newCharmstore()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &charmstore{store}, nil
+		client := newCharmstoreClient()
+		return &charmstoreClient{client}, nil
 	}
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
@@ -148,25 +144,25 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-func newCharmstore() (charmrepo.Interface, error) {
+func newCharmstoreClient() charmrepo.Interface {
 	// Also see apiserver/service/charmstore.go.
 	var args charmrepo.NewCharmStoreParams
-	store := charmrepo.NewCharmStore(args)
-	return store, nil
+	client := charmrepo.NewCharmStore(args)
+	return client
 }
 
-// TODO(ericsnow) Get rid of charmstore one charmrepo.Interface grows the methods.
+// TODO(ericsnow) Get rid of charmstoreClient one charmrepo.Interface grows the methods.
 
-type charmstore struct {
+type charmstoreClient struct {
 	charmrepo.Interface
 }
 
-func (charmstore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
 	// TODO(ericsnow) finish!
 	return nil, errors.Errorf("not implemented")
 }
 
-func (charmstore) Close() error {
+func (charmstoreClient) Close() error {
 	return nil
 }
 
