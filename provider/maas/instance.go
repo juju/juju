@@ -181,6 +181,23 @@ func (mi *maasInstance) ipAddresses() ([]string, error) {
 	return ips, nil
 }
 
+func (mi *maasInstance) interfaces() ([]network.InterfaceInfo, error) {
+	jsonObj, ok := mi.maasObject.GetMap()["interface_set"]
+	if !ok || jsonObj.IsNil() {
+		return nil, errors.New("missing or nil interface_set")
+	}
+	rawBytes, err := jsonObj.MarshalJSON()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get JSON bytes")
+	}
+	interfaces, err := parseInterfaces(rawBytes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return maasInterfacesToInterfaceInfo(interfaces), nil
+}
+
 func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 	// MAAS may return an architecture of the form, for example,
 	// "amd64/generic"; we only care about the major part.
