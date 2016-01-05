@@ -248,6 +248,8 @@ func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
 // IPv6-only deployments on MAAS, it's still possible to get a node provisioned
 // with an IPv6 address not part of the default space (which should be possible
 // to detect early and/or prevent by using stricter node selection constraints).
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
 func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
 	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
 	if ok {
