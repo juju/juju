@@ -17,9 +17,9 @@ import (
 
 const (
 	resourcesC = "resources"
-)
 
-const stagedIDSuffix = "#staged"
+	stagedIDSuffix = "#staged"
+)
 
 // resourceID converts an external resource ID into an internal one.
 func (p Persistence) resourceID(id, serviceID string) string {
