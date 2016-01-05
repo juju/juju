@@ -15,11 +15,11 @@ type Resources interface {
 	ListResources(serviceID string) ([]resource.Resource, error)
 }
 
-var newResources func(Persistence) (Resources, error)
+var newResources func(Persistence) Resources
 
 // SetResourcesComponent registers the function that provide the state
 // functionality related to resources.
-func SetResourcesComponent(fn func(Persistence) (Resources, error)) {
+func SetResourcesComponent(fn func(Persistence) Resources) {
 	newResources = fn
 }
 
@@ -30,9 +30,6 @@ func (st *State) Resources() (Resources, error) {
 	}
 
 	persist := st.newPersistence()
-	resources, err := newResources(persist)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	resources := newResources(persist)
 	return resources, nil
 }

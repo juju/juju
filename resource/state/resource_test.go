@@ -38,8 +38,7 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = expected
-	st, err := state.NewState(s.raw)
-	c.Assert(err, jc.ErrorIsNil)
+	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
 
 	resources, err := st.ListResources("a-service")
@@ -51,8 +50,7 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
-	st, err := state.NewState(s.raw)
-	c.Assert(err, jc.ErrorIsNil)
+	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
 
 	resources, err := st.ListResources("a-service")
@@ -65,13 +63,12 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = expected
-	st, err := state.NewState(s.raw)
-	c.Assert(err, jc.ErrorIsNil)
+	st := state.NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
-	_, err = st.ListResources("a-service")
+	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "ListResources")

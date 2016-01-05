@@ -17,13 +17,11 @@ type stubRawState struct {
 	ReturnPersistence state.Persistence
 }
 
-func (s *stubRawState) Persistence() (state.Persistence, error) {
+func (s *stubRawState) Persistence() state.Persistence {
 	s.stub.AddCall("Persistence")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	s.stub.NextErr()
 
-	return s.ReturnPersistence, nil
+	return s.ReturnPersistence
 }
 
 type stubPersistence struct {

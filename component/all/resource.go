@@ -89,12 +89,9 @@ func (resources) registerState() {
 		return
 	}
 
-	newResources := func(persist corestate.Persistence) (corestate.Resources, error) {
-		st, err := state.NewState(&resourceState{persist: persist})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return st, nil
+	newResources := func(persist corestate.Persistence) corestate.Resources {
+		st := state.NewState(&resourceState{persist: persist})
+		return st
 	}
 
 	corestate.SetResourcesComponent(newResources)
@@ -107,8 +104,8 @@ type resourceState struct {
 }
 
 // Persistence implements resource/state.RawState.
-func (st resourceState) Persistence() (state.Persistence, error) {
-	return persistence.NewPersistence(st.persist), nil
+func (st resourceState) Persistence() state.Persistence {
+	return persistence.NewPersistence(st.persist)
 }
 
 // registerPublicCommands adds the resources-related commands
