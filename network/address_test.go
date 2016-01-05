@@ -116,6 +116,13 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	}
 }
 
+func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
+	addr1 := network.NewAddressOnSpace("0.1.2.3", "foo")
+	addr2 := network.NewAddressOnSpace("0.1.2.4", "")
+	c.Check(addr1.SpaceName, gc.Equals, network.SpaceName("foo"))
+	c.Check(addr2.SpaceName, gc.Equals, network.SpaceName(""))
+}
+
 func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
 	value := "0.1.2.3"
 	addr1 := network.NewScopedAddress(value, network.ScopeUnknown)

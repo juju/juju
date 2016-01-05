@@ -123,6 +123,14 @@ func NewScopedAddress(value string, scope Scope) Address {
 	return addr
 }
 
+// NewAddressOnSpace creates a new Address, deriving its type and scope from the
+// value and associating it with the given spaceName.
+func NewAddressOnSpace(value string, spaceName string) Address {
+	addr := NewAddress(value)
+	addr.SpaceName = SpaceName(spaceName)
+	return addr
+}
+
 // NewAddresses is a convenience function to create addresses from a
 // string slice.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
