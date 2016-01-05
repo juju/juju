@@ -84,7 +84,7 @@ func (s *metricsManagerSuite) TestGetMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(result.Results[0], gc.DeepEquals, params.MetricsResult{
-		Metric: []params.MetricResult{
+		Metrics: []params.MetricResult{
 			{
 				Key:   "pings",
 				Value: "5",
@@ -94,7 +94,7 @@ func (s *metricsManagerSuite) TestGetMetrics(c *gc.C) {
 		Error: nil,
 	})
 	c.Assert(result.Results[1], gc.DeepEquals, params.MetricsResult{
-		Metric: []params.MetricResult{
+		Metrics: []params.MetricResult{
 			{
 				Key:   "pings",
 				Value: "5",

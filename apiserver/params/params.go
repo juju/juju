@@ -809,9 +809,19 @@ type MetricsResults struct {
 	Results []MetricsResult `json:"results"`
 }
 
+// OneError returns the first error
+func (m *MetricsResults) OneError() error {
+	for _, r := range m.Results {
+		if err := r.Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type MetricsResult struct {
-	Metric []MetricResult `json:"metric,ommitempty"`
-	Error  *Error         `json:"error,omitempty"`
+	Metrics []MetricResult `json:"metrics,omitempty"`
+	Error   *Error         `json:"error,omitempty"`
 }
 
 type MetricResult struct {

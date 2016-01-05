@@ -106,7 +106,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResu
 					Time:  m.Time,
 				}
 			}
-			results.Results[i].Metric = metricresult
+			results.Results[i].Metrics = metricresult
 		}
 	}
 	return results, nil
