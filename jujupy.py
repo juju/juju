@@ -44,7 +44,7 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 DEFAULT_JES_COMMAND_2x = 'controller'
-DEFAULT_JES_COMMAND_1x = 'destroy-controller'
+DEFAULT_JES_COMMAND_1x = 'kill-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
 _jes_cmds = {DEFAULT_JES_COMMAND_1x: {
