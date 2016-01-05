@@ -14,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
+	jc "github.com/juju/testing/checkers"
 )
 
 type SpacesSuite struct {
@@ -185,4 +186,28 @@ func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
 
 	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches, "validating environment config: boom")
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets)
+
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName, apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets)
+	apiservertesting.SharedStub.SetErrors(
+		nil,                // Backing.EnvironConfig()
+		nil,                // environs.New()
+		errors.New("boom"), // Backing.SupportsSpaces()
+	)
+
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *SpacesSuite) TestSuppportsSpaces(c *gc.C) {
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	c.Assert(err, jc.ErrorIsNil)
 }
