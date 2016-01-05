@@ -25,7 +25,6 @@ package dummy
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -263,10 +262,7 @@ type environState struct {
 	insts        map[instance.Id]*dummyInstance
 	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
-	storageDelay time.Duration
-	storage      *storageServer
 	apiListener  net.Listener
-	httpListener net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
 	preferIPv6   bool
@@ -315,7 +311,6 @@ func Reset() {
 	defer p.mu.Unlock()
 	providerInstance.ops = discardOperations
 	for _, s := range p.state {
-		s.httpListener.Close()
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
@@ -330,7 +325,6 @@ func Reset() {
 }
 
 func (state *environState) destroy() {
-	state.storage.files = make(map[string][]byte)
 	if !state.bootstrapped {
 		return
 	}
@@ -369,9 +363,7 @@ func (e *environ) GetStateInAPIServer() *state.State {
 	return st.apiState
 }
 
-// newState creates the state for a new environment with the
-// given name and starts an http server listening for
-// storage requests.
+// newState creates the state for a new environment with the given name.
 func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
 	s := &environState{
 		name:        name,
@@ -380,22 +372,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		insts:       make(map[instance.Id]*dummyInstance),
 		globalPorts: make(map[network.PortRange]bool),
 	}
-	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.listenStorage()
 	return s
-}
-
-// listenStorage starts a network listener listening for http
-// requests to retrieve files in the state's storage.
-func (s *environState) listenStorage() {
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(fmt.Errorf("cannot start listener: %v", err))
-	}
-	s.httpListener = l
-	mux := http.NewServeMux()
-	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
-	go http.Serve(l, mux)
 }
 
 // listenAPI starts a network listener listening for API
@@ -445,19 +422,6 @@ func Listen(c chan<- Operation) {
 	for _, st := range p.state {
 		st.mu.Lock()
 		st.ops = c
-		st.mu.Unlock()
-	}
-}
-
-// SetStorageDelay causes any storage download operation in any current
-// environment to be delayed for the given duration.
-func SetStorageDelay(d time.Duration) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, st := range p.state {
-		st.mu.Lock()
-		st.storageDelay = d
 		st.mu.Unlock()
 	}
 }

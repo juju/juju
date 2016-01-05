@@ -330,11 +330,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
-		if localConfig.storagePort() != oldLocalConfig.storagePort() {
-			return nil, errors.Errorf("cannot change storage-port from %v to %v",
-				oldLocalConfig.storagePort(),
-				localConfig.storagePort())
-		}
 		if localConfig.namespace() != oldLocalConfig.namespace() {
 			return nil, errors.Errorf("cannot change namespace from %v to %v",
 				oldLocalConfig.namespace(),
@@ -382,17 +377,11 @@ func (environProvider) BoilerplateConfig() string {
 local:
     type: local
 
-    # root-dir holds the directory that is used for the storage files and
-    # database. The default location is $JUJU_HOME/<env-name>.
+    # root-dir holds the directory that is used for the database.
+    # The default location is $JUJU_HOME/<env-name>.
     # $JUJU_HOME defaults to ~/.juju. Override if needed.
     #
     # root-dir: ~/.juju/local
-
-    # storage-port holds the port where the local provider starts the
-    # HTTP file server. Override the value if you have multiple local
-    # providers, or if the default port is used by another program.
-    #
-    # storage-port: 8040
 
     # network-bridge holds the name of the LXC network bridge to use.
     # Override if the default LXC network bridge is different.
