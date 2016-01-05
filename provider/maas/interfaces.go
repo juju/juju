@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
+	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -95,6 +96,99 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 		return nil, errors.Annotate(err, "parsing interfaces")
 	}
 	return interfaces, nil
+}
+
+// maasObjectNetworkInterfaces implements environs.NetworkInterfaces() assuming
+// the new (1.9+) MAAS API is supported and uses the given maasObject's stored
+// JSON to extract all the relevant InterfaceInfo fields.
+func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.InterfaceInfo, error) {
+
+	interfaceSet, ok := maasObject.GetMap()["interface_set"]
+	if !ok || interfaceSet.IsNil() {
+		return nil, errors.Errorf("unexpected node JSON: missing or nil interface_set found")
+	}
+
+	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
+	// JSON bytes directly, rather than having to do call MarshalJSON just so
+	// the result can be unmarshaled from it.
+
+	rawBytes, err := interfaceSet.MarshalJSON()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
+	}
+
+	interfaces, err := parseInterfaces(rawBytes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	infos := make([]network.InterfaceInfo, 0, len(interfaces))
+	for i, iface := range interfaces {
+		nicInfo := network.InterfaceInfo{
+			DeviceIndex:   i,
+			MACAddress:    iface.MACAddress,
+			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
+			VLANTag:       iface.VLAN.VID,
+			InterfaceName: iface.Name,
+			Disabled:      !iface.Enabled,
+			NoAutoStart:   !iface.Enabled,
+		}
+
+		for _, link := range iface.Links {
+			switch link.Mode {
+			case modeUnknown:
+				nicInfo.ConfigType = network.ConfigUnknown
+			case modeDHCP:
+				nicInfo.ConfigType = network.ConfigDHCP
+			case modeStatic, modeLinkUp:
+				nicInfo.ConfigType = network.ConfigStatic
+			default:
+				nicInfo.ConfigType = network.ConfigManual
+			}
+
+			if link.IPAddress != "" {
+				ipAddr := network.NewScopedAddress(link.IPAddress, network.ScopeCloudLocal)
+				nicInfo.Address = ipAddr
+			} else {
+				logger.Warningf("interface %q has no address", iface.Name)
+			}
+
+			if link.Subnet == nil {
+				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
+				infos[i] = nicInfo
+				continue
+			}
+
+			sub := link.Subnet
+			nicInfo.CIDR = sub.CIDR
+			gwAddr := network.NewScopedAddress(sub.GatewayIP, network.ScopeCloudLocal)
+			nicInfo.GatewayAddress = gwAddr
+			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.DNSServers = network.NewAddresses(sub.DNSServers...)
+
+			// TODO: DNSSearch (get from get-curtin-config?), MTU, parent/child
+			// relationships will be nice..
+
+			// Each link we represent as a separate InterfaceInfo, but with the
+			// same name and device index, just different addres, subnet, etc.
+			infos = append(infos, nicInfo)
+		}
+	}
+	return infos, nil
+}
+
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if !environ.supportsNetworkDeploymentUbuntu {
+		return environ.legacyNetworkInterfaces(instId)
+	}
+
+	inst, err := environ.getInstance(instId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mi := inst.(*maasInstance)
+	return maasObjectNetworkInterfaces(mi.maasObject)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

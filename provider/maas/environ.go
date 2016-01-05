@@ -1453,11 +1453,6 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	return err
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces.
-func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	return environ.legacyNetworkInterfaces(instId)
-}
-
 // subnetsFromNode fetches all the subnets for a specific node.
 func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObject, error) {
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
