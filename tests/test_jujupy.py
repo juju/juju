@@ -128,6 +128,7 @@ class FakeEnvironmentState:
 
     def destroy_environment(self):
         self._clear()
+        return 0
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -242,7 +243,7 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
-    def destroy_environment(self):
+    def destroy_environment(self, force=True):
         self._backing_state.destroy_environment()
 
     def add_ssh_machines(self, machines):
@@ -262,6 +263,12 @@ class FakeJujuClient:
 
     def status_until(self, timeout):
         yield self.get_status()
+
+    def deployer(self, bundle, name=None):
+        pass
+
+    def wait_for_workloads(self):
+        pass
 
 
 class TestErroredUnit(TestCase):
@@ -424,8 +431,19 @@ class TestTearDown(TestCase):
 
     def test_tear_down_no_jes(self):
         client = MagicMock()
+        client.destroy_environment.return_value = 0
         tear_down(client, False)
-        client.destroy_environment.assert_called_once_with()
+        client.destroy_environment.assert_called_once_with(force=False)
+        self.assertEqual(0, client.kill_controller.call_count)
+        self.assertEqual(0, client.disable_jes.call_count)
+
+    def test_tear_down_no_jes_exception(self):
+        client = MagicMock()
+        client.destroy_environment.side_effect = [1, 0]
+        tear_down(client, False)
+        self.assertEqual(
+            client.destroy_environment.mock_calls,
+            [call(force=False), call(force=True)])
         self.assertEqual(0, client.kill_controller.call_count)
         self.assertEqual(0, client.disable_jes.call_count)
 
@@ -460,15 +478,16 @@ class TestTearDown(TestCase):
 
     def test_tear_down_try_jes_not_supported(self):
 
-        def check_jes():
+        def check_jes(force=True):
             client.enable_jes.assert_called_once_with()
+            return 0
 
         client = MagicMock()
         client.enable_jes.side_effect = JESNotSupported
         client.destroy_environment.side_effect = check_jes
 
         tear_down(client, jes_enabled=False, try_jes=True)
-        client.destroy_environment.assert_called_once_with()
+        client.destroy_environment.assert_called_once_with(force=False)
         self.assertEqual(0, client.disable_jes.call_count)
 
 
@@ -1157,6 +1176,47 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_workloads()
         self.assertEqual(writes, ['waiting: jenkins/0', '\n'])
 
+    def test_wait_for_workload_all_unknown(self):
+        status = Status.from_text("""\
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    workload-status:
+                      current: unknown
+                  subordinates:
+                    ntp/0:
+                      workload-status:
+                        current: unknown
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        writes = []
+        with patch('utility.until_timeout', autospec=True, return_value=[]):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    client.wait_for_workloads(timeout=1)
+        self.assertEqual(writes, [])
+
+    def test_wait_for_workload_no_workload_status(self):
+        status = Status.from_text("""\
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    agent-state: active
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        writes = []
+        with patch('utility.until_timeout', autospec=True, return_value=[]):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda _, s: writes.append(s)):
+                    client.wait_for_workloads(timeout=1)
+        self.assertEqual(writes, [])
+
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {
@@ -1604,8 +1664,9 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--config',
-                         'bundle:~juju-qa/some-bundle'), True
+            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
+            True
         )
 
     def test_deployer_with_bundle_name(self):
@@ -1614,8 +1675,10 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--config',
-                         'bundle:~juju-qa/some-bundle', 'name'), True
+            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle',
+                         'name'),
+            True
         )
 
     def test_quickstart_maas(self):

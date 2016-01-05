@@ -860,6 +860,15 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
 
+    def test_jes_not_permanent(self):
+        with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
+                                     ' if jes_enabled is True.'):
+            BootstrapManager(
+                jes_enabled=True, permanent=False,
+                temp_env_name=None, client=None, tear_down_client=None,
+                bootstrap_host=None, machines=[], series=None, agent_url=None,
+                agent_stream=None, region=None, log_dir=None, keep_env=None)
+
     def test_aws_machines_updates_bootstrap_host(self):
         client = FakeJujuClient()
         client.env.config['type'] = 'manual'
@@ -1080,7 +1089,8 @@ class TestBootContext(FakeHomeTestCase):
             patch('deploy_stack.dump_env_logs_known_hosts'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
-        c_mock = self.addContext(patch('subprocess.call', autospec=True))
+        c_mock = self.addContext(patch('subprocess.call', autospec=True,
+                                 return_value=0))
         if jes:
             output = jes
             help_index = 1
@@ -1119,7 +1129,7 @@ class TestBootContext(FakeHomeTestCase):
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
                         'juju', '--show-log', 'destroy-environment', 'bar',
-                        '--force', '-y'), call_index)
+                        '-y'), call_index)
         self.assertEqual(tear_down_count, c_mock.call_count)
 
     def test_bootstrap_context(self):
@@ -1189,7 +1199,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         self.addContext(patch('subprocess.check_call'))
-        call_mock = self.addContext(patch('subprocess.call'))
+        call_mock = self.addContext(patch('subprocess.call', return_value=0))
         po_mock = self.addContext(patch('subprocess.Popen', autospec=True,
                                         return_value=FakePopen('', '', 0)))
         self.addContext(patch('deploy_stack.wait_for_port'))
@@ -1213,13 +1223,11 @@ class TestBootContext(FakeHomeTestCase):
         timeout_path = get_timeout_path()
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'destroy-environment', 'bar', '--force',
-            '-y'
+            'juju', '--show-log', 'destroy-environment', 'bar', '-y'
             ), 0)
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'destroy-environment', 'bar', '--force',
-            '-y'
+            'juju', '--show-log', 'destroy-environment', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
         assert_juju_call(self, po_mock, client, (

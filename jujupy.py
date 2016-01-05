@@ -323,7 +323,7 @@ class EnvJujuClient:
             force_arg = ('--force',)
         else:
             force_arg = ()
-        self.juju(
+        exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
@@ -331,6 +331,7 @@ class EnvJujuClient:
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
+        return exit_status
 
     def kill_controller(self):
         """Kill a controller and its environments."""
@@ -462,11 +463,12 @@ class EnvJujuClient:
             args.extend([service])
         return self.juju('deploy', tuple(args))
 
-    def deployer(self, bundle, name=None):
+    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
         args = (
             '--debug',
-            '--deploy-delay', '10',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
             '--config', bundle,
         )
         if name:
@@ -621,10 +623,12 @@ class EnvJujuClient:
                 workload = unit.get('workload-status')
                 if workload is not None:
                     state = workload['current']
-                    if state != 'unknown':
-                        unit_states[state].append(name)
-            if unit_states.keys() == ['active']:
+                else:
+                    state = 'unknown'
+                unit_states[state].append(name)
+            if set(('active', 'unknown')).issuperset(unit_states):
                 return None
+            unit_states.pop('unknown', None)
             return unit_states
         reporter = GroupReporter(sys.stdout, 'active')
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
@@ -902,7 +906,8 @@ def tear_down(client, jes_enabled, try_jes=False):
         if jes_enabled:
             client.kill_controller()
         else:
-            client.destroy_environment()
+            if client.destroy_environment(force=False) != 0:
+                client.destroy_environment(force=True)
 
 
 def uniquify_local(env):
