@@ -56,8 +56,11 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
-	// TODO(ericsnow) fix this...
-	return []string{}
+	return []string{
+		"remote-url",
+		"client-cert",
+		"client-key",
+	}
 }
 
 // Validate implements environs.EnvironProvider.

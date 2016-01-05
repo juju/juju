@@ -21,6 +21,7 @@ import (
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/joyent"
 	_ "github.com/juju/juju/provider/local"
+	_ "github.com/juju/juju/provider/lxd"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
@@ -157,6 +158,11 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"container", "network-bridge", "root-dir", "proxy-ssh"},
+		}, {
+			provider: "lxd",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"remote-url", "client-cert", "client-key"},
 		}, {
 			provider: "maas",
 			expected: []string{
