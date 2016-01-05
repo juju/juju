@@ -71,6 +71,7 @@ var seriesVersions map[string]string = map[string]string{
 	"precise": "12.04",
 	"raring":  "13.04",
 	"trusty":  "14.04",
+	"xenial":  "16.04",
 }
 
 type expectedMetadata struct {

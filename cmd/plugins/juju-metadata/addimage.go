@@ -35,8 +35,8 @@ options:
 -e, --environment (= "")
    juju environment to operate in
 --region
-   cloud region
---series (= "trusty")
+   cloud region (= region of current model)
+--series (= current model preferred series)
    image series
 --arch (= "amd64")
    image architectures
@@ -91,9 +91,7 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	// TODO (anastasiamac 2015-09-30) Ideally default should be latest LTS.
-	// Hard-coding "trusty" for now.
-	f.StringVar(&c.Series, "series", "trusty", "image series")
+	f.StringVar(&c.Series, "series", "", "image series")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
@@ -140,8 +138,10 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 
 // Init implements Command.Init.
 func (c *addImageMetadataCommand) validate() error {
-	if _, err := series.SeriesVersion(c.Series); err != nil {
-		return errors.Trace(err)
+	if c.Series != "" {
+		if _, err := series.SeriesVersion(c.Series); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

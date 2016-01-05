@@ -136,9 +136,6 @@ func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImage
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Need to make sure that defaults are populated
-	if m.Series == "" {
-		m.Series = "trusty"
-	}
 	if m.Arch == "" {
 		m.Arch = "amd64"
 	}

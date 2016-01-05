@@ -232,8 +232,7 @@ var _ = gc.Suite(&regionMetadataSuite{})
 type regionMetadataSuite struct {
 	baseImageMetadataSuite
 
-	provider mockEnvironProvider
-	env      *mockEnviron
+	env *mockEnviron
 
 	saved    []cloudimagemetadata.Metadata
 	expected []cloudimagemetadata.Metadata
@@ -242,9 +241,7 @@ type regionMetadataSuite struct {
 func (s *regionMetadataSuite) SetUpSuite(c *gc.C) {
 	s.baseImageMetadataSuite.SetUpSuite(c)
 
-	s.provider = mockEnvironProvider{}
 	s.env = &mockEnviron{}
-	environs.RegisterProvider("mock", s.provider)
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	// Prepare mock http transport for overriding metadata and images output in tests.
@@ -310,7 +307,7 @@ func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
 
-	tempCalls := []string{environConfig}
+	tempCalls := []string{environConfig, environConfig}
 	for _ = range s.expected {
 		tempCalls = append(tempCalls, saveMetadata)
 	}
@@ -428,7 +425,11 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	s.expected = append(s.expected, m1)
 
-	s.checkStoredPublished(c)
+	err = s.api.UpdateFromPublishedImages()
+	c.Assert(err, jc.ErrorIsNil)
+	calls := []string{environConfig, environConfig, saveMetadata, environConfig, saveMetadata, saveMetadata}
+	s.assertCalls(c, calls)
+	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
 func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDSError(c *gc.C) {
