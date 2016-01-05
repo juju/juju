@@ -32,8 +32,8 @@ type UploadDeps struct {
 type UploadCommand struct {
 	deps UploadDeps
 	envcmd.EnvCommandBase
-	service   string
-	resources map[string]string
+	service       string
+	resourceFiles map[string]string
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -66,10 +66,10 @@ func (c *UploadCommand) Init(args []string) error {
 	}
 	c.service = args[0]
 
-	c.resources = make(map[string]string, len(args)-1)
+	c.resourceFiles = make(map[string]string, len(args)-1)
 
 	for _, arg := range args[1:] {
-		if err := c.addResource(arg); err != nil {
+		if err := c.addResourceFile(arg); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -77,18 +77,18 @@ func (c *UploadCommand) Init(args []string) error {
 	return nil
 }
 
-// addResource parses the given arg into a name and a resource file, and saves
-// it in c.resources.
-func (c *UploadCommand) addResource(arg string) error {
+// addResourceFile parses the given arg into a name and a resource file,
+// and saves it in c.resourceFiles.
+func (c *UploadCommand) addResourceFile(arg string) error {
 	vals := strings.SplitN(arg, "=", 2)
 	if len(vals) < 2 || vals[0] == "" || vals[1] == "" {
 		return errors.NotValidf("resource given: %q, but expected name=path format", arg)
 	}
 	name := vals[0]
-	if _, ok := c.resources[name]; ok {
+	if _, ok := c.resourceFiles[name]; ok {
 		return errors.AlreadyExistsf("resource %q", name)
 	}
-	c.resources[name] = vals[1]
+	c.resourceFiles[name] = vals[1]
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 	errs := []error{}
 
-	for name, file := range c.resources {
+	for name, file := range c.resourceFiles {
 		// don't want to do a bulk upload since we're doing potentially large
 		// file uploads.
 		if err := c.upload(c.service, name, file, apiclient); err != nil {
