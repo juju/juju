@@ -102,6 +102,11 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	return nil
 }
 
+// storagePath returns the path used as the location where the resource
+// is stored in state storage. This requires that the returned string
+// be unique and that it be organized in a structured way. In this case
+// we start with a top-level (the service), then under that service use
+// the "resources" section. The provided ID is located under there.
 func storagePath(id, serviceID string) string {
 	return path.Join("service-"+serviceID, "resources", id)
 }
