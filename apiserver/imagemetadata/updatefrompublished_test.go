@@ -425,7 +425,11 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	s.expected = append(s.expected, m1)
 
-	s.checkStoredPublished(c)
+	err = s.api.UpdateFromPublishedImages()
+	c.Assert(err, jc.ErrorIsNil)
+	calls := []string{environConfig, environConfig, saveMetadata, environConfig, saveMetadata, saveMetadata}
+	s.assertCalls(c, calls)
+	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
 func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDSError(c *gc.C) {
