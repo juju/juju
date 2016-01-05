@@ -32,10 +32,8 @@ func (res Resource) Validate() error {
 
 	// TODO(ericsnow) Require that Username be set if timestamp is?
 
-	if res.Timestamp.IsZero() {
-		if res.Username != "" {
-			return errors.NewNotValid(nil, "missing timestamp")
-		}
+	if res.Timestamp.IsZero() && res.Username != "" {
+		return errors.NewNotValid(nil, "missing timestamp")
 	}
 
 	return nil
