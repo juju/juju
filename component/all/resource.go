@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -19,9 +18,9 @@ import (
 	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
+	"github.com/juju/juju/resource/persistence"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 )
 
 // resources exposes the registration methods needed
@@ -31,6 +30,7 @@ type resources struct{}
 // RegisterForServer is the top-level registration method
 // for the component in a jujud context.
 func (r resources) registerForServer() error {
+	r.registerState()
 	r.registerPublicFacade()
 	return nil
 }
@@ -45,6 +45,10 @@ func (r resources) registerForClient() error {
 // registerPublicFacade adds the resources public API facade
 // to the API server.
 func (r resources) registerPublicFacade() {
+	if !markRegistered(resource.ComponentName, "public-facade") {
+		return
+	}
+
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
@@ -59,23 +63,13 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 		return nil, common.ErrPerm
 	}
 
-	rst := state.NewState(&resourceState{raw: st})
-	return server.NewFacade(rst), nil
-}
-
-// resourceState is a wrapper around state.State that supports the needs
-// of resources.
-type resourceState struct {
-	raw *corestate.State
-}
-
-// CharmMetadata implements resource/state.RawState.
-func (st resourceState) CharmMetadata(serviceID string) (*charm.Meta, error) {
-	meta, err := utils.CharmMetadata(st.raw, serviceID)
+	rst, err := st.Resources()
+	//rst, err := state.NewState(&resourceState{raw: st})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return meta, nil
+
+	return server.NewFacade(rst), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
@@ -87,6 +81,31 @@ type resourcesAPIClient struct {
 // Close implements io.Closer.
 func (client resourcesAPIClient) Close() error {
 	return client.closeConnFunc()
+}
+
+// registerState registers the state functionality for resources.
+func (resources) registerState() {
+	if !markRegistered(resource.ComponentName, "state") {
+		return
+	}
+
+	newResources := func(persist corestate.Persistence) corestate.Resources {
+		st := state.NewState(&resourceState{persist: persist})
+		return st
+	}
+
+	corestate.SetResourcesComponent(newResources)
+}
+
+// resourceState is a wrapper around state.State that supports the needs
+// of resources.
+type resourceState struct {
+	persist corestate.Persistence
+}
+
+// Persistence implements resource/state.RawState.
+func (st resourceState) Persistence() state.Persistence {
+	return persistence.NewPersistence(st.persist)
 }
 
 // registerPublicCommands adds the resources-related commands
