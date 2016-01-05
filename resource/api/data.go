@@ -6,6 +6,7 @@ package api
 // TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,14 +22,20 @@ type ListResourcesArgs params.Entities
 // NewListResourcesArgs returns the arguments for the ListResources endpoint.
 func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var args ListResourcesArgs
+	var errs []error
 	for _, service := range services {
 		if !names.IsValidService(service) {
-			return args, errors.Errorf("invalid service %q", service)
+			err := errors.Errorf("invalid service %q", service)
+			errs = append(errs, err)
+			continue
 		}
 
 		args.Entities = append(args.Entities, params.Entity{
 			Tag: names.NewServiceTag(service).String(),
 		})
+	}
+	if err := resolveErrors(errs); err != nil {
+		return args, errors.Trace(err)
 	}
 	return args, nil
 }
@@ -104,4 +111,19 @@ type CharmResource struct {
 
 	// Fingerprint is the SHA-384 checksum for the resource blob.
 	Fingerprint []byte `json:"fingerprint"`
+}
+
+func resolveErrors(errs []error) error {
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errs[0]
+	default:
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return errors.New(strings.Join(msgs, "\n"))
+	}
 }
