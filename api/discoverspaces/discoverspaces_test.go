@@ -76,3 +76,20 @@ func (s *DiscoverSpacesSuite) TestListSpacesSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expectedResult)
 	c.Assert(called, gc.Equals, 1)
 }
+
+func (s *DiscoverSpacesSuite) TestAddSubnetsSuccess(c *gc.C) {
+	var called int
+	expectedResult := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	expectedArgs := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{{SubnetTag: "foo"}},
+	}
+	apiCaller := successAPICaller(c, "AddSubnets", expectedArgs, expectedResult, &called)
+	api := discoverspaces.NewAPI(apiCaller)
+
+	result, err := api.AddSubnets(expectedArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(called, gc.Equals, 1)
+}
