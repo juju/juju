@@ -6,11 +6,13 @@ package discoverspaces_test
 import (
 	"errors"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/discoverspaces"
+	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -42,4 +44,35 @@ func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}, numCal
 		Args:          expectArgs,
 	}
 	return apitesting.CheckingAPICaller(c, args, numCalls, errors.New("client error!"))
+}
+
+func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}, numCalls *int) base.APICaller {
+	args := &apitesting.CheckArgs{
+		Facade:        "DiscoverSpaces",
+		VersionIsZero: true,
+		IdIsEmpty:     true,
+		Method:        method,
+		Args:          expectArgs,
+		Results:       useResults,
+	}
+	return apitesting.CheckingAPICaller(c, args, numCalls, nil)
+}
+
+func (s *DiscoverSpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
+	panicFunc := func() { discoverspaces.NewAPI(nil) }
+	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
+}
+
+func (s *DiscoverSpacesSuite) TestListSpacesSuccess(c *gc.C) {
+	var called int
+	expectedResult := params.DiscoverSpacesResults{
+		Results: []params.ProviderSpace{{Name: "foobar"}},
+	}
+	apiCaller := successAPICaller(c, "ListSpaces", nil, expectedResult, &called)
+	api := discoverspaces.NewAPI(apiCaller)
+
+	result, err := api.ListSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(called, gc.Equals, 1)
 }
