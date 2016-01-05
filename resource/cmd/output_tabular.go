@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
@@ -27,16 +26,9 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
-	tabularColumns := []string{
-		"RESOURCE",
-		"FROM",
-		"REV",
-		"COMMENT",
-	}
-
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, strings.Join(tabularColumns, "\t"))
+	fmt.Fprintln(tw, "RESOURCE\tFROM\tREV\tCOMMENT")
 
 	// Print each info to its own row.
 	for _, res := range resources {
@@ -44,7 +36,7 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 		if res.Origin == OriginStore {
 			rev = fmt.Sprintf("%d", res.Revision)
 		}
-		// tabularColumns must be kept in sync with these.
+		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			res.Name,
 			res.Origin.lower(),
@@ -72,25 +64,17 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
-	tabularColumns := []string{
-		"RESOURCE",
-		"ORIGIN",
-		"REV",
-		"USED",
-		"COMMENT",
-	}
-
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, strings.Join(tabularColumns, "\t"))
+	fmt.Fprintln(tw, "RESOURCE\tORIGIN\tREV\tUSED\tCOMMENT")
 
 	// Print each info to its own row.
 	for _, r := range resources {
-		// tabularColumns must be kept in sync with these.
+		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\t%v\n",
 			r.Name,
 			tabularOrigin(r),
-			tabularRev(r),
+			tabularRevision(r),
 			tabularUsed(r.Used),
 			r.Comment,
 		)
@@ -100,7 +84,7 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func tabularRev(r FormattedSvcResource) interface{} {
+func tabularRevision(r FormattedSvcResource) interface{} {
 	switch r.Origin {
 	case OriginStore:
 		return r.Revision

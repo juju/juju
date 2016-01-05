@@ -74,11 +74,11 @@ func convOrigin(origin charmresource.Origin) Origin {
 	}
 }
 
-func convType(typ charmresource.Type) Type {
+func convType(typ charmresource.Type) DataType {
 	switch typ {
 	case charmresource.TypeFile:
-		return TypeFile
+		return DataTypeFile
 	default:
-		return TypeUnknown
+		return DataTypeUnknown
 	}
 }

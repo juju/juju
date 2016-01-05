@@ -60,7 +60,7 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "show-service-resources",
+		Name:    "resources",
 		Args:    "service",
 		Purpose: "show the resources for a service",
 		Doc: `

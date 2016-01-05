@@ -30,7 +30,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 
 	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
 		Name:        "spam",
-		Type:        TypeFile,
+		Type:        DataTypeFile,
 		Path:        "spam.tgz",
 		Comment:     "X",
 		Revision:    0,
@@ -67,7 +67,7 @@ func (s *SvcFormatterSuite) TestFormat(c *gc.C) {
 	f := FormatSvcResource(r)
 	c.Assert(f, gc.Equals, FormattedSvcResource{
 		Name:        r.Name,
-		Type:        TypeFile,
+		Type:        DataTypeFile,
 		Path:        r.Path,
 		Used:        true,
 		Revision:    r.Revision,

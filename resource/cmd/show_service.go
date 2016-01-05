@@ -44,7 +44,7 @@ func NewShowServiceCommand(deps ShowServiceDeps) *ShowServiceCommand {
 // Info implements cmd.Command.Info.
 func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-service-resources",
+		Name:    "resources",
 		Args:    "service",
 		Purpose: "show the resources for a service",
 		Doc: `
