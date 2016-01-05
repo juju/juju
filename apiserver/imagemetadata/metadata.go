@@ -94,8 +94,16 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
+	envCfg, err := api.metadata.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Annotatef(err, "getting environ config")
+	}
+	env, err := environs.New(envCfg)
+	if err != nil {
+		return params.ErrorResults{}, errors.Annotatef(err, "getting environ")
+	}
 	for i, one := range metadata.Metadata {
-		md, err := api.parseMetadataFromParams(one)
+		md, err := api.parseMetadataFromParams(one, env)
 		if err != nil {
 			all[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
@@ -123,7 +131,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 	return result
 }
 
-func (api *API) parseMetadataFromParams(p params.CloudImageMetadata) (cloudimagemetadata.Metadata, error) {
+func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environs.Environ) (cloudimagemetadata.Metadata, error) {
 	result := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
@@ -141,7 +149,6 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata) (cloudimage
 	}
 
 	// Fill in any required default values.
-
 	if p.Stream == "" {
 		result.Stream = "released"
 	}
@@ -151,24 +158,10 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata) (cloudimage
 	if result.Arch == "" {
 		result.Arch = "amd64"
 	}
-
-	// Get the env config if needed.
-	var envCfg *config.Config
-	var err error
-	if result.Series == "" || result.Region == "" {
-		envCfg, err = api.metadata.EnvironConfig()
-		if err != nil {
-			return cloudimagemetadata.Metadata{}, err
-		}
-	}
 	if result.Series == "" {
-		result.Series = config.PreferredSeries(envCfg)
+		result.Series = config.PreferredSeries(env.Config())
 	}
 	if result.Region == "" {
-		env, err := environs.New(envCfg)
-		if err != nil {
-			return cloudimagemetadata.Metadata{}, errors.Annotatef(err, "getting environ")
-		}
 		// If the env supports regions, use the env default.
 		if r, ok := env.(simplestreams.HasRegion); ok {
 			spec, err := r.Region()

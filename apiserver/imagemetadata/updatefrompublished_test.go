@@ -232,8 +232,7 @@ var _ = gc.Suite(&regionMetadataSuite{})
 type regionMetadataSuite struct {
 	baseImageMetadataSuite
 
-	provider mockEnvironProvider
-	env      *mockEnviron
+	env *mockEnviron
 
 	saved    []cloudimagemetadata.Metadata
 	expected []cloudimagemetadata.Metadata
@@ -242,9 +241,7 @@ type regionMetadataSuite struct {
 func (s *regionMetadataSuite) SetUpSuite(c *gc.C) {
 	s.baseImageMetadataSuite.SetUpSuite(c)
 
-	s.provider = mockEnvironProvider{}
 	s.env = &mockEnviron{}
-	environs.RegisterProvider("mock", s.provider)
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	// Prepare mock http transport for overriding metadata and images output in tests.

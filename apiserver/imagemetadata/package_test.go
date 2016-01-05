@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
@@ -23,6 +24,11 @@ import (
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
+}
+
+func init() {
+	provider := mockEnvironProvider{}
+	environs.RegisterProvider("mock", provider)
 }
 
 type baseImageMetadataSuite struct {
@@ -35,6 +41,11 @@ type baseImageMetadataSuite struct {
 	state *mockState
 
 	calls []string
+}
+
+func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -97,7 +108,7 @@ func (st *mockState) EnvironConfig() (*config.Config, error) {
 
 func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "dummy",
+		"type":         "mock",
 		"state-server": true,
 		"state-id":     "1",
 	})

@@ -104,7 +104,7 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
 	// not expected to call state :D
-	s.assertCalls(c, []string{})
+	s.assertCalls(c, []string{environConfig})
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
@@ -129,5 +129,5 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, []string{environConfig, saveMetadata, environConfig, saveMetadata})
+	s.assertCalls(c, []string{environConfig, saveMetadata, saveMetadata})
 }
