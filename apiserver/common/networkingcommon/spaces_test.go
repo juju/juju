@@ -45,15 +45,14 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-type checkAddSpacesParams struct {
-	Name      string
-	Subnets   []string
-	Error     string
-	MakesCall bool
-	Public    bool
+type checkCreateSpacesParams struct {
+	Name    string
+	Subnets []string
+	Error   string
+	Public  bool
 }
 
-func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
+func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 	args := params.CreateSpaceParams{}
 	if p.Name != "" {
 		args.SpaceTag = "space-" + p.Name
@@ -84,10 +83,9 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
 	}
 
-	// AddSpace from the api always uses an empty ProviderId.
 	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public))
 
-	if p.Error == "" || p.MakesCall {
+	if p.Error == "" {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
 	} else {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
@@ -95,46 +93,46 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 }
 
 func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
-	p := checkAddSpacesParams{
+	p := checkCreateSpacesParams{
 		Name:    "-",
 		Subnets: []string{"10.0.0.0/24"},
 		Error:   `"space--" is not a valid space tag`,
 	}
-	s.checkAddSpaces(c, p)
+	s.checkCreateSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
-	p := checkAddSpacesParams{
+	p := checkCreateSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"bar"},
 		Error:   `"subnet-bar" is not a valid subnet tag`,
 	}
-	s.checkAddSpaces(c, p)
+	s.checkCreateSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestPublic(c *gc.C) {
-	p := checkAddSpacesParams{
+	p := checkCreateSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"10.0.0.0/24"},
 		Public:  true,
 	}
-	s.checkAddSpaces(c, p)
+	s.checkCreateSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestEmptySpaceName(c *gc.C) {
-	p := checkAddSpacesParams{
+	p := checkCreateSpacesParams{
 		Subnets: []string{"10.0.0.0/24"},
 		Error:   `"" is not a valid tag`,
 	}
-	s.checkAddSpaces(c, p)
+	s.checkCreateSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
-	p := checkAddSpacesParams{
+	p := checkCreateSpacesParams{
 		Name:    "foo",
 		Subnets: nil,
 	}
-	s.checkAddSpaces(c, p)
+	s.checkCreateSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestCreateSpacesEnvironConfigError(c *gc.C) {
@@ -168,4 +166,23 @@ func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	spaces := params.CreateSpacesParams{}
 	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesEnvironConfigError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		errors.New("boom"), // Backing.EnvironConfig()
+	)
+
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	c.Assert(err, gc.ErrorMatches, "getting environment config: boom")
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil,                // Backing.EnvironConfig()
+		errors.New("boom"), // environs.New()
+	)
+
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	c.Assert(err, gc.ErrorMatches, "validating environment config: boom")
 }
