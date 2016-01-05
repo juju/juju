@@ -1545,6 +1545,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	}
 
 	sort.Sort(metadataList(data))
+	logger.Debugf("available image metadata for provisioning: %v", data)
 	return data, nil
 }
 
@@ -1604,7 +1605,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 			return nil, errors.Trace(err)
 		}
 	}
-	logger.Warningf("got from data sources %d metadata", len(dsMetadata))
+	logger.Debugf("got from data sources %d metadata", len(dsMetadata))
 
 	return dsMetadata, nil
 }

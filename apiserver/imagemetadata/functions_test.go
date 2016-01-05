@@ -11,39 +11,60 @@ import (
 
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
 type funcSuite struct {
-	testing.BaseSuite
+	baseImageMetadataSuite
 
 	expected cloudimagemetadata.Metadata
 }
 
+var _ = gc.Suite(&funcSuite{})
+
+func (s *funcSuite) SetUpSuite(c *gc.C) {
+	provider := mockEnvironProvider{}
+	environs.RegisterProvider("functest", provider)
+}
+
 func (s *funcSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.baseImageMetadataSuite.SetUpTest(c)
+
+	cfg, err := config.New(config.NoDefaults, mockConfig().Merge(testing.Attrs{
+		"type": "functest",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	s.state = s.constructState(cfg)
 
 	s.expected = cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream: "released",
 			Source: "custom",
+			Series: config.LatestLtsSeries(),
+			Arch:   "amd64",
 		},
 		0,
 		"",
 	}
 }
 
-var _ = gc.Suite(&funcSuite{})
-
 func (s *funcSuite) TestParseMetadataNoSource(c *gc.C) {
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{})
+	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
 func (s *funcSuite) TestParseMetadataAnySource(c *gc.C) {
 	s.expected.Source = "any"
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "any"})
+	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Source: "any"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
@@ -51,14 +72,23 @@ func (s *funcSuite) TestParseMetadataAnyStream(c *gc.C) {
 	stream := "happy stream"
 	s.expected.Stream = stream
 
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{
-		Stream: stream,
-	})
+	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Stream: stream})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
 func (s *funcSuite) TestParseMetadataDefaultStream(c *gc.C) {
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{})
+	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, gc.DeepEquals, s.expected)
+}
+
+func (s *funcSuite) TestParseMetadataAnyRegion(c *gc.C) {
+	region := "region"
+	s.expected.Region = region
+
+	m, err := imagemetadata.ParseMetadataFromParams(s.api, params.CloudImageMetadata{Region: region})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 

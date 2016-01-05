@@ -36,6 +36,7 @@ var emptyMetadata = Metadata{}
 
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
 func (s *storage) SaveMetadata(metadata Metadata) error {
+	logger.Debugf("saving image metadata to state: %#v", metadata)
 	newDoc := s.mongoDoc(metadata)
 	if err := validateMetadata(&newDoc); err != nil {
 		return err

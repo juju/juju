@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
@@ -94,7 +95,12 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
 	for i, one := range metadata.Metadata {
-		err := api.metadata.SaveMetadata(parseMetadataFromParams(one))
+		md, err := api.parseMetadataFromParams(one)
+		if err != nil {
+			all[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
+		err = api.metadata.SaveMetadata(md)
 		all[i] = params.ErrorResult{Error: common.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
@@ -117,7 +123,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 	return result
 }
 
-func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Metadata {
+func (api *API) parseMetadataFromParams(p params.CloudImageMetadata) (cloudimagemetadata.Metadata, error) {
 	result := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
@@ -133,13 +139,46 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 		p.Priority,
 		p.ImageId,
 	}
+
+	// Fill in any required default values.
+
 	if p.Stream == "" {
 		result.Stream = "released"
 	}
 	if p.Source == "" {
 		result.Source = "custom"
 	}
-	return result
+	if result.Arch == "" {
+		result.Arch = "amd64"
+	}
+
+	// Get the env config if needed.
+	var envCfg *config.Config
+	var err error
+	if result.Series == "" || result.Region == "" {
+		envCfg, err = api.metadata.EnvironConfig()
+		if err != nil {
+			return cloudimagemetadata.Metadata{}, err
+		}
+	}
+	if result.Series == "" {
+		result.Series = config.PreferredSeries(envCfg)
+	}
+	if result.Region == "" {
+		env, err := environs.New(envCfg)
+		if err != nil {
+			return cloudimagemetadata.Metadata{}, errors.Annotatef(err, "getting environ")
+		}
+		// If the env supports regions, use the env default.
+		if r, ok := env.(simplestreams.HasRegion); ok {
+			spec, err := r.Region()
+			if err != nil {
+				return cloudimagemetadata.Metadata{}, errors.Annotatef(err, "getting cloud region")
+			}
+			result.Region = spec.Region
+		}
+	}
+	return result, nil
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and
@@ -250,17 +289,17 @@ func processErrors(errs []params.ErrorResult) error {
 // a collection of Metadata in order of priority.
 type metadataList []params.CloudImageMetadata
 
-// Implements sort.Interface
+// Len implements sort.Interface
 func (m metadataList) Len() int {
 	return len(m)
 }
 
-// Implements sort.Interface and sorts image metadata by priority.
+// Less implements sort.Interface and sorts image metadata by priority.
 func (m metadataList) Less(i, j int) bool {
 	return m[i].Priority < m[j].Priority
 }
 
-// Implements sort.Interface
+// Swap implements sort.Interface
 func (m metadataList) Swap(i, j int) {
 	m[i], m[j] = m[j], m[i]
 }

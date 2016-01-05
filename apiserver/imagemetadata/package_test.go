@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/environs/configstore"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -41,7 +43,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
 	s.calls = []string{}
-	s.state = s.constructState()
+	s.state = s.constructState(testConfig(c))
 
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
@@ -58,7 +60,7 @@ const (
 	environConfig = "environConfig"
 )
 
-func (s *baseImageMetadataSuite) constructState() *mockState {
+func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 	return &mockState{
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 			s.calls = append(s.calls, findMetadata)
@@ -70,7 +72,7 @@ func (s *baseImageMetadataSuite) constructState() *mockState {
 		},
 		environConfig: func() (*config.Config, error) {
 			s.calls = append(s.calls, environConfig)
-			return testConfig(), nil
+			return cfg, nil
 		},
 	}
 }
@@ -93,10 +95,15 @@ func (st *mockState) EnvironConfig() (*config.Config, error) {
 	return st.environConfig()
 }
 
-func testConfig() *config.Config {
-	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
-		"type": "nonex",
+func testConfig(c *gc.C) *config.Config {
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"type":         "dummy",
+		"state-server": true,
+		"state-id":     "1",
 	})
-	cfg, _ := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
