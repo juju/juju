@@ -19,17 +19,18 @@ var _ = gc.Suite(&UploadSuite{})
 type UploadSuite struct {
 	testing.IsolationSuite
 
+	stub     *testing.Stub
 	stubDeps *stubUploadDeps
 }
 
 func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	stub := &testing.Stub{}
+	s.stub = &testing.Stub{}
 	s.stubDeps = &stubUploadDeps{
-		stub:   stub,
-		file:   &stubFile{stub: stub},
-		client: &stubCharmStore{stub: stub},
+		stub:   s.stub,
+		file:   &stubFile{stub: s.stub},
+		client: &stubCharmStore{stub: s.stub},
 	}
 }
 
@@ -140,11 +141,11 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 	err := u.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkCall(c, s.stubDeps.stub, "OpenResource", [][]interface{}{
+	checkCall(c, s.stub, "OpenResource", [][]interface{}{
 		{"bar"},
 		{"bat"},
 	})
-	checkCall(c, s.stubDeps.stub, "Upload", [][]interface{}{
+	checkCall(c, s.stub, "Upload", [][]interface{}{
 		{"svc", "foo", s.stubDeps.file},
 		{"svc", "baz", s.stubDeps.file},
 	})
