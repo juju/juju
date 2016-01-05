@@ -63,7 +63,7 @@ func (s *DiscoverSpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func (s *DiscoverSpacesSuite) TestListSpacesSuccess(c *gc.C) {
+func (s *DiscoverSpacesSuite) TestListSpaces(c *gc.C) {
 	var called int
 	expectedResult := params.DiscoverSpacesResults{
 		Results: []params.ProviderSpace{{Name: "foobar"}},
@@ -77,7 +77,7 @@ func (s *DiscoverSpacesSuite) TestListSpacesSuccess(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *DiscoverSpacesSuite) TestAddSubnetsSuccess(c *gc.C) {
+func (s *DiscoverSpacesSuite) TestAddSubnets(c *gc.C) {
 	var called int
 	expectedResult := params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -89,6 +89,23 @@ func (s *DiscoverSpacesSuite) TestAddSubnetsSuccess(c *gc.C) {
 	api := discoverspaces.NewAPI(apiCaller)
 
 	result, err := api.AddSubnets(expectedArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *DiscoverSpacesSuite) TestCreateSpaces(c *gc.C) {
+	var called int
+	expectedResult := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
+	expectedArgs := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{{SpaceTag: "foo"}},
+	}
+	apiCaller := successAPICaller(c, "CreateSpaces", expectedArgs, expectedResult, &called)
+	api := discoverspaces.NewAPI(apiCaller)
+
+	result, err := api.CreateSpaces(expectedArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
 	c.Assert(called, gc.Equals, 1)
