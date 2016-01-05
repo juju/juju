@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -88,8 +89,8 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 
 	// TODO(ericsnow) Allow last one to win (a standard CLI approach)?
 	if c.resources[rf.name] {
-		// TODO(ericsnow) Use a better error message.
-		return errors.AlreadyExistsf("resource %q", rf.name)
+		msg := fmt.Sprintf("duplicate resource %q", rf.name)
+		return errors.NewAlreadyExists(nil, msg)
 	}
 	c.resourceFiles = append(c.resourceFiles, rf)
 	c.resources[rf.name] = true
