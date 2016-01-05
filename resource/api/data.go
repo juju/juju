@@ -19,7 +19,7 @@ import (
 type ListResourcesArgs params.Entities
 
 // NewListResourcesArgs returns the arguments for the ListResources endpoint.
-func NewListResourcesArgs(services ...string) (ListResourcesArgs, error) {
+func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var args ListResourcesArgs
 	for _, service := range services {
 		if !names.IsValidService(service) {
