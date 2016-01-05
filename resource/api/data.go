@@ -52,9 +52,7 @@ type ResourcesResult struct {
 // NewResourcesResult produces a ResourcesResult for the given service
 // tag. The corresponding service ID is also returned. If any error
 // results, it is stored in the Error field of the result.
-func NewResourcesResult(tagStr string) (ResourcesResult, string) {
-	var result ResourcesResult
-
+func NewResourcesResult(tagStr string) (result ResourcesResult, serviceID string) {
 	serviceID, err := ServiceTag2ID(tagStr)
 	if err != nil {
 		result.Error = &params.Error{
