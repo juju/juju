@@ -47,10 +47,11 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 }
 
 type checkCreateSpacesParams struct {
-	Name    string
-	Subnets []string
-	Error   string
-	Public  bool
+	Name       string
+	Subnets    []string
+	Error      string
+	Public     bool
+	ProviderId string
 }
 
 func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
@@ -64,6 +65,7 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 		}
 	}
 	args.Public = p.Public
+	args.ProviderId = p.ProviderId
 
 	spaces := params.CreateSpacesParams{}
 	spaces.Spaces = append(spaces.Spaces, args)
@@ -84,7 +86,7 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
 	}
 
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public))
+	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(p.ProviderId), p.Subnets, p.Public))
 
 	if p.Error == "" {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
@@ -116,6 +118,15 @@ func (s *SpacesSuite) TestPublic(c *gc.C) {
 		Name:    "foo",
 		Subnets: []string{"10.0.0.0/24"},
 		Public:  true,
+	}
+	s.checkCreateSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestProviderId(c *gc.C) {
+	p := checkCreateSpacesParams{
+		Name:       "foo",
+		Subnets:    []string{"10.0.0.0/24"},
+		ProviderId: "foobar",
 	}
 	s.checkCreateSpaces(c, p)
 }
