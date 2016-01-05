@@ -5,6 +5,7 @@ package client
 
 import (
 	"io"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -55,16 +56,19 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(services), len(apiResults.Results))
 	}
 
+	var errs []error
 	results := make([][]resource.Resource, len(services))
 	for i := range services {
 		apiResult := apiResults.Results[i]
 
 		result, err := api.APIResult2Resources(apiResult)
 		if err != nil {
-			// TODO(ericsnow) Aggregate errors?
-			return nil, errors.Trace(err)
+			errs = append(errs, errors.Trace(err))
 		}
 		results[i] = result
+	}
+	if err := resolveErrors(errs); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return results, nil
@@ -73,4 +77,19 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 func (c Client) Upload(service, name string, resource io.Reader) error {
 	// TODO(natefinch): implement this
 	return errors.NewNotImplemented(nil, "resources.Client.Upload is not implemented")
+}
+
+func resolveErrors(errs []error) error {
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errs[0]
+	default:
+		msgs := make([]string, len(errs))
+		for i, err := range errs {
+			msgs[i] = err.Error()
+		}
+		return errors.New(strings.Join(msgs, "\n"))
+	}
 }
