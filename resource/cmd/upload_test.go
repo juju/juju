@@ -30,7 +30,7 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.stubDeps = &stubUploadDeps{
 		stub:   s.stub,
 		file:   &stubFile{stub: s.stub},
-		client: &stubCharmStore{stub: s.stub},
+		client: &stubAPIClient{stub: s.stub},
 	}
 }
 
@@ -184,8 +184,8 @@ func checkSameContent(c *gc.C, actual, expected [][]interface{}) {
 
 type stubUploadDeps struct {
 	stub   *testing.Stub
-	file   *stubFile
-	client *stubCharmStore
+	file   io.ReadCloser
+	client UploadClient
 }
 
 func (s *stubUploadDeps) NewClient(c *UploadCommand) (UploadClient, error) {
@@ -204,15 +204,4 @@ func (s *stubUploadDeps) OpenResource(path string) (io.ReadCloser, error) {
 	}
 
 	return s.file, nil
-}
-
-type stubFile struct {
-	// No one actually tries to read from this during tests.
-	io.Reader
-	stub *testing.Stub
-}
-
-func (s *stubFile) Close() error {
-	s.stub.AddCall("FileClose")
-	return errors.Trace(s.stub.NextErr())
 }
