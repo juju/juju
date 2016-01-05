@@ -49,9 +49,11 @@ func (mi *maasInstance) Status() string {
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	interfaceAddresses, err := mi.interfaceAddresses()
-	if err != nil {
-		logger.Warningf("cannot get interface addresses (using legacy approach): %v", err)
+	if errors.IsNotSupported(err) {
+		logger.Warningf("cannot get interface addresses (using legacy approach)", err)
 		return mi.legacyAddresses()
+	} else if err != nil {
+		return nil, errors.Annotate(err, "getting node interfaces")
 	}
 
 	logger.Debugf("instance %q has interface addresses: %+v", mi.Id(), interfaceAddresses)
