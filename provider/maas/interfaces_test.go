@@ -31,7 +31,7 @@ const exampleInterfaceSetJSON = `
 		"links": [
 			{
 				"subnet": {
-					"dns_servers": [],
+					"dns_servers": ["10.20.19.2", "10.20.19.3"],
 					"name": "pxe",
 					"space": "default",
 					"vlan": {
@@ -49,6 +49,28 @@ const exampleInterfaceSetJSON = `
 				},
 				"ip_address": "10.20.19.103",
 				"id": 436,
+				"mode": "static"
+			},
+			{
+				"subnet": {
+					"dns_servers": ["10.20.19.2", "10.20.19.3"],
+					"name": "pxe",
+					"space": "default",
+					"vlan": {
+						"name": "untagged",
+						"vid": 0,
+						"mtu": 1500,
+						"fabric": "managed",
+						"id": 5001,
+						"resource_uri": "/MAAS/api/1.0/vlans/5001/"
+					},
+					"gateway_ip": "10.20.19.2",
+					"cidr": "10.20.19.0/24",
+					"id": 3,
+					"resource_uri": "/MAAS/api/1.0/subnets/3/"
+				},
+				"ip_address": "10.20.19.104",
+				"id": 437,
 				"mode": "static"
 			}
 		],
@@ -293,6 +315,17 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/vlans/5008/",
 	}
 
+	subnetPXE := maasSubnet{
+		ID:          3,
+		Name:        "pxe",
+		Space:       "default",
+		VLAN:        vlan0,
+		GatewayIP:   "10.20.19.2",
+		DNSServers:  []string{"10.20.19.2", "10.20.19.3"},
+		CIDR:        "10.20.19.0/24",
+		ResourceURI: "/MAAS/api/1.0/subnets/3/",
+	}
+
 	expected := []maasInterface{{
 		ID:          91,
 		Name:        "eth0",
@@ -302,18 +335,14 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		VLAN:        vlan0,
 		EffectveMTU: 1500,
 		Links: []maasInterfaceLink{{
-			ID: 436,
-			Subnet: &maasSubnet{
-				ID:          3,
-				Name:        "pxe",
-				Space:       "default",
-				VLAN:        vlan0,
-				GatewayIP:   "10.20.19.2",
-				DNSServers:  []string{},
-				CIDR:        "10.20.19.0/24",
-				ResourceURI: "/MAAS/api/1.0/subnets/3/",
-			},
+			ID:        436,
+			Subnet:    &subnetPXE,
 			IPAddress: "10.20.19.103",
+			Mode:      "static",
+		}, {
+			ID:        437,
+			Subnet:    &subnetPXE,
+			IPAddress: "10.20.19.104",
 			Mode:      "static",
 		}},
 		Parents:     []string{},
@@ -404,7 +433,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expected)
 }
 
-func (s *interfacesSuite) TestMASSObjectNetworkInterfaces(c *gc.C) {
+func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	nodeJSON := fmt.Sprintf(`{
         "system_id": "foo",
         "interface_set": %s
@@ -424,10 +453,28 @@ func (s *interfacesSuite) TestMASSObjectNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddress("10.20.19.103"),
-		DNSServers:        nil,
+		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearch:         "",
-		GatewayAddress:    network.NewAddress("10.20.19.2"),
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		ExtraConfig:       nil,
+	}, {
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		NetworkName:       "",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		InterfaceName:     "eth0",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearch:         "",
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       1,
@@ -436,16 +483,16 @@ func (s *interfacesSuite) TestMASSObjectNetworkInterfaces(c *gc.C) {
 		NetworkName:       "",
 		ProviderId:        "150",
 		ProviderSubnetId:  "5",
-		AvailabilityZones: []string(nil),
+		AvailabilityZones: nil,
 		VLANTag:           50,
 		InterfaceName:     "eth0.50",
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddress("10.50.19.103"),
+		Address:           network.NewAddressOnSpace("admin", "10.50.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
-		GatewayAddress:    network.NewAddress("10.50.19.2"),
+		GatewayAddress:    network.NewAddressOnSpace("admin", "10.50.19.2"),
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       2,
@@ -454,16 +501,16 @@ func (s *interfacesSuite) TestMASSObjectNetworkInterfaces(c *gc.C) {
 		NetworkName:       "",
 		ProviderId:        "151",
 		ProviderSubnetId:  "6",
-		AvailabilityZones: []string(nil),
+		AvailabilityZones: nil,
 		VLANTag:           100,
 		InterfaceName:     "eth0.100",
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddress("10.100.19.103"),
+		Address:           network.NewAddressOnSpace("public", "10.100.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
-		GatewayAddress:    network.NewAddress("10.100.19.2"),
+		GatewayAddress:    network.NewAddressOnSpace("public", "10.100.19.2"),
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       3,
@@ -472,22 +519,22 @@ func (s *interfacesSuite) TestMASSObjectNetworkInterfaces(c *gc.C) {
 		NetworkName:       "",
 		ProviderId:        "152",
 		ProviderSubnetId:  "8",
-		AvailabilityZones: []string(nil),
+		AvailabilityZones: nil,
 		VLANTag:           250,
 		InterfaceName:     "eth0.250",
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddress("10.250.19.103"),
+		Address:           network.NewAddressOnSpace("storage", "10.250.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
-		GatewayAddress:    network.NewAddress("10.250.19.2"),
+		GatewayAddress:    network.NewAddressOnSpace("storage", "10.250.19.2"),
 		ExtraConfig:       nil,
 	}}
 
 	infos, err := maasObjectNetworkInterfaces(&obj)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, gc.DeepEquals, expected)
+	c.Check(infos, jc.DeepEquals, expected)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

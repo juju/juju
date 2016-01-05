@@ -146,25 +146,32 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 				nicInfo.ConfigType = network.ConfigManual
 			}
 
-			if link.IPAddress != "" {
-				ipAddr := network.NewScopedAddress(link.IPAddress, network.ScopeCloudLocal)
-				nicInfo.Address = ipAddr
-			} else {
+			if link.IPAddress == "" {
 				logger.Warningf("interface %q has no address", iface.Name)
+			} else {
+				// We set it here initially without a space, just so we don't
+				// lose it when we have no linked subnet below.
+				nicInfo.Address = network.NewAddress(link.IPAddress)
 			}
 
 			if link.Subnet == nil {
 				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
-				infos[i] = nicInfo
+				infos = append(infos, nicInfo)
 				continue
 			}
 
 			sub := link.Subnet
 			nicInfo.CIDR = sub.CIDR
-			gwAddr := network.NewScopedAddress(sub.GatewayIP, network.ScopeCloudLocal)
-			nicInfo.GatewayAddress = gwAddr
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.DNSServers = network.NewAddresses(sub.DNSServers...)
+
+			// Now we know the subnet and space, we can update the address to
+			// store the space with it.
+			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
+
+			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
+			nicInfo.GatewayAddress = gwAddr
+
+			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
 
 			// TODO: DNSSearch (get from get-curtin-config?), MTU, parent/child
 			// relationships will be nice..
