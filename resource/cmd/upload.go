@@ -33,7 +33,8 @@ type UploadCommand struct {
 	deps UploadDeps
 	envcmd.EnvCommandBase
 	service       string
-	resourceFiles map[string]string
+	resourceFiles []resourceFile
+	resources     map[string]bool
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -66,7 +67,7 @@ func (c *UploadCommand) Init(args []string) error {
 	}
 	c.service = args[0]
 
-	c.resourceFiles = make(map[string]string, len(args)-1)
+	c.resources = make(map[string]bool)
 
 	for _, arg := range args[1:] {
 		if err := c.addResourceFile(arg); err != nil {
@@ -80,15 +81,18 @@ func (c *UploadCommand) Init(args []string) error {
 // addResourceFile parses the given arg into a name and a resource file,
 // and saves it in c.resourceFiles.
 func (c *UploadCommand) addResourceFile(arg string) error {
-	vals := strings.SplitN(arg, "=", 2)
-	if len(vals) < 2 || vals[0] == "" || vals[1] == "" {
-		return errors.NotValidf("resource given: %q, but expected name=path format", arg)
+	rf, err := parseResourceFile(c.service, arg)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	name := vals[0]
-	if _, ok := c.resourceFiles[name]; ok {
-		return errors.AlreadyExistsf("resource %q", name)
+
+	// TODO(ericsnow) Allow last one to win (a standard CLI approach)?
+	if c.resources[rf.name] {
+		// TODO(ericsnow) Use a better error message.
+		return errors.AlreadyExistsf("resource %q", rf.name)
 	}
-	c.resourceFiles[name] = vals[1]
+	c.resourceFiles = append(c.resourceFiles, rf)
+	c.resources[rf.name] = true
 	return nil
 }
 
@@ -102,10 +106,11 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 	errs := []error{}
 
-	for name, file := range c.resourceFiles {
+	for _, rf := range c.resourceFiles {
 		// don't want to do a bulk upload since we're doing potentially large
 		// file uploads.
-		if err := c.upload(c.service, name, file, apiclient); err != nil {
+		if err := c.upload(rf.service, rf.name, rf.filename, apiclient); err != nil {
+			name := rf.service + "/" + rf.name
 			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", name))
 		}
 	}

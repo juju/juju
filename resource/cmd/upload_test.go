@@ -34,64 +34,73 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 }
 
 func (*UploadSuite) TestInitEmpty(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*UploadSuite) TestInitOneArg(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 	err := u.Init([]string{"foo"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*UploadSuite) TestInitJustName(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitDuplicate(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "foo=bar", "foo=baz"})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (*UploadSuite) TestInitNoName(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "=foobar"})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitNoPath(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "foobar="})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitGood(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resourceFiles, gc.DeepEquals, map[string]string{"bar": "baz"})
+	c.Assert(u.resourceFiles, gc.DeepEquals, []resourceFile{{
+		service:  "foo",
+		name:     "bar",
+		filename: "baz",
+	}})
 	c.Assert(u.service, gc.Equals, "foo")
 }
 
 func (*UploadSuite) TestInitTwoResources(c *gc.C) {
-	u := UploadCommand{resourceFiles: map[string]string{}}
+	var u UploadCommand
 
 	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resourceFiles, gc.DeepEquals, map[string]string{
-		"bar":  "baz",
-		"fizz": "buzz",
-	})
+	c.Assert(u.resourceFiles, gc.DeepEquals, []resourceFile{{
+		service:  "foo",
+		name:     "bar",
+		filename: "baz",
+	}, {
+		service:  "foo",
+		name:     "fizz",
+		filename: "buzz",
+	}})
 	c.Assert(u.service, gc.Equals, "foo")
 }
 
@@ -116,8 +125,16 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 			NewClient:    s.stubDeps.NewClient,
 			OpenResource: s.stubDeps.OpenResource,
 		},
-		resourceFiles: map[string]string{"foo": "bar", "baz": "bat"},
-		service:       "svc",
+		resourceFiles: []resourceFile{{
+			service:  "svc",
+			name:     "foo",
+			filename: "bar",
+		}, {
+			service:  "svc",
+			name:     "baz",
+			filename: "bat",
+		}},
+		service: "svc",
 	}
 
 	err := u.Run(nil)
