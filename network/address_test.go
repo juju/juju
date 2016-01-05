@@ -732,6 +732,13 @@ var stringTests = []struct {
 	str: "127.0.0.1",
 }, {
 	addr: network.Address{
+		Type:      network.IPv4Address,
+		Value:     "127.0.0.1",
+		SpaceName: "storage-data",
+	},
+	str: "127.0.0.1@storage-data",
+}, {
+	addr: network.Address{
 		Type:  network.IPv6Address,
 		Value: "2001:db8::1",
 		Scope: network.ScopePublic,
@@ -759,12 +766,29 @@ var stringTests = []struct {
 	str: "public:foo.com",
 }, {
 	addr: network.Address{
+		Type:      network.HostName,
+		Value:     "foo.com",
+		Scope:     network.ScopePublic,
+		SpaceName: "default",
+	},
+	str: "public:foo.com@default",
+}, {
+	addr: network.Address{
 		Type:        network.HostName,
 		Value:       "foo.com",
 		Scope:       network.ScopePublic,
 		NetworkName: "netname",
 	},
 	str: "public:foo.com(netname)",
+}, {
+	addr: network.Address{
+		Type:        network.HostName,
+		Value:       "foo.com",
+		Scope:       network.ScopePublic,
+		NetworkName: "netname",
+		SpaceName:   "badlands",
+	},
+	str: "public:foo.com(netname)@badlands",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {

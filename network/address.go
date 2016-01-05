@@ -68,15 +68,14 @@ type Address struct {
 	SpaceName
 }
 
-// String returns a string representation of the address,
-// in the form: scope:address(network name);
-// for example:
+// String returns a string representation of the address, in the form:
+// ""scope:address(network name)@space""; for example:
 //
-//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)
+//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)@public-api
 //
-// If the scope is NetworkUnknown, the initial scope: prefix will
-// be omitted. If the NetworkName is blank, the (network name) suffix
-// will be omitted.
+// If the scope is NetworkUnknown, the initial scope: prefix will be omitted. If
+// the NetworkName is blank, the (network name) suffix will be omitted. Finally,
+// if the SpaceName is empty the last '@space' part will be omitted as well.
 func (a Address) String() string {
 	var buf bytes.Buffer
 	if a.Scope != ScopeUnknown {
@@ -84,11 +83,18 @@ func (a Address) String() string {
 		buf.WriteByte(':')
 	}
 	buf.WriteString(a.Value)
+
 	if a.NetworkName != "" {
 		buf.WriteByte('(')
 		buf.WriteString(a.NetworkName)
 		buf.WriteByte(')')
 	}
+
+	if a.SpaceName != "" {
+		buf.WriteByte('@')
+		buf.WriteString(string(a.SpaceName))
+	}
+
 	return buf.String()
 }
 
