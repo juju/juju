@@ -66,17 +66,13 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements cmd.Command.Init. It will return an error satisfying
 // errors.BadRequest if you give it an incorrect number of arguments.
 func (c *ShowServiceCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
+	if len(args) == 0 {
 		return errors.BadRequestf("missing service name")
-	case 1:
-		// good!
-	default:
-		return errors.BadRequestf("too many arguments")
 	}
-
 	c.service = args[0]
-
+	if err := cmd.CheckEmpty(args[1:]); err != nil {
+		return errors.NewBadRequest(err, "")
+	}
 	return nil
 }
 

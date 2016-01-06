@@ -6,7 +6,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
@@ -39,7 +38,7 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			res.Name,
-			res.Origin.lower(),
+			res.Origin,
 			rev,
 			res.Comment,
 		)
@@ -55,8 +54,6 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", resources, value)
 	}
-
-	sort.Sort(byNameRev(resources))
 
 	// TODO(ericsnow) sort the rows first?
 
@@ -101,7 +98,7 @@ func tabularOrigin(r FormattedSvcResource) string {
 	case OriginUpload:
 		return r.Username
 	default:
-		return r.Origin.lower()
+		return string(r.Origin)
 	}
 }
 
@@ -110,35 +107,4 @@ func tabularUsed(used bool) string {
 		return "yes"
 	}
 	return "no"
-}
-
-// byNameRev sorts the resources by name and then by revision/timestamp.
-type byNameRev []FormattedSvcResource
-
-func (b byNameRev) Len() int {
-	return len(b)
-}
-
-func (b byNameRev) Less(i, j int) bool {
-	if b[i].Name < b[j].Name {
-		return true
-	}
-	if b[i].Name > b[j].Name {
-		return false
-	}
-
-	// Sort revisions and timestamps descending, so most recent ones are at the
-	// top.
-
-	if b[i].Revision > b[j].Revision {
-		return true
-	}
-	if b[i].Revision < b[j].Revision {
-		return false
-	}
-	return b[i].Timestamp.After(b[j].Timestamp)
-}
-
-func (b byNameRev) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
 }

@@ -3,11 +3,7 @@
 
 package cmd
 
-import (
-	"fmt"
-	"strings"
-	"time"
-)
+import "time"
 
 // FormattedCharmResource holds the formatted representation of a resource's info.
 type FormattedCharmResource struct {
@@ -36,65 +32,25 @@ type FormattedSvcResource struct {
 	Username    string    `json:"username" yaml:"username"`
 }
 
-//go:generate stringer -type=Origin
-
 // Origin defines where a resource came from.
-type Origin int
+type Origin string
 
 const (
 	// OriginUnknown indicates we don't know where the resource came from.
-	OriginUnknown Origin = iota
+	OriginUnknown Origin = "unknown"
 	// OriginUpload indicates the resource was uploaded to the controller.
-	OriginUpload
+	OriginUpload = "upload"
 	// OriginStore indicates the resource was retrieved from the charm store.
-	OriginStore
+	OriginStore = "store"
 )
 
-// MarshalJSON implements json.Marshaler.
-func (o Origin) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", o.lower())), nil
-}
-
-// MarshalYAML implements yaml.Marshaler.
-func (o Origin) MarshalYAML() (interface{}, error) {
-	return o.lower(), nil
-}
-
-// originNameLen indicates the length of the name of the type.
-var originNameLen = len("Origin")
-
-// lower produces a lowercase string representation that strips off the type name.
-func (o Origin) lower() string {
-	return strings.ToLower(o.String())[originNameLen:]
-}
-
-//go:generate stringer -type=DataType
-
 // DataType defines what kind of data a resource represents.
-type DataType int
+type DataType string
 
 const (
 	// DataTypeUnknown indicates we don't know what kind of data resources
 	// represents.
-	DataTypeUnknown DataType = iota
+	DataTypeUnknown DataType = "unknown"
 	// DataTypeFile indicates the resource is a file.
-	DataTypeFile
+	DataTypeFile = "file"
 )
-
-// MarshalJSON implements json.Marshaler.
-func (t DataType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", t.lower())), nil
-}
-
-// MarshalYAML implements yaml.Marshaler.
-func (t DataType) MarshalYAML() (interface{}, error) {
-	return t.lower(), nil
-}
-
-// dataTypeNameLen indicates the length of the name of the type.
-var dataTypeNameLen = len("DataType")
-
-// lower produces a lowercase string representation that strips off the type name.
-func (t DataType) lower() string {
-	return strings.ToLower(t.String())[dataTypeNameLen:]
-}
