@@ -97,7 +97,6 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 		filename: filename,
 	}
 
-	// TODO(ericsnow) Allow last one to win (a standard CLI approach)?
 	if c.resources[rf.name] {
 		msg := fmt.Sprintf("duplicate resource %q", rf.name)
 		return errors.NewAlreadyExists(nil, msg)
