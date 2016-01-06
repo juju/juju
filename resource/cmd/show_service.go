@@ -55,11 +55,11 @@ This command shows the resources required by and those in use by an existing ser
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
-	const tabular = "tabular"
-	c.out.AddFlags(f, tabular, map[string]cmd.Formatter{
-		tabular: FormatSvcTabular,
-		"yaml":  cmd.FormatYaml,
-		"json":  cmd.FormatJson,
+	const defaultFlag = "tabular"
+	c.out.AddFlags(f, defaultFlag, map[string]cmd.Formatter{
+		defaultFlag: FormatSvcTabular,
+		"yaml":      cmd.FormatYaml,
+		"json":      cmd.FormatJson,
 	})
 }
 

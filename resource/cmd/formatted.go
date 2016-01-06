@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -62,7 +61,7 @@ func (o Origin) MarshalYAML() (interface{}, error) {
 }
 
 // originNameLen indicates the length of the name of the type.
-var originNameLen = len(reflect.TypeOf(Origin(0)).Name())
+var originNameLen = len("Origin")
 
 // lower produces a lowercase string representation that strips off the type name.
 func (o Origin) lower() string {
@@ -93,7 +92,7 @@ func (t DataType) MarshalYAML() (interface{}, error) {
 }
 
 // dataTypeNameLen indicates the length of the name of the type.
-var dataTypeNameLen = len(reflect.TypeOf(DataType(0)).Name())
+var dataTypeNameLen = len("DataType")
 
 // lower produces a lowercase string representation that strips off the type name.
 func (t DataType) lower() string {
