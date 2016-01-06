@@ -154,7 +154,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	imageMetadata, err := bootstrapImageMetadata(
 		environ, availableTools,
 		args.BootstrapImage,
-		customImageMetadata,
+		&customImageMetadata,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -258,14 +258,18 @@ func bootstrapImageMetadata(
 	environ environs.Environ,
 	availableTools coretools.List,
 	bootstrapImageId string,
-	customImageMetadata []*imagemetadata.ImageMetadata,
+	customImageMetadata *[]*imagemetadata.ImageMetadata,
 ) ([]*imagemetadata.ImageMetadata, error) {
 
 	hasRegion, ok := environ.(simplestreams.HasRegion)
 	if !ok {
 		if bootstrapImageId != "" {
-			return nil, errors.NotSupportedf("specifying bootstrap image")
+			return nil, errors.NotSupportedf(
+				"specifying bootstrap image for %q provider",
+				environ.Config().Type(),
+			)
 		}
+		// No region, no metadata.
 		return nil, nil
 	}
 	region, err := hasRegion.Region()
@@ -276,11 +280,11 @@ func bootstrapImageMetadata(
 	if bootstrapImageId != "" {
 		arches := availableTools.Arches()
 		if len(arches) != 1 {
-			return nil, errors.NotValidf("multiple architectures with bootstrap bootstrap image")
+			return nil, errors.NotValidf("multiple architectures with bootstrap image")
 		}
 		allSeries := availableTools.AllSeries()
 		if len(allSeries) != 1 {
-			return nil, errors.NotValidf("multiple series with bootstrap bootstrap image")
+			return nil, errors.NotValidf("multiple series with bootstrap image")
 		}
 		seriesVersion, err := series.SeriesVersion(allSeries[0])
 		if err != nil {
@@ -289,14 +293,16 @@ func bootstrapImageMetadata(
 		// The returned metadata does not have information about the
 		// storage or virtualisation type. Any provider that wants to
 		// filter on those properties should allow for empty values.
-		return []*imagemetadata.ImageMetadata{{
+		meta := &imagemetadata.ImageMetadata{
 			Id:         bootstrapImageId,
 			Arch:       arches[0],
 			Version:    seriesVersion,
 			RegionName: region.Region,
 			Endpoint:   region.Endpoint,
 			Stream:     environ.Config().ImageStream(),
-		}}, nil
+		}
+		*customImageMetadata = append(*customImageMetadata, meta)
+		return []*imagemetadata.ImageMetadata{meta}, nil
 	}
 
 	// For providers that support make use of simplestreams
@@ -329,7 +335,7 @@ func bootstrapImageMetadata(
 	}
 	arches := set.NewStrings(imageConstraint.Arches...)
 	var imageMetadata []*imagemetadata.ImageMetadata
-	for _, image := range customImageMetadata {
+	for _, image := range *customImageMetadata {
 		if matchImageMetadata(
 			image,
 			imageConstraint.CloudSpec,
