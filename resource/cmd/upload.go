@@ -120,8 +120,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 		// don't want to do a bulk upload since we're doing potentially large
 		// file uploads.
 		if err := c.upload(rf, apiclient); err != nil {
-			name := rf.service + "/" + rf.name
-			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", name))
+			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", rf.name))
 		}
 	}
 	switch len(errs) {
