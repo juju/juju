@@ -503,37 +503,3 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 	c.Check(replacement, gc.Equals, "the replacement")
 	c.Check(check.Obsolete(), jc.IsTrue)
 }
-
-// obsoleteCommandNames is the list of commands that are deprecated in
-// 2.0, and obsolete in 3.0
-var obsoleteCommandNames = []string{
-	"add-machine",
-	"destroy-machine",
-	"get-constraints",
-	"get-env",
-	"get-environment",
-	"remove-machine",
-	"retry-provisioning",
-	"set-constraints",
-	"set-env",
-	"set-environment",
-	"terminate-machine",
-	"unset-env",
-	"unset-environment",
-}
-
-func (s *MainSuite) TestObsoleteRegistration(c *gc.C) {
-	var commands commands
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
-	registerCommands(&commands, testing.Context(c))
-
-	cmdSet := set.NewStrings(obsoleteCommandNames...)
-	registeredCmdSet := set.NewStrings()
-	for _, cmd := range commands {
-		registeredCmdSet.Add(cmd.Info().Name)
-	}
-
-	intersection := registeredCmdSet.Intersection(cmdSet)
-	c.Logf("Registered obsolete commands: %s", intersection.Values())
-	c.Assert(intersection.IsEmpty(), gc.Equals, true)
-}

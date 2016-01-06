@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
 	coretesting "github.com/juju/juju/testing"
@@ -84,11 +83,11 @@ func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 
 // This provides the content for code accessing test:///... URLs. This allows
 // us to set the responses for things like image queries.
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &coretesting.ProxyRoundTripper{}
 
 type CountingRoundTripper struct {
 	count int
-	*jujutest.CannedRoundTripper
+	*coretesting.CannedRoundTripper
 }
 
 func (v *CountingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -99,7 +98,7 @@ func (v *CountingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 func useTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = &CountingRoundTripper{
-			CannedRoundTripper: jujutest.NewCannedRoundTripper(files, nil),
+			CannedRoundTripper: coretesting.NewCannedRoundTripper(files, nil),
 		}
 	} else {
 		testRoundTripper.Sub = nil

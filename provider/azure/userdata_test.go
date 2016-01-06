@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/testing"
@@ -23,32 +24,40 @@ type UserdataSuite struct {
 
 var _ = gc.Suite(&UserdataSuite{})
 
-func (s *UserdataSuite) TestAzureUnix(c *gc.C) {
+func (s *UserdataSuite) TestAzureUbuntu(c *gc.C) {
 	renderer := azure.AzureRenderer{}
-	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, os.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
-	expected := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	c.Assert(string(result), jc.DeepEquals, expected)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
-	data = []byte("test")
-	result, err = renderer.EncodeUserdata(data, os.CentOS)
+	result, err := renderer.Render(cloudcfg, os.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
-	expected = base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	expected := base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
+	c.Assert(string(result), jc.DeepEquals, expected)
+}
+
+func (s *UserdataSuite) TestAzureCentOS(c *gc.C) {
+	renderer := azure.AzureRenderer{}
+	cloudcfg := &cloudinittest.CloudConfig{Script: "script"}
+
+	result, err := renderer.Render(cloudcfg, os.CentOS)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := base64.StdEncoding.EncodeToString([]byte(cloudcfg.Script))
 	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
 func (s *UserdataSuite) TestAzureWindows(c *gc.C) {
 	renderer := azure.AzureRenderer{}
-	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, os.Windows)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	result, err := renderer.Render(cloudcfg, os.Windows)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, renderers.ToBase64(renderers.WinEmbedInScript(data)))
+	expected := base64.StdEncoding.EncodeToString(renderers.WinEmbedInScript(cloudcfg.YAML))
+	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
 func (s *UserdataSuite) TestAzureUnknownOS(c *gc.C) {
 	renderer := azure.AzureRenderer{}
-	result, err := renderer.EncodeUserdata(nil, os.Arch)
-	c.Assert(result, gc.IsNil)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
+
+	_, err := renderer.Render(cloudcfg, os.Arch)
 	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Arch")
 }

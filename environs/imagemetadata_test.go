@@ -55,6 +55,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
+		"https://streams.canonical.com/juju/images/releases/",
 		"http://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -64,7 +65,9 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-image-metadata-url/", "http://cloud-images.ubuntu.com/releases/",
+		"config-image-metadata-url/",
+		"https://streams.canonical.com/juju/images/releases/",
+		"http://cloud-images.ubuntu.com/releases/",
 	})
 }
 
@@ -93,6 +96,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 		"config-image-metadata-url/",
 		"foobar/",
 		"betwixt/releases/",
+		"https://streams.canonical.com/juju/images/releases/",
 		"http://cloud-images.ubuntu.com/releases/",
 	})
 }
@@ -113,6 +117,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
+		"https://streams.canonical.com/juju/images/daily/",
 		"http://cloud-images.ubuntu.com/daily/",
 	})
 }

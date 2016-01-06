@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -63,6 +64,16 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	// Don't wait so long in tests.
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Duration(time.Millisecond*50))
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutSecondary, time.Duration(time.Millisecond*60))
+
+	// Ensure we don't fail disk space check.
+	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
+
+	// Consume apt-get commands that get run before upgrades.
+	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
+	go func() {
+		for _ = range aptCmds {
+		}
+	}()
 
 	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {

@@ -53,15 +53,20 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 }
 
 func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *gc.C) {
+	s.assertImageMetadataURLOfficialSource(c, imagemetadata.UbuntuCloudImagesURL)
+	s.assertImageMetadataURLOfficialSource(c, imagemetadata.JujuStreamsImagesURL)
+}
+
+func (s *URLsSuite) assertImageMetadataURLOfficialSource(c *gc.C, baseURL string) {
 	// Released streams.
-	URL, err := imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, "")
+	URL, err := imagemetadata.ImageMetadataURL(baseURL, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/releases")
-	URL, err = imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, imagemetadata.ReleasedStream)
+	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
+	URL, err = imagemetadata.ImageMetadataURL(baseURL, imagemetadata.ReleasedStream)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/releases")
+	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	// Non-released streams.
-	URL, err = imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, "daily")
+	URL, err = imagemetadata.ImageMetadataURL(baseURL, "daily")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
 }

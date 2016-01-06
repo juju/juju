@@ -99,14 +99,13 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	}
 	sources = append(sources, envDataSources...)
 
-	// Add the default, public datasource.
-	defaultURL, err := imagemetadata.ImageMetadataURL(imagemetadata.DefaultBaseURL, config.ImageStream())
+	// Add the official image metadata datasources.
+	officialDataSources, err := imagemetadata.OfficialDataSources(config.ImageStream())
 	if err != nil {
 		return nil, err
 	}
-	if defaultURL != "" {
-		sources = append(sources,
-			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
+	for _, source := range officialDataSources {
+		sources = append(sources, source)
 	}
 	for _, ds := range sources {
 		logger.Debugf("using image datasource %q", ds.Description())

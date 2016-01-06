@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/os"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
@@ -25,7 +26,11 @@ rm C:\AzureData\CustomData.ps1
 
 type AzureRenderer struct{}
 
-func (AzureRenderer) EncodeUserdata(udata []byte, vers os.OSType) ([]byte, error) {
+func (AzureRenderer) Render(cfg cloudinit.CloudConfig, vers os.OSType) ([]byte, error) {
+	udata, err := cfg.RenderYAML()
+	if err != nil {
+		return nil, err
+	}
 	switch vers {
 	case os.Ubuntu, os.CentOS:
 		return renderers.ToBase64(utils.Gzip(udata)), nil

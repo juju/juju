@@ -18,7 +18,7 @@ const (
 	configAttrAppId              = "application-id"
 	configAttrSubscriptionId     = "subscription-id"
 	configAttrTenantId           = "tenant-id"
-	configAttrAppKey             = "application-key"
+	configAttrAppPassword        = "application-password"
 	configAttrLocation           = "location"
 	configAttrStorageAccountType = "storage-account-type"
 
@@ -47,7 +47,7 @@ var configFields = schema.Fields{
 	configAttrAppId:                   schema.String(),
 	configAttrSubscriptionId:          schema.String(),
 	configAttrTenantId:                schema.String(),
-	configAttrAppKey:                  schema.String(),
+	configAttrAppPassword:             schema.String(),
 	configAttrStorageAccount:          schema.String(),
 	configAttrStorageAccountKey:       schema.String(),
 	configAttrStorageAccountType:      schema.String(),
@@ -63,7 +63,7 @@ var configDefaults = schema.Defaults{
 
 var requiredConfigAttributes = []string{
 	configAttrAppId,
-	configAttrAppKey,
+	configAttrAppPassword,
 	configAttrSubscriptionId,
 	configAttrTenantId,
 	configAttrLocation,
@@ -164,7 +164,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureEnvironConfig, error) 
 	appId := validated[configAttrAppId].(string)
 	subscriptionId := validated[configAttrSubscriptionId].(string)
 	tenantId := validated[configAttrTenantId].(string)
-	appKey := validated[configAttrAppKey].(string)
+	appPassword := validated[configAttrAppPassword].(string)
 	storageAccount, _ := validated[configAttrStorageAccount].(string)
 	storageAccountKey, _ := validated[configAttrStorageAccountKey].(string)
 	storageAccountType := validated[configAttrStorageAccountType].(string)
@@ -183,7 +183,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureEnvironConfig, error) 
 	}
 
 	token, err := azure.NewServicePrincipalToken(
-		appId, appKey, tenantId,
+		appId, appPassword, tenantId,
 		azure.AzureResourceManagerScope,
 	)
 	if err != nil {
@@ -239,8 +239,8 @@ azure:
     #   https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal
     application-id: 00000000-0000-0000-0000-000000000000
 
-    # application-key is the password specified when creating the application
-    # in Azure Active Directory.
+    # application-password is the password specified when creating the
+    # application in Azure Active Directory.
     application-password: XXX
 
     # subscription-id defines the Azure account subscription ID to

@@ -21,6 +21,9 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -130,7 +133,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
-		Assert: bson.D{{"life", Dying}},
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 
@@ -1176,14 +1179,50 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	series := args.Series
-	if series == "" {
-		series = args.Charm.URL().Series
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
 	}
-	// Should not happen, but just in case.
-	if series == "" {
-		return nil, errors.New("series is empty")
+
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return nil, errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		seriesOS, err := series.GetOSFromSeries(args.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		supportedOperatingSystems := make(map[os.OSType]bool)
+		for _, supportedSeries := range supportedSeries {
+			os, err := series.GetOSFromSeries(supportedSeries)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			supportedOperatingSystems[os] = true
+		}
+		if !supportedOperatingSystems[seriesOS] {
+			return nil, errors.NewNotSupported(errors.Errorf(
+				"series %q (OS %q) not supported by charm",
+				args.Series, seriesOS,
+			), "")
+		}
 	}
 
 	for _, placement := range args.Placement {
@@ -1191,8 +1230,24 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data.placementType() == directivePlacement {
-			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, args.Series, subordinate, storagePools,
+			); err != nil {
+				return nil, errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
+			if err := st.precheckInstance(args.Series, args.Constraints, data.directive); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1205,7 +1260,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		DocID:         serviceID,
 		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        series,
+		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
@@ -1264,7 +1319,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1273,7 +1328,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if x < len(args.Placement) {
 			placement = *args.Placement[x]
 		}
-		ops = append(ops, assignUnitOps(st, unit, placement)...)
+		ops = append(ops, assignUnitOps(unitName, placement)...)
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
@@ -1295,9 +1350,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
-func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
+func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:     unit,
+		DocId:     unitName,
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}

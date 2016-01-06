@@ -113,3 +113,16 @@ func APIInfo(env Environ) (*api.Info, error) {
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
 	return apiInfo, nil
 }
+
+// CheckProviderAPI returns an error if a simple API call
+// to check a basic response from the specified environ fails.
+func CheckProviderAPI(env Environ) error {
+	// We will make a simple API call to the provider
+	// to ensure the underlying substrate is ok.
+	_, err := env.AllInstances()
+	switch err {
+	case nil, ErrPartialInstances, ErrNoInstances:
+		return nil
+	}
+	return errors.Annotate(err, "cannot make API call to provider")
+}

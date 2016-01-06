@@ -43,6 +43,7 @@ type UpgradeSuite struct {
 	logWriter       loggo.TestWriter
 	connectionDead  bool
 	machineIsMaster bool
+	preUpgradeError bool
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -53,6 +54,7 @@ const succeeds = false
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	s.preUpgradeError = false
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
@@ -362,6 +364,32 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
+func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
+	s.preUpgradeError = true
+	s.captureLogs(c)
+
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+
+	c.Check(workerErr, jc.ErrorIsNil)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+
+	causeMessage := `machine 0 cannot be upgraded: preupgrade error`
+	failMessage := fmt.Sprintf(
+		`upgrade from %s to %s for "machine-0" failed \(giving up\): %s`,
+		s.oldVersion.Number, version.Current, causeMessage)
+	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.INFO, "checking that upgrade can proceed"},
+		{loggo.ERROR, failMessage},
+	})
+
+	statusMessage := fmt.Sprintf(
+		`upgrade to %s failed (giving up): %s`, version.Current, causeMessage)
+	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
+		params.StatusError, statusMessage,
+	}})
+}
+
 // Run just the upgradesteps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
@@ -373,7 +401,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	doneLock, err := NewLock(agent)
 	c.Assert(err, jc.ErrorIsNil)
 	machineStatus := &testStatusSetter{}
-	worker, err := NewWorker(doneLock, agent, nil, jobs, s.openStateForUpgrade, machineStatus)
+	worker, err := NewWorker(doneLock, agent, nil, jobs, s.openStateForUpgrade, s.preUpgradeSteps, machineStatus)
 	c.Assert(err, jc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
@@ -385,6 +413,13 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
 		return nil, nil, err
 	}
 	return st, func() { st.Close() }, nil
+}
+
+func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isStateServer, isMasterStateServer bool) error {
+	if s.preUpgradeError {
+		return errors.New("preupgrade error")
+	}
+	return nil
 }
 
 func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {

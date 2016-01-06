@@ -133,7 +133,6 @@ func (w *isolatedStatusWorker) loop() error {
 			return errors.Annotate(err, "failed to record meter status worker state")
 		}
 	}
-	return nil
 }
 
 func (w *isolatedStatusWorker) applyStatus(code, info string) {
