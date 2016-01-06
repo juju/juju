@@ -50,7 +50,7 @@ func (mi *maasInstance) Status() string {
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	interfaceAddresses, err := mi.interfaceAddresses()
 	if errors.IsNotSupported(err) {
-		logger.Warningf("cannot get interface addresses (using legacy approach): %v", err)
+		logger.Warningf("cannot get interface addresses (using legacy approach)")
 		return mi.legacyAddresses()
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting node interfaces")
@@ -86,6 +86,10 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	return network.ResolvableHostnames(addrs), nil
 }
 
+// TODO(dimitern): In a follow-up, reuse maasObjectNetworkInterfaces to extract
+// the addresses below.
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311417
 func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 	// Extract the "interface_set" list, and process all the links of each
 	// interface to get the mapping between assigned address and the space it
