@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -264,6 +263,8 @@ func bootstrapImageMetadata(
 	hasRegion, ok := environ.(simplestreams.HasRegion)
 	if !ok {
 		if bootstrapImageId != "" {
+			// We only support specifying image IDs for providers
+			// that use simplestreams for now.
 			return nil, errors.NotSupportedf(
 				"specifying bootstrap image for %q provider",
 				environ.Config().Type(),
@@ -305,7 +306,7 @@ func bootstrapImageMetadata(
 		return []*imagemetadata.ImageMetadata{meta}, nil
 	}
 
-	// For providers that support make use of simplestreams
+	// For providers that support making use of simplestreams
 	// image metadata, search public image metadata. We need
 	// to pass this onto Bootstrap for selecting images.
 	sources, err := environs.ImageMetadataSources(environ)
@@ -322,45 +323,7 @@ func bootstrapImageMetadata(
 	if err != nil {
 		return nil, errors.Annotate(err, "searching image metadata")
 	}
-
-	// Filter custom image metadata to the ones we're interested in for
-	// bootstrapping the initial instance.
-	seriesVersions := set.NewStrings()
-	for _, constraintSeries := range imageConstraint.Series {
-		seriesVersion, err := series.SeriesVersion(constraintSeries)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		seriesVersions.Add(seriesVersion)
-	}
-	arches := set.NewStrings(imageConstraint.Arches...)
-	var imageMetadata []*imagemetadata.ImageMetadata
-	for _, image := range *customImageMetadata {
-		if matchImageMetadata(
-			image,
-			imageConstraint.CloudSpec,
-			seriesVersions,
-			arches,
-			imageConstraint.Stream,
-		) {
-			imageMetadata = append(imageMetadata, image)
-		}
-	}
-	imageMetadata = append(imageMetadata, publicImageMetadata...)
-	return imageMetadata, nil
-}
-
-func matchImageMetadata(
-	image *imagemetadata.ImageMetadata,
-	cloudSpec simplestreams.CloudSpec,
-	seriesVersions, arches set.Strings,
-	stream string,
-) bool {
-	return image.Stream == stream &&
-		image.RegionName == cloudSpec.Region &&
-		image.Endpoint == cloudSpec.Endpoint &&
-		seriesVersions.Contains(image.Version) &&
-		arches.Contains(image.Arch)
+	return publicImageMetadata, nil
 }
 
 // setBootstrapTools returns the newest tools from the given tools list,
