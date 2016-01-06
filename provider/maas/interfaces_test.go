@@ -456,6 +456,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
 		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearch:         "",
+		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 		ExtraConfig:       nil,
 	}, {
@@ -474,6 +475,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
 		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearch:         "",
+		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 		ExtraConfig:       nil,
 	}, {
@@ -492,6 +494,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Address:           network.NewAddressOnSpace("admin", "10.50.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
+		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("admin", "10.50.19.2"),
 		ExtraConfig:       nil,
 	}, {
@@ -510,6 +513,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Address:           network.NewAddressOnSpace("public", "10.100.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
+		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("public", "10.100.19.2"),
 		ExtraConfig:       nil,
 	}, {
@@ -528,6 +532,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Address:           network.NewAddressOnSpace("storage", "10.250.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
+		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("storage", "10.250.19.2"),
 		ExtraConfig:       nil,
 	}}

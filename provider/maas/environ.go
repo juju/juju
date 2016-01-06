@@ -1000,6 +1000,8 @@ func renderEtcNetworkInterfacesScript() string {
 //
 // TODO(dimitern): primaryIface is no longer used, drop the argument and fix the
 // tests in a follow-up.
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119309405
 func (environ *maasEnviron) newCloudinitConfig(hostname, _, ser string) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(ser)
 	if err != nil {

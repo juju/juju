@@ -88,6 +88,8 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 
 // TODO(dimitern): In a follow-up, reuse maasObjectNetworkInterfaces to extract
 // the addresses below.
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311417
 func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 	// Extract the "interface_set" list, and process all the links of each
 	// interface to get the mapping between assigned address and the space it

@@ -25,6 +25,7 @@ import (
 // New (1.9 and later) environs.NetworkInterfaces() implementation details follow.
 
 // TODO(dimitern): The types below should be part of gomaasapi.
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119310616
 
 type maasLinkMode string
 
@@ -111,6 +112,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
 	// JSON bytes directly, rather than having to do call MarshalJSON just so
 	// the result can be unmarshaled from it.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311323
 
 	rawBytes, err := interfaceSet.MarshalJSON()
 	if err != nil {
@@ -172,9 +175,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 			nicInfo.GatewayAddress = gwAddr
 
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
-
-			// TODO: DNSSearch (get from get-curtin-config?), MTU, parent/child
-			// relationships will be nice..
+			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
 			// same name and device index, just different addres, subnet, etc.
