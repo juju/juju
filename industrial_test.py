@@ -46,6 +46,16 @@ BACKUP = 'backup'
 UPGRADE = 'upgrade'
 
 
+class LoggedException(BaseException):
+    """Raised in place of an exception that has already been logged.
+
+    This is a wrapper to avoid double-printing real Exceptions while still
+    unwinding the stack appropriately.
+    """
+    def __init__(self, exception):
+        self.exception = exception
+
+
 class StageInfo:
 
     def __init__(self, stage_id, title, report_on=True):
@@ -838,6 +848,8 @@ def main():
                 raise
             sys.stderr.write('Upgade tests require --old-stable.\n')
             sys.exit(1)
+        except LoggedException:
+            continue
     results = MultiIndustrialTest.combine_results(results_list)
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
