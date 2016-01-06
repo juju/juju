@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/keyvalue"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -49,6 +50,10 @@ const (
 	retryTimeMax    = 5 * time.Minute
 	retryTimeJitter = true
 	retryTimeFactor = 2
+
+	// CharmURLKey denotes the key under which the uniter stores the charm url
+	// in the key value store manifold.
+	CharmURLKey = "charm-url"
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -103,6 +108,8 @@ type Uniter struct {
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt func() <-chan time.Time
+
+	storeCharmURL func(string) error
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -116,6 +123,7 @@ type UniterParams struct {
 	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
 	Clock                clock.Clock
+	KeyValueSetter       keyvalue.Setter
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -128,6 +136,13 @@ type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) *Uniter {
+	storeCharmURL := func(charmURL string) error {
+		err := uniterParams.KeyValueSetter.Set(CharmURLKey, charmURL)
+		if err != nil {
+			return errors.Annotate(err, "failed to store the charm url for external use")
+		}
+		return nil
+	}
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
@@ -138,6 +153,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
+		storeCharmURL:        storeCharmURL,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -189,6 +205,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		charmURL = curl
+	}
+	serr := u.storeCharmURL(charmURL.String())
+	if serr != nil {
+		return errors.Trace(serr)
 	}
 
 	var (
@@ -315,7 +335,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return tomb.ErrDying
 		case <-watcher.RemoteStateChanged():
 		}
-
 		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
@@ -342,6 +361,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				err = u.terminate()
 			case resolver.ErrRestart:
 				charmURL = localState.CharmURL
+				serr := u.storeCharmURL(charmURL.String())
+				if serr != nil {
+					return errors.Trace(serr)
+				}
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error

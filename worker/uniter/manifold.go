@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/keyvalue"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 )
@@ -27,6 +28,7 @@ type ManifoldConfig struct {
 	MachineLockName       string
 	LeadershipTrackerName string
 	CharmDirName          string
+	KeyValueStoreName     string
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -39,6 +41,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeadershipTrackerName,
 			config.MachineLockName,
 			config.CharmDirName,
+			config.KeyValueStoreName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
@@ -66,6 +69,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getResource(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
 			}
+			var setter keyvalue.Setter
+			if err := getResource(config.KeyValueStoreName, &setter); err != nil {
+				return nil, err
+			}
 
 			// Configure and start the uniter.
 			config := agent.CurrentConfig()
@@ -85,6 +92,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
 				Clock:                clock.WallClock,
+				KeyValueSetter:       setter,
 			}), nil
 		},
 	}

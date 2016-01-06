@@ -17,11 +17,10 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/keyvalue"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -39,10 +38,10 @@ var (
 type ManifoldConfig struct {
 	Period *time.Duration
 
-	AgentName       string
-	APICallerName   string
-	MetricSpoolName string
-	CharmDirName    string
+	AgentName               string
+	UniterKeyValueStoreName string
+	MetricSpoolName         string
+	CharmDirName            string
 }
 
 // Manifold returns a collect-metrics manifold.
@@ -50,7 +49,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APICallerName,
+			config.UniterKeyValueStoreName,
 			config.MetricSpoolName,
 			config.CharmDirName,
 		},
@@ -66,7 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // UnitCharmLookup can look up the charm URL for a unit tag.
 type UnitCharmLookup interface {
-	CharmURL(names.UnitTag) (*corecharm.URL, error)
+	CharmURL() (*corecharm.URL, error)
 }
 
 var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceFunc) (*collect, error) {
@@ -79,17 +78,11 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 	if err := getResource(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
-	tag := agent.CurrentConfig().Tag()
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected a unit tag, got %v", tag)
-	}
 
-	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
+	var getter keyvalue.Getter
+	if err := getResource(config.UniterKeyValueStoreName, &getter); err != nil {
 		return nil, err
 	}
-	uniterFacade := uniterapi.NewState(apiCaller, unitTag)
 
 	var metricFactory spool.MetricFactory
 	err := getResource(config.MetricSpoolName, &metricFactory)
@@ -106,7 +99,7 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 	collector := &collect{
 		period:          period,
 		agent:           agent,
-		unitCharmLookup: &unitCharmLookup{uniterFacade},
+		unitCharmLookup: &unitCharmLookup{getter},
 		metricFactory:   metricFactory,
 		charmdir:        charmdir,
 	}
@@ -114,16 +107,21 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 }
 
 type unitCharmLookup struct {
-	st *uniterapi.State
+	getter keyvalue.Getter
 }
 
 // CharmURL implements UnitCharmLookup.
-func (r *unitCharmLookup) CharmURL(unitTag names.UnitTag) (*corecharm.URL, error) {
-	unit, err := r.st.Unit(unitTag)
+func (r *unitCharmLookup) CharmURL() (*corecharm.URL, error) {
+	value, err := r.getter.Get(uniter.CharmURLKey)
+	valueString, ok := value.(string)
+	if !ok {
+		return nil, errors.New("unexpected value format")
+	}
+	charmURL, err := corecharm.ParseURL(valueString)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return unit.CharmURL()
+	return charmURL, nil
 }
 
 type collect struct {
@@ -142,7 +140,7 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 		return nil, errors.Trace(err)
 	}
 
-	chURL, err := unitCharm.CharmURL(unitTag)
+	chURL, err := unitCharm.CharmURL()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

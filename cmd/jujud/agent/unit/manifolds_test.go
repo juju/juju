@@ -54,6 +54,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.MeterStatusName,
 		unit.MetricSenderName,
 		unit.CharmDirName,
+		unit.UniterKeyValueStoreName,
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {

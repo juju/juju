@@ -2093,3 +2093,29 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 		),
 	})
 }
+
+func (s *UniterSuite) TestCharmURLSet(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		// Upgrade scenarios from steady state.
+		ut(
+			"steady state upgrade",
+			quickStart{},
+			waitCharmURL{"cs:quantal/wordpress-0"},
+			createCharm{revision: 1},
+			upgradeCharm{revision: 1},
+			waitUnitAgent{
+				status: params.StatusIdle,
+				charm:  1,
+			},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       params.StatusUnknown,
+				charm:        1,
+			},
+			waitHooks{"upgrade-charm", "config-changed"},
+			verifyCharm{revision: 1},
+			verifyRunning{},
+			waitCharmURL{"cs:quantal/wordpress-1"},
+		),
+	})
+}

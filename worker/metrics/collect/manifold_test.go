@@ -15,7 +15,6 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -43,10 +42,10 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
-		AgentName:       "agent-name",
-		APICallerName:   "apicaller-name",
-		MetricSpoolName: "metric-spool-name",
-		CharmDirName:    "charmdir-name",
+		AgentName:               "agent-name",
+		UniterKeyValueStoreName: "uniter-keyvalue-store-name",
+		MetricSpoolName:         "metric-spool-name",
+		CharmDirName:            "charmdir-name",
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
@@ -56,10 +55,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dummyResources = dt.StubResources{
-		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
-		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
-		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
+		"agent-name":                 dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
+		"uniter-keyvalue-store-name": dt.StubResource{Output: &dummyKeyValueGetter{}},
+		"metric-spool-name":          dt.StubResource{Output: &dummyMetricFactory{}},
+		"charmdir-name":              dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
 }
@@ -67,7 +66,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "uniter-keyvalue-store-name", "metric-spool-name", "charmdir-name",
 	})
 }
 
@@ -75,7 +74,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "uniter-keyvalue-store-name", "metric-spool-name", "charmdir-name",
 	} {
 		testResources := dt.StubResources{}
 		for k, v := range s.dummyResources {
@@ -214,8 +213,11 @@ func (ac dummyAgentConfig) DataDir() string {
 	return ac.dataDir
 }
 
-type dummyAPICaller struct {
-	base.APICaller
+type dummyKeyValueGetter struct {
+}
+
+func (d *dummyKeyValueGetter) Get(_ string) (interface{}, error) {
+	return nil, nil
 }
 
 type dummyCharmdir struct {
