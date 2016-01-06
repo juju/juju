@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -130,18 +129,23 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	// and cleanup the documents.
 	go func() {
 		defer close(done)
-		for {
+		a := testing.LongAttempt.Start()
+		for a.Next() {
 			err := s.State.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingEnviron()
 			if errors.Cause(err) != state.ErrEnvironmentNotDying {
 				c.Check(err, jc.ErrorIsNil)
+				if err == nil {
+					// success!
+					return
+				}
 			}
 			select {
 			case <-stop:
 				return
-			case <-time.After(200 * time.Millisecond):
-				//continue
+			default:
+				// retry
 			}
 		}
 	}()
