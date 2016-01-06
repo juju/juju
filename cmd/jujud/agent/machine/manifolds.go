@@ -51,6 +51,11 @@ type ManifoldsConfig struct {
 	// workers which rely on an API connection (which have not yet
 	// been converted to work directly with the dependency engine).
 	StartAPIWorkers func(api.Connection) (worker.Worker, error)
+
+	// PreUpgradeSteps is a function that is used by the upgradesteps
+	// worker to ensure that conditions are OK for an upgrade to
+	// proceed.
+	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -113,6 +118,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
+			PreUpgradeSteps:      config.PreUpgradeSteps,
 		}),
 
 		// The uninstaller manifold checks if the machine is dead. If

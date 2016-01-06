@@ -18,6 +18,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	apiundertaker "github.com/juju/juju/api/undertaker"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -489,6 +490,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
+			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
