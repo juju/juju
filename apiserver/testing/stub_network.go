@@ -44,6 +44,13 @@ const (
 )
 
 func (s StubNetwork) SetUpSuite(c *gc.C) {
+	providers := environs.RegisteredProviders()
+	for _, name := range providers {
+		if name == StubProviderType {
+			return
+		}
+	}
+
 	ProviderInstance.Zones = []providercommon.AvailabilityZone{
 		&FakeZone{"zone1", true},
 		&FakeZone{"zone2", false},
