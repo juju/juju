@@ -171,7 +171,6 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	return results, nil
 }
 
-// TODO need test for this
 // MetricBatches returns metric batches currently stored in state.
 func (st *State) MetricBatches(unit string) ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
