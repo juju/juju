@@ -149,6 +149,8 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	}, nil
 }
 
+// TODO(ericsnow) Move these to apiserver/common/http.go.
+
 // sendJSON writes a JSON-encoded response value
 // to the given writer along with a trailing newline.
 func sendJSON(w io.Writer, response interface{}) {
