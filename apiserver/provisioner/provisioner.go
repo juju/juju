@@ -1560,7 +1560,7 @@ func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetad
 
 	lookup := simplestreams.LookupParams{
 		Series: []string{m.Series()},
-		Stream: cfg.AgentStream(),
+		Stream: cfg.ImageStream(),
 	}
 
 	mcons, err := m.Constraints()
@@ -1683,7 +1683,10 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 
 	getStream := func(current string) string {
 		if current == "" {
-			return imagemetadata.ReleasedStream
+			if constraint.Stream != "" {
+				return constraint.Stream
+			}
+			return env.Config().ImageStream()
 		}
 		return current
 	}

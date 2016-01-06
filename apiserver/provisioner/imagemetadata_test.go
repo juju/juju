@@ -36,7 +36,7 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:/daily")
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	useTestImageData(c, nil)
 }
@@ -68,7 +68,7 @@ func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	// ensure metadata in data sources and not in state
 	useTestImageData(c, testImagesData)
 
-	criteria := cloudimagemetadata.MetadataFilter{Stream: "released"}
+	criteria := cloudimagemetadata.MetadataFilter{Stream: "daily"}
 	found, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(found, gc.HasLen, 0)
@@ -152,7 +152,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 				VirtType:        "pv",
 				RootStorageType: "ebs",
 				Source:          "default cloud images",
-				Stream:          "released",
+				Stream:          "daily",
 				Priority:        10,
 			},
 			{ImageId: "ami-26745463",
@@ -162,7 +162,7 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 				Arch:            "amd64",
 				VirtType:        "pv",
 				RootStorageType: "ebs",
-				Stream:          "released",
+				Stream:          "daily",
 				Source:          "default cloud images",
 				Priority:        10},
 		}
@@ -181,10 +181,10 @@ func (s *ImageMetadataSuite) assertImageMetadataResults(c *gc.C, obtained params
 // TODO (anastasiamac 2015-09-04) This metadata is so verbose.
 // Need to generate the text by creating a struct and marshalling it.
 var testImagesData = map[string]string{
-	"/streams/v1/index.json": `
+	"/daily/streams/v1/index.json": `
 		{
 		 "index": {
-		  "com.ubuntu.cloud:released:aws": {
+		  "com.ubuntu.cloud:daily:aws": {
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		   "clouds": [
 			{
@@ -200,8 +200,8 @@ var testImagesData = map[string]string{
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:12.10:amd64",
-			"com.ubuntu.cloud:server:14.04:amd64"
+			"com.ubuntu.cloud.daily:server:12.10:amd64",
+			"com.ubuntu.cloud.daily:server:14.04:amd64"
 		   ],
 		   "path": "streams/v1/image_metadata.json"
 		   }
@@ -210,12 +210,12 @@ var testImagesData = map[string]string{
 		 "format": "index:1.0"
 		}
 `,
-	"/streams/v1/image_metadata.json": `
+	"/daily/streams/v1/image_metadata.json": `
 {
  "updated": "Wed, 27 May 2015 13:31:26 +0000",
- "content_id": "com.ubuntu.cloud:released:aws",
+ "content_id": "com.ubuntu.cloud:daily:aws",
  "products": {
-  "com.ubuntu.cloud:server:14.04:amd64": {
+  "com.ubuntu.cloud.daily:server:14.04:amd64": {
    "release": "trusty",
    "version": "14.04",
    "arch": "amd64",
@@ -240,7 +240,7 @@ var testImagesData = map[string]string{
     }
    }
   },
-  "com.ubuntu.cloud:server:12.10:amd64": {
+  "com.ubuntu.cloud.daily:server:12.10:amd64": {
    "release": "quantal",
    "version": "12.10",
    "arch": "amd64",

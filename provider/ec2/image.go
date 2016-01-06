@@ -51,7 +51,6 @@ func findInstanceSpec(
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
-	logger.Debugf("suitable images %v", suitableImages)
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
