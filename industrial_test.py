@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import datetime
+from itertools import count
 import json
 import logging
 import os
@@ -77,7 +78,7 @@ class MultiIndustrialTest:
         config = SimpleEnvironment.from_config(args.env).config
         stages = cls.get_stages(suite, config)
         return cls(args.env, args.new_juju_path,
-                   stages, args.attempts, args.attempts * 2,
+                   stages, args.log_dir, args.attempts, args.attempts * 2,
                    args.new_agent_url, args.debug, args.old_stable)
 
     @staticmethod
@@ -85,7 +86,7 @@ class MultiIndustrialTest:
         stages = list(suites[suite])
         return stages
 
-    def __init__(self, env, new_juju_path, stages, attempt_count=2,
+    def __init__(self, env, new_juju_path, stages, log_dir, attempt_count=2,
                  max_attempts=1, new_agent_url=None, debug=False,
                  really_old_path=None):
         self.env = env
@@ -96,6 +97,8 @@ class MultiIndustrialTest:
         self.attempt_count = attempt_count
         self.max_attempts = max_attempts
         self.debug = debug
+        self.log_parent_dir = log_dir
+        self._log_dir_count = count()
 
     def make_results(self):
         """Return a results list for use in run_tests."""
@@ -765,12 +768,22 @@ def suite_list(suite_str):
     return suite_list
 
 
+_log_dir_count = count()
+
+
+def make_log_dir(log_parent_dir):
+    new_log_dir = os.path.join(log_parent_dir, str(_log_dir_count.next()))
+    os.mkdir(new_log_dir)
+    return new_log_dir
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
     parser.add_argument('suite', type=suite_list)
+    parser.add_argument('log_dir')
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
