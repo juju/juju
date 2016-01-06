@@ -27,12 +27,6 @@ func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource
 	return s.ReturnListResources, nil
 }
 
-func (s *stubCharmStore) Upload(service, name string, resource io.Reader) error {
-	s.stub.AddCall("Upload", service, name, resource)
-	err := s.stub.NextErr()
-	return errors.Trace(err)
-}
-
 func (s *stubCharmStore) Close() error {
 	s.stub.AddCall("Close")
 	if err := s.stub.NextErr(); err != nil {
@@ -40,4 +34,37 @@ func (s *stubCharmStore) Close() error {
 	}
 
 	return nil
+}
+
+type stubAPIClient struct {
+	stub *testing.Stub
+}
+
+func (s *stubAPIClient) Upload(service, name string, resource io.Reader) error {
+	s.stub.AddCall("Upload", service, name, resource)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubAPIClient) Close() error {
+	s.stub.AddCall("Close")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+type stubFile struct {
+	// No one actually tries to read from this during tests.
+	io.Reader
+	stub *testing.Stub
+}
+
+func (s *stubFile) Close() error {
+	s.stub.AddCall("FileClose")
+	return errors.Trace(s.stub.NextErr())
 }
