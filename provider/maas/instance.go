@@ -124,7 +124,7 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		}
 		linksArray, ok := objMap["links"]
 		if !ok || linksArray.IsNil() {
-			logger.Warningf("skipping interface %#d %q with no links", i, name)
+			logger.Warningf("skipping interface #%d %q with no links", i, name)
 			continue
 		}
 		links, err := linksArray.GetArray()
