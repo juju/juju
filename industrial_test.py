@@ -31,6 +31,7 @@ from substrate import (
     )
 from utility import (
     configure_logging,
+    LoggedException,
     temp_dir,
     until_timeout,
     )
@@ -44,16 +45,6 @@ DENSITY = 'density'
 FULL = 'full'
 BACKUP = 'backup'
 UPGRADE = 'upgrade'
-
-
-class LoggedException(BaseException):
-    """Raised in place of an exception that has already been logged.
-
-    This is a wrapper to avoid double-printing real Exceptions while still
-    unwinding the stack appropriately.
-    """
-    def __init__(self, exception):
-        self.exception = exception
 
 
 class StageInfo:

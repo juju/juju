@@ -51,6 +51,16 @@ class PortTimeoutError(Exception):
     pass
 
 
+class LoggedException(BaseException):
+    """Raised in place of an exception that has already been logged.
+
+    This is a wrapper to avoid double-printing real Exceptions while still
+    unwinding the stack appropriately.
+    """
+    def __init__(self, exception):
+        self.exception = exception
+
+
 class until_timeout:
 
     """Yields remaining number of seconds.  Stops when timeout is reached.
