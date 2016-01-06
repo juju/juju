@@ -3,11 +3,14 @@
 
 package api
 
+// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
+
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 )
 
@@ -36,6 +39,30 @@ func Resource2API(res resource.Resource) Resource {
 		Username:      res.Username,
 		Timestamp:     res.Timestamp,
 	}
+}
+
+// APIResult2Resources converts a ResourcesResult into []resource.Resource.
+func APIResult2Resources(apiResult ResourcesResult) ([]resource.Resource, error) {
+	var result []resource.Resource
+
+	if apiResult.Error != nil {
+		// TODO(ericsnow) Return the resources too?
+		err, _ := common.RestoreError(apiResult.Error)
+		return nil, errors.Trace(err)
+	}
+
+	for _, apiRes := range apiResult.Resources {
+		res, err := API2Resource(apiRes)
+		if err != nil {
+			// This could happen if the server is misbehaving
+			// or non-conforming.
+			// TODO(ericsnow) Aggregate errors?
+			return nil, errors.Annotate(err, "got bad data from server")
+		}
+		result = append(result, res)
+	}
+
+	return result, nil
 }
 
 // API2Resource converts an API Resource struct into
