@@ -8,7 +8,6 @@ package metricsdebug
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -33,8 +32,6 @@ type MetricsDebug interface {
 // implementation of the api end point.
 type MetricsDebugAPI struct {
 	state *state.State
-
-	accessEnviron common.GetAuthFunc
 }
 
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
@@ -45,24 +42,12 @@ func NewMetricsDebugAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*MetricsDebugAPI, error) {
-	if !(authorizer.AuthMachineAgent() && authorizer.AuthEnvironManager()) {
-		// TODO (mattyw) Needs to be different.
+	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
-	// Allow access only to the current environment.
-	accessEnviron := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			if tag == nil {
-				return false
-			}
-			return tag == st.EnvironTag()
-		}, nil
-	}
-
 	return &MetricsDebugAPI{
-		state:         st,
-		accessEnviron: accessEnviron,
+		state: st,
 	}, nil
 }
 
@@ -74,21 +59,14 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResu
 	if len(args.Entities) == 0 {
 		return results, nil
 	}
-	canAccess, err := api.accessEnviron()
-	if err != nil {
-		return results, err
-	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseEnvironTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+		// TODO (mattyw) Get metrics only for the entity
+		if _, err := api.state.Unit(arg.Tag); err != nil {
+			err = errors.Annotate(err, "failed to find unit")
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if !canAccess(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		batches, err := api.state.MetricBatches()
+		batches, err := api.state.MetricBatches(arg.Tag)
 		if err != nil {
 			err = errors.Annotate(err, "failed to get metrics")
 			results.Results[i].Error = common.ServerError(err)

@@ -248,7 +248,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MetricSuite) TestMetricBatches(c *gc.C) {
+func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	_, err := s.State.AddMetrics(
@@ -261,7 +261,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.MetricBatches()
+	metricBatches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
@@ -270,7 +270,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
 
-func (s *MetricSuite) TestMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
+func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	uuid := utils.MustNewUUID().String()
@@ -285,7 +285,7 @@ func (s *MetricSuite) TestMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.MetricBatches()
+	metricBatches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
@@ -310,7 +310,7 @@ func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.MetricBatches()
+	metricBatches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Credentials(), gc.DeepEquals, []byte("hello there"))
@@ -333,7 +333,7 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	c.Assert(unsent+sent, gc.Equals, 3)
 }
 
-func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
+func (s *MetricSuite) TestSetAllMetricBatchesSent(c *gc.C) {
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, 3)
 	for i := range metrics {
@@ -344,7 +344,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	for i, m := range metrics {
 		uuids[i] = m.UUID()
 	}
-	err := s.State.SetMetricBatchesSent(uuids)
+	err := s.State.SetAllMetricBatchesSent(uuids)
 	c.Assert(err, jc.ErrorIsNil)
 	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -382,7 +382,7 @@ func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 		for i, m := range result {
 			uuids[i] = m.UUID()
 		}
-		s.State.SetMetricBatchesSent(uuids)
+		s.State.SetAllMetricBatchesSent(uuids)
 	}
 	result, err := s.State.MetricsToSend(2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -498,7 +498,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 2)
 
@@ -522,7 +522,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	err = s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 
-	batches, err = s.State.MetricBatches()
+	batches, err = s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
 }
