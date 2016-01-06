@@ -130,10 +130,11 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
 		c.Assert(args.CharmUrl, gc.Equals, "charmURL")
-		c.Assert(args.Force, gc.Equals, true)
+		c.Assert(args.ForceSeries, gc.Equals, true)
+		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
 	})
-	err := s.client.ServiceSetCharm("service", "charmURL", true)
+	err := s.client.ServiceSetCharm("service", "charmURL", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

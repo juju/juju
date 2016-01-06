@@ -54,6 +54,7 @@ type EnvUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
+	ReadOnly    bool
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -163,7 +164,11 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
-		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()), params.DisplayName)
+		_, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+			User:        user.UserTag(),
+			CreatedBy:   names.NewUserTag(user.CreatedBy()),
+			DisplayName: params.DisplayName,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Disabled {
@@ -194,7 +199,12 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag, params.DisplayName)
+	envUser, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+		User:        names.NewUserTag(params.User),
+		CreatedBy:   createdByUserTag,
+		DisplayName: params.DisplayName,
+		ReadOnly:    params.ReadOnly,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return envUser
 }

@@ -164,34 +164,6 @@ func (nw *Networker) loop() error {
 	// indiscriminately for containers and possibly other cases.
 	logger.Infof("networker is disabled - not starting on machine %q", nw.tag)
 	return nil
-
-	if err := nw.setUp(); err != nil {
-		return errors.Trace(err)
-	}
-	interfacesWatcher, err := nw.st.WatchInterfaces(nw.tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := nw.catacomb.Add(interfacesWatcher); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Debugf("initialized and started watching")
-
-	for {
-		select {
-		case <-nw.catacomb.Dying():
-			logger.Tracef("shutting down")
-			return nw.catacomb.ErrDying()
-		case _, ok := <-interfacesWatcher.Changes():
-			logger.Tracef("got change notification")
-			if !ok {
-				return errors.New("interfaces watcher closed")
-			}
-			if err := nw.handle(); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
 }
 
 // setUp initializes the worker's data.

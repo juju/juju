@@ -22,6 +22,7 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.State, func(), error)
+	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -34,6 +35,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeStepsGateName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			// Sanity checks
+			if config.OpenStateForUpgrade == nil {
+				return nil, errors.New("missing OpenStateForUpgrade in config")
+			}
+			if config.PreUpgradeSteps == nil {
+				return nil, errors.New("missing PreUpgradeSteps in config")
+			}
+
 			// Get machine agent.
 			var agent agent.Agent
 			if err := getResource(config.AgentName, &agent); err != nil {
@@ -77,6 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				apiConn,
 				jobs,
 				config.OpenStateForUpgrade,
+				config.PreUpgradeSteps,
 				machine,
 			)
 		},

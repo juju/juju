@@ -25,7 +25,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -1019,13 +1018,13 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 }
 
 type signedSuite struct {
-	origKey string
+	coretesting.BaseSuite
 }
 
-var testRoundTripper *jujutest.ProxyRoundTripper
+var testRoundTripper *coretesting.ProxyRoundTripper
 
 func init() {
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	testRoundTripper = &coretesting.ProxyRoundTripper{}
 	testRoundTripper.RegisterForScheme("signedtest")
 }
 
@@ -1054,18 +1053,19 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+	testRoundTripper.Sub = coretesting.NewCannedRoundTripper(
 		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
-	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
 	testRoundTripper.Sub = nil
-	tools.SetSigningPublicKey(s.origKey)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLSignedDataSource(
+		"test", "signedtest://host/signed", sstesting.SignedMetadataPrivateKey, utils.VerifySSLHostnames,
+	)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

@@ -344,7 +344,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
+	err := service.NewClient(st).ServiceSetCharm("nosuch", "local:quantal/wordpress", false, false)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

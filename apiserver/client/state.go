@@ -28,7 +28,7 @@ type Unit interface {
 }
 
 // stateInterface contains the state.State methods used in this package,
-// allowing stubs to ve created for testing.
+// allowing stubs to be created for testing.
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
@@ -56,7 +56,7 @@ type stateInterface interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*state.EnvironmentUser, error)
+	AddEnvironmentUser(state.EnvUserSpec) (*state.EnvironmentUser, error)
 	RemoveEnvironmentUser(names.UserTag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error

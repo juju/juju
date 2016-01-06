@@ -83,7 +83,10 @@ func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddEnvironmentUser(admin.UserTag(), remoteUserTag, "Foo Bar")
+	st.AddEnvironmentUser(state.EnvUserSpec{
+		User:        admin.UserTag(),
+		CreatedBy:   remoteUserTag,
+		DisplayName: "Foo Bar"})
 
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
@@ -215,4 +218,52 @@ func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
+}
+
+func (s *systemManagerSuite) TestEnvironmentStatus(c *gc.C) {
+	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
+	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name:    "dummytoo",
+		Owner:   otherEnvOwner.UserTag(),
+		Prepare: true,
+		ConfigAttrs: testing.Attrs{
+			"state-server": false,
+		},
+	})
+	defer otherSt.Close()
+
+	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageEnviron}})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
+	s.Factory.MakeService(c, &factory.ServiceParams{
+		Charm: s.Factory.MakeCharm(c, nil),
+	})
+
+	otherFactory := factory.NewFactory(otherSt)
+	otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeService(c, &factory.ServiceParams{
+		Charm: otherFactory.MakeCharm(c, nil),
+	})
+
+	controllerEnvTag := s.State.EnvironTag().String()
+	hostedEnvTag := otherSt.EnvironTag().String()
+
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
+	}
+	results, err := s.systemManager.EnvironmentStatus(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.DeepEquals, []params.EnvironmentStatus{{
+		EnvironTag:         controllerEnvTag,
+		HostedMachineCount: 1,
+		ServiceCount:       1,
+		OwnerTag:           "user-dummy-admin@local",
+		Life:               params.Alive,
+	}, {
+		EnvironTag:         hostedEnvTag,
+		HostedMachineCount: 2,
+		ServiceCount:       1,
+		OwnerTag:           otherEnvOwner.UserTag().String(),
+		Life:               params.Alive,
+	}})
 }

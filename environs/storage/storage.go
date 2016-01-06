@@ -130,6 +130,11 @@ func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
 	return s.storage.URL(s.relpath(path))
 }
 
+// PublicSigningKey is defined in simplestreams.DataSource.
+func (u *storageSimpleStreamsDataSource) PublicSigningKey() string {
+	return ""
+}
+
 // SetAllowRetry is defined in simplestreams.DataSource.
 func (s *storageSimpleStreamsDataSource) SetAllowRetry(allow bool) {
 	s.allowRetry = allow

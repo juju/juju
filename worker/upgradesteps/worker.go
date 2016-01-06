@@ -98,6 +98,7 @@ func NewWorker(
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 	openState func() (*state.State, func(), error),
+	preUpgradeSteps func(st *state.State, agentConf agent.Config, isStateServer, isMasterServer bool) error,
 	machine StatusSetter,
 ) (worker.Worker, error) {
 	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
@@ -110,6 +111,7 @@ func NewWorker(
 		apiConn:         apiConn,
 		jobs:            jobs,
 		openState:       openState,
+		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
 		tag:             tag,
 	}
@@ -127,6 +129,7 @@ type upgradesteps struct {
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, func(), error)
+	preUpgradeSteps func(st *state.State, agentConf agent.Config, isStateServer, isMaster bool) error
 	machine         StatusSetter
 
 	fromVersion   version.Number
@@ -249,6 +252,11 @@ func (w *upgradesteps) runUpgrades() error {
 }
 
 func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
+	logger.Infof("checking that upgrade can proceed")
+	if err := w.preUpgradeSteps(w.st, w.agent.CurrentConfig(), w.st != nil, w.isMaster); err != nil {
+		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
+	}
+
 	if !w.isStateServer {
 		return nil, nil
 	}

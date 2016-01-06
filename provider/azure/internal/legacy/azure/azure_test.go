@@ -15,10 +15,10 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/testing"
+	testing "github.com/juju/juju/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -33,7 +33,7 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	// Prepare mock http transport for overriding metadata and images output in tests.
@@ -54,7 +54,7 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	s.PatchValue(&signedImageDataOnly, false)
 	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
 		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil
@@ -96,5 +96,5 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*im
 		"/streams/v1/index.json":                string(index),
 		"/" + imagemetadata.ProductMetadataPath: string(products),
 	}
-	s.PatchValue(&testRoundTripper.Sub, jujutest.NewCannedRoundTripper(files, nil))
+	s.PatchValue(&testRoundTripper.Sub, testing.NewCannedRoundTripper(files, nil))
 }
