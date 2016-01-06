@@ -17,25 +17,24 @@ func init() {
 
 // DiscoverSpacesAPI implements the API used by the discoverspaces worker.
 type DiscoverSpacesAPI struct {
-	*common.EnvironWatcher
-
-	st             networkingcommon.NetworkBacking
-	resources      *common.Resources
-	authorizer     common.Authorizer
-	StateAddresser *common.StateAddresser
+	st         networkingcommon.NetworkBacking
+	resources  *common.Resources
+	authorizer common.Authorizer
 }
 
 // NewDiscoverSpacesAPI creates a new instance of the DiscoverSpaces API.
 func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
+	return NewDiscoverSpacesAPIWithBacking(networkingcommon.NewStateShim(st), resources, authorizer)
+}
+
+func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
 	if !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	return &DiscoverSpacesAPI{
-		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
-		st:             networkingcommon.NewStateShim(st),
-		authorizer:     authorizer,
-		resources:      resources,
-		StateAddresser: common.NewStateAddresser(st),
+		st:         st,
+		authorizer: authorizer,
+		resources:  resources,
 	}, nil
 }
 
