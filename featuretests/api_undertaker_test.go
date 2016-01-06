@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type undertakerSuite struct {
@@ -128,13 +128,10 @@ func (s *undertakerSuite) TestWatchEnvironResources(c *gc.C) {
 
 	w, err := undertakerClient.WatchEnvironResources()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-
+	defer w.Kill()
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
+	wc.AssertStops()
 }
 
 func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
