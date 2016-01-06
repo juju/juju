@@ -5,7 +5,6 @@ package common
 
 import (
 	"fmt"
-	"path"
 	"reflect"
 	"runtime"
 	"sort"
@@ -311,70 +310,52 @@ func (f *FacadeRegistry) Discard(name string, version int) {
 	}
 }
 
-// RegisterEnvHTTPEndpoint adds the handler spec to the global registry.
+// RegisterEnvHTTPHandler adds the handler spec to the global registry.
 // The pattern is modified to match the standard URL path for
 // environment-based API endpoints.
-func RegisterEnvHTTPEndpoint(pattern string, spec HTTPHandlerSpec) error {
-	httpEndpoints.register(pattern, "/environment/:envuuid", spec)
-	// TODO(ericsnow Switch to an implementation that returns an error.
-	return nil
+func RegisterEnvHTTPHandler(pattern string, spec HTTPHandlerSpec) error {
+	return httpEndpoints.register(pattern, "/environment/:envuuid", spec)
 }
 
 // ResolveHTTPEndpoints returns all the HTTP endpoints
 // in the global registry.
 func ResolveHTTPEndpoints(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
-	var endpoints []HTTPEndpoint
-	for _, pattern := range httpEndpoints.patterns {
-		hSpec := httpEndpoints.specs[pattern]
-		args := newArgs(hSpec.Constraints)
-		handler := hSpec.NewHTTPHandler(args)
-		for _, method := range []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"} {
-			endpoints = append(endpoints, HTTPEndpoint{
-				Pattern: pattern,
-				Method:  method,
-				Handler: handler,
-			})
-		}
-	}
-	return endpoints
+	return httpEndpoints.resolve(newArgs)
 }
 
 // httpEndpoints is the global registry of HTTP handlers. It is consumed
 // in apiserver/apiserver.go.
-var httpEndpoints = httpEndpointRegistry{}
+var httpEndpoints = httpEndpointRegistry{
+	endpoints: NewHTTPEndpoints(),
+	methods:   []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"},
+}
 
-// httpEndpointRegistry is an ordered registry HTTP handler specs. The
-// order in which handlers are registered is preserved.
+// httpEndpointRegistry is an ordered registry of HTTP endpoint specs.
+// The order in which handlers are registered is preserved.
 type httpEndpointRegistry struct {
-	patterns []string
-	specs    map[string]HTTPHandlerSpec
+	endpoints HTTPEndpoints
+	methods   []string
 }
 
-// Register adds the provided handler spec to the registry
+// register adds the provided handler spec to the registry
 // for the given URL path pattern.
-func (reg *httpEndpointRegistry) register(pattern, prefix string, spec HTTPHandlerSpec) {
-	if reg.specs == nil {
-		reg.specs = make(map[string]HTTPHandlerSpec)
+func (reg *httpEndpointRegistry) register(pattern, prefix string, hSpec HTTPHandlerSpec) error {
+	spec, err := NewHTTPEndpointSpec(pattern, hSpec)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if prefix != "" && !strings.HasPrefix(spec.pattern, prefix) {
+		spec.pattern = prefix + spec.pattern
 	}
 
-	pattern = path.Clean(path.Join("/", pattern))
-	if !strings.HasPrefix(pattern, prefix) {
-		pattern = prefix + pattern
+	if err := reg.endpoints.add(spec); err != nil {
+		return errors.Trace(err)
 	}
-
-	// TODO(ericsnow) Disallow pattern collisions. Selectively?
-	// TODO(ericsnow) Order so that more specific patterns come first?
-
-	reg.patterns = append(reg.patterns, pattern)
-	reg.specs[pattern] = spec
+	return nil
 }
 
-// all returns the list of registered handler specs in the order
+// resolve returns the list of registered handler specs in the order
 // in which they were registered.
-func (reg httpEndpointRegistry) all() []HTTPHandlerSpec {
-	var specs []HTTPHandlerSpec
-	for _, pattern := range reg.patterns {
-		specs = append(specs, reg.specs[pattern])
-	}
-	return specs
+func (reg *httpEndpointRegistry) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
+	return reg.endpoints.resolve(reg.methods, newArgs)
 }

@@ -129,18 +129,30 @@ func (spec *HTTPEndpointSpec) Add(method string, hSpec HTTPHandlerSpec) error {
 	return nil
 }
 
+// methods returns the set of HTTP methods that have handlers
+// for this endpoint.
+func (spec HTTPEndpointSpec) methods() []string {
+	var methods []string
+	for method := range spec.methodHandlers {
+		methods = append(methods, method)
+	}
+	return methods
+}
+
 // resolve returns the HTTP handler spec for the given HTTP method.
-func (spec HTTPEndpointSpec) resolve(method string) HTTPHandlerSpec {
+func (spec HTTPEndpointSpec) resolve(method string, unhandled http.Handler) HTTPHandlerSpec {
 	if hSpec, ok := spec.methodHandlers[method]; ok {
 		return hSpec
 	}
 	if method != "" {
-		return spec.resolve("")
+		return spec.resolve("", unhandled)
+	}
+	if unhandled == nil {
+		unhandled = unsupportedHTTPMethodHandler()
 	}
 	return HTTPHandlerSpec{
 		NewHTTPHandler: func(NewHTTPHandlerArgs) http.Handler {
-			// TODO(ericsnow) return unsupportedHTTPMethodHandler()?
-			return nil
+			return unhandled
 		},
 	}
 }
@@ -206,45 +218,40 @@ func (hes *HTTPEndpoints) add(spec HTTPEndpointSpec) error {
 }
 
 // resolve builds the list of endpoints, preserving order.
-func (hes HTTPEndpoints) resolve(methods []string, newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
+func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
 	var endpoints []HTTPEndpoint
 	for _, pattern := range hes.ordered {
-		unused := make(map[string]bool)
-		for _, m := range methods {
-			unused[strings.ToUpper(m)] = true
-		}
-
 		spec := hes.specs[pattern]
-		for method, hSpec := range spec.methodHandlers {
+		for method := range spec.methods() {
 			if method == "" {
-				// This is handled below where we process unused.
+				// The default is discarded.
 				continue
 			}
-			if !unused[method] {
-				continue
-			}
-			delete(unused, method)
 
+			hSpec := spec.resolve(method, hes.unsupportedMethodHandler)
 			args := newArgs(hSpec.Constraints)
 			handler := hSpec.NewHTTPHandler(args)
-			if handler == nil {
-				handler = hes.unsupportedMethodHandler
-			}
+
 			endpoints = append(endpoints, HTTPEndpoint{
 				Pattern: pattern,
 				Method:  method,
 				Handler: handler,
 			})
 		}
-		for method := range unused {
-			var handler http.Handler
-			if hSpec, ok := spec.methodHandlers[""]; ok {
-				args := newArgs(hSpec.Constraints)
-				handler = hSpec.NewHTTPHandler(args)
-			}
-			if handler == nil {
-				handler = hes.unsupportedMethodHandler
-			}
+	}
+	return endpoints
+}
+
+// resolveForMethods builds the list of endpoints, preserving order.
+func (hes HTTPEndpoints) resolveForMethods(methods []string, newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
+	var endpoints []HTTPEndpoint
+	for _, pattern := range hes.ordered {
+		spec := hes.specs[pattern]
+		for _, method := range methods {
+			hSpec := spec.resolve(method, hes.unsupportedMethodHandler)
+			args := newArgs(hSpec.Constraints)
+			handler := hSpec.NewHTTPHandler(args)
+
 			endpoints = append(endpoints, HTTPEndpoint{
 				Pattern: pattern,
 				Method:  method,
