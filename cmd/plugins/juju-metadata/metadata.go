@@ -52,6 +52,7 @@ func Main(args []string) {
 	if featureflag.Enabled(feature.ImageMetadata) {
 		metadatacmd.Register(newListImagesCommand())
 		metadatacmd.Register(newAddImageMetadataCommand())
+		metadatacmd.Register(newDeleteImageMetadataCommand())
 	}
 
 	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
