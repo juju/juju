@@ -96,7 +96,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
-	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -748,21 +747,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, errors.Annotate(err, "cannot start machiner worker")
 		}
 		return w, err
-	})
-	runner.StartWorker("reboot", func() (worker.Worker, error) {
-		reboot, err := apiConn.Reboot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		w, err := rebootworker.NewReboot(reboot, agentConfig, lock)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start reboot worker")
-		}
-		return w, nil
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}

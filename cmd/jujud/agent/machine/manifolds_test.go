@@ -49,6 +49,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"uninstaller",
 		"serving-info-setter",
 		"apiworkers",
+		"reboot",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }

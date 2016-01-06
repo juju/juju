@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -151,6 +152,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 			StartAPIWorkers:   config.StartAPIWorkers,
 		}),
+
+		// The reboot manifold manages a worker which will reboot the
+		// machine when requested. It needs an API connection and
+		// waits for upgrades to be complete.
+		rebootName: reboot.Manifold(reboot.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -167,4 +177,5 @@ const (
 	uninstallerName       = "uninstaller"
 	servingInfoSetterName = "serving-info-setter"
 	apiWorkersName        = "apiworkers"
+	rebootName            = "reboot"
 )
