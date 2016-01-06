@@ -48,6 +48,7 @@ func Main(args []string) {
 	metadatacmd.Register(newSignMetadataCommand())
 	metadatacmd.Register(newListImagesCommand())
 	metadatacmd.Register(newAddImageMetadataCommand())
+	metadatacmd.Register(newDeleteImageMetadataCommand())
 
 	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
 }
