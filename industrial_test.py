@@ -254,10 +254,9 @@ class IndustrialTest:
         Iteration stops when one client has a False result.
         """
         for attempt in self.stage_attempts:
-            result_iter = attempt.iter_test_results(self.old_client,
-                                                    self.new_client)
             try:
-                for result in result_iter:
+                for result in attempt.iter_test_results(self.old_client,
+                                                        self.new_client):
                     yield result
             except CannotUpgradeToClient as e:
                 if e.client is not self.old_client:
@@ -676,7 +675,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 'title': 'remove many machines (instance)'}),
             ])
 
-    def __init__(self, host_count=1, container_count=1):
+    def __init__(self, host_count=5, container_count=8):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
