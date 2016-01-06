@@ -143,62 +143,70 @@ class TestParseArgs(TestCase):
             args = parse_args(['rai', 'new-juju'])
         self.assertRegexpMatches(
             stderr.getvalue(), '.*error: too few arguments.*')
-        args = parse_args(['rai', 'new-juju', QUICK])
+        with parse_error(self) as stderr:
+            args = parse_args(['rai', 'new-juju', QUICK])
+        self.assertRegexpMatches(
+            stderr.getvalue(), '.*error: too few arguments.*')
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertEqual(args.env, 'rai')
         self.assertEqual(args.new_juju_path, 'new-juju')
+        self.assertEqual(args.log_dir, 'log-dir')
         self.assertEqual(args.suite, [QUICK])
 
     def test_parse_args_attempts(self):
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertEqual(args.attempts, 2)
-        args = parse_args(['rai', 'new-juju', '--attempts', '3', QUICK])
+        args = parse_args(['rai', 'new-juju', '--attempts', '3', QUICK,
+                           'log-dir'])
         self.assertEqual(args.attempts, 3)
 
     def test_parse_args_json_file(self):
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertIs(args.json_file, None)
-        args = parse_args(['rai', 'new-juju', '--json-file', 'foobar', QUICK])
+        args = parse_args(['rai', 'new-juju', '--json-file', 'foobar', QUICK,
+                           'log-dir'])
         self.assertEqual(args.json_file, 'foobar')
 
     def test_parse_args_suite(self):
-        args = parse_args(['rai', 'new-juju', 'full'])
+        args = parse_args(['rai', 'new-juju', 'full', 'log-dir'])
         self.assertEqual(args.suite, [FULL])
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertEqual(args.suite, [QUICK])
-        args = parse_args(['rai', 'new-juju', DENSITY])
+        args = parse_args(['rai', 'new-juju', DENSITY, 'log-dir'])
         self.assertEqual(args.suite, [DENSITY])
-        args = parse_args(['rai', 'new-juju', BACKUP])
+        args = parse_args(['rai', 'new-juju', BACKUP, 'log-dir'])
         self.assertEqual(args.suite, [BACKUP])
         with parse_error(self) as stderr:
-            args = parse_args(['rai', 'new-juju', 'foo'])
+            args = parse_args(['rai', 'new-juju', 'foo', 'log-dir'])
         self.assertRegexpMatches(
             stderr.getvalue(), ".*argument suite: invalid choice: 'foo'.*")
 
     def test_parse_args_multi_suite(self):
-        args = parse_args(['rai', 'new-juju', 'full,quick'])
+        args = parse_args(['rai', 'new-juju', 'full,quick', 'log-dir'])
         self.assertEqual(args.suite, [FULL, QUICK])
         with parse_error(self) as stderr:
-            args = parse_args(['rai', 'new-juju', 'full,foo'])
+            args = parse_args(['rai', 'new-juju', 'full,foo', 'log-dir'])
         self.assertRegexpMatches(
             stderr.getvalue(), ".*argument suite: invalid choice: 'foo'.*")
 
     def test_parse_args_agent_url(self):
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertEqual(args.new_agent_url, None)
         args = parse_args(['rai', 'new-juju', '--new-agent-url',
-                           'http://example.org', QUICK])
+                           'http://example.org', QUICK, 'log-dir'])
         self.assertEqual(args.new_agent_url, 'http://example.org')
 
     def test_parse_args_debug(self):
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertEqual(args.debug, False)
-        args = parse_args(['rai', 'new-juju', '--debug', QUICK])
+        args = parse_args(['rai', 'new-juju', '--debug', QUICK, 'log-dir'])
         self.assertEqual(args.debug, True)
 
     def test_parse_args_old_stable(self):
-        args = parse_args(['rai', 'new-juju', QUICK, '--old-stable', 'asdf'])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir',
+                           '--old-stable', 'asdf'])
         self.assertEqual(args.old_stable, 'asdf')
-        args = parse_args(['rai', 'new-juju', QUICK])
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertIs(args.old_stable, None)
 
 
@@ -262,24 +270,28 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=[DENSITY],
-            new_agent_url=None, debug=False, old_stable=None)
+            log_dir='log-dir', new_agent_url=None, debug=False,
+            old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, QUICK)
         self.assertEqual(mit.env, 'foo')
         self.assertEqual(mit.new_juju_path, 'new-path')
         self.assertEqual(mit.attempt_count, 7)
         self.assertEqual(mit.max_attempts, 14)
+        self.assertEqual(mit.log_parent_dir, 'log-dir')
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
         args = Namespace(
             env='bar', new_juju_path='new-path2', attempts=6, suite=[FULL],
-            new_agent_url=None, debug=False, old_stable=None)
+            log_dir='log-dir2', new_agent_url=None, debug=False,
+            old_stable=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertEqual(mit.env, 'bar')
         self.assertEqual(mit.new_juju_path, 'new-path2')
         self.assertEqual(mit.attempt_count, 6)
         self.assertEqual(mit.max_attempts, 12)
+        self.assertEqual(mit.log_parent_dir, 'log-dir2')
         self.assertEqual(
             mit.stages, [
                 BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
@@ -288,8 +300,8 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_from_args_maas(self):
         args = Namespace(
-            env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url=None, debug=False, old_stable=None)
+            env='foo', new_juju_path='new-path', log_dir='log-dir',
+            attempts=7, new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
         self.assertEqual(
@@ -299,8 +311,8 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_from_args_debug(self):
         args = Namespace(
-            env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url=None, debug=False, old_stable=None)
+            env='foo', new_juju_path='new-path', log_dir='log-dir',
+            attempts=7, new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
             self.assertEqual(mit.debug, False)
@@ -310,14 +322,15 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_from_args_really_old_path(self):
         args = Namespace(
-            env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url=None, debug=False, old_stable='really-old-path')
+            env='foo', new_juju_path='new-path', log_dir='log-dir',
+            attempts=7, new_agent_url=None, debug=False,
+            old_stable='really-old-path')
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertEqual(mit.really_old_path, 'really-old-path')
         args = Namespace(
-            env='bar', new_juju_path='new-path2', attempts=6,
-            new_agent_url=None, debug=False, old_stable=None)
+            env='bar', new_juju_path='new-path2', log_dir='log-dir',
+            attempts=6, new_agent_url=None, debug=False, old_stable=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertIs(mit.really_old_path, None)
@@ -358,7 +371,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_density_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url=None, debug=False, old_stable=None)
+            log_dir='log-dir', new_agent_url=None, debug=False,
+            old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
         self.assertEqual(
@@ -368,7 +382,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_backup_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url=None, debug=False, old_stable=None)
+            log_dir='log-dir', new_agent_url=None, debug=False,
+            old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, BACKUP)
         self.assertEqual(
@@ -378,19 +393,21 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_new_agent_url(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
-            new_agent_url='http://example.net', debug=False, old_stable=None)
+            log_dir='log-dir', new_agent_url='http://example.net',
+            debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, suite=QUICK)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
 
     def test_init(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
-            DestroyEnvironmentAttempt, BootstrapAttempt], 5)
+            DestroyEnvironmentAttempt, BootstrapAttempt], 'log-dir', 5)
         self.assertEqual(mit.env, 'foo-env')
         self.assertEqual(mit.new_juju_path, 'bar-path')
         self.assertEqual(mit.stages, [DestroyEnvironmentAttempt,
                                       BootstrapAttempt])
         self.assertEqual(mit.attempt_count, 5)
+        self.assertEqual(mit.log_parent_dir, 'log-dir')
 
     def test_make_results(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -449,7 +466,7 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_make_industrial_test(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
-            DestroyEnvironmentAttempt, BootstrapAttempt], 5)
+            DestroyEnvironmentAttempt, BootstrapAttempt], 'log-dir', 5)
         with self.patch_client(lambda x, y=None, debug=False: (x, y)):
             industrial = mit.make_industrial_test()
         self.assertEqual(industrial.old_client,
@@ -461,7 +478,7 @@ class TestMultiIndustrialTest(TestCase):
             self.assertIs(type(attempt), stage)
 
     def test_make_industrial_test_new_agent_url(self):
-        mit = MultiIndustrialTest('foo-env', 'bar-path', [],
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [], 'log-dir',
                                   new_agent_url='http://example.com')
         with self.patch_client(lambda x, y=None, debug=False: (x, y)):
             industrial = mit.make_industrial_test()
@@ -473,7 +490,7 @@ class TestMultiIndustrialTest(TestCase):
             )
 
     def test_make_industrial_test_debug(self):
-        mit = MultiIndustrialTest('foo-env', 'bar-path', [],
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [], 'log-dir',
                                   new_agent_url='http://example.com')
 
         def side_effect(x, y=None, debug=False):
@@ -539,7 +556,7 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             FakeAttemptClass('foo', True, True),
             FakeAttemptClass('bar', True, False),
-            ], 5, 10)
+            ], 'log-dir', 5, 10)
 
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
@@ -557,7 +574,7 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             FakeAttemptClass('foo', True, False),
             FakeAttemptClass('bar', True, False),
-            ], 5, 6)
+            ], 'log-dir', 5, 6)
 
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
@@ -575,7 +592,7 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             FakeAttemptClass('foo', True, False),
             FakeAttemptClass('bar', True, False),
-            ], 5, 4)
+            ], 'log-dir', 5, 4)
 
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
