@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -47,9 +48,9 @@ func (r *Relations) SetNewRelation(id int, name string, stub *testing.Stub) *Rel
 }
 
 // SetRelated adds the provided unit information to the relation.
-func (r *Relations) SetRelated(id int, unit string, settings Settings) {
+func (r *Relations) SetRelated(id int, unit string, settings Settings, netConfig []params.NetworkConfig) {
 	relation := r.Relations[id].(*ContextRelation).info
-	relation.SetRelated(unit, settings)
+	relation.SetRelated(unit, settings, netConfig)
 }
 
 // ContextRelations is a test double for jujuc.ContextRelations.

@@ -570,12 +570,21 @@ func constructStartInstanceParams(
 			},
 		}
 	}
+
 	var subnetsToZones map[network.Id][]string
 	if provisioningInfo.SubnetsToZones != nil {
 		// Convert subnet provider ids from string to network.Id.
 		subnetsToZones = make(map[network.Id][]string, len(provisioningInfo.SubnetsToZones))
 		for providerId, zones := range provisioningInfo.SubnetsToZones {
 			subnetsToZones[network.Id(providerId)] = zones
+		}
+	}
+
+	var endpointBindings map[string]network.Id
+	if len(provisioningInfo.EndpointBindings) != 0 {
+		endpointBindings = make(map[string]network.Id)
+		for endpoint, space := range provisioningInfo.EndpointBindings {
+			endpointBindings[endpoint] = network.Id(space)
 		}
 	}
 
@@ -587,6 +596,7 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		EndpointBindings:  endpointBindings,
 	}, nil
 }
 

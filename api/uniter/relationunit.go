@@ -167,3 +167,28 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
 }
+
+// NetworkConfig requests network config information from the server.
+func (ru *RelationUnit) NetworkConfig() ([]params.NetworkConfig, error) {
+	var result params.UnitNetworkConfigResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{
+			{Relation: ru.relation.tag.String(), Unit: ru.unit.tag.String()},
+		},
+	}
+
+	err := ru.st.facade.FacadeCall("NetworkConfig", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(result.Results) != 1 {
+		return nil, fmt.Errorf("expected at least 1 result, got %d", len(result.Results))
+	}
+
+	if result.Results[0].Error == nil {
+		return result.Results[0].Config, nil
+	}
+
+	return nil, errors.Trace(result.Results[0].Error)
+}

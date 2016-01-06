@@ -874,14 +874,21 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Annotate(err, "invalid volume parameters")
 	}
 
+	var interfaceBindings []interfaceBinding
+	if len(args.EndpointBindings) != 0 {
+		for endpoint, spaceProviderID := range args.EndpointBindings {
+			interfaceBindings = append(interfaceBindings, interfaceBinding{
+				Name:            endpoint,
+				SpaceProviderId: string(spaceProviderID),
+			})
+		}
+	}
 	snArgs := selectNodeArgs{
 		Constraints:       args.Constraints,
 		AvailabilityZones: availabilityZones,
 		NodeName:          nodeName,
-		// TODO(dimitern): Once we have interface bindings for services in state
-		// and in StartInstanceParams, pass them here.
-		Interfaces: nil,
-		Volumes:    volumes,
+		Interfaces:        interfaceBindings,
+		Volumes:           volumes,
 	}
 	node, err := environ.selectNode(snArgs)
 	if err != nil {
