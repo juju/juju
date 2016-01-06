@@ -588,6 +588,14 @@ func (se *StubNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id
 	return ProviderInstance.Subnets, nil
 }
 
+func (se *StubNetworkingEnviron) SupportsSpaces() (bool, error) {
+	se.MethodCall(se, "SupportsSpaces")
+	if err := se.NextErr(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // GoString implements fmt.GoStringer.
 func (se *StubNetworkingEnviron) GoString() string {
 	return "&StubNetworkingEnviron{}"
