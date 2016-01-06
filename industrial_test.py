@@ -301,31 +301,36 @@ class SteppedStageAttempt:
         change until a result is enountered.
         Convert no-result to None.
         Convert exceptions to a False result.  Exceptions terminate iteration.
+        Iterators will always be closed when _iter_for_result is finished or
+        closed.
         """
-        while True:
-            last_result = {}
-            while 'result' not in last_result:
-                try:
-                    result = dict(iterator.next())
-                except StopIteration:
-                    raise
-                except CannotUpgradeToClient:
-                    raise
-                except Exception as e:
-                    logging.exception(e)
-                    yield{'test_id': last_result.get('test_id'),
-                          'result': False}
-                    return
-                if last_result.get('test_id') is not None:
-                    if last_result['test_id'] != result['test_id']:
-                        raise ValueError('ID changed without result.')
-                if 'result' in result:
-                    if last_result == {}:
-                        raise ValueError('Result before declaration.')
-                else:
-                    yield None
-                last_result = result
-            yield result
+        try:
+            while True:
+                last_result = {}
+                while 'result' not in last_result:
+                    try:
+                        result = dict(iterator.next())
+                    except StopIteration:
+                        raise
+                    except CannotUpgradeToClient:
+                        raise
+                    except Exception as e:
+                        logging.exception(e)
+                        yield{'test_id': last_result.get('test_id'),
+                              'result': False}
+                        return
+                    if last_result.get('test_id') is not None:
+                        if last_result['test_id'] != result['test_id']:
+                            raise ValueError('ID changed without result.')
+                    if 'result' in result:
+                        if last_result == {}:
+                            raise ValueError('Result before declaration.')
+                    else:
+                        yield None
+                    last_result = result
+                yield result
+        finally:
+            iterator.close()
 
     def _iter_test_results(self, old_iter, new_iter):
         """Iterate through none-or-result to get result for each operation.
@@ -453,7 +458,6 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
 
     def iter_steps(self, client):
         bootstrap_client = self.get_bootstrap_client(client)
-        import pdb; pdb.set_trace()
         yield self.prepare_upgrade.as_result()
         steps_iter = BootstrapAttempt().iter_steps(bootstrap_client)
         try:

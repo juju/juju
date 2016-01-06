@@ -578,7 +578,7 @@ class BootstrapManager:
                         self.tear_down(try_jes=True)
                     yield
                 # If an exception is raised that indicates an error, log it
-                # before tearning down so that the error is closely tied to
+                # before tearing down so that the error is closely tied to
                 # the failed operation.
                 except Exception as e:
                     logging.exception(e)
@@ -615,7 +615,7 @@ class BootstrapManager:
                     self.client.add_ssh_machines(addable_machines)
                 yield
             except GeneratorExit:
-                return
+                raise
             except BaseException as e:
                 logging.exception(e)
                 sys.exit(1)
