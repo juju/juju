@@ -35,7 +35,7 @@ type UploadCommand struct {
 	envcmd.EnvCommandBase
 	service       string
 	resourceFiles []resourceFile
-	resources     map[string]bool
+	resources     map[string]struct{}
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -73,7 +73,7 @@ func (c *UploadCommand) Init(args []string) error {
 	}
 	c.service = service
 
-	c.resources = make(map[string]bool)
+	c.resources = make(map[string]struct{})
 
 	for _, arg := range args[1:] {
 		if err := c.addResourceFile(arg); err != nil {
@@ -97,12 +97,12 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 		filename: filename,
 	}
 
-	if c.resources[rf.name] {
+	if _, ok := c.resources[rf.name]; ok {
 		msg := fmt.Sprintf("duplicate resource %q", rf.name)
 		return errors.NewAlreadyExists(nil, msg)
 	}
 	c.resourceFiles = append(c.resourceFiles, rf)
-	c.resources[rf.name] = true
+	c.resources[rf.name] = struct{}{}
 	return nil
 }
 
