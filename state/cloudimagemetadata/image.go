@@ -36,7 +36,6 @@ var emptyMetadata = Metadata{}
 
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
 func (s *storage) SaveMetadata(metadata Metadata) error {
-	logger.Debugf("saving image metadata to state: %#v", metadata)
 	newDoc := s.mongoDoc(metadata)
 	if err := validateMetadata(&newDoc); err != nil {
 		return err
@@ -218,6 +217,7 @@ func (s *storage) FindMetadata(criteria MetadataFilter) (map[string][]Metadata, 
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
+	logger.Debugf("searching for image metadata %#v", criteria)
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {

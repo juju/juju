@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/state/storage"
 )
 
 const (
 	storageDataSourceId          = "environment storage"
 	storageDataSourceDescription = storageDataSourceId
+	metadataBasePath             = "imagemetadata"
 )
 
 // environmentStorageDataSource is a simplestreams.DataSource that
@@ -44,7 +44,7 @@ func (d environmentStorageDataSource) Description() string {
 func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string, error) {
 	logger.Debugf("fetching %q", file)
 
-	r, _, err := d.stor.Get(path.Join(envstorage.BaseImagesPath, file))
+	r, _, err := d.stor.Get(path.Join(metadataBasePath, file))
 	if err != nil {
 		return nil, "", err
 	}
@@ -59,7 +59,7 @@ func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string,
 
 // URL is defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) URL(file string) (string, error) {
-	path := path.Join(envstorage.BaseImagesPath, file)
+	path := path.Join(metadataBasePath, file)
 	return fmt.Sprintf("environment-storage://%s", path), nil
 }
 

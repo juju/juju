@@ -150,7 +150,7 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environ
 
 	// Fill in any required default values.
 	if p.Stream == "" {
-		result.Stream = "released"
+		result.Stream = env.Config().ImageStream()
 	}
 	if p.Source == "" {
 		result.Source = "custom"
