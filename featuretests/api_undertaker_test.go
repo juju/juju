@@ -36,7 +36,7 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 	}
 }
 
-func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
+func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
