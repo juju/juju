@@ -108,7 +108,8 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()
@@ -174,7 +175,8 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()
@@ -238,7 +240,8 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()

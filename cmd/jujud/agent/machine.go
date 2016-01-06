@@ -1371,7 +1371,7 @@ func (a *MachineAgent) undertakerWorker(
 
 	// Start the undertaker worker.
 	singularRunner.StartWorker("undertaker", func() (worker.Worker, error) {
-		return undertaker.NewUndertaker(getUndertakerAPI(apiSt), clock.WallClock), nil
+		return undertaker.NewUndertaker(getUndertakerAPI(apiSt), clock.WallClock)
 	})
 
 	return runner, nil

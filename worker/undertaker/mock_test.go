@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 )
 
 type clientEnviron struct {
@@ -76,15 +76,14 @@ type mockEnvironResourceWatcher struct {
 	err    error
 }
 
-func (w *mockEnvironResourceWatcher) Changes() <-chan struct{} {
+func (w *mockEnvironResourceWatcher) Changes() watcher.NotifyChannel {
 	return w.events
 }
 
-func (w *mockEnvironResourceWatcher) Err() error {
-	return w.err
+func (w *mockEnvironResourceWatcher) Kill() {
+	close(w.events)
 }
 
-func (w *mockEnvironResourceWatcher) Stop() error {
-	close(w.events)
-	return nil
+func (w *mockEnvironResourceWatcher) Wait() error {
+	return w.err
 }
