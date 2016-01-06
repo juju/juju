@@ -270,6 +270,9 @@ class FakeJujuClient:
     def wait_for_workloads(self):
         pass
 
+    def get_juju_timings(self):
+        pass
+
 
 class TestErroredUnit(TestCase):
 

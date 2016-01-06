@@ -52,6 +52,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
+    LoggedException,
     PortTimeoutError,
     print_now,
     until_timeout,
@@ -585,7 +586,7 @@ class BootstrapManager:
                     if getattr(e, 'output', None):
                         print_now('\n')
                         print_now(e.output)
-                    sys.exit(1)
+                    raise LoggedException(e)
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
@@ -618,7 +619,7 @@ class BootstrapManager:
                 raise
             except BaseException as e:
                 logging.exception(e)
-                sys.exit(1)
+                raise LoggedException(e)
         finally:
             safe_print_status(self.client)
             if self.jes_enabled:
@@ -654,11 +655,14 @@ class BootstrapManager:
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
         """
-        with self.top_context() as machines:
-            with self.bootstrap_context(machines):
-                self.client.bootstrap(upload_tools)
-            with self.runtime_context(machines):
-                yield machines
+        try:
+            with self.top_context() as machines:
+                with self.bootstrap_context(machines):
+                    self.client.bootstrap(upload_tools)
+                with self.runtime_context(machines):
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
 
 
 @contextmanager

@@ -67,6 +67,7 @@ from test_jujupy import (
     FakePopen,
 )
 from utility import (
+    LoggedException,
     temp_dir,
 )
 
@@ -1068,6 +1069,18 @@ class TestBootstrapManager(FakeHomeTestCase):
                           autospec=True) as ads_mock:
             with bs_manager.runtime_context(['baz']):
                 ads_mock.assert_called_once_with(['baz'])
+
+    def test_booted_context_handles_logged_exception(self):
+        client = FakeJujuClient()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
+        with temp_dir() as juju_home:
+            client.env.juju_home = juju_home
+            with self.assertRaises(SystemExit):
+                with bs_manager.booted_context(False):
+                    raise LoggedException()
 
 
 class TestBootContext(FakeHomeTestCase):

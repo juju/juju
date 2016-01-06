@@ -4,6 +4,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 import logging
 import os.path
+import sys
 
 from deploy_stack import (
     BootstrapManager,
@@ -15,6 +16,7 @@ from jujupy import (
     )
 from utility import (
     configure_logging,
+    LoggedException,
     scoped_environ,
     temp_dir,
 )
@@ -62,7 +64,10 @@ def parse_args(argv=None):
 def main():
     args = parse_args()
     configure_logging(logging.INFO)
-    assess_bootstrap(**args.__dict__)
+    try:
+        assess_bootstrap(**args.__dict__)
+    except LoggedException:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
