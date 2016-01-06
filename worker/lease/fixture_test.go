@@ -69,6 +69,7 @@ type Fixture struct {
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
 func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
+	waitForAlarm := len(fix.leases) > 0
 	clock := testing.NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
@@ -87,5 +88,20 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 		}
 	}()
 	defer client.Wait(c)
+
+	if waitForAlarm {
+		waitAlarms(c, clock, 1)
+	}
 	test(manager, clock)
+}
+
+func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+	timeout := time.After(testing.LongWait)
+	for i := 0; i < count; i++ {
+		select {
+		case <-clock.Alarms():
+		case <-timeout:
+			c.Fatalf("timed out waiting for %dth alarm set", i)
+		}
+	}
 }

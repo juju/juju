@@ -5,7 +5,6 @@ package client
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
@@ -370,7 +370,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 			errs = append(errs, err.Error())
 		}
 	}
-	return destroyErr("units", args.UnitNames, errs)
+	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
 // ServiceDestroy destroys a given service.
@@ -598,30 +598,11 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	var errs []string
-	for _, id := range args.MachineNames {
-		machine, err := c.api.stateAccessor.Machine(id)
-		switch {
-		case errors.IsNotFound(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case args.Force:
-			err = machine.ForceDestroy()
-		case machine.Life() != state.Alive:
-			continue
-		default:
-			{
-				if err := c.check.RemoveAllowed(); err != nil {
-					return errors.Trace(err)
-				}
-				err = machine.Destroy()
-			}
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
+	if err := c.check.RemoveAllowed(); !args.Force && err != nil {
+		return errors.Trace(err)
 	}
-	return destroyErr("machines", args.MachineNames, errs)
+
+	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -691,7 +672,8 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.stateAccessor.AddEnvironmentUser(user, createdBy, "")
+			_, err := c.api.stateAccessor.AddEnvironmentUser(
+				state.EnvUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -861,7 +843,28 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+	// Before changing the agent version to trigger an upgrade or downgrade,
+	// we'll do a very basic check to ensure the
+	cfg, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := getEnvironment(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := environs.CheckProviderAPI(env); err != nil {
+		return err
+	}
 	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
+}
+
+var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -876,18 +879,6 @@ func (c *Client) AbortCurrentUpgrade() error {
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	return c.api.toolsFinder.FindTools(args)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 func (c *Client) AddCharm(args params.CharmURL) error {

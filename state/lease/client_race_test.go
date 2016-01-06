@@ -300,3 +300,31 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *g
 	// The SUT has been refreshed, and you can see why the operation was invalid.
 	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(150*time.Second))
 }
+
+// ClientNTPSuite tests what happens when ntp messes with the clock.
+type ClientNTPSuite struct {
+	FixtureSuite
+}
+
+var _ = gc.Suite(&ClientNTPSuite{})
+
+func (s *ClientNTPSuite) TestTimeGoesForwards(c *gc.C) {
+	f := s.EasyFixture(c)
+	f.Clock.step = 2 * time.Millisecond
+	err := f.Client.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ClientNTPSuite) TestTimeGoesBackwardsALittle(c *gc.C) {
+	f := s.EasyFixture(c)
+	f.Clock.step = -2 * time.Millisecond
+	err := f.Client.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ClientNTPSuite) TestTimeGoesBackwardsALot(c *gc.C) {
+	f := s.EasyFixture(c)
+	f.Clock.step = -20 * time.Millisecond
+	err := f.Client.Refresh()
+	c.Assert(err.Error(), gc.Equals, "end of read window preceded beginning (20ms)")
+}

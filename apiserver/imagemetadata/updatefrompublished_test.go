@@ -11,15 +11,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
 
 var (
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	testRoundTripper = &testing.ProxyRoundTripper{}
 )
 
 func init() {
@@ -30,11 +29,9 @@ func init() {
 // useTestImageData causes the given content to be served when published metadata is requested.
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		imagemetadata.DefaultBaseURL = "test:"
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 	} else {
 		testRoundTripper.Sub = nil
-		imagemetadata.DefaultBaseURL = ""
 	}
 }
 
@@ -135,6 +132,7 @@ type imageMetadataUpdateSuite struct {
 
 func (s *imageMetadataUpdateSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	useTestImageData(testImagesData)
 }
 

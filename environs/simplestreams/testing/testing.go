@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
 )
@@ -534,17 +533,17 @@ var imageData = map[string]string{
 `,
 }
 
-var testRoundTripper *jujutest.ProxyRoundTripper
+var testRoundTripper *testing.ProxyRoundTripper
 
 func init() {
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	testRoundTripper = &testing.ProxyRoundTripper{}
 	testRoundTripper.RegisterForScheme("test")
 }
 
 type TestDataSuite struct{}
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+	testRoundTripper.Sub = testing.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 

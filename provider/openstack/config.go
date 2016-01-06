@@ -92,21 +92,6 @@ var configFields = func() schema.Fields {
 	return fs
 }()
 
-var configDefaults = schema.Defaults{
-	"username":             "",
-	"password":             "",
-	"tenant-name":          "",
-	"auth-url":             "",
-	"auth-mode":            string(AuthUserPass),
-	"access-key":           "",
-	"secret-key":           "",
-	"region":               "",
-	"control-bucket":       "",
-	"use-floating-ip":      false,
-	"use-default-secgroup": false,
-	"network":              "",
-}
-
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
@@ -160,14 +145,6 @@ func (c *environConfig) network() string {
 	return c.attrs["network"].(string)
 }
 
-func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &environConfig{valid, valid.UnknownAttrs()}, nil
-}
-
 type AuthMode string
 
 const (
@@ -177,7 +154,7 @@ const (
 )
 
 // Schema returns the configuration schema for an environment.
-func (environProvider) Schema() environschema.Fields {
+func (EnvironProvider) Schema() environschema.Fields {
 	fields, err := config.Schema(configSchema)
 	if err != nil {
 		panic(err)
@@ -185,19 +162,19 @@ func (environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
 
-	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, p.Configurator.GetConfigDefaults())
 	if err != nil {
 		return nil, err
 	}
 
 	// Add Openstack specific defaults.
-	providerDefaults := make(map[string]interface{})
+	providerDefaults := map[string]interface{}{}
 
 	// Storage.
 	if _, ok := cfg.StorageDefaultBlockSource(); !ok {

@@ -13,8 +13,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -46,8 +48,10 @@ Continue [y/N]? `[1:]
 type destroySystemAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
-	DestroySystem(destroyEnvs bool, ignoreBlocks bool) error
+	DestroySystem(destroyEnvs bool) error
 	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
+	EnvironmentStatus(envs ...names.EnvironTag) ([]base.EnvironmentStatus, error)
+	AllEnvironments() ([]base.UserEnvironment, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -125,7 +129,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the system.
-	err = api.DestroySystem(c.destroyEnvs, false)
+	err = api.DestroySystem(c.destroyEnvs)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.

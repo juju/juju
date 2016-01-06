@@ -895,7 +895,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
@@ -936,7 +936,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
@@ -972,7 +972,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -999,7 +999,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
 
 	c.Assert(err, jc.ErrorIsNil)
