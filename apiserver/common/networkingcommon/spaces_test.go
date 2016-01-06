@@ -8,10 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/spaces"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -20,10 +18,6 @@ import (
 type SpacesSuite struct {
 	coretesting.BaseSuite
 	apiservertesting.StubNetwork
-
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	facade     spaces.API
 }
 
 var _ = gc.Suite(&SpacesSuite{})
