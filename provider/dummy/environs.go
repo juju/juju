@@ -1413,6 +1413,7 @@ type dummyInstance struct {
 
 	mu        sync.Mutex
 	addresses []network.Address
+	broken    []string
 }
 
 func (inst *dummyInstance) Id() instance.Id {
@@ -1444,13 +1445,30 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 	inst0.mu.Unlock()
 }
 
-func (*dummyInstance) Refresh() error {
+// SetInstanceBroken marks the named methods of the instance as broken.
+// Any previously broken methods not in the set will no longer be broken.
+func SetInstanceBroken(inst instance.Instance, methods ...string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.broken = methods
+	inst0.mu.Unlock()
+}
+
+func (inst *dummyInstance) checkBroken(method string) error {
+	for _, m := range inst.broken {
+		if m == method {
+			return fmt.Errorf("dummyInstance.%s is broken", method)
+		}
+	}
 	return nil
 }
 
 func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
+	if err := inst.checkBroken("Addresses"); err != nil {
+		return nil, err
+	}
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
@@ -1466,6 +1484,9 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("OpenPorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpOpenPorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1489,6 +1510,9 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRang
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("ClosePorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpClosePorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1512,6 +1536,9 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("Ports"); err != nil {
+		return nil, err
+	}
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
