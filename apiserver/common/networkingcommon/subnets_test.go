@@ -5,15 +5,11 @@ package networkingcommon_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/subnets"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -24,10 +20,6 @@ import (
 type SubnetsSuite struct {
 	coretesting.BaseSuite
 	apiservertesting.StubNetwork
-
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	facade     subnets.SubnetsAPI
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -61,26 +53,10 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 	c.Assert(got, jc.DeepEquals, params.ZoneResults{Results: results})
 }
 
-// AssertAllSpacesResult makes it easier to verify AllSpaces results.
-func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []networkingcommon.BackingSpace) {
-	seen := set.Strings{}
-	results := []params.SpaceResult{}
-	for _, space := range expected {
-		if seen.Contains(space.Name()) {
-			continue
-		}
-		seen.Add(space.Name())
-		result := params.SpaceResult{}
-		result.Tag = names.NewSpaceTag(space.Name()).String()
-		results = append(results, result)
-	}
-	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
-}
-
 func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
-	results, err := s.facade.AllZones()
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -198,7 +174,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 		errors.NotValidf("config"), // Provider.Open
 	)
 
-	results, err := s.facade.AllZones()
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: opening environment: config not valid`,
 	)
@@ -217,7 +193,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
 
-	results, err := s.facade.AllZones()
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: availability zones not supported`,
 	)
@@ -229,40 +205,6 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 		apiservertesting.BackingCall("AvailabilityZones"),
 		apiservertesting.BackingCall("EnvironConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-	)
-}
-
-func (s *SubnetsSuite) TestAllSpacesWithExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, apiservertesting.WithSpaces)
-}
-
-func (s *SubnetsSuite) TestAllSpacesNoExistingSuccess(c *gc.C) {
-	s.testAllSpacesSuccess(c, apiservertesting.WithoutSpaces)
-}
-
-func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiservertesting.SetUpFlag) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, withBackingSpaces, apiservertesting.WithSubnets)
-
-	results, err := s.facade.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AssertAllSpacesResult(c, results, apiservertesting.BackingInstance.Spaces)
-
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AllSpaces"),
-	)
-}
-
-func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(errors.NotFoundf("boom"))
-
-	results, err := s.facade.AllSpaces()
-	c.Assert(err, gc.ErrorMatches, "boom not found")
-	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(results, jc.DeepEquals, params.SpaceResults{})
-
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AllSpaces"),
 	)
 }
 
@@ -511,7 +453,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SpaceName:         "private",
 	}}
 	c.Check(expectedErrors, gc.HasLen, len(args.Subnets))
-	results, err := s.facade.AddSubnets(args)
+	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Results), gc.Equals, len(args.Subnets))
 	for i, result := range results.Results {
@@ -569,7 +511,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	apiservertesting.ResetStub(apiservertesting.SharedStub)
 
 	// Finally, check that no params yields no results.
-	results, err = s.facade.AddSubnets(params.AddSubnetsParams{})
+	results, err = networkingcommon.AddSubnets(apiservertesting.BackingInstance, params.AddSubnetsParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.NotNil)
 	c.Assert(results.Results, gc.HasLen, 0)
@@ -689,7 +631,7 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			Zones:            []string{"zone3"},
 		}},
 	}
-	results, err := s.facade.AddSubnets(args)
+	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Subnets))
 	for _, result := range results.Results {
@@ -763,40 +705,40 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 	}}
 	// No filtering.
 	args := params.SubnetsFilters{}
-	subnets, err := s.facade.ListSubnets(args)
+	subnets, err := networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
 }
 
 func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
-	_, err := s.facade.ListSubnets(args)
+	_, err := networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
 func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
 	boom := errors.New("no subnets for you")
 	apiservertesting.BackingInstance.SetErrors(boom)
-	_, err := s.facade.ListSubnets(params.SubnetsFilters{})
+	_, err := networkingcommon.ListSubnets(apiservertesting.BackingInstance, params.SubnetsFilters{})
 	c.Assert(err, gc.ErrorMatches, "no subnets for you")
 }
