@@ -38,6 +38,21 @@ func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resourc
 	}, nil
 }
 
+// EnvironConfig returns the current environment's configuration.
+func (api *DiscoverSpacesAPI) EnvironConfig() (params.EnvironConfigResult, error) {
+	result := params.EnvironConfigResult{}
+
+	config, err := api.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	allAttrs := config.AllAttrs()
+	// No need to obscure any secrets as caller needs to be an
+	// EnvironManager to call any api methods.
+	result.Config = allAttrs
+	return result, nil
+}
+
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *DiscoverSpacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
