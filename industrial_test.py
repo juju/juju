@@ -268,8 +268,6 @@ class IndustrialTest:
                 # run.
                 if False in result[1:]:
                     return
-            finally:
-                result_iter.close()
 
 
 class SteppedStageAttempt:
@@ -460,13 +458,10 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
         bootstrap_client = self.get_bootstrap_client(client)
         yield self.prepare_upgrade.as_result()
         steps_iter = BootstrapAttempt().iter_steps(bootstrap_client)
-        try:
-            for result in steps_iter:
-                result = dict(result)
-                result['test_id'] = 'prepare-upgrade-juju'
-                yield result
-        finally:
-            steps_iter.close()
+        for result in steps_iter:
+            result = dict(result)
+            result['test_id'] = 'prepare-upgrade-juju'
+            yield result
 
 
 class UpgradeJujuAttempt(SteppedStageAttempt):
@@ -845,34 +840,25 @@ class AttemptSuite(SteppedStageAttempt):
             permanent=jes_enabled, jes_enabled=bs_jes_enabled)
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(machines):
-                try:
-                    bs_steps = self.bootstrap_attempt.iter_steps(client)
-                    for result in bs_steps:
-                        yield result
-                finally:
-                    bs_steps.close()
+                bs_steps = self.bootstrap_attempt.iter_steps(client)
+                for result in bs_steps:
+                    yield result
             with bs_manager.runtime_context(machines):
                 bs_manager.client = client
                 bs_manager.tear_down_client = client
                 bs_manager.jes_enabled = jes_enabled
                 for attempt in self.attempt_list:
                     attempt_steps = attempt.iter_steps(client)
-                    try:
-                        for result in attempt_steps:
-                            yield result
-                    finally:
-                        attempt_steps.close()
+                    for result in attempt_steps:
+                        yield result
                 # We don't want BootstrapManager.tear_down to run-- we want
                 # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
                 # to finish up before we run DestroyEnvironmentAttempt.
                 bs_manager.keep_env = True
             try:
                 destroy_steps = DestroyEnvironmentAttempt().iter_steps(client)
-                try:
-                    for result in destroy_steps:
-                        yield result
-                finally:
-                    destroy_steps.close()
+                for result in destroy_steps:
+                    yield result
             except:
                 bs_manager.tear_down()
                 raise
