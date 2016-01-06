@@ -375,6 +375,7 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithAddressAllocat
 }
 
 func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithoutAddressAllocation(c *gc.C) {
+	s.SetFeatureFlags()
 	result, err := s.startInstancePopulatesNetworkInfo(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
