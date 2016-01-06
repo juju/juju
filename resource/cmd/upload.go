@@ -66,7 +66,12 @@ func (c *UploadCommand) Init(args []string) error {
 	case 1:
 		return errors.BadRequestf("no resource specified")
 	}
-	c.service = args[0]
+
+	service := args[0]
+	if service == "" { // TODO(ericsnow) names.IsValidService
+		return errors.NewNotValid(nil, "missing service name")
+	}
+	c.service = service
 
 	c.resources = make(map[string]bool)
 
@@ -82,9 +87,14 @@ func (c *UploadCommand) Init(args []string) error {
 // addResourceFile parses the given arg into a name and a resource file,
 // and saves it in c.resourceFiles.
 func (c *UploadCommand) addResourceFile(arg string) error {
-	rf, err := parseResourceFile(c.service, arg)
+	name, filename, err := parseResourceFileArg(arg)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "bad resource arg %q", arg)
+	}
+	rf := resourceFile{
+		service:  c.service,
+		name:     name,
+		filename: filename,
 	}
 
 	// TODO(ericsnow) Allow last one to win (a standard CLI approach)?

@@ -17,39 +17,21 @@ type resourceFile struct {
 	filename string
 }
 
-// parseResourceFile converts the provided string into a resourceFile.
-// The string must be in the "<name>=<filename>" format.
-func parseResourceFile(service, raw string) (resourceFile, error) {
-	rf := resourceFile{
-		service: service,
-	}
-
+// parseResourceFileArg converts the provided string into a name and
+// filename. The string must be in the "<name>=<filename>" format.
+func parseResourceFileArg(raw string) (name string, filename string, _ error) {
 	vals := strings.SplitN(raw, "=", 2)
 	if len(vals) < 2 {
-		msg := fmt.Sprintf("resource given: %q, but expected name=path format", raw)
-		return rf, errors.NewNotValid(nil, msg)
+		msg := fmt.Sprintf("expected name=path format")
+		return "", "", errors.NewNotValid(nil, msg)
 	}
 
-	rf.name, rf.filename = vals[0], vals[1]
-	if err := rf.validate(); err != nil {
-		return rf, errors.Annotatef(err, "invalid arg %q", raw)
+	name, filename = vals[0], vals[1]
+	if name == "" {
+		return "", "", errors.NewNotValid(nil, "missing resource name")
 	}
-	return rf, nil
-}
-
-// validate ensures that the resourceFile is correct.
-func (rf resourceFile) validate() error {
-	if rf.service == "" {
-		return errors.NewNotValid(nil, "missing service name")
+	if filename == "" {
+		return "", "", errors.NewNotValid(nil, "missing filename")
 	}
-
-	if rf.name == "" {
-		return errors.NewNotValid(nil, "missing resource name")
-	}
-
-	if rf.filename == "" {
-		return errors.NewNotValid(nil, "missing filename")
-	}
-
-	return nil
+	return name, filename, nil
 }
