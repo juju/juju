@@ -307,6 +307,10 @@ class SteppedStageAttempt:
                         yield{'test_id': last_result.get('test_id'),
                               'result': False}
                         return
+                    except LoggedException:
+                        yield{'test_id': last_result.get('test_id'),
+                              'result': False}
+                        return
                     if last_result.get('test_id') is not None:
                         if last_result['test_id'] != result['test_id']:
                             raise ValueError('ID changed without result.')
