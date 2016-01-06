@@ -67,6 +67,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -488,6 +489,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
+			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
