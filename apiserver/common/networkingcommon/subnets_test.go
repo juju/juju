@@ -35,8 +35,12 @@ func (s *SubnetsSuite) TearDownSuite(c *gc.C) {
 
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
 }
 
 func (s *SubnetsSuite) TearDownTest(c *gc.C) {
@@ -78,7 +82,12 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
 
 	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +103,13 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -121,7 +136,13 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -146,7 +167,13 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		errors.NotFoundf("config"), // Backing.EnvironConfig
@@ -167,7 +194,13 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
+
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -190,8 +223,13 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
 
 	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches,
@@ -209,7 +247,12 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 }
 
 func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubNetworkingEnvironName,
+		apiservertesting.WithZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
 
 	args := params.AddSubnetsParams{Subnets: []params.AddSubnetParams{{
 	// nothing set; early exit: no calls
