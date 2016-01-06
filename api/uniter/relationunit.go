@@ -170,25 +170,27 @@ func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 
 // NetworkConfig requests network config information from the server.
 func (ru *RelationUnit) NetworkConfig() ([]params.NetworkConfig, error) {
-	var result params.UnitNetworkConfigResults
+	var results params.UnitNetworkConfigResults
 	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: ru.relation.tag.String(), Unit: ru.unit.tag.String()},
-		},
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
+		}},
 	}
 
-	err := ru.st.facade.FacadeCall("NetworkConfig", args, &result)
+	err := ru.st.facade.FacadeCall("NetworkConfig", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(result.Results) != 1 {
-		return nil, fmt.Errorf("expected at least 1 result, got %d", len(result.Results))
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 
-	if result.Results[0].Error == nil {
-		return result.Results[0].Config, nil
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
 	}
 
-	return nil, errors.Trace(result.Results[0].Error)
+	return result.Config, nil
 }

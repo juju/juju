@@ -682,7 +682,7 @@ func (environ *maasEnviron) acquireNode(
 }
 
 // startNode installs and boots a node.
-func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
+func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) (*gomaasapi.MAASObject, error) {
 	params := url.Values{
 		"distro_series": {series},
 		"user_data":     {string(userdata)},
@@ -690,10 +690,25 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
 	err := fmt.Errorf("(no error)")
+	var result gomaasapi.JSONObject
 	for a := shortAttempt.Start(); a.Next() && err != nil; {
-		_, err = node.CallPost("start", params)
+		result, err = node.CallPost("start", params)
+		if err == nil {
+			break
+		}
 	}
-	return err
+
+	if err == nil {
+		var startedNode gomaasapi.MAASObject
+		startedNode, err = result.GetMAASObject()
+		if err != nil {
+			logger.Errorf("cannot process API response after successfully starting node: %v", err)
+			return nil, err
+		}
+		return &startedNode, nil
+	}
+
+	return nil, err
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -777,12 +792,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
 	}
-	node, err := environ.selectNode(snArgs)
+	selectedNode, err := environ.selectNode(snArgs)
 	if err != nil {
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{node}
+	inst := &maasInstance{selectedNode}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -803,19 +818,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 	args.InstanceConfig.Tools = selectedTools[0]
-
-	var interfaces []network.InterfaceInfo
-	if environ.supportsNetworkDeploymentUbuntu {
-		// Use the new 1.9 API when available.
-		interfaces, err = maasObjectNetworkInterfaces(node)
-	} else {
-		// Use the legacy approach, but the primary interface is no longer
-		// needed, and the networksToDisable no longer work.
-		interfaces, _, err = environ.setupNetworks(inst, nil)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
@@ -846,8 +848,29 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
+	var startedNode *gomaasapi.MAASObject
+	var interfaces []network.InterfaceInfo
+	if startedNode, err = environ.startNode(*inst.maasObject, series, userdata); err != nil {
 		return nil, err
+	} else {
+		// Once the instance has started the response should contain the
+		// assigned IP addresses, even when NICs are set to "auto" instead of
+		// "static". So instead of selectedNode, which only contains the
+		// acquire-time details (no IP addresses for NICs set to "auto" vs
+		// "static"), we use the up-to-date statedNode response to get the
+		// interfaces.
+
+		if environ.supportsNetworkDeploymentUbuntu {
+			// Use the new 1.9 API when available.
+			interfaces, err = maasObjectNetworkInterfaces(startedNode)
+		} else {
+			// Use the legacy approach, but the primary interface is no longer
+			// needed, and the networksToDisable no longer work.
+			interfaces, _, err = environ.setupNetworks(inst, nil)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	logger.Debugf("started instance %q", inst.Id())
 

@@ -75,7 +75,7 @@ func (u *UniterAPIV2) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
 	}
 
-	canAccess, err := u.UniterAPIV1.accessUnit()
+	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.UnitNetworkConfigResults{}, err
 	}
@@ -83,9 +83,11 @@ func (u *UniterAPIV2) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 	for i, rel := range args.RelationUnits {
 		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
 		if err == nil {
+			result.Results[i].Error = nil
 			result.Results[i].Config = netConfig
+		} else {
+			result.Results[i].Error = common.ServerError(err)
 		}
-		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -134,6 +136,7 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	if !ok {
 		return nil, errors.Errorf("endpoint %q not bound to any space", endpoint.Name)
 	}
+	logger.Debugf("endpoint %q is bound to space %q", endpoint.Name, boundSpace)
 
 	machineID, err := unit.AssignedMachineId()
 	if err != nil {
@@ -151,6 +154,10 @@ func (u *UniterAPIV2) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	//
 	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
 	addresses := machine.ProviderAddresses()
+	logger.Infof(
+		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
+		machineID, addresses, unit.Name(), service.Name(), bindings,
+	)
 
 	var results []params.NetworkConfig
 	for _, addr := range addresses {
