@@ -56,6 +56,11 @@ type StartInstanceParams struct {
 	// in. It is only populated when valid positive spaces constraints
 	// are present.
 	SubnetsToZones map[network.Id][]string
+
+	// EndpointBindings holds the mapping between service endpoint names to
+	// provider-specific space IDs. It is populated when provisioning a machine
+	// to host a unit of a service with endpoint bindings.
+	EndpointBindings map[string]network.Id
 }
 
 // StartInstanceResult holds the result of an

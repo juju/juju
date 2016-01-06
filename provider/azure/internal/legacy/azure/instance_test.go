@@ -141,6 +141,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 		network.HostName,
 		"",
 		network.ScopePublic,
+		"",
 	}
 	addrs, err := s.instance.Addresses()
 	c.Check(err, jc.ErrorIsNil)
@@ -151,6 +152,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 		network.IPv4Address,
 		s.env.getVirtualNetworkName(),
 		network.ScopeCloudLocal,
+		"",
 	}
 	s.instance.roleInstance = &gwacl.RoleInstance{
 		IPAddress: "1.2.3.4",

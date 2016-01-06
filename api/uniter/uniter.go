@@ -408,35 +408,6 @@ func (st *State) environment1dot16() (*Environment, error) {
 	}, nil
 }
 
-// NetworkConfig requests relation information from the server.
-func (st *State) NetworkConfig(relationTag names.RelationTag, unitTag names.UnitTag) ([]params.NetworkConfig, error) {
-	nothing := []params.NetworkConfig{}
-	var result params.NetworkConfigs
-	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: relationTag.String(), Unit: unitTag.String()},
-		},
-	}
-
-	err := st.facade.FacadeCall("NetworkConfig", args, &result)
-
-	if err != nil {
-		return nothing, err
-	}
-
-	if len(result.Results) == 0 {
-		return nothing, fmt.Errorf("expected at least 1 result, got 0")
-	}
-
-	for _, err := range result.Errors {
-		if err != nil {
-			return nothing, err
-		}
-	}
-
-	return result.Results, nil
-}
-
 // ErrIfNotVersionFn returns a function which can be used to check for
 // the minimum supported version, and, if appropriate, generate an
 // error.

@@ -47,6 +47,9 @@ const (
 // containers.
 type Scope string
 
+// SpaceName holds the Juju space name of an address.
+type SpaceName string
+
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
@@ -62,6 +65,7 @@ type Address struct {
 	Type        AddressType
 	NetworkName string
 	Scope
+	SpaceName
 }
 
 // String returns a string representation of the address,
@@ -202,6 +206,93 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 		}
 	}
 	return false
+}
+
+// SelectAddressBySpace picks the first address from the given slice that has
+// the given space name associated.
+func SelectAddressBySpace(addresses []Address, spaceName string) (Address, bool) {
+	for _, addr := range addresses {
+		if addr.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
+			return addr, true
+		}
+	}
+	logger.Warningf("no addresses found in space %q", spaceName)
+	return Address{}, false
+}
+
+// SelectHostPortBySpace picks the first HostPort from the given slice that has
+// the given space name associated.
+func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
+	for _, hp := range hps {
+		if hp.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first hostPort in space %q", hp.Value, spaceName)
+			return hp, true
+		}
+	}
+	logger.Warningf("no hostPorts found in space %q", spaceName)
+	return HostPort{}, false
+}
+
+// SelectControllerAddress returns the most suitable address to use as a Juju
+// Controller (API/state server) endpoint given the list of addresses. It first
+// tries to find the first address bound to the DefaultSpace, failing that uses
+// the older address selection method based on scope. The second return is false
+// when no address can be returned. When machineLocal is true and an address
+// can't be selected by space both ScopeCloudLocal and ScopeMachineLocal
+// addresses are considered during the selection, otherwise just ScopeCloudLocal
+// are.
+//
+// TODO(dimitern): This needs to change to not assume the default space name is
+// always "default", once we can determine this. Also, in case we're using
+// IPv6-only deployments on MAAS, it's still possible to get a node provisioned
+// with an IPv6 address not part of the default space (which should be possible
+// to detect early and/or prevent by using stricter node selection constraints).
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
+func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
+	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
+	if ok {
+		logger.Debugf(
+			"selected %q as controller address, using space %q",
+			defaultSpaceAddress.Value, DefaultSpace,
+		)
+		return defaultSpaceAddress, true
+	}
+	// Fallback to using the legacy and error-prone approach using scope
+	// selection instead.
+	internalAddress, ok := SelectInternalAddress(addresses, machineLocal)
+	logger.Debugf(
+		"selected %q as controller address, using scope %q",
+		internalAddress.Value, internalAddress.Scope,
+	)
+	return internalAddress, ok
+}
+
+// SelectControllerHostPort returns the most suitable HostPort (as string) to
+// use as a Juju Controller (API/state server) endpoint given the list of
+// hostPorts. It first tries to find the first HostPort bound to the
+// DefaultSpace, failing that uses the older selection method based on scope.
+// When machineLocal is true and an address can't be selected by space both
+// ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
+// selection, otherwise just ScopeCloudLocal are.
+func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
+	defaultSpaceHP, ok := SelectHostPortBySpace(hostPorts, DefaultSpace)
+	if ok {
+		logger.Debugf(
+			"selected %q as controller host:port, using space %q",
+			defaultSpaceHP.Value, DefaultSpace,
+		)
+		return defaultSpaceHP.NetAddr()
+	}
+	// Fallback to using the legacy and error-prone approach using scope
+	// selection instead.
+	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
+	logger.Debugf(
+		"selected %q as controller host:port, using scope selection",
+		internalHP,
+	)
+	return internalHP
 }
 
 // SelectPublicAddress picks one address from a slice that would be
