@@ -302,11 +302,6 @@ func FindInstanceSpec(
 	}, imageMetadata)
 }
 
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*Environ)
-	return env.ecfg().controlBucket()
-}
-
 func GetSwiftURL(e environs.Environ) (string, error) {
 	return e.(*Environ).client.MakeServiceURL("object-store", nil)
 }

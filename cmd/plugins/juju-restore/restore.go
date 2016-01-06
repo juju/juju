@@ -4,11 +4,9 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -17,7 +15,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/version"
 )
 
 func main() {
@@ -96,10 +93,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
-	if c.supportsNewRestore(ctx) {
-		return c.runRestore(ctx)
-	}
-	return c.runLegacyRestore(ctx)
+	return c.runRestore(ctx)
 }
 
 func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
@@ -128,33 +122,4 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-func (c *restoreCommand) supportsNewRestore(ctx *cmd.Context) bool {
-	cmd := exec.Command("juju", "--version")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		logger.Errorf("cannot run juju version: %vr", err)
-		return false
-	}
-	output := out.String()
-	output = strings.TrimSpace(output)
-	ver, err := version.ParseBinary(output)
-	if err != nil {
-		logger.Errorf("cannot parse juju version: %v", err)
-		// if we cant parse the version number the version might
-		// as well not be compatible.
-		return false
-	}
-	// 1.25.0 is the minor version that will work certainly with
-	// the new restore.
-	restoreAvailableVersion := version.Number{
-		Major: 1,
-		Minor: 25,
-		Patch: 0,
-	}
-	logger.Infof("current juju version is %q", output)
-	return ver.Number.Compare(restoreAvailableVersion) >= 0
 }

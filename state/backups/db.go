@@ -226,7 +226,8 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	switch {
 	case ver.Major == 1 && ver.Minor < 22:
 		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil
-	case ver.Major == 1 && ver.Minor >= 22:
+	case ver.Major == 1 && ver.Minor >= 22,
+		ver.Major == 2:
 		return []string{"--drop", "--journal", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
 	default:
 		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")

@@ -24,11 +24,11 @@ type undertakerSuite struct {
 var _ = gc.Suite(&undertakerSuite{})
 
 type clock struct {
-	*testing.Clock
-
 	// advanceDurationAfterNow is the duration to advance the clock after the
 	// next call to Now().
 	advanceDurationAfterNow int64
+
+	*testing.Clock
 }
 
 func (c *clock) Now() time.Time {
