@@ -205,21 +205,21 @@ func (manager *Manager) WaitUntilExpired(leaseName string) error {
 // expect at least one lease to be ready to expire. If no leases are known,
 // it will return nil.
 func (manager *Manager) nextExpiry() <-chan time.Time {
-	var nextExpiry *time.Time
+	var nextExpiry time.Time
 	for _, info := range manager.config.Client.Leases() {
-		if nextExpiry != nil {
-			if info.Expiry.After(*nextExpiry) {
+		if !nextExpiry.IsZero() {
+			if info.Expiry.After(nextExpiry) {
 				continue
 			}
 		}
-		nextExpiry = &info.Expiry
+		nextExpiry = info.Expiry
 	}
-	if nextExpiry == nil {
+	if nextExpiry.IsZero() {
 		logger.Tracef("no leases recorded; never waking for expiry")
 		return nil
 	}
-	logger.Tracef("waking to expire leases at %s", *nextExpiry)
-	return clock.Alarm(manager.config.Clock, *nextExpiry)
+	logger.Tracef("waking to expire leases at %s", nextExpiry)
+	return clock.Alarm(manager.config.Clock, nextExpiry)
 }
 
 // expire will attempt to expire all leases that may have expired. There might

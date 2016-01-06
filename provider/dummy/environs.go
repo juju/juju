@@ -1456,6 +1456,8 @@ func (inst *dummyInstance) Id() instance.Id {
 }
 
 func (inst *dummyInstance) Status() string {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	return inst.status
 }
 

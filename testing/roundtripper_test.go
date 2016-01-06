@@ -1,13 +1,14 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujutest
+package testing_test
 
 import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
 
+	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -18,7 +19,7 @@ var _ = gc.Suite(&metadataSuite{})
 
 func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 	aContent := "a-content"
-	vrt := NewCannedRoundTripper(map[string]string{
+	vrt := testing.NewCannedRoundTripper(map[string]string{
 		"a": aContent,
 		"b": "b-content",
 	}, nil)
@@ -35,7 +36,7 @@ func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 }
 
 func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
-	vrt := NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
+	vrt := testing.NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
 	c.Assert(vrt, gc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)

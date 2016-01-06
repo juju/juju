@@ -4,7 +4,9 @@
 package state
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -23,17 +25,23 @@ const environGlobalKey = "e"
 
 // Environment represents the state of an environment.
 type Environment struct {
+	// st is not neccessarly the state of this environment. Though it is
+	// usually safe to assume that it is. The only times it isn't is when we
+	// get environments other than the current one - which is mostly in
+	// controller api endpoints.
 	st  *State
 	doc environmentDoc
 }
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	UUID       string `bson:"_id"`
-	Name       string
-	Life       Life
-	Owner      string `bson:"owner"`
-	ServerUUID string `bson:"server-uuid"`
+	UUID        string `bson:"_id"`
+	Name        string
+	Life        Life
+	Owner       string    `bson:"owner"`
+	ServerUUID  string    `bson:"server-uuid"`
+	TimeOfDying time.Time `bson:"time-of-dying"`
+	TimeOfDeath time.Time `bson:"time-of-death"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -217,6 +225,16 @@ func (e *Environment) Life() Life {
 	return e.doc.Life
 }
 
+// TimeOfDying returns when the environment Life was set to Dying.
+func (e *Environment) TimeOfDying() time.Time {
+	return e.doc.TimeOfDying
+}
+
+// TimeOfDeath returns when the environment Life was set to Dead.
+func (e *Environment) TimeOfDeath() time.Time {
+	return e.doc.TimeOfDeath
+}
+
 // Owner returns tag representing the owner of the environment.
 // The owner is the user that created the environment.
 func (e *Environment) Owner() names.UserTag {
@@ -326,6 +344,17 @@ func (e *Environment) Users() ([]*EnvironmentUser, error) {
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() (err error) {
+	return e.destroy(false)
+}
+
+// Destroy sets the environment's lifecycle to Dying, preventing addition of
+// services or machines to state. If this environment is a controller hosting
+// other environments, they will also be destroyed.
+func (e *Environment) DestroyIncludingHosted() error {
+	return e.destroy(true)
+}
+
+func (e *Environment) destroy(destroyHostedEnvirons bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -336,12 +365,12 @@ func (e *Environment) Destroy() (err error) {
 			// ...but on subsequent attempts, we read fresh environ
 			// state from the DB. Note that we do *not* refresh `e`
 			// itself, as detailed in doc/hacking-state.txt
-			if e, err = e.st.Environment(); err != nil {
+			if e, err = e.st.GetEnvironment(e.EnvironTag()); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
-		ops, err := e.destroyOps()
+		ops, err := e.destroyOps(destroyHostedEnvirons)
 		if err == errEnvironNotAlive {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -350,21 +379,52 @@ func (e *Environment) Destroy() (err error) {
 
 		return ops, nil
 	}
-	return e.st.run(buildTxn)
+
+	st := e.st
+	if e.UUID() != e.st.EnvironUUID() {
+		st, err = e.st.ForEnviron(e.EnvironTag())
+		defer st.Close()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return st.run(buildTxn)
 }
 
 // errEnvironNotAlive is a signal emitted from destroyOps to indicate
 // that environment destruction is already underway.
 var errEnvironNotAlive = errors.New("environment is no longer alive")
 
+type hasHostedEnvironsError int
+
+func (e hasHostedEnvironsError) Error() string {
+	return fmt.Sprintf("hosting %d other environments", e)
+}
+
+func IsHasHostedEnvironsError(err error) bool {
+	_, ok := errors.Cause(err).(hasHostedEnvironsError)
+	return ok
+}
+
 // destroyOps returns the txn operations necessary to begin environ
 // destruction, or an error indicating why it can't.
-func (e *Environment) destroyOps() ([]txn.Op, error) {
+func (e *Environment) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
+	// Ensure we're using the environment's state.
+	st := e.st
+	var err error
+	if e.UUID() != e.st.EnvironUUID() {
+		st, err = e.st.ForEnviron(e.EnvironTag())
+		defer st.Close()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	if e.Life() != Alive {
 		return nil, errEnvironNotAlive
 	}
 
-	err := e.ensureDestroyable()
+	err = e.ensureDestroyable()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -374,29 +434,37 @@ func (e *Environment) destroyOps() ([]txn.Op, error) {
 		C:      environmentsC,
 		Id:     uuid,
 		Assert: isEnvAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Update: bson.D{{"$set", bson.D{
+			{"life", Dying},
+			{"time-of-dying", nowToTheSecond()},
+		}}},
 	}}
-
-	if uuid == e.doc.ServerUUID {
-		if count, err := hostedEnvironCount(e.st); err != nil {
+	if uuid == e.doc.ServerUUID && !destroyHostedEnvirons {
+		if count, err := hostedEnvironCount(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if count != 0 {
-			return nil, errors.Errorf("hosting %d other environments", count)
+			return nil, errors.Trace(hasHostedEnvironsError(count))
 		}
 		ops = append(ops, assertNoHostedEnvironsOp())
 	} else {
-		// When we're destroying a hosted environment, no further
-		// checks are necessary -- we just need to make sure we
-		// update the refcount.
+		// If this environment isn't hosting any environments, no further
+		// checks are necessary -- we just need to make sure we update the
+		// refcount.
 		ops = append(ops, decHostedEnvironCountOp())
 	}
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
-	// sure the cleanup op is the last thing that will execute.
-	cleanupOp := e.st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
-	ops = append(ops, cleanupOp)
+	// sure the cleanup ops are the last thing that will execute.
+	if uuid == e.doc.ServerUUID {
+		cleanupOp := st.newCleanupOp(cleanupEnvironmentsForDyingController, uuid)
+		ops = append(ops, cleanupOp)
+	}
+	cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingEnvironment, uuid)
+	ops = append(ops, cleanupMachinesOp)
+	cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
+	ops = append(ops, cleanupServicesOp)
 	return ops, nil
 }
 

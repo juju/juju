@@ -503,8 +503,7 @@ type mockLockFunc struct {
 func (mock *mockLockFunc) newFailingLock() func(string) (func() error, error) {
 	return func(string) (func() error, error) {
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false &&
-			mock.op.prepare.called == false
+			mock.op.commit.called == false
 		return nil, errors.New("wat")
 	}
 
@@ -515,8 +514,7 @@ func (mock *mockLockFunc) newSucceedingLock(unlockFails bool) func(string) (func
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false &&
-			mock.op.prepare.called == false
+			mock.op.commit.called == false
 		return func() error {
 			// Record steps called when unlocking
 			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,

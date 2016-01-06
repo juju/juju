@@ -66,10 +66,9 @@ func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 // and removes all non-manager machine instances. Underlying DestroyEnvironment
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroySystem(destroyEnvs bool, ignoreBlocks bool) error {
+func (c *Client) DestroySystem(destroyEnvs bool) error {
 	args := params.DestroySystemArgs{
 		DestroyEnvironments: destroyEnvs,
-		IgnoreBlocks:        ignoreBlocks,
 	}
 	return c.facade.FacadeCall("DestroySystem", args, nil)
 }
@@ -96,4 +95,41 @@ func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 		return nil, err
 	}
 	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
+}
+
+// EnvironmentStatus returns a status summary for each environment tag passed in.
+func (c *Client) EnvironmentStatus(tags ...names.EnvironTag) ([]base.EnvironmentStatus, error) {
+	result := params.EnvironmentStatusResults{}
+	envs := make([]params.Entity, len(tags))
+	for i, tag := range tags {
+		envs[i] = params.Entity{Tag: tag.String()}
+	}
+	req := params.Entities{
+		Entities: envs,
+	}
+	if err := c.facade.FacadeCall("EnvironmentStatus", req, &result); err != nil {
+		return nil, err
+	}
+
+	results := make([]base.EnvironmentStatus, len(result.Results))
+	for i, r := range result.Results {
+		env, err := names.ParseEnvironTag(r.EnvironTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.EnvironTag, i)
+		}
+		owner, err := names.ParseUserTag(r.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
+		}
+
+		results[i] = base.EnvironmentStatus{
+			UUID:               env.Id(),
+			Life:               r.Life,
+			Owner:              owner.Canonical(),
+			HostedMachineCount: r.HostedMachineCount,
+			ServiceCount:       r.ServiceCount,
+		}
+
+	}
+	return results, nil
 }

@@ -76,5 +76,4 @@ func (w *relationUnitsWatcher) loop() error {
 			}
 		}
 	}
-	return nil
 }

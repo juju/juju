@@ -64,8 +64,12 @@ func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
-	_, err := imageutils.SeriesImage("centos7", "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "deploying CentOS not supported")
+	s.assertImageId(c, "centos7", "released", "OpenLogic:CentOS:7.1:latest")
+}
+
+func (s *imageutilsSuite) TestSeriesImageArch(c *gc.C) {
+	_, err := imageutils.SeriesImage("arch", "released", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, "deploying Arch not supported")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {

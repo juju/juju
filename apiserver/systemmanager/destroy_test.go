@@ -4,7 +4,6 @@
 package systemmanager_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -68,7 +67,7 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	s.otherEnvUUID = s.otherState.EnvironUUID()
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
+func (s *destroySystemSuite) TestDestroySystemKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -76,16 +75,12 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 
 	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
 		DestroyEnvironments: true,
-		IgnoreBlocks:        true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
@@ -113,9 +108,6 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
@@ -127,10 +119,8 @@ func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) 
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
-		IgnoreBlocks: true,
-	})
-	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+	err := s.systemManager.DestroySystem(params.DestroySystemArgs{})
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 
 	numBlocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,21 +139,18 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
+func (s *destroySystemSuite) TestDestroySystemErrsOnNoHostedEnvsWithBlock(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.systemManager.DestroySystem(params.DestroySystemArgs{
-		IgnoreBlocks: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+	err = s.systemManager.DestroySystem(params.DestroySystemArgs{})
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
