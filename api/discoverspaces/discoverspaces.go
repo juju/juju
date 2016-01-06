@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.api.discoverspaces")
@@ -69,4 +70,18 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResul
 		return result, errors.Trace(err)
 	}
 	return result, nil
+}
+
+// EnvironConfig returns the current environment configuration.
+func (api *API) EnvironConfig() (*config.Config, error) {
+	var result params.EnvironConfigResult
+	err := api.facade.FacadeCall("EnvironConfig", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := config.New(config.NoDefaults, result.Config)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }
