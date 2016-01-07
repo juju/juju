@@ -51,6 +51,16 @@ func NewMetricsDebugAPI(
 	}, nil
 }
 
+func (api *MetricsDebugAPI) unitOrService(entity string) (string, error) {
+	if _, err := api.state.Unit(entity); err == nil {
+		return "unit", nil
+	}
+	if _, err := api.state.Service(entity); err == nil {
+		return "service", nil
+	}
+	return "", errors.Errorf("entity %q not unit or service", entity)
+}
+
 // GetMetrics returns all metrics stored by the state server.
 func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResults, error) {
 	results := params.MetricsResults{
@@ -60,17 +70,27 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResu
 		return results, nil
 	}
 	for i, arg := range args.Entities {
-		// TODO (mattyw) Get metrics only for the entity
-		if _, err := api.state.Unit(arg.Tag); err != nil {
+		typ, err := api.unitOrService(arg.Tag)
+		if err != nil {
 			err = errors.Annotate(err, "failed to find unit")
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		batches, err := api.state.MetricBatches(arg.Tag)
-		if err != nil {
-			err = errors.Annotate(err, "failed to get metrics")
-			results.Results[i].Error = common.ServerError(err)
-			continue
+		var batches []state.MetricBatch
+		if typ == "unit" {
+			batches, err = api.state.MetricBatchesForUnit(arg.Tag)
+			if err != nil {
+				err = errors.Annotate(err, "failed to get metrics")
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		} else if typ == "service" {
+			batches, err = api.state.MetricBatchesForService(arg.Tag)
+			if err != nil {
+				err = errors.Annotate(err, "failed to get metrics")
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
 		}
 		results = params.MetricsResults{
 			Results: make([]params.MetricsResult, len(batches)),

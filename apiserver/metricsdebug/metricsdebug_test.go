@@ -6,7 +6,6 @@ package metricsdebug_test
 import (
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type metricsManagerSuite struct {
+type metricsDebugSuite struct {
 	jujutesting.JujuConnSuite
 
 	metricsdebug *metricsdebug.MetricsDebugAPI
@@ -26,59 +25,34 @@ type metricsManagerSuite struct {
 	unit         *state.Unit
 }
 
-var _ = gc.Suite(&metricsManagerSuite{})
+var _ = gc.Suite(&metricsDebugSuite{})
 
-func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
+func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag: s.AdminUserTag(c),
 	}
-	manager, err := metricsdebug.NewMetricsDebugAPI(s.State, nil, s.authorizer)
+	debug, err := metricsdebug.NewMetricsDebugAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.metricsdebug = manager
+	s.metricsdebug = debug
+	/*
+		meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+		meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+		s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	*/
+}
+
+func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-}
-
-// TODO: What should we do instead?
-func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
-	tests := []struct {
-		tag            names.Tag
-		environManager bool
-		expectedError  string
-	}{
-		{names.NewUnitTag("mysql/0"), true, "permission denied"},
-		{names.NewLocalUserTag("admin"), true, "permission denied"},
-		{names.NewMachineTag("0"), false, "permission denied"},
-		{names.NewMachineTag("0"), true, ""},
-	}
-	for i, test := range tests {
-		c.Logf("test %d", i)
-
-		anAuthoriser := s.authorizer
-		anAuthoriser.EnvironManager = test.environManager
-		anAuthoriser.Tag = test.tag
-		endPoint, err := metricsdebug.NewMetricsDebugAPI(s.State, nil, anAuthoriser)
-		if test.expectedError == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(endPoint, gc.NotNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.expectedError)
-			c.Assert(endPoint, gc.IsNil)
-		}
-	}
-}
-
-func (s *metricsManagerSuite) TestGetMetrics(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Metrics: []state.Metric{metricA}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Metrics: []state.Metric{metricA, metricB}})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{"metered/0"},
 	}}
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,4 +82,73 @@ func (s *metricsManagerSuite) TestGetMetrics(c *gc.C) {
 		},
 		Error: nil,
 	})
+}
+
+func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
+		Charm: meteredCharm,
+	})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+
+	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit0,
+	})
+	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit1,
+	})
+
+	args0 := params.Entities{Entities: []params.Entity{
+		{"metered/0"},
+	}}
+	args1 := params.Entities{Entities: []params.Entity{
+		{"metered/1"},
+	}}
+
+	metrics0, err := s.metricsdebug.GetMetrics(args0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics0.Results, gc.HasLen, 1)
+	c.Assert(metrics0.Results[0].Metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
+	c.Assert(metrics0.Results[0].Metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
+	c.Assert(metrics0.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
+
+	metrics1, err := s.metricsdebug.GetMetrics(args1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics1.Results, gc.HasLen, 1)
+	c.Assert(metrics1.Results[0].Metrics[0].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
+	c.Assert(metrics1.Results[0].Metrics[0].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
+	c.Assert(metrics1.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
+}
+
+func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
+		Charm: meteredCharm,
+	})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+
+	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit0,
+	})
+	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit1,
+	})
+
+	args := params.Entities{Entities: []params.Entity{
+		{"metered"},
+	}}
+
+	metrics, err := s.metricsdebug.GetMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics.Results, gc.HasLen, 2)
+	c.Assert(metrics.Results[0].Metrics, gc.HasLen, 1)
+	c.Assert(metrics.Results[0].Metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
+	c.Assert(metrics.Results[0].Metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
+	c.Assert(metrics.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
+
+	c.Assert(metrics.Results[1].Metrics[0].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
+	c.Assert(metrics.Results[1].Metrics[0].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
+	c.Assert(metrics.Results[1].Metrics[0].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
 }

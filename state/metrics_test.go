@@ -297,7 +297,7 @@ func (s *MetricSuite) TestUnitMetricBatches(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	metricBatches, err := s.State.MetricBatches("metered/0")
+	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
@@ -306,7 +306,7 @@ func (s *MetricSuite) TestUnitMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Assert(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
 
-	metricBatches, err = s.State.MetricBatches("metered/1")
+	metricBatches, err = s.State.MetricBatchesForUnit("metered/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/1")
@@ -314,6 +314,50 @@ func (s *MetricSuite) TestUnitMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 	c.Assert(metricBatches[0].Metrics()[0].Value, gc.Equals, "10")
+}
+
+func (s *MetricSuite) TestServiceMetricBatches(c *gc.C) {
+	now := state.NowToTheSecond()
+	m := state.Metric{"pings", "5", now}
+	m2 := state.Metric{"pings", "10", now}
+	_, err := s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics:  []state.Metric{m},
+			Unit:     s.unit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	newUnit, err := s.service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics:  []state.Metric{m2},
+			Unit:     newUnit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricBatches, err := s.State.MetricBatchesForService("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatches, gc.HasLen, 2)
+
+	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
+	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+	c.Assert(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
+
+	c.Assert(metricBatches[1].Unit(), gc.Equals, "metered/1")
+	c.Assert(metricBatches[1].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(metricBatches[1].Sent(), jc.IsFalse)
+	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)
+	c.Assert(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
 }
 
 func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {

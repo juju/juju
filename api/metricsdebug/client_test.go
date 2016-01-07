@@ -123,3 +123,30 @@ func (s *metricsdebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 	c.Assert(metrics1[0].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
 	c.Assert(metrics1[0].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
 }
+
+func (s *metricsdebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
+		Charm: meteredCharm,
+	})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+
+	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit0,
+	})
+	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit: unit1,
+	})
+
+	metrics, err := s.manager.GetMetrics("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metrics, gc.HasLen, 2)
+	c.Assert(metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
+	c.Assert(metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
+	c.Assert(metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
+
+	c.Assert(metrics[1].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
+	c.Assert(metrics[1].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
+	c.Assert(metrics[1].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
+}
