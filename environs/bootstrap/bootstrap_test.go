@@ -104,11 +104,16 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Constraints: cons})
+	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
+	environCons := constraints.MustParse("cpu-cores=2 mem=4G")
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapConstraints: bootstrapCons,
+		EnvironConstraints:   environCons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
+	c.Assert(env.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
+	c.Assert(env.args.EnvironConstraints, gc.DeepEquals, environCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -119,6 +124,47 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
+}
+
+func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
+	metadataDir, metadata := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "nether",
+			Endpoint: "hearnoretheir",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	bootstrapCons := constraints.MustParse("arch=amd64")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.ImageMetadata, gc.HasLen, 1)
+	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+		Id:         "img-id",
+		Arch:       "amd64",
+		Version:    "12.04",
+		RegionName: "nether",
+		Endpoint:   "hearnoretheir",
+		Stream:     "released",
+	})
+	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 2)
+	c.Assert(env.instanceConfig.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Constraints, jc.DeepEquals, bootstrapCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
@@ -457,4 +503,13 @@ func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return constraints.NewValidator(), nil
+}
+
+type bootstrapEnvironWithRegion struct {
+	*bootstrapEnviron
+	region simplestreams.CloudSpec
+}
+
+func (e bootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
+	return e.region, nil
 }

@@ -102,7 +102,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, err
 	}
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, selectedSeries, publicKey)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.BootstrapConstraints, args.EnvironConstraints, selectedSeries, publicKey,
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -125,7 +127,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:    args.Constraints,
+		Constraints:    args.BootstrapConstraints,
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
