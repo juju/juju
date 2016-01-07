@@ -242,11 +242,12 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	}
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
-		charmURL:    ch,
-		serviceName: p.Service,
-		configYAML:  configYAML,
-		constraints: cons,
-		storage:     storageConstraints,
+		charmURL:      ch,
+		serviceName:   p.Service,
+		configYAML:    configYAML,
+		constraints:   cons,
+		storage:       storageConstraints,
+		spaceBindings: p.EndpointBindings,
 	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
 		return nil
