@@ -1,9 +1,0 @@
-# This is the list of series that must be recognised for tools.
-12.04 precise LTS
-12.10 quantal HISTORIC
-13.10 saucy HISTORIC
-14.04 trusty LTS
-14.10 utopic HISTORIC
-15.04 vivid SUPPORTED
-15.10 wily SUPPORTED
-16.04 xenial DEVEL

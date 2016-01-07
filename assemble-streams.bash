@@ -221,15 +221,10 @@ get_version() {
 get_series() {
     # Defines $series.
     control_version=$1
-    ubuntu_devel=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt |
-        cut -d ' ' -f 1)
-    pkg_series=$(basename "$control_version" ~juju1 |
-        sed -r "s/([0-9]ubuntu[0-9])$/\1~$ubuntu_devel/;" |
-        sed -r "s/.*(ubuntu|~)([0-9][0-9]\.[0-9][0-9]).*/\2/")
-    series=$(cat $SCRIPT_DIR/supported-releases.txt |
-        grep $pkg_series | cut -d ' ' -f 2)
+    series=$($SCRIPT_DIR/build_package.py \
+        print --series-name-from-package-version $control_version)
     if [[ -z $series ]]; then
-        echo "Invalid series: $control_version, saw [$pkg_series]"
+        echo "Cannot get juju series from package version $control_version "
         exit 3
     fi
     if ! distro-info --all | grep $series; then
