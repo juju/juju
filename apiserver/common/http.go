@@ -146,7 +146,16 @@ func (spec HTTPEndpointSpec) Methods() []string {
 
 // Resolve returns the HTTP handler spec for the given HTTP method.
 func (spec HTTPEndpointSpec) Resolve(method string, unhandled http.Handler) HTTPHandlerSpec {
+	if unhandled == nil {
+		unhandled = unsupportedHTTPMethodHandler()
+	}
+
 	if hSpec, ok := spec.methodHandlers[method]; ok {
+		if hSpec.NewHTTPHandler == nil {
+			hSpec.NewHTTPHandler = func(NewHTTPHandlerArgs) http.Handler {
+				return unhandled
+			}
+		}
 		return hSpec
 	}
 	if method != "" {
@@ -155,9 +164,6 @@ func (spec HTTPEndpointSpec) Resolve(method string, unhandled http.Handler) HTTP
 	}
 
 	// No match and no default, so return an "unhandled" handler spec.
-	if unhandled == nil {
-		unhandled = unsupportedHTTPMethodHandler()
-	}
 	return HTTPHandlerSpec{
 		NewHTTPHandler: func(NewHTTPHandlerArgs) http.Handler {
 			return unhandled
