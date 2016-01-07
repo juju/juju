@@ -359,6 +359,9 @@ func (a *API) CreatePool(p params.StoragePool) error {
 	return err
 }
 
+// ListVolumes lists volumes with the given filters. Each filter produces
+// an independent list of volumes, or an error if the filter is invalid
+// or the volumes could not be listed.
 func (a *API) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
 	results := params.VolumeDetailsListResults{
 		Results: make([]params.VolumeDetailsListResult, len(filters.Filters)),
