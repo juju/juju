@@ -119,4 +119,15 @@ func (s *DiscoverSpacesSuite) TestListSpaces(c *gc.C) {
 					Zones:      []string{"foo"},
 					Status:     "in-use"}}}}
 	c.Assert(result.Results, jc.DeepEquals, expectedResult)
+	apiservertesting.BackingInstance.CheckCallNames(c, "AllSpaces")
+}
+
+func (s *DiscoverSpacesSuite) TestListSpacesFailure(c *gc.C) {
+	apiservertesting.BackingInstance.SetErrors(errors.New("boom"))
+
+	result, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, jc.DeepEquals, params.DiscoverSpacesResults{})
+
+	apiservertesting.BackingInstance.CheckCallNames(c, "AllSpaces")
 }
