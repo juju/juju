@@ -678,10 +678,8 @@ func prepareOrGetContainerInterfaceInfo(
 	containerTag := names.NewMachineTag(machineID)
 	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
 	if err != nil && errors.IsNotSupported(err) {
-		log.Warningf("new container %q not registered as device: not running on MAAS 1.8+", machineID)
+		log.Debugf("new container %q not registered as device: not running on MAAS 1.8+", machineID)
 		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
@@ -725,7 +723,6 @@ func maybeReleaseContainerAddresses(
 	case err == nil:
 		log.Infof("released all addresses for container %q", containerTag.Id())
 	case errors.IsNotSupported(err):
-		log.Warningf("not releasing all addresses for container %q: %v", containerTag.Id(), err)
 	default:
 		log.Warningf(
 			"unexpected error trying to release container %q addreses: %v",
