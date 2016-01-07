@@ -253,6 +253,14 @@ func userPublicSigningKey() (string, error) {
 	return signingKey, nil
 }
 
+// bootstrapImageMetadata returns the image metadata to use for bootstrapping
+// the given environment. If the environment provider does not make use of
+// simplestreams, no metadata will be returned.
+//
+// If a bootstrap image ID is specified, image metadat will be synthesised
+// using that image ID, and the architecture and series specified by the
+// initiator. In addition, the custom image metadat that is saved into the
+// state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
 	availableTools coretools.List,

@@ -294,6 +294,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
 	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		EnvironConstraints:   c.Constraints,
