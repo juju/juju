@@ -4,12 +4,15 @@
 package discoverspaces_test
 
 import (
+	"errors"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/discoverspaces"
+	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -46,7 +49,7 @@ func (s *DiscoverSpacesSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:            names.NewUserTag("admin"),
-		EnvironManager: false,
+		EnvironManager: true,
 	}
 
 	var err error
@@ -62,4 +65,24 @@ func (s *DiscoverSpacesSuite) TearDownTest(c *gc.C) {
 		s.resources.StopAll()
 	}
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *DiscoverSpacesSuite) TestEnvironConfigFailure(c *gc.C) {
+	apiservertesting.BackingInstance.SetErrors(errors.New("boom"))
+
+	result, err := s.facade.EnvironConfig()
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
+
+	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
+}
+
+func (s *DiscoverSpacesSuite) TestEnvironConfigSuccess(c *gc.C) {
+	result, err := s.facade.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
+		Config: nil,
+	})
+
+	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
 }
