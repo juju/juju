@@ -449,10 +449,9 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
             client.env, bootstrap_path, client.debug)
 
     def iter_steps(self, client):
+        ba = BootstrapAttempt()
         bootstrap_client = self.get_bootstrap_client(client)
-        yield self.prepare_upgrade.as_result()
-        steps_iter = BootstrapAttempt().iter_steps(bootstrap_client)
-        for result in steps_iter:
+        for result in ba.iter_steps(bootstrap_client):
             result = dict(result)
             result['test_id'] = 'prepare-upgrade-juju'
             yield result
@@ -462,7 +461,9 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
-        return {'upgrade-juju': {'title': 'Upgrade Juju'}}
+        return OrderedDict([(
+            'upgrade-juju', {'title': 'Upgrade Juju'}),
+            ])
 
     def iter_steps(self, client):
         result = {'test_id': 'upgrade-juju'}
