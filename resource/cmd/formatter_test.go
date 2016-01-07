@@ -46,7 +46,7 @@ type SvcFormatterSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *SvcFormatterSuite) TestFormat(c *gc.C) {
+func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint([]byte("something"))
 	c.Assert(err, jc.ErrorIsNil)
 	r := resource.Resource{
