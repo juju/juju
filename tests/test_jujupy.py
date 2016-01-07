@@ -183,7 +183,7 @@ class FakeJujuClient:
     The state is provided by _backing_state, so that multiple clients can
     manipulate the same state.
     """
-    def __init__(self, env=None):
+    def __init__(self, env=None, full_path=None, debug=False):
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
@@ -191,7 +191,12 @@ class FakeJujuClient:
                 'default-series': 'angsty',
                 }, juju_home='foo')
         self.env = env
+        self.full_path = full_path
+        self.debug = debug
         self._jes_enabled = False
+
+    def by_version(self, env, path, debug):
+        return FakeJujuClient(env, path, debug)
 
     def get_matching_agent_version(self):
         return '1.2-alpha3'

@@ -53,7 +53,10 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
 )
-from test_jujupy import assert_juju_call
+from test_jujupy import (
+    assert_juju_call,
+    FakeJujuClient,
+    )
 from test_substrate import (
     get_aws_env,
     get_os_config,
@@ -1549,6 +1552,15 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         with self.assertRaisesRegexp(
                 ValueError, 'Not enough paths for upgrade.'):
             PrepareUpgradeJujuAttempt.factory([])
+
+    def test_get_bootstrap_client(self):
+        client = FakeJujuClient(full_path='c', debug=True)
+        puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        bootstrap_client = puj_attempt.get_bootstrap_client(client)
+        self.assertIsNot(bootstrap_client, client)
+        self.assertIs(client.debug, bootstrap_client.debug)
+        self.assertIs(client.env, bootstrap_client.env)
+        self.assertEqual('b', bootstrap_client.full_path)
 
     def test_iter_steps(self):
         future_client = FakeEnvJujuClient()

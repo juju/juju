@@ -453,7 +453,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
         bootstrap_client = self.get_bootstrap_client(client)
         for result in ba.iter_steps(bootstrap_client):
             result = dict(result)
-            result['test_id'] = 'prepare-upgrade-juju'
+            result['test_id'] = self.prepare_upgrade.stage_id
             yield result
 
 
