@@ -33,6 +33,7 @@ from industrial_test import (
     maybe_write_json,
     MultiIndustrialTest,
     parse_args,
+    PrepareUpgradeJujuAttempt,
     QUICK,
     StageInfo,
     SteppedStageAttempt,
@@ -818,7 +819,7 @@ class TestIndustrialTest(JujuPyTestCase):
     def test_run_stages_raises_cannot_upgrade_to_old_client(self):
         old = FakeEnvJujuClient()
         new = FakeEnvJujuClient()
-        industrial = IndustrialTest(old, new, [UpgradeJujuAttempt({})])
+        industrial = IndustrialTest(old, new, [PrepareUpgradeJujuAttempt({})])
         with self.assertRaises(CannotUpgradeToOldClient):
             list(industrial.run_stages())
 
@@ -1534,40 +1535,41 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         gs_mock.assert_called_once_with()
 
 
-class TestUpgradeJujuAttempt(JujuPyTestCase):
+class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_factory(self):
-        uj_attempt = UpgradeJujuAttempt.factory(['a', 'b', 'c'])
-        self.assertIs(type(uj_attempt), UpgradeJujuAttempt)
+        uj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        self.assertIs(type(uj_attempt), PrepareUpgradeJujuAttempt)
         self.assertEqual(uj_attempt.bootstrap_paths, {'b': 'a', 'c': 'b'})
 
     def test_factory_empty(self):
         with self.assertRaisesRegexp(
                 ValueError, 'Not enough paths for upgrade.'):
-            UpgradeJujuAttempt.factory(['a'])
+            PrepareUpgradeJujuAttempt.factory(['a'])
         with self.assertRaisesRegexp(
                 ValueError, 'Not enough paths for upgrade.'):
-            UpgradeJujuAttempt.factory([])
+            PrepareUpgradeJujuAttempt.factory([])
 
     def test_iter_steps(self):
         future_client = FakeEnvJujuClient()
         future_client.full_path = '/future/juju'
         present_client = FakeEnvJujuClient()
         present_client.full_path = '/present/juju'
-        uj_attempt = UpgradeJujuAttempt(
+        puj_attempt = PrepareUpgradeJujuAttempt(
             {future_client.full_path: present_client.full_path})
-        uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
+        puj_iterator = iter_steps_validate_info(self, puj_attempt,
+                                                future_client)
         with patch('subprocess.check_output', return_value='foo'):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
-                             uj_iterator.next())
+                             puj_iterator.next())
         with patch('subprocess.Popen') as po_mock:
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
-                             uj_iterator.next())
+                             puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
             'mem=2G'))
         po_mock.return_value.wait.return_value = 0
-        self.assertEqual(uj_iterator.next(),
+        self.assertEqual(puj_iterator.next(),
                          {'test_id': 'prepare-upgrade-juju'})
         b_status = {
             'machines': {'0': {'agent-state': 'started'}},
@@ -1575,8 +1577,26 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
         }
         with patch_status(None, b_status):
             self.assertEqual(
-                uj_iterator.next(),
+                puj_iterator.next(),
                 {'test_id': 'prepare-upgrade-juju', 'result': True})
+
+    def test_iter_steps_no_previous_client(self):
+        uj_attempt = PrepareUpgradeJujuAttempt({})
+        client = FakeEnvJujuClient()
+        client.full_path = '/present/juju'
+        uj_iterator = uj_attempt.iter_steps(client)
+        with self.assertRaises(CannotUpgradeToClient) as exc_context:
+            uj_iterator.next()
+        self.assertIs(exc_context.exception.client, client)
+
+
+class TestUpgradeJujuAttempt(JujuPyTestCase):
+
+    def test_iter_steps(self):
+        future_client = FakeEnvJujuClient()
+        future_client.full_path = '/future/juju'
+        uj_attempt = UpgradeJujuAttempt()
+        uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
         self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual({'test_id': 'upgrade-juju'}, uj_iterator.next())
@@ -1591,15 +1611,6 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
         with patch_status(None, version_status):
             self.assertEqual({'test_id': 'upgrade-juju', 'result': True},
                              uj_iterator.next())
-
-    def test_iter_steps_no_previous_client(self):
-        uj_attempt = UpgradeJujuAttempt({})
-        client = FakeEnvJujuClient()
-        client.full_path = '/present/juju'
-        uj_iterator = uj_attempt.iter_steps(client)
-        with self.assertRaises(CannotUpgradeToClient) as exc_context:
-            uj_iterator.next()
-        self.assertIs(exc_context.exception.client, client)
 
 
 class TestUpgradeCharmAttempt(JujuPyTestCase):
