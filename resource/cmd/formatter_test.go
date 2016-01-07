@@ -29,13 +29,14 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 	formatted := FormatCharmResource(res)
 
 	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
-		Name:        "spam",
-		Type:        DataTypeFile,
-		Path:        "spam.tgz",
-		Comment:     "X",
-		Revision:    0,
-		Fingerprint: fp.String(),
-		Origin:      OriginUpload,
+		Name:          "spam",
+		Type:          "file",
+		Path:          "spam.tgz",
+		Comment:       "X",
+		Revision:      0,
+		Fingerprint:   fp.String(),
+		Origin:        "upload",
+		charmRevision: "-",
 	})
 }
 
@@ -66,16 +67,19 @@ func (s *SvcFormatterSuite) TestFormat(c *gc.C) {
 
 	f := FormatSvcResource(r)
 	c.Assert(f, gc.Equals, FormattedSvcResource{
-		Name:        r.Name,
-		Type:        DataTypeFile,
-		Path:        r.Path,
-		Used:        true,
-		Revision:    r.Revision,
-		Origin:      OriginStore,
-		Fingerprint: fp.String(),
-		Comment:     r.Comment,
-		Timestamp:   r.Timestamp,
-		Username:    r.Username,
+		Name:             r.Name,
+		Type:             "file",
+		Path:             r.Path,
+		Used:             true,
+		Revision:         r.Revision,
+		Origin:           "store",
+		Fingerprint:      fp.String(),
+		Comment:          r.Comment,
+		Timestamp:        r.Timestamp,
+		Username:         r.Username,
+		combinedRevision: "5",
+		usedYesNo:        "yes",
+		combinedOrigin:   "store",
 	})
 
 }

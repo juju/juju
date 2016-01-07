@@ -31,15 +31,11 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 
 	// Print each info to its own row.
 	for _, res := range resources {
-		rev := "-"
-		if res.Origin == OriginStore {
-			rev = fmt.Sprintf("%d", res.Revision)
-		}
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			res.Name,
 			res.Origin,
-			rev,
+			res.charmRevision,
 			res.Comment,
 		)
 	}
@@ -70,41 +66,13 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\t%v\n",
 			r.Name,
-			tabularOrigin(r),
-			tabularRevision(r),
-			tabularUsed(r.Used),
+			r.combinedOrigin,
+			r.combinedRevision,
+			r.usedYesNo,
 			r.Comment,
 		)
 	}
 	tw.Flush()
 
 	return out.Bytes(), nil
-}
-
-func tabularRevision(r FormattedSvcResource) interface{} {
-	switch r.Origin {
-	case OriginStore:
-		return r.Revision
-	case OriginUpload:
-		if !r.Timestamp.IsZero() {
-			return r.Timestamp.Format("2006-02-01")
-		}
-	}
-	return "-"
-}
-
-func tabularOrigin(r FormattedSvcResource) string {
-	switch r.Origin {
-	case OriginUpload:
-		return r.Username
-	default:
-		return string(r.Origin)
-	}
-}
-
-func tabularUsed(used bool) string {
-	if used {
-		return "yes"
-	}
-	return "no"
 }
