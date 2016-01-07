@@ -399,38 +399,6 @@ func (srv *Server) httpEndpoints() []httpEndpoint {
 		},
 	)
 
-	// For backwards compatibility we register all the old paths
-
-	if feature.IsDbLogEnabled() {
-		add("/log",
-			newDebugLogDBHandler(httpCtxt, srvDying),
-		)
-	} else {
-		add("/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir),
-		)
-	}
-
-	add("/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-		},
-	)
-	add("/tools",
-		&toolsUploadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	add("/tools/:version",
-		&toolsDownloadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	add("/",
-		http.HandlerFunc(srv.apiHandler),
-	)
-
 	return endpoints
 }
 
