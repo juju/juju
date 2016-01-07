@@ -31,8 +31,6 @@ type mockClient struct {
 }
 
 func (m *mockClient) mockCall(call string) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	m.calls <- call
 }
 

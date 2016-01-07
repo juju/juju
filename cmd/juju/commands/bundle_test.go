@@ -36,7 +36,7 @@ func (s *DeploySuite) TestDeployBundleNotFoundLocal(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:bundle/no-such-0`)
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundeNotFoundCharmStore(c *gc.C) {
+func (s *DeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	err := runDeploy(c, "bundle/no-such")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
 }
@@ -67,6 +67,33 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 		"mysql/0":     "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/terms1-17", "terms1")
+	testcharms.UploadCharm(c, s.client, "trusty/terms2-42", "terms2")
+	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
+	output, err := runDeployCommand(c, "bundle/terms-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/terms1-17
+service terms1 deployed (charm: cs:trusty/terms1-17)
+added charm cs:trusty/terms2-42
+service terms2 deployed (charm: cs:trusty/terms2-42)
+added terms1/0 unit to new machine
+added terms2/0 unit to new machine
+deployment of bundle "cs:bundle/terms-simple-1" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/terms1-17", "cs:trusty/terms2-42")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"terms1": {charm: "cs:trusty/terms1-17"},
+		"terms2": {charm: "cs:trusty/terms2-42"},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"terms1/0": "0",
+		"terms2/0": "1",
+	})
+	c.Assert(s.termsString, gc.Not(gc.Equals), "")
 }
 
 func (s *DeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {

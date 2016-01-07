@@ -115,13 +115,16 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
@@ -149,7 +152,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			},
 		})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := conf.Write(); err != nil {
 		return err
