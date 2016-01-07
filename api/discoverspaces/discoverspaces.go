@@ -8,7 +8,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 )
@@ -19,10 +18,6 @@ const discoverspacesFacade = "DiscoverSpaces"
 
 // API provides access to the DiscoverSpaces API facade.
 type API struct {
-	// TODO(mfoord): we should drop EnvironWatcher and consider moving
-	// access to the provider methods needed (SupportsSpaceDiscovery and
-	// ListSubnets) onto the apiserver.
-	*common.EnvironWatcher
 	facade base.FacadeCaller
 }
 
@@ -33,8 +28,7 @@ func NewAPI(caller base.APICaller) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, discoverspacesFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		facade: facadeCaller,
 	}
 }
 
