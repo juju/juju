@@ -86,3 +86,37 @@ func (s *DiscoverSpacesSuite) TestEnvironConfigSuccess(c *gc.C) {
 
 	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
 }
+
+func (s *DiscoverSpacesSuite) TestListSpaces(c *gc.C) {
+	result, err := s.facade.ListSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := []params.ProviderSpace{
+		{Name: "default",
+			Subnets: []params.Subnet{
+				{CIDR: "192.168.0.0/24",
+					ProviderId: "provider-192.168.0.0/24",
+					SpaceTag:   "space-default",
+					Zones:      []string{"foo"},
+					Status:     "in-use"},
+				{CIDR: "192.168.3.0/24",
+					ProviderId: "provider-192.168.3.0/24",
+					VLANTag:    23,
+					SpaceTag:   "space-default",
+					Zones:      []string{"bar", "bam"}}}},
+		{Name: "dmz",
+			Subnets: []params.Subnet{
+				{CIDR: "192.168.1.0/24",
+					ProviderId: "provider-192.168.1.0/24",
+					VLANTag:    23,
+					SpaceTag:   "space-dmz",
+					Zones:      []string{"bar", "bam"}}}},
+		{Name: "private",
+			Subnets: []params.Subnet{
+				{CIDR: "192.168.2.0/24",
+					ProviderId: "provider-192.168.2.0/24",
+					SpaceTag:   "space-private",
+					Zones:      []string{"foo"},
+					Status:     "in-use"}}}}
+	c.Assert(result.Results, jc.DeepEquals, expectedResult)
+}
