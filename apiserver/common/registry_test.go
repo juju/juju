@@ -404,15 +404,23 @@ func (s *HTTPEndpointRegistrySuite) newArgs(constraints common.HTTPHandlerConstr
 
 }
 
-func (s *HTTPEndpointRegistrySuite) addBasicEndpoint(c *gc.C, pattern string) http.Handler {
-	handler := &nopHTTPHandler{pattern}
+func (s *HTTPEndpointRegistrySuite) addEndpoint(c *gc.C, pattern string, constraints common.HTTPHandlerConstraints, handler http.Handler) {
 	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: func(common.NewHTTPHandlerArgs) http.Handler {
+		Constraints: constraints,
+		NewHTTPHandler: func(args common.NewHTTPHandlerArgs) http.Handler {
+			s.stub.AddCall("NewHTTPHandler", args)
+			s.stub.NextErr() // pop one off
 			return handler
 		},
 	}
 	err := common.RegisterEnvHTTPHandler(pattern, hSpec)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *HTTPEndpointRegistrySuite) addBasicEndpoint(c *gc.C, pattern string) http.Handler {
+	var constraints common.HTTPHandlerConstraints
+	handler := &nopHTTPHandler{pattern}
+	s.addEndpoint(c, pattern, constraints, handler)
 	return handler
 }
 
@@ -623,33 +631,28 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
 		StrictValidation:   true,
 		StateServerEnvOnly: true,
 	}
-	hSpec := common.HTTPHandlerSpec{
-		Constraints:    constraints,
-		NewHTTPHandler: s.newHandler,
-	}
-	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	s.addEndpoint(c, "/spam", constraints, s.handler)
 	s.stub.ResetCalls()
 
 	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
 
 	s.stub.CheckCallNames(c,
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 		"newArgs",
-		"newHandler",
+		"NewHTTPHandler",
 	)
 	for i := 0; i > 12; i += 2 {
 		s.stub.CheckCall(c, i+0, "newArgs", constraints)
-		s.stub.CheckCall(c, i+1, "newHandler", s.args)
+		s.stub.CheckCall(c, i+1, "NewHTTPHandler", s.args)
 	}
 	c.Check(endpoints, jc.DeepEquals, []common.HTTPEndpoint{{
 		Pattern: "/environment/:envuuid/spam",
