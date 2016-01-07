@@ -30,7 +30,7 @@ func (s *ShowServiceSuite) SetUpTest(c *gc.C) {
 	stub := &testing.Stub{}
 	s.stubDeps = &stubShowServiceDeps{
 		stub:   stub,
-		client: &stubCharmStore{stub: stub},
+		client: &stubServiceClient{stub: stub},
 	}
 }
 
@@ -70,7 +70,7 @@ This command shows the resources required by and those in use by an existing ser
 }
 
 func (s *ShowServiceSuite) TestRun(c *gc.C) {
-	data := []resource.Resource{
+	data := [][]resource.Resource{{
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
@@ -94,26 +94,26 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "openjdk",
-					Comment: "the java runtime",
+					Name:    "rsc1234",
+					Comment: "a big comment",
 				},
 				Origin:   charmresource.OriginStore,
-				Revision: 8,
+				Revision: 15,
 			},
 			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		},
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "website",
-					Comment: "your website data",
+					Name:    "website2",
+					Comment: "awesome data",
 				},
 				Origin: charmresource.OriginUpload,
 			},
 			Username:  "Bill User",
 			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		},
-	}
+	}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := &ShowServiceCommand{
@@ -130,17 +130,17 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 RESOURCE ORIGIN      REV        USED COMMENT
 openjdk  store       7          no   the java runtime
 website  Sandra User -          no   your website data
-openjdk  store       8          yes  the java runtime
-website  Bill User   2012-12-12 yes  your website data
+rsc1234  store       15         yes  a big comment
+website2 Bill User   2012-12-12 yes  awesome data
 
 `[1:])
 
-	checkCall(c, s.stubDeps.stub, "ShowService", [][]interface{}{{"svc"}})
+	checkCall(c, s.stubDeps.stub, "ListResources", [][]interface{}{{[]string{"svc"}}})
 }
 
 type stubShowServiceDeps struct {
 	stub   *testing.Stub
-	client *stubCharmStore
+	client *stubServiceClient
 }
 
 func (s *stubShowServiceDeps) NewClient(c *ShowServiceCommand) (ShowServiceClient, error) {
@@ -150,4 +150,26 @@ func (s *stubShowServiceDeps) NewClient(c *ShowServiceCommand) (ShowServiceClien
 	}
 
 	return s.client, nil
+}
+
+type stubServiceClient struct {
+	stub            *testing.Stub
+	ReturnResources [][]resource.Resource
+}
+
+func (s *stubServiceClient) ListResources(services []string) ([][]resource.Resource, error) {
+	s.stub.AddCall("ListResources", services)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.ReturnResources, nil
+}
+
+func (s *stubServiceClient) Close() error {
+	s.stub.AddCall("Close")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
