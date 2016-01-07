@@ -121,7 +121,7 @@ func (spec *HTTPEndpointSpec) Add(method string, hSpec HTTPHandlerSpec) error {
 	}
 	method = strings.ToUpper(method)
 	if _, ok := spec.methodHandlers[method]; ok {
-		msg := fmt.Sprintf("HTTP method %q already added")
+		msg := fmt.Sprintf("HTTP method %q already added", method)
 		return errors.NewAlreadyExists(nil, msg)
 	}
 	// TODO(ericsnow) Fail if not one of the "supported" HTTP methods?
@@ -213,7 +213,7 @@ func (hes *HTTPEndpoints) add(spec HTTPEndpointSpec) error {
 	}
 	if _, ok := hes.patternSpecs[spec.pattern]; ok {
 		// TODO(ericsnow) Merge if strictly different HTTP Methods.
-		msg := fmt.Sprintf("endpoint %q already registered")
+		msg := fmt.Sprintf("endpoint %q already registered", spec.pattern)
 		return errors.NewAlreadyExists(nil, msg)
 	}
 	hes.patternSpecs[spec.pattern] = spec
