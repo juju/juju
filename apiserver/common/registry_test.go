@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -371,142 +372,163 @@ func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 
 type HTTPEndpointRegistrySuite struct {
 	coretesting.BaseSuite
+
+	stub    *testing.Stub
+	handler http.Handler
+	args    common.NewHTTPHandlerArgs
 }
 
 var _ = gc.Suite(&HTTPEndpointRegistrySuite{})
 
-func (s *HTTPEndpointRegistrySuite) newHandler(common.NewHTTPHandlerArgs) http.Handler {
-	return nil
+func (s *HTTPEndpointRegistrySuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	common.SanitizeHTTPEndpointsRegistry(s)
+	s.stub = &testing.Stub{}
+	s.handler = &nopHTTPHandler{id: "suite default"}
+	s.args = common.NewHTTPHandlerArgs{}
 }
 
-func (s *HTTPEndpointRegistrySuite) copySpecData(spec common.HTTPHandlerSpec) common.HTTPHandlerSpec {
-	return common.HTTPHandlerSpec{
-		AuthKind:           spec.AuthKind,
-		StrictValidation:   spec.StrictValidation,
-		StateServerEnvOnly: spec.StateServerEnvOnly,
+func (s *HTTPEndpointRegistrySuite) newHandler(args common.NewHTTPHandlerArgs) http.Handler {
+	s.stub.AddCall("newHandler", args)
+	s.stub.NextErr() // pop one off
+
+	return s.handler
+}
+
+func (s *HTTPEndpointRegistrySuite) newArgs(constraints common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+	s.stub.AddCall("newArgs", constraints)
+	s.stub.NextErr() // pop one off
+
+	return s.args
+
+}
+
+type httpHandlerSpec struct {
+	constraints common.HTTPHandlerConstraints
+	handler     http.Handler
+}
+
+type httpEndpointSpec struct {
+	pattern        string
+	methodHandlers map[string]httpHandlerSpec
+}
+
+func (s *HTTPEndpointRegistrySuite) checkSpec(c *gc.C, spec common.HTTPEndpointSpec, expected httpEndpointSpec) {
+	// Note that we don't check HTTPHandlerSpec.NewHTTPHandler directly.
+	// Go does not support direct comparison of functions.
+	actual := httpEndpointSpec{
+		pattern:        spec.Pattern(),
+		methodHandlers: make(map[string]httpHandlerSpec),
 	}
+	unhandled := &nopHTTPHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
+	for _, method := range spec.Methods() {
+		hSpec := spec.Resolve(method, unhandled)
+		handler := hSpec.NewHTTPHandler(common.NewHTTPHandlerArgs{})
+		actual.methodHandlers[method] = httpHandlerSpec{
+			constraints: hSpec.Constraints,
+			handler:     handler,
+		}
+
+	}
+	c.Check(actual, jc.DeepEquals, expected)
 }
 
-func (s *HTTPEndpointRegistrySuite) checkSpecData(c *gc.C, spec, expected common.HTTPHandlerSpec, pat string) {
-	c.Check(spec.Pattern(), gc.Equals, pat)
-	c.Check(s.copySpecData(spec), jc.DeepEquals, s.copySpecData(expected))
-}
-
-func (s *HTTPEndpointRegistrySuite) TestRegisterFull(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
+	constraints := common.HTTPHandlerConstraints{
 		AuthKind:           names.UserTagKind,
 		StrictValidation:   true,
 		StateServerEnvOnly: true,
-		NewHTTPHandler:     s.newHandler,
 	}
-
-	err := registry.Register("/spam", spec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	registered := registry.All()
-	c.Assert(registered, gc.HasLen, 1)
-	s.checkSpecData(c, registered[0], spec, "/spam")
-	// TODO(ericsnow) Check spec.NewHTTPHandler?
-}
-
-func (s *HTTPEndpointRegistrySuite) TestRegisterBasic(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
+	hSpec := common.HTTPHandlerSpec{
+		Constraints:    constraints,
 		NewHTTPHandler: s.newHandler,
 	}
+	expected := httpHandlerSpec{
+		constraints: constraints,
+		handler:     s.handler,
+	}
+	s.stub.ResetCalls()
 
-	err := registry.Register("/spam", spec)
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	registered := registry.All()
-	s.checkSpecData(c, registered[0], spec, "/spam")
+	s.stub.CheckNoCalls(c)
+	specs := common.ExposeHTTPEndpointsRegistry()
+	c.Assert(specs, gc.HasLen, 1)
+	s.checkSpec(c, specs[0], httpEndpointSpec{
+		pattern: "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{
+			"": expected,
+		},
+	})
 }
 
-func (s *HTTPEndpointRegistrySuite) TestRegisterTrailingSlash(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
+	constraints := common.HTTPHandlerConstraints{
+		AuthKind:           names.UserTagKind,
+		StrictValidation:   true,
+		StateServerEnvOnly: true,
+	}
+	hSpec := common.HTTPHandlerSpec{
+		Constraints:    constraints,
 		NewHTTPHandler: s.newHandler,
 	}
-
-	err := registry.Register("/spam/", spec)
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	registered := registry.All()[0]
+	s.stub.ResetCalls()
 
-	c.Check(registered.Pattern(), gc.Equals, "/spam")
-}
+	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
 
-func (s *HTTPEndpointRegistrySuite) TestRegisterRelativePath(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	s.stub.CheckCallNames(c,
+		"newArgs",
+		"newHandler",
+		"newArgs",
+		"newHandler",
+		"newArgs",
+		"newHandler",
+		"newArgs",
+		"newHandler",
+		"newArgs",
+		"newHandler",
+		"newArgs",
+		"newHandler",
+	)
+	for i := 0; i > 12; i += 2 {
+		s.stub.CheckCall(c, i+0, "newArgs", constraints)
+		s.stub.CheckCall(c, i+1, "newHandler", s.args)
 	}
-
-	err := registry.Register("spam", spec)
-	c.Assert(err, jc.ErrorIsNil)
-	registered := registry.All()[0]
-
-	c.Check(registered.Pattern(), gc.Equals, "/spam")
-}
-
-func (s *HTTPEndpointRegistrySuite) TestRegisterNested(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
-	}
-
-	err := registry.Register("/spam/eggs//spam/spam/spam", spec)
-	c.Assert(err, jc.ErrorIsNil)
-	registered := registry.All()[0]
-
-	c.Check(registered.Pattern(), gc.Equals, "/spam/eggs/spam/spam/spam")
-}
-
-func (s *HTTPEndpointRegistrySuite) TestRegisterEnvBasedOkay(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
-	}
-
-	err := registry.RegisterEnvBased("/spam", spec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	registered := registry.All()
-	c.Assert(registered, gc.HasLen, 1)
-	s.checkSpecData(c, registered[0], spec, "/environment/:envuuid/spam")
-}
-
-func (s *HTTPEndpointRegistrySuite) TestRegisterEnvBasedRelativePath(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	spec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
-	}
-
-	err := registry.RegisterEnvBased("/spam", spec)
-	c.Assert(err, jc.ErrorIsNil)
-	registered := registry.All()[0]
-
-	c.Check(registered.Pattern(), gc.Equals, "/environment/:envuuid/spam")
-}
-
-func (s *HTTPEndpointRegistrySuite) TestAll(c *gc.C) {
-	registry := new(common.HTTPHandlerRegistry)
-	specs := []common.HTTPHandlerSpec{{
-		NewHTTPHandler: s.newHandler,
+	c.Check(endpoints, jc.DeepEquals, []common.HTTPEndpoint{{
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "GET",
+		Handler: s.handler,
 	}, {
-		NewHTTPHandler: s.newHandler,
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "POST",
+		Handler: s.handler,
 	}, {
-		NewHTTPHandler: s.newHandler,
-	}}
-	expected := []string{"/spam/eggs", "/spam", "/eggs"}
-	for i, pat := range expected {
-		err := registry.Register(pat, specs[i])
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	registered := registry.All()
-
-	for i, spec := range registered {
-		s.checkSpecData(c, spec, specs[i], expected[i])
-	}
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "PUT",
+		Handler: s.handler,
+	}, {
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "DEL",
+		Handler: s.handler,
+	}, {
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "HEAD",
+		Handler: s.handler,
+	}, {
+		Pattern: "/environment/:envuuid/spam",
+		Method:  "OPTIONS",
+		Handler: s.handler,
+	}})
 }
+
+type nopHTTPHandler struct {
+	// id uniquely identifies the handler (for when that matters).
+	// This is not required.
+	id string
+}
+
+func (nopHTTPHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}

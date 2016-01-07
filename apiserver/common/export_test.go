@@ -3,6 +3,10 @@
 
 package common
 
+import (
+	"github.com/juju/testing"
+)
+
 var (
 	MachineJobFromParams = machineJobFromParams
 	ValidateNewFacade    = validateNewFacade
@@ -28,4 +32,13 @@ type Versions versions
 
 func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
 	return descriptionFromVersions(name, versions(vers))
+}
+
+func SanitizeHTTPEndpointsRegistry(patch Patcher) {
+	emptyEndpoints := NewHTTPEndpoints()
+	testing.PatchValue(&httpEndpoints.endpoints, emptyEndpoints)
+}
+
+func ExposeHTTPEndpointsRegistry() []HTTPEndpointSpec {
+	return httpEndpoints.endpoints.specs()
 }
