@@ -81,7 +81,7 @@ func (s *DiscoverSpacesSuite) TestEnvironConfigSuccess(c *gc.C) {
 	result, err := s.facade.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
-		Config: nil,
+		Config: apiservertesting.BackingInstance.EnvConfig.AllAttrs(),
 	})
 
 	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
