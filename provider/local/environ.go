@@ -6,7 +6,6 @@ package local
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,9 +30,6 @@ import (
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/httpstorage"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
@@ -60,8 +56,6 @@ type localEnviron struct {
 	config           *environConfig
 	name             string
 	bridgeAddress    string
-	localStorage     storage.Storage
-	storageListener  net.Listener
 	containerManager container.Manager
 }
 
@@ -138,10 +132,8 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{
-		agent.Namespace:   env.config.namespace(),
-		agent.StorageDir:  env.config.storageDir(),
-		agent.StorageAddr: env.config.storageAddr(),
-		agent.LxcBridge:   env.config.networkBridge(),
+		agent.Namespace: env.config.namespace(),
+		agent.LxcBridge: env.config.networkBridge(),
 
 		// The local provider only supports a single state server,
 		// so we make the oplog size to a small value. This makes
@@ -298,10 +290,6 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	// because it is only set *within* the running
 	// environment, not in the configuration created by
 	// Prepare.
-	//
-	// When bootstrapIPAddress returns a non-empty string,
-	// we know we are running server-side and thus must use
-	// httpstorage.
 	if addr := ecfg.bootstrapIPAddress(); addr != "" {
 		env.bridgeAddress = addr
 		return nil
@@ -317,7 +305,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	if err := env.resolveBridgeAddress(cfg); err != nil {
 		return errors.Trace(err)
 	}
-	return env.setLocalStorage()
+	return nil
 }
 
 // resolveBridgeAddress finishes up the setup of the environment in
@@ -337,18 +325,6 @@ func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 	}
 	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
 	env.bridgeAddress = bridgeAddress
-	return nil
-}
-
-// setLocalStorage creates a filestorage so tools can
-// be synced and so forth without having a machine agent
-// running.
-func (env *localEnviron) setLocalStorage() error {
-	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir())
-	if err != nil {
-		return err
-	}
-	env.localStorage = storage
 	return nil
 }
 
@@ -477,15 +453,6 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 		instances = append(instances, &localInstance{inst.Id(), env})
 	}
 	return instances, nil
-}
-
-// Storage is specified in the Environ interface.
-func (env *localEnviron) Storage() storage.Storage {
-	// localStorage is non-nil if we're running from the CLI
-	if env.localStorage != nil {
-		return env.localStorage
-	}
-	return httpstorage.Client(env.config.storageAddr())
 }
 
 // Destroy is specified in the Environ interface.

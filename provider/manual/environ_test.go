@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
@@ -21,10 +20,6 @@ import (
 type environSuite struct {
 	coretesting.FakeJujuHomeSuite
 	env *manualEnviron
-}
-
-type dummyStorage struct {
-	storage.Storage
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -121,14 +116,6 @@ exit 0
 			c.Assert(err, gc.ErrorMatches, t.match)
 		}
 	}
-}
-
-func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
-	c.Assert(s.env.StorageDir(), gc.Equals, "/var/lib/juju/storage")
-	c.Assert(s.env.cfg.storageListenAddr(), gc.Equals, ":8040")
-	c.Assert(s.env.StorageAddr(), gc.Equals, s.env.cfg.storageListenAddr())
-	c.Assert(s.env.SharedStorageAddr(), gc.Equals, "")
-	c.Assert(s.env.SharedStorageDir(), gc.Equals, "")
 }
 
 func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
