@@ -145,30 +145,43 @@ func (spec HTTPEndpointSpec) Methods() []string {
 }
 
 // Resolve returns the HTTP handler spec for the given HTTP method.
+// The returned spec is guaranteed to have a valid NewHTTPHandler.
+// In the cases that the HTTP method is not supported, the provided
+// "unhandled" handler will be returned from NewHTTPHandler.
 func (spec HTTPEndpointSpec) Resolve(method string, unhandled http.Handler) HTTPHandlerSpec {
 	if unhandled == nil {
 		unhandled = unsupportedHTTPMethodHandler()
 	}
+	hSpec := spec.resolve(method)
 
-	if hSpec, ok := spec.methodHandlers[method]; ok {
-		if hSpec.NewHTTPHandler == nil {
-			hSpec.NewHTTPHandler = func(NewHTTPHandlerArgs) http.Handler {
-				return unhandled
-			}
+	// Handle the nil NewHTTPHandler/handler cases, treating them
+	// as "unhandled".
+	newHandler := hSpec.NewHTTPHandler
+	hSpec.NewHTTPHandler = func(args NewHTTPHandlerArgs) http.Handler {
+		if newHandler == nil {
+			return unhandled
 		}
+		handler := newHandler(args)
+		if handler == nil {
+			return unhandled
+		}
+		return handler
+	}
+
+	return hSpec
+}
+
+func (spec HTTPEndpointSpec) resolve(method string) HTTPHandlerSpec {
+	if hSpec, ok := spec.methodHandlers[method]; ok {
 		return hSpec
 	}
 	if method != "" {
 		// Fall back to the default, if any.
-		return spec.Resolve("", unhandled)
+		return spec.resolve("")
 	}
 
 	// No match and no default, so return an "unhandled" handler spec.
-	return HTTPHandlerSpec{
-		NewHTTPHandler: func(NewHTTPHandlerArgs) http.Handler {
-			return unhandled
-		},
-	}
+	return HTTPHandlerSpec{}
 }
 
 // HTTPEndpoint describes a single HTTP endpoint.
