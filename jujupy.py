@@ -615,7 +615,7 @@ class EnvJujuClient:
         else:
             raise Exception('Timed out waiting for services to start.')
 
-    def wait_for_workloads(self, timeout=180, start=None):
+    def wait_for_workloads(self, timeout=300, start=None):
         """Wait until all unit workloads are in a ready state."""
         def status_to_workloads(status):
             unit_states = defaultdict(list)
