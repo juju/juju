@@ -572,7 +572,7 @@ class BootstrapManager:
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
-                                permanent=self.permanent):
+                                permanent=self.permanent, set_home=False):
             try:
                 try:
                     if not torn_down:
@@ -616,7 +616,7 @@ class BootstrapManager:
                     self.client.add_ssh_machines(addable_machines)
                 yield
             except GeneratorExit:
-                return
+                raise
             except BaseException as e:
                 logging.exception(e)
                 raise LoggedException(e)

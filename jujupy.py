@@ -226,8 +226,7 @@ class EnvJujuClient:
             client_class = EnvJujuClient26
         else:
             client_class = EnvJujuClient
-        return client_class(env, version, full_path, get_juju_home(),
-                            debug=debug)
+        return client_class(env, version, full_path, debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
