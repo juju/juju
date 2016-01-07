@@ -181,8 +181,8 @@ type HTTPEndpoint struct {
 // HTTPEndpoints holds an ordered set of endpoint definitions.
 // The order of insertion is preserved (for now).
 type HTTPEndpoints struct {
-	// specs is the set of endpoint specs, mapping patterns to specs.
-	specs map[string]HTTPEndpointSpec
+	// patternSpecs is the set of endpoint specs, mapping patterns to specs.
+	patternSpecs map[string]HTTPEndpointSpec
 
 	// ordered holds the flat order of endpoint patterns.
 	ordered []string
@@ -196,7 +196,7 @@ type HTTPEndpoints struct {
 // NewHTTPEndpoints returns a newly initialized HTTPEndpoints.
 func NewHTTPEndpoints() HTTPEndpoints {
 	return HTTPEndpoints{
-		specs: make(map[string]HTTPEndpointSpec),
+		patternSpecs:             make(map[string]HTTPEndpointSpec),
 		unsupportedMethodHandler: unsupportedHTTPMethodHandler(),
 	}
 }
@@ -208,12 +208,12 @@ func (hes *HTTPEndpoints) add(spec HTTPEndpointSpec) error {
 	if spec.pattern == "" {
 		return errors.NewNotValid(nil, "spec missing pattern")
 	}
-	if _, ok := hes.specs[spec.pattern]; ok {
+	if _, ok := hes.patternSpecs[spec.pattern]; ok {
 		// TODO(ericsnow) Merge if strictly different HTTP Methods.
 		msg := fmt.Sprintf("endpoint %q already registered")
 		return errors.NewAlreadyExists(nil, msg)
 	}
-	hes.specs[spec.pattern] = spec
+	hes.patternSpecs[spec.pattern] = spec
 
 	// TODO(ericsnow) Order by the flattened hierarchy of URL path
 	// elements, alphabetical with deepest elements first. Depth matters
@@ -222,11 +222,11 @@ func (hes *HTTPEndpoints) add(spec HTTPEndpointSpec) error {
 	return nil
 }
 
-// Specs returns the spec for each endpoint, in order.
-func (hes *HTTPEndpoints) Specs() []HTTPEndpointSpec {
+// specs returns the spec for each endpoint, in order.
+func (hes *HTTPEndpoints) specs() []HTTPEndpointSpec {
 	var specs []HTTPEndpointSpec
 	for _, pattern := range hes.ordered {
-		spec := hes.specs[pattern]
+		spec := hes.patternSpecs[pattern]
 		specs = append(specs, spec)
 	}
 	return specs
@@ -236,7 +236,7 @@ func (hes *HTTPEndpoints) Specs() []HTTPEndpointSpec {
 func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
 	var endpoints []HTTPEndpoint
 	for _, pattern := range hes.ordered {
-		spec := hes.specs[pattern]
+		spec := hes.patternSpecs[pattern]
 		for _, method := range spec.Methods() {
 			if method == "" {
 				// The default is discarded.
@@ -261,7 +261,7 @@ func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHan
 func (hes HTTPEndpoints) resolveForMethods(methods []string, newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
 	var endpoints []HTTPEndpoint
 	for _, pattern := range hes.ordered {
-		spec := hes.specs[pattern]
+		spec := hes.patternSpecs[pattern]
 		for _, method := range methods {
 			hSpec := spec.Resolve(method, hes.unsupportedMethodHandler)
 			args := newArgs(hSpec.Constraints)
