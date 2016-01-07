@@ -424,45 +424,12 @@ func (s *HTTPEndpointRegistrySuite) addBasicEndpoint(c *gc.C, pattern string) ht
 	return handler
 }
 
-type httpHandlerSpec struct {
-	constraints common.HTTPHandlerConstraints
-	handler     http.Handler
-}
-
-type httpEndpointSpec struct {
-	pattern        string
-	methodHandlers map[string]httpHandlerSpec
-}
-
 func (s *HTTPEndpointRegistrySuite) checkSpec(c *gc.C, spec common.HTTPEndpointSpec, expected httpEndpointSpec) {
-	// Note that we don't check HTTPHandlerSpec.NewHTTPHandler directly.
-	// Go does not support direct comparison of functions.
-	actual := httpEndpointSpec{
-		pattern:        spec.Pattern(),
-		methodHandlers: make(map[string]httpHandlerSpec),
-	}
-	unhandled := &nopHTTPHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
-	for _, method := range spec.Methods() {
-		hSpec := spec.Resolve(method, unhandled)
-		handler := hSpec.NewHTTPHandler(common.NewHTTPHandlerArgs{})
-		actual.methodHandlers[method] = httpHandlerSpec{
-			constraints: hSpec.Constraints,
-			handler:     handler,
-		}
-
-	}
-	c.Check(actual, jc.DeepEquals, expected)
+	checkSpec(c, spec, expected)
 }
 
 func (s *HTTPEndpointRegistrySuite) checkSpecs(c *gc.C, specs []common.HTTPEndpointSpec, expected []httpEndpointSpec) {
-	comment := gc.Commentf("len(%#v) != len(%#v)", specs, expected)
-	if !c.Check(len(specs), gc.Equals, len(expected), comment) {
-		return
-	}
-	for i, expectedSpec := range expected {
-		spec := specs[i]
-		s.checkSpec(c, spec, expectedSpec)
-	}
+	checkSpecs(c, specs, expected)
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
@@ -753,11 +720,3 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsNoHandler(c *gc.C) {
 		})
 	}
 }
-
-type nopHTTPHandler struct {
-	// id uniquely identifies the handler (for when that matters).
-	// This is not required.
-	id string
-}
-
-func (nopHTTPHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}
