@@ -112,7 +112,7 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallAzureUserPass(c *gc.C) {
+func (s *credentialsSuite) TestMarshallAzureCredntials(c *gc.C) {
 	creds := cloud.Credentials{
 		Credentials: map[string]cloud.CloudCredential{
 			"azure": {
@@ -120,12 +120,10 @@ func (s *credentialsSuite) TestMarshallAzureUserPass(c *gc.C) {
 				DefaultRegion:     "Central US",
 				AuthCredentials: map[string]cloud.Credential{
 					"peter": &cloud.AzureUserPassCredentials{
-						UserPassCredentials: cloud.UserPassCredentials{
-							User:     "user",
-							Password: "secret",
-						},
 						ApplicationId:       "app-id",
 						ApplicationPassword: "app-secret",
+						SubscriptionId:      "subscription-id",
+						TenantId:            "tenant-id",
 					},
 				},
 			},
@@ -139,8 +137,8 @@ credentials:
     default-credential: default-cred
     default-region: Central US
     peter:
-      username: user
-      password: secret
+      subscription-id: subscription-id
+      tenant-id: tenant-id
       application-id: app-id
       application-password: app-secret
 `[1:])

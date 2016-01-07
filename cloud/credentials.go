@@ -39,7 +39,10 @@ var _ Credential = (*AccessKeyCredentials)(nil)
 
 // AccessKeyCredentials represent key/secret credentials.
 type AccessKeyCredentials struct {
-	Key    string `yaml:"key,omitempty"`
+	// Key is the credential access key.
+	Key string `yaml:"key,omitempty"`
+
+	// Secret is the credential access secret.
 	Secret string `yaml:"secret,omitempty"`
 }
 
@@ -61,7 +64,9 @@ var _ Credential = (*OpenstackAccessKeyCredentials)(nil)
 // OpenstackAccessKeyCredentials are key/secret credentials for Openstack clouds.
 type OpenstackAccessKeyCredentials struct {
 	AccessKeyCredentials `yaml:",inline"`
-	Tenant               string `yaml:"tenant-name,omitempty"`
+
+	// Tenant is the openstack account tenant.
+	Tenant string `yaml:"tenant-name,omitempty"`
 }
 
 // AuthType is defined on Credentials interface.
@@ -80,7 +85,10 @@ func (c *OpenstackAccessKeyCredentials) Attributes() map[string]string {
 
 // UserPassCredentials are username/password credentials.
 type UserPassCredentials struct {
-	User     string `yaml:"username,omitempty"`
+	// User is the credential user name.
+	User string `yaml:"username,omitempty"`
+
+	// Password is the credential password.
 	Password string `yaml:"password,omitempty"`
 }
 
@@ -89,7 +97,9 @@ var _ Credential = (*OpenstackUserPassCredentials)(nil)
 // OpenstackUserPassCredentials are user/password credentials for Openstack clouds.
 type OpenstackUserPassCredentials struct {
 	UserPassCredentials `yaml:",inline"`
-	Tenant              string `yaml:"tenant-name,omitempty"`
+
+	// Tenant is the openstack account tenant.
+	Tenant string `yaml:"tenant-name,omitempty"`
 }
 
 // AuthType is defined on Credentials interface.
@@ -110,8 +120,16 @@ var _ Credential = (*AzureUserPassCredentials)(nil)
 
 // AzureUserPassCredentials are user/password credentials for Azure clouds.
 type AzureUserPassCredentials struct {
-	UserPassCredentials `yaml:",inline"`
-	ApplicationId       string `yaml:"application-id,omitempty"`
+	// Subscription Id is the Azure account subscription id.
+	SubscriptionId string `yaml:"subscription-id,omitempty"`
+
+	// TenantId is the Azure Active Directory tenant id.
+	TenantId string `yaml:"tenant-id,omitempty"`
+
+	// Application Id is the Azure account application id.
+	ApplicationId string `yaml:"application-id,omitempty"`
+
+	// Tenant is the Azure account account password.
 	ApplicationPassword string `yaml:"application-password,omitempty"`
 }
 
@@ -123,10 +141,10 @@ func (c *AzureUserPassCredentials) AuthType() AuthType {
 // Attributes is defined on Credentials interface.
 func (c *AzureUserPassCredentials) Attributes() map[string]string {
 	return map[string]string{
-		"username":             c.User,
-		"password":             c.Password,
 		"application-id":       c.ApplicationId,
 		"application-password": c.ApplicationPassword,
+		"subscription-id":      c.SubscriptionId,
+		"tenant-id":            c.TenantId,
 	}
 }
 
@@ -134,10 +152,17 @@ var _ Credential = (*OAuth1Credentials)(nil)
 
 // OAuth1Credentials are oauth1 credentials.
 type OAuth1Credentials struct {
-	ConsumerKey    string `yaml:"consumer-key,omitempty"`
+	// ConsumerKey is the credential consumer key.
+	ConsumerKey string `yaml:"consumer-key,omitempty"`
+
+	// ConsumerSecret is the credential consumer secret.
 	ConsumerSecret string `yaml:"consumer-secret,omitempty"`
-	AccessToken    string `yaml:"access-token,omitempty"`
-	TokenSecret    string `yaml:"token-secret,omitempty"`
+
+	// AccessToken is the credential access token.
+	AccessToken string `yaml:"access-token,omitempty"`
+
+	// TokenSecret is the credential token secret.
+	TokenSecret string `yaml:"token-secret,omitempty"`
 }
 
 // AuthType is defined on Credentials interface.
@@ -159,9 +184,14 @@ var _ Credential = (*OAuth2Credentials)(nil)
 
 // OAuth2Credentials are oauth1 credentials.
 type OAuth2Credentials struct {
-	ClientId    string `yaml:"client-id,omitempty"`
+	// Client Id is the credential client id.
+	ClientId string `yaml:"client-id,omitempty"`
+
+	// ClientEmail is the credential client email.
 	ClientEmail string `yaml:"client-email,omitempty"`
-	PrivateKey  string `yaml:"private-key,omitempty"`
+
+	// PrivateKey is the credential private key.
+	PrivateKey string `yaml:"private-key,omitempty"`
 }
 
 // AuthType is defined on Credentials interface.
