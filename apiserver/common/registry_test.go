@@ -681,6 +681,79 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
 	}})
 }
 
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOrdered(c *gc.C) {
+	patterns := []string{"/spam", "/ham", "/eggs"}
+	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
+	var expected []common.HTTPEndpoint
+	for _, pattern := range patterns {
+		handler := s.addBasicEndpoint(c, pattern)
+		pattern = "/environment/:envuuid" + pattern
+		for _, method := range methods {
+			expected = append(expected, common.HTTPEndpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
+	}
+	s.stub.ResetCalls()
+
+	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
+
+	c.Check(s.stub.Calls(), gc.HasLen, 2*3*6) // 2 each, 3 endpoints, 6 methods
+	c.Check(endpoints, jc.DeepEquals, expected)
+}
+
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsEmpty(c *gc.C) {
+	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
+
+	c.Check(endpoints, gc.HasLen, 0)
+}
+
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsMissingNewHTTPHandler(c *gc.C) {
+	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
+	var hSpec common.HTTPHandlerSpec
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
+
+	c.Check(endpoints, gc.HasLen, len(methods))
+	for i, method := range methods {
+		endpoint := endpoints[i]
+
+		// TODO(ericsnow) Call endpoint.Handler() to verify the "unsupported" response.
+
+		endpoint.Handler = nil // We fudge it because functions are not comparable.
+		c.Check(endpoint, jc.DeepEquals, common.HTTPEndpoint{
+			Pattern: "/environment/:envuuid/spam",
+			Method:  method,
+		})
+	}
+}
+
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsNoHandler(c *gc.C) {
+	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
+	var constraints common.HTTPHandlerConstraints
+	s.addEndpoint(c, "/spam", constraints, nil)
+
+	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
+
+	c.Check(endpoints, gc.HasLen, len(methods))
+	for i, method := range methods {
+		endpoint := endpoints[i]
+
+		// TODO(ericsnow) Call endpoint.Handler() to verify the "unsupported" response.
+
+		endpoint.Handler = nil // We fudge it because functions are not comparable.
+		c.Check(endpoint, jc.DeepEquals, common.HTTPEndpoint{
+			Pattern: "/environment/:envuuid/spam",
+			Method:  method,
+			Handler: endpoint.Handler, // We fudge it because functions are not comparable.
+		})
+	}
+}
+
 type nopHTTPHandler struct {
 	// id uniquely identifies the handler (for when that matters).
 	// This is not required.
