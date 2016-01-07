@@ -80,10 +80,10 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 
 	netconfig, err := r.NetworkConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	if len(netconfig) < 1 {
-		return errors.Errorf("no network config available")
+		return fmt.Errorf("no network config available")
 	}
 
 	if c.primaryAddress {

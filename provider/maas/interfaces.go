@@ -135,6 +135,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 			InterfaceName: iface.Name,
 			Disabled:      !iface.Enabled,
 			NoAutoStart:   !iface.Enabled,
+			// This is not needed anymore, but the provisioner still validates it's set.
+			NetworkName: network.DefaultPrivate,
 		}
 
 		for _, link := range iface.Links {

@@ -91,10 +91,15 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 //
 // LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311417
 func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
+	// Fetch a fresh copy of the instance JSON first.
+	obj, err := mi.maasObject.Get()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting instance details")
+	}
 	// Extract the "interface_set" list, and process all the links of each
 	// interface to get the mapping between assigned address and the space it
 	// belongs to.
-	interfacesArray := mi.maasObject.GetMap()["interface_set"]
+	interfacesArray := obj.GetMap()["interface_set"]
 	if interfacesArray.IsNil() {
 		// Older MAAS versions do not return interface_set.
 		return nil, errors.NotSupportedf("interface_set")
@@ -119,7 +124,8 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		}
 		linksArray, ok := objMap["links"]
 		if !ok || linksArray.IsNil() {
-			return nil, errors.Errorf("no links found for interface #%d %q", i, name)
+			logger.Warningf("skipping interface #%d %q with no links", i, name)
+			continue
 		}
 		links, err := linksArray.GetArray()
 		if err != nil {
@@ -128,11 +134,13 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		for j, link := range links {
 			linkMap, err := link.GetMap()
 			if err != nil {
-				return nil, errors.Annotatef(err, "getting interface #%d %q link #%d", i, name, j)
+				logger.Warningf("skipping link #%d on interface #%d %q: %v", j, i, name, err)
+				continue
 			}
 			ipAddressObj, ok := linkMap["ip_address"]
 			if !ok || ipAddressObj.IsNil() {
-				return nil, errors.Errorf("no ip_address for link #%d on interface #%d %q", j, i, name)
+				logger.Warningf("skipping link #%d on interface #%d %q: no ip_address set", j, i, name)
+				continue
 			}
 			ipAddress, err := ipAddressObj.GetString()
 			if err != nil {
@@ -140,7 +148,8 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 			}
 			subnetObj, ok := linkMap["subnet"]
 			if !ok || subnetObj.IsNil() {
-				return nil, errors.Errorf("no subnet for link #%d on interface #%d %q", j, i, name)
+				logger.Warningf("skipping link #%d on interface #%d %q: no linked subnet", j, i, name)
+				continue
 			}
 			subnetMap, err := subnetObj.GetMap()
 			if err != nil {
@@ -148,13 +157,14 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 			}
 			spaceField, ok := subnetMap["space"]
 			if !ok || spaceField.IsNil() {
-				return nil, errors.Errorf("no space for link #%d on interface #%d %q", j, i, name)
+				logger.Warningf("skipping link #%d on interface #%d %q: no space on linked subnet", j, i, name)
+				continue
 			}
 			space, err := spaceField.GetString()
 			if err != nil {
 				return nil, errors.Annotatef(err, "expected interface #%d %q link #%d subnet space as string", i, name, j)
 			}
-			logger.Debugf("found address %q on interface %q in space %q", ipAddress, name, space)
+			logger.Infof("found address %q on interface %q in space %q", ipAddress, name, space)
 			addr := network.NewAddress(ipAddress)
 			addr.SpaceName = network.SpaceName(space)
 			addresses = append(addresses, addr)
