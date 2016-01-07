@@ -108,6 +108,43 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// FormatMachineTabular returns a tabular summary of machine
+func FormatMachineTabular(value interface{}) ([]byte, error) {
+	fs, valueConverted := value.(formattedMachineStatus)
+	if !valueConverted {
+		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+	}
+	var out bytes.Buffer
+	// To format things into columns.
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	p := func(values ...interface{}) {
+		for _, v := range values {
+			fmt.Fprintf(tw, "%s\t", v)
+		}
+		fmt.Fprintln(tw)
+	}
+
+	p("\n[Machines]")
+	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
+		m := fs.Machines[name]
+		// We want to display availability zone so extract from hardware info".
+		hw, err := instance.ParseHardware(m.Hardware)
+		if err != nil {
+			logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
+		}
+		az := ""
+		if hw.AvailabilityZone != nil {
+			az = *hw.AvailabilityZone
+		}
+		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
+	}
+	tw.Flush()
+
+	return out.Bytes(), nil
+}
+
+
 // agentDoing returns what hook or action, if any,
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.

@@ -57,6 +57,28 @@ func (sf *statusFormatter) format() formattedStatus {
 	return out
 }
 
+func (sf *statusFormatter) Machineformat(machineId []string) formattedMachineStatus {
+	if sf.status == nil {
+		return formattedMachineStatus{}
+	}
+	out := formattedMachineStatus{
+		Environment: sf.status.EnvironmentName,
+		Machines:    make(map[string]machineStatus),
+	}
+	for k, m := range sf.status.Machines {
+		if len(machineId) != 0 {
+			for i := 0; i < len(machineId); i++ {
+				if m.Id == machineId[i] {
+					out.Machines[k] = sf.formatMachine(m)
+				}
+			}
+		} else {
+			out.Machines[k] = sf.formatMachine(m)
+		}
+	}
+	return out
+}
+
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
