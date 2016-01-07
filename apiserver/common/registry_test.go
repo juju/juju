@@ -404,6 +404,18 @@ func (s *HTTPEndpointRegistrySuite) newArgs(constraints common.HTTPHandlerConstr
 
 }
 
+func (s *HTTPEndpointRegistrySuite) addBasicEndpoint(c *gc.C, pattern string) http.Handler {
+	handler := &nopHTTPHandler{pattern}
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: func(common.NewHTTPHandlerArgs) http.Handler {
+			return handler
+		},
+	}
+	err := common.RegisterEnvHTTPHandler(pattern, hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	return handler
+}
+
 type httpHandlerSpec struct {
 	constraints common.HTTPHandlerConstraints
 	handler     http.Handler
@@ -434,6 +446,17 @@ func (s *HTTPEndpointRegistrySuite) checkSpec(c *gc.C, spec common.HTTPEndpointS
 	c.Check(actual, jc.DeepEquals, expected)
 }
 
+func (s *HTTPEndpointRegistrySuite) checkSpecs(c *gc.C, specs []common.HTTPEndpointSpec, expected []httpEndpointSpec) {
+	comment := gc.Commentf("len(%#v) != len(%#v)", specs, expected)
+	if !c.Check(len(specs), gc.Equals, len(expected), comment) {
+		return
+	}
+	for i, expectedSpec := range expected {
+		spec := specs[i]
+		s.checkSpec(c, spec, expectedSpec)
+	}
+}
+
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
 	constraints := common.HTTPHandlerConstraints{
 		AuthKind:           names.UserTagKind,
@@ -444,10 +467,6 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
 		Constraints:    constraints,
 		NewHTTPHandler: s.newHandler,
 	}
-	expected := httpHandlerSpec{
-		constraints: constraints,
-		handler:     s.handler,
-	}
 	s.stub.ResetCalls()
 
 	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
@@ -455,14 +474,148 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
 
 	s.stub.CheckNoCalls(c)
 	specs := common.ExposeHTTPEndpointsRegistry()
-	c.Assert(specs, gc.HasLen, 1)
-	s.checkSpec(c, specs[0], httpEndpointSpec{
+	s.checkSpecs(c, specs, []httpEndpointSpec{{
 		pattern: "/environment/:envuuid/spam",
 		methodHandlers: map[string]httpHandlerSpec{
-			"": expected,
+			"": httpHandlerSpec{
+				constraints: constraints,
+				handler:     s.handler,
+			},
 		},
-	})
+	}})
 }
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerBasic(c *gc.C) {
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := common.ExposeHTTPEndpointsRegistry()
+	s.checkSpecs(c, specs, []httpEndpointSpec{{
+		pattern: "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{
+			"": httpHandlerSpec{
+				handler: s.handler,
+			},
+		},
+	}})
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerTrailingSlash(c *gc.C) {
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := common.RegisterEnvHTTPHandler("/spam/", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := common.ExposeHTTPEndpointsRegistry()
+	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/spam")
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerRelativePattern(c *gc.C) {
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := common.RegisterEnvHTTPHandler("spam", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := common.ExposeHTTPEndpointsRegistry()
+	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/spam")
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingPattern(c *gc.C) {
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := common.RegisterEnvHTTPHandler("", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := common.ExposeHTTPEndpointsRegistry()
+	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/")
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerEnvBasedOkay(c *gc.C) {
+	hSpec := common.HTTPHandlerSpec{
+		NewHTTPHandler: s.newHandler,
+	}
+
+	err := common.RegisterEnvHTTPHandler("/environment/:envuuid/spam", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	specs := common.ExposeHTTPEndpointsRegistry()
+	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/spam")
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingNewHTTPHandler(c *gc.C) {
+	var hSpec common.HTTPHandlerSpec // no handler
+	unhandled := &nopHTTPHandler{id: "unhandled"}
+
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Strictly speaking, this test could stop right here. We just want
+	// to be sure a spec can be added even if it doesn't have
+	// NewHTTPHandler set. The following, though checking other
+	// concerns, is still useful enough to include here.
+	specs := common.ExposeHTTPEndpointsRegistry()
+	resolved := specs[0].Resolve("", unhandled)
+	handler := resolved.NewHTTPHandler(common.NewHTTPHandlerArgs{})
+	c.Check(handler, gc.Equals, unhandled)
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerNoCollision(c *gc.C) {
+	otherHandler := s.addBasicEndpoint(c, "/spam")
+	constraints := common.HTTPHandlerConstraints{
+		AuthKind:           names.UserTagKind,
+		StrictValidation:   true,
+		StateServerEnvOnly: true,
+	}
+	hSpec := common.HTTPHandlerSpec{
+		Constraints:    constraints,
+		NewHTTPHandler: s.newHandler,
+	}
+	s.stub.ResetCalls()
+
+	err := common.RegisterEnvHTTPHandler("/eggs", hSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckNoCalls(c)
+	specs := common.ExposeHTTPEndpointsRegistry()
+	s.checkSpecs(c, specs, []httpEndpointSpec{{
+		pattern: "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{
+			"": httpHandlerSpec{
+				handler: otherHandler,
+			},
+		},
+	}, {
+		pattern: "/environment/:envuuid/eggs",
+		methodHandlers: map[string]httpHandlerSpec{
+			"": httpHandlerSpec{
+				constraints: constraints,
+				handler:     s.handler,
+			},
+		},
+	}})
+}
+
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerCollisionOverlapping(c *gc.C) {
+	s.addBasicEndpoint(c, "/spam")
+	var hSpec common.HTTPHandlerSpec
+
+	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
+
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Check(err, gc.ErrorMatches, `endpoint "/environment/:envuuid/spam" already registered`)
+}
+
+// TODO(ericsnow) Add TestRegisterEnvHTTPHandlerDisjoint as soon as that is possible.
 
 func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
 	constraints := common.HTTPHandlerConstraints{
