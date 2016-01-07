@@ -395,15 +395,17 @@ class CannotUpgradeToOldClient(CannotUpgradeToClient):
     """UpgradeJujuAttempt cannot upgrade to the old client."""
 
 
-class UpgradeJujuAttempt(SteppedStageAttempt):
+class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
 
-    @staticmethod
-    def get_test_info():
-        return OrderedDict([
-            ('prepare-upgrade-juju',
-                {'title': 'Prepare upgrade-juju', 'report_on': False}),
-            ('upgrade-juju', {'title': 'Upgrade Juju'}),
-            ])
+    prepare_upgrade = StageInfo(
+        'prepare-upgrade-juju',
+        'Prepare upgrade-juju',
+        report_on=False,
+        )
+
+    @classmethod
+    def get_test_info(cls):
+        return dict([cls.prepare_upgrade.as_tuple()])
 
     @classmethod
     def factory(cls, upgrade_sequence):
@@ -414,21 +416,35 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         return cls(bootstrap_paths)
 
     def __init__(self, bootstrap_paths):
-        super(UpgradeJujuAttempt, self).__init__()
+        super(PrepareUpgradeJujuAttempt, self).__init__()
         self.bootstrap_paths = bootstrap_paths
 
-    def iter_steps(self, client):
-        ba = BootstrapAttempt()
+    def get_bootstrap_client(self, client):
         try:
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
             raise CannotUpgradeToClient(client)
-        bootstrap_client = client.by_version(
+        return client.by_version(
             client.env, bootstrap_path, client.debug)
+
+    def iter_steps(self, client):
+        ba = BootstrapAttempt()
+        bootstrap_client = self.get_bootstrap_client(client)
         for result in ba.iter_steps(bootstrap_client):
             result = dict(result)
             result['test_id'] = 'prepare-upgrade-juju'
             yield result
+
+
+class UpgradeJujuAttempt(SteppedStageAttempt):
+
+    @staticmethod
+    def get_test_info():
+        return OrderedDict([(
+            'upgrade-juju', {'title': 'Upgrade Juju'}),
+            ])
+
+    def iter_steps(self, client):
         result = {'test_id': 'upgrade-juju'}
         yield result
         client.upgrade_juju()
@@ -755,7 +771,8 @@ suites = {
            DestroyEnvironmentAttempt),
     BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
              DestroyEnvironmentAttempt),
-    UPGRADE: (UpgradeJujuAttempt, DestroyEnvironmentAttempt),
+    UPGRADE: (PrepareUpgradeJujuAttempt, UpgradeJujuAttempt,
+              DestroyEnvironmentAttempt),
     }
 
 
