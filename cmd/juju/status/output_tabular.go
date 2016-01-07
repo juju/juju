@@ -144,7 +144,6 @@ func FormatMachineTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-
 // agentDoing returns what hook or action, if any,
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.

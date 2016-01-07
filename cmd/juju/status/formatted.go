@@ -20,10 +20,9 @@ type formattedStatus struct {
 }
 
 type formattedMachineStatus struct {
-	Environment       string                   `json:"environment"`
-	Machines          map[string]machineStatus `json:"machines"`
+	Environment string                   `json:"environment"`
+	Machines    map[string]machineStatus `json:"machines"`
 }
-
 
 type errorStatus struct {
 	StatusError string `json:"status-error" yaml:"status-error"`

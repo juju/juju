@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/status"
 )
+
 const showMachineCommandDoc = ` 
 Show a specified machine on a model:
 
@@ -38,10 +39,10 @@ func NewShowMachineCommand() cmd.Command {
 
 type showMachineCommand struct {
 	envcmd.EnvCommandBase
-	out     cmd.Output
-	isoTime bool
+	out       cmd.Output
+	isoTime   bool
 	machineId []string
-	api     statusAPI
+	api       statusAPI
 }
 
 func (c *showMachineCommand) Info() *cmd.Info {
@@ -54,7 +55,9 @@ func (c *showMachineCommand) Info() *cmd.Info {
 
 func (c *showMachineCommand) Init(args []string) (err error) {
 	err = nil
-	if args == nil { fmt.Println("args is nil")}
+	if args == nil {
+		fmt.Println("args is nil")
+	}
 	c.machineId = args
 	return err
 }

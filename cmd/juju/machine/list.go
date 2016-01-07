@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/status"
 )
+
 const listMachinesCommandDoc = ` 
 List all the machines in a juju model.
 Default display is in tabular format with the following sections:
