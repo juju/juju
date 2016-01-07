@@ -357,5 +357,5 @@ func (reg *httpEndpointRegistry) register(pattern, prefix string, hSpec HTTPHand
 // resolve returns the list of registered handler specs in the order
 // in which they were registered.
 func (reg *httpEndpointRegistry) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
-	return reg.endpoints.resolve(reg.methods, newArgs)
+	return reg.endpoints.resolveForMethods(reg.methods, newArgs)
 }

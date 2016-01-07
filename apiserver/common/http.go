@@ -222,7 +222,7 @@ func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHan
 	var endpoints []HTTPEndpoint
 	for _, pattern := range hes.ordered {
 		spec := hes.specs[pattern]
-		for method := range spec.methods() {
+		for _, method := range spec.methods() {
 			if method == "" {
 				// The default is discarded.
 				continue
