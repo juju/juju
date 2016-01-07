@@ -150,8 +150,11 @@ func (spec HTTPEndpointSpec) Resolve(method string, unhandled http.Handler) HTTP
 		return hSpec
 	}
 	if method != "" {
+		// Fall back to the default, if any.
 		return spec.Resolve("", unhandled)
 	}
+
+	// No match and no default, so return an "unhandled" handler spec.
 	if unhandled == nil {
 		unhandled = unsupportedHTTPMethodHandler()
 	}
