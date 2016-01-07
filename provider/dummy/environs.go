@@ -165,8 +165,8 @@ type OpAllocateAddress struct {
 	InstanceId instance.Id
 	SubnetId   network.Id
 	Address    network.Address
-	MACAddress string
 	HostName   string
+	MACAddress string
 }
 
 type OpReleaseAddress struct {
@@ -175,7 +175,6 @@ type OpReleaseAddress struct {
 	SubnetId   network.Id
 	Address    network.Address
 	MACAddress string
-	HostName   string
 }
 
 type OpNetworkInterfaces struct {
@@ -1102,19 +1101,9 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
-		// Any instId starting with "i-alloc-" when the feature flag is off will
-		// still work, in order to be able to test MAAS 1.8+ environment where
-		// we can use devices for containers.
-		if !strings.HasPrefix(string(instId), "i-alloc-") {
-			return errors.NotSupportedf("address allocation")
-		}
-		// Also, in this case we expect addr to be non-nil, but empty, so it can
-		// be used as an output argument (same as in provider/maas).
-		if addr == nil || addr.Value != "" {
-			return errors.NewNotValid(nil, "invalid address: nil or non-empty")
-		}
+		return errors.NotSupportedf("address allocation")
 	}
 
 	if err := env.checkBroken("AllocateAddress"); err != nil {
@@ -1128,16 +1117,11 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
-
-	if addr.Value == "" {
-		*addr = network.NewAddress(fmt.Sprintf("0.10.0.%v", estate.maxAddr))
-	}
-
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetId:   subnetId,
-		Address:    *addr,
+		Address:    addr,
 		MACAddress: macAddress,
 		HostName:   hostname,
 	}
@@ -1146,7 +1130,7 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1167,7 +1151,6 @@ func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr
 		SubnetId:   subnetId,
 		Address:    addr,
 		MACAddress: macAddress,
-		HostName:   hostname,
 	}
 	return nil
 }
