@@ -305,45 +305,52 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
-type httpEndpoint struct {
-	pattern string
-	handler http.Handler
-}
-
-func (ep httpEndpoint) register(mux *pat.PatternServeMux) {
-	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
-	// where we only want to support specific request methods. However, our
-	// tests currently assert that errors come back as application/json and
-	// pat only does "text/plain" responses.
-	mux.Get(ep.pattern, ep.handler)
-	mux.Post(ep.pattern, ep.handler)
-	mux.Head(ep.pattern, ep.handler)
-	mux.Put(ep.pattern, ep.handler)
-	mux.Del(ep.pattern, ep.handler)
-	mux.Options(ep.pattern, ep.handler)
-}
-
-func (srv *Server) httpEndpoints() []httpEndpoint {
-	// for pat based handlers, they are matched in-order of being
-	// registered, first match wins. So more specific ones have to be
-	// registered first.
-
-	var endpoints []httpEndpoint
-	add := func(pat string, handler http.Handler) {
-		endpoints = append(endpoints, httpEndpoint{
-			pattern: pat,
-			handler: handler,
-		})
-	}
-
+func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
 	srvDying := srv.tomb.Dying()
 	httpCtxt := httpContext{
 		srv: srv,
 	}
+	newHandlerArgs := func(spec common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+		ctxt := httpCtxt
+		ctxt.strictValidation = spec.StrictValidation
+		ctxt.stateServerEnvOnly = spec.StateServerEnvOnly
 
-	for _, spec := range common.HTTPHandlers.All() {
-		handler := newHandler(spec, httpCtxt)
-		add(spec.Pattern(), handler)
+		var args common.NewHTTPHandlerArgs
+		switch spec.AuthKind {
+		case names.UserTagKind:
+			args.Connect = func(req *http.Request) (*state.State, error) {
+				st, _, err := ctxt.stateForRequestAuthenticatedUser(req)
+				return st, err
+			}
+		case "":
+			args.Connect = ctxt.stateForRequestUnauthenticated
+		default:
+			// TODO(ericsnow) Log a warning? Return an error?
+			args.Connect = ctxt.stateForRequestUnauthenticated
+		}
+		return args
+	}
+
+	// for pat based handlers, they are matched in-order of being
+	// registered, first match wins. So more specific ones have to be
+	// registered first.
+
+	endpoints := common.ResolveHTTPEndpoints(newHandlerArgs)
+
+	// TODO(ericsnow) Add the rest to the registry.
+
+	add := func(pat string, handler http.Handler) {
+		// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"} {
+			endpoints = append(endpoints, common.HTTPEndpoint{
+				Pattern: "/environment/:envuuid" + pat,
+				Method:  method,
+				Handler: handler,
+			})
+		}
 	}
 
 	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
@@ -351,29 +358,29 @@ func (srv *Server) httpEndpoints() []httpEndpoint {
 	)
 
 	if feature.IsDbLogEnabled() {
-		add("/environment/:envuuid/logsink",
+		add("/logsink",
 			newLogSinkHandler(httpCtxt, srv.logDir),
 		)
-		add("/environment/:envuuid/log",
+		add("/log",
 			newDebugLogDBHandler(httpCtxt, srvDying),
 		)
 	} else {
-		add("/environment/:envuuid/log",
+		add("/log",
 			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir),
 		)
 	}
-	add("/environment/:envuuid/charms",
+	add("/charms",
 		&charmsHandler{
 			ctxt:    httpCtxt,
 			dataDir: srv.dataDir,
 		},
 	)
-	add("/environment/:envuuid/tools",
+	add("/tools",
 		&toolsUploadHandler{
 			ctxt: httpCtxt,
 		},
 	)
-	add("/environment/:envuuid/tools/:version",
+	add("/tools/:version",
 		&toolsDownloadHandler{
 			ctxt: httpCtxt,
 		},
@@ -382,16 +389,16 @@ func (srv *Server) httpEndpoints() []httpEndpoint {
 	strictCtxt := httpCtxt
 	strictCtxt.strictValidation = true
 	strictCtxt.stateServerEnvOnly = true
-	add("/environment/:envuuid/backups",
+	add("/backups",
 		&backupHandler{
 			ctxt: strictCtxt,
 		},
 	)
-	add("/environment/:envuuid/api",
+	add("/api",
 		http.HandlerFunc(srv.apiHandler),
 	)
 
-	add("/environment/:envuuid/images/:kind/:series/:arch/:filename",
+	add("/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
 			ctxt:    httpCtxt,
 			dataDir: srv.dataDir,
@@ -400,28 +407,6 @@ func (srv *Server) httpEndpoints() []httpEndpoint {
 	)
 
 	return endpoints
-}
-
-func newHandler(spec common.HTTPHandlerSpec, ctxt httpContext) http.Handler {
-	ctxt.strictValidation = spec.StrictValidation
-	ctxt.stateServerEnvOnly = spec.StateServerEnvOnly
-
-	var args NewHTTPHandlerArgs
-	switch spec.AuthKind {
-	case names.UserTagKind:
-		args.Connect = func(req *http.Request) (*state.State, error) {
-			st, _, err := ctxt.stateForRequestAuthenticatedUser(req)
-			return st, err
-		}
-	case "":
-		args.Connect = ctxt.stateForRequestUnauthenticated
-	default:
-		// TODO(ericsnow) Log a warning? Return an error?
-		args.Connect = ctxt.stateForRequestUnauthenticated
-	}
-
-	handler := spec.NewHTTPHandler(args)
-	return handler
 }
 
 func (srv *Server) run(lis net.Listener) {
@@ -448,7 +433,7 @@ func (srv *Server) run(lis net.Listener) {
 
 	endpoints := srv.httpEndpoints()
 	for _, ep := range endpoints {
-		ep.register(mux)
+		registerEndpoint(ep, mux)
 	}
 
 	go func() {
@@ -458,6 +443,23 @@ func (srv *Server) run(lis net.Listener) {
 
 	<-srv.tomb.Dying()
 	lis.Close()
+}
+
+func registerEndpoint(ep common.HTTPEndpoint, mux *pat.PatternServeMux) {
+	switch ep.Method {
+	case "GET":
+		mux.Get(ep.Pattern, ep.Handler)
+	case "POST":
+		mux.Post(ep.Pattern, ep.Handler)
+	case "HEAD":
+		mux.Head(ep.Pattern, ep.Handler)
+	case "PUT":
+		mux.Put(ep.Pattern, ep.Handler)
+	case "DEL":
+		mux.Del(ep.Pattern, ep.Handler)
+	case "OPTIONS":
+		mux.Options(ep.Pattern, ep.Handler)
+	}
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {

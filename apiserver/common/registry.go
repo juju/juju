@@ -5,7 +5,6 @@ package common
 
 import (
 	"fmt"
-	"net/http"
 	"path"
 	"reflect"
 	"runtime"
@@ -312,105 +311,70 @@ func (f *FacadeRegistry) Discard(name string, version int) {
 	}
 }
 
-// NewHTTPHandlerArgs holds the args to the func in the NewHTTPHandler
-// field of HTTPHandlerSpec.
-type NewHTTPHandlerArgs struct {
-	// Connect is the function that is used to connect to Juju's state
-	// for the given HTTP request.
-	Connect func(*http.Request) (*state.State, error)
+// RegisterEnvHTTPEndpoint adds the handler spec to the global registry.
+// The pattern is modified to match the standard URL path for
+// environment-based API endpoints.
+func RegisterEnvHTTPEndpoint(pattern string, spec HTTPHandlerSpec) error {
+	httpEndpoints.register(pattern, "/environment/:envuuid", spec)
+	// TODO(ericsnow Switch to an implementation that returns an error.
+	return nil
 }
 
-// HTTPHandlerSpec defines an HTTP handler for a specific endpoint
-// on Juju's HTTP server. Such endpoints facilitate behavior that is
-// not supported through normal (websocket) RPC. That includes file
-// transfer.
-type HTTPHandlerSpec struct {
-	// TODO(ericsnow) Specify the supported HTTP methods?
-
-	// pattern is the pattern for with the handler will be registered
-	// with the pat.PatternServeMux (see apiserver/apiserver.go).
-	pattern string
-
-	// AuthKind defines the kind of authenticated "user" that the
-	// handler supports. This correlates directly to entities, as
-	// identified by tag kinds (e.g. names.UserTagKind). The empty
-	// string indicates support for unauthenticated requests.
-	AuthKind string
-
-	// StrictValidation is the value that will be used for the handler's
-	// httpContext (see apiserver/httpcontext.go).
-	StrictValidation bool
-
-	// StateServerEnvOnly is the value that will be used for the handler's
-	// httpContext (see apiserver/httpcontext.go).
-	StateServerEnvOnly bool
-
-	// NewHTTPHandler returns a new HTTP handler for the given args.
-	NewHTTPHandler func(NewHTTPHandlerArgs) http.Handler
+// ResolveHTTPEndpoints returns all the HTTP endpoints
+// in the global registry.
+func ResolveHTTPEndpoints(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
+	var endpoints []HTTPEndpoint
+	for _, pattern := range httpEndpoints.patterns {
+		hSpec := httpEndpoints.specs[pattern]
+		args := newArgs(hSpec.Constraints)
+		handler := hSpec.NewHTTPHandler(args)
+		for _, method := range []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"} {
+			endpoints = append(endpoints, HTTPEndpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
+	}
+	return endpoints
 }
 
-// Pattern returns the "mux" (URL path) pattern that will be registered.
-func (spec HTTPHandlerSpec) Pattern() string {
-	return spec.pattern
-}
-
-// HTTPHandlers is the global registry of HTTP handlers. It is consumed
+// httpEndpoints is the global registry of HTTP handlers. It is consumed
 // in apiserver/apiserver.go.
-var HTTPHandlers = HTTPHandlerRegistry{}
+var httpEndpoints = httpEndpointRegistry{}
 
-// HTTPHandlerRegistry is an ordered registry HTTP handler specs. The
+// httpEndpointRegistry is an ordered registry HTTP handler specs. The
 // order in which handlers are registered is preserved.
-type HTTPHandlerRegistry struct {
+type httpEndpointRegistry struct {
 	patterns []string
 	specs    map[string]HTTPHandlerSpec
 }
 
 // Register adds the provided handler spec to the registry
 // for the given URL path pattern.
-func (reg *HTTPHandlerRegistry) Register(pattern string, spec HTTPHandlerSpec) error {
-	pattern = path.Clean(path.Join("/", pattern))
-	return reg.register(pattern, spec)
-}
-
-// RegisterEnvBased adds the handler spec to the registry. The pattern
-// is modified to match the standard URL path for environment-based API
-// endpoints.
-func (reg *HTTPHandlerRegistry) RegisterEnvBased(pattern string, spec HTTPHandlerSpec) error {
-	pattern = path.Clean(path.Join("/", pattern))
-	if !strings.HasPrefix(pattern, "/environment/:envuuid") {
-		pattern = "/environment/:envuuid" + pattern
-	}
-	return reg.register(pattern, spec)
-}
-
-func (reg *HTTPHandlerRegistry) register(pattern string, spec HTTPHandlerSpec) error {
+func (reg *httpEndpointRegistry) register(pattern, prefix string, spec HTTPHandlerSpec) {
 	if reg.specs == nil {
 		reg.specs = make(map[string]HTTPHandlerSpec)
+	}
+
+	pattern = path.Clean(path.Join("/", pattern))
+	if !strings.HasPrefix(pattern, prefix) {
+		pattern = prefix + pattern
 	}
 
 	// TODO(ericsnow) Disallow pattern collisions. Selectively?
 	// TODO(ericsnow) Order so that more specific patterns come first?
 
 	reg.patterns = append(reg.patterns, pattern)
-	spec.pattern = pattern
 	reg.specs[pattern] = spec
-
-	return nil
 }
 
-// All returns the list of registered handler specs in the order
+// all returns the list of registered handler specs in the order
 // in which they were registered.
-func (reg *HTTPHandlerRegistry) All() []HTTPHandlerSpec {
+func (reg httpEndpointRegistry) all() []HTTPHandlerSpec {
 	var specs []HTTPHandlerSpec
 	for _, pattern := range reg.patterns {
 		specs = append(specs, reg.specs[pattern])
 	}
 	return specs
-}
-
-// RegisterEnvHTTPHandler adds the handler spec to the global registry.
-// The pattern is modified to match the standard URL path for
-// environment-based API endpoints.
-func RegisterEnvHTTPHandler(pattern string, spec HTTPHandlerSpec) error {
-	return HTTPHandlers.RegisterEnvBased(pattern, spec)
 }
