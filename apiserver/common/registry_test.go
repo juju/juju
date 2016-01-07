@@ -369,17 +369,17 @@ func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	})
 }
 
-type HTTPHandlerRegistrySuite struct {
+type HTTPEndpointRegistrySuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&HTTPHandlerRegistrySuite{})
+var _ = gc.Suite(&HTTPEndpointRegistrySuite{})
 
-func (s *HTTPHandlerRegistrySuite) newHandler(common.NewHTTPHandlerArgs) http.Handler {
+func (s *HTTPEndpointRegistrySuite) newHandler(common.NewHTTPHandlerArgs) http.Handler {
 	return nil
 }
 
-func (s *HTTPHandlerRegistrySuite) copySpecData(spec common.HTTPHandlerSpec) common.HTTPHandlerSpec {
+func (s *HTTPEndpointRegistrySuite) copySpecData(spec common.HTTPHandlerSpec) common.HTTPHandlerSpec {
 	return common.HTTPHandlerSpec{
 		AuthKind:           spec.AuthKind,
 		StrictValidation:   spec.StrictValidation,
@@ -387,12 +387,12 @@ func (s *HTTPHandlerRegistrySuite) copySpecData(spec common.HTTPHandlerSpec) com
 	}
 }
 
-func (s *HTTPHandlerRegistrySuite) checkSpecData(c *gc.C, spec, expected common.HTTPHandlerSpec, pat string) {
+func (s *HTTPEndpointRegistrySuite) checkSpecData(c *gc.C, spec, expected common.HTTPHandlerSpec, pat string) {
 	c.Check(spec.Pattern(), gc.Equals, pat)
 	c.Check(s.copySpecData(spec), jc.DeepEquals, s.copySpecData(expected))
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterFull(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterFull(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		AuthKind:           names.UserTagKind,
@@ -410,7 +410,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterFull(c *gc.C) {
 	// TODO(ericsnow) Check spec.NewHTTPHandler?
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterBasic(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterBasic(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -423,7 +423,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterBasic(c *gc.C) {
 	s.checkSpecData(c, registered[0], spec, "/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterTrailingSlash(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterTrailingSlash(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -436,7 +436,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterTrailingSlash(c *gc.C) {
 	c.Check(registered.Pattern(), gc.Equals, "/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterRelativePath(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterRelativePath(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -449,7 +449,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterRelativePath(c *gc.C) {
 	c.Check(registered.Pattern(), gc.Equals, "/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterNested(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterNested(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -462,7 +462,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterNested(c *gc.C) {
 	c.Check(registered.Pattern(), gc.Equals, "/spam/eggs/spam/spam/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedOkay(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvBasedOkay(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -476,7 +476,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedOkay(c *gc.C) {
 	s.checkSpecData(c, registered[0], spec, "/environment/:envuuid/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedRelativePath(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvBasedRelativePath(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	spec := common.HTTPHandlerSpec{
 		NewHTTPHandler: s.newHandler,
@@ -489,7 +489,7 @@ func (s *HTTPHandlerRegistrySuite) TestRegisterEnvBasedRelativePath(c *gc.C) {
 	c.Check(registered.Pattern(), gc.Equals, "/environment/:envuuid/spam")
 }
 
-func (s *HTTPHandlerRegistrySuite) TestAll(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestAll(c *gc.C) {
 	registry := new(common.HTTPHandlerRegistry)
 	specs := []common.HTTPHandlerSpec{{
 		NewHTTPHandler: s.newHandler,
