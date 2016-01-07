@@ -554,35 +554,16 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 }
 
-func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
+func (suite *environSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
 	var vlan string
 	if vlanTag == 0 {
 		vlan = "null"
 	} else {
 		vlan = fmt.Sprintf("%d", vlanTag)
 	}
-
-	if defaultGateway != "null" {
-		/// since we use %s below only "null" (if passed) should remain unquoted.
-		defaultGateway = fmt.Sprintf("%q", defaultGateway)
-	}
-
-	// TODO(dimitern): Use JSON tags on structs, JSON encoder, or at least
-	// text/template below and in similar cases.
-	input := fmt.Sprintf(`{
-		"name": %q,
-		"ip":"192.168.%d.2",
-		"netmask": "255.255.255.0",
-		"vlan_tag": %s,
-		"description": "%s_%d_%d",
-		"default_gateway": %s
-	}`,
-		name,
-		id,
-		vlan,
-		name, id, vlanTag,
-		defaultGateway,
-	)
+	var input string
+	input = fmt.Sprintf(`{"name": %q, "ip":"192.168.%d.1", "netmask": "255.255.255.0",`+
+		`"vlan_tag": %s, "description": "%s_%d_%d" }`, name, id, vlan, name, id, vlanTag)
 	network := suite.testMAASObject.TestServer.NewNetwork(input)
 	return &network
 }
@@ -870,19 +851,15 @@ func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 }
 
 func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
-	suite.newNetwork("test_network", 123, 321, "null")
+	suite.getNetwork("test_network", 123, 321)
 	testInstance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
 	networks, err := suite.makeEnviron().getInstanceNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, jc.DeepEquals, []networkDetails{{
-		Name:           "test_network",
-		IP:             "192.168.123.2",
-		Mask:           "255.255.255.0",
-		VLANTag:        321,
-		Description:    "test_network_123_321",
-		DefaultGateway: "", // "null" and "" are treated as N/A.
-	}})
+	c.Check(networks, gc.DeepEquals, []networkDetails{
+		{Name: "test_network", IP: "192.168.123.1", Mask: "255.255.255.0", VLANTag: 321,
+			Description: "test_network_123_321"},
+	})
 }
 
 // A typical lshw XML dump with lots of things left out.
@@ -1000,11 +977,11 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("LAN", 2, 42, "null")
+	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.newNetwork("Virt", 3, 0, "0.1.2.3") // primary + gateway
+	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
-	suite.newNetwork("WLAN", 1, 0, "") // "" same as "null" for gateway
+	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
 		testInstance,
@@ -1022,7 +999,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 		case 0:
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
 				MACAddress:    "aa:bb:cc:dd:ee:ff",
-				CIDR:          "192.168.1.2/24",
+				CIDR:          "192.168.1.1/24",
 				NetworkName:   "WLAN",
 				ProviderId:    "WLAN",
 				VLANTag:       0,
@@ -1034,7 +1011,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
 				DeviceIndex:   1,
 				MACAddress:    "aa:bb:cc:dd:ee:f1",
-				CIDR:          "192.168.2.2/24",
+				CIDR:          "192.168.2.1/24",
 				NetworkName:   "LAN",
 				ProviderId:    "LAN",
 				VLANTag:       42,
@@ -1043,15 +1020,14 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			})
 		case 2:
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
-				MACAddress:     "aa:bb:cc:dd:ee:f2",
-				CIDR:           "192.168.3.2/24",
-				NetworkName:    "Virt",
-				ProviderId:     "Virt",
-				VLANTag:        0,
-				DeviceIndex:    2,
-				InterfaceName:  "vnet1",
-				Disabled:       false,
-				GatewayAddress: network.NewAddress("0.1.2.3"), // from newNetwork("Virt", 3, 0, "0.1.2.3")
+				MACAddress:    "aa:bb:cc:dd:ee:f2",
+				CIDR:          "192.168.3.1/24",
+				NetworkName:   "Virt",
+				ProviderId:    "Virt",
+				VLANTag:       0,
+				DeviceIndex:   2,
+				InterfaceName: "vnet1",
+				Disabled:      false,
 			})
 		}
 	}
@@ -1069,9 +1045,9 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("LAN", 2, 42, "192.168.2.1")
+	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.newNetwork("Virt", 3, 0, "")
+	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
 		testInstance,
@@ -1082,15 +1058,14 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
-		MACAddress:     "aa:bb:cc:dd:ee:f1",
-		CIDR:           "192.168.2.2/24",
-		NetworkName:    "LAN",
-		ProviderId:     "LAN",
-		VLANTag:        42,
-		DeviceIndex:    1,
-		InterfaceName:  "eth0",
-		Disabled:       false,
-		GatewayAddress: network.NewAddress("192.168.2.1"),
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "192.168.2.1/24",
+		NetworkName:   "LAN",
+		ProviderId:    "LAN",
+		VLANTag:       42,
+		DeviceIndex:   1,
+		InterfaceName: "eth0",
+		Disabled:      false,
 	}})
 }
 
@@ -1106,7 +1081,7 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("Virt", 3, 0, "")
+	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
 		testInstance,
@@ -1134,7 +1109,6 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
-	testServer := suite.testMAASObject.TestServer
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
 		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
@@ -1147,24 +1121,24 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testServer.AddNodeDetails("node1", lshwXML)
-	// resulting CIDR 192.168.2.2/24
-	suite.newNetwork("LAN", 2, 42, "192.168.2.1") // primary + gateway
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	// resulting CIDR 192.168.3.2/24
-	suite.newNetwork("Virt", 3, 0, "")
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
-	// resulting CIDR 192.168.1.2/24
-	suite.newNetwork("WLAN", 1, 0, "")
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	// resulting CIDR 192.168.2.1/24
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	// resulting CIDR 192.168.3.1/24
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	// resulting CIDR 192.168.1.1/24
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	if duplicates {
-		testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
-		testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
 	}
 
 	// needed for getNodeGroups to work
-	testServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
-	testServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
 
 	jsonText1 := `{
 		"ip_range_high":        "192.168.2.255",
@@ -1214,10 +1188,10 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 		"static_ip_range_high": "172.16.8.255",
 		"interface":            "eth3"
 	}`
-	testServer.NewNodegroupInterface("uuid-0", jsonText1)
-	testServer.NewNodegroupInterface("uuid-0", jsonText2)
-	testServer.NewNodegroupInterface("uuid-1", jsonText3)
-	testServer.NewNodegroupInterface("uuid-1", jsonText4)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return testInstance
 }
 
@@ -1230,7 +1204,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 	expectedInfo := []network.InterfaceInfo{{
 		DeviceIndex:      0,
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
-		CIDR:             "192.168.1.2/24",
+		CIDR:             "192.168.1.1/24",
 		ProviderSubnetId: "WLAN",
 		VLANTag:          0,
 		InterfaceName:    "wlan0",
@@ -1239,11 +1213,11 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.1.2", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		CIDR:             "192.168.2.2/24",
+		CIDR:             "192.168.2.1/24",
 		ProviderSubnetId: "LAN",
 		VLANTag:          42,
 		InterfaceName:    "eth0",
@@ -1251,12 +1225,12 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
-		GatewayAddress:   network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
-		Address:          network.NewScopedAddress("192.168.2.2", network.ScopeCloudLocal),
+		GatewayAddress:   network.Address{},
+		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
-		CIDR:             "192.168.3.2/24",
+		CIDR:             "192.168.3.1/24",
 		ProviderSubnetId: "Virt",
 		VLANTag:          0,
 		InterfaceName:    "vnet1",
@@ -1265,7 +1239,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.3.2", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
 	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
@@ -1277,25 +1251,10 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.2/24",
-		ProviderId:        "LAN",
-		VLANTag:           42,
-		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
-		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
-	}, {
-		CIDR:              "192.168.3.2/24",
-		ProviderId:        "Virt",
-		VLANTag:           0,
-		AllocatableIPLow:  nil,
-		AllocatableIPHigh: nil,
-	}, {
-		CIDR:              "192.168.1.2/24",
-		ProviderId:        "WLAN",
-		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
-		AllocatableIPHigh: net.ParseIP("192.168.1.255"),
-	}}
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
@@ -1317,25 +1276,10 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 	netInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.2/24",
-		ProviderId:        "LAN",
-		VLANTag:           42,
-		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
-		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
-	}, {
-		CIDR:              "192.168.3.2/24",
-		ProviderId:        "Virt",
-		VLANTag:           0,
-		AllocatableIPLow:  nil,
-		AllocatableIPHigh: nil,
-	}, {
-		CIDR:              "192.168.1.2/24",
-		ProviderId:        "WLAN",
-		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
-		AllocatableIPHigh: net.ParseIP("192.168.1.255"),
-	}}
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
@@ -1345,7 +1289,7 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1354,37 +1298,9 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	// Work around the lack of support for devices PUT and POST without hostname
-	// set in gomaasapi's testservices
-	newParams := func(macAddress string, instId instance.Id, hostnameSuffix string) url.Values {
-		c.Check(macAddress, gc.Equals, "aa:bb:cc:dd:ee:f0") // passed to AllocateAddress() below
-		c.Check(instId, gc.Equals, testInstance.Id())
-		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
-		params := make(url.Values)
-		params.Add("mac_addresses", macAddress)
-		params.Add("hostname", "auto-generated.maas")
-		params.Add("parent", extractSystemId(instId))
-		return params
-	}
-	suite.PatchValue(&NewDeviceParams, newParams)
-	updateHostname := func(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
-		c.Check(client, gc.NotNil)
-		c.Check(deviceID, gc.Matches, `node-[0-9a-f-]+`)
-		c.Check(deviceHostname, gc.Equals, "auto-generated.maas")  // "generated" above in NewDeviceParams()
-		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
-		return "auto-generated-juju-lxc.maas", nil
-	}
-	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
-
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(
-		testInstance.Id(),
-		"LAN",
-		&network.Address{Value: "192.168.2.1"},
-		"aa:bb:cc:dd:ee:f0",
-		"juju-machine-0-kvm-5",
-	)
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
@@ -1395,7 +1311,7 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 
 	hostname, err := device["hostname"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostname, gc.Equals, "auto-generated.maas")
+	c.Assert(hostname, gc.Equals, "bar")
 
 	parent, err := device["parent"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1418,106 +1334,7 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := macMap["mac_address"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mac, gc.Equals, "aa:bb:cc:dd:ee:f0")
-}
-
-func (suite *environSuite) TestTransformDeviceHostname(c *gc.C) {
-	for i, test := range []struct {
-		deviceHostname string
-		hostnameSuffix string
-
-		expectedOutput string
-		expectedError  string
-	}{{
-		deviceHostname: "shiny-town.maas",
-		hostnameSuffix: "juju-machine-1-lxc-2",
-		expectedOutput: "shiny-town-juju-machine-1-lxc-2.maas",
-	}, {
-		deviceHostname: "foo.subdomain.example.com",
-		hostnameSuffix: "suffix",
-		expectedOutput: "foo-suffix.subdomain.example.com",
-	}, {
-		deviceHostname: "bad-food.example.com",
-		hostnameSuffix: "suffix.example.org",
-		expectedOutput: "bad-food-suffix.example.org.example.com",
-	}, {
-		deviceHostname: "strangers-and.freaks",
-		hostnameSuffix: "just-this",
-		expectedOutput: "strangers-and-just-this.freaks",
-	}, {
-		deviceHostname: "no-dot-hostname",
-		hostnameSuffix: "anything",
-		expectedError:  `unexpected device "dev-id" hostname "no-dot-hostname"`,
-	}, {
-		deviceHostname: "anything",
-		hostnameSuffix: "",
-		expectedError:  "hostname suffix cannot be empty",
-	}} {
-		c.Logf(
-			"test #%d: %q + %q -> %q (err: %s)",
-			i, test.deviceHostname, test.hostnameSuffix,
-			test.expectedOutput, test.expectedError,
-		)
-		output, err := transformDeviceHostname("dev-id", test.deviceHostname, test.hostnameSuffix)
-		if test.expectedError != "" {
-			c.Check(err, gc.ErrorMatches, test.expectedError)
-			c.Check(output, gc.Equals, "")
-			continue
-		}
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(output, gc.Equals, test.expectedOutput)
-	}
-}
-
-func (suite *environSuite) patchDeviceCreation() {
-	// Work around the lack of support for devices PUT and POST without hostname
-	// set in gomaasapi's testservices
-	newParams := func(macAddress string, instId instance.Id, _ string) url.Values {
-		params := make(url.Values)
-		params.Add("mac_addresses", macAddress)
-		params.Add("hostname", "auto-generated.maas")
-		params.Add("parent", extractSystemId(instId))
-		return params
-	}
-	suite.PatchValue(&NewDeviceParams, newParams)
-	updateHostname := func(_ *gomaasapi.MAASObject, _, _, _ string) (string, error) {
-		return "auto-generated-juju-lxc.maas", nil
-	}
-	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
-}
-
-func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
-	suite.SetFeatureFlags()
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["devices-management"]}`)
-	testInstance := suite.createSubnets(c, false)
-	env := suite.makeEnviron()
-	suite.patchDeviceCreation()
-
-	responses := []string{
-		"claim_sticky_ip_address failed",
-		"GetMap of the response failed",
-		"no ip_addresses in response",
-		"unexpected ip_addresses in response",
-		"IP in ip_addresses not a string",
-	}
-	reserveIP := func(_ gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
-		c.Check(deviceID, gc.Matches, "node-[a-f0-9]+")
-		c.Check(macAddress, gc.Matches, "aa:bb:cc:dd:ee:f0")
-		c.Check(addr, jc.DeepEquals, network.Address{})
-		nextError := responses[0]
-		return network.Address{}, errors.New(nextError)
-	}
-	suite.PatchValue(&ReserveIPAddressOnDevice, reserveIP)
-
-	for len(responses) > 0 {
-		addr := &network.Address{}
-		err := env.AllocateAddress(
-			testInstance.Id(), network.AnySubnet, addr,
-			"aa:bb:cc:dd:ee:f0", "juju-lxc",
-		)
-		c.Check(err, gc.ErrorMatches, responses[0])
-		responses = responses[1:]
-	}
+	c.Assert(mac, gc.Equals, "foo")
 }
 
 func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
@@ -1541,20 +1358,14 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
-	suite.patchDeviceCreation()
-
 	addr := network.NewAddress("192.168.2.1")
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &addr, "foo", "juju-lxc")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
-	// Since we're mocking out updateDeviceHostname, no need to check if the
-	// hostname was updated (only manually tested for now until we change
-	// gomaasapi).
-
-	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "juju-lxc")
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray = suite.getDeviceArray(c)
@@ -1565,7 +1376,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
-	err := env.AllocateAddress(instId, "bar", &addr, "foo", "juju-lxc")
+	err := env.AllocateAddress(instId, "bar", addr, "foo", "bar")
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -1573,7 +1384,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
-	err := env.AllocateAddress(testInstance.Id(), "bar", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
 }
 
@@ -1587,7 +1398,7 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &ipAddress, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", ipAddress, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
@@ -1605,18 +1416,17 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	macAddress := "foobar"
-	hostname := "myhostname"
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// by releasing again we can test that the first release worked, *and*
 	// the error handling of ReleaseError
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -1640,14 +1450,13 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ReleaseAddress must fail with 5 retries.
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	macAddress := "foobar"
-	hostname := "myhostname"
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q: ouch", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
 	c.Assert(retries, gc.Equals, 5)
@@ -1655,7 +1464,7 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	// Now let it succeed after 3 retries.
 	retries = 0
 	enoughRetries = 3
-	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
+	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retries, gc.Equals, 3)
 }
