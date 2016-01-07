@@ -35,7 +35,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the logger facade.
-	s.logger = stateAPI.Logger()
+	s.logger = logger.NewState(stateAPI)
 	c.Assert(s.logger, gc.NotNil)
 }
 

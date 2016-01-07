@@ -135,3 +135,27 @@ func (s *PostUpgradeManifoldSuite) TestStartSuccess(c *gc.C) {
 		Args:     []interface{}{expectAgent, expectApiCaller},
 	}})
 }
+
+func (s *PostUpgradeManifoldSuite) TestUpgradeWaitNotRequired(c *gc.C) {
+	manifold := util.PostUpgradeManifold(util.PostUpgradeManifoldConfig{
+		AgentName:         "agent-name",
+		APICallerName:     "api-caller-name",
+		UpgradeWaiterName: util.UpgradeWaitNotRequired,
+	}, s.newWorker)
+
+	c.Check(manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+
+	expectAgent := &dummyAgent{}
+	expectApiCaller := &dummyApiCaller{}
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent-name":      dt.StubResource{Output: expectAgent},
+		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	})
+	worker, err := manifold.Start(getResource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker, gc.Equals, s.worker)
+	s.CheckCalls(c, []testing.StubCall{{
+		FuncName: "newWorker",
+		Args:     []interface{}{expectAgent, expectApiCaller},
+	}})
+}

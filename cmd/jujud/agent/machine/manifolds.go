@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
@@ -167,21 +168,32 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		// The logging config updater is a leaf worker that indirectly
+		// controls the messages sent via the log sender or rsyslog,
+		// according to changes in environment config. We should only need
+		// one of these in a consolidated agent.
+		loggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
 const (
-	agentName             = "agent"
-	terminationName       = "termination"
-	apiCallerName         = "api-caller"
-	apiInfoGateName       = "api-info-gate"
-	upgradeStepsGateName  = "upgrade-steps-gate"
-	upgradeCheckGateName  = "upgrade-check-gate"
-	upgraderName          = "upgrader"
-	upgradeStepsName      = "upgradesteps"
-	upgradeWaiterName     = "upgradewaiter"
-	uninstallerName       = "uninstaller"
-	servingInfoSetterName = "serving-info-setter"
-	apiWorkersName        = "apiworkers"
-	rebootName            = "reboot"
+	agentName                = "agent"
+	terminationName          = "termination"
+	apiCallerName            = "api-caller"
+	apiInfoGateName          = "api-info-gate"
+	upgradeStepsGateName     = "upgrade-steps-gate"
+	upgradeCheckGateName     = "upgrade-check-gate"
+	upgraderName             = "upgrader"
+	upgradeStepsName         = "upgradesteps"
+	upgradeWaiterName        = "upgradewaiter"
+	uninstallerName          = "uninstaller"
+	servingInfoSetterName    = "serving-info-setter"
+	apiWorkersName           = "apiworkers"
+	rebootName               = "reboot"
+	loggingConfigUpdaterName = "logging-config-updater"
 )

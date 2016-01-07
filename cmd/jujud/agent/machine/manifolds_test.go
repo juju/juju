@@ -50,6 +50,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"serving-info-setter",
 		"apiworkers",
 		"reboot",
+		"logging-config-updater",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
