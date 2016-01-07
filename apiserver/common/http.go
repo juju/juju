@@ -1,6 +1,8 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(ericsnow) Move this to its own package or even to another repo?
+
 package common
 
 import (
