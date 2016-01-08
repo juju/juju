@@ -258,8 +258,7 @@ iface eth0:1 inet static
 auto eth0:2
 iface eth0:2 inet static
     address 10.14.0.100/24
-
-dns-nameserver 192.168.1.142`
+    dns-nameserver 192.168.1.142`
 
 const networkMultipleStaticWithAliasesInitial = `
 auto eth0
@@ -297,9 +296,8 @@ iface eth0:1 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
-
-dns-nameservers 10.17.20.200
-dns-search maas`
+    dns-nameservers 10.17.20.200
+    dns-search maas`
 
 const networkDHCPWithBondInitial = `auto eth0
 iface eth0 inet manual
@@ -359,15 +357,16 @@ iface bond0 inet manual
     bond-mode active-backup
     hwaddress 52:54:00:1c:f1:5b
     bond-slaves none
+    dns-nameservers 10.17.20.200
+    dns-search maas19
 
 auto test-br-bond0
 iface test-br-bond0 inet dhcp
     mtu 1500
     hwaddress 52:54:00:1c:f1:5b
-    bridge_ports bond0
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    bridge_ports bond0`
 
 const networkMultipleAliasesInitial = `auto eth0
 iface eth0 inet dhcp
@@ -424,9 +423,8 @@ auto eth10:2
 iface eth10:2 inet static
     address 10.17.20.203/24
     mtu 1500
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19`
 
 const networkSmorgasboardInitial = `auto eth0
 iface eth0 inet manual
@@ -631,15 +629,16 @@ iface bond1 inet manual
     bond-mode active-backup
     hwaddress 52:54:00:8e:6e:b0
     bond-slaves none
+    dns-nameservers 10.17.20.200
+    dns-search maas19
 
 auto juju-br-bond1
 iface juju-br-bond1 inet dhcp
     mtu 1500
     hwaddress 52:54:00:8e:6e:b0
-    bridge_ports bond1
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    bridge_ports bond1`
 
 const networkVLANInitial = `auto eth0
 iface eth0 inet static
@@ -699,6 +698,5 @@ iface eth1.3 inet static
     vlan-raw-device eth1
     mtu 1500
     vlan_id 3
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19`
