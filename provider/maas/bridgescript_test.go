@@ -101,6 +101,10 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
 	s.assertScript(c, networkVLANInitial, networkVLANExpected, "vlan-br-")
 }
 
+func (s *bridgeConfigSuite) TestBridgeScriptWithMultipleNameservers(c *gc.C) {
+	s.assertScript(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected, "br-")
+}
+
 func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, bridgePrefix string) (output string, exitCode int) {
 	script := fmt.Sprintf("%q --bridge-prefix=%q %q\n",
 		s.testPythonScript,
@@ -700,3 +704,113 @@ iface eth1.3 inet static
     vlan_id 3
     dns-nameservers 10.17.20.200
     dns-search maas19`
+
+const networkVLANWithMultipleNameserversInitial = `auto eth0
+iface eth0 inet static
+    dns-nameservers 10.245.168.2
+    gateway 10.245.168.1
+    address 10.245.168.11/21
+    mtu 1500
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+auto eth2
+iface eth2 inet manual
+    mtu 1500
+
+auto eth3
+iface eth3 inet manual
+    mtu 1500
+
+auto eth1.2667
+iface eth1.2667 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.184.2/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2667
+
+auto eth1.2668
+iface eth1.2668 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.185.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2668
+
+auto eth1.2669
+iface eth1.2669 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.186.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2669
+
+auto eth1.2670
+iface eth1.2670 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.187.2/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2670
+
+dns-nameservers 10.245.168.2
+dns-search dellstack`
+
+const networkVLANWithMultipleNameserversExpected = `iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    dns-nameservers 10.245.168.2
+    gateway 10.245.168.1
+    address 10.245.168.11/21
+    mtu 1500
+    bridge_ports eth0
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+auto eth2
+iface eth2 inet manual
+    mtu 1500
+
+auto eth3
+iface eth3 inet manual
+    mtu 1500
+
+auto eth1.2667
+iface eth1.2667 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.184.2/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2667
+
+auto eth1.2668
+iface eth1.2668 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.185.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2668
+
+auto eth1.2669
+iface eth1.2669 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.186.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2669
+
+auto eth1.2670
+iface eth1.2670 inet static
+    dns-nameservers 10.245.168.2
+    address 10.245.187.2/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2670
+    dns-nameservers 10.245.168.2
+    dns-search dellstack`
