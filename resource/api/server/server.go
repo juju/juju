@@ -24,6 +24,7 @@ const (
 // DataStore is the functionality of Juju's state needed for the resources API.
 type DataStore interface {
 	resourceLister
+	uploadStorage
 }
 
 // Facade is the public API facade for resources.

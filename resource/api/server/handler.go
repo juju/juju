@@ -3,133 +3,106 @@
 
 package server
 
+// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
+
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 )
 
-// HTTPHandler is the HTTP handler for the resources endpoint.
-type HTTPHandler struct {
+// TODO(ericsnow) Define the HTTPHandlerConstraints here? Perhaps
+// even the HTTPHandlerSpec?
+
+// LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
+// use it rather than wrapping the functions since API HTTP endpoints
+// must handle *all* HTTP methods.
+type LegacyHTTPHandler struct {
+	// Username is the username associated with the request.
+	Username string
+
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (state.Resources, error)
+	Connect func(*http.Request) (DataStore, error)
+
+	// HandleUpload provides the upload functionality.
+	HandleUpload func(string, DataStore, *http.Request) error
 }
 
-func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+// TODO(ericsnow) Can username be extracted from the request?
+
+// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
+func NewLegacyHTTPHandler(username string, connect func(*http.Request) (DataStore, error)) *LegacyHTTPHandler {
+	return &LegacyHTTPHandler{
+		Username: username,
+		Connect:  connect,
+		HandleUpload: func(username string, st DataStore, req *http.Request) error {
+			return handleUpload(username, st, req)
+		},
+	}
+}
+
+// ServeHTTP implements http.Handler.
+func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	st, err := h.Connect(req)
 	if err != nil {
-		h.sendError(resp, err)
+		sendHTTPError(resp, err)
 		return
 	}
 
-	backups, closer := newBackups(st)
-	defer closer.Close()
-
+	// We do this *after* authorization, etc. (in h.Connect) in order
+	// to prioritize errors that may originate there.
 	switch req.Method {
-	case "GET":
-		logger.Infof("handling backups download request")
-		id, err := h.download(backups, resp, req)
-		if err != nil {
-			h.sendError(resp, err)
-			return
-		}
-		logger.Infof("backups download request successful for %q", id)
 	case "PUT":
-		logger.Infof("handling backups upload request")
-		id, err := h.upload(backups, resp, req)
-		if err != nil {
-			h.sendError(resp, err)
+		logger.Infof("handling resource upload request")
+		if err := h.HandleUpload(h.Username, st, req); err != nil {
+			sendHTTPError(resp, err)
 			return
 		}
-		logger.Infof("backups upload request successful for %q", id)
+
+		// TODO(ericsnow) Clean this up.
+		body := "success"
+		resp.Header().Set("Content-Type", "text/plain")
+		resp.Header().Set("Content-Length", fmt.Sprint(len(body)))
+		resp.WriteHeader(http.StatusOK)
+		resp.Write([]byte(body))
+
+		logger.Infof("resource upload request successful")
 	default:
-		h.sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		sendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
 }
 
-func (h *HTTPHandler) upload(backups backups.Backups, resp http.ResponseWriter, req *http.Request) (string, error) {
-	// Since we want to stream the archive in we cannot simply use
-	// mime/multipart directly.
-	defer req.Body.Close()
+// TODO(ericsnow) There are copied from apiserver/httpcontext.go...
 
-	var metaResult params.BackupsMetadataResult
-	archive, err := httpattachment.Get(req, &metaResult)
+// sendHTTPError sends a JSON-encoded error response
+// for errors encountered during processing.
+func sendHTTPError(w http.ResponseWriter, err error) {
+	err1, statusCode := common.ServerErrorAndStatus(err)
+	logger.Debugf("sending error: %d %v", statusCode, err1)
+	sendHTTPStatusAndJSON(w, statusCode, &params.ErrorResult{
+		Error: err1,
+	})
+}
+
+// sendStatusAndJSON sends an HTTP status code and
+// a JSON-encoded response to a client.
+func sendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+	body, err := json.Marshal(response)
 	if err != nil {
-		return "", err
+		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		return
 	}
 
-	if err := validateBackupMetadataResult(metaResult); err != nil {
-		return "", err
+	if statusCode == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 	}
-
-	meta := apiserverbackups.MetadataFromResult(metaResult)
-	id, err := backups.Add(archive, meta)
-	if err != nil {
-		return "", err
-	}
-
-	sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
-	return id, nil
-}
-
-func validateBackupMetadataResult(metaResult params.BackupsMetadataResult) error {
-	if metaResult.ID != "" {
-		return errors.New("got unexpected metadata ID")
-	}
-	if !metaResult.Stored.IsZero() {
-		return errors.New(`got unexpected metadata "Stored" value`)
-	}
-	return nil
-}
-
-func (h *HTTPHandler) read(req *http.Request, expectedType string) ([]byte, error) {
-	defer req.Body.Close()
-
-	ctype := req.Header.Get("Content-Type")
-	if ctype != expectedType {
-		return nil, errors.Errorf("expected Content-Type %q, got %q", expectedType, ctype)
-	}
-
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return nil, errors.Annotate(err, "while reading request body")
-	}
-
-	return body, nil
-}
-
-func (h *HTTPHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, params.ContentTypeJSON)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var args params.BackupsDownloadArgs
-	if err := json.Unmarshal(body, &args); err != nil {
-		return nil, errors.Annotate(err, "while de-serializing args")
-	}
-
-	return &args, nil
-}
-
-func (h *HTTPHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
-	// We don't set the Content-Length header, leaving it at -1.
-	resp.Header().Set("Content-Type", params.ContentTypeRaw)
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, checksum))
-	resp.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(resp, file); err != nil {
-		return errors.Annotate(err, "while streaming archive")
-	}
-	return nil
-}
-
-// sendError sends a JSON-encoded error response.
-// Note the difference from the error response sent by
-// the sendError function - the error is encoded directly
-// rather than in the Error field.
-func (h *HTTPHandler) sendError(w http.ResponseWriter, err error) {
-	err, status := common.ServerErrorAndStatus(err)
-
-	sendStatusAndJSON(w, status, err)
+	w.Header().Set("Content-Type", params.ContentTypeJSON)
+	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+	w.WriteHeader(statusCode)
+	w.Write(body)
 }
