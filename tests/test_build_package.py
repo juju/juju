@@ -5,6 +5,7 @@ from mock import (
     patch
 )
 import os
+from StringIO import StringIO
 from textwrap import dedent
 import unittest
 
@@ -29,6 +30,7 @@ from build_package import (
     make_ubuntu_version,
     move_debs,
     parse_dsc,
+    print_series_info,
     setup_local,
     setup_lxc,
     Series,
@@ -50,11 +52,37 @@ class JujuSeriesTestCase(unittest.TestCase):
             Series('14.10', 'utopic', 'HISTORIC'),
             juju_series.all['utopic'])
 
+    def test_get_devel_version(self):
+        juju_series = _JujuSeries()
+        [devel] = [s.version for s in juju_series.all.values()
+                   if s.status == 'DEVEL']
+        self.assertEqual(devel, juju_series.get_devel_version())
+
     def test_get_living_names(self):
         juju_series = _JujuSeries()
         self.assertEqual(
             ['precise', 'trusty', 'vivid', 'wily', 'xenial'],
             juju_series.get_living_names())
+
+    def test_get_name(self):
+        juju_series = _JujuSeries()
+        self.assertEqual('trusty', juju_series.get_name('14.04'))
+        with self.assertRaises(KeyError):
+            juju_series.get_version('13.01')
+
+    def test_get_name_from_package_version(self):
+        juju_series = _JujuSeries()
+        self.assertEqual(
+            'xenial',
+            juju_series.get_name_from_package_version(
+                '1.26-alpha3-0ubuntu1~16.04.1~juju1'))
+        self.assertEqual(
+            'trusty',
+            juju_series.get_name_from_package_version(
+                '1.25.0-0ubuntu1~14.04.1~juju1'))
+        self.assertIs(
+            None,
+            juju_series.get_name_from_package_version('1.25.0-0ubuntu1'))
 
     def test_get_version(self):
         juju_series = _JujuSeries()
@@ -427,3 +455,35 @@ class BuildPackageTestCase(unittest.TestCase):
         cc_mock.assert_called_with(
             ['debsign -p /my/gpgcmd *.changes'],
             shell=True, cwd='/juju-build-trusty-all', env=env)
+
+    def test_get_args_print(self):
+        args = get_args(
+            ['prog', 'print', '--series-name-from-package-version',
+             '1.25.0-0ubuntu1~16.04.1~juju1'])
+        self.assertEqual('print', args.command)
+        self.assertEqual(
+            '1.25.0-0ubuntu1~16.04.1~juju1',
+            args.series_name_from_package_version)
+
+    def test_main_print(self):
+        with patch('build_package.print_series_info', autospec=True,
+                   return_value=0) as psi_mock:
+            code = main(
+                ['prog', 'print', '--series-name-from-package-version',
+                 '1.25.0-0ubuntu1~16.04.1~juju1'])
+        self.assertEqual(0, code)
+        psi_mock.assert_called_with(
+            package_version='1.25.0-0ubuntu1~16.04.1~juju1')
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_print_series_info(self, so_mock):
+        # Unmatched.
+        code = print_series_info(
+            package_version='1.25.0-0ubuntu1')
+        self.assertEqual(1, code)
+        self.assertEqual('', so_mock.getvalue())
+        # Matched.
+        code = print_series_info(
+            package_version='1.25.0-0ubuntu1~16.04.1~juju1')
+        self.assertEqual(0, code)
+        self.assertEqual('xenial\n', so_mock.getvalue())

@@ -131,9 +131,40 @@ class _JujuSeries:
             series = Series(*line.split())
             self.all[series.name] = series
 
+    def get_devel_version(self):
+        for series in self.all.values():
+            if series.status == 'DEVEL':
+                return series.version
+        else:
+            raise AssertionError(
+                "SUPPORTED_RELEASES is missing the DEVEL series")
+
     def get_living_names(self):
         return sorted(s.name for s in self.all.values()
                       if s.status in self.LIVING_STATUSES)
+
+    def get_name(self, version):
+        for series in self.all.values():
+            if series.version == version:
+                return series.name
+        else:
+            raise KeyError("'%s' is not a known series" % version)
+
+    def get_name_from_package_version(self, package_version):
+        """Return the series name associated with the package version.
+
+        The series is matched to the series version commonly embedded in
+        backported package versions. Official juju package versions always
+        contain the series version to indicate the tool-chain used to build.
+
+        Ubuntu devel packages do not have series versions, they cannot be
+        matched to a series. As Ubuntu packages are not built with ideal rules,
+        they are not suitable for building agents.
+        """
+        for series in self.all.values():
+            if series.version in package_version:
+                return series.name
+        return None
 
     def get_version(self, name):
         return self.all[name].version
@@ -421,6 +452,16 @@ def build_source(tarfile_path, location, series, bugs,
     return 0
 
 
+def print_series_info(package_version=None):
+    exitcode = 1
+    if package_version:
+        version = juju_series.get_name_from_package_version(package_version)
+        if version:
+            print(version)
+            return 0
+    return exitcode
+
+
 def main(argv):
     """Execute the commands from the command line."""
     exitcode = 0
@@ -431,10 +472,13 @@ def main(argv):
             debemail=args.debemail, debfullname=args.debfullname,
             gpgcmd=args.gpgcmd, branch=args.branch, upatch=args.upatch,
             verbose=args.verbose)
-    if args.command == 'binary':
+    elif args.command == 'binary':
         exitcode = build_binary(
             args.dsc, args.location, args.series, args.arch,
             ppa=args.ppa, verbose=args.verbose)
+    elif args.command == 'print':
+        exitcode = print_series_info(
+            package_version=args.series_name_from_package_version)
     return exitcode
 
 
@@ -473,8 +517,12 @@ def get_args(argv=None):
     bin_parser.add_argument("location", help="The location to build in.")
     bin_parser.add_argument("series", help="The series to build in.")
     bin_parser.add_argument("arch", help="The dpkg architecture to build in.")
+    print_parser = subparsers.add_parser('print', help='Print series info')
+    print_parser.add_argument(
+        '--series-name-from-package-version',
+        help="Print the series name associated with the package version.")
     args = parser.parse_args(argv[1:])
-    if args.series == 'LIVING':
+    if getattr(args, 'series', None) and args.series == 'LIVING':
         args.series = juju_series.get_living_names()
     return args
 
