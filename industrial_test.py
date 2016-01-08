@@ -763,14 +763,6 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         yield results
 
 
-def get_test_info(suite):
-    result = OrderedDict(suite.bootstrap_attempt.get_test_info())
-    for attempt in suite.attempt_list:
-        result.update(attempt.get_test_info())
-    result.update(DestroyEnvironmentAttempt.get_test_info())
-    return result
-
-
 class AttemptSuiteFactory:
 
     def __init__(self, attempt_list, bootstrap_attempt=None):
@@ -779,32 +771,33 @@ class AttemptSuiteFactory:
         self.bootstrap_attempt = bootstrap_attempt
         self.attempt_list = attempt_list
 
-    def factory(self, upgrade_sequence, log_dir):
-        attempt_list = [
-            a.factory(upgrade_sequence) for a in self.attempt_list]
-        bootstrap_attempt = self.bootstrap_attempt.factory(upgrade_sequence)
-        return AttemptSuite(attempt_list, bootstrap_attempt, log_dir)
-
     def get_test_info(self):
-        """Describe the tests provided by this Stage."""
-        return get_test_info(self)
+        """Describe the tests provided by this factory."""
+        result = OrderedDict(self.bootstrap_attempt.get_test_info())
+        for attempt in self.attempt_list:
+            result.update(attempt.get_test_info())
+        result.update(DestroyEnvironmentAttempt.get_test_info())
+        return result
+
+    def factory(self, upgrade_sequence, log_dir):
+        return AttemptSuite(self, upgrade_sequence, log_dir)
 
 
 class AttemptSuite(SteppedStageAttempt):
 
-    def __init__(self, attempt_list, bootstrap_attempt, log_dir):
-        if bootstrap_attempt is None:
-            bootstrap_attempt = BootstrapAttempt
-        self.bootstrap_attempt = bootstrap_attempt
+    def __init__(self, attempt_list, upgrade_sequence, log_dir):
         self.attempt_list = attempt_list
+        self.upgrade_sequence = upgrade_sequence
         self.log_dir = log_dir
 
     def get_test_info(self):
         """Describe the tests provided by this Stage."""
-        return get_test_info(self)
+        return self.attempt_list.get_test_info()
 
     def iter_steps(self, client):
-        bs_client = self.bootstrap_attempt.get_bootstrap_client(client)
+        bootstrap_attempt = self.attempt_list.bootstrap_attempt.factory(
+            self.upgrade_sequence)
+        bs_client = bootstrap_attempt.get_bootstrap_client(client)
         bs_jes_enabled = bs_client.is_jes_enabled()
         jes_enabled = client.is_jes_enabled()
         bs_manager = BootstrapManager(
@@ -813,26 +806,31 @@ class AttemptSuite(SteppedStageAttempt):
             machines=[], series=None, agent_url=None, agent_stream=None,
             region=None, log_dir=make_log_dir(self.log_dir), keep_env=True,
             permanent=jes_enabled, jes_enabled=bs_jes_enabled)
+        return self._iter_bs_manager_steps(bs_manager, client,
+                                           bootstrap_attempt, jes_enabled)
+
+    def _iter_bs_manager_steps(self, bs_manager, client, bootstrap_attempt,
+                               jes_enabled):
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(machines):
-                bs_steps = self.bootstrap_attempt.iter_steps(client)
-                for result in bs_steps:
+                for result in bootstrap_attempt.iter_steps(client):
                     yield result
             with bs_manager.runtime_context(machines):
+                # Switch from bootstrap client to real client, in case test
+                # steps (i.e. upgrade) make bs_client unable to tear down.
                 bs_manager.client = client
                 bs_manager.tear_down_client = client
                 bs_manager.jes_enabled = jes_enabled
-                for attempt in self.attempt_list:
-                    attempt_steps = attempt.iter_steps(client)
-                    for result in attempt_steps:
+                for attempt_factory in self.attempt_list.attempt_list:
+                    attempt = attempt_factory.factory(self.upgrade_sequence)
+                    for result in attempt.iter_steps(client):
                         yield result
                 # We don't want BootstrapManager.tear_down to run-- we want
                 # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
                 # to finish up before we run DestroyEnvironmentAttempt.
                 bs_manager.keep_env = True
             try:
-                destroy_steps = DestroyEnvironmentAttempt().iter_steps(client)
-                for result in destroy_steps:
+                for result in DestroyEnvironmentAttempt().iter_steps(client):
                     yield result
             except:
                 bs_manager.tear_down()
