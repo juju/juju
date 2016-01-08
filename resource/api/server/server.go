@@ -49,6 +49,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 	r.Results = make([]api.ResourcesResult, len(args.Entities))
 
 	for i, e := range args.Entities {
+		logger.Tracef("Listing resources for %q", e.Tag)
 		result, service := api.NewResourcesResult(e.Tag)
 		r.Results[i] = result
 		if result.Error != nil {

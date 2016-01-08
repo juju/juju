@@ -1256,7 +1256,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := st.saveResourcesForDemo(serviceID, args); err != nil {
+	if err := st.saveResourcesForDemo(args.Name, args); err != nil {
 		return svc, errors.Trace(err)
 	}
 
@@ -1264,7 +1264,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 }
 
 // TODO(natefinch) DEMO CODE, revisit after demo!
-func (st *State) saveResourcesForDemo(serviceID string, args AddServiceArgs) error {
+func (st *State) saveResourcesForDemo(service string, args AddServiceArgs) error {
 	resourceState, err := st.Resources()
 	if err != nil {
 		return errors.Annotate(err, "can't get resources from state")
@@ -1286,7 +1286,7 @@ func (st *State) saveResourcesForDemo(serviceID string, args AddServiceArgs) err
 			},
 		}
 		r := bytes.NewBuffer(data)
-		if err := resourceState.SetResource(serviceID, res, r); err != nil {
+		if err := resourceState.SetResource(service, res, r); err != nil {
 			logger.Errorf(errors.Details(err))
 			return errors.Annotatef(err, "can't add resource %q", meta.Name)
 		}
