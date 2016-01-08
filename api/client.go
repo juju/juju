@@ -542,6 +542,13 @@ func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 	return results.Results, err
 }
 
+// CollectMetrics runs the juju-collect-metrics command on specified units/services.
+func (c *Client) CollectMetrics(collect params.CollectMetricsParams) ([]params.CollectMetricsResult, error) {
+	var results params.CollectMetricsResults
+	err := c.facade.FacadeCall("CollectMetrics", collect, &results)
+	return results.Results, err
+}
+
 // DestroyEnvironment puts the environment into a "dying" state,
 // and removes all non-manager machine instances. DestroyEnvironment
 // will fail if there are any manually-provisioned non-manager machines

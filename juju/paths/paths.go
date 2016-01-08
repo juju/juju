@@ -22,32 +22,35 @@ const (
 	metricsSpoolDir
 	uniterStateDir
 	jujuDumpLogs
+	jujuCollectMetrics
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:          "/tmp",
-	logDir:          "/var/log",
-	dataDir:         "/var/lib/juju",
-	storageDir:      "/var/lib/juju/storage",
-	confDir:         "/etc/juju",
-	jujuRun:         "/usr/bin/juju-run",
-	jujuDumpLogs:    "/usr/bin/juju-dumplogs",
-	certDir:         "/etc/juju/certs.d",
-	metricsSpoolDir: "/var/lib/juju/metricspool",
-	uniterStateDir:  "/var/lib/juju/uniter/state",
+	tmpDir:             "/tmp",
+	logDir:             "/var/log",
+	dataDir:            "/var/lib/juju",
+	storageDir:         "/var/lib/juju/storage",
+	confDir:            "/etc/juju",
+	jujuRun:            "/usr/bin/juju-run",
+	jujuDumpLogs:       "/usr/bin/juju-dumplogs",
+	jujuCollectMetrics: "/usr/bin/juju-collect-metrics",
+	certDir:            "/etc/juju/certs.d",
+	metricsSpoolDir:    "/var/lib/juju/metricspool",
+	uniterStateDir:     "/var/lib/juju/uniter/state",
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:          "C:/Juju/tmp",
-	logDir:          "C:/Juju/log",
-	dataDir:         "C:/Juju/lib/juju",
-	storageDir:      "C:/Juju/lib/juju/storage",
-	confDir:         "C:/Juju/etc",
-	jujuRun:         "C:/Juju/bin/juju-run.exe",
-	jujuDumpLogs:    "C:/Juju/bin/juju-dumplogs.exe",
-	certDir:         "C:/Juju/certs",
-	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
-	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
+	tmpDir:             "C:/Juju/tmp",
+	logDir:             "C:/Juju/log",
+	dataDir:            "C:/Juju/lib/juju",
+	storageDir:         "C:/Juju/lib/juju/storage",
+	confDir:            "C:/Juju/etc",
+	jujuRun:            "C:/Juju/bin/juju-run.exe",
+	jujuDumpLogs:       "C:/Juju/bin/juju-dumplogs.exe",
+	jujuCollectMetrics: "C:/Juju/bin/juju-collect-metrics.exe",
+	certDir:            "C:/Juju/certs",
+	metricsSpoolDir:    "C:/Juju/lib/juju/metricspool",
+	uniterStateDir:     "C:/Juju/lib/juju/uniter/state",
 }
 
 // osVal will lookup the value of the key valname
@@ -120,6 +123,12 @@ func JujuRun(series string) (string, error) {
 // for a particular series.
 func JujuDumpLogs(series string) (string, error) {
 	return osVal(series, jujuDumpLogs)
+}
+
+// JujuCollectMetrics returns the absolute path to the juju-collect-metrics
+// binary for a particular series.
+func JujuCollectMetrics(series string) (string, error) {
+	return osVal(series, jujuCollectMetrics)
 }
 
 func MustSucceed(s string, e error) string {
