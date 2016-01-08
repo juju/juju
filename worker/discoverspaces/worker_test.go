@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -29,9 +28,6 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	if s.Enabled {
-		s.SetFeatureFlags(feature.AddressAllocation)
-	}
 
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
@@ -45,10 +41,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(s.OpsChan)
 
 	// Start the Addresser worker.
-	w, err := discoverspaces.NewWorker(s.API)
-	c.Assert(err, jc.ErrorIsNil)
-	s.Worker = w
-
+	s.Worker = discoverspaces.NewWorker(s.API)
 }
 
 func (s *workerSuite) TearDownTest(c *gc.C) {
