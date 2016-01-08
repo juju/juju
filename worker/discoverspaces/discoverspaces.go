@@ -129,11 +129,16 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					Public:   false,
 					SpaceTag: spaceTag.String(),
 				}}}
-			// XXX check the error result too.
-			_, err = dw.api.CreateSpaces(args)
+			result, err := dw.api.CreateSpaces(args)
 			if err != nil {
 				logger.Errorf("invalid creating space %v", err)
 				return errors.Trace(err)
+			}
+			if len(result.Results) != 1 {
+				return errors.Errorf("unexpected number of results from CreateSpaces, should be 1: %v", result)
+			}
+			if result.Results[0].Error != nil {
+				return errors.Errorf("error from CreateSpaces: %v", result.Results[0].Error)
 			}
 		}
 		// TODO(mfoord): currently no way of removing subnets, or
@@ -154,16 +159,15 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					SpaceTag:         spaceTag.String(),
 					Zones:            zones,
 				}}}
-			// XXX check the error result too.
 			logger.Tracef("Adding subnet %v", subnet.CIDR)
 			result, err := dw.api.AddSubnets(args)
 			if err != nil {
 				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)
 			}
-
-			// XXX needs doing properly (check len(result.Results
-			// == 1).
+			if len(result.Results) != 1 {
+				return errors.Errorf("unexpected number of results from AddSubnets, should be 1: %v", result)
+			}
 			if result.Results[0].Error != nil {
 				logger.Errorf("error creating subnet %v", result.Results[0].Error)
 				return errors.Errorf("error creating subnet %v", result.Results[0].Error)
