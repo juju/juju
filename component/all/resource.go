@@ -158,6 +158,7 @@ type charmstoreClient struct {
 }
 
 func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+	// TODO(natefinch): this is all demo stuff and should go away afterward.
 	if len(charmURLs) != 1 || charmURLs[0].Name != "starsay" {
 		res := make([][]charmresource.Resource, len(charmURLs))
 		return res, nil
