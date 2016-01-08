@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -131,8 +132,14 @@ func inspectData(reader io.ReadSeeker) (charmresource.Fingerprint, int64, error)
 	if err != nil {
 		return fp, 0, errors.Trace(err)
 	}
+	size := int64(len(data))
 
-	return fp, int64(len(data)), nil
+	_, err = reader.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return fp, 0, errors.Trace(err)
+	}
+
+	return fp, size, nil
 }
 
 func resolveErrors(errs []error) error {
