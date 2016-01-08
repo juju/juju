@@ -15,6 +15,7 @@ from textwrap import dedent
 import yaml
 
 from deploy_stack import (
+    BootstrapManager,
     wait_for_state_server_to_shutdown,
     )
 from jujupy import (
@@ -760,6 +761,84 @@ class BackupRestoreAttempt(SteppedStageAttempt):
             yield results
         results['result'] = True
         yield results
+
+
+def get_test_info(suite):
+    result = OrderedDict(suite.bootstrap_attempt.get_test_info())
+    for attempt in suite.attempt_list:
+        result.update(attempt.get_test_info())
+    result.update(DestroyEnvironmentAttempt.get_test_info())
+    return result
+
+
+class AttemptSuiteFactory:
+
+    def __init__(self, attempt_list, bootstrap_attempt=None):
+        if bootstrap_attempt is None:
+            bootstrap_attempt = BootstrapAttempt
+        self.bootstrap_attempt = bootstrap_attempt
+        self.attempt_list = attempt_list
+
+    def factory(self, upgrade_sequence, log_dir):
+        attempt_list = [
+            a.factory(upgrade_sequence) for a in self.attempt_list]
+        bootstrap_attempt = self.bootstrap_attempt.factory(upgrade_sequence)
+        return AttemptSuite(attempt_list, bootstrap_attempt, log_dir)
+
+    def get_test_info(self):
+        """Describe the tests provided by this Stage."""
+        return get_test_info(self)
+
+
+class AttemptSuite(SteppedStageAttempt):
+
+    def __init__(self, attempt_list, bootstrap_attempt, log_dir):
+        if bootstrap_attempt is None:
+            bootstrap_attempt = BootstrapAttempt
+        self.bootstrap_attempt = bootstrap_attempt
+        self.attempt_list = attempt_list
+        self.log_dir = log_dir
+
+    def get_test_info(self):
+        """Describe the tests provided by this Stage."""
+        return get_test_info(self)
+
+    def iter_steps(self, client):
+        bs_client = self.bootstrap_attempt.get_bootstrap_client(client)
+        bs_jes_enabled = bs_client.is_jes_enabled()
+        jes_enabled = client.is_jes_enabled()
+        bs_manager = BootstrapManager(
+            client.env.environment, bs_client, bs_client,
+            bootstrap_host=None,
+            machines=[], series=None, agent_url=None, agent_stream=None,
+            region=None, log_dir=make_log_dir(self.log_dir), keep_env=True,
+            permanent=jes_enabled, jes_enabled=bs_jes_enabled)
+        with bs_manager.top_context() as machines:
+            with bs_manager.bootstrap_context(machines):
+                bs_steps = self.bootstrap_attempt.iter_steps(client)
+                for result in bs_steps:
+                    yield result
+            with bs_manager.runtime_context(machines):
+                bs_manager.client = client
+                bs_manager.tear_down_client = client
+                bs_manager.jes_enabled = jes_enabled
+                for attempt in self.attempt_list:
+                    attempt_steps = attempt.iter_steps(client)
+                    for result in attempt_steps:
+                        yield result
+                # We don't want BootstrapManager.tear_down to run-- we want
+                # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
+                # to finish up before we run DestroyEnvironmentAttempt.
+                bs_manager.keep_env = True
+            try:
+                destroy_steps = DestroyEnvironmentAttempt().iter_steps(client)
+                for result in destroy_steps:
+                    yield result
+            except:
+                bs_manager.tear_down()
+                raise
+            finally:
+                bs_manager.keep_env = False
 
 
 suites = {
