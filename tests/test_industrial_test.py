@@ -1862,7 +1862,10 @@ class TestAttemptSuite(TestCase):
 
     def test__iter_bs_manager_steps(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
-        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        fake_1 = FakeAttemptClass('fake-1', '1', '2')
+        fake_2 = FakeAttemptClass('fake-2', '1', '2')
+        factory = AttemptSuiteFactory([fake_1, fake_2],
+                                      bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, None)
         client = FakeJujuClient()
         bs_manager = FakeBootstrapManager(client)
@@ -1870,6 +1873,8 @@ class TestAttemptSuite(TestCase):
             bs_manager, client, fake_bootstrap(), True))
         self.assertEqual([
             {'test_id': 'fake-bootstrap-id', 'result': '1'},
+            {'test_id': 'fake-1-id', 'result': '1'},
+            {'test_id': 'fake-2-id', 'result': '1'},
             {'test_id': 'destroy-env', 'result': True},
             {'test_id': 'destroy-env', 'result': True},
             {'test_id': 'substrate-clean', 'result': True},
