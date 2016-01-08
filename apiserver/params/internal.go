@@ -632,3 +632,25 @@ type MeterStatusResult struct {
 type MeterStatusResults struct {
 	Results []MeterStatusResult
 }
+
+// CollectMetricsParams is used to provide the parameters to the
+// CollectMetrics method. Timeout must be defined, and one or more
+// values should be in the Services, or Units slices.
+type CollectMetricsParams struct {
+	Timeout  time.Duration
+	Services []string
+	Units    []string
+}
+
+// CollectMetricsResult contains the result from an individual collect metrics
+// call on a machine.
+type CollectMetricsResult struct {
+	UnitId string `json:"UnitId"`
+	Error  string `json:"Error,omitempty"`
+}
+
+// CollectMetricsResults is used to return the slice of results.  API server
+// side calls need to return single structure values.
+type CollectMetricsResults struct {
+	Results []CollectMetricsResult
+}
