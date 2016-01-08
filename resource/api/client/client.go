@@ -4,14 +4,18 @@
 package client
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -98,14 +102,37 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// We do not bother setting the Content-Type header
-	// since it isn't readily available *and* isn't needed.
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	fp, size, err := inspectData(reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	req.URL.Query().Set("fingerprint", fp.String())
+	req.URL.Query().Set("size", strconv.FormatInt(size, 10))
 
 	if err := c.doer.Do(req, reader, nil); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+func inspectData(reader io.ReadSeeker) (charmresource.Fingerprint, int64, error) {
+	var fp charmresource.Fingerprint
+
+	// TODO(ericsnow) We need to stream the data through rather than
+	// writing it to memory.
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return fp, 0, errors.Trace(err)
+	}
+	fp, err = charmresource.GenerateFingerprint(data)
+	if err != nil {
+		return fp, 0, errors.Trace(err)
+	}
+
+	return fp, int64(len(data)), nil
 }
 
 func resolveErrors(errs []error) error {
