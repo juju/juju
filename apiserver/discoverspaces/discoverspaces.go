@@ -17,26 +17,40 @@ func init() {
 
 // DiscoverSpacesAPI implements the API used by the discoverspaces worker.
 type DiscoverSpacesAPI struct {
-	*common.EnvironWatcher
-
-	st             networkingcommon.NetworkBacking
-	resources      *common.Resources
-	authorizer     common.Authorizer
-	StateAddresser *common.StateAddresser
+	st         networkingcommon.NetworkBacking
+	resources  *common.Resources
+	authorizer common.Authorizer
 }
 
 // NewDiscoverSpacesAPI creates a new instance of the DiscoverSpaces API.
 func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
+	return NewDiscoverSpacesAPIWithBacking(networkingcommon.NewStateShim(st), resources, authorizer)
+}
+
+func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
 	if !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	return &DiscoverSpacesAPI{
-		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
-		st:             networkingcommon.NewStateShim(st),
-		authorizer:     authorizer,
-		resources:      resources,
-		StateAddresser: common.NewStateAddresser(st),
+		st:         st,
+		authorizer: authorizer,
+		resources:  resources,
 	}, nil
+}
+
+// EnvironConfig returns the current environment's configuration.
+func (api *DiscoverSpacesAPI) EnvironConfig() (params.EnvironConfigResult, error) {
+	result := params.EnvironConfigResult{}
+
+	config, err := api.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	allAttrs := config.AllAttrs()
+	// No need to obscure any secrets as caller needs to be an
+	// EnvironManager to call any api methods.
+	result.Config = allAttrs
+	return result, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the

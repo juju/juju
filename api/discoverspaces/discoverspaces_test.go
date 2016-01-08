@@ -13,6 +13,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -108,5 +109,21 @@ func (s *DiscoverSpacesSuite) TestCreateSpaces(c *gc.C) {
 	result, err := api.CreateSpaces(expectedArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *DiscoverSpacesSuite) TestEnvironConfig(c *gc.C) {
+	var called int
+	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.EnvironConfigResult{
+		Config: cfg.AllAttrs(),
+	}
+	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResult, &called)
+	api := discoverspaces.NewAPI(apiCaller)
+
+	result, err := api.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, cfg)
 	c.Assert(called, gc.Equals, 1)
 }

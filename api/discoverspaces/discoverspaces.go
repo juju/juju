@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.api.discoverspaces")
@@ -18,10 +18,6 @@ const discoverspacesFacade = "DiscoverSpaces"
 
 // API provides access to the DiscoverSpaces API facade.
 type API struct {
-	// TODO(mfoord): we should drop EnvironWatcher and consider moving
-	// access to the provider methods needed (SupportsSpaceDiscovery and
-	// ListSubnets) onto the apiserver.
-	*common.EnvironWatcher
 	facade base.FacadeCaller
 }
 
@@ -32,8 +28,7 @@ func NewAPI(caller base.APICaller) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, discoverspacesFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		facade: facadeCaller,
 	}
 }
 
@@ -69,4 +64,18 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResul
 		return result, errors.Trace(err)
 	}
 	return result, nil
+}
+
+// EnvironConfig returns the current environment configuration.
+func (api *API) EnvironConfig() (*config.Config, error) {
+	var result params.EnvironConfigResult
+	err := api.facade.FacadeCall("EnvironConfig", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := config.New(config.NoDefaults, result.Config)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

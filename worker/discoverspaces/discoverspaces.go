@@ -20,9 +20,8 @@ import (
 var logger = loggo.GetLogger("juju.discoverspaces")
 
 type discoverspacesWorker struct {
-	api      *discoverspaces.API
-	tomb     tomb.Tomb
-	observer *worker.EnvironObserver
+	api  *discoverspaces.API
+	tomb tomb.Tomb
 }
 
 // NewWorker returns a worker
@@ -46,17 +45,14 @@ func (dw *discoverspacesWorker) Wait() error {
 }
 
 func (dw *discoverspacesWorker) loop() (err error) {
-	dw.observer, err = worker.NewEnvironObserver(dw.api)
+	envCfg, err := dw.api.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	defer func() {
-		obsErr := worker.Stop(dw.observer)
-		if err == nil {
-			err = obsErr
-		}
-	}()
-	environ := dw.observer.Environ()
+	environ, err := environs.New(envCfg)
+	if err != nil {
+		return err
+	}
 	networkingEnviron, ok := environs.SupportsNetworking(environ)
 
 	if ok {
