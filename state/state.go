@@ -7,6 +7,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"regexp"
@@ -22,6 +23,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -31,6 +33,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
@@ -1160,6 +1163,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	serviceID := st.docID(args.Name)
+
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -1251,7 +1255,43 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if err := st.saveResourcesForDemo(serviceID, args); err != nil {
+		return svc, errors.Trace(err)
+	}
+
 	return svc, nil
+}
+
+// TODO(natefinch) DEMO CODE, revisit after demo!
+func (st *State) saveResourcesForDemo(serviceID string, args AddServiceArgs) error {
+	resourceState, err := st.Resources()
+	if err != nil {
+		return errors.Annotate(err, "can't get resources from state")
+	}
+
+	data := []byte("foobarfoobar")
+	fp, err := resource.GenerateFingerprint(data)
+	if err != nil {
+		return errors.Annotate(err, "can't create fingerprint for resource")
+	}
+
+	for _, meta := range args.Charm.Meta().Resources {
+		res := jujuresource.Resource{
+			Resource: resource.Resource{
+				Meta:        meta,
+				Origin:      resource.OriginUpload,
+				Size:        int64(len(data)),
+				Fingerprint: fp,
+			},
+		}
+		r := bytes.NewBuffer(data)
+		if err := resourceState.SetResource(serviceID, res, r); err != nil {
+			logger.Errorf(errors.Details(err))
+			return errors.Annotatef(err, "can't add resource %q", meta.Name)
+		}
+	}
+	return nil
 }
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
