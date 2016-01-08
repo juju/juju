@@ -18,6 +18,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    AttemptSuite,
     AttemptSuiteFactory,
     BACKUP,
     BackupRestoreAttempt,
@@ -54,6 +55,7 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
 )
+from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
@@ -65,6 +67,7 @@ from test_substrate import (
     make_os_security_groups,
     )
 from tests import parse_error
+from utility import temp_dir
 
 
 __metaclass__ = type
@@ -219,15 +222,26 @@ class FakeStepAttempt:
 
     def __init__(self, result):
         self.result = result
+        self.stage = StageInfo(result[0][0], '{} title'.format(result[0][0]))
+
+    def __eq__(self, other):
+        return (
+            type(self) == type(other) and self.result == other.result)
 
     def iter_test_results(self, old, new):
         return iter(self.result)
+
+    def iter_steps(self, client):
+        yield self.stage.as_result(self.result[0][1])
 
 
 class FakeAttempt(FakeStepAttempt):
 
     def __init__(self, old_result, new_result, test_id='foo-id'):
         super(FakeAttempt, self).__init__([(test_id, old_result, new_result)])
+
+    def get_bootstrap_client(self, client):
+        return client
 
     def do_stage(self, old_client, new_client):
         return self.result[0]
@@ -1808,3 +1822,56 @@ class TestAttemptSuiteFactory(TestCase):
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'}),
             ]), factory.get_test_info())
+
+
+class TestAttemptSuite(TestCase):
+
+    def test_get_test_info(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap')
+        fake_1 = FakeAttemptClass('fake-1')
+        fake_2 = FakeAttemptClass('fake-2')
+        factory = AttemptSuiteFactory([fake_1, fake_2],
+                                      bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, None)
+        self.assertEqual(OrderedDict([
+            ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
+            ('fake-1-id', {'title': 'fake-1'}),
+            ('fake-2-id', {'title': 'fake-2'}),
+            ('destroy-env', {'title': 'destroy environment'}),
+            ('substrate-clean', {'title': 'check substrate clean'}),
+            ]), attempt_suite.get_test_info())
+
+    def test_iter_steps(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        with temp_dir() as log_dir:
+            factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+            attempt_suite = AttemptSuite(factory, None, log_dir)
+            client = FakeJujuClient()
+            with patch('industrial_test.BootstrapManager') as mock_bm:
+                with patch.object(attempt_suite,
+                                  '_iter_bs_manager_steps') as mock_ibms:
+                    iterator = attempt_suite.iter_steps(client)
+        self.assertEqual(iterator, mock_ibms.return_value)
+        mock_bm.assert_called_once_with(
+            'name', client, client, agent_stream=None, agent_url=None,
+            bootstrap_host=None, jes_enabled=False, keep_env=True,
+            log_dir=os.path.join(log_dir, '0'), machines=[], permanent=False,
+            region=None, series=None)
+        mock_ibms.assert_called_once_with(mock_bm.return_value, client,
+                                          fake_bootstrap(), False)
+
+    def test__iter_bs_manager_steps(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, None)
+        client = FakeJujuClient()
+        bs_manager = FakeBootstrapManager(client)
+        steps = list(attempt_suite._iter_bs_manager_steps(
+            bs_manager, client, fake_bootstrap(), True))
+        self.assertEqual([
+            {'test_id': 'fake-bootstrap-id', 'result': '1'},
+            {'test_id': 'destroy-env', 'result': True},
+            {'test_id': 'destroy-env', 'result': True},
+            {'test_id': 'substrate-clean', 'result': True},
+            {'test_id': 'substrate-clean', 'result': True},
+            ], steps)
