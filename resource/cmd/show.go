@@ -58,7 +58,7 @@ For cs:~user/trusty/mysql
 // Info implements cmd.Command.
 func (c *ShowCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-charm-resources",
+		Name:    "resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc:     showDoc,
