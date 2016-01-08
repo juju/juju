@@ -30,7 +30,7 @@ type LegacyHTTPHandler struct {
 	Connect func(*http.Request) (DataStore, error)
 
 	// HandleUpload provides the upload functionality.
-	HandleUpload func(string, DataStore, *http.Request) error
+	HandleUpload func(username string, st DataStore, req *http.Request) error
 }
 
 // TODO(ericsnow) Can username be extracted from the request?
