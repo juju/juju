@@ -21,10 +21,18 @@ __metaclass__ = type
 log = logging.getLogger("assess_cs_staging")
 
 
+def _set_charm_store_ip(client, ip):
+    cmd = (
+        '''sudo bash -c "echo '%s store.juju.ubuntu.com' >> /etc/hosts"'''
+        % ip)
+    client.juju('ssh', ('0', cmd))
+
+
 def assess_deploy(client, charm):
     """Deploy the charm."""
     client.deploy(charm)
     client.wait_for_started()
+    log.info("Deploying charm %r and waiting for started.", charm)
 
 
 def parse_args(argv):
@@ -32,8 +40,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test staging store.")
     parser.add_argument('charm_store_ip', help="Charm store address.")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--charm', action='store', default='ubuntu',
-                        help='Charm to deploy.')
+    parser.add_argument('--charm', default='ubuntu', help='Charm to deploy.')
     return parser.parse_args(argv)
 
 
@@ -42,10 +49,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        cmd = (
-            '''sudo bash -c "echo '%s store.juju.ubuntu.com' >> /etc/hosts"'''
-            % args.charm_store_ip)
-        bs_manager.client.juju('ssh', ('0', cmd))
+        _set_charm_store_ip(bs_manager.client, args.charm_store_ip)
         assess_deploy(bs_manager.client, args.charm)
     return 0
 

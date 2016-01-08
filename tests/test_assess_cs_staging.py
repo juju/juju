@@ -34,7 +34,6 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
 
 
 class TestMain(TestCase):
@@ -52,13 +51,16 @@ class TestMain(TestCase):
                            return_value=env) as mock_e:
                     with patch("jujupy.EnvJujuClient.by_version",
                                return_value=client) as mock_c:
-                        with patch("assess_cs_staging.assess_deploy",
-                                   autospec=True) as mock_assess:
-                            main(argv)
+                        with patch("assess_cs_staging._set_charm_store_ip",
+                                   autospec=True) as mock_set_ip:
+                            with patch("assess_cs_staging.assess_deploy",
+                                       autospec=True) as mock_assess:
+                                main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
+        mock_set_ip.assert_called_once_with(client, 'an-ip')
         mock_assess.assert_called_once_with(client, 'ubuntu')
 
 
@@ -69,4 +71,3 @@ class TestAssess(TestCase):
         assess_deploy(mock_client, "charm")
         mock_client.deploy.assert_called_once_with('charm')
         mock_client.wait_for_started.assert_called_once_with()
-        self.assertNotIn("TODO", self.log_stream.getvalue())
