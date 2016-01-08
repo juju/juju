@@ -135,7 +135,7 @@ website2 Bill User   2012-12-12 yes  awesome data
 
 `[1:])
 
-	checkCall(c, s.stubDeps.stub, "ListResources", [][]interface{}{{[]string{"svc"}}})
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
 type stubShowServiceDeps struct {
