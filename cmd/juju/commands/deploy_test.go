@@ -792,11 +792,25 @@ func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
 
 // serviceInfo holds information about a deployed service.
 type serviceInfo struct {
-	charm       string
-	config      charm.Settings
-	constraints constraints.Value
-	exposed     bool
-	storage     map[string]state.StorageConstraints
+	charm            string
+	config           charm.Settings
+	constraints      constraints.Value
+	exposed          bool
+	storage          map[string]state.StorageConstraints
+	endpointBindings map[string]string
+}
+
+// assertDeployedServiceBindings checks that services were deployed into the expected spaces.
+// It is separate to assertServicesDeployed because it is only relevant to one test.
+func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, service := range services {
+		endpointBindings, err := service.EndpointBindings()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(endpointBindings, jc.DeepEquals, info[service.Name()].endpointBindings)
+	}
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
