@@ -131,8 +131,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "openjdk",
-					Comment: "the java runtime",
+					Name:    "openjdk2",
+					Comment: "another java runtime",
 				},
 				Origin:   charmresource.OriginStore,
 				Revision: 8,
@@ -142,7 +142,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "website",
+					Name:    "website2",
 					Comment: "your website data",
 				},
 				Origin: charmresource.OriginUpload,
@@ -165,8 +165,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 RESOURCE ORIGIN      REV        USED COMMENT
 openjdk  store       7          no   the java runtime
 website  Sandra User -          no   your website data
-openjdk  store       8          yes  the java runtime
-website  Bill User   2012-12-12 yes  your website data
+openjdk2 store       8          yes  another java runtime
+website2 Bill User   2012-12-12 yes  your website data
 `[1:])
 }
 
