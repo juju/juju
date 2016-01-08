@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -32,8 +33,9 @@ type UploadDeps struct {
 type UploadCommand struct {
 	deps UploadDeps
 	envcmd.EnvCommandBase
-	service   string
-	resources map[string]string
+	service       string
+	resourceFiles []resourceFile
+	resources     map[string]struct{}
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -64,12 +66,17 @@ func (c *UploadCommand) Init(args []string) error {
 	case 1:
 		return errors.BadRequestf("no resource specified")
 	}
-	c.service = args[0]
 
-	c.resources = make(map[string]string, len(args)-1)
+	service := args[0]
+	if service == "" { // TODO(ericsnow) names.IsValidService
+		return errors.NewNotValid(nil, "missing service name")
+	}
+	c.service = service
+
+	c.resources = make(map[string]struct{})
 
 	for _, arg := range args[1:] {
-		if err := c.addResource(arg); err != nil {
+		if err := c.addResourceFile(arg); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -77,18 +84,25 @@ func (c *UploadCommand) Init(args []string) error {
 	return nil
 }
 
-// addResource parses the given arg into a name and a resource file, and saves
-// it in c.resources.
-func (c *UploadCommand) addResource(arg string) error {
-	vals := strings.SplitN(arg, "=", 2)
-	if len(vals) < 2 || vals[0] == "" || vals[1] == "" {
-		return errors.NotValidf("resource given: %q, but expected name=path format", arg)
+// addResourceFile parses the given arg into a name and a resource file,
+// and saves it in c.resourceFiles.
+func (c *UploadCommand) addResourceFile(arg string) error {
+	name, filename, err := parseResourceFileArg(arg)
+	if err != nil {
+		return errors.Annotatef(err, "bad resource arg %q", arg)
 	}
-	name := vals[0]
-	if _, ok := c.resources[name]; ok {
-		return errors.AlreadyExistsf("resource %q", name)
+	rf := resourceFile{
+		service:  c.service,
+		name:     name,
+		filename: filename,
 	}
-	c.resources[name] = vals[1]
+
+	if _, ok := c.resources[rf.name]; ok {
+		msg := fmt.Sprintf("duplicate resource %q", rf.name)
+		return errors.NewAlreadyExists(nil, msg)
+	}
+	c.resourceFiles = append(c.resourceFiles, rf)
+	c.resources[rf.name] = struct{}{}
 	return nil
 }
 
@@ -102,11 +116,11 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 	errs := []error{}
 
-	for name, file := range c.resources {
+	for _, rf := range c.resourceFiles {
 		// don't want to do a bulk upload since we're doing potentially large
 		// file uploads.
-		if err := c.upload(c.service, name, file, apiclient); err != nil {
-			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", name))
+		if err := c.upload(rf, apiclient); err != nil {
+			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", rf.name))
 		}
 	}
 	switch len(errs) {
@@ -125,12 +139,12 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // service with the given name.
-func (c *UploadCommand) upload(service, name, file string, client UploadClient) error {
-	f, err := c.deps.OpenResource(file)
+func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
+	f, err := c.deps.OpenResource(rf.filename)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(service, name, f)
+	err = client.Upload(rf.service, rf.name, f)
 	return errors.Trace(err)
 }
