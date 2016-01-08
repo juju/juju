@@ -1,4 +1,4 @@
-p="*.py"
+p=*.py
 test:
 	TMPDIR=/tmp python -m unittest discover -vv ./tests -p "$(p)"
 lint:
