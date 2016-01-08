@@ -4,14 +4,18 @@
 package cmd
 
 import (
+	"bytes"
 	"strings"
 
+	jujucmd "github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	coretesting "github.com/juju/juju/testing"
 )
 
-func newCharmResource(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
+func charmRes(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
 	var fp charmresource.Fingerprint
 	if fingerprint == "" {
 		built, err := charmresource.GenerateFingerprint([]byte(name))
@@ -49,8 +53,16 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 			comment = parts[1]
 		}
 
-		res := newCharmResource(c, name, ".tgz", comment, "")
+		res := charmRes(c, name, ".tgz", comment, "")
 		resources = append(resources, res)
 	}
 	return resources
+}
+
+func runCmd(c *gc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
+	ctx := coretesting.Context(c)
+	code = jujucmd.Main(command, ctx, args)
+	stdout = string(ctx.Stdout.(*bytes.Buffer).Bytes())
+	stderr = string(ctx.Stderr.(*bytes.Buffer).Bytes())
+	return code, stdout, stderr
 }

@@ -69,7 +69,7 @@ func (c *ShowCommand) Info() *cmd.Info {
 func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
-		"tabular": FormatTabular,
+		"tabular": FormatCharmTabular,
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})

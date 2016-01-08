@@ -4,7 +4,11 @@
 package cmd
 
 import (
+	"fmt"
+
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/resource"
 )
 
 type charmResourcesFormatter struct {
@@ -35,12 +39,68 @@ func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
 // FormatCharmResource converts the resource info into a FormattedCharmResource.
 func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	return FormattedCharmResource{
-		Name:        res.Name,
-		Type:        res.Type.String(),
-		Path:        res.Path,
-		Comment:     res.Comment,
-		Revision:    res.Revision,
-		Origin:      res.Origin.String(),
-		Fingerprint: res.Fingerprint.String(),
+		Name:          res.Name,
+		Type:          res.Type.String(),
+		Path:          res.Path,
+		Comment:       res.Comment,
+		Revision:      res.Revision,
+		Origin:        res.Origin.String(),
+		Fingerprint:   res.Fingerprint.String(),
+		charmRevision: charmRevision(res),
 	}
+}
+
+// FormatSvcResource converts the resource info into a FormattedServiceResource.
+func FormatSvcResource(res resource.Resource) FormattedSvcResource {
+	used := !res.Timestamp.IsZero()
+	return FormattedSvcResource{
+		Name:             res.Name,
+		Type:             res.Type.String(),
+		Path:             res.Path,
+		Comment:          res.Comment,
+		Revision:         res.Revision,
+		Origin:           res.Origin.String(),
+		Fingerprint:      res.Fingerprint.String(),
+		Used:             used,
+		Timestamp:        res.Timestamp,
+		Username:         res.Username,
+		combinedRevision: combinedRevision(res),
+		combinedOrigin:   combinedOrigin(res),
+		usedYesNo:        usedYesNo(used),
+	}
+}
+
+func combinedRevision(r resource.Resource) string {
+	switch r.Origin {
+	case charmresource.OriginStore:
+		return fmt.Sprintf("%d", r.Revision)
+	case charmresource.OriginUpload:
+		if !r.Timestamp.IsZero() {
+			return r.Timestamp.Format("2006-02-01")
+		}
+	}
+	return "-"
+}
+
+func combinedOrigin(r resource.Resource) string {
+	switch r.Origin {
+	case charmresource.OriginUpload:
+		return r.Username
+	default:
+		return r.Origin.String()
+	}
+}
+
+func usedYesNo(used bool) string {
+	if used {
+		return "yes"
+	}
+	return "no"
+}
+
+func charmRevision(r charmresource.Resource) string {
+	if r.Origin == charmresource.OriginStore {
+		return fmt.Sprintf("%d", r.Revision)
+	}
+	return "-"
 }
