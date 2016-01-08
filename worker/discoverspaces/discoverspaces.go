@@ -123,7 +123,6 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		spaceTag := names.NewSpaceTag(spaceName)
 		_, ok := stateSpaceMap[string(space.ProviderId)]
 		if !ok {
-			// XXX skip spaces with no subnets(?)
 			// We need to create the space.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
