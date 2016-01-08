@@ -99,3 +99,26 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 	f := FormatSvcResource(r)
 	c.Assert(f.Used, jc.IsTrue)
 }
+
+func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
+	// represents what we get when we first deploy a service
+	r := resource.Resource{
+		Resource: charmresource.Resource{
+			Origin: charmresource.OriginUpload,
+		},
+		Username:  "bill",
+		Timestamp: time.Now(),
+	}
+	f := FormatSvcResource(r)
+	c.Assert(f.combinedOrigin, gc.Equals, "bill")
+}
+
+func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
+	r := resource.Resource{
+		Resource: charmresource.Resource{
+			Origin: charmresource.OriginUpload,
+		},
+	}
+	f := FormatSvcResource(r)
+	c.Assert(f.combinedOrigin, gc.Equals, "upload")
+}

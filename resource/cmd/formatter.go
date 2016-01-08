@@ -65,7 +65,7 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		Timestamp:        res.Timestamp,
 		Username:         res.Username,
 		combinedRevision: combinedRevision(res),
-		combinedOrigin:   combinedOrigin(res),
+		combinedOrigin:   combinedOrigin(used, res),
 		usedYesNo:        usedYesNo(used),
 	}
 }
@@ -82,13 +82,11 @@ func combinedRevision(r resource.Resource) string {
 	return "-"
 }
 
-func combinedOrigin(r resource.Resource) string {
-	switch r.Origin {
-	case charmresource.OriginUpload:
+func combinedOrigin(used bool, r resource.Resource) string {
+	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
 		return r.Username
-	default:
-		return r.Origin.String()
 	}
+	return r.Origin.String()
 }
 
 func usedYesNo(used bool) string {
