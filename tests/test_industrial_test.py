@@ -18,6 +18,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    AttemptSuiteFactory,
     BACKUP,
     BackupRestoreAttempt,
     BootstrapAttempt,
@@ -1781,3 +1782,29 @@ class TestStageInfo(TestCase):
                          {'test_id': 'foo-id', 'result': True})
         self.assertEqual(si.as_result(False),
                          {'test_id': 'foo-id', 'result': False})
+
+
+class TestAttemptSuiteFactory(TestCase):
+
+    def test_factory(self):
+        fake_bootstrap = FakeAttemptClass('bootstrap')
+        factory = AttemptSuiteFactory([],
+                                      bootstrap_attempt=fake_bootstrap)
+        attempt_suite = factory.factory(['1', '2'], 'log-1')
+        self.assertEqual(factory, attempt_suite.attempt_list)
+        self.assertEqual(['1', '2'], attempt_suite.upgrade_sequence)
+        self.assertEqual('log-1', attempt_suite.log_dir)
+
+    def test_get_test_info(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap')
+        fake_1 = FakeAttemptClass('fake-1')
+        fake_2 = FakeAttemptClass('fake-2')
+        factory = AttemptSuiteFactory([fake_1, fake_2],
+                                      bootstrap_attempt=fake_bootstrap)
+        self.assertEqual(OrderedDict([
+            ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
+            ('fake-1-id', {'title': 'fake-1'}),
+            ('fake-2-id', {'title': 'fake-2'}),
+            ('destroy-env', {'title': 'destroy environment'}),
+            ('substrate-clean', {'title': 'check substrate clean'}),
+            ]), factory.get_test_info())
