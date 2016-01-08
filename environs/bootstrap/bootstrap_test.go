@@ -127,6 +127,9 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,8 +143,6 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 		},
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
-	s.PatchValue(&series.HostSeries, func() string { return "precise" })
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
