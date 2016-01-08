@@ -9,7 +9,6 @@ import (
 	"text/template"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -698,9 +697,8 @@ func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
 	}
 	for _, data := range rawData {
 		inst := suite.getInstance("testInstance")
-		interfaces, primaryIface, err := extractInterfaces(inst, []byte(data))
+		interfaces, err := extractInterfaces(inst, []byte(data))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(primaryIface, gc.Equals, "eth0")
 		c.Check(interfaces, jc.DeepEquals, map[string]ifaceInfo{
 			"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
 			"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
@@ -721,10 +719,9 @@ func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 
 	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
 	env := suite.makeEnviron()
-	interfaces, primaryIface, err := env.getInstanceNetworkInterfaces(inst)
+	interfaces, err := env.getInstanceNetworkInterfaces(inst)
 	c.Assert(err, jc.ErrorIsNil)
 	// Both wlan0 and eth0 are disabled in lshw output.
-	c.Check(primaryIface, gc.Equals, "vnet1")
 	c.Check(interfaces, jc.DeepEquals, templateInterfaces)
 }
 
@@ -745,14 +742,10 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
-		testInstance,
-		set.NewStrings("WLAN"), // Disable WLAN only.
-	)
+	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "vnet1")
 	// Unfortunately, because network.InterfaceInfo is unhashable
 	// (contains a map) we can't use jc.SameContents here.
 	c.Check(networkInfo, gc.HasLen, 3)
@@ -811,14 +804,10 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
-		testInstance,
-		set.NewStrings(), // All enabled.
-	)
+	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "192.168.2.1/24",
@@ -845,14 +834,10 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
-		testInstance,
-		set.NewStrings(), // All enabled.
-	)
+	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
