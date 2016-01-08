@@ -50,7 +50,7 @@ func (mi *maasInstance) Status() string {
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	interfaceAddresses, err := mi.interfaceAddresses()
 	if errors.IsNotSupported(err) {
-		logger.Warningf("cannot get interface addresses (using legacy approach)")
+		logger.Warningf("cannot get interface addresses (using legacy approach): %v", err)
 		return mi.legacyAddresses()
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting node interfaces")
@@ -99,88 +99,36 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	return network.ResolvableHostnames(addrs), nil
 }
 
-// TODO(dimitern): In a follow-up, reuse maasObjectNetworkInterfaces to extract
-// the addresses below.
-//
-// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311417
+var refreshMAASObject = func(maasObject *gomaasapi.MAASObject) (gomaasapi.MAASObject, error) {
+	// Defined like this to allow patching in tests to overcome limitations of
+	// gomaasapi's test server.
+	return maasObject.Get()
+}
+
+// interfaceAddresses fetches a fresh copy of the node details from MAAS and
+// extracts all addresses from the node's interfaces. Returns an error
+// satisfying errors.IsNotSupported() if MAAS API does not report interfaces
+// information.
 func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 	// Fetch a fresh copy of the instance JSON first.
-	obj, err := mi.maasObject.Get()
+	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting instance details")
 	}
-	// Extract the "interface_set" list, and process all the links of each
-	// interface to get the mapping between assigned address and the space it
-	// belongs to.
-	interfacesArray := obj.GetMap()["interface_set"]
-	if interfacesArray.IsNil() {
-		// Older MAAS versions do not return interface_set.
-		return nil, errors.NotSupportedf("interface_set")
-	}
-	objs, err := interfacesArray.GetArray()
+
+	// Get all the interface details and extract the addresses.
+	interfaces, err := maasObjectNetworkInterfaces(&obj)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting interfaces list")
+		return nil, errors.Trace(err)
 	}
+
 	var addresses []network.Address
-	for i, obj := range objs {
-		objMap, err := obj.GetMap()
-		if err != nil {
-			return nil, errors.Annotate(err, "getting interface map")
-		}
-		nameField, ok := objMap["name"]
-		if !ok || nameField.IsNil() {
-			return nil, errors.Errorf("expected a name for interface #%d, got nothing", i)
-		}
-		name, err := nameField.GetString()
-		if err != nil {
-			return nil, errors.Annotatef(err, "expected interface #%d name as string", i)
-		}
-		linksArray, ok := objMap["links"]
-		if !ok || linksArray.IsNil() {
-			logger.Warningf("skipping interface #%d %q with no links", i, name)
-			continue
-		}
-		links, err := linksArray.GetArray()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting interface #%d %q links", i, name)
-		}
-		for j, link := range links {
-			linkMap, err := link.GetMap()
-			if err != nil {
-				logger.Warningf("skipping link #%d on interface #%d %q: %v", j, i, name, err)
-				continue
-			}
-			ipAddressObj, ok := linkMap["ip_address"]
-			if !ok || ipAddressObj.IsNil() {
-				logger.Warningf("skipping link #%d on interface #%d %q: no ip_address set", j, i, name)
-				continue
-			}
-			ipAddress, err := ipAddressObj.GetString()
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting ip_address on interface #%d %q link #%d", i, name, j)
-			}
-			subnetObj, ok := linkMap["subnet"]
-			if !ok || subnetObj.IsNil() {
-				logger.Warningf("skipping link #%d on interface #%d %q: no linked subnet", j, i, name)
-				continue
-			}
-			subnetMap, err := subnetObj.GetMap()
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting interface #%d %q link #%d subnet", i, name, j)
-			}
-			spaceField, ok := subnetMap["space"]
-			if !ok || spaceField.IsNil() {
-				logger.Warningf("skipping link #%d on interface #%d %q: no space on linked subnet", j, i, name)
-				continue
-			}
-			space, err := spaceField.GetString()
-			if err != nil {
-				return nil, errors.Annotatef(err, "expected interface #%d %q link #%d subnet space as string", i, name, j)
-			}
-			logger.Infof("found address %q on interface %q in space %q", ipAddress, name, space)
-			addr := network.NewAddress(ipAddress)
-			addr.SpaceName = network.SpaceName(space)
-			addresses = append(addresses, addr)
+	for _, iface := range interfaces {
+		if iface.Address.Value != "" {
+			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)
+			addresses = append(addresses, iface.Address)
+		} else {
+			logger.Infof("no address found on interface %q", iface.InterfaceName)
 		}
 	}
 	return addresses, nil

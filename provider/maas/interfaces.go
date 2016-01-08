@@ -99,14 +99,17 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	return interfaces, nil
 }
 
-// maasObjectNetworkInterfaces implements environs.NetworkInterfaces() assuming
-// the new (1.9+) MAAS API is supported and uses the given maasObject's stored
-// JSON to extract all the relevant InterfaceInfo fields.
+// maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
+// new (1.9+) MAAS API, parsing the node details JSON embedded into the given
+// maasObject to extract all the relevant InterfaceInfo fields. It returns an
+// error satisfying errors.IsNotSupported() if it cannot find the required
+// "interface_set" node details field.
 func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.InterfaceInfo, error) {
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
-		return nil, errors.Errorf("unexpected node JSON: missing or nil interface_set found")
+		// This means we're using an older MAAS API.
+		return nil, errors.NotSupportedf("interface_set")
 	}
 
 	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
@@ -190,6 +193,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 // NetworkInterfaces implements Environ.NetworkInterfaces.
 func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	if !environ.supportsNetworkDeploymentUbuntu {
+		// No need to check if the instance JSON has "interface_set" in this
+		// case, as it won't.
 		return environ.legacyNetworkInterfaces(instId)
 	}
 
