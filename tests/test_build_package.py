@@ -80,8 +80,8 @@ class JujuSeriesTestCase(unittest.TestCase):
             'trusty',
             juju_series.get_name_from_package_version(
                 '1.25.0-0ubuntu1~14.04.1~juju1'))
-        self.assertEqual(
-            '',
+        self.assertIs(
+            None,
             juju_series.get_name_from_package_version('1.25.0-0ubuntu1'))
 
     def test_get_version(self):
@@ -477,6 +477,12 @@ class BuildPackageTestCase(unittest.TestCase):
 
     @patch('sys.stdout', new_callable=StringIO)
     def test_print_series_info(self, so_mock):
+        # Unmatched.
+        code = print_series_info(
+            package_version='1.25.0-0ubuntu1')
+        self.assertEqual(1, code)
+        self.assertEqual('', so_mock.getvalue())
+        # Matched.
         code = print_series_info(
             package_version='1.25.0-0ubuntu1~16.04.1~juju1')
         self.assertEqual(0, code)

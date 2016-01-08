@@ -222,7 +222,7 @@ get_series() {
     # Defines $series.
     control_version=$1
     series=$($SCRIPT_DIR/build_package.py \
-        print --series-name-from-package-version $control_version)
+        print --series-name-from-package-version $control_version || true)
     if [[ -z $series ]]; then
         echo "Cannot get juju series from package version $control_version "
         exit 3

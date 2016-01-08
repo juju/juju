@@ -164,7 +164,7 @@ class _JujuSeries:
         for series in self.all.values():
             if series.version in package_version:
                 return series.name
-        return ''
+        return None
 
     def get_version(self, name):
         return self.all[name].version
@@ -453,9 +453,13 @@ def build_source(tarfile_path, location, series, bugs,
 
 
 def print_series_info(package_version=None):
+    exitcode = 1
     if package_version:
-        print(juju_series.get_name_from_package_version(package_version))
-    return 0
+        version = juju_series.get_name_from_package_version(package_version)
+        if version:
+            print(version)
+            return 0
+    return exitcode
 
 
 def main(argv):
