@@ -60,6 +60,8 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	return interfaceAddresses, nil
 }
 
+// legacyAddresses is used to extract all IP addresses of the node when not
+// using MAAS 1.9+ API.
 func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	name, err := mi.hostname()
 	if err != nil {
@@ -73,12 +75,23 @@ func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	addrs[0].Scope = network.ScopePublic
 	addrs[1].Scope = network.ScopeCloudLocal
 
-	// Append any remaining IP addresses after the preferred ones.
-	ips, err := mi.ipAddresses()
-	if err != nil {
-		return nil, err
+	// Append any remaining IP addresses after the preferred ones. We have to do
+	// this the hard way, since maasObject doesn't have this built-in yet
+	addressArray := mi.maasObject.GetMap()["ip_addresses"]
+	if !addressArray.IsNil() {
+		// Older MAAS versions do not return ip_addresses.
+		objs, err := addressArray.GetArray()
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range objs {
+			s, err := obj.GetString()
+			if err != nil {
+				return nil, err
+			}
+			addrs = append(addrs, network.NewAddress(s))
+		}
 	}
-	addrs = append(addrs, network.NewAddresses(ips...)...)
 
 	// Although we would prefer a DNS name there's no point
 	// returning unresolvable names because activities like 'juju
@@ -171,28 +184,6 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		}
 	}
 	return addresses, nil
-}
-
-func (mi *maasInstance) ipAddresses() ([]string, error) {
-	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	addressArray := mi.maasObject.GetMap()["ip_addresses"]
-	if addressArray.IsNil() {
-		// Older MAAS versions do not return ip_addresses.
-		return nil, nil
-	}
-	objs, err := addressArray.GetArray()
-	if err != nil {
-		return nil, err
-	}
-	ips := make([]string, len(objs))
-	for i, obj := range objs {
-		s, err := obj.GetString()
-		if err != nil {
-			return nil, err
-		}
-		ips[i] = s
-	}
-	return ips, nil
 }
 
 func (mi *maasInstance) architecture() (arch, subarch string, err error) {
