@@ -618,8 +618,8 @@ class TestEnvJujuClient(ClientTest):
 
     def test_by_version_keep_home(self):
         env = SimpleEnvironment({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            client = EnvJujuClient.by_version(env, 'foo/bar/qux')
+        with patch('subprocess.check_output', return_value=' 4.3'):
+            EnvJujuClient.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
     def test_full_args(self):
