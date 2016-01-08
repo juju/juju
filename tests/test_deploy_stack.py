@@ -44,6 +44,7 @@ from deploy_stack import (
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    get_juju_home,
     )
 from jujupy import (
     DEFAULT_JES_COMMAND_1x,
@@ -991,6 +992,20 @@ class TestBootstrapManager(FakeHomeTestCase):
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
+
+    def test_bootstrap_context_no_set_home(self):
+        orig_home = get_juju_home()
+        client = self.make_client()
+        jenv_path = get_jenv_path(client.env.juju_home, 'foobar')
+        os.makedirs(os.path.dirname(jenv_path))
+        with open(jenv_path, 'w'):
+            pass
+
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.env.juju_home, False, False, False)
+        with bs_manager.bootstrap_context([]):
+            self.assertEqual(orig_home, get_juju_home())
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
