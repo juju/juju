@@ -4,6 +4,8 @@
 package discoverspaces
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,6 +24,30 @@ var logger = loggo.GetLogger("juju.discoverspaces")
 type discoverspacesWorker struct {
 	api  *discoverspaces.API
 	tomb tomb.Tomb
+}
+
+var invalidChars = regexp.MustCompile("[^0-9a-z-]")
+
+func convertSpaceName(name string, existing set.Strings) string {
+	// First replace any character that isn't in the set "-", "a-z", "0-9".
+	name = invalidChars.ReplaceAllString(name, "")
+	// Next get rid of any dashes at the start as that isn't valid.
+	for strings.HasPrefix(name, "-") {
+		name = name[1:]
+	}
+	// Special case of when the space name was only dashes!
+	if name == "" {
+		name = "empty"
+	}
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+	return name
 }
 
 // NewWorker returns a worker
@@ -116,12 +142,17 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		spaceName = strings.Replace(spaceName, " ", "-", -1)
 		spaceName = strings.ToLower(spaceName)
 		if !names.IsValidSpace(spaceName) {
-			// XXX generate a valid name here
-			logger.Errorf("invalid space name %v", spaceName)
-			return errors.Errorf("invalid space name: %q", spaceName)
+			// Convert the name into a valid name that isn't already in
+			// use.
+			spaceName = convertSpaceName(spaceName, spaceNames)
+			spaceNames.Add(spaceName)
 		}
 		spaceTag := names.NewSpaceTag(spaceName)
-		_, ok := stateSpaceMap[string(space.ProviderId)]
+		// XXX instead of creating a new space name, we ought to use
+		// the real space name if this provider id is already found in
+		// state. Only generate a new one if it isn't already there.
+		stateSpace, ok := stateSpaceMap[string(space.ProviderId)]
+		var spaceName string
 		if !ok {
 			// We need to create the space.
 			args := params.CreateSpacesParams{
