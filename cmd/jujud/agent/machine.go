@@ -96,7 +96,6 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -481,14 +480,15 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			Agent:                agent.APIHostPortsSetter{a},
-			UpgradeStepsLock:     a.upgradeComplete,
-			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
-			OpenStateForUpgrade:  a.openStateForUpgrade,
-			WriteUninstallFile:   a.writeUninstallAgentFile,
-			StartAPIWorkers:      a.startAPIWorkers,
-			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			PreviousAgentVersion:  previousAgentVersion,
+			Agent:                 agent.APIHostPortsSetter{a},
+			UpgradeStepsLock:      a.upgradeComplete,
+			UpgradeCheckLock:      a.initialUpgradeCheckComplete,
+			OpenStateForUpgrade:   a.openStateForUpgrade,
+			WriteUninstallFile:    a.writeUninstallAgentFile,
+			StartAPIWorkers:       a.startAPIWorkers,
+			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
+			ShouldWriteProxyFiles: shouldWriteProxyFiles,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -704,19 +704,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			worker.Stop(runner)
 		}
 	}()
-
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	// Start this worker first to try and get proxy settings in place
-	// before we do anything else.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.New(apiConn.Environment(), writeSystemFiles)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
-		}
-		return w, nil
-	})
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {

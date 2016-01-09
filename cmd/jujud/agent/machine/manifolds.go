@@ -14,11 +14,13 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -58,6 +60,11 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+
+	// ShouldWriteProxyFiles is a function that is used by apiaddressupdater.
+	// It returns true, unless the supplied conf identifies the machine agent
+	// running directly on the host system in a local environment.
+	ShouldWriteProxyFiles func(conf coreagent.Config) bool
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -178,6 +185,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdater: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+			ShouldWriteProxyFiles: config.ShouldWriteProxyFiles,
+		}),
 	}
 }
 
@@ -196,4 +214,5 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	proxyConfigUpdater       = "proxy-config-updater"
 )
