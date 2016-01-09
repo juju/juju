@@ -98,7 +98,6 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -481,14 +480,15 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			Agent:                agent.APIHostPortsSetter{a},
-			UpgradeStepsLock:     a.upgradeComplete,
-			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
-			OpenStateForUpgrade:  a.openStateForUpgrade,
-			WriteUninstallFile:   a.writeUninstallAgentFile,
-			StartAPIWorkers:      a.startAPIWorkers,
-			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			PreviousAgentVersion:   previousAgentVersion,
+			Agent:                  agent.APIHostPortsSetter{a},
+			UpgradeStepsLock:       a.upgradeComplete,
+			UpgradeCheckLock:       a.initialUpgradeCheckComplete,
+			OpenStateForUpgrade:    a.openStateForUpgrade,
+			WriteUninstallFile:     a.writeUninstallAgentFile,
+			StartAPIWorkers:        a.startAPIWorkers,
+			PreUpgradeSteps:        upgrades.PreUpgradeSteps,
+			NewRsyslogConfigWorker: cmdutil.NewRsyslogConfigWorker,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -760,20 +760,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 		return w, nil
 	})
-
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		rsyslogMode := rsyslog.RsyslogModeForwarding
-		if isEnvironManager {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-		}
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
-			}
-			return w, nil
-		})
-	}
 
 	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 		api, err := apiConn.DiskManager()

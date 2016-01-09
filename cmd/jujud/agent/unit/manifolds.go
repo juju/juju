@@ -84,8 +84,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// to send messages to the state servers. We should only need one
 		// of these in a consolidated agent.
 		RsyslogConfigUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         AgentName,
+				APICallerName:     APICallerName,
+				UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			},
 		}),
 
 		// The logging config updater is a leaf worker that indirectly

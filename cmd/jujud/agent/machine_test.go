@@ -1415,7 +1415,6 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	a := s.newAgent(c, stm)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for rsyslog worker to be created")
