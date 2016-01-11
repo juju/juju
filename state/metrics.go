@@ -152,15 +152,19 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	return metric, nil
 }
 
-// MetricBatches returns all metric batches currently stored in state.
+// AllMetricBatches returns all metric batches currently stored in state.
 // TODO (tasdomas): this method is currently only used in the uniter worker test -
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
-func (st *State) MetricBatches() ([]MetricBatch, error) {
+func (st *State) AllMetricBatches() ([]MetricBatch, error) {
+	return st.queryMetricBatches(nil)
+}
+
+func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
-	err := c.Find(nil).All(&docs)
+	err := c.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,6 +173,28 @@ func (st *State) MetricBatches() ([]MetricBatch, error) {
 		results[i] = MetricBatch{st: st, doc: doc}
 	}
 	return results, nil
+}
+
+// MetricBatchesUnit returns metric batches for the given unit.
+func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	return st.queryMetricBatches(bson.M{"unit": unit})
+}
+
+// MetricBatchesUnit returns metric batches for the given service.
+func (st *State) MetricBatchesForService(service string) ([]MetricBatch, error) {
+	svc, err := st.Service(service)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]bson.M, len(units))
+	for i, u := range units {
+		unitNames[i] = bson.M{"unit": u.Name()}
+	}
+	return st.queryMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.

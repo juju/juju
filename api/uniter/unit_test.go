@@ -962,7 +962,7 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[batch.UUID], gc.IsNil)
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, gc.IsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	c.Assert(batches[0].UUID(), gc.Equals, uuid)

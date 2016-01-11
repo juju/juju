@@ -804,3 +804,33 @@ type BundleChangesChange struct {
 	// before this change is applied.
 	Requires []string `json:"requires"`
 }
+
+// MetricsResults contains results from a GetMetrics call, with
+// one item per Entity given as an argument to the command.
+type MetricsResults struct {
+	Results []MetricsResult `json:"results"`
+}
+
+// OneError returns the first error
+func (m *MetricsResults) OneError() error {
+	for _, r := range m.Results {
+		if err := r.Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MetricsResults contains the results of a GetMetrics call for a single
+// entity.
+type MetricsResult struct {
+	Metrics []MetricResult `json:"metrics,omitempty"`
+	Error   *Error         `json:"error,omitempty"`
+}
+
+// MetricResults contains a single metric.
+type MetricResult struct {
+	Time  time.Time `json:"time"`
+	Key   string    `json:"key"`
+	Value string    `jons:"value"`
+}

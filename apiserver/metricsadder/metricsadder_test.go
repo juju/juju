@@ -116,7 +116,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -147,7 +147,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -200,7 +200,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
 		}
 
-		batches, err := s.State.MetricBatches()
+		batches, err := s.State.AllMetricBatches()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(batches, gc.HasLen, 0)
 

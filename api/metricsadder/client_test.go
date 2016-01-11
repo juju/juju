@@ -147,7 +147,7 @@ func (s *metricsAdderIntegrationSuite) TestAddMetricBatches(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(result, gc.IsNil)
 
-	stateBatches, err := s.State.MetricBatches()
+	stateBatches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateBatches, gc.HasLen, 1)
 	c.Assert(stateBatches[0].CharmURL(), gc.Equals, batches[0].Batch.CharmURL)
