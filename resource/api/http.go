@@ -3,6 +3,10 @@
 
 package api
 
+import (
+	"net/url"
+)
+
 const (
 	// HTTPEndpointPattern is the URL path pattern registered with
 	// the API server. This includes wildcards (starting with ":") that
@@ -14,3 +18,11 @@ const (
 	// a resource request.
 	HTTPEndpointPath = "/environment/%s/services/%s/resources/%s"
 )
+
+// ExtractEndpointDetails pulls the endpoint wildcard values from
+// the provided URL.
+func ExtractEndpointDetails(url *url.URL) (service, name string) {
+	service = url.Query().Get(":service")
+	name = url.Query().Get(":resource")
+	return service, name
+}

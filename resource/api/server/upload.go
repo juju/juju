@@ -14,6 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 )
 
 // UploadDataStore describes the the portion of Juju's "state"
@@ -74,9 +75,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 		return nil, errors.Errorf("unsupported content type %q", ctype)
 	}
 
-	// See resource/api/http.go for more on these URL query values.
-	service := req.URL.Query().Get(":service")
-	name := req.URL.Query().Get(":resource")
+	service, name := api.ExtractEndpointDetails(req.URL)
 
 	fingerprint := req.Header.Get("Content-SHA384") // This parallels "Content-MD5".
 	size := req.Header.Get("Content-Length")
