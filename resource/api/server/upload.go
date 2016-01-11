@@ -4,10 +4,8 @@
 package server
 
 import (
-	"encoding/hex"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -70,22 +68,17 @@ func (uh UploadHandler) HandleRequest(req *http.Request) error {
 
 // ReadResource extracts the relevant info from the request.
 func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
-	ctype := req.Header.Get("Content-Type")
-	if ctype != "application/octet-stream" {
-		return nil, errors.Errorf("unsupported content type %q", ctype)
+	service, name, size, fp, err := api.ExtractUploadRequest(req)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	service, name := api.ExtractEndpointDetails(req.URL)
-
-	fingerprint := req.Header.Get("Content-SHA384") // This parallels "Content-MD5".
-	size := req.Header.Get("Content-Length")
 
 	res, err := uh.Store.GetResource(service, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	res, err = uh.updateResource(res, fingerprint, size)
+	res, err = uh.updateResource(res, fp, size)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,25 +93,11 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 
 // updateResource returns a copy of the provided resource, updated with
 // the given information.
-func (uh UploadHandler) updateResource(res resource.Resource, fingerprint, size string) (resource.Resource, error) {
-	data, err := hex.DecodeString(fingerprint)
-	if err != nil {
-		return res, errors.Annotate(err, "invalid fingerprint")
-	}
-	fp, err := charmresource.NewFingerprint(data)
-	if err != nil {
-		return res, errors.Annotate(err, "invalid fingerprint")
-	}
-
-	sizeInt, err := strconv.ParseInt(size, 10, 64)
-	if err != nil {
-		return res, errors.Annotate(err, "invalid size")
-	}
-
+func (uh UploadHandler) updateResource(res resource.Resource, fp charmresource.Fingerprint, size int64) (resource.Resource, error) {
 	res.Origin = charmresource.OriginUpload
 	res.Revision = 0
 	res.Fingerprint = fp
-	res.Size = sizeInt
+	res.Size = size
 	res.Username = uh.Username
 	res.Timestamp = uh.CurrentTimestamp().UTC()
 

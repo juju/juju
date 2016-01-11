@@ -169,7 +169,7 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 	_, err := uh.ReadResource(req)
 
 	c.Check(err, gc.ErrorMatches, "invalid fingerprint.*")
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckNoCalls(c)
 }
 
 func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
@@ -186,7 +186,7 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 	_, err := uh.ReadResource(req)
 
 	c.Check(err, gc.ErrorMatches, "invalid size.*")
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckNoCalls(c)
 }
 
 func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
