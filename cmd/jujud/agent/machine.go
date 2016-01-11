@@ -88,7 +88,6 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
@@ -1076,15 +1075,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
-			// TODO(axw) 2013-09-24 bug #1229507
-			// Make another job to enable storage.
-			// There's nothing special about this.
-			return localstorage.NewWorker(agentConfig), nil
-		})
-	}
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
