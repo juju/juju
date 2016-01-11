@@ -43,7 +43,7 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 }
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
-func NewHTTPUploadRequest(rootURL, envUUID, service, name string, r io.ReadSeeker) (*http.Request, error) {
+func NewHTTPUploadRequest(envUUID, service, name string, r io.ReadSeeker) (*http.Request, error) {
 	// TODO(ericsnow) Use the newer GenerateFingerprint()...
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -59,7 +59,8 @@ func NewHTTPUploadRequest(rootURL, envUUID, service, name string, r io.ReadSeeke
 	}
 
 	method := "PUT"
-	urlStr := rootURL + NewEndpointPath(envUUID, service, name)
+	// TODO(ericsnow) What about the rest of the URL?
+	urlStr := NewEndpointPath(envUUID, service, name)
 	req, err := http.NewRequest(method, urlStr, r)
 	if err != nil {
 		return nil, errors.Trace(err)
