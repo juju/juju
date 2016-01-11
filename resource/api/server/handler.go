@@ -22,8 +22,8 @@ import (
 // even the HTTPHandlerSpec?
 
 // LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
-// use it rather than wrapping the functions since API HTTP endpoints
-// must handle *all* HTTP methods.
+// use it rather having a separate handler for each HTTP method since
+// registered API handlers must handle *all* HTTP methods currently.
 type LegacyHTTPHandler struct {
 	// Connect opens a connection to state resources.
 	Connect func(*http.Request) (DataStore, names.Tag, error)
