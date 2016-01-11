@@ -210,8 +210,8 @@ type HTTPEndpoints struct {
 	// patternSpecs is the set of endpoint specs, mapping patterns to specs.
 	patternSpecs map[string]HTTPEndpointSpec
 
-	// ordered holds the flat order of endpoint patterns.
-	ordered []string
+	// orderedPatterns holds the flat order of endpoint patterns.
+	orderedPatterns []string
 
 	// unsupportedMethodHandler
 	unsupportedMethodHandler http.Handler
@@ -244,14 +244,14 @@ func (hes *HTTPEndpoints) add(spec HTTPEndpointSpec) error {
 	// TODO(ericsnow) Order by the flattened hierarchy of URL path
 	// elements, alphabetical with deepest elements first. Depth matters
 	// because the first pattern match is the one used.
-	hes.ordered = append(hes.ordered, spec.pattern)
+	hes.orderedPatterns = append(hes.orderedPatterns, spec.pattern)
 	return nil
 }
 
 // specs returns the spec for each endpoint, in order.
 func (hes *HTTPEndpoints) specs() []HTTPEndpointSpec {
 	var specs []HTTPEndpointSpec
-	for _, pattern := range hes.ordered {
+	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
 		specs = append(specs, spec)
 	}
@@ -261,7 +261,7 @@ func (hes *HTTPEndpoints) specs() []HTTPEndpointSpec {
 // resolve builds the list of endpoints, preserving order.
 func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
 	var endpoints []HTTPEndpoint
-	for _, pattern := range hes.ordered {
+	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
 		for _, method := range spec.Methods() {
 			if method == "" {
@@ -286,7 +286,7 @@ func (hes HTTPEndpoints) resolve(newArgs func(HTTPHandlerConstraints) NewHTTPHan
 // resolveForMethods builds the list of endpoints, preserving order.
 func (hes HTTPEndpoints) resolveForMethods(methods []string, newArgs func(HTTPHandlerConstraints) NewHTTPHandlerArgs) []HTTPEndpoint {
 	var endpoints []HTTPEndpoint
-	for _, pattern := range hes.ordered {
+	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
 		for _, method := range methods {
 			hSpec := spec.Resolve(method, hes.unsupportedMethodHandler)
