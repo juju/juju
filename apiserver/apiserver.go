@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
+	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -343,8 +344,8 @@ func (srv *Server) run(lis net.Listener) {
 		srv: srv,
 	}
 
-	handleAll(mux, resourceapiserver.HTTPEndpoint,
-		&newResourceHandler(httpCtxt),
+	handleAll(mux, resourceapi.HTTPEndpointPattern,
+		newResourceHandler(httpCtxt),
 	)
 
 	if feature.IsDbLogEnabled() {

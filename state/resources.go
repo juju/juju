@@ -16,6 +16,8 @@ type Resources interface {
 	// ListResources returns the list of resources for the given service.
 	ListResources(serviceID string) ([]resource.Resource, error)
 
+	// GetResource returns the identified resource.
+	GetResource(serviceID, name string) (resource.Resource, error)
 	// SetResource stores the resource in the Juju model.
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 }

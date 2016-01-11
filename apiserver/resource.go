@@ -16,12 +16,16 @@ import (
 
 func newResourceHandler(httpCtxt httpContext) http.Handler {
 	return server.NewLegacyHTTPHandler(
-		func(req *http.Request) (names.Tag, server.DataStore, error) {
+		func(req *http.Request) (server.DataStore, names.Tag, error) {
 			st, entity, err := httpCtxt.stateForRequestAuthenticatedUser(req)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			return st, entity.Tag(), nil
+			resources, err := st.Resources()
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			return resources, entity.Tag(), nil
 		},
 	)
 }
