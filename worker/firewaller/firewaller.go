@@ -145,7 +145,9 @@ func (fw *Firewaller) loop() error {
 				return errors.New("machines watcher closed")
 			}
 			for _, machineId := range change {
-				fw.machineLifeChanged(names.NewMachineTag(machineId))
+				if err := fw.machineLifeChanged(names.NewMachineTag(machineId)); err != nil {
+					return err
+				}
 			}
 			if !reconciled {
 				reconciled = true

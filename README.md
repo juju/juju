@@ -8,7 +8,7 @@ Azure, HP your data center and even your own Ubuntu based laptop.
 Moving between environments is simple giving you the flexibility to switch hosts
 whenever you want — for free.
 
-For more information, see the [docs](https://juju.ubuntu.com/docs/).
+For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
 
 Getting started
 ===============

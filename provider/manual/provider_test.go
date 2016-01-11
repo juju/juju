@@ -4,16 +4,13 @@
 package manual_test
 
 import (
-	"fmt"
 	"io"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/manual"
 	coretesting "github.com/juju/juju/testing"
@@ -35,14 +32,10 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 	minimal := manual.MinimalConfigValues()
 	minimal["use-sshstorage"] = true
-	delete(minimal, "storage-auth-key")
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := env.Config()
-	key, _ := cfg.UnknownAttrs()["storage-auth-key"].(string)
-	c.Assert(key, jc.Satisfies, utils.IsValidUUIDString)
 }
 
 func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
@@ -53,14 +46,11 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
-	s.PatchValue(manual.NewSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
-		return nil, fmt.Errorf("newSSHStorage failed")
-	})
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
-	c.Assert(err, gc.ErrorMatches, "initialising SSH storage failed: newSSHStorage failed")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {

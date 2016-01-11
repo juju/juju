@@ -436,6 +436,70 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	})
 }
 
+func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
+	internalSubnetId := path.Join(
+		"/subscriptions", fakeSubscriptionId,
+		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
+		"juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+	)
+	ipConfiguration := network.InterfaceIPConfiguration{
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			PrivateIPAddress: to.StringPtr("10.0.0.4"),
+			Subnet: &network.SubResource{
+				ID: to.StringPtr(internalSubnetId),
+			},
+		},
+	}
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
+	}
+
+	inst := s.getInstance(c)
+	okSender := mocks.NewSender()
+	okSender.EmitContent("{}")
+	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+		Name: to.StringPtr("machine-0-tcp-1000"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolAsterisk,
+			DestinationPortRange: to.StringPtr("1000"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Inbound,
+		},
+	}})
+	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
+
+	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+		Protocol: "tcp",
+		FromPort: 1000,
+		ToPort:   1000,
+	}, {
+		Protocol: "udp",
+		FromPort: 1000,
+		ToPort:   2000,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	assertRequestBody(c, s.requests[1], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/udp"),
+			Protocol:                 network.SecurityRuleProtocolUDP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.IntPtr(200),
+			Direction: network.Inbound,
+		},
+	})
+}
+
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	err := s.getInstance(c).OpenPorts("0", nil)
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")
