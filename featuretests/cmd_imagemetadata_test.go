@@ -65,7 +65,7 @@ func (s *CmdImageMetadataSuite) TestListImageCmdOk(c *gc.C) {
 		Source:          "source",
 		RootStorageType: "rootStorageType"}
 	m := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{m})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "list-images")
@@ -92,7 +92,7 @@ func (s *CmdImageMetadataSuite) TestDeleteImageCmdOk(c *gc.C) {
 		Source:          "source",
 		RootStorageType: "rootStorageType"}
 	m := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{m})
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "delete-image", "1")
