@@ -72,7 +72,7 @@ func (uh UploadHandler) HandleRequest(req *http.Request) error {
 func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
 	ctype := req.Header.Get("Content-Type")
 	if ctype != "application/octet-stream" {
-		return nil, errors.Errorf("unsupported context type %q", ctype)
+		return nil, errors.Errorf("unsupported content type %q", ctype)
 	}
 
 	// See HTTPEndpoint in server.go and pattern handling in apiserver/apiserver.go.
@@ -80,7 +80,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	name := req.URL.Query().Get(":resource")
 
 	fingerprint := req.URL.Query().Get("fingerprint")
-	size := req.URL.Query().Get("size")
+	size := req.Header.Get("Content-Length")
 
 	res, err := getResource(uh.Store, service, name)
 	if err != nil {
@@ -114,7 +114,6 @@ func (uh UploadHandler) updateResource(res resource.Resource, fingerprint, size 
 
 	sizeInt, err := strconv.ParseInt(size, 10, 64)
 	if err != nil {
-		return res, errors.Trace(err)
 		return res, errors.Annotate(err, "invalid size")
 	}
 
