@@ -34,9 +34,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
 	fp, err := charmresource.GenerateFingerprint([]byte(data))
 	c.Assert(err, jc.ErrorIsNil)
+	var size int64
 	var now time.Time
-	if username != "" {
-		now = time.Now()
+	if data != "" {
+		size = int64(len(data))
+		now = time.Now().UTC()
 	}
 	res := resource.Resource{
 		Resource: charmresource.Resource{
@@ -46,8 +48,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 				Path: name + ".tgz",
 			},
 			Origin:      charmresource.OriginUpload,
-			Revision:    1,
+			Revision:    0,
 			Fingerprint: fp,
+			Size:        size,
 		},
 		Username:  username,
 		Timestamp: now,
@@ -61,8 +64,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 			Type:        "file",
 			Path:        name + ".tgz",
 			Origin:      "upload",
-			Revision:    1,
+			Revision:    0,
 			Fingerprint: fp.Bytes(),
+			Size:        size,
 		},
 		Username:  username,
 		Timestamp: now,
