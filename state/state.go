@@ -7,7 +7,6 @@
 package state
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"regexp"
@@ -23,7 +22,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -33,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	jujuresource "github.com/juju/juju/resource"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
@@ -1256,45 +1253,18 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := st.saveResourcesForDemo(args.Name, args); err != nil {
-		return svc, errors.Trace(err)
+	// TODO(natefinch) DEMO code, revisit after demo!
+	for _, postFunc := range AddServicePostFuncs {
+		if err := postFunc(st, args); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	return svc, nil
 }
 
-// TODO(natefinch) DEMO CODE, revisit after demo!
-func (st *State) saveResourcesForDemo(service string, args AddServiceArgs) error {
-	resourceState, err := st.Resources()
-	if err != nil {
-		return errors.Annotate(err, "can't get resources from state")
-	}
-
-	fp, err := resource.GenerateFingerprint(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, meta := range args.Charm.Meta().Resources {
-		res := jujuresource.Resource{
-			Resource: resource.Resource{
-				Meta: meta,
-				// TODO(natefinch): how do we determine this at deploy time?
-				Origin:      resource.OriginUpload,
-				Fingerprint: fp,
-			},
-		}
-
-		// no data for you!
-		r := &bytes.Buffer{}
-
-		if err := resourceState.SetResource(service, res, r); err != nil {
-			logger.Errorf(errors.Details(err))
-			return errors.Annotatef(err, "can't add resource %q", meta.Name)
-		}
-	}
-	return nil
-}
+// TODO(natefinch) DEMO code, revisit after demo!
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.

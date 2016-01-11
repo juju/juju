@@ -4,6 +4,7 @@
 package all
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/juju/errors"
@@ -34,6 +35,7 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerPublicFacade()
+	corestate.AddServicePostFuncs["resources"] = saveResourcesForDemo
 	return nil
 }
 
@@ -225,4 +227,36 @@ func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client
 	// The apiCaller takes care of prepending /environment/<envUUID>.
 	cl := client.NewClient(caller, doer, apiCaller)
 	return cl, nil
+}
+
+// TODO(natefinch) DEMO CODE, revisit after demo!
+func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) error {
+	resourceState, err := st.Resources()
+	if err != nil {
+		return errors.Annotate(err, "can't get resources from state")
+	}
+
+	fp, err := charmresource.GenerateFingerprint(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, meta := range args.Charm.Meta().Resources {
+		res := resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: meta,
+				// TODO(natefinch): how do we determine this at deploy time?
+				Origin:      charmresource.OriginUpload,
+				Fingerprint: fp,
+			},
+		}
+
+		// no data for you!
+		r := &bytes.Buffer{}
+
+		if err := resourceState.SetResource(args.Name, res, r); err != nil {
+			return errors.Annotatef(err, "can't add resource %q", meta.Name)
+		}
+	}
+	return nil
 }
