@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,9 +22,10 @@ import (
 type LegacyHTTPHandlerSuite struct {
 	BaseSuite
 
-	req    *http.Request
-	header http.Header
-	resp   *stubHTTPResponseWriter
+	username string
+	req      *http.Request
+	header   http.Header
+	resp     *stubHTTPResponseWriter
 }
 
 var _ = gc.Suite(&LegacyHTTPHandlerSuite{})
@@ -45,13 +47,14 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, error) {
+func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
 	s.stub.AddCall("Connect", req)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return s.data, nil
+	tag := names.NewUserTag(s.username)
+	return s.data, tag, nil
 }
 
 func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) error {
@@ -64,8 +67,8 @@ func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataSto
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
+	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
-		Username:     "youknowwho",
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -94,8 +97,8 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
+	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
-		Username:     "youknowwho",
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -124,8 +127,8 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
+	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
-		Username:     "youknowwho",
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -155,8 +158,8 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
+	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
-		Username:     "youknowwho",
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}

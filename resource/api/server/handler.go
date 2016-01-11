@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -24,11 +25,8 @@ import (
 // use it rather than wrapping the functions since API HTTP endpoints
 // must handle *all* HTTP methods.
 type LegacyHTTPHandler struct {
-	// Username is the username associated with the request.
-	Username string
-
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (DataStore, error)
+	Connect func(*http.Request) (DataStore, names.Tag, error)
 
 	// HandleUpload provides the upload functionality.
 	HandleUpload func(username string, st DataStore, req *http.Request) error
@@ -37,10 +35,9 @@ type LegacyHTTPHandler struct {
 // TODO(ericsnow) Can username be extracted from the request?
 
 // NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
-func NewLegacyHTTPHandler(username string, connect func(*http.Request) (DataStore, error)) *LegacyHTTPHandler {
+func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *LegacyHTTPHandler {
 	return &LegacyHTTPHandler{
-		Username: username,
-		Connect:  connect,
+		Connect: connect,
 		HandleUpload: func(username string, st DataStore, req *http.Request) error {
 			uh := UploadHandler{
 				Username:         username,
@@ -54,10 +51,19 @@ func NewLegacyHTTPHandler(username string, connect func(*http.Request) (DataStor
 
 // ServeHTTP implements http.Handler.
 func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	st, err := h.Connect(req)
+	st, tag, err := h.Connect(req)
 	if err != nil {
 		sendHTTPError(resp, err)
 		return
+	}
+
+	var username string
+	switch tag := tag.(type) {
+	case *names.UserTag:
+		username = tag.Name()
+	default:
+		// TODO(ericsnow) Fail?
+		username = tag.Id()
 	}
 
 	// We do this *after* authorization, etc. (in h.Connect) in order
@@ -65,7 +71,7 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	switch req.Method {
 	case "PUT":
 		logger.Infof("handling resource upload request")
-		if err := h.HandleUpload(h.Username, st, req); err != nil {
+		if err := h.HandleUpload(username, st, req); err != nil {
 			sendHTTPError(resp, err)
 			return
 		}
