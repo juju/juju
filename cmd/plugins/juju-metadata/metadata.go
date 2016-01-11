@@ -37,6 +37,12 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
+	os.Exit(cmd.Main(NewSuperCommand(), ctx, args[1:]))
+}
+
+// NewSuperCommand creates the metadata plugin supercommand and registers the
+// subcommands that it supports.
+func NewSuperCommand() cmd.Command {
 	metadatacmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "metadata",
 		UsagePrefix: "juju",
@@ -55,7 +61,7 @@ func Main(args []string) {
 		metadatacmd.Register(newDeleteImageMetadataCommand())
 	}
 
-	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
+	return metadatacmd
 }
 
 func init() {
