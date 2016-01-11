@@ -111,6 +111,9 @@ type CharmResource struct {
 
 	// Fingerprint is the SHA-384 checksum for the resource blob.
 	Fingerprint []byte `json:"fingerprint"`
+
+	// Size is the size of the resource, in bytes.
+	Size int64
 }
 
 func resolveErrors(errs []error) error {

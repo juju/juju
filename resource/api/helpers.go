@@ -99,6 +99,7 @@ func CharmResource2API(res charmresource.Resource) CharmResource {
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
 		Fingerprint: res.Fingerprint.Bytes(),
+		Size:        res.Size,
 	}
 }
 
@@ -135,6 +136,7 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 		Origin:      origin,
 		Revision:    apiInfo.Revision,
 		Fingerprint: fp,
+		Size:        apiInfo.Size,
 	}
 
 	if err := res.Validate(); err != nil {
