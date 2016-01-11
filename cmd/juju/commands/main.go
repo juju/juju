@@ -155,7 +155,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newExposeCommand())
 	r.Register(newSyncToolsCommand())
 	r.Register(newUnexposeCommand())
-	r.Register(newUpgradeJujuCommand())
+	r.Register(newUpgradeJujuCommand(nil))
 	r.Register(newUpgradeCharmCommand())
 
 	// Charm publishing commands.
