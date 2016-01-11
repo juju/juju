@@ -61,7 +61,7 @@ func NewHTTPUploadRequest(envUUID, service, name string, r io.ReadSeeker) (*http
 	method := "PUT"
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(envUUID, service, name)
-	req, err := http.NewRequest(method, urlStr, r)
+	req, err := http.NewRequest(method, urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
