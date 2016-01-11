@@ -36,12 +36,17 @@ func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
 // upgradeJujuCommand upgrades the agents in a juju installation.
 type upgradeJujuCommand struct {
 	envcmd.EnvCommandBase
-	vers                   string
-	Version                version.Number
-	UploadTools            bool
-	DryRun                 bool
-	ResetPrevious          bool
-	AssumeYes              bool
+	vers          string
+	Version       version.Number
+	UploadTools   bool
+	DryRun        bool
+	ResetPrevious bool
+	AssumeYes     bool
+
+	// minMajorUpgradeVersion maps known major numbers to
+	// the minimum version that can be upgraded to that
+	// major version.  For example, users must be running
+	// 1.25.2 or later in order to upgrade to 2.0.
 	minMajorUpgradeVersion map[int]version.Number
 }
 
@@ -129,15 +134,28 @@ var (
 	}
 )
 
-// canUpgradeVersion determines if the version of the running
-// environment can be upgraded using this client.  Only clients
-// with a minor version of 0 are expected to be able to upgrade
-// environments running the previous major version.
-func canUpgradeVersion(ver version.Number) bool {
-	if ver.Major == version.Current.Major {
+// canUpgradeRunningVersion determines if the version of the running
+// environment can be upgraded using this version of the
+// upgrade-juju command.  Only versions with a minor version
+// of 0 are expected to be able to upgrade environments running
+// the previous major version.
+//
+// This check is needed because we do not guarantee API
+// compatibility across major versions.  For example, a 3.3.0
+// version of the upgrade-juju command may not know how to upgrade
+// an environment running juju 4.0.0.
+//
+// The exception is that a N.0.* client must be able to upgrade
+// an environment one major version prior (N-1.*.*) so that
+// it can be used to upgrade the environment to N.0.*.  For
+// example, the 2.0.1 upgrade-juju command must be able to upgrade
+// environments running 1.* since it must be able to upgrade
+// environments from 1.25.2 -> 2.0.*.
+func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
+	if runningAgentVer.Major == version.Current.Major {
 		return true
 	}
-	if version.Current.Minor == 0 && ver.Major == (version.Current.Major-1) {
+	if version.Current.Minor == 0 && runningAgentVer.Major == (version.Current.Major-1) {
 		return true
 	}
 	return false
@@ -202,22 +220,30 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	warnCompat := false
 	switch {
-	case !canUpgradeVersion(agentVersion):
-		// This client cannot upgrade the running environment.
-		return fmt.Errorf("cannot upgrade a %s environment with a %s client", agentVersion, version.Current)
+	case !canUpgradeRunningVersion(agentVersion):
+		// This version of upgrade-juju cannot upgrade the running
+		// environment version (can't guarantee API compatibility).
+		return fmt.Errorf("cannot upgrade a %s environment with a %s client",
+			agentVersion, version.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
-		// Cannot take the environment backwards.
+		// The specified version would downgrade the environment.
+		// Don't upgrade and return an error.
 		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
 	case agentVersion.Major != version.Current.Major:
-		// Upgrading the previous major version.
+		// Running environment is the previous major version (a higher major
+		// version wouldn't have passed the check in canUpgradeRunningVersion).
 		if c.Version == version.Zero || c.Version.Major == agentVersion.Major {
 			// Not requesting an upgrade across major release boundary.
-			// Warn of incompatible CLI.
+			// Warn of incompatible CLI and filter on the prior major version
+			// when searching for available tools.
 			// TODO(cherylj) Add in a suggestion to upgrade to 2.0 if
 			// no matching tools are found (bug 1532670)
 			warnCompat = true
 			break
 		}
+		// User requested an upgrade to the next major version.
+		// Fallthrough to the next case to verify that the upgrade
+		// conditions are met.
 		fallthrough
 	case c.Version.Major > agentVersion.Major:
 		// User is requesting an upgrade to a new major number
@@ -231,11 +257,13 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		retErr := false
 		if c.Version.Minor != 0 {
-			ctx.Infof("upgrades to %s must first go through juju %d.0", c.Version, c.Version.Major)
+			ctx.Infof("upgrades to %s must first go through juju %d.0",
+				c.Version, c.Version.Major)
 			retErr = true
 		}
 		if comp := agentVersion.Compare(minVer); comp < 0 {
-			ctx.Infof("upgrades to a new major version must first go through %s", minVer)
+			ctx.Infof("upgrades to a new major version must first go through %s",
+				minVer)
 			retErr = true
 		}
 		if retErr {
@@ -391,7 +419,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 	// considering the use cases, this should work well enough; but it
 	// won't detect an incompatible major-version change, which is a shame.
 	//
-	// TODO(cherylj) If the determiniation of version changes, we will
+	// TODO(cherylj) If the determination of version changes, we will
 	// need to also change the upgrade version checks in Run() that check
 	// if a major upgrade is allowed.
 	if context.chosen == version.Zero {
