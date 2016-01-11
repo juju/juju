@@ -39,11 +39,15 @@ type UploadedResource struct {
 	Data io.ReadCloser
 }
 
-// UploadHandler
+// UploadHandler provides the functionality to handle upload requests.
 type UploadHandler struct {
+	// Username is the ID of the user making the upload request.
 	Username string
-	Store    UploadDataStore
 
+	// Store is the data store into which the resource will be stored.
+	Store UploadDataStore
+
+	// CurrentTimestamp is the function that provides the current timestamp.
 	CurrentTimestamp func() time.Time
 }
 
