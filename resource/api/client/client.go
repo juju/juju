@@ -34,17 +34,15 @@ type Doer interface {
 type Client struct {
 	FacadeCaller
 	io.Closer
-	doer    Doer
-	envUUID string
+	doer Doer
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(caller FacadeCaller, doer Doer, envUUID string, closer io.Closer) *Client {
+func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 	return &Client{
 		FacadeCaller: caller,
 		Closer:       closer,
 		doer:         doer,
-		envUUID:      envUUID,
 	}
 }
 
@@ -91,7 +89,7 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 		return errors.Errorf("invalid service %q", service)
 	}
 
-	req, err := api.NewHTTPUploadRequest(c.envUUID, service, name, reader)
+	req, err := api.NewHTTPUploadRequest(service, name, reader)
 	if err != nil {
 		return errors.Trace(err)
 	}

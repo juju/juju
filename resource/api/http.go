@@ -26,12 +26,12 @@ const (
 
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
-	HTTPEndpointPath = "/environment/%s/services/%s/resources/%s"
+	HTTPEndpointPath = "/services/%s/resources/%s"
 )
 
 // NewEndpointPath returns the API URL path for the identified resource.
-func NewEndpointPath(envUUID, service, name string) string {
-	return fmt.Sprintf(HTTPEndpointPath, envUUID, service, name)
+func NewEndpointPath(service, name string) string {
+	return fmt.Sprintf(HTTPEndpointPath, service, name)
 }
 
 // ExtractEndpointDetails pulls the endpoint wildcard values from
@@ -43,7 +43,7 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 }
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
-func NewHTTPUploadRequest(envUUID, service, name string, r io.ReadSeeker) (*http.Request, error) {
+func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
 	// TODO(ericsnow) Use the newer GenerateFingerprint()...
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -60,7 +60,7 @@ func NewHTTPUploadRequest(envUUID, service, name string, r io.ReadSeeker) (*http
 
 	method := "PUT"
 	// TODO(ericsnow) What about the rest of the URL?
-	urlStr := NewEndpointPath(envUUID, service, name)
+	urlStr := NewEndpointPath(service, name)
 	req, err := http.NewRequest(method, urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)

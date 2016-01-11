@@ -222,12 +222,7 @@ func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client
 		return nil, errors.Trace(err)
 	}
 
-	envTag, err := apiCaller.EnvironTag()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	envUUID := envTag.Id()
-
-	cl := client.NewClient(caller, doer, envUUID, apiCaller)
+	// The apiCaller takes care of prepending /environment/<envUUID>.
+	cl := client.NewClient(caller, doer, apiCaller)
 	return cl, nil
 }
