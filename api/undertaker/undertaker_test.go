@@ -127,3 +127,19 @@ func (s *undertakerSuite) TestWatchEnvironResourcesError(c *gc.C) {
 	c.Assert(w, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+	var called bool
+
+	// The undertaker feature tests ensure EnvironConfig is connected
+	// correctly end to end. This test just ensures that the API calls work.
+	client := s.mockClient(c, "EnvironConfig", func(response interface{}) {
+		called = true
+		c.Check(response, gc.DeepEquals, &params.EnvironConfigResult{Config: params.EnvironConfig(nil)})
+	})
+
+	cfg, err := client.EnvironConfig()
+	c.Assert(err, gc.ErrorMatches, ".*expected string, got nothing")
+	c.Assert(cfg, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+}

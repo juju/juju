@@ -7,8 +7,6 @@
 package storage
 
 import (
-	"time"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -151,30 +149,4 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, Storage
 	}
 
 	return storageTag, info, nil
-}
-
-func storageDetailsFromLegacy(legacy params.LegacyStorageDetails) params.StorageDetails {
-	nowUTC := time.Now().UTC()
-	details := params.StorageDetails{
-		legacy.StorageTag,
-		legacy.OwnerTag,
-		legacy.Kind,
-		params.EntityStatus{
-			Status: params.Status(legacy.Status),
-			Since:  &nowUTC,
-		},
-		legacy.Persistent,
-		nil,
-	}
-	if legacy.UnitTag != "" {
-		details.Attachments = map[string]params.StorageAttachmentDetails{
-			legacy.UnitTag: params.StorageAttachmentDetails{
-				legacy.StorageTag,
-				legacy.UnitTag,
-				"", // machine is unknown in legacy
-				legacy.Location,
-			},
-		}
-	}
-	return details
 }
