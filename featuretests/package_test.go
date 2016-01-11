@@ -38,6 +38,7 @@ func init() {
 	gc.Suite(&undertakerSuite{})
 	gc.Suite(&dumpLogsCommandSuite{})
 	gc.Suite(&upgradeSuite{})
+	gc.Suite(&CmdImageMetadataSuite{})
 }
 
 func TestPackage(t *stdtesting.T) {

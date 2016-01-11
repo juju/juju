@@ -31,7 +31,7 @@ func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 	metadata, err := s.client.List("", "", nil, nil, "", "")
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(metadata, gc.HasLen, 0)
@@ -45,6 +45,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(before == 0, jc.IsTrue)
 
+	imageId := "1"
 	m := params.CloudImageMetadata{
 		Source:          "custom",
 		Stream:          "stream",
@@ -53,7 +54,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
-		ImageId:         "1",
+		ImageId:         imageId,
 	}
 
 	err = s.client.Save([]params.CloudImageMetadata{m})
@@ -70,4 +71,11 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 	after, err := coll.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after == 1, jc.IsTrue)
+
+	err = s.client.Delete(imageId)
+	c.Assert(err, jc.ErrorIsNil)
+	// make sure it's no longer in db too
+	afterDelete, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(afterDelete == 0, jc.IsTrue)
 }
