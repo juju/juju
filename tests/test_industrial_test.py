@@ -224,27 +224,26 @@ class FakeStepAttempt:
         self.result = result
         self.stage = StageInfo(result[0][0], '{} title'.format(result[0][0]))
 
+    @classmethod
+    def from_result(cls, old, new, test_id='foo-id'):
+        """Alternate constructor for backwards-compatibility.
+
+        Allows tests that used FakeAttempt to be adapted with minimal changes.
+        """
+        return cls([(test_id, old, new)])
+
     def __eq__(self, other):
         return (
             type(self) == type(other) and self.result == other.result)
+
+    def get_bootstrap_client(self, client):
+        return client
 
     def iter_test_results(self, old, new):
         return iter(self.result)
 
     def iter_steps(self, client):
         yield self.stage.as_result(self.result[0][1])
-
-
-class FakeAttempt(FakeStepAttempt):
-
-    def __init__(self, old_result, new_result, test_id='foo-id'):
-        super(FakeAttempt, self).__init__([(test_id, old_result, new_result)])
-
-    def get_bootstrap_client(self, client):
-        return client
-
-    def do_stage(self, old_client, new_client):
-        return self.result[0]
 
 
 class FakeAttemptClass:
@@ -266,7 +265,7 @@ class FakeAttemptClass:
         return {self.test_id: {'title': self.title}}
 
     def __call__(self):
-        return FakeAttempt(*self.result, test_id=self.test_id)
+        return FakeStepAttempt.from_result(*self.result, test_id=self.test_id)
 
 
 class StubJujuClient:
@@ -762,7 +761,8 @@ class TestIndustrialTest(JujuPyTestCase):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
-            FakeAttempt(True, True), FakeAttempt(True, True)])
+            FakeStepAttempt.from_result(True, True),
+            FakeStepAttempt.from_result(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', True, True),
@@ -773,7 +773,8 @@ class TestIndustrialTest(JujuPyTestCase):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
-            FakeAttempt(False, True), FakeAttempt(True, True)])
+            FakeStepAttempt.from_result(False, True),
+            FakeStepAttempt.from_result(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, True)])
@@ -788,7 +789,8 @@ class TestIndustrialTest(JujuPyTestCase):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
-            FakeAttempt(True, False), FakeAttempt(True, True)])
+            FakeStepAttempt.from_result(True, False),
+            FakeStepAttempt.from_result(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', True, False)])
@@ -803,7 +805,8 @@ class TestIndustrialTest(JujuPyTestCase):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
-            FakeAttempt(False, False), FakeAttempt(True, True)])
+            FakeStepAttempt.from_result(False, False),
+            FakeStepAttempt.from_result(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, False)])
@@ -819,7 +822,7 @@ class TestIndustrialTest(JujuPyTestCase):
         new_client = FakeEnvJujuClient('new')
         fsa = FakeStepAttempt([('foo', True, False), ('bar', True, True)])
         industrial = IndustrialTest(old_client, new_client, [
-            fsa, FakeAttempt(True, True)])
+            fsa, FakeStepAttempt.from_result(True, True)])
         self.assertEqual(list(industrial.run_stages()), [
             ('foo', True, False), ('bar', True, True), ('foo-id', True, True)])
 
@@ -828,7 +831,7 @@ class TestIndustrialTest(JujuPyTestCase):
         new_client = FakeEnvJujuClient('new')
         fsa = FakeStepAttempt([('foo', True, True), ('bar', False, True)])
         industrial = IndustrialTest(old_client, new_client, [
-            fsa, FakeAttempt(True, True)])
+            fsa, FakeStepAttempt.from_result(True, True)])
         with patch.object(old_client, 'destroy_environment'):
             with patch.object(new_client, 'destroy_environment'):
                 self.assertEqual(list(industrial.run_stages()), [
@@ -845,7 +848,8 @@ class TestIndustrialTest(JujuPyTestCase):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
-            FakeAttempt(False, False), FakeAttempt(True, True)])
+            FakeStepAttempt.from_result(False, False),
+            FakeStepAttempt.from_result(True, True)])
         with patch.object(old_client, 'destroy_environment',
                           side_effect=Exception) as oc_mock:
             with patch.object(new_client, 'destroy_environment',
@@ -858,7 +862,7 @@ class TestIndustrialTest(JujuPyTestCase):
     def test_run_attempt(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        attempt = FakeAttempt(True, True)
+        attempt = FakeStepAttempt.from_result(True, True)
         industrial = IndustrialTest(old_client, new_client, [attempt])
 
         def iter_test_results(old, new):
