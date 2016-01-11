@@ -223,5 +223,12 @@ func (resources) newClient(command apicommand) (*client.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return client.NewClient(caller, doer, apiCaller), nil
+	envTag, err := apiCaller.EnvironTag()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	envUUID := envTag.Id()
+
+	cl := client.NewClient(caller, doer, envUUID, apiCaller)
+	return cl, nil
 }
