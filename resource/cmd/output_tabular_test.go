@@ -126,7 +126,6 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 				},
 				Origin: charmresource.OriginUpload,
 			},
-			Username: "Sandra User",
 		},
 		{
 			Resource: charmresource.Resource{
@@ -162,11 +161,11 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(string(data), gc.Equals, `
-RESOURCE ORIGIN      REV        USED COMMENT
-openjdk  store       7          no   the java runtime
-website  Sandra User -          no   your website data
-openjdk2 store       8          yes  another java runtime
-website2 Bill User   2012-12-12 yes  your website data
+RESOURCE ORIGIN    REV        USED COMMENT
+openjdk  store     7          no   the java runtime
+website  upload    -          no   your website data
+openjdk2 store     8          yes  another java runtime
+website2 Bill User 2012-12-12 yes  your website data
 `[1:])
 }
 

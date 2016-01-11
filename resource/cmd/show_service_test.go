@@ -89,7 +89,6 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 				},
 				Origin: charmresource.OriginUpload,
 			},
-			Username: "Sandra User",
 		},
 		{
 			Resource: charmresource.Resource{
@@ -127,11 +126,11 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE ORIGIN      REV        USED COMMENT
-openjdk  store       7          no   the java runtime
-website  Sandra User -          no   your website data
-rsc1234  store       15         yes  a big comment
-website2 Bill User   2012-12-12 yes  awesome data
+RESOURCE ORIGIN    REV        USED COMMENT
+openjdk  store     7          no   the java runtime
+website  upload    -          no   your website data
+rsc1234  store     15         yes  a big comment
+website2 Bill User 2012-12-12 yes  awesome data
 
 `[1:])
 
