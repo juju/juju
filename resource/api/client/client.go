@@ -94,7 +94,8 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.doer.Do(req, reader, nil); err != nil {
+	response := new(string)
+	if err := c.doer.Do(req, reader, response); err != nil {
 		return errors.Trace(err)
 	}
 
