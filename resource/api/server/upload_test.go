@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
-	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/server"
 )
 
@@ -63,7 +62,7 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	res, _ := newResource(c, "spam", "a-user", content)
 	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
-	s.data.ReturnListResources = []resource.Resource{stored}
+	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
@@ -74,8 +73,8 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListResources", "CurrentTimestamp", "SetResource")
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	s.stub.CheckCall(c, 2, "SetResource", "a-service", res, ioutil.NopCloser(body))
 }
 
@@ -84,7 +83,7 @@ func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	res, _ := newResource(c, "spam", "a-user", content)
 	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
-	s.data.ReturnListResources = []resource.Resource{stored}
+	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
@@ -97,7 +96,7 @@ func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	err := uh.HandleRequest(req)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
 }
 
 func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
@@ -105,7 +104,7 @@ func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 	expected, _ := newResource(c, "spam", "a-user", content)
 	expected.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
-	s.data.ReturnListResources = []resource.Resource{stored}
+	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
@@ -116,8 +115,8 @@ func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 	uploaded, err := uh.ReadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListResources", "CurrentTimestamp")
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp")
+	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
 		Service:  "a-service",
 		Resource: expected,
@@ -140,23 +139,25 @@ func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *UploadSuite) TestReadResourceNotFound(c *gc.C) {
+func (s *UploadSuite) TestReadResourceGetResourceFailure(c *gc.C) {
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
 		CurrentTimestamp: s.now,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
+	failure := errors.New("<failure>")
+	s.stub.SetErrors(failure)
 
 	_, err := uh.ReadResource(req)
 
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.stub.CheckCallNames(c, "GetResource")
 }
 
 func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
-	s.data.ReturnListResources = []resource.Resource{stored}
+	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
@@ -170,12 +171,12 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 	_, err := uh.ReadResource(req)
 
 	c.Check(err, gc.ErrorMatches, "invalid fingerprint.*")
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "GetResource")
 }
 
 func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
-	s.data.ReturnListResources = []resource.Resource{stored}
+	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
 		Username:         "a-user",
 		Store:            s.data,
@@ -187,7 +188,7 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 	_, err := uh.ReadResource(req)
 
 	c.Check(err, gc.ErrorMatches, "invalid size.*")
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "GetResource")
 }
 
 func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {

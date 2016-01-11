@@ -19,10 +19,11 @@ import (
 // UploadDataStore describes the the portion of Juju's "state"
 // needed for handling upload requests.
 type UploadDataStore interface {
-	uploadStorage
+	// GetResource returns the identified resource.
+	GetResource(serviceID, name string) (resource.Resource, error)
 
-	// ListResources returns the resources for the given service.
-	ListResources(service string) ([]resource.Resource, error)
+	// SetResource adds the resource to blob storage and updates the metadata.
+	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 }
 
 // UploadedResource holds both the information about an uploaded
@@ -38,16 +39,10 @@ type UploadedResource struct {
 	Data io.ReadCloser
 }
 
-// uploadStorage describes the the portion of Juju's "state needed for upload.
-type uploadStorage interface {
-	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(serviceID string, res resource.Resource, r io.Reader) error
-}
-
 // UploadHandler
 type UploadHandler struct {
 	Username string
-	Store    DataStore
+	Store    UploadDataStore
 
 	CurrentTimestamp func() time.Time
 }
@@ -82,7 +77,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	fingerprint := req.URL.Query().Get("fingerprint")
 	size := req.Header.Get("Content-Length")
 
-	res, err := getResource(uh.Store, service, name)
+	res, err := uh.Store.GetResource(service, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

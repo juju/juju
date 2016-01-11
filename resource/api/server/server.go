@@ -4,7 +4,6 @@
 package server
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/resource"
@@ -24,7 +23,7 @@ const (
 // DataStore is the functionality of Juju's state needed for the resources API.
 type DataStore interface {
 	resourceLister
-	uploadStorage
+	UploadDataStore
 }
 
 // Facade is the public API facade for resources.
@@ -73,21 +72,4 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		r.Results[i].Resources = apiResources
 	}
 	return r, nil
-}
-
-// getResource pulls a single resource from the data store.
-func getResource(lister resourceLister, service, name string) (resource.Resource, error) {
-	var res resource.Resource
-
-	resources, err := lister.ListResources(service)
-	if err != nil {
-		return res, errors.Trace(err)
-	}
-
-	for _, res := range resources {
-		if res.Name == name {
-			return res, nil
-		}
-	}
-	return res, errors.NotFoundf("resource %q", name)
 }

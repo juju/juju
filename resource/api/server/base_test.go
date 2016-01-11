@@ -79,6 +79,7 @@ type stubDataStore struct {
 	stub *testing.Stub
 
 	ReturnListResources []resource.Resource
+	ReturnGetResource   resource.Resource
 }
 
 func (s *stubDataStore) ListResources(service string) ([]resource.Resource, error) {
@@ -88,6 +89,15 @@ func (s *stubDataStore) ListResources(service string) ([]resource.Resource, erro
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubDataStore) GetResource(service, name string) (resource.Resource, error) {
+	s.stub.AddCall("GetResource", service, name)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
+
+	return s.ReturnGetResource, nil
 }
 
 func (s *stubDataStore) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
