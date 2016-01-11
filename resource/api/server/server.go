@@ -15,9 +15,6 @@ var logger = loggo.GetLogger("juju.resource.api.server")
 const (
 	// Version is the version number of the current Facade.
 	Version = 1
-
-	// HTTPEndpoint is the URL path pattern registered with the API server.
-	HTTPEndpoint = "/services/:service/resources/:resource"
 )
 
 // DataStore is the functionality of Juju's state needed for the resources API.

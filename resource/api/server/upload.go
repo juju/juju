@@ -74,7 +74,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 		return nil, errors.Errorf("unsupported content type %q", ctype)
 	}
 
-	// See HTTPEndpoint in server.go and pattern handling in apiserver/apiserver.go.
+	// See resource/api/http.go for more on these URL query values.
 	service := req.URL.Query().Get(":service")
 	name := req.URL.Query().Get(":resource")
 

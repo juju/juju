@@ -23,8 +23,6 @@ import (
 
 var logger = loggo.GetLogger("juju.resource.api.client")
 
-const HTTPEndpoint = "/environment/%s/services/%s/resources/%s"
-
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
 
 // FacadeCaller has the api/base.FacadeCaller methods needed for the component.
@@ -97,7 +95,7 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 	if !names.IsValidService(service) {
 		return errors.Errorf("invalid service %q", service)
 	}
-	path := fmt.Sprintf(HTTPEndpoint, c.envUUID, service, name)
+	path := fmt.Sprintf(api.HTTPEndpointPath, c.envUUID, service, name)
 
 	req, err := http.NewRequest("PUT", path, nil)
 	if err != nil {
