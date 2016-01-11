@@ -344,7 +344,7 @@ func (srv *Server) run(lis net.Listener) {
 		srv: srv,
 	}
 
-	handleAll(mux, resourceapi.HTTPEndpointPattern,
+	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
 		newResourceHandler(httpCtxt),
 	)
 
