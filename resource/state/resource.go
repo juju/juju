@@ -60,6 +60,23 @@ func (st resourceState) ListResources(serviceID string) ([]resource.Resource, er
 	return resources, nil
 }
 
+// GetResource returns the resource data for the identified resource.
+func (st resourceState) GetResource(serviceID, name string) (resource.Resource, error) {
+	var res resource.Resource
+
+	resources, err := st.ListResources(serviceID)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	for _, res := range resources {
+		if res.Name == name {
+			return res, nil
+		}
+	}
+	return res, errors.NotFoundf("resource %q", name)
+}
+
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
 // SetResource stores the resource in the Juju model.
