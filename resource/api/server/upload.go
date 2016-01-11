@@ -78,7 +78,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	service := req.URL.Query().Get(":service")
 	name := req.URL.Query().Get(":resource")
 
-	fingerprint := req.URL.Query().Get("fingerprint")
+	fingerprint := req.Header.Get("Content-SHA384") // This parallels "Content-MD5".
 	size := req.Header.Get("Content-Length")
 
 	res, err := uh.Store.GetResource(service, name)

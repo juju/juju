@@ -164,9 +164,7 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 		CurrentTimestamp: s.now,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
-	query := req.URL.Query()
-	query.Set("fingerprint", "bogus")
-	req.URL.RawQuery = query.Encode()
+	req.Header.Set("Content-SHA384", "bogus")
 
 	_, err := uh.ReadResource(req)
 
@@ -194,19 +192,18 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
 	fp, err := charmresource.GenerateFingerprint([]byte(content))
 	c.Assert(err, jc.ErrorIsNil)
-	size := len(content)
 
 	method := "PUT"
 	urlStr := "https://api:17017/services/%s/resources/%s"
-	urlStr += "?size=%d&fingerprint=%s"
-	urlStr += "&:service=%s&:resource=%s" // ...added by the mux.
-	urlStr = fmt.Sprintf(urlStr, service, name, size, fp.String(), service, name)
+	urlStr += "?:service=%s&:resource=%s" // ...added by the mux.
+	urlStr = fmt.Sprintf(urlStr, service, name, service, name)
 	body := strings.NewReader(content)
 	req, err := http.NewRequest(method, urlStr, body)
 	c.Assert(err, jc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Length", fmt.Sprint(len(content)))
+	req.Header.Set("Content-SHA384", fp.String())
 
 	return req, body
 }
