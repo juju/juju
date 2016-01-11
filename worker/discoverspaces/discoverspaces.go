@@ -27,14 +27,13 @@ type discoverspacesWorker struct {
 }
 
 var invalidChars = regexp.MustCompile("[^0-9a-z-]")
+var dashPrefix = regexp.MustCompile("^-*")
 
 func convertSpaceName(name string, existing set.Strings) string {
 	// First replace any character that isn't in the set "-", "a-z", "0-9".
 	name = invalidChars.ReplaceAllString(name, "")
 	// Next get rid of any dashes at the start as that isn't valid.
-	for strings.HasPrefix(name, "-") {
-		name = name[1:]
-	}
+	name = dashPrefix.ReplaceAllString(name, "")
 	// Special case of when the space name was only dashes!
 	if name == "" {
 		name = "empty"
@@ -138,22 +137,31 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
-		spaceName := string(space.ProviderId)
-		spaceName = strings.Replace(spaceName, " ", "-", -1)
-		spaceName = strings.ToLower(spaceName)
-		if !names.IsValidSpace(spaceName) {
-			// Convert the name into a valid name that isn't already in
-			// use.
-			spaceName = convertSpaceName(spaceName, spaceNames)
-			spaceNames.Add(spaceName)
-		}
-		spaceTag := names.NewSpaceTag(spaceName)
 		// XXX instead of creating a new space name, we ought to use
 		// the real space name if this provider id is already found in
 		// state. Only generate a new one if it isn't already there.
 		stateSpace, ok := stateSpaceMap[string(space.ProviderId)]
-		var spaceName string
-		if !ok {
+		var spaceTag names.SpaceTag
+		if ok {
+			spaceName := stateSpace.Name
+			if !names.IsValidSpace(spaceName) {
+				// Really shouldn't happen.
+				return errors.Errorf("space %q has an invalid name", spaceName)
+
+			}
+			spaceTag = names.NewSpaceTag(spaceName)
+
+		} else {
+			spaceName := string(space.ProviderId)
+			spaceName = strings.Replace(spaceName, " ", "-", -1)
+			spaceName = strings.ToLower(spaceName)
+			if !names.IsValidSpace(spaceName) {
+				// Convert the name into a valid name that isn't already in
+				// use.
+				spaceName = convertSpaceName(spaceName, spaceNames)
+				spaceNames.Add(spaceName)
+			}
+			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
@@ -175,7 +183,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
-		logger.Debugf("Created space %v with %v subnets", spaceName, len(space.Subnets))
+		logger.Debugf("Created space %v with %v subnets", spaceTag.String(), len(space.Subnets))
 		for _, subnet := range space.Subnets {
 			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
 				continue
