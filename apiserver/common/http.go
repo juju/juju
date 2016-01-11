@@ -173,6 +173,10 @@ func (spec HTTPEndpointSpec) Resolve(method string, unhandled http.Handler) HTTP
 	return hSpec
 }
 
+// resolve returns the handler spec for the given HTTP method. If no
+// handler has been added for the method then the default (method "")
+// is returned. If no default has been set then a zero-value spec is
+// returned.
 func (spec HTTPEndpointSpec) resolve(method string) HTTPHandlerSpec {
 	if hSpec, ok := spec.methodHandlers[method]; ok {
 		return hSpec
@@ -196,9 +200,7 @@ type HTTPEndpoint struct {
 	// An empty string means "all supported".
 	Method string
 
-	// handlerSpecs is the list of handler specs for the endpoint.
-	// An endpoint may have more than one handler (e.g. one for GET
-	// and another for SET).
+	// Handler is the HTTP handler for the endpoint.
 	Handler http.Handler
 }
 
