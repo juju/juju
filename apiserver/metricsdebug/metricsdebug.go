@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package metricsdebug contains the implementation of an api endpoint
@@ -51,12 +51,19 @@ func NewMetricsDebugAPI(
 	}, nil
 }
 
-func (api *MetricsDebugAPI) unitOrService(entity string) (string, error) {
+type getMetricsEntity string
+
+var (
+	unitEntity    getMetricsEntity = "unit"
+	serviceEntity getMetricsEntity = "service"
+)
+
+func (api *MetricsDebugAPI) unitOrService(entity string) (getMetricsEntity, error) {
 	if _, err := api.state.Unit(entity); err == nil {
-		return "unit", nil
+		return unitEntity, nil
 	}
 	if _, err := api.state.Service(entity); err == nil {
-		return "service", nil
+		return serviceEntity, nil
 	}
 	return "", errors.Errorf("entity %q not unit or service", entity)
 }
@@ -77,14 +84,14 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResu
 			continue
 		}
 		var batches []state.MetricBatch
-		if typ == "unit" {
+		if typ == unitEntity {
 			batches, err = api.state.MetricBatchesForUnit(arg.Tag)
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
-		} else if typ == "service" {
+		} else if typ == serviceEntity {
 			batches, err = api.state.MetricBatchesForService(arg.Tag)
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")

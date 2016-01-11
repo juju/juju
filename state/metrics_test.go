@@ -423,7 +423,7 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	c.Assert(unsent+sent, gc.Equals, 3)
 }
 
-func (s *MetricSuite) TestSetAllMetricBatchesSent(c *gc.C) {
+func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, 3)
 	for i := range metrics {

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package metricsdebug_test
@@ -35,11 +35,6 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 	debug, err := metricsdebug.NewMetricsDebugAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsdebug = debug
-	/*
-		meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-		meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-		s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	*/
 }
 
 func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {

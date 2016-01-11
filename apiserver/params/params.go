@@ -805,6 +805,8 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
+// MetricsResults contains results from a GetMetrics call, with
+// one item per Entity given as an argument to the command.
 type MetricsResults struct {
 	Results []MetricsResult `json:"results"`
 }
@@ -819,11 +821,14 @@ func (m *MetricsResults) OneError() error {
 	return nil
 }
 
+// MetricsResults contains the results of a GetMetrics call for a single
+// entity.
 type MetricsResult struct {
 	Metrics []MetricResult `json:"metrics,omitempty"`
 	Error   *Error         `json:"error,omitempty"`
 }
 
+// MetricResults contains a single metric.
 type MetricResult struct {
 	Time  time.Time `json:"time"`
 	Key   string    `json:"key"`
