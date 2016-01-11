@@ -1270,22 +1270,24 @@ func (st *State) saveResourcesForDemo(service string, args AddServiceArgs) error
 		return errors.Annotate(err, "can't get resources from state")
 	}
 
-	data := []byte("foobarfoobar")
-	fp, err := resource.GenerateFingerprint(data)
+	fp, err := resource.GenerateFingerprint(nil)
 	if err != nil {
-		return errors.Annotate(err, "can't create fingerprint for resource")
+		return errors.Trace(err)
 	}
 
 	for _, meta := range args.Charm.Meta().Resources {
 		res := jujuresource.Resource{
 			Resource: resource.Resource{
-				Meta:        meta,
+				Meta: meta,
+				// TODO(natefinch): how do we determine this at deploy time?
 				Origin:      resource.OriginUpload,
-				Size:        int64(len(data)),
 				Fingerprint: fp,
 			},
 		}
-		r := bytes.NewBuffer(data)
+
+		// no data for you!
+		r := &bytes.Buffer{}
+
 		if err := resourceState.SetResource(service, res, r); err != nil {
 			logger.Errorf(errors.Details(err))
 			return errors.Annotatef(err, "can't add resource %q", meta.Name)
