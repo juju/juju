@@ -47,9 +47,9 @@ func (s *serviceManagerSuite) SetUpTest(c *gc.C) {
 	s.passwdStub = &testing.Stub{}
 	s.conn = windows.PatchMgrConnect(s, s.stub)
 	s.getPasswd = windows.PatchGetPassword(s, s.passwdStub)
-	s.PatchValue(&windows.WinChangeServiceConfig2, func(win.Handle, uint32, *byte) error {
+	windows.WinChangeServiceConfig2 = func(win.Handle, uint32, *byte) error {
 		return nil
-	})
+	}
 
 	// Set up the service.
 	s.name = "machine-1"
@@ -200,6 +200,31 @@ func (s *serviceManagerSuite) TestStop(c *gc.C) {
 	running, err = s.mgr.Running(s.name)
 	c.Assert(err, gc.IsNil)
 	c.Assert(running, jc.IsFalse)
+}
+
+func (s *serviceManagerSuite) TestEnsureRestartOnFailure(c *gc.C) {
+	windows.WinChangeServiceConfig2 = func(win.Handle, uint32, *byte) error {
+		return errors.New("ChangeServiceConfig2: zoinks")
+	}
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.ErrorMatches, "ChangeServiceConfig2: zoinks")
+}
+
+func (s *serviceManagerSuite) TestEnsureRestartOnFailureCloseHandleDoesNotOverwritePreviousError(c *gc.C) {
+	windows.WinChangeServiceConfig2 = func(win.Handle, uint32, *byte) error {
+		return errors.New("ChangeServiceConfig2: zoinks")
+	}
+	s.stub.SetErrors(nil, nil, errors.New("CloseHandle: floosh"))
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.ErrorMatches, "ChangeServiceConfig2: zoinks")
+	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
+}
+
+func (s *serviceManagerSuite) TestEnsureRestartOnFailureCloseHandleReturnsErrorSuccessfully(c *gc.C) {
+	s.stub.SetErrors(nil, nil, errors.New("CloseHandle: floosh"))
+	err := s.mgr.Create(s.name, s.conf)
+	c.Assert(err, gc.ErrorMatches, "could not close "+s.name+"'s handle: CloseHandle: floosh")
+	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
 }
 
 func (s *serviceManagerSuite) TestChangePassword(c *gc.C) {
