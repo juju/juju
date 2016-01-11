@@ -145,6 +145,9 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			spaceName := stateSpace.Name
 			if !names.IsValidSpace(spaceName) {
 				// Really shouldn't happen.
+				// TODO(mfoord): erroring out will cause the
+				// worker to be restarted, and we will hit the
+				// same problem again. Log and continue instead?
 				return errors.Errorf("space %q has an invalid name", spaceName)
 
 			}
