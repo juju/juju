@@ -44,7 +44,7 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 DEFAULT_JES_COMMAND_2x = 'controller'
-DEFAULT_JES_COMMAND_1x = 'destroy-controller'
+DEFAULT_JES_COMMAND_1x = 'kill-controller'
 OPTIONAL_JES_COMMAND = 'system'
 
 _jes_cmds = {DEFAULT_JES_COMMAND_1x: {
@@ -615,7 +615,7 @@ class EnvJujuClient:
         else:
             raise Exception('Timed out waiting for services to start.')
 
-    def wait_for_workloads(self, timeout=180, start=None):
+    def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
         def status_to_workloads(status):
             unit_states = defaultdict(list)
