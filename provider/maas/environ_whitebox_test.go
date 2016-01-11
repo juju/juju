@@ -1341,6 +1341,8 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
+
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1627,6 +1629,7 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	// Patch short attempt params.
 	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
 		Min: 5,
