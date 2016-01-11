@@ -342,6 +342,11 @@ func (srv *Server) run(lis net.Listener) {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
+
+	handleAll(mux, resourceapiserver.HTTPEndpoint,
+		&newResourceHandler(httpCtxt),
+	)
+
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
 			newLogSinkHandler(httpCtxt, srv.logDir))
