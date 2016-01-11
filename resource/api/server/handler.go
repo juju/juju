@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -41,7 +42,12 @@ func NewLegacyHTTPHandler(username string, connect func(*http.Request) (DataStor
 		Username: username,
 		Connect:  connect,
 		HandleUpload: func(username string, st DataStore, req *http.Request) error {
-			return handleUpload(username, st, req)
+			uh := UploadHandler{
+				Username:         username,
+				Store:            st,
+				CurrentTimestamp: time.Now,
+			}
+			return uh.HandleRequest(req)
 		},
 	}
 }

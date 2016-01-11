@@ -16,13 +16,26 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// uploadDataStore describes the the portion of Juju's "state"
+// UploadDataStore describes the the portion of Juju's "state"
 // needed for handling upload requests.
-type uploadDataStore interface {
+type UploadDataStore interface {
 	uploadStorage
 
 	// ListResources returns the resources for the given service.
 	ListResources(service string) ([]resource.Resource, error)
+}
+
+// UploadedResource holds both the information about an uploaded
+// resource and the reader containing its data.
+type UploadedResource struct {
+	// Service is the name of the service associated with the resource.
+	Service string
+
+	// Resource is the information about the resource.
+	Resource resource.Resource
+
+	// Data holds the resource blob.
+	Data io.ReadCloser
 }
 
 // uploadStorage describes the the portion of Juju's "state needed for upload.
@@ -31,29 +44,35 @@ type uploadStorage interface {
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 }
 
-// handleUpload handles a resource upload request.
-func handleUpload(username string, st uploadDataStore, req *http.Request) error {
+// UploadHandler
+type UploadHandler struct {
+	Username string
+	Store    DataStore
+
+	CurrentTimestamp func() time.Time
+}
+
+// HandleRequest handles a resource upload request.
+func (uh UploadHandler) HandleRequest(req *http.Request) error {
 	defer req.Body.Close()
 
-	service, res, data, err := readResource(req, username, st)
+	uploaded, err := uh.ReadResource(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := st.SetResource(service, res, data); err != nil {
+	if err := uh.Store.SetResource(uploaded.Service, uploaded.Resource, uploaded.Data); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-// readResource extracts the relevant info from the request.
-func readResource(req *http.Request, username string, st uploadDataStore) (string, resource.Resource, io.ReadCloser, error) {
-	var res resource.Resource
-
+// ReadResource extracts the relevant info from the request.
+func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
 	ctype := req.Header.Get("Content-Type")
 	if ctype != "application/octet-stream" {
-		return "", res, nil, errors.Errorf("unsupported context type %q", ctype)
+		return nil, errors.Errorf("unsupported context type %q", ctype)
 	}
 
 	// See HTTPEndpoint in server.go and pattern handling in apiserver/apiserver.go.
@@ -63,20 +82,27 @@ func readResource(req *http.Request, username string, st uploadDataStore) (strin
 	fingerprint := req.URL.Query().Get("fingerprint")
 	size := req.URL.Query().Get("size")
 
-	res, err := getResource(st, service, name)
+	res, err := getResource(uh.Store, service, name)
 	if err != nil {
-		return "", res, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	res, err = updateResource(res, fingerprint, size, username)
+	res, err = uh.updateResource(res, fingerprint, size)
 	if err != nil {
-		return "", res, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return service, res, req.Body, nil
+	uploaded := &UploadedResource{
+		Service:  service,
+		Resource: res,
+		Data:     req.Body,
+	}
+	return uploaded, nil
 }
 
-func updateResource(res resource.Resource, fingerprint, size, username string) (resource.Resource, error) {
+// updateResource returns a copy of the provided resource, updated with
+// the given information.
+func (uh UploadHandler) updateResource(res resource.Resource, fingerprint, size string) (resource.Resource, error) {
 	data, err := hex.DecodeString(fingerprint)
 	if err != nil {
 		return res, errors.Annotate(err, "invalid fingerprint")
@@ -96,8 +122,8 @@ func updateResource(res resource.Resource, fingerprint, size, username string) (
 	res.Revision = 0
 	res.Fingerprint = fp
 	res.Size = sizeInt
-	res.Username = username
-	res.Timestamp = time.Now().UTC()
+	res.Username = uh.Username
+	res.Timestamp = uh.CurrentTimestamp().UTC()
 
 	if err := res.Validate(); err != nil {
 		return res, errors.Trace(err)
