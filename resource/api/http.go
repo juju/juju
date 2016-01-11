@@ -4,6 +4,7 @@
 package api
 
 import (
+	"fmt"
 	"net/url"
 )
 
@@ -18,6 +19,11 @@ const (
 	// a resource request.
 	HTTPEndpointPath = "/environment/%s/services/%s/resources/%s"
 )
+
+// NewEndpointPath returns the API URL path for the identified resource.
+func NewEndpointPath(envUUID, service, name string) string {
+	return fmt.Sprintf(HTTPEndpointPath, envUUID, service, name)
+}
 
 // ExtractEndpointDetails pulls the endpoint wildcard values from
 // the provided URL.
