@@ -137,9 +137,8 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
-		// XXX instead of creating a new space name, we ought to use
-		// the real space name if this provider id is already found in
-		// state. Only generate a new one if it isn't already there.
+		// Check if the space is already in state, in which case we know
+		// its name.
 		stateSpace, ok := stateSpaceMap[string(space.ProviderId)]
 		var spaceTag names.SpaceTag
 		if ok {
@@ -152,6 +151,8 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			spaceTag = names.NewSpaceTag(spaceName)
 
 		} else {
+			// The space is new, we need to create a valid name for it
+			// in state.
 			spaceName := string(space.ProviderId)
 			spaceName = strings.Replace(spaceName, " ", "-", -1)
 			spaceName = strings.ToLower(spaceName)
@@ -170,7 +171,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 				}}}
 			result, err := dw.api.CreateSpaces(args)
 			if err != nil {
-				logger.Errorf("invalid creating space %v", err)
+				logger.Errorf("error creating space %v", err)
 				return errors.Trace(err)
 			}
 			if len(result.Results) != 1 {
