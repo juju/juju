@@ -7,6 +7,7 @@
 package windows_test
 
 import (
+	"fmt"
 	"syscall"
 
 	win "github.com/gabriel-samfira/sys/windows"
@@ -216,14 +217,14 @@ func (s *serviceManagerSuite) TestEnsureRestartOnFailureCloseHandleDoesNotOverwr
 	}
 	s.stub.SetErrors(nil, nil, errors.New("CloseHandle: floosh"))
 	err := s.mgr.Create(s.name, s.conf)
-	c.Assert(err, gc.ErrorMatches, "ChangeServiceConfig2: zoinks")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("\\(also close %q handle failed: CloseHandle: floosh\\): ChangeServiceConfig2: zoinks", s.name))
 	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
 }
 
 func (s *serviceManagerSuite) TestEnsureRestartOnFailureCloseHandleReturnsErrorSuccessfully(c *gc.C) {
 	s.stub.SetErrors(nil, nil, errors.New("CloseHandle: floosh"))
 	err := s.mgr.Create(s.name, s.conf)
-	c.Assert(err, gc.ErrorMatches, "could not close "+s.name+"'s handle: CloseHandle: floosh")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("close %q handle failed: CloseHandle: floosh", s.name))
 	s.stub.CheckCallNames(c, "CreateService", "GetHandle", "CloseHandle", "Close")
 }
 
