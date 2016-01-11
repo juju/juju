@@ -56,10 +56,8 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		ImageId:         "1",
 	}
 
-	errs, err := s.client.Save([]params.CloudImageMetadata{m})
+	err = s.client.Save([]params.CloudImageMetadata{m})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0].Error, gc.IsNil)
 
 	added, err := s.client.List("", "", nil, nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)

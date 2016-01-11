@@ -114,9 +114,10 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	msg := "save error"
 
 	saveCalls := 0
-	s.state.saveMetadata = func(m cloudimagemetadata.Metadata) error {
+	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		s.calls = append(s.calls, saveMetadata)
 		saveCalls += 1
+		c.Assert(m, gc.HasLen, saveCalls)
 		if saveCalls == 1 {
 			// don't err on first call
 			return nil
@@ -124,7 +125,13 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 		return errors.New(msg)
 	}
 
-	errs, err := s.api.Save(params.MetadataSaveParams{Metadata: []params.CloudImageMetadata{m, m}})
+	errs, err := s.api.Save(params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{{
+			Metadata: []params.CloudImageMetadata{m},
+		}, {
+			Metadata: []params.CloudImageMetadata{m, m},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)

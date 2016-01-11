@@ -124,7 +124,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	// We do not want to pull published image metadata for tests...
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	// We want an image to start test instances
-	m := cloudimagemetadata.Metadata{
+	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
 		cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Series:          "trusty",
@@ -135,8 +135,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		},
 		10,
 		"-999",
-	}
-	err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the operations channel with more than enough space

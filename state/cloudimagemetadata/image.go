@@ -35,43 +35,55 @@ func NewStorage(envuuid, collectionName string, store DataStore) Storage {
 var emptyMetadata = Metadata{}
 
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
-func (s *storage) SaveMetadata(metadata Metadata) error {
-	newDoc := s.mongoDoc(metadata)
-	if err := validateMetadata(&newDoc); err != nil {
-		return err
+func (s *storage) SaveMetadata(metadata []Metadata) error {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	newDocs := make([]imagesMetadataDoc, len(metadata))
+	for i, m := range metadata {
+		newDoc := s.mongoDoc(m)
+		if err := validateMetadata(&newDoc); err != nil {
+			return err
+		}
+		newDocs[i] = newDoc
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		op := txn.Op{
-			C:  s.collection,
-			Id: newDoc.Id,
-		}
-
-		// Check if this image metadata is already known.
-		existing, err := s.getMetadata(newDoc.Id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if existing.MetadataAttributes == metadata.MetadataAttributes {
-			// may need to updated imageId
-			if existing.ImageId != metadata.ImageId {
-				op.Assert = txn.DocExists
-				op.Update = bson.D{{"$set", bson.D{{"image_id", metadata.ImageId}}}}
-				logger.Debugf("updating cloud image id for metadata %v", newDoc.Id)
-			} else {
-				return nil, jujutxn.ErrNoOperations
+		var ops []txn.Op
+		for _, newDoc := range newDocs {
+			newDocCopy := newDoc
+			op := txn.Op{
+				C:  s.collection,
+				Id: newDocCopy.Id,
 			}
-		} else {
-			op.Assert = txn.DocMissing
-			op.Insert = &newDoc
-			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
+
+			// Check if this image metadata is already known.
+			existing, err := s.getMetadata(newDocCopy.Id)
+			if errors.IsNotFound(err) {
+				op.Assert = txn.DocMissing
+				op.Insert = &newDocCopy
+				ops = append(ops, op)
+				logger.Debugf("inserting cloud image metadata for %v", newDocCopy.Id)
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			} else if existing.ImageId != newDocCopy.ImageId {
+				// need to update imageId
+				op.Assert = txn.DocExists
+				op.Update = bson.D{{"$set", bson.D{{"image_id", newDocCopy.ImageId}}}}
+				ops = append(ops, op)
+				logger.Debugf("updating cloud image id for metadata %v", newDocCopy.Id)
+			}
 		}
-		return []txn.Op{op}, nil
+		if len(ops) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
 	}
 
 	err := s.store.RunTransaction(buildTxn)
 	if err != nil {
-		return errors.Annotatef(err, "cannot save metadata for cloud image %v", newDoc.ImageId)
+		return errors.Annotate(err, "cannot save cloud image metadata")
 	}
 	return nil
 }
@@ -84,7 +96,7 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	err := coll.Find(bson.D{{"_id", id}}).One(&old)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return emptyMetadata, nil
+			return Metadata{}, errors.NotFoundf("image metadata with ID %q", id)
 		}
 		return emptyMetadata, errors.Trace(err)
 	}
