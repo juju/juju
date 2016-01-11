@@ -34,7 +34,8 @@ func convertSpaceName(name string, existing set.Strings) string {
 	name = invalidChars.ReplaceAllString(name, "")
 	// Next get rid of any dashes at the start as that isn't valid.
 	name = dashPrefix.ReplaceAllString(name, "")
-	// Special case of when the space name was only dashes!
+	// Special case of when the space name was only dashes or invalid
+	// characters!
 	if name == "" {
 		name = "empty"
 	}
