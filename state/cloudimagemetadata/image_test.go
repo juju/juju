@@ -42,18 +42,29 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
+	attrs1 := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
 		Region:          "region-test",
 		Version:         "14.04",
 		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType-test",
-		RootStorageType: "rootStorageType-test"}
-
-	added := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	s.assertRecordMetadata(c, added)
-	s.assertMetadataRecorded(c, attrs, added)
+		RootStorageType: "rootStorageType-test",
+	}
+	attrs2 := cloudimagemetadata.MetadataAttributes{
+		Stream:  "chalk",
+		Region:  "nether",
+		Version: "12.04",
+		Series:  "precise",
+		Arch:    "amd64",
+	}
+	added := []cloudimagemetadata.Metadata{
+		{attrs1, 0, "1"},
+		{attrs2, 0, "2"},
+	}
+	s.assertRecordMetadata(c, added[0])
+	s.assertRecordMetadata(c, added[1])
+	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, added...)
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
@@ -251,7 +262,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataNoSeriesPassed(c *gc.C) {
 		Arch:   "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.storage.SaveMetadata(metadata0)
+	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`missing series: metadata for image 1 not valid`))
 }
 
@@ -262,7 +273,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUnsupportedSeriesPassed(c *gc.
 		Arch:   "arch",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1"}
-	err := s.storage.SaveMetadata(metadata0)
+	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
@@ -276,7 +287,7 @@ func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metad
 }
 
 func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemetadata.Metadata) {
-	err := s.storage.SaveMetadata(m)
+	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{m})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

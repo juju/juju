@@ -103,7 +103,7 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 		return params.ErrorResults{}, errors.Annotatef(err, "getting environ")
 	}
 	for i, one := range metadata.Metadata {
-		md, err := api.parseMetadataFromParams(one, env)
+		md, err := api.parseMetadataListFromParams(one, env)
 		if err != nil {
 			all[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
@@ -129,6 +129,20 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Priority:        p.Priority,
 	}
 	return result
+}
+
+func (api *API) parseMetadataListFromParams(
+	p params.CloudImageMetadataList, env environs.Environ,
+) ([]cloudimagemetadata.Metadata, error) {
+	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
+	for i, metadata := range p.Metadata {
+		result, err := api.parseMetadataFromParams(metadata, env)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results[i] = result
+	}
+	return results, nil
 }
 
 func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environs.Environ) (cloudimagemetadata.Metadata, error) {
@@ -239,7 +253,7 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published
 
 // convertToParams converts environment-specific images metadata to structured metadata format.
 var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
-	metadata := []params.CloudImageMetadata{}
+	metadata := []params.CloudImageMetadataList{{}}
 	errs := []params.ErrorResult{}
 	for _, p := range published {
 		s, err := series.VersionSeries(p.Version)
@@ -260,7 +274,7 @@ var convertToParams = func(info *simplestreams.ResolveInfo, priority int, publis
 			Priority:        priority,
 		}
 
-		metadata = append(metadata, m)
+		metadata[0].Metadata = append(metadata[0].Metadata, m)
 	}
 	return params.MetadataSaveParams{Metadata: metadata}, errs
 }

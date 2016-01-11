@@ -4,8 +4,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
@@ -108,18 +106,8 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	m := c.constructMetadataParam()
-	found, err := api.Save([]params.CloudImageMetadata{m})
-	if err != nil {
-		return err
-	}
-	if len(found) == 0 {
-		return nil
-	}
-	if len(found) > 1 {
-		return errors.New(fmt.Sprintf("expected one result, got %d", len(found)))
-	}
-	if found[0].Error != nil {
-		return errors.New(found[0].Error.GoString())
+	if err := api.Save([]params.CloudImageMetadata{m}); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -127,7 +115,7 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 // MetadataAddAPI defines the API methods that add image metadata command uses.
 type MetadataAddAPI interface {
 	Close() error
-	Save(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error)
+	Save(metadata []params.CloudImageMetadata) error
 }
 
 var getImageMetadataAddAPI = (*addImageMetadataCommand).getImageMetadataAddAPI

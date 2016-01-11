@@ -473,8 +473,8 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 	if len(existingMetadata) == 0 {
 		return nil
 	}
-	msg := ""
-	for _, one := range existingMetadata {
+	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
+	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Stream:          one.Stream,
@@ -492,13 +492,10 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
-		err = st.CloudImageMetadataStorage.SaveMetadata(m)
-		if err != nil {
-			return errors.Annotatef(err, "cannot cache image metadata %v", m)
-		}
+		metadataState[i] = m
 	}
-	if len(msg) > 0 {
-		return errors.New(msg)
+	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil
 }

@@ -99,7 +99,9 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	// Write metadata to state.
 	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
-		err := s.State.CloudImageMetadataStorage.SaveMetadata(m)
+		err := s.State.CloudImageMetadataStorage.SaveMetadata(
+			[]cloudimagemetadata.Metadata{m},
+		)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

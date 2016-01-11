@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
@@ -35,9 +34,9 @@ func (s *addImageSuite) SetUpTest(c *gc.C) {
 	s.data = emptyMetadata
 
 	s.mockAPI = &mockAddAPI{}
-	s.mockAPI.add = func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
+	s.mockAPI.add = func(metadata []params.CloudImageMetadata) error {
 		s.data = append(s.data, metadata...)
-		return make([]params.ErrorResult, len(metadata)), nil
+		return nil
 	}
 	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand) (MetadataAddAPI, error) {
 		return s.mockAPI, nil
@@ -80,22 +79,8 @@ func (s *addImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
 
 func (s *addImageSuite) TestAddImageMetadataFailed(c *gc.C) {
 	msg := "failed"
-	s.mockAPI.add = func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
-		return nil, errors.New(msg)
-	}
-
-	s.assertAddImageMetadataErr(c, constructTestImageMetadata(), msg)
-}
-
-func (s *addImageSuite) TestAddImageMetadataError(c *gc.C) {
-	msg := "failed"
-
-	s.mockAPI.add = func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
-		errs := make([]params.ErrorResult, len(metadata))
-		for i, _ := range metadata {
-			errs[i] = params.ErrorResult{Error: common.ServerError(errors.New(msg))}
-		}
-		return errs, nil
+	s.mockAPI.add = func(metadata []params.CloudImageMetadata) error {
+		return errors.New(msg)
 	}
 
 	s.assertAddImageMetadataErr(c, constructTestImageMetadata(), msg)
@@ -198,13 +183,13 @@ func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []stri
 }
 
 type mockAddAPI struct {
-	add func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error)
+	add func(metadata []params.CloudImageMetadata) error
 }
 
 func (s mockAddAPI) Close() error {
 	return nil
 }
 
-func (s mockAddAPI) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
+func (s mockAddAPI) Save(metadata []params.CloudImageMetadata) error {
 	return s.add(metadata)
 }

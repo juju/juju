@@ -57,7 +57,7 @@ type Metadata struct {
 type Storage interface {
 	// SaveMetadata adds cloud images metadata into state if it's new or
 	// updates metadata if it already exists,
-	SaveMetadata(Metadata) error
+	SaveMetadata([]Metadata) error
 
 	// FindMetadata returns all Metadata that match specified
 	// criteria or a "not found" error if none match.

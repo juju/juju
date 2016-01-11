@@ -77,7 +77,7 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 			s.calls = append(s.calls, findMetadata)
 			return nil, nil
 		},
-		saveMetadata: func(m cloudimagemetadata.Metadata) error {
+		saveMetadata: func(m []cloudimagemetadata.Metadata) error {
 			s.calls = append(s.calls, saveMetadata)
 			return nil
 		},
@@ -90,7 +90,7 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 
 type mockState struct {
 	findMetadata  func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
-	saveMetadata  func(m cloudimagemetadata.Metadata) error
+	saveMetadata  func(m []cloudimagemetadata.Metadata) error
 	environConfig func() (*config.Config, error)
 }
 
@@ -98,7 +98,7 @@ func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[stri
 	return st.findMetadata(f)
 }
 
-func (st *mockState) SaveMetadata(m cloudimagemetadata.Metadata) error {
+func (st *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 	return st.saveMetadata(m)
 }
 

@@ -1691,16 +1691,6 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		return current
 	}
 
-	getSeries := func(id, version string) string {
-		// Translate version (eg.14.04) to a series (eg. "trusty")
-		s, err := series.VersionSeries(version)
-		if err != nil {
-			logger.Warningf("could not determine series for image id %s: %v", id, err)
-			return ""
-		}
-		return s
-	}
-
 	toModel := func(m *imagemetadata.ImageMetadata, mStream string, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
 
 		return cloudimagemetadata.Metadata{
@@ -1718,25 +1708,29 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		}
 	}
 
+	var metadataState []cloudimagemetadata.Metadata
 	for _, source := range sources {
 		logger.Debugf("looking in data source %v", source.Description())
 		found, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, constraint)
 		if err != nil {
 			// Do not stop looking in other data sources if there is an issue here.
-			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
+			logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
 		}
-
 		for _, m := range found {
-			mStream := getStream(m.Stream)
-			mSeries := getSeries(m.Id, m.Version)
-
-			// Attempt to store in state for next time :D
-			err := p.st.CloudImageMetadataStorage.SaveMetadata(toModel(m, mStream, mSeries, info.Source, source.Priority()))
+			mSeries, err := series.VersionSeries(m.Version)
 			if err != nil {
-				// No need to react here, just take note
-				logger.Errorf("encountered %v while saving published image metadata (id %v) from %v", err, m.Id, source.Description())
+				logger.Warningf("could not determine series for image id %s: %v", m.Id, err)
+				continue
 			}
+			mStream := getStream(m.Stream)
+			metadataState = append(metadataState, toModel(m, mStream, mSeries, info.Source, source.Priority()))
+		}
+	}
+	if len(metadataState) > 0 {
+		if err := p.st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+			// No need to react here, just take note
+			logger.Warningf("failed to save published image metadata: %v", err)
 		}
 	}
 

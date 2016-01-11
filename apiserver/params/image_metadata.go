@@ -72,7 +72,13 @@ type ListCloudImageMetadataResult struct {
 	Result []CloudImageMetadata `json:"result"`
 }
 
-// MetadataSaveParams holds cloud image metadata details to save.
+// MetadataSaveParams holds lists of cloud image metadata to save. Each list
+// will be saved atomically.
 type MetadataSaveParams struct {
-	Metadata []CloudImageMetadata `json:"metadata"`
+	Metadata []CloudImageMetadataList `json:"metadata,omitempty"`
+}
+
+// CloudImageMetadataList holds a list of cloud image metadata.
+type CloudImageMetadataList struct {
+	Metadata []CloudImageMetadata `json:"metadata,omitempty"`
 }

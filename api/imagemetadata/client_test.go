@@ -126,12 +126,6 @@ func (s *imagemetadataSuite) TestSave(c *gc.C) {
 	m := params.CloudImageMetadata{}
 	called := false
 
-	msg := "save failure"
-	expected := []params.ErrorResult{
-		params.ErrorResult{},
-		params.ErrorResult{&params.Error{Message: msg}},
-	}
-
 	apiCaller := testing.APICallerFunc(
 		func(objType string,
 			version int,
@@ -143,28 +137,29 @@ func (s *imagemetadataSuite) TestSave(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Save")
 
-			args, ok := a.(params.MetadataSaveParams)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Metadata, gc.HasLen, 2)
-			c.Assert(args.Metadata, gc.DeepEquals, []params.CloudImageMetadata{m, m})
+			c.Assert(a, gc.FitsTypeOf, params.MetadataSaveParams{})
+			args := a.(params.MetadataSaveParams)
+			c.Assert(args.Metadata, gc.HasLen, 1)
+			c.Assert(args.Metadata, jc.DeepEquals, []params.CloudImageMetadataList{
+				{[]params.CloudImageMetadata{m, m}},
+			})
 
-			if results, k := result.(*params.ErrorResults); k {
-				results.Results = expected
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
 			}
 
 			return nil
 		})
 
 	client := imagemetadata.NewClient(apiCaller)
-	errs, err := client.Save([]params.CloudImageMetadata{m, m})
+	err := client.Save([]params.CloudImageMetadata{m, m})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(errs, jc.DeepEquals, expected)
 }
 
 func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	m := []params.CloudImageMetadata{{}}
-	called := false
 	msg := "facade failure"
 	apiCaller := testing.APICallerFunc(
 		func(objType string,
@@ -172,17 +167,38 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			called = true
 			c.Check(objType, gc.Equals, "ImageMetadata")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Save")
 			return errors.New(msg)
 		})
 	client := imagemetadata.NewClient(apiCaller)
-	found, err := client.Save(m)
+	err := client.Save(m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.HasLen, 0)
-	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
+	m := []params.CloudImageMetadata{{}}
+	msg := "facade failure"
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Save")
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{
+					{Error: &params.Error{Message: msg}},
+				},
+			}
+			return nil
+		})
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.Save(m)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
 func (s *imagemetadataSuite) TestUpdateFromPublishedImages(c *gc.C) {

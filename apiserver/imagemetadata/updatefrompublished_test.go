@@ -171,9 +171,9 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 		return env.Config(), err
 	}
 
-	s.state.saveMetadata = func(m cloudimagemetadata.Metadata) error {
+	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		s.calls = append(s.calls, saveMetadata)
-		saved = append(saved, m)
+		saved = append(saved, m...)
 		return nil
 	}
 
@@ -296,9 +296,9 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 		return s.env.Config(), nil
 	}
 
-	s.state.saveMetadata = func(m cloudimagemetadata.Metadata) error {
+	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		s.calls = append(s.calls, saveMetadata)
-		s.saved = append(s.saved, m)
+		s.saved = append(s.saved, m...)
 		return nil
 	}
 }
@@ -307,10 +307,7 @@ func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
 
-	tempCalls := []string{environConfig, environConfig}
-	for _ = range s.expected {
-		tempCalls = append(tempCalls, saveMetadata)
-	}
+	tempCalls := []string{environConfig, environConfig, saveMetadata}
 	s.assertCalls(c, tempCalls)
 
 	c.Assert(s.saved, jc.SameContents, s.expected)
@@ -427,7 +424,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	calls := []string{environConfig, environConfig, saveMetadata, environConfig, saveMetadata, saveMetadata}
+	calls := []string{environConfig, environConfig, saveMetadata, environConfig, saveMetadata}
 	s.assertCalls(c, calls)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
