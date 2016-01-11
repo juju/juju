@@ -9,14 +9,15 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
+
+	"github.com/juju/juju/api/discoverspaces"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.discoverspaces")
@@ -30,7 +31,10 @@ var invalidChars = regexp.MustCompile("[^0-9a-z-]")
 var dashPrefix = regexp.MustCompile("^-*")
 
 func convertSpaceName(name string, existing set.Strings) string {
-	// First replace any character that isn't in the set "-", "a-z", "0-9".
+	// First lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+	// Next replace any character that isn't in the set "-", "a-z", "0-9".
 	name = invalidChars.ReplaceAllString(name, "")
 	// Next get rid of any dashes at the start as that isn't valid.
 	name = dashPrefix.ReplaceAllString(name, "")
@@ -158,8 +162,6 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// The space is new, we need to create a valid name for it
 			// in state.
 			spaceName := string(space.ProviderId)
-			spaceName = strings.Replace(spaceName, " ", "-", -1)
-			spaceName = strings.ToLower(spaceName)
 			if !names.IsValidSpace(spaceName) {
 				// Convert the name into a valid name that isn't already in
 				// use.
