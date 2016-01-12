@@ -33,6 +33,7 @@ deb=$(find . -name $package|sed -r 's/.*build-([0-9]+)\/.*/\1 \0/'|sort -g|\
 dpkg -x $deb extracted-bin
 JUJU_BIN=$(find extracted-bin -name 'juju')
 $SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
+
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     echo "Setting the default juju to 1.20.11."
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
@@ -40,6 +41,13 @@ fi
 if [[ $VERSION =~ ^1\.23.*$ ]]; then
     echo "Setting the default juju to 1.22.6."
     export PATH="$HOME/old-juju/1.22.6/usr/lib/juju-1.22.6/bin:$PATH"
+fi
+if [[ $VERSION =~ ^2\..*$ && $extra_args = "--upgrade" ]]; then
+    CURRENT_VERSION=$(juju version | cut -d '-' -f 1)
+    if [[ ! $CURRENT_VERSION =~ ^1\.25\.[2-9].*$ ]]; then
+        echo "Juju $CURRENT_VERSION does not support upgrade to $VERSION."
+        exit 0
+    fi
 fi
 
 timeout -s INT $timeout $SCRIPTS/deploy_job.py --series $series\
