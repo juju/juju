@@ -78,12 +78,13 @@ func (p Persistence) newInsertResourceOps(id, serviceID string, res resource.Res
 func (p Persistence) newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
 	doc := p.newResourceDoc(id, serviceID, res)
 
-	return []txn.Op{{
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
-		Update: doc,
-	}}
+		Remove: true,
+	}}, p.newInsertResourceOps(id, serviceID, res)...)
 }
 
 // newResourceDoc generates a doc that represents the given resource.

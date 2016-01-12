@@ -16,8 +16,17 @@ import (
 
 // UploadClient has the API client methods needed by UploadCommand.
 type UploadClient interface {
-	Upload(service, name string, resource io.Reader) error
+	// Upload sends the resource to Juju.
+	Upload(service, name string, resource io.ReadSeeker) error
+
+	// Close closes the client.
 	Close() error
+}
+
+// ReadSeekCloser combines 2 interfaces.
+type ReadSeekCloser interface {
+	io.ReadCloser
+	io.Seeker
 }
 
 // UploadDeps is a type that contains external functions that Upload depends on
@@ -25,8 +34,9 @@ type UploadClient interface {
 type UploadDeps struct {
 	// NewClient returns the value that wraps the API for uploading to the server.
 	NewClient func(*UploadCommand) (UploadClient, error)
+
 	// OpenResource handles creating a reader from the resource path.
-	OpenResource func(path string) (io.ReadCloser, error)
+	OpenResource func(path string) (ReadSeekCloser, error)
 }
 
 // UploadCommand implements the upload command.

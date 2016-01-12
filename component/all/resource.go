@@ -4,7 +4,6 @@
 package all
 
 import (
-	"io"
 	"os"
 
 	"github.com/juju/errors"
@@ -134,9 +133,9 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return r.newClient(c)
+				return r.newClient(c.NewAPIRoot)
 			},
-			OpenResource: func(s string) (io.ReadCloser, error) {
+			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
 			},
 		})
@@ -146,7 +145,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return r.newClient(c)
+				return r.newClient(c.NewAPIRoot)
 			},
 		})
 	})
@@ -212,12 +211,18 @@ type apicommand interface {
 	NewAPIRoot() (api.Connection, error)
 }
 
-func (resources) newClient(command apicommand) (*client.Client, error) {
-	apiCaller, err := command.NewAPIRoot()
+func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
+	apiCaller, err := newAPICaller()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
+	doer, err := apiCaller.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	return client.NewClient(caller, apiCaller), nil
+	// The apiCaller takes care of prepending /environment/<envUUID>.
+	cl := client.NewClient(caller, doer, apiCaller)
+	return cl, nil
 }

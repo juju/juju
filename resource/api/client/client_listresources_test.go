@@ -24,7 +24,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	expected, apiResult := newResourceResult(c, "a-service", "spam")
 	s.facade.apiResults["a-service"] = apiResult
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service"}
 	results, err := cl.ListResources(services)
@@ -55,7 +55,7 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	expected2, apiResult2 := newResourceResult(c, "other-service", "eggs", "ham")
 	s.facade.apiResults["other-service"] = apiResult2
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service", "other-service"}
 	results, err := cl.ListResources(services)
@@ -85,7 +85,7 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestNoServices(c *gc.C) {
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	var services []string
 	results, err := cl.ListResources(services)
@@ -96,7 +96,7 @@ func (s *ListResourcesSuite) TestNoServices(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestBadServices(c *gc.C) {
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"???"}
 	_, err := cl.ListResources(services)
@@ -106,7 +106,7 @@ func (s *ListResourcesSuite) TestBadServices(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestServiceNotFound(c *gc.C) {
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service"}
 	_, err := cl.ListResources(services)
@@ -118,7 +118,7 @@ func (s *ListResourcesSuite) TestServiceNotFound(c *gc.C) {
 func (s *ListResourcesSuite) TestServiceEmpty(c *gc.C) {
 	s.facade.apiResults["a-service"] = api.ResourcesResult{}
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service"}
 	results, err := cl.ListResources(services)
@@ -136,7 +136,7 @@ func (s *ListResourcesSuite) TestServerError(c *gc.C) {
 		return failure
 	}
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service"}
 	_, err := cl.ListResources(services)
@@ -157,7 +157,7 @@ func (s *ListResourcesSuite) TestTooFew(c *gc.C) {
 		return nil
 	}
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service", "other-service"}
 	results, err := cl.ListResources(services)
@@ -183,7 +183,7 @@ func (s *ListResourcesSuite) TestTooMany(c *gc.C) {
 		return nil
 	}
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service", "other-service"}
 	results, err := cl.ListResources(services)
@@ -209,7 +209,7 @@ func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 		return nil
 	}
 
-	cl := client.NewClient(s.facade, s.facade)
+	cl := client.NewClient(s.facade, s, s.facade)
 
 	services := []string{"a-service"}
 	_, err := cl.ListResources(services)

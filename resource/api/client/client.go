@@ -5,10 +5,12 @@ package client
 
 import (
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -23,17 +25,24 @@ type FacadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
 }
 
+// Doer
+type Doer interface {
+	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
+}
+
 // Client is the public client for the resources API facade.
 type Client struct {
 	FacadeCaller
 	io.Closer
+	doer Doer
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(caller FacadeCaller, closer io.Closer) *Client {
+func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 	return &Client{
 		FacadeCaller: caller,
 		Closer:       closer,
+		doer:         doer,
 	}
 }
 
@@ -74,9 +83,23 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 	return results, nil
 }
 
-func (c Client) Upload(service, name string, resource io.Reader) error {
-	// TODO(natefinch): implement this
-	return errors.NewNotImplemented(nil, "resources.Client.Upload is not implemented")
+// Upload sends the provided resource blob up to Juju.
+func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
+	if !names.IsValidService(service) {
+		return errors.Errorf("invalid service %q", service)
+	}
+
+	req, err := api.NewHTTPUploadRequest(service, name, reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	response := new(string)
+	if err := c.doer.Do(req, reader, response); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func resolveErrors(errs []error) error {

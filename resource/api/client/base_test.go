@@ -5,6 +5,8 @@ package client_test
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,8 +25,9 @@ import (
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	stub   *testing.Stub
-	facade *stubFacade
+	stub     *testing.Stub
+	facade   *stubFacade
+	response string
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -32,6 +35,23 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.facade = newStubFacade(c, s.stub)
+	s.response = ""
+}
+
+func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) error {
+	s.stub.AddCall("Do", req, body, resp)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	result, ok := resp.(*string)
+	if !ok {
+		msg := fmt.Sprintf("bad response type %T, expected string", resp)
+		return errors.NewNotValid(nil, msg)
+	}
+
+	*result = s.response
+	return nil
 }
 
 func newResourceResult(c *gc.C, serviceID string, names ...string) ([]resource.Resource, api.ResourcesResult) {

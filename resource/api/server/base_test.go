@@ -4,6 +4,7 @@
 package server_test
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,9 +34,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
 	fp, err := charmresource.GenerateFingerprint([]byte(data))
 	c.Assert(err, jc.ErrorIsNil)
+	var size int64
 	var now time.Time
-	if username != "" {
-		now = time.Now()
+	if data != "" {
+		size = int64(len(data))
+		now = time.Now().UTC()
 	}
 	res := resource.Resource{
 		Resource: charmresource.Resource{
@@ -45,8 +48,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 				Path: name + ".tgz",
 			},
 			Origin:      charmresource.OriginUpload,
-			Revision:    1,
+			Revision:    0,
 			Fingerprint: fp,
+			Size:        size,
 		},
 		Username:  username,
 		Timestamp: now,
@@ -60,8 +64,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 			Type:        "file",
 			Path:        name + ".tgz",
 			Origin:      "upload",
-			Revision:    1,
+			Revision:    0,
 			Fingerprint: fp.Bytes(),
+			Size:        size,
 		},
 		Username:  username,
 		Timestamp: now,
@@ -74,6 +79,7 @@ type stubDataStore struct {
 	stub *testing.Stub
 
 	ReturnListResources []resource.Resource
+	ReturnGetResource   resource.Resource
 }
 
 func (s *stubDataStore) ListResources(service string) ([]resource.Resource, error) {
@@ -83,4 +89,22 @@ func (s *stubDataStore) ListResources(service string) ([]resource.Resource, erro
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubDataStore) GetResource(service, name string) (resource.Resource, error) {
+	s.stub.AddCall("GetResource", service, name)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
+
+	return s.ReturnGetResource, nil
+}
+
+func (s *stubDataStore) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
+	s.stub.AddCall("SetResource", serviceID, res, r)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

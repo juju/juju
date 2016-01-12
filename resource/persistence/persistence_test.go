@@ -218,7 +218,12 @@ func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 		C:      "resources",
 		Id:     "resource#a-service#spam",
 		Assert: txn.DocExists,
-		Update: &doc,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service#spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
 	}, {
 		C:      "resources",
 		Id:     "resource#a-service#spam#staged",
