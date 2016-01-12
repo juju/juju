@@ -248,6 +248,11 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False):
+        yield
+        self._backing_state.bootstrap(self.env.environment)
+
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
 
@@ -259,7 +264,7 @@ class FakeJujuClient:
             service_name = charm_name.split(':')[-1]
         self._backing_state.deploy(charm_name, service_name)
 
-    def wait_for_started(self):
+    def wait_for_started(self, timeout=1200, start=None):
         pass
 
     def get_status(self):
