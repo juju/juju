@@ -12,29 +12,30 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/metricsdebug"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
 const debugMetricsDoc = `
-debug-metrics [options]
+debug-metrics
 display recently collected metrics and exit
 `
 
 // DebugMetricsCommand retrieves metrics stored in the juju controller.
 type DebugMetricsCommand struct {
 	envcmd.EnvCommandBase
-	Json   bool
-	Entity string
-	Count  int
+	Json  bool
+	Tag   names.Tag
+	Count int
 }
 
 // New creates a new DebugMetricsCommand.
 func New() cmd.Command {
 	return envcmd.Wrap(&DebugMetricsCommand{})
-
 }
 
 // Info implements Command.Info.
@@ -52,7 +53,11 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("you need to specify a unit or service.")
 	}
-	c.Entity = args[0]
+	if names.IsValidUnit(args[0]) {
+		c.Tag = names.NewUnitTag(args[0])
+	} else {
+		c.Tag = names.NewServiceTag(args[0])
+	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
@@ -61,21 +66,35 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *DebugMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.Count, "n", 0, "number of metrics to retrieve")
 	f.BoolVar(&c.Json, "json", false, "output metrics as json")
 }
 
+type GetMetricsClient interface {
+	GetMetrics(tag string) ([]params.MetricResult, error)
+	Close() error
+}
+
+var newClient = func(env envcmd.EnvCommandBase) (GetMetricsClient, error) {
+	state, err := env.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return metricsdebug.NewClient(state), nil
+}
+
 // Run implements Command.Run.
-func (c *DebugMetricsCommand) Run(ctx *cmd.Context) (rErr error) {
-	state, err := c.NewAPIRoot()
+func (c *DebugMetricsCommand) Run(ctx *cmd.Context) error {
+	client, err := newClient(c.EnvCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := metricsdebug.NewClient(state)
-	metrics, err := client.GetMetrics(c.Entity)
+	metrics, err := client.GetMetrics(c.Tag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer client.Close()
 	if len(metrics) == 0 {
 		return nil
 	}
@@ -88,7 +107,7 @@ func (c *DebugMetricsCommand) Run(ctx *cmd.Context) (rErr error) {
 			return errors.Trace(err)
 		}
 		fmt.Fprintf(ctx.Stdout, string(b))
-		return
+		return nil
 	}
 	tw := tabwriter.NewWriter(ctx.Stdout, 0, 1, 1, ' ', 0)
 	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")

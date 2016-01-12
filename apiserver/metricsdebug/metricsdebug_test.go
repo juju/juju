@@ -47,23 +47,22 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{Entities: []params.Entity{
-		{"metered/0"},
+		{"unit-metered/0"},
 	}}
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 2)
-	c.Assert(result.Results[0], gc.DeepEquals, params.MetricsResult{
+	c.Assert(result.Results, gc.HasLen, 1)
+	for _, m := range result.Results[0].Metrics {
+		c.Logf("%#v\n", m)
+	}
+	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
+	c.Assert(result.Results[0], gc.DeepEquals, params.EntityMetrics{
 		Metrics: []params.MetricResult{
 			{
 				Key:   "pings",
 				Value: "5",
 				Time:  newTime,
 			},
-		},
-		Error: nil,
-	})
-	c.Assert(result.Results[1], gc.DeepEquals, params.MetricsResult{
-		Metrics: []params.MetricResult{
 			{
 				Key:   "pings",
 				Value: "5",
@@ -95,10 +94,10 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 	})
 
 	args0 := params.Entities{Entities: []params.Entity{
-		{"metered/0"},
+		{"unit-metered/0"},
 	}}
 	args1 := params.Entities{Entities: []params.Entity{
-		{"metered/1"},
+		{"unit-metered/1"},
 	}}
 
 	metrics0, err := s.metricsdebug.GetMetrics(args0)
@@ -132,18 +131,18 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
 	})
 
 	args := params.Entities{Entities: []params.Entity{
-		{"metered"},
+		{"service-metered"},
 	}}
 
 	metrics, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics.Results, gc.HasLen, 2)
-	c.Assert(metrics.Results[0].Metrics, gc.HasLen, 1)
+	c.Assert(metrics.Results, gc.HasLen, 1)
+	c.Assert(metrics.Results[0].Metrics, gc.HasLen, 2)
 	c.Assert(metrics.Results[0].Metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
 	c.Assert(metrics.Results[0].Metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
 	c.Assert(metrics.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
 
-	c.Assert(metrics.Results[1].Metrics[0].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
-	c.Assert(metrics.Results[1].Metrics[0].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
-	c.Assert(metrics.Results[1].Metrics[0].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
+	c.Assert(metrics.Results[0].Metrics[1].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
+	c.Assert(metrics.Results[0].Metrics[1].Value, gc.Equals, metricUnit1.Metrics()[0].Value)
+	c.Assert(metrics.Results[0].Metrics[1].Time, jc.TimeBetween(metricUnit1.Metrics()[0].Time, metricUnit1.Metrics()[0].Time))
 }

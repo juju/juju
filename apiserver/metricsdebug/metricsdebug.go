@@ -8,6 +8,7 @@ package metricsdebug
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -19,19 +20,27 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsDebug", 0, NewMetricsDebugAPI)
+	common.RegisterStandardFacade("MetricsDebug", 1, NewMetricsDebugAPI)
+}
+
+type GetMetricBatches interface {
+	// MetricBatchesForUnit returns metric batches for the given unit.
+	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)
+
+	// MetricBatchesForService returns metric batches for the given service.
+	MetricBatchesForService(service string) ([]state.MetricBatch, error)
 }
 
 // MetricsDebug defines the methods on the metricsdebug API end point.
 type MetricsDebug interface {
 	// GetMetrics returns all metrics stored by the state server.
-	GetMetrics(arg params.Entities) (params.MetricsResults, error)
+	GetMetrics(arg params.Entities) (params.MetricResults, error)
 }
 
 // MetricsDebugAPI implements the metricsdebug interface and is the concrete
 // implementation of the api end point.
 type MetricsDebugAPI struct {
-	state *state.State
+	state GetMetricBatches
 }
 
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
@@ -51,67 +60,56 @@ func NewMetricsDebugAPI(
 	}, nil
 }
 
-type getMetricsEntity string
-
-var (
-	unitEntity    getMetricsEntity = "unit"
-	serviceEntity getMetricsEntity = "service"
-)
-
-func (api *MetricsDebugAPI) unitOrService(entity string) (getMetricsEntity, error) {
-	if _, err := api.state.Unit(entity); err == nil {
-		return unitEntity, nil
-	}
-	if _, err := api.state.Service(entity); err == nil {
-		return serviceEntity, nil
-	}
-	return "", errors.Errorf("entity %q not unit or service", entity)
-}
-
 // GetMetrics returns all metrics stored by the state server.
-func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricsResults, error) {
-	results := params.MetricsResults{
-		Results: make([]params.MetricsResult, len(args.Entities)),
+func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResults, error) {
+	results := params.MetricResults{
+		Results: make([]params.EntityMetrics, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return results, nil
 	}
 	for i, arg := range args.Entities {
-		typ, err := api.unitOrService(arg.Tag)
+		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			err = errors.Annotate(err, "failed to find unit")
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		var batches []state.MetricBatch
-		if typ == unitEntity {
-			batches, err = api.state.MetricBatchesForUnit(arg.Tag)
+		switch tag.Kind() {
+		case names.UnitTagKind:
+			batches, err = api.state.MetricBatchesForUnit(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
-		} else if typ == serviceEntity {
-			batches, err = api.state.MetricBatchesForService(arg.Tag)
+		case names.ServiceTagKind:
+			batches, err = api.state.MetricBatchesForService(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
+		default:
+			err := errors.Errorf("invalid tag %v", arg.Tag)
+			results.Results[i].Error = common.ServerError(err)
 		}
-		results = params.MetricsResults{
-			Results: make([]params.MetricsResult, len(batches)),
+		metricCount := 0
+		for _, b := range batches {
+			metricCount += len(b.Metrics())
 		}
-		for i, mb := range batches {
-			metricresult := make([]params.MetricResult, len(mb.Metrics()))
-			for j, m := range mb.Metrics() {
-				metricresult[j] = params.MetricResult{
+		metrics := make([]params.MetricResult, metricCount)
+		ix := 0
+		for _, mb := range batches {
+			for _, m := range mb.Metrics() {
+				metrics[ix] = params.MetricResult{
 					Key:   m.Key,
 					Value: m.Value,
 					Time:  m.Time,
 				}
+				ix++
 			}
-			results.Results[i].Metrics = metricresult
+			results.Results[i].Metrics = metrics
 		}
 	}
 	return results, nil

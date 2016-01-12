@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The metricsdebug package contains the implementation of a client to
-// access metrics debug functions within state
+// access metrics debug functions within state.
 package metricsdebug
 
 import (
@@ -22,26 +22,25 @@ type Client struct {
 
 // MetricsDebugClient defines the methods on the metricsdebug API end point.
 type MetricsDebugClient interface {
-	// GetMetrics will receive metrics collected by the given entity
-	GetMetrics(entity string) ([]params.MetricResult, error)
+	// GetMetrics will receive metrics collected by the given entity tag
+	GetMetrics(tag string) ([]params.MetricResult, error)
 }
 
 var _ MetricsDebugClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsdebug api
-func NewClient(st api.Connection) *Client {
+func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsDebug")
-	return &Client{ClientFacade: frontend, st: st, facade: backend}
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // GetMetrics will receive metrics collected by the given entity
-func (c *Client) GetMetrics(entity string) ([]params.MetricResult, error) {
+func (c *Client) GetMetrics(tag string) ([]params.MetricResult, error) {
 	p := params.Entities{Entities: []params.Entity{
-		{entity},
+		{tag},
 	}}
-	results := new(params.MetricsResults)
-	err := c.facade.FacadeCall("GetMetrics", p, results)
-	if err != nil {
+	results := new(params.MetricResults)
+	if err := c.facade.FacadeCall("GetMetrics", p, results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := results.OneError(); err != nil {
