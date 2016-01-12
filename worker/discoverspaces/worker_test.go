@@ -85,3 +85,20 @@ func (s *workerSuite) TestWorkerIsStringsWorker(c *gc.C) {
 	s.startWorker()
 	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 }
+
+func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
+	s.startWorker()
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No spaces will have been created, worker does nothing.
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+}
+
+func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	s.startWorker()
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, jc.DeepEquals, nil)
+}

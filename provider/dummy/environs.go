@@ -1103,26 +1103,51 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-// TODO(mfoord): This should be configurable.
+// TODO(mfoord): This should support the broken setting
+// for injecting errors.
 func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if !p.supportsSpaceDiscovery {
-		return false, errors.NotSupportedf("spacediscovery")
+		return false, nil
 	}
 	return true, nil
 }
 
 // Spaces is specified on environs.Networking.
-// TODO(mfoord): This should support the broken setting
-// for injecting errors and allow returning a pre-canned
-// list of spaces.
 func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
 		return []network.SpaceInfo{}, err
 	}
-	return []network.SpaceInfo{}, nil
+	return []network.SpaceInfo{{
+		ProviderId: network.Id("foo"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("1"),
+				AvailabilityZones: []string{"zone"},
+			}, {
+				ProviderId:        network.Id("2"),
+				AvailabilityZones: []string{"zone"},
+			}}}, {
+		ProviderId: network.Id("Another Foo 99!"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("3"),
+				AvailabilityZones: []string{"zone2"},
+			}}}, {
+		ProviderId: network.Id("foo"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("5"),
+				AvailabilityZones: []string{"zone2"},
+			}}}, {
+		ProviderId: network.Id("---"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("6"),
+				AvailabilityZones: []string{"zone"},
+			}}}}, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
