@@ -6,6 +6,7 @@ package imagemetadata_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
@@ -25,7 +26,12 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	imageId := "imageid"
 	stream := "stream"
 	region := "region"
-	series := "series"
+
+	// This is used by filters to search function
+	testSeries := "trusty"
+	version, err := series.SeriesVersion(testSeries)
+	c.Assert(err, jc.ErrorIsNil)
+
 	arch := "arch"
 	virtType := "virt-type"
 	rootStorageType := "root-storage-type"
@@ -53,6 +59,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						ImageId:         imageId,
 						Stream:          args.Stream,
 						Region:          args.Region,
+						Version:         versionFromSeries(args.Series[0]),
 						Series:          args.Series[0],
 						Arch:            args.Arches[0],
 						VirtType:        args.VirtType,
@@ -69,7 +76,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	client := imagemetadata.NewClient(apiCaller)
 	found, err := client.List(
 		stream, region,
-		[]string{series}, []string{arch},
+		[]string{testSeries}, []string{arch},
 		virtType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -80,7 +87,8 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			ImageId:         imageId,
 			Stream:          stream,
 			Region:          region,
-			Series:          series,
+			Version:         version,
+			Series:          testSeries,
 			Arch:            arch,
 			VirtType:        virtType,
 			RootStorageType: rootStorageType,
@@ -218,4 +226,10 @@ func (s *imagemetadataSuite) TestUpdateFromPublishedImagesFacadeCallError(c *gc.
 	err := client.UpdateFromPublishedImages()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
+}
+
+var versionFromSeries = func(s string) string {
+	// For testing purposes only, there will not be an error :D
+	v, _ := series.SeriesVersion(s)
+	return v
 }

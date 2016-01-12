@@ -34,6 +34,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -83,15 +84,15 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.LiveTests.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -181,16 +182,18 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.BaseSuite.SetUpSuite(c)
+	t.Tests.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
-	t.BaseSuite.SetUpSuite(c)
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
 }
@@ -1204,6 +1207,8 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	coretesting.BaseSuite
+	sstesting.TestDataSuite
+
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ
@@ -1211,11 +1216,17 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.restoreEC2Patching = patchEC2ForTesting()
+	t.TestDataSuite.SetUpSuite(c)
+
+	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
 	t.restoreEC2Patching()
+	t.TestDataSuite.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
 
@@ -1238,8 +1249,8 @@ func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
-func patchEC2ForTesting() func() {
-	ec2.UseTestImageData(ec2.TestImagesData)
+func patchEC2ForTesting(c *gc.C) func() {
+	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
@@ -1247,7 +1258,7 @@ func patchEC2ForTesting() func() {
 	return func() {
 		restoreFinishBootstrap()
 		restoreTimeouts()
-		ec2.UseTestImageData(nil)
+		ec2.UseTestImageData(c, nil)
 		ec2.UseTestInstanceTypeData(nil)
 		ec2.UseTestRegionData(nil)
 	}

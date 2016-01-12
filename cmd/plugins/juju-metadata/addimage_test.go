@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -104,14 +105,21 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.ImageId = ""
 
-	s.assertAddImageMetadataErr(c, m, "image id must be supplied when adding an image metadata")
+	s.assertAddImageMetadataErr(c, m, "image id must be supplied when adding image metadata")
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Series = ""
-
+	// Series will default to config default, for e.g. "trusty"
 	s.assertValidAddImageMetadata(c, m)
+}
+
+func (s *addImageSuite) TestAddImageMetadataInvalidSeries(c *gc.C) {
+	m := constructTestImageMetadata()
+	m.Series = "blah"
+
+	s.assertAddImageMetadataErr(c, m, regexp.QuoteMeta(`unknown version for series: "blah"`))
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
@@ -122,14 +130,12 @@ func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
 }
 
 func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImageMetadata) {
-	args := getAddImageMetadataCmdFlags(m)
+	args := getAddImageMetadataCmdFlags(c, m)
+
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Need to make sure that defaults are populated
-	if m.Series == "" {
-		m.Series = "trusty"
-	}
 	if m.Arch == "" {
 		m.Arch = "amd64"
 	}
@@ -145,7 +151,7 @@ func runAddImageMetadata(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {
-	args := getAddImageMetadataCmdFlags(m)
+	args := getAddImageMetadataCmdFlags(c, m)
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	c.Assert(s.data, gc.DeepEquals, emptyMetadata)
@@ -154,26 +160,27 @@ func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId: "im-33333",
-		Series:  "series",
+		Series:  "trusty",
 		Arch:    "arch",
 		Source:  "custom",
 	}
 }
 
-func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
+func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []string {
 	args := []string{}
 
 	addFlag := func(flag, value, defaultValue string) {
 		if value != "" {
 			args = append(args, flag, value)
 		} else {
-			args = append(args, flag, defaultValue)
+			if defaultValue != "" {
+				args = append(args, flag, defaultValue)
+			}
 		}
 	}
 
-	addFlag("--image-id", data.ImageId, "")
+	addFlag("--series", data.Series, "")
 	addFlag("--region", data.Region, "")
-	addFlag("--series", data.Series, "trusty")
 	addFlag("--arch", data.Arch, "amd64")
 	addFlag("--virt-type", data.VirtType, "")
 	addFlag("--storage-type", data.RootStorageType, "")
@@ -181,6 +188,11 @@ func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
 
 	if data.RootStorageSize != nil {
 		args = append(args, "--storage-size", fmt.Sprintf("%d", *data.RootStorageSize))
+	}
+
+	// image id is an argument
+	if data.ImageId != "" {
+		args = append(args, data.ImageId)
 	}
 	return args
 }

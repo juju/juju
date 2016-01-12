@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -585,6 +586,20 @@ func constructStartInstanceParams(
 		}
 	}
 
+	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
+	for i, metadata := range provisioningInfo.ImageMetadata {
+		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
+			Id:          metadata.ImageId,
+			Arch:        metadata.Arch,
+			RegionAlias: metadata.Region,
+			RegionName:  metadata.Region,
+			Storage:     metadata.RootStorageType,
+			Stream:      metadata.Stream,
+			VirtType:    metadata.VirtType,
+			Version:     metadata.Version,
+		}
+	}
+
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
@@ -593,6 +608,7 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }
 

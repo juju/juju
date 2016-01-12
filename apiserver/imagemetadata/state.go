@@ -10,7 +10,7 @@ import (
 )
 
 type metadataAcess interface {
-	FindMetadata(cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
+	FindMetadata(cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	SaveMetadata(cloudimagemetadata.Metadata) error
 	EnvironConfig() (*config.Config, error)
 }
@@ -23,7 +23,7 @@ type stateShim struct {
 	*state.State
 }
 
-func (s stateShim) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+func (s stateShim) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 	return s.State.CloudImageMetadataStorage.FindMetadata(f)
 }
 

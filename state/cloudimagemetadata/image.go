@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -36,6 +37,9 @@ var emptyMetadata = Metadata{}
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
 func (s *storage) SaveMetadata(metadata Metadata) error {
 	newDoc := s.mongoDoc(metadata)
+	if err := validateMetadata(&newDoc); err != nil {
+		return err
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
@@ -108,7 +112,10 @@ type imagesMetadataDoc struct {
 	// Region is the name of cloud region associated with the image.
 	Region string `bson:"region"`
 
-	// Series is Os version, for e.g. "quantal".
+	// Version is OS version, for e.g. "12.04".
+	Version string `bson:"version"`
+
+	// Series is OS series, for e.g. "trusty".
 	Series string `bson:"series"`
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
@@ -127,19 +134,13 @@ type imagesMetadataDoc struct {
 	DateCreated int64 `bson:"date_created"`
 
 	// Source describes where this image is coming from: is it public? custom?
-	Source SourceType `bson:"source"`
+	Source string `bson:"source"`
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int `bson:"priority"`
 }
-
-// SourceType values define source type.
-type SourceType string
-
-const (
-	// Public type identifies image as public.
-	Public SourceType = "public"
-
-	// Custom type identifies image as custom.
-	Custom SourceType = "custom"
-)
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	r := Metadata{
@@ -147,11 +148,13 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
+			Version:         m.Version,
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
 		},
+		m.Priority,
 		m.ImageId,
 	}
 	if m.RootStorageSize != 0 {
@@ -166,6 +169,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
+		Version:         m.Version,
 		Series:          m.Series,
 		Arch:            m.Arch,
 		VirtType:        m.VirtType,
@@ -173,6 +177,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now().UnixNano(),
 		Source:          m.Source,
+		Priority:        m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize
@@ -191,12 +196,28 @@ func buildKey(m Metadata) string {
 		m.Source)
 }
 
+func validateMetadata(m *imagesMetadataDoc) error {
+	// series must be supplied.
+	if m.Series == "" {
+		return errors.NotValidf("missing series: metadata for image %v", m.ImageId)
+	}
+
+	v, err := series.SeriesVersion(m.Series)
+	if err != nil {
+		return err
+	}
+
+	m.Version = v
+	return nil
+}
+
 // FindMetadata implements Storage.FindMetadata.
 // Results are sorted by date created and grouped by source.
-func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error) {
+func (s *storage) FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
+	logger.Debugf("searching for image metadata %#v", criteria)
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
@@ -206,7 +227,7 @@ func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metada
 		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
 
-	metadata := make(map[SourceType][]Metadata)
+	metadata := make(map[string][]Metadata)
 	for _, doc := range docs {
 		one := doc.metadata()
 		metadata[one.Source] = append(metadata[one.Source], one)
@@ -270,4 +291,29 @@ type MetadataFilter struct {
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
+}
+
+// SupportedArchitectures implements Storage.SupportedArchitectures.
+func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	var arches []string
+	if err := coll.Find(buildSearchClauses(criteria)).Distinct("arch", &arches); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return arches, nil
+}
+
+// MetadataArchitectureQuerier isolates querying supported architectures.
+type MetadataArchitectureQuerier struct {
+	Storage Storage
+}
+
+// SupportedArchitectures implements state policy SupportedArchitecturesQuerier.SupportedArchitectures.
+func (q *MetadataArchitectureQuerier) SupportedArchitectures(stream, region string) ([]string, error) {
+	return q.Storage.SupportedArchitectures(MetadataFilter{
+		Stream: stream,
+		Region: region,
+	})
 }

@@ -570,6 +570,7 @@ type ProvisioningInfo struct {
 	Volumes        []VolumeParams
 	Tags           map[string]string
 	SubnetsToZones map[string][]string
+	ImageMetadata  []CloudImageMetadata
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

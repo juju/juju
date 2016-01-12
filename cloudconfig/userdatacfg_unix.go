@@ -323,9 +323,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.icfg.Constraints.String()
-		if cons != "" {
-			cons = " --constraints " + shquote(cons)
+		bootstrapCons := w.icfg.Constraints.String()
+		if bootstrapCons != "" {
+			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
+		}
+		environCons := w.icfg.EnvironConstraints.String()
+		if environCons != "" {
+			environCons = " --environ-constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -347,7 +351,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
-				cons +
+				bootstrapCons +
+				environCons +
 				metadataDir +
 				loggingOption,
 		)
