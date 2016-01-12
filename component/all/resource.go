@@ -145,7 +145,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return r.newClient(c)
+				return r.newClient(c.NewAPIRoot)
 			},
 		})
 	})
