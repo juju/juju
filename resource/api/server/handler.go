@@ -78,7 +78,7 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 
 		// TODO(ericsnow) Clean this up.
 		body := "success"
-		resp.Header().Set("Content-Type", "text/plain")
+		resp.Header().Set("Content-Type", "application/json")
 		resp.Header().Set("Content-Length", fmt.Sprint(len(body)))
 		resp.WriteHeader(http.StatusOK)
 		resp.Write([]byte(body))
