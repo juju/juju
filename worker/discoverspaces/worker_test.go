@@ -42,13 +42,16 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	s.OpsChan = make(chan dummy.Operation, 10)
 	dummy.Listen(s.OpsChan)
+}
 
-	// Start the Addresser worker.
+func (s *workerSuite) startWorker() {
 	s.Worker = discoverspaces.NewWorker(s.API)
 }
 
 func (s *workerSuite) TearDownTest(c *gc.C) {
-	c.Assert(worker.Stop(s.Worker), jc.ErrorIsNil)
+	if s.Worker != nil {
+		c.Assert(worker.Stop(s.Worker), jc.ErrorIsNil)
+	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -76,4 +79,9 @@ func (s *workerSuite) TestConvertSpaceName(c *gc.C) {
 		result := discoverspaces.ConvertSpaceName(test.name, test.existing)
 		c.Check(result, gc.Equals, test.expected)
 	}
+}
+
+func (s *workerSuite) TestWorkerIsStringsWorker(c *gc.C) {
+	s.startWorker()
+	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 }
