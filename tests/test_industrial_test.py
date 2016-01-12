@@ -243,6 +243,7 @@ class FakeStepAttempt:
         return iter(self.result)
 
     def iter_steps(self, client):
+        yield self.stage.as_result()
         yield self.stage.as_result(self.result[0][1])
 
 
@@ -1874,8 +1875,11 @@ class TestAttemptSuite(TestCase):
         steps = list(attempt_suite._iter_bs_manager_steps(
             bs_manager, client, fake_bootstrap(), True))
         self.assertEqual([
+            {'test_id': 'fake-bootstrap-id'},
             {'test_id': 'fake-bootstrap-id', 'result': '1'},
+            {'test_id': 'fake-1-id'},
             {'test_id': 'fake-1-id', 'result': '1'},
+            {'test_id': 'fake-2-id'},
             {'test_id': 'fake-2-id', 'result': '1'},
             {'test_id': 'destroy-env'},
             {'test_id': 'destroy-env', 'result': True},
