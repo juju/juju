@@ -248,7 +248,7 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
-    def destroy_environment(self, force=True):
+    def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
 
     def add_ssh_machines(self, machines):
