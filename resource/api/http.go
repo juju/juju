@@ -67,8 +67,9 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 	}
 
 	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-Sha384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
-	req.Header.Set("Content-SHA384", fp.String())
+	req.ContentLength = int64(len(data))
 
 	return req, nil
 }
@@ -77,6 +78,10 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 func ExtractUploadRequest(req *http.Request) (service, name string, size int64, _ charmresource.Fingerprint, _ error) {
 	var fp charmresource.Fingerprint
 
+	if req.Header.Get("Content-Length") == "" {
+		req.Header.Set("Content-Length", fmt.Sprint(req.ContentLength))
+	}
+
 	ctype := req.Header.Get("Content-Type")
 	if ctype != "application/octet-stream" {
 		return "", "", 0, fp, errors.Errorf("unsupported content type %q", ctype)
@@ -84,7 +89,7 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 
 	service, name = ExtractEndpointDetails(req.URL)
 
-	fingerprint := req.Header.Get("Content-SHA384") // This parallels "Content-MD5".
+	fingerprint := req.Header.Get("Content-Sha384") // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get("Content-Length")
 
 	// TODO(ericsnow) Use the newer ParseFingerprint().
