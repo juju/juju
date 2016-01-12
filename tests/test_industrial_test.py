@@ -243,6 +243,7 @@ class FakeStepAttempt:
         return iter(self.result)
 
     def iter_steps(self, client):
+        yield self.stage.as_result()
         yield self.stage.as_result(self.result[0][1])
 
 
@@ -1817,8 +1818,10 @@ class TestAttemptSuiteFactory(TestCase):
             ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
             ('fake-1-id', {'title': 'fake-1'}),
             ('fake-2-id', {'title': 'fake-2'}),
-            ('destroy-env', {'title': 'destroy environment'}),
-            ('substrate-clean', {'title': 'check substrate clean'}),
+            ('destroy-env', {'title': 'destroy environment',
+                             'report_on': True}),
+            ('substrate-clean', {'title': 'check substrate clean',
+                                 'report_on': True}),
             ]), factory.get_test_info())
 
 
@@ -1835,8 +1838,10 @@ class TestAttemptSuite(TestCase):
             ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
             ('fake-1-id', {'title': 'fake-1'}),
             ('fake-2-id', {'title': 'fake-2'}),
-            ('destroy-env', {'title': 'destroy environment'}),
-            ('substrate-clean', {'title': 'check substrate clean'}),
+            ('destroy-env', {'title': 'destroy environment',
+                             'report_on': True}),
+            ('substrate-clean', {'title': 'check substrate clean',
+                                 'report_on': True}),
             ]), attempt_suite.get_test_info())
 
     def test_iter_steps(self):
@@ -1870,11 +1875,14 @@ class TestAttemptSuite(TestCase):
         steps = list(attempt_suite._iter_bs_manager_steps(
             bs_manager, client, fake_bootstrap(), True))
         self.assertEqual([
+            {'test_id': 'fake-bootstrap-id'},
             {'test_id': 'fake-bootstrap-id', 'result': '1'},
+            {'test_id': 'fake-1-id'},
             {'test_id': 'fake-1-id', 'result': '1'},
+            {'test_id': 'fake-2-id'},
             {'test_id': 'fake-2-id', 'result': '1'},
+            {'test_id': 'destroy-env'},
             {'test_id': 'destroy-env', 'result': True},
-            {'test_id': 'destroy-env', 'result': True},
-            {'test_id': 'substrate-clean', 'result': True},
+            {'test_id': 'substrate-clean'},
             {'test_id': 'substrate-clean', 'result': True},
             ], steps)
