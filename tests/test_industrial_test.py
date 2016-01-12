@@ -268,12 +268,6 @@ class FakeAttemptClass:
         return FakeStepAttempt.from_result(*self.result, test_id=self.test_id)
 
 
-class StubJujuClient:
-
-    def destroy_environment(self, delete_jenv=False):
-        pass
-
-
 @contextmanager
 def temp_env(name, config=None):
     if config is None:
@@ -577,7 +571,7 @@ class TestMultiIndustrialTest(TestCase):
             ], 'log-dir', 5, 10)
 
         def side_effect(x, y=None, debug=False):
-            return StubJujuClient()
+            return FakeJujuClient()
 
         with self.patch_client(side_effect):
             results = mit.run_tests()
@@ -595,7 +589,7 @@ class TestMultiIndustrialTest(TestCase):
             ], 'log-dir', 5, 6)
 
         def side_effect(x, y=None, debug=False):
-            return StubJujuClient()
+            return FakeJujuClient()
 
         with self.patch_client(side_effect):
             results = mit.run_tests()
@@ -613,7 +607,7 @@ class TestMultiIndustrialTest(TestCase):
             ], 'log-dir', 5, 4)
 
         def side_effect(x, y=None, debug=False):
-            return StubJujuClient()
+            return FakeJujuClient()
 
         with self.patch_client(side_effect):
             results = mit.run_tests()
