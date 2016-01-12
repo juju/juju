@@ -1119,6 +1119,9 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 // for injecting errors and allow returning a pre-canned
 // list of spaces.
 func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	if err := env.checkBroken("Spaces"); err != nil {
+		return []network.SpaceInfo{}, err
+	}
 	return []network.SpaceInfo{}, nil
 }
 
