@@ -190,7 +190,7 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 }
 
 func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
-	fp, err := charmresource.GenerateFingerprint([]byte(content))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 
 	method := "PUT"

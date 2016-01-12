@@ -111,9 +111,9 @@ RESOURCE FROM REV COMMENT
 }
 
 func (s *ShowSuite) TestOutputFormats(c *gc.C) {
-	fp1, err := charmresource.GenerateFingerprint([]byte("abc"))
+	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
 	c.Assert(err, jc.ErrorIsNil)
-	fp2, err := charmresource.GenerateFingerprint([]byte("xyz"))
+	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
 	c.Assert(err, jc.ErrorIsNil)
 	resources := []charmresource.Resource{
 		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),

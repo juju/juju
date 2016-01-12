@@ -4,6 +4,7 @@
 package resource_test
 
 import (
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +15,8 @@ import (
 )
 
 func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	reader := strings.NewReader(data)
+	fp, err := charmresource.GenerateFingerprint(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	return fp
 }
