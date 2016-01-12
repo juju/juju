@@ -82,7 +82,7 @@ func (p Persistence) newUpdateResourceOps(id, serviceID string, res resource.Res
 		C:      resourcesC,
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
-		Update: doc,
+		Update: bson.D{{"$set", doc}},
 	}}
 }
 
