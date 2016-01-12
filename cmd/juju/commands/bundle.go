@@ -27,8 +27,7 @@ import (
 )
 
 var watchAll = func(c *api.Client) (allWatcher, error) {
-	w, err := c.WatchAll()
-	return w, err
+	return c.WatchAll()
 }
 
 type allWatcher interface {
