@@ -89,19 +89,15 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
-	// We'll still attempt to reserve an address, in case we're running on MAAS
-	// 1.8+ and have registered the container as a device.
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(ifaceInfo, gc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
-	// We'll still attempt to release all addresses, in case we're running on
-	// MAAS 1.8+ and have registered the container as a device.
 	c.Assert(err, gc.ErrorMatches,
-		`cannot release static addresses for "42": machine 42 not found`,
+		`cannot release static addresses for "42": address allocation not supported`,
 	)
 }
 
@@ -874,13 +870,12 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigStatic,
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.10.0.2"),
-		ExtraConfig:      nil,
-		// Overwrite Address and MACAddress fields below with the actual ones,
-		// as they are chosen randomly.
-		Address:    network.Address{},
-		MACAddress: "",
+		// Overwrite the Address field below with the actual one, as
+		// it's chosen randomly.
+		Address:        network.Address{},
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewAddress("0.10.0.2"),
+		ExtraConfig:    nil,
 	}}
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
 	c.Assert(ifaceInfo[0].MACAddress, gc.Not(gc.DeepEquals), "")
@@ -912,7 +907,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "nic42", "aa:bb:cc:dd:ee:f0")
+		err = ipaddr.AllocateTo(container.Id(), "", "")
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)
