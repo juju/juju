@@ -32,8 +32,9 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.ContentLength = int64(len(data))
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader(data)
 	cl := client.NewClient(s.facade, s, s.facade)

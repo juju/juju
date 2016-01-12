@@ -4,8 +4,6 @@
 package cmd
 
 import (
-	"io"
-
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -159,7 +157,7 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 
 type stubUploadDeps struct {
 	stub   *testing.Stub
-	file   io.ReadCloser
+	file   ReadSeekCloser
 	client UploadClient
 }
 
@@ -172,7 +170,7 @@ func (s *stubUploadDeps) NewClient(c *UploadCommand) (UploadClient, error) {
 	return s.client, nil
 }
 
-func (s *stubUploadDeps) OpenResource(path string) (io.ReadCloser, error) {
+func (s *stubUploadDeps) OpenResource(path string) (ReadSeekCloser, error) {
 	s.stub.AddCall("OpenResource", path)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

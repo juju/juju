@@ -40,7 +40,7 @@ type stubAPIClient struct {
 	stub *testing.Stub
 }
 
-func (s *stubAPIClient) Upload(service, name string, resource io.Reader) error {
+func (s *stubAPIClient) Upload(service, name string, resource io.ReadSeeker) error {
 	s.stub.AddCall("Upload", service, name, resource)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -60,7 +60,7 @@ func (s *stubAPIClient) Close() error {
 
 type stubFile struct {
 	// No one actually tries to read from this during tests.
-	io.Reader
+	io.ReadSeeker
 	stub *testing.Stub
 }
 
