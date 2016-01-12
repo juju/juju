@@ -1341,9 +1341,10 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	if env.supportsSpaceDiscovery {
+	p := &providerInstance
+	if p.supportsSpaceDiscovery {
 		// Space discovery needs more subnets to work with.
-		return env.subnetsForSpaceDiscovery()
+		return env.subnetsForSpaceDiscovery(estate)
 	}
 
 	allSubnets := []network.SubnetInfo{{
@@ -1432,7 +1433,7 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	return result, nil
 }
 
-func (env *environ) subnetsForSpaceDiscovery() ([]network.SubnetInfo, error) {
+func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
 	result := []network.SubnetInfo{}
 	estate.ops <- OpSubnets{
 		Env:        env.name,
