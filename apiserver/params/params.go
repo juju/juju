@@ -832,5 +832,5 @@ type MetricsResult struct {
 type MetricResult struct {
 	Time  time.Time `json:"time"`
 	Key   string    `json:"key"`
-	Value string    `jons:"value"`
+	Value string    `json:"value"`
 }

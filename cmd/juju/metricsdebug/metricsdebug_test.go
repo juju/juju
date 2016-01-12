@@ -144,3 +144,35 @@ func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
+
+func (s *DebugMetricsCommandSuite) TestUnitJsonOutput(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	newTime := time.Now().Round(time.Second)
+	metricA := state.Metric{"pings", "5", newTime}
+	metricB := state.Metric{"pings", "10.5", newTime}
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
+	outputTime := newTime.Format(time.RFC3339)
+	expectedOutput := fmt.Sprintf(`[
+    {
+        "time": "%v",
+        "key": "pings",
+        "value": "5"
+    },
+    {
+        "time": "%v",
+        "key": "pings",
+        "value": "5"
+    },
+    {
+        "time": "%v",
+        "key": "pings",
+        "value": "10.5"
+    }
+]`, outputTime, outputTime, outputTime)
+	ctx, err := testing.RunCommand(c, metricsdebug.New(), "metered/0", "--json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput)
+}

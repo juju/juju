@@ -4,6 +4,7 @@
 package metricsdebug
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -25,7 +26,7 @@ display recently collected metrics and exit
 // DebugMetricsCommand retrieves metrics stored in the juju controller.
 type DebugMetricsCommand struct {
 	envcmd.EnvCommandBase
-	out    cmd.Output
+	Json   bool
 	Entity string
 	Count  int
 }
@@ -61,6 +62,7 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *DebugMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.Count, "n", 0, "number of metrics to retrieve")
+	f.BoolVar(&c.Json, "json", false, "output metrics as json")
 }
 
 // Run implements Command.Run.
@@ -79,6 +81,14 @@ func (c *DebugMetricsCommand) Run(ctx *cmd.Context) (rErr error) {
 	}
 	if c.Count > 0 && len(metrics) > c.Count {
 		metrics = metrics[:c.Count]
+	}
+	if c.Json {
+		b, err := json.MarshalIndent(metrics, "", "    ")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(ctx.Stdout, string(b))
+		return
 	}
 	tw := tabwriter.NewWriter(ctx.Stdout, 0, 1, 1, ' ', 0)
 	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
