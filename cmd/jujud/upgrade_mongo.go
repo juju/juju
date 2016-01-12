@@ -106,6 +106,7 @@ type UpgradeMongoCommand struct {
 	backupPath     string
 	rollback       bool
 	slave          bool
+	wiredTiger     bool
 	members        string
 
 	// utils used by this struct.
@@ -147,6 +148,7 @@ func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&u.members, "members", "", "a comma separated list of replicaset member ips")
 	f.BoolVar(&u.rollback, "rollback", false, "rollback a previous attempt at upgrading that was cut in the process")
 	f.BoolVar(&u.slave, "slave", false, "this is a slave machine in a replicaset")
+	f.BoolVar(&u.wiredTiger, "wiredTiger", false, "use wired tiger storage, requires a mongo 3 with js enabled")
 }
 
 // Init initializes the command for running.
@@ -480,7 +482,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		current = mongo.Mongo30
 	}
 
-	if current == mongo.Mongo30 {
+	if current == mongo.Mongo30 && u.wiredTiger {
 		jujuMongoPath = path.Dir(mongo.JujuMongod30Path)
 		_, err := u.mongoDump(jujuMongoPath, password, "Tiger", port)
 		if err != nil {

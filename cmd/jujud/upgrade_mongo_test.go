@@ -126,7 +126,7 @@ func (s *UpgradeMongoSuite) TestMongoDumpRetries(c *gc.C) {
 	c.Assert(out, gc.Equals, "this failed")
 	c.Assert(command.ranCommands, gc.HasLen, 60)
 	for i := range command.ranCommands {
-		c.Log("Checking attempt %d", i)
+		c.Logf("Checking attempt %d", i)
 		c.Assert(command.ranCommands[i], gc.DeepEquals, []string{"/fake/mongo/path/mongodump", "--ssl", "-u", "admin", "-p", "", "--port", "1234", "--host", "localhost", "--out", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 	}
 }
@@ -421,18 +421,6 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.StopService"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapiv2", "true"},
 		[]string{"mongo.StartService"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.StopService"},
-		[]string{"stat", testDir + "/db"},
-		[]string{"remove", testDir + "/db"},
-		[]string{"mkdir", testDir + "/db"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/wiredTiger", "false"},
-		[]string{"mongo.DialInfo"},
-		[]string{"mongo.StartService"},
-		[]string{"peergrouper.InitiateMongoServer"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/wiredTiger", "true"},
-		[]string{"mongo.ReStartService"},
 	}
 
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
@@ -569,18 +557,6 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"mongo.StopService"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapiv2", "true"},
 		[]string{"mongo.StartService"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.StopService"},
-		[]string{"stat", testDir + "/db"},
-		[]string{"remove", testDir + "/db"},
-		[]string{"mkdir", testDir + "/db"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/wiredTiger", "false"},
-		[]string{"mongo.DialInfo"},
-		[]string{"mongo.StartService"},
-		[]string{"peergrouper.InitiateMongoServer"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/wiredTiger", "true"},
-		[]string{"mongo.ReStartService"},
 	}
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
 }
