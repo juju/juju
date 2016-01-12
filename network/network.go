@@ -183,6 +183,11 @@ type InterfaceInfo struct {
 	// interface.
 	DNSServers []Address
 
+	// MTU is the Maximum Transmission Unit controlling the maximum size of the
+	// protocol packats that the interface can pass through. It is only used
+	// when > 0.
+	MTU int
+
 	// DNSSearch contains the default DNS domain to use for
 	// non-FQDN lookups.
 	DNSSearch string

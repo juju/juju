@@ -68,15 +68,14 @@ type Address struct {
 	SpaceName
 }
 
-// String returns a string representation of the address,
-// in the form: scope:address(network name);
-// for example:
+// String returns a string representation of the address, in the form:
+// ""scope:address(network name)@space""; for example:
 //
-//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)
+//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)@public-api
 //
-// If the scope is NetworkUnknown, the initial scope: prefix will
-// be omitted. If the NetworkName is blank, the (network name) suffix
-// will be omitted.
+// If the scope is NetworkUnknown, the initial scope: prefix will be omitted. If
+// the NetworkName is blank, the (network name) suffix will be omitted. Finally,
+// if the SpaceName is empty the last '@space' part will be omitted as well.
 func (a Address) String() string {
 	var buf bytes.Buffer
 	if a.Scope != ScopeUnknown {
@@ -84,11 +83,18 @@ func (a Address) String() string {
 		buf.WriteByte(':')
 	}
 	buf.WriteString(a.Value)
+
 	if a.NetworkName != "" {
 		buf.WriteByte('(')
 		buf.WriteString(a.NetworkName)
 		buf.WriteByte(')')
 	}
+
+	if a.SpaceName != "" {
+		buf.WriteByte('@')
+		buf.WriteString(string(a.SpaceName))
+	}
+
 	return buf.String()
 }
 
@@ -123,11 +129,30 @@ func NewScopedAddress(value string, scope Scope) Address {
 	return addr
 }
 
-// NewAddresses is a convenience function to create addresses from a
-// string slice.
+// NewAddressOnSpace creates a new Address, deriving its type and scope from the
+// value and associating it with the given spaceName.
+func NewAddressOnSpace(spaceName string, value string) Address {
+	addr := NewAddress(value)
+	addr.SpaceName = SpaceName(spaceName)
+	return addr
+}
+
+// NewAddresses is a convenience function to create addresses from a a variable
+// number of string arguments.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
-	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddress(address)
+	}
+	return outAddresses
+}
+
+// NewAddressesOnSpace is a convenience function to create addresses on the same
+// space, from a a variable number of string arguments.
+func NewAddressesOnSpace(spaceName string, inAddresses ...string) (outAddresses []Address) {
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddressOnSpace(spaceName, address)
 	}
 	return outAddresses
 }

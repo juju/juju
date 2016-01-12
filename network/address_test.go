@@ -116,6 +116,42 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	}
 }
 
+func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
+	addr1 := network.NewAddressOnSpace("foo", "0.1.2.3")
+	addr2 := network.NewAddressOnSpace("", "2001:db8::123")
+	c.Check(addr1, jc.DeepEquals, network.Address{
+		Value:       "0.1.2.3",
+		Type:        "ipv4",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "foo",
+	})
+	c.Check(addr2, jc.DeepEquals, network.Address{
+		Value:       "2001:db8::123",
+		Type:        "ipv6",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "",
+	})
+}
+
+func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
+	addrs := network.NewAddressesOnSpace("bar", "0.2.3.4", "fc00::1")
+	c.Check(addrs, jc.DeepEquals, []network.Address{{
+		Value:       "0.2.3.4",
+		Type:        "ipv4",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "bar",
+	}, {
+		Value:       "fc00::1",
+		Type:        "ipv6",
+		Scope:       "local-cloud",
+		NetworkName: "",
+		SpaceName:   "bar",
+	}})
+}
+
 func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
 	value := "0.1.2.3"
 	addr1 := network.NewScopedAddress(value, network.ScopeUnknown)
@@ -696,6 +732,13 @@ var stringTests = []struct {
 	str: "127.0.0.1",
 }, {
 	addr: network.Address{
+		Type:      network.IPv4Address,
+		Value:     "127.0.0.1",
+		SpaceName: "storage-data",
+	},
+	str: "127.0.0.1@storage-data",
+}, {
+	addr: network.Address{
 		Type:  network.IPv6Address,
 		Value: "2001:db8::1",
 		Scope: network.ScopePublic,
@@ -723,12 +766,29 @@ var stringTests = []struct {
 	str: "public:foo.com",
 }, {
 	addr: network.Address{
+		Type:      network.HostName,
+		Value:     "foo.com",
+		Scope:     network.ScopePublic,
+		SpaceName: "default",
+	},
+	str: "public:foo.com@default",
+}, {
+	addr: network.Address{
 		Type:        network.HostName,
 		Value:       "foo.com",
 		Scope:       network.ScopePublic,
 		NetworkName: "netname",
 	},
 	str: "public:foo.com(netname)",
+}, {
+	addr: network.Address{
+		Type:        network.HostName,
+		Value:       "foo.com",
+		Scope:       network.ScopePublic,
+		NetworkName: "netname",
+		SpaceName:   "badlands",
+	},
+	str: "public:foo.com(netname)@badlands",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {
