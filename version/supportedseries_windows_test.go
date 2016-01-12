@@ -35,6 +35,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 	expectedSeries := []string{
 		"arch",
 		"centos7",
+
 		"precise",
 		"quantal",
 		"raring",
@@ -44,6 +45,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"vivid",
 		"wily",
 		"xenial",
+
 		"win10",
 		"win2012",
 		"win2012hv",
@@ -54,6 +56,5 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"win81",
 	}
 	series := version.SupportedSeries()
-	sort.Strings(series)
-	c.Assert(series, gc.DeepEquals, expectedSeries)
+	c.Assert(series, jc.SameContents, expectedSeries)
 }
