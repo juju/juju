@@ -53,8 +53,6 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"win81",
 		"xenial",
 	}
-	sort.Strings(expectedSeries)
 	series := version.SupportedSeries()
-	sort.Strings(series)
-	c.Assert(series, gc.DeepEquals, expectedSeries)
+	c.Assert(series, jc.SameContents, expectedSeries)
 }
