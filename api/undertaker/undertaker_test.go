@@ -138,8 +138,8 @@ func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
 		c.Check(response, gc.DeepEquals, &params.EnvironConfigResult{Config: params.EnvironConfig(nil)})
 	})
 
-	cfg, err := client.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, ".*expected string, got nothing")
-	c.Assert(cfg, gc.IsNil)
+	// We intentionally don't test the error here. We are only interested that
+	// the EnvironConfig endpoint was called.
+	client.EnvironConfig()
 	c.Assert(called, jc.IsTrue)
 }
