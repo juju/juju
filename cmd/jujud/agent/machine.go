@@ -82,7 +82,6 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
@@ -126,7 +125,6 @@ var (
 	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
-	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
@@ -774,13 +772,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		})
 	}
 
-	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := apiConn.DiskManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-	})
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
 		api, err := apistorageprovisioner.NewState(apiConn, scope)

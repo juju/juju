@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/reboot"
@@ -178,6 +179,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		// The diskmanager worker periodically lists block devices on the
+		// machine it runs on. This worker will be run on all Juju-managed
+		// machines (one per machine agent).
+		diskmanagerName: diskmanager.Manifold(diskmanager.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -196,4 +206,5 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	diskmanagerName          = "disk-manager"
 )

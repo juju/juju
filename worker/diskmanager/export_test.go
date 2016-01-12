@@ -8,3 +8,5 @@ var (
 	BlockDeviceInUse = &blockDeviceInUse
 	DoWork           = doWork
 )
+
+var NewWorkerFunc = newWorker
