@@ -26,6 +26,16 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var watchAll = func(c *api.Client) (allWatcher, error) {
+	w, err := c.WatchAll()
+	return w, err
+}
+
+type allWatcher interface {
+	Next() ([]multiwatcher.Delta, error)
+	Stop() error
+}
+
 // deploymentLogger is used to notify clients about the bundle deployment
 // progress.
 type deploymentLogger interface {
@@ -70,7 +80,7 @@ func deployBundle(
 	}
 
 	// Instantiate a watcher used to follow the deployment progress.
-	watcher, err := client.WatchAll()
+	watcher, err := watchAll(client)
 	if err != nil {
 		return errors.Annotate(err, "cannot watch environment")
 	}
@@ -176,7 +186,7 @@ type bundleHandler struct {
 	ignoredUnits    map[string]bool
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
-	watcher *api.AllWatcher
+	watcher allWatcher
 }
 
 // addCharm adds a charm to the environment.
