@@ -295,6 +295,8 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 			continue
 		}
 		for _, disk := range disks {
+			// Blank disk description means an older disk or a disk
+			// not created by storage, we should not touch it.
 			if disk.Description != v.envUUID && disk.Description != "" {
 				continue
 			}
