@@ -12,7 +12,7 @@ import (
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
-func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(e *Environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	// first construct all available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()

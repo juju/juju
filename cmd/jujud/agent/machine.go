@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -65,6 +66,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -82,7 +84,6 @@ import (
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -102,6 +103,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -137,6 +139,7 @@ var (
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
+	getUndertakerAPI         = undertakerAPI
 )
 
 // Variable to override in tests, default is true
@@ -956,6 +959,7 @@ func (a *MachineAgent) upgradeStepsWorkerStarter(
 			apiConn,
 			jobs,
 			a.openStateForUpgrade,
+			upgrades.PreUpgradeSteps,
 			machine,
 		)
 	}
@@ -1140,15 +1144,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
-			// TODO(axw) 2013-09-24 bug #1229507
-			// Make another job to enable storage.
-			// There's nothing special about this.
-			return localstorage.NewWorker(agentConfig), nil
-		})
-	}
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
@@ -1156,7 +1151,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobManageEnviron:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
-				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, worker.RestartDelay), nil
+				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
@@ -1287,7 +1282,7 @@ func (a *MachineAgent) startEnvWorkers(
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
+		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), a.CurrentConfig()), nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
@@ -1351,6 +1346,86 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 
 	return runner, nil
+}
+
+// undertakerWorker manages the controlled take-down of a dying environment.
+func (a *MachineAgent) undertakerWorker(
+	ssSt envworkermanager.InitialState,
+	st *state.State,
+) (_ worker.Worker, err error) {
+	envUUID := st.EnvironUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for env %s", envUUID)
+	logger.Infof("starting undertaker worker for env %s", envUUID)
+	singularRunner, runner, apiSt, err := a.newRunnersForAPIConn(ssSt, st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil && singularRunner != nil {
+			singularRunner.Kill()
+			singularRunner.Wait()
+		}
+	}()
+
+	// Start the undertaker worker.
+	singularRunner.StartWorker("undertaker", func() (worker.Worker, error) {
+		return undertaker.NewUndertaker(getUndertakerAPI(apiSt), clock.WallClock), nil
+	})
+
+	return runner, nil
+}
+
+func (a *MachineAgent) newRunnersForAPIConn(
+	ssSt envworkermanager.InitialState,
+	st *state.State,
+) (
+	worker.Runner,
+	worker.Runner,
+	api.Connection,
+	error,
+) {
+	// Establish API connection for this environment.
+	agentConfig := a.CurrentConfig()
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		return nil, nil, nil, errors.New("API info not available")
+	}
+	apiInfo.EnvironTag = st.EnvironTag()
+	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	// Create a runner for workers specific to this
+	// environment. Either the State or API connection failing will be
+	// considered fatal, killing the runner and all its workers.
+	runner := newConnRunner(st, apiSt)
+	defer func() {
+		if err != nil && runner != nil {
+			runner.Kill()
+			runner.Wait()
+		}
+	}()
+	// Close the API connection when the runner for this environment dies.
+	go func() {
+		runner.Wait()
+		err := apiSt.Close()
+		if err != nil {
+			logger.Errorf("failed to close API connection for env %s: %v", st.EnvironUUID(), err)
+		}
+	}()
+
+	// Create a singular runner for this environment.
+	machine, err := ssSt.Machine(a.machineId)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	singularRunner, err := newSingularStateRunner(runner, ssSt, machine)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	return singularRunner, runner, apiSt, nil
 }
 
 var getFirewallMode = _getFirewallMode
@@ -1966,6 +2041,10 @@ func (c singularStateConn) Ping() error {
 
 func metricAPI(st api.Connection) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
+}
+
+func undertakerAPI(st api.Connection) apiundertaker.UndertakerClient {
+	return apiundertaker.NewClient(st)
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

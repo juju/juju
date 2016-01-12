@@ -311,7 +311,7 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	}
 	var matching coretools.List
 	for _, tools := range list {
-		if args.MajorVersion > 0 && tools.Version.Major != args.MajorVersion {
+		if args.MajorVersion != -1 && tools.Version.Major != args.MajorVersion {
 			continue
 		}
 		if args.MinorVersion != -1 && tools.Version.Minor != args.MinorVersion {

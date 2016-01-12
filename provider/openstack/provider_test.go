@@ -4,14 +4,11 @@
 package openstack_test
 
 import (
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/nova"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/testing"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
@@ -347,18 +344,4 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
-}
-
-func (t *localTests) TestPrepareSetsControlBucket(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "openstack",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err = openstack.ProviderInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bucket := cfg.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket, gc.Matches, "[a-f0-9]{32}")
 }

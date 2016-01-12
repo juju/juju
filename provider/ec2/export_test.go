@@ -11,11 +11,10 @@ import (
 	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 func EBSProvider() jujustorage.Provider {
@@ -71,7 +70,7 @@ func DeleteBucket(s storage.Storage) error {
 	return deleteBucket(s.(*ec2storage))
 }
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
+var testRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
 	// Prepare mock http transport for overriding metadata and images output in tests.
@@ -80,19 +79,15 @@ func init() {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		imagemetadata.DefaultBaseURL = "test:"
+		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
 		signedImageDataOnly = false
 	} else {
 		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
-		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 

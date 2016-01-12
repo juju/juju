@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -182,6 +183,7 @@ func StartInstanceWithParams(
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		series,
+		"",
 		true,
 		networks,
 		stateInfo,
@@ -190,6 +192,8 @@ func StartInstanceWithParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	eUUID, _ := env.Config().UUID()
+	instanceConfig.Tags[tags.JujuEnv] = eUUID
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)

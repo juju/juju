@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -61,25 +62,22 @@ var currentVersionStrings = []string{
 }
 
 var versionStrings = append([]string{
-	"1.12.0-precise-amd64",
-	"1.12.0-precise-i386",
-	"1.12.0-raring-amd64",
-	"1.12.0-raring-i386",
-	"1.13.0-precise-amd64",
+	fmt.Sprintf("%d.12.0-precise-amd64", version.Current.Major),
+	fmt.Sprintf("%d.12.0-precise-i386", version.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-amd64", version.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-i386", version.Current.Major),
+	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
-	expected := `Finding tools in .*
-.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: 1\.12\.0-precise-amd64
-.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: 1\.12\.0-precise-i386
-.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: 1\.12\.0-raring-amd64
-.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: 1\.12\.0-raring-i386
-.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: 1\.13\.0-precise-amd64
-`
+	expected := "Finding tools in .*\n"
 	f := `.*Fetching tools from dir "{{.ToolsDir}}" to generate hash: %s` + "\n"
-	for _, v := range currentVersionStrings {
+
+	// Sort the global versionStrings
+	sort.Strings(versionStrings)
+	for _, v := range versionStrings {
 		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
 	}
 	return strings.TrimSpace(expected)

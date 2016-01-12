@@ -233,7 +233,9 @@ func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
 	envState := s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddEnvironmentUser(user.UserTag(), s.userTag, "")
+	_, err := envState.AddEnvironmentUser(state.EnvUserSpec{
+		User:      user.UserTag(),
+		CreatedBy: s.userTag})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"

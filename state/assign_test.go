@@ -283,6 +283,16 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 	testWhenDying(c, machine, expect, expect, assignTest)
 }
 
+func (s *AssignSuite) TestAssignMachineDifferentSeries(c *gc.C) {
+	machine, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot assign unit "wordpress/0" to machine 0: series does not match`)
+}
+
 func (s *AssignSuite) TestPrincipals(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

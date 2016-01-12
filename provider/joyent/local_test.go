@@ -4,8 +4,6 @@
 package joyent_test
 
 import (
-	"bytes"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
@@ -19,9 +17,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -124,6 +122,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
@@ -166,6 +165,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -367,51 +367,6 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"11223344-0a0a-dd77-33cd-abcd1234e5f6"})
-}
-
-func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c).(environs.EnvironStorage)
-	stor := env.Storage()
-	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
-		content := []byte{a}
-		name := string(content)
-		err := stor.Put(name, bytes.NewBuffer(content),
-			int64(len(content)))
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	reader, err := storage.Get(stor, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "a")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "a")
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c).(environs.EnvironStorage)
-	stor := env.Storage()
-	// 6*26 = 156 items
-	for _, a := range []byte("abcdef") {
-		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
-			content := []byte{a, b}
-			name := string(content)
-			err := stor.Put(name, bytes.NewBuffer(content),
-				int64(len(content)))
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	reader, err := storage.Get(stor, "ab")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "ab")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "ab")
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {

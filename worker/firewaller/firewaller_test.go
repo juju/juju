@@ -571,6 +571,39 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.charm)
+	err := svc.SetExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	u, m := s.addUnit(c, svc)
+	inst := s.startInstance(c, m)
+
+	err = u.OpenPort("tcp", 80)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Nothing open without firewaller.
+	s.assertPorts(c, inst, m.Id(), nil)
+	dummy.SetInstanceBroken(inst, "OpenPorts")
+
+	// Starting the firewaller should attempt to open the ports,
+	// and fail due to the method being broken.
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, jc.ErrorIsNil)
+
+	errc := make(chan error, 1)
+	go func() { errc <- fw.Wait() }()
+	s.BackingState.StartSync()
+	select {
+	case err := <-errc:
+		c.Assert(err, gc.ErrorMatches,
+			`cannot respond to units changes for "machine-1": dummyInstance.OpenPorts is broken`)
+	case <-time.After(coretesting.LongWait):
+		fw.Kill()
+		fw.Wait()
+		c.Fatal("timed out waiting for firewaller to stop")
+	}
+}
+
 type GlobalModeSuite struct {
 	firewallerBaseSuite
 }

@@ -20,7 +20,6 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -162,37 +161,6 @@ func (nw *Networker) loop() error {
 	// indiscriminately for containers and possibly other cases.
 	logger.Infof("networker is disabled - not starting on machine %q", nw.tag)
 	return nil
-
-	logger.Debugf("starting on machine %q", nw.tag)
-	if !nw.IntrusiveMode() {
-		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")
-	}
-	w, err := nw.init()
-	if err != nil {
-		if w != nil {
-			// We don't bother to propagate an error, because we
-			// already have an error
-			w.Stop()
-		}
-		return err
-	}
-	defer watcher.Stop(w, &nw.tomb)
-	logger.Debugf("initialized and started watching")
-	for {
-		select {
-		case <-nw.tomb.Dying():
-			logger.Debugf("shutting down")
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
-			logger.Debugf("got change notification")
-			if !ok {
-				return watcher.EnsureErr(w)
-			}
-			if err := nw.handle(); err != nil {
-				return err
-			}
-		}
-	}
 }
 
 // init initializes the worker and starts a watcher for monitoring

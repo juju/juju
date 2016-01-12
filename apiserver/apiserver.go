@@ -83,10 +83,10 @@ type changeCertListener struct {
 	certChanged <-chan params.StateServingInfo
 
 	// The config to update with any new certificate.
-	config tls.Config
+	config *tls.Config
 }
 
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
 	cl := &changeCertListener{
 		Listener:    lis,
 		certChanged: certChanged,
@@ -108,7 +108,7 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	cl.m.Lock()
 	defer cl.m.Unlock()
 	config := cl.config
-	return tls.Server(conn, &config), nil
+	return tls.Server(conn, config), nil
 }
 
 // Close closes the listener.
@@ -201,7 +201,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
-	tlsConfig := tls.Config{
+	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	}
 	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
