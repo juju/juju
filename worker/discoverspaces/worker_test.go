@@ -68,6 +68,9 @@ func (s *workerSuite) TestConvertSpaceName(c *gc.C) {
 		{" ", empty, "empty"},
 		{"", empty, "empty"},
 		{"foo\u2318", empty, "foo"},
+		{"foo", set.NewStrings("foo", "bar", "baz"), "foo-2"},
+		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
+		{"---", set.NewStrings("empty"), "empty-2"},
 	}
 	for _, test := range nameTests {
 		result := discoverspaces.ConvertSpaceName(test.name, test.existing)
