@@ -236,10 +236,11 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu             sync.Mutex
-	ops            chan<- Operation
-	statePolicy    state.Policy
-	supportsSpaces bool
+	mu                     sync.Mutex
+	ops                    chan<- Operation
+	statePolicy            state.Policy
+	supportsSpaces         bool
+	supportsSpaceDiscovery bool
 	// We have one state for each environment name.
 	state      map[int]*environState
 	maxStateId int
@@ -327,6 +328,7 @@ func Reset() {
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
+	providerInstance.supportsSpaceDiscovery = false
 }
 
 func (state *environState) destroy() {
@@ -425,6 +427,17 @@ func SetSupportsSpaces(supports bool) bool {
 	defer p.mu.Unlock()
 	current := p.supportsSpaces
 	p.supportsSpaces = supports
+	return current
+}
+
+// SetSupportsSpaceDiscovery allows to enable and disable
+// SupportsSpaceDiscovery for tests.
+func SetSupportsSpaceDiscovery(supports bool) bool {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	current := p.supportsSpaceDiscovery
+	p.supportsSpaceDiscovery = supports
 	return current
 }
 
@@ -1090,15 +1103,15 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-// TODO: (mfoord) make this configurable.
-func (env *environ) SupportsSpaceDiscovery() (bool, error) {
-	return true, nil
-}
-
-// SupportsSpaceDiscovery is specified on environs.Networking.
 // TODO(mfoord): This should be configurable.
-func (env *environ) SupportSpaceDiscovery() (bool, error) {
-	return false, nil
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.supportsSpaceDiscovery {
+		return false, errors.NotSupportedf("spacediscovery")
+	}
+	return true, nil
 }
 
 // Spaces is specified on environs.Networking.
