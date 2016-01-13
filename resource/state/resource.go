@@ -80,7 +80,15 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
 // SetResource stores the resource in the Juju model.
-func (st resourceState) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
+func (st resourceState) SetResource(serviceID string, res resource.Resource, r io.Reader) (err error) {
+	defer func() {
+		if err != nil {
+			logger.Tracef("error setting resource %q for service %q: %v", res.Name, serviceID, err)
+		} else {
+			logger.Tracef("successfully added resource %q for %q", res.Name, serviceID)
+		}
+	}()
+	logger.Tracef("adding resource %q for service %q", res.Name, serviceID)
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource metadata")
 	}
@@ -115,7 +123,6 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 		}
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 

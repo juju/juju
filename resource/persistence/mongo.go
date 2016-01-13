@@ -101,11 +101,13 @@ func (p Persistence) newStagedDoc(id, serviceID string, res resource.Resource) *
 
 // resources returns the resource docs for the given service.
 func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
+	logger.Tracef("querying db for resources for %q", serviceID)
 	var docs []resourceDoc
 	query := bson.D{{"service-id", serviceID}}
 	if err := p.base.All(resourcesC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Tracef("found %d resources", len(docs))
 	return docs, nil
 }
 

@@ -1160,6 +1160,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	serviceID := st.docID(args.Name)
+
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -1251,8 +1252,19 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// TODO(natefinch) DEMO code, revisit after demo!
+	for _, postFunc := range AddServicePostFuncs {
+		if err := postFunc(st, args); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	return svc, nil
 }
+
+// TODO(natefinch) DEMO code, revisit after demo!
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
