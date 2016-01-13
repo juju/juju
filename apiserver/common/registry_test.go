@@ -511,7 +511,7 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingPattern(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	specs := common.ExposeHTTPEndpointsRegistry()
-	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/")
+	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid")
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerEnvBasedOkay(c *gc.C) {
