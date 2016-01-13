@@ -5,6 +5,8 @@ package common
 
 import (
 	"github.com/juju/testing"
+
+	"github.com/juju/juju/apiserver/common/http"
 )
 
 var (
@@ -35,10 +37,10 @@ func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
 }
 
 func SanitizeHTTPEndpointsRegistry(patch Patcher) {
-	emptyEndpoints := NewHTTPEndpoints()
+	emptyEndpoints := http.NewEndpoints()
 	testing.PatchValue(&httpEndpoints.endpoints, emptyEndpoints)
 }
 
-func ExposeHTTPEndpointsRegistry() []HTTPEndpointSpec {
-	return httpEndpoints.endpoints.specs()
+func ExposeHTTPEndpointsRegistry() []http.EndpointSpec {
+	return httpEndpoints.endpoints.Specs()
 }

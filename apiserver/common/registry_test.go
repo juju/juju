@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonhttp "github.com/juju/juju/apiserver/common/http"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -375,7 +376,7 @@ type HTTPEndpointRegistrySuite struct {
 
 	stub    *testing.Stub
 	handler http.Handler
-	args    common.NewHTTPHandlerArgs
+	args    commonhttp.NewHandlerArgs
 }
 
 var _ = gc.Suite(&HTTPEndpointRegistrySuite{})
@@ -386,17 +387,17 @@ func (s *HTTPEndpointRegistrySuite) SetUpTest(c *gc.C) {
 	common.SanitizeHTTPEndpointsRegistry(s)
 	s.stub = &testing.Stub{}
 	s.handler = &nopHTTPHandler{id: "suite default"}
-	s.args = common.NewHTTPHandlerArgs{}
+	s.args = commonhttp.NewHandlerArgs{}
 }
 
-func (s *HTTPEndpointRegistrySuite) newHandler(args common.NewHTTPHandlerArgs) http.Handler {
+func (s *HTTPEndpointRegistrySuite) newHandler(args commonhttp.NewHandlerArgs) http.Handler {
 	s.stub.AddCall("newHandler", args)
 	s.stub.NextErr() // pop one off
 
 	return s.handler
 }
 
-func (s *HTTPEndpointRegistrySuite) newArgs(constraints common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+func (s *HTTPEndpointRegistrySuite) newArgs(constraints commonhttp.HandlerConstraints) commonhttp.NewHandlerArgs {
 	s.stub.AddCall("newArgs", constraints)
 	s.stub.NextErr() // pop one off
 
@@ -404,11 +405,11 @@ func (s *HTTPEndpointRegistrySuite) newArgs(constraints common.HTTPHandlerConstr
 
 }
 
-func (s *HTTPEndpointRegistrySuite) addEndpoint(c *gc.C, pattern string, constraints common.HTTPHandlerConstraints, handler http.Handler) {
-	hSpec := common.HTTPHandlerSpec{
+func (s *HTTPEndpointRegistrySuite) addEndpoint(c *gc.C, pattern string, constraints commonhttp.HandlerConstraints, handler http.Handler) {
+	hSpec := commonhttp.HandlerSpec{
 		Constraints: constraints,
-		NewHTTPHandler: func(args common.NewHTTPHandlerArgs) http.Handler {
-			s.stub.AddCall("NewHTTPHandler", args)
+		NewHandler: func(args commonhttp.NewHandlerArgs) http.Handler {
+			s.stub.AddCall("NewHandler", args)
 			s.stub.NextErr() // pop one off
 			return handler
 		},
@@ -418,29 +419,29 @@ func (s *HTTPEndpointRegistrySuite) addEndpoint(c *gc.C, pattern string, constra
 }
 
 func (s *HTTPEndpointRegistrySuite) addBasicEndpoint(c *gc.C, pattern string) http.Handler {
-	var constraints common.HTTPHandlerConstraints
+	var constraints commonhttp.HandlerConstraints
 	handler := &nopHTTPHandler{pattern}
 	s.addEndpoint(c, pattern, constraints, handler)
 	return handler
 }
 
-func (s *HTTPEndpointRegistrySuite) checkSpec(c *gc.C, spec common.HTTPEndpointSpec, expected httpEndpointSpec) {
+func (s *HTTPEndpointRegistrySuite) checkSpec(c *gc.C, spec commonhttp.EndpointSpec, expected httpEndpointSpec) {
 	checkSpec(c, spec, expected)
 }
 
-func (s *HTTPEndpointRegistrySuite) checkSpecs(c *gc.C, specs []common.HTTPEndpointSpec, expected []httpEndpointSpec) {
+func (s *HTTPEndpointRegistrySuite) checkSpecs(c *gc.C, specs []commonhttp.EndpointSpec, expected []httpEndpointSpec) {
 	checkSpecs(c, specs, expected)
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
-	constraints := common.HTTPHandlerConstraints{
+	constraints := commonhttp.HandlerConstraints{
 		AuthKind:           names.UserTagKind,
 		StrictValidation:   true,
 		StateServerEnvOnly: true,
 	}
-	hSpec := common.HTTPHandlerSpec{
-		Constraints:    constraints,
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		Constraints: constraints,
+		NewHandler:  s.newHandler,
 	}
 	s.stub.ResetCalls()
 
@@ -461,8 +462,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerBasic(c *gc.C) {
-	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		NewHandler: s.newHandler,
 	}
 
 	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
@@ -480,8 +481,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerBasic(c *gc.C) {
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerTrailingSlash(c *gc.C) {
-	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		NewHandler: s.newHandler,
 	}
 
 	err := common.RegisterEnvHTTPHandler("/spam/", hSpec)
@@ -492,8 +493,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerTrailingSlash(c *g
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerRelativePattern(c *gc.C) {
-	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		NewHandler: s.newHandler,
 	}
 
 	err := common.RegisterEnvHTTPHandler("spam", hSpec)
@@ -504,8 +505,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerRelativePattern(c 
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingPattern(c *gc.C) {
-	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		NewHandler: s.newHandler,
 	}
 
 	err := common.RegisterEnvHTTPHandler("", hSpec)
@@ -516,8 +517,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingPattern(c *
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerEnvBasedOkay(c *gc.C) {
-	hSpec := common.HTTPHandlerSpec{
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		NewHandler: s.newHandler,
 	}
 
 	err := common.RegisterEnvHTTPHandler("/environment/:envuuid/spam", hSpec)
@@ -527,8 +528,8 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerEnvBasedOkay(c *gc
 	c.Check(specs[0].Pattern(), gc.Equals, "/environment/:envuuid/spam")
 }
 
-func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingNewHTTPHandler(c *gc.C) {
-	var hSpec common.HTTPHandlerSpec // no handler
+func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingNewHandler(c *gc.C) {
+	var hSpec commonhttp.HandlerSpec // no handler
 	unhandled := &nopHTTPHandler{id: "unhandled"}
 
 	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
@@ -536,24 +537,24 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerMissingNewHTTPHand
 
 	// Strictly speaking, this test could stop right here. We just want
 	// to be sure a spec can be added even if it doesn't have
-	// NewHTTPHandler set. The following, though checking other
+	// NewHandler set. The following, though checking other
 	// concerns, is still useful enough to include here.
 	specs := common.ExposeHTTPEndpointsRegistry()
 	resolved := specs[0].Resolve("", unhandled)
-	handler := resolved.NewHTTPHandler(common.NewHTTPHandlerArgs{})
+	handler := resolved.NewHandler(commonhttp.NewHandlerArgs{})
 	c.Check(handler, gc.Equals, unhandled)
 }
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerNoCollision(c *gc.C) {
 	otherHandler := s.addBasicEndpoint(c, "/spam")
-	constraints := common.HTTPHandlerConstraints{
+	constraints := commonhttp.HandlerConstraints{
 		AuthKind:           names.UserTagKind,
 		StrictValidation:   true,
 		StateServerEnvOnly: true,
 	}
-	hSpec := common.HTTPHandlerSpec{
-		Constraints:    constraints,
-		NewHTTPHandler: s.newHandler,
+	hSpec := commonhttp.HandlerSpec{
+		Constraints: constraints,
+		NewHandler:  s.newHandler,
 	}
 	s.stub.ResetCalls()
 
@@ -582,7 +583,7 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerNoCollision(c *gc.
 
 func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerCollisionOverlapping(c *gc.C) {
 	s.addBasicEndpoint(c, "/spam")
-	var hSpec common.HTTPHandlerSpec
+	var hSpec commonhttp.HandlerSpec
 
 	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
 
@@ -593,7 +594,7 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerCollisionOverlappi
 // TODO(ericsnow) Add TestRegisterEnvHTTPHandlerDisjoint as soon as that is possible.
 
 func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
-	constraints := common.HTTPHandlerConstraints{
+	constraints := commonhttp.HandlerConstraints{
 		AuthKind:           names.UserTagKind,
 		StrictValidation:   true,
 		StateServerEnvOnly: true,
@@ -605,23 +606,23 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c,
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 		"newArgs",
-		"NewHTTPHandler",
+		"NewHandler",
 	)
 	for i := 0; i > 12; i += 2 {
 		s.stub.CheckCall(c, i+0, "newArgs", constraints)
-		s.stub.CheckCall(c, i+1, "NewHTTPHandler", s.args)
+		s.stub.CheckCall(c, i+1, "NewHandler", s.args)
 	}
-	c.Check(endpoints, jc.DeepEquals, []common.HTTPEndpoint{{
+	c.Check(endpoints, jc.DeepEquals, []commonhttp.Endpoint{{
 		Pattern: "/environment/:envuuid/spam",
 		Method:  "GET",
 		Handler: s.handler,
@@ -651,12 +652,12 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOkay(c *gc.C) {
 func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsOrdered(c *gc.C) {
 	patterns := []string{"/spam", "/ham", "/eggs"}
 	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
-	var expected []common.HTTPEndpoint
+	var expected []commonhttp.Endpoint
 	for _, pattern := range patterns {
 		handler := s.addBasicEndpoint(c, pattern)
 		pattern = "/environment/:envuuid" + pattern
 		for _, method := range methods {
-			expected = append(expected, common.HTTPEndpoint{
+			expected = append(expected, commonhttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,
 				Handler: handler,
@@ -677,9 +678,9 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsEmpty(c *gc.C) {
 	c.Check(endpoints, gc.HasLen, 0)
 }
 
-func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsMissingNewHTTPHandler(c *gc.C) {
+func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsMissingNewHandler(c *gc.C) {
 	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
-	var hSpec common.HTTPHandlerSpec
+	var hSpec commonhttp.HandlerSpec
 	err := common.RegisterEnvHTTPHandler("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -692,7 +693,7 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsMissingNewHTTPHandle
 		// TODO(ericsnow) Call endpoint.Handler() to verify the "unsupported" response.
 
 		endpoint.Handler = nil // We fudge it because functions are not comparable.
-		c.Check(endpoint, jc.DeepEquals, common.HTTPEndpoint{
+		c.Check(endpoint, jc.DeepEquals, commonhttp.Endpoint{
 			Pattern: "/environment/:envuuid/spam",
 			Method:  method,
 		})
@@ -701,7 +702,7 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsMissingNewHTTPHandle
 
 func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsNoHandler(c *gc.C) {
 	methods := []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"}
-	var constraints common.HTTPHandlerConstraints
+	var constraints commonhttp.HandlerConstraints
 	s.addEndpoint(c, "/spam", constraints, nil)
 
 	endpoints := common.ResolveHTTPEndpoints(s.newArgs)
@@ -713,10 +714,59 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsNoHandler(c *gc.C) {
 		// TODO(ericsnow) Call endpoint.Handler() to verify the "unsupported" response.
 
 		endpoint.Handler = nil // We fudge it because functions are not comparable.
-		c.Check(endpoint, jc.DeepEquals, common.HTTPEndpoint{
+		c.Check(endpoint, jc.DeepEquals, commonhttp.Endpoint{
 			Pattern: "/environment/:envuuid/spam",
 			Method:  method,
 			Handler: endpoint.Handler, // We fudge it because functions are not comparable.
 		})
+	}
+}
+
+type nopHTTPHandler struct {
+	// id uniquely identifies the handler (for when that matters).
+	// This is not required.
+	id string
+}
+
+func (nopHTTPHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}
+
+type httpHandlerSpec struct {
+	constraints commonhttp.HandlerConstraints
+	handler     http.Handler
+}
+
+type httpEndpointSpec struct {
+	pattern        string
+	methodHandlers map[string]httpHandlerSpec
+}
+
+func checkSpec(c *gc.C, spec commonhttp.EndpointSpec, expected httpEndpointSpec) {
+	// Note that we don't check HandlerSpec.NewHandler directly.
+	// Go does not support direct comparison of functions.
+	actual := httpEndpointSpec{
+		pattern:        spec.Pattern(),
+		methodHandlers: make(map[string]httpHandlerSpec),
+	}
+	unhandled := &nopHTTPHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
+	for _, method := range spec.Methods() {
+		hSpec := spec.Resolve(method, unhandled)
+		handler := hSpec.NewHandler(commonhttp.NewHandlerArgs{})
+		actual.methodHandlers[method] = httpHandlerSpec{
+			constraints: hSpec.Constraints,
+			handler:     handler,
+		}
+
+	}
+	c.Check(actual, jc.DeepEquals, expected)
+}
+
+func checkSpecs(c *gc.C, specs []commonhttp.EndpointSpec, expected []httpEndpointSpec) {
+	comment := gc.Commentf("len(%#v) != len(%#v)", specs, expected)
+	if !c.Check(len(specs), gc.Equals, len(expected), comment) {
+		return
+	}
+	for i, expectedSpec := range expected {
+		spec := specs[i]
+		checkSpec(c, spec, expectedSpec)
 	}
 }

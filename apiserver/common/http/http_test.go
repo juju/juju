@@ -1,121 +1,121 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package http_test
 
 import (
-	"net/http"
+	stdhttp "net/http"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/http"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type HTTPEndpointSpecSuite struct {
-	HTTPBaseSuite
+type EndpointSpecSuite struct {
+	BaseSuite
 }
 
-var _ = gc.Suite(&HTTPEndpointSpecSuite{})
+var _ = gc.Suite(&EndpointSpecSuite{})
 
-func (s *HTTPEndpointSpecSuite) TestNewHTTPEndpointSpec(c *gc.C) {
+func (s *EndpointSpecSuite) TestNewEndpointSpec(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointSpecSuite) TestAdd(c *gc.C) {
+func (s *EndpointSpecSuite) TestAdd(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointSpecSuite) TestPattern(c *gc.C) {
+func (s *EndpointSpecSuite) TestPattern(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointSpecSuite) TestMethods(c *gc.C) {
+func (s *EndpointSpecSuite) TestMethods(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointSpecSuite) TestResolve(c *gc.C) {
+func (s *EndpointSpecSuite) TestResolve(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-type HTTPEndpointsSuite struct {
-	HTTPBaseSuite
+type EndpointsSuite struct {
+	BaseSuite
 }
 
-var _ = gc.Suite(&HTTPEndpointsSuite{})
+var _ = gc.Suite(&EndpointsSuite{})
 
-func (s *HTTPEndpointsSuite) TestNewHTTPEndpoints(c *gc.C) {
+func (s *EndpointsSuite) TestNewEndpoints(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointsSuite) TestAdd(c *gc.C) {
+func (s *EndpointsSuite) TestAdd(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointsSuite) TestSpecs(c *gc.C) {
+func (s *EndpointsSuite) TestSpecs(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointsSuite) TestResolve(c *gc.C) {
+func (s *EndpointsSuite) TestResolve(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-func (s *HTTPEndpointsSuite) TestResolveForMethods(c *gc.C) {
+func (s *EndpointsSuite) TestResolveForMethods(c *gc.C) {
 	// TODO(ericsnow) This needs to be implemented ASAP.
 }
 
-type HTTPBaseSuite struct {
+type BaseSuite struct {
 	coretesting.BaseSuite
 
 	stub    *testing.Stub
-	handler http.Handler
-	args    common.NewHTTPHandlerArgs
+	handler stdhttp.Handler
+	args    http.NewHandlerArgs
 }
 
-func (s *HTTPBaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.handler = &nopHTTPHandler{id: "suite default"}
-	s.args = common.NewHTTPHandlerArgs{}
+	s.handler = &nopHandler{id: "suite default"}
+	s.args = http.NewHandlerArgs{}
 }
 
-func (s *HTTPBaseSuite) newNewHTTPHandler(handler http.Handler) func(common.NewHTTPHandlerArgs) http.Handler {
-	return func(args common.NewHTTPHandlerArgs) http.Handler {
-		s.stub.AddCall("NewHTTPHandler", args)
+func (s *BaseSuite) newNewHandler(handler stdhttp.Handler) func(http.NewHandlerArgs) stdhttp.Handler {
+	return func(args http.NewHandlerArgs) stdhttp.Handler {
+		s.stub.AddCall("NewHandler", args)
 		s.stub.NextErr() // pop one off
 
 		return handler
 	}
 }
 
-func (s *HTTPBaseSuite) newHandler(args common.NewHTTPHandlerArgs) http.Handler {
+func (s *BaseSuite) newHandler(args http.NewHandlerArgs) stdhttp.Handler {
 	s.stub.AddCall("newHandler", args)
 	s.stub.NextErr() // pop one off
 
 	return s.handler
 }
 
-func (s *HTTPBaseSuite) newArgs(constraints common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+func (s *BaseSuite) newArgs(constraints http.HandlerConstraints) http.NewHandlerArgs {
 	s.stub.AddCall("newArgs", constraints)
 	s.stub.NextErr() // pop one off
 
 	return s.args
 }
 
-type nopHTTPHandler struct {
+type nopHandler struct {
 	// id uniquely identifies the handler (for when that matters).
 	// This is not required.
 	id string
 }
 
-func (nopHTTPHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}
+func (nopHandler) ServeHTTP(stdhttp.ResponseWriter, *stdhttp.Request) {}
 
 type httpHandlerSpec struct {
-	constraints common.HTTPHandlerConstraints
-	handler     http.Handler
+	constraints http.HandlerConstraints
+	handler     stdhttp.Handler
 }
 
 type httpEndpointSpec struct {
@@ -123,17 +123,17 @@ type httpEndpointSpec struct {
 	methodHandlers map[string]httpHandlerSpec
 }
 
-func checkSpec(c *gc.C, spec common.HTTPEndpointSpec, expected httpEndpointSpec) {
-	// Note that we don't check HTTPHandlerSpec.NewHTTPHandler directly.
+func checkSpec(c *gc.C, spec http.EndpointSpec, expected httpEndpointSpec) {
+	// Note that we don't check HandlerSpec.NewHandler directly.
 	// Go does not support direct comparison of functions.
 	actual := httpEndpointSpec{
 		pattern:        spec.Pattern(),
 		methodHandlers: make(map[string]httpHandlerSpec),
 	}
-	unhandled := &nopHTTPHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
+	unhandled := &nopHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
 	for _, method := range spec.Methods() {
 		hSpec := spec.Resolve(method, unhandled)
-		handler := hSpec.NewHTTPHandler(common.NewHTTPHandlerArgs{})
+		handler := hSpec.NewHandler(http.NewHandlerArgs{})
 		actual.methodHandlers[method] = httpHandlerSpec{
 			constraints: hSpec.Constraints,
 			handler:     handler,
@@ -143,7 +143,7 @@ func checkSpec(c *gc.C, spec common.HTTPEndpointSpec, expected httpEndpointSpec)
 	c.Check(actual, jc.DeepEquals, expected)
 }
 
-func checkSpecs(c *gc.C, specs []common.HTTPEndpointSpec, expected []httpEndpointSpec) {
+func checkSpecs(c *gc.C, specs []http.EndpointSpec, expected []httpEndpointSpec) {
 	comment := gc.Commentf("len(%#v) != len(%#v)", specs, expected)
 	if !c.Check(len(specs), gc.Equals, len(expected), comment) {
 		return

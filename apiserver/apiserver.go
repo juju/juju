@@ -22,6 +22,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
+	commonhttp "github.com/juju/juju/apiserver/common/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	resourceapi "github.com/juju/juju/resource/api"
@@ -305,14 +306,14 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
-func (srv *Server) newHandlerArgs(spec common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+func (srv *Server) newHandlerArgs(spec commonhttp.HandlerConstraints) commonhttp.NewHandlerArgs {
 	ctxt := httpContext{
 		srv:                srv,
 		strictValidation:   spec.StrictValidation,
 		stateServerEnvOnly: spec.StateServerEnvOnly,
 	}
 
-	var args common.NewHTTPHandlerArgs
+	var args commonhttp.NewHandlerArgs
 	switch spec.AuthKind {
 	case names.UserTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedUser
@@ -332,7 +333,7 @@ func (srv *Server) newHandlerArgs(spec common.HTTPHandlerConstraints) common.New
 	return args
 }
 
-func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
+func (srv *Server) httpEndpoints() []commonhttp.Endpoint {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -347,7 +348,7 @@ func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
 		for _, method := range []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"} {
-			endpoints = append(endpoints, common.HTTPEndpoint{
+			endpoints = append(endpoints, commonhttp.Endpoint{
 				Pattern: "/environment/:envuuid" + pat,
 				Method:  method,
 				Handler: handler,
@@ -451,7 +452,7 @@ func (srv *Server) run(lis net.Listener) {
 	lis.Close()
 }
 
-func registerEndpoint(ep common.HTTPEndpoint, mux *pat.PatternServeMux) {
+func registerEndpoint(ep commonhttp.Endpoint, mux *pat.PatternServeMux) {
 	switch ep.Method {
 	case "GET":
 		mux.Get(ep.Pattern, ep.Handler)
