@@ -53,6 +53,7 @@ from jujupy import (
 from substrate import AWSAccount
 from tests import (
     FakeHomeTestCase,
+    parse_error,
     TestCase,
 )
 from tests.test_deploy_stack import FakeBootstrapManager
@@ -66,8 +67,10 @@ from test_substrate import (
     make_os_security_group_instance,
     make_os_security_groups,
     )
-from tests import parse_error
-from utility import temp_dir
+from utility import (
+    LoggedException,
+    temp_dir,
+    )
 
 
 __metaclass__ = type
@@ -220,21 +223,25 @@ class TestParseArgs(TestCase):
 
 class FakeStepAttempt:
 
-    def __init__(self, result):
+    def __init__(self, result, new_path=None):
         self.result = result
         self.stage = StageInfo(result[0][0], '{} title'.format(result[0][0]))
+        self.new_path = new_path
 
     @classmethod
-    def from_result(cls, old, new, test_id='foo-id'):
+    def from_result(cls, old, new, test_id='foo-id', new_path=None):
         """Alternate constructor for backwards-compatibility.
 
         Allows tests that used FakeAttempt to be adapted with minimal changes.
         """
-        return cls([(test_id, old, new)])
+        return cls([(test_id, old, new)], new_path)
 
     def __eq__(self, other):
         return (
             type(self) == type(other) and self.result == other.result)
+
+    def get_test_info(self):
+        return {self.result[0][0]: {'title': self.result[0][0]}}
 
     def get_bootstrap_client(self, client):
         return client
@@ -244,7 +251,10 @@ class FakeStepAttempt:
 
     def iter_steps(self, client):
         yield self.stage.as_result()
-        yield self.stage.as_result(self.result[0][1])
+        if self.new_path is not None and client.full_path == self.new_path:
+            yield self.stage.as_result(self.result[0][2])
+        else:
+            yield self.stage.as_result(self.result[0][1])
 
 
 class FakeAttemptClass:
@@ -257,16 +267,18 @@ class FakeAttemptClass:
     def factory(self, upgrade_sequence):
         return self()
 
-    def __init__(self, title, *result):
+    def __init__(self, title, *result, **kwargs):
         self.title = title
         self.test_id = '{}-id'.format(title)
         self.result = result
+        self.new_path = kwargs.get('new_path')
 
     def get_test_info(self):
         return {self.test_id: {'title': self.title}}
 
     def __call__(self):
-        return FakeStepAttempt.from_result(*self.result, test_id=self.test_id)
+        return FakeStepAttempt.from_result(*self.result, test_id=self.test_id,
+                                           new_path=self.new_path)
 
 
 @contextmanager
@@ -877,12 +889,12 @@ class TestIndustrialTest(JujuPyTestCase):
 class TestSteppedStageAttempt(JujuPyTestCase):
 
     def test__iter_for_result_premature_results(self):
-        iterator = iter([{'test_id': 'foo-id', 'result': True}])
+        iterator = (x for x in [{'test_id': 'foo-id', 'result': True}])
         with self.assertRaisesRegexp(ValueError, 'Result before declaration.'):
             list(SteppedStageAttempt._iter_for_result(iterator))
 
     def test__iter_for_result_many(self):
-        iterator = iter([
+        iterator = (x for x in [
             {'test_id': 'foo-id'},
             {'test_id': 'foo-id', 'result': True},
             {'test_id': 'bar-id'},
@@ -907,7 +919,7 @@ class TestSteppedStageAttempt(JujuPyTestCase):
         le_mock.assert_called_once_with(error)
 
     def test_iter_for_result_id_change(self):
-        iterator = iter([
+        iterator = (x for x in [
             {'test_id': 'foo-id'}, {'test_id': 'bar-id'}])
         with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
             list(SteppedStageAttempt._iter_for_result(iterator))
@@ -924,15 +936,15 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             list(SteppedStageAttempt._iter_for_result(iterator()))
 
     def test_iter_for_result_id_change_result(self):
-        iterator = iter([
+        iterator = (x for x in [
             {'test_id': 'foo-id'}, {'test_id': 'bar-id', 'result': True}])
         with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
             list(SteppedStageAttempt._iter_for_result(iterator))
 
     def test__iter_test_results_success(self):
-        old_iter = iter([
+        old_iter = (x for x in [
             None, {'test_id': 'foo-id', 'result': True}])
-        new_iter = iter([
+        new_iter = (x for x in [
             None, {'test_id': 'foo-id', 'result': False}])
 
         class StubSA(SteppedStageAttempt):
@@ -942,13 +954,13 @@ class TestSteppedStageAttempt(JujuPyTestCase):
                 return {'foo-id': {'title': 'foo-id'}}
 
         self.assertItemsEqual(
-            StubSA._iter_test_results(old_iter, new_iter),
+            StubSA()._iter_test_results(old_iter, new_iter),
             [('foo-id', True, False)])
 
     def test__iter_test_results_interleaved(self):
         # Using a single iterator for both proves that they are interleaved.
         # Otherwise, we'd get Result before declaration.
-        both_iter = iter([
+        both_iter = (x for x in [
             None, None,
             {'test_id': 'foo-id', 'result': True},
             {'test_id': 'foo-id', 'result': False},
@@ -961,23 +973,23 @@ class TestSteppedStageAttempt(JujuPyTestCase):
                 return {'foo-id': {'title': 'foo-id'}}
 
         self.assertItemsEqual(
-            StubSA._iter_test_results(both_iter, both_iter),
+            StubSA()._iter_test_results(both_iter, both_iter),
             [('foo-id', True, False)])
 
     def test__iter_test_results_id_mismatch(self):
-        old_iter = iter([
+        old_iter = (x for x in [
             None, {'test_id': 'foo-id', 'result': True}])
-        new_iter = iter([
+        new_iter = (x for x in [
             None, {'test_id': 'bar-id', 'result': False}])
         with self.assertRaisesRegexp(ValueError, 'Test id mismatch.'):
             list(SteppedStageAttempt._iter_test_results(old_iter, new_iter))
 
     def test__iter_test_results_many(self):
-        old_iter = iter([
+        old_iter = (x for x in [
             None, {'test_id': 'foo-id', 'result': True},
             None, {'test_id': 'bar-id', 'result': False},
             ])
-        new_iter = iter([
+        new_iter = (x for x in [
             None, {'test_id': 'foo-id', 'result': False},
             None, {'test_id': 'bar-id', 'result': False},
             ])
@@ -991,7 +1003,7 @@ class TestSteppedStageAttempt(JujuPyTestCase):
                     'bar-id': {'title': 'bar-id'},
                 }
         self.assertItemsEqual(
-            StubSA._iter_test_results(old_iter, new_iter),
+            StubSA()._iter_test_results(old_iter, new_iter),
             [('foo-id', True, False), ('bar-id', False, False)])
 
     def test_iter_test_results(self):
