@@ -99,7 +99,6 @@ class MultiIndustrialTest:
         self.max_attempts = max_attempts
         self.debug = debug
         self.log_parent_dir = log_dir
-        self._log_dir_count = count()
 
     def make_results(self):
         """Return a results list for use in run_tests."""
@@ -790,6 +789,7 @@ _log_dir_count = count()
 
 
 def make_log_dir(log_parent_dir):
+    """Make a numbered directory for logs."""
     new_log_dir = os.path.join(log_parent_dir, str(_log_dir_count.next()))
     os.mkdir(new_log_dir)
     return new_log_dir
@@ -801,7 +801,8 @@ def parse_args(args=None):
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
     parser.add_argument('suite', type=suite_list)
-    parser.add_argument('log_dir')
+    parser.add_argument('log_dir',
+                        help='directory for logs and other artifacts.')
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
