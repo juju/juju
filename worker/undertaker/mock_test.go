@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -28,33 +29,33 @@ type mockClient struct {
 	lock        sync.RWMutex
 	mockEnviron clientEnviron
 	watcher     watcher.NotifyWatcher
+	cfg         *config.Config
 }
 
 func (m *mockClient) mockCall(call string) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	m.calls <- call
 }
 
 func (m *mockClient) ProcessDyingEnviron() error {
-	m.mockCall("ProcessDyingEnviron")
+	defer m.mockCall("ProcessDyingEnviron")
 	if m.mockEnviron.HasMachinesAndServices {
 		return errors.Errorf("found documents for environment with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
 	}
 	m.mockEnviron.Life = state.Dead
 	t := time.Now()
 	m.mockEnviron.TimeOfDeath = &t
+
 	return nil
 }
 
 func (m *mockClient) RemoveEnviron() error {
-	m.mockCall("RemoveEnviron")
+	defer m.mockCall("RemoveEnviron")
 	m.mockEnviron.Removed = true
 	return nil
 }
 
 func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	m.mockCall("EnvironInfo")
+	defer m.mockCall("EnvironInfo")
 	result := params.UndertakerEnvironInfo{
 		Life:        params.Life(m.mockEnviron.Life.String()),
 		UUID:        m.mockEnviron.UUID,
@@ -64,6 +65,10 @@ func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
 		TimeOfDeath: m.mockEnviron.TimeOfDeath,
 	}
 	return params.UndertakerEnvironInfoResult{Result: result}, nil
+}
+
+func (m *mockClient) EnvironConfig() (*config.Config, error) {
+	return m.cfg, nil
 }
 
 func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {

@@ -78,7 +78,7 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 		configAttrSubscriptionId,
 		configAttrTenantId,
 		configAttrAppId,
-		configAttrAppKey,
+		configAttrAppPassword,
 		configAttrLocation,
 		configAttrControllerResourceGroup,
 		configAttrStorageAccountType,
@@ -141,7 +141,7 @@ func (prov *azureEnvironProvider) BoilerplateConfig() string {
 func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	unknownAttrs := cfg.UnknownAttrs()
 	secretAttrs := map[string]string{
-		configAttrAppKey: unknownAttrs[configAttrAppKey].(string),
+		configAttrAppPassword: unknownAttrs[configAttrAppPassword].(string),
 	}
 	if storageAccountKey, ok := unknownAttrs[configAttrStorageAccountKey].(string); ok {
 		secretAttrs[configAttrStorageAccountKey] = storageAccountKey
