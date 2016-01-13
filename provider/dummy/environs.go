@@ -1125,28 +1125,28 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("1"),
-				AvailabilityZones: []string{"zone"},
+				AvailabilityZones: []string{"zone1"},
 			}, {
 				ProviderId:        network.Id("2"),
-				AvailabilityZones: []string{"zone"},
+				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		ProviderId: network.Id("Another Foo 99!"),
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("3"),
-				AvailabilityZones: []string{"zone2"},
+				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		ProviderId: network.Id("foo"),
 		Subnets: []network.SubnetInfo{
 			{
-				ProviderId:        network.Id("5"),
-				AvailabilityZones: []string{"zone2"},
+				ProviderId:        network.Id("4"),
+				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		ProviderId: network.Id("---"),
 		Subnets: []network.SubnetInfo{
 			{
-				ProviderId:        network.Id("6"),
-				AvailabilityZones: []string{"zone"},
+				ProviderId:        network.Id("5"),
+				AvailabilityZones: []string{"zone1"},
 			}}}}, nil
 }
 
@@ -1434,7 +1434,28 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 }
 
 func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
-	result := []network.SubnetInfo{}
+	result := []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.1.0/24",
+	}, {
+		ProviderId:        network.Id("2"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.2.0/24",
+		VLANTag:           1,
+	}, {
+		ProviderId:        network.Id("3"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.3.0/24",
+	}, {
+		ProviderId:        network.Id("4"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.4.0/24",
+	}, {
+		ProviderId:        network.Id("5"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.5.0/24",
+	}}
 	estate.ops <- OpSubnets{
 		Env:        env.name,
 		InstanceId: instance.UnknownId,
