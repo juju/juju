@@ -29,15 +29,21 @@ type discoverspacesWorker struct {
 
 var invalidChars = regexp.MustCompile("[^0-9a-z-]")
 var dashPrefix = regexp.MustCompile("^-*")
+var dashSuffix = regexp.MustCompile("-*$")
+var multipleDashes = regexp.MustCompile("--+")
 
 func convertSpaceName(name string, existing set.Strings) string {
 	// First lower case and replace spaces with dashes.
 	name = strings.Replace(name, " ", "-", -1)
 	name = strings.ToLower(name)
-	// Next replace any character that isn't in the set "-", "a-z", "0-9".
+	// Replace any character that isn't in the set "-", "a-z", "0-9".
 	name = invalidChars.ReplaceAllString(name, "")
-	// Next get rid of any dashes at the start as that isn't valid.
+	// Get rid of any dashes at the start as that isn't valid.
 	name = dashPrefix.ReplaceAllString(name, "")
+	// And any at the end.
+	name = dashSuffix.ReplaceAllString(name, "")
+	// Repleace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
 	// Special case of when the space name was only dashes or invalid
 	// characters!
 	if name == "" {
@@ -169,8 +175,9 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// We need to create the space.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
-					Public:   false,
-					SpaceTag: spaceTag.String(),
+					Public:     false,
+					SpaceTag:   spaceTag.String(),
+					ProviderId: string(space.ProviderId),
 				}}}
 			result, err := dw.api.CreateSpaces(args)
 			if err != nil {

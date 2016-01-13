@@ -1136,7 +1136,7 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 				ProviderId:        network.Id("3"),
 				AvailabilityZones: []string{"zone1"},
 			}}}, {
-		ProviderId: network.Id("foo"),
+		ProviderId: network.Id("foo-"),
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("4"),

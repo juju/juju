@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -72,7 +73,9 @@ func (s *workerSuite) TestConvertSpaceName(c *gc.C) {
 		{" ", empty, "empty"},
 		{"", empty, "empty"},
 		{"foo\u2318", empty, "foo"},
-		{"foo", set.NewStrings("foo", "bar", "baz"), "foo-2"},
+		{"foo--", empty, "foo"},
+		{"foo--foo----bar", empty, "foo-foo-bar"},
+		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
 		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
 		{"---", set.NewStrings("empty"), "empty-2"},
 	}
@@ -126,5 +129,46 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		}
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, jc.DeepEquals, nil)
+	c.Assert(spaces, gc.HasLen, 4)
+	expectedSpaces := []network.SpaceInfo{{
+		Name:       "foo",
+		ProviderId: network.Id("foo"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("1"),
+				AvailabilityZones: []string{"zone1"},
+			}, {
+				ProviderId:        network.Id("2"),
+				AvailabilityZones: []string{"zone1"},
+			}}}, {
+		Name:       "another-foo-99",
+		ProviderId: network.Id("Another Foo 99!"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("3"),
+				AvailabilityZones: []string{"zone1"},
+			}}}, {
+		Name:       "foo-2",
+		ProviderId: network.Id("foo-"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("4"),
+				AvailabilityZones: []string{"zone1"},
+			}}}, {
+		Name:       "empty",
+		ProviderId: network.Id("---"),
+		Subnets: []network.SubnetInfo{
+			{
+				ProviderId:        network.Id("5"),
+				AvailabilityZones: []string{"zone1"},
+			}}}}
+	expectedSpaceMap := make(map[string]network.SpaceInfo)
+	for _, space := range expectedSpaces {
+		expectedSpaceMap[space.Name] = space
+	}
+	for _, space := range spaces {
+		expected, ok := expectedSpaceMap[space.Name()]
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(space.ProviderId(), gc.Equals, expected.ProviderId)
+	}
 }
