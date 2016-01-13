@@ -315,15 +315,18 @@ func (srv *Server) newHandlerArgs(spec common.HTTPHandlerConstraints) common.New
 	var args common.NewHTTPHandlerArgs
 	switch spec.AuthKind {
 	case names.UserTagKind:
-		args.Connect = func(req *http.Request) (*state.State, error) {
-			st, _, err := ctxt.stateForRequestAuthenticatedUser(req)
-			return st, err
-		}
+		args.Connect = ctxt.stateForRequestAuthenticatedUser
 	case "":
-		args.Connect = ctxt.stateForRequestUnauthenticated
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
 	default:
 		// TODO(ericsnow) Log a warning? Return an error?
-		args.Connect = ctxt.stateForRequestUnauthenticated
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
 	}
 	return args
 }

@@ -26,7 +26,7 @@ type NewHTTPHandlerArgs struct {
 
 	// Connect is the function that is used to connect to Juju's state
 	// for the given HTTP request.
-	Connect func(*http.Request) (*state.State, error)
+	Connect func(*http.Request) (*state.State, state.Entity, error)
 
 	// TODO(ericsnow) Other fields:
 	//DataDir string
