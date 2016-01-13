@@ -88,13 +88,69 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 	return nil
 }
 
+// DeleteMetadata implements Storage.DeleteMetadata.
+func (s *storage) DeleteMetadata(imageId string) error {
+	deleteOperation := func(docId string) txn.Op {
+		logger.Debugf("deleting metadata (id=%v) for image (id=%v)", docId, imageId)
+		return txn.Op{
+			C:      s.collection,
+			Id:     docId,
+			Assert: txn.DocExists,
+			Remove: true,
+		}
+	}
+
+	noOp := func() ([]txn.Op, error) {
+		logger.Debugf("no metadata for image id %v to delete", imageId)
+		return nil, jujutxn.ErrNoOperations
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// find all metadata docs with given image id
+		imageMetadata, err := s.metadataForImageId(imageId)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				return noOp()
+			}
+			return nil, err
+		}
+		if len(imageMetadata) == 0 {
+			return noOp()
+		}
+
+		allTxn := make([]txn.Op, len(imageMetadata))
+		for i, doc := range imageMetadata {
+			allTxn[i] = deleteOperation(doc.Id)
+		}
+		return allTxn, nil
+	}
+
+	err := s.store.RunTransaction(buildTxn)
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete metadata for cloud image %v", imageId)
+	}
+	return nil
+}
+
+func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	var docs []imagesMetadataDoc
+	query := bson.D{{"image_id", imageId}}
+	if err := coll.Find(query).All(&docs); err != nil {
+		return nil, err
+		//		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 func (s *storage) getMetadata(id string) (Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	var old imagesMetadataDoc
-	err := coll.Find(bson.D{{"_id", id}}).One(&old)
-	if err != nil {
+	if err := coll.Find(bson.D{{"_id", id}}).One(&old); err != nil {
 		if err == mgo.ErrNotFound {
 			return Metadata{}, errors.NotFoundf("image metadata with ID %q", id)
 		}
