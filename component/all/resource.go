@@ -6,12 +6,14 @@ package all
 import (
 	"bytes"
 	"os"
+	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
+	jujucmd "github.com/juju/cmd"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
@@ -19,11 +21,16 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
+	internalclient "github.com/juju/juju/resource/api/private/client"
+	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
+	"github.com/juju/juju/resource/context"
 	"github.com/juju/juju/resource/persistence"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
+	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // resources exposes the registration methods needed
@@ -35,6 +42,7 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerPublicFacade()
+	r.registerHookContext()
 	return nil
 }
 
@@ -254,4 +262,75 @@ func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) er
 		}
 	}
 	return nil
+}
+
+// TODO(katco): This seems to be common across components. Pop up a
+// level and genericize?
+func (r resources) registerHookContext() {
+	if markRegistered(resource.ComponentName, "hook-context") == false {
+		return
+	}
+
+	unitercontext.RegisterComponentFunc(
+		resource.ComponentName,
+		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
+			hctxClient := r.newUnitFacadeClient(config.APICaller)
+			// TODO(ericsnow) Pass the unit's tag through to the component?
+			return context.NewContextAPI(hctxClient, config.DataDir), nil
+		},
+	)
+
+	r.registerHookContextCommands()
+	r.registerHookContextFacades()
+}
+
+type resourceHookContext struct {
+	jujuc.Context
+}
+
+func (c resourceHookContext) GetResource(name string) (string, error) {
+	return "", errors.NotImplementedf("")
+}
+
+func (c resources) registerHookContextCommands() {
+	if markRegistered(resource.ComponentName, "hook-context-commands") == false {
+		return
+	}
+
+	jujuc.RegisterCommand(
+		context.ResourceGetCmdName,
+		func(ctx jujuc.Context) (jujucmd.Command, error) {
+			compCtx := resourceHookContext{ctx}
+			cmd, err := context.NewResourceGetCmd(compCtx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return cmd, nil
+		},
+	)
+}
+
+func (r resources) registerHookContextFacades() {
+	// Always start at 1 to distinguish between the default value.
+	const facadeVersion = 1
+
+	common.RegisterHookContextFacade(
+		context.HookContextFacade,
+		facadeVersion,
+		r.newHookContextFacade,
+		reflect.TypeOf(&internalserver.UnitFacade{}),
+	)
+}
+
+func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
+	res, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return internalserver.NewUnitFacade(res), nil
+}
+
+func (r resources) newUnitFacadeClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
+	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
