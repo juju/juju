@@ -5,8 +5,6 @@
 package version_test
 
 import (
-	"sort"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
