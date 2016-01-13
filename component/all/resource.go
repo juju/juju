@@ -35,7 +35,6 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerPublicFacade()
-	corestate.AddServicePostFuncs["resources"] = saveResourcesForDemo
 	return nil
 }
 
@@ -99,6 +98,8 @@ func (resources) registerState() {
 	}
 
 	corestate.SetResourcesComponent(newResources)
+
+	corestate.AddServicePostFuncs["resources"] = saveResourcesForDemo
 }
 
 // resourceState is a wrapper around state.State that supports the needs
