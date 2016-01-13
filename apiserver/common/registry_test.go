@@ -722,6 +722,8 @@ func (s *HTTPEndpointRegistrySuite) TestResolveHTTPEndpointsNoHandler(c *gc.C) {
 	}
 }
 
+// TODO(ericsnow) Use apiserver/common/http/httptesting.*.
+
 type nopHTTPHandler struct {
 	// id uniquely identifies the handler (for when that matters).
 	// This is not required.
