@@ -28,6 +28,8 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			"redis": lease.Info{Expiry: offset(-time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]lease.Info) {
@@ -55,6 +57,8 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 			"redis": lease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]lease.Info) {
@@ -67,12 +71,48 @@ func (s *ExpireLeadershipSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 	})
 }
 
+func (s *ExpireLeadershipSuite) TestStartup_NoExpiry_NotLongEnough(c *gc.C) {
+	fix := &Fixture{}
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
+		clock.Advance(almostSeconds(3600))
+	})
+}
+
+func (s *ExpireLeadershipSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
+	fix := &Fixture{
+		leases: map[string]lease.Info{
+			"goose": lease.Info{Expiry: offset(3 * time.Hour)},
+		},
+		expectCalls: []call{{
+			method: "Refresh",
+			callback: func(leases map[string]lease.Info) {
+				leases["redis"] = lease.Info{
+					Expiry: offset(time.Minute),
+				}
+			},
+		}, {
+			method: "ExpireLease",
+			args:   []interface{}{"redis"},
+			callback: func(leases map[string]lease.Info) {
+				delete(leases, "redis")
+			},
+		}},
+	}
+	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
+		// XXX(fwereade): do not land this; we need the notifyAlarms stuff from the future to be able to test this properly
+		time.Sleep(200 * time.Millisecond)
+		clock.Advance(time.Hour)
+	})
+}
+
 func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]lease.Info{
 			"redis": lease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    lease.ErrInvalid,
@@ -92,6 +132,8 @@ func (s *ExpireLeadershipSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 			"redis": lease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    lease.ErrInvalid,
@@ -111,6 +153,8 @@ func (s *ExpireLeadershipSuite) TestExpire_OtherError(c *gc.C) {
 			"redis": lease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    errors.New("snarfblat hobalob"),
@@ -156,6 +200,8 @@ func (s *ExpireLeadershipSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 					Expiry: offset(63 * time.Second),
 				}
 			},
+		}, {
+			method: "Refresh",
 		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
@@ -217,6 +263,8 @@ func (s *ExpireLeadershipSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 				}
 			},
 		}, {
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]lease.Info) {
@@ -257,6 +305,8 @@ func (s *ExpireLeadershipSuite) TestExpire_Multiple(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]lease.Info) {
