@@ -68,7 +68,6 @@ from test_substrate import (
     make_os_security_groups,
     )
 from utility import (
-    LoggedException,
     temp_dir,
     )
 
@@ -583,8 +582,8 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('bar', True, False),
             ], 'log-dir', 5, 10)
 
-        def side_effect(x, y=None, debug=False):
-            return FakeJujuClient()
+        def side_effect(env, full_path=None, debug=False):
+            return FakeJujuClient(None, full_path, debug)
 
         with self.patch_client(side_effect):
             results = mit.run_tests()
@@ -601,8 +600,8 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('bar', True, False),
             ], 'log-dir', 5, 6)
 
-        def side_effect(x, y=None, debug=False):
-            return FakeJujuClient()
+        def side_effect(env, full_path=None, debug=False):
+            return FakeJujuClient(None, full_path, debug)
 
         with self.patch_client(side_effect):
             results = mit.run_tests()
