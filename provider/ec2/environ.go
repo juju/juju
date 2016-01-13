@@ -1200,7 +1200,7 @@ func (e *environ) Destroy() error {
 		return errors.Trace(err)
 	}
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
-		logger.Errorf("cannot delete default security group: %v", err)
+		logger.Warningf("cannot delete default security group: %v", err)
 	}
 	return e.Storage().RemoveAll()
 }
@@ -1325,7 +1325,7 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) deletableInstanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
 	ec2inst := e.ec2()
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
@@ -1359,17 +1359,17 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 			return nil
 		}
 	}
-	return errors.Annotatef(err, "cannot delete default security group")
+	return errors.Annotate(err, "cannot delete default security group")
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	deletables, err := e.deletableInstanceSecurityGroups(ids)
+	deletables, err := e.instanceSecurityGroups(ids)
 	if err != nil {
 		// We should not stop termination because of this.
-		logger.Errorf("cannot determine security groups to delete: %v", err)
+		logger.Warningf("cannot determine security groups to delete: %v", err)
 	}
 	ec2inst := e.ec2()
 	defer func() {
@@ -1379,7 +1379,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 				for a := longAttempt.Start(); a.Next(); {
 					_, err := ec2inst.DeleteSecurityGroup(deletable)
 					if err != nil {
-						logger.Errorf("could not delete security group %q: %v", deletable.Name, err)
+						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
 					} else {
 						break
 					}
@@ -1434,10 +1434,6 @@ func (e *environ) machineGroupName(machineId string) string {
 
 func (e *environ) jujuGroupName() string {
 	return "juju-" + e.uuid()
-}
-
-func (e *environ) jujuLegacyGroupName() string {
-	return "juju-" + e.name
 }
 
 // setUpGroups creates the security groups for the new machine, and
