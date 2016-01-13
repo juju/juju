@@ -305,37 +305,35 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
-func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
-	srvDying := srv.tomb.Dying()
-	httpCtxt := httpContext{
-		srv: srv,
+func (srv *Server) newHandlerArgs(spec common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
+	ctxt := httpContext{
+		srv:                srv,
+		strictValidation:   spec.StrictValidation,
+		stateServerEnvOnly: spec.StateServerEnvOnly,
 	}
-	newHandlerArgs := func(spec common.HTTPHandlerConstraints) common.NewHTTPHandlerArgs {
-		ctxt := httpCtxt
-		ctxt.strictValidation = spec.StrictValidation
-		ctxt.stateServerEnvOnly = spec.StateServerEnvOnly
 
-		var args common.NewHTTPHandlerArgs
-		switch spec.AuthKind {
-		case names.UserTagKind:
-			args.Connect = func(req *http.Request) (*state.State, error) {
-				st, _, err := ctxt.stateForRequestAuthenticatedUser(req)
-				return st, err
-			}
-		case "":
-			args.Connect = ctxt.stateForRequestUnauthenticated
-		default:
-			// TODO(ericsnow) Log a warning? Return an error?
-			args.Connect = ctxt.stateForRequestUnauthenticated
+	var args common.NewHTTPHandlerArgs
+	switch spec.AuthKind {
+	case names.UserTagKind:
+		args.Connect = func(req *http.Request) (*state.State, error) {
+			st, _, err := ctxt.stateForRequestAuthenticatedUser(req)
+			return st, err
 		}
-		return args
+	case "":
+		args.Connect = ctxt.stateForRequestUnauthenticated
+	default:
+		// TODO(ericsnow) Log a warning? Return an error?
+		args.Connect = ctxt.stateForRequestUnauthenticated
 	}
+	return args
+}
 
+func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 
-	endpoints := common.ResolveHTTPEndpoints(newHandlerArgs)
+	endpoints := common.ResolveHTTPEndpoints(srv.newHandlerArgs)
 
 	// TODO(ericsnow) Add the rest to the registry.
 
@@ -353,7 +351,12 @@ func (srv *Server) httpEndpoints() []common.HTTPEndpoint {
 		}
 	}
 
-	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
+	httpCtxt := httpContext{
+		srv: srv,
+	}
+	srvDying := srv.tomb.Dying()
+
+	add(resourceapi.HTTPEndpointPattern,
 		newResourceHandler(httpCtxt),
 	)
 
