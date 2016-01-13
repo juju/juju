@@ -563,7 +563,7 @@ func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultG
 	}
 
 	if defaultGateway != "null" {
-		/// since we use %s below only "null" (if passed) should remain unquoted.
+		// since we use %s below only "null" (if passed) should remain unquoted.
 		defaultGateway = fmt.Sprintf("%q", defaultGateway)
 	}
 

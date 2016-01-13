@@ -962,7 +962,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 	var interfaceInfo network.InterfaceInfo
 	if environs.AddressAllocationEnabled() {
 		// We don't need a subnet unless we need to allocate a static IP.
-		subnet, subnetInfo, interfaceInfo, err = p.prepareAllocationNetwork(environ, host, instId)
+		subnet, subnetInfo, interfaceInfo, err = p.prepareAllocationNetwork(environ, instId)
 		if err != nil {
 			return result, errors.Annotate(err, "cannot allocate addresses")
 		}
@@ -1128,7 +1128,6 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Networkin
 // for the allocations.
 func (p *ProvisionerAPI) prepareAllocationNetwork(
 	environ environs.NetworkingEnviron,
-	host *state.Machine,
 	instId instance.Id,
 ) (
 	*state.Subnet,
