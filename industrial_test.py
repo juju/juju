@@ -253,11 +253,10 @@ class IndustrialTest:
                 if e.client is not self.old_client:
                     raise
                 raise CannotUpgradeToOldClient(e.client)
-            else:
-                # If a stage ends with a failure, no further stages should be
-                # run.
-                if False in result[1:]:
-                    return
+            # If a stage ends with a failure, no further stages should
+            # be run.
+            if False in result[1:]:
+                return
 
 
 class SteppedStageAttempt:
