@@ -5,14 +5,16 @@ package all
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	"github.com/juju/juju/api"
+	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
@@ -62,9 +64,11 @@ func (r resources) registerPublicFacade() {
 	common.RegisterEnvHTTPHandler(
 		api.HTTPEndpointPattern,
 		common.HTTPHandlerSpec{
-			AuthKind:         names.UserTagKind,
-			StrictValidation: true,
-			NewHandler:       r.newHTTPHandler,
+			Constraints: common.HTTPHandlerConstraints{
+				AuthKind:         names.UserTagKind,
+				StrictValidation: true,
+			},
+			NewHTTPHandler: r.newHTTPHandler,
 		},
 	)
 }
@@ -88,16 +92,16 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 func (resources) newHTTPHandler(args common.NewHTTPHandlerArgs) http.Handler {
 	return server.NewLegacyHTTPHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
-			st, err := args.Connect(req)
+			st, entity, err := args.Connect(req)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 
 			rst, err := st.Resources()
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
-			return rst, nil
+			return rst, entity.Tag(), nil
 		},
 	)
 }
@@ -237,7 +241,7 @@ func (charmstoreClient) Close() error {
 	return nil
 }
 
-func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
+func (resources) newClient(newAPICaller func() (coreapi.Connection, error)) (*client.Client, error) {
 	apiCaller, err := newAPICaller()
 	if err != nil {
 		return nil, errors.Trace(err)
