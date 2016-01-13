@@ -21,6 +21,9 @@ type EndpointSpec struct {
 	// with the handler spec that supports it.
 	methodHandlers map[string]HandlerSpec
 
+	// orderedMethods tracks the order in which methods were added.
+	orderedMethods []string
+
 	// defaultHandler is the handler spec to use for unrecognized HTTP methods.
 	defaultHandler *HandlerSpec
 }
@@ -65,6 +68,7 @@ func (spec *EndpointSpec) Add(method string, hSpec HandlerSpec) error {
 	}
 	// TODO(ericsnow) Fail if not one of the "supported" HTTP methods?
 	spec.methodHandlers[method] = hSpec
+	spec.orderedMethods = append(spec.orderedMethods, method)
 	return nil
 }
 
@@ -73,14 +77,10 @@ func (spec EndpointSpec) Pattern() string {
 	return spec.pattern
 }
 
-// Methods returns the set of  methods that have handlers
+// Methods returns the set of methods that have handlers
 // for this endpoint.
 func (spec EndpointSpec) Methods() []string {
-	var methods []string
-	for method := range spec.methodHandlers {
-		methods = append(methods, method)
-	}
-	return methods
+	return append([]string{}, spec.orderedMethods...) // a copy
 }
 
 // Default returns a copy of the default handler spec, if there is one.
