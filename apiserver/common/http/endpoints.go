@@ -19,8 +19,9 @@ type Endpoints struct {
 	// orderedPatterns holds the flat order of endpoint patterns.
 	orderedPatterns []string
 
-	// unsupportedMethodHandler
-	unsupportedMethodHandler http.Handler
+	// UnsupportedMethodHandler is the HTTP handler that is used
+	// for unsupported HTTP methods.
+	UnsupportedMethodHandler http.Handler
 
 	// TODO(ericsnow) Support an ordering function field?
 }
@@ -29,7 +30,7 @@ type Endpoints struct {
 func NewEndpoints() Endpoints {
 	return Endpoints{
 		patternSpecs:             make(map[string]EndpointSpec),
-		unsupportedMethodHandler: unsupportedMethodHandler(),
+		UnsupportedMethodHandler: unsupportedMethodHandler(),
 	}
 }
 
@@ -75,7 +76,7 @@ func (hes Endpoints) Resolve(newArgs func(HandlerConstraints) NewHandlerArgs) []
 				continue
 			}
 
-			hSpec := spec.Resolve(method, hes.unsupportedMethodHandler)
+			hSpec := spec.Resolve(method, hes.UnsupportedMethodHandler)
 			args := newArgs(hSpec.Constraints)
 			handler := hSpec.NewHandler(args)
 
@@ -95,7 +96,7 @@ func (hes Endpoints) ResolveForMethods(methods []string, newArgs func(HandlerCon
 	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
 		for _, method := range methods {
-			hSpec := spec.Resolve(method, hes.unsupportedMethodHandler)
+			hSpec := spec.Resolve(method, hes.UnsupportedMethodHandler)
 			args := newArgs(hSpec.Constraints)
 			handler := hSpec.NewHandler(args)
 
