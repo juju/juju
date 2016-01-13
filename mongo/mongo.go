@@ -597,7 +597,9 @@ func optionalPackagesForSeries(series string) []string {
 	case "precise", "quantal", "raring", "saucy", "centos7":
 		return []string{}
 	default:
-		return []string{"juju-mongodb2.6", "juju-mongodb3"}
+		// TODO(perrito666) when the packages are ready, this should be
+		// "juju-mongodb2.6", "juju-mongodb3"
+		return []string{}
 	}
 }
 

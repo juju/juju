@@ -36,12 +36,12 @@ type environ struct {
 }
 
 // Name returns the Environ's name.
-func (env environ) Name() string {
+func (env *environ) Name() string {
 	return env.name
 }
 
 // Provider returns the EnvironProvider that created this Environ.
-func (environ) Provider() environs.EnvironProvider {
+func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 

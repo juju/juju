@@ -23,8 +23,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -98,7 +100,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `.* entity not found in ".*": local:trusty/unknown-123`)
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -195,7 +197,8 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 	output := strings.Split(coretesting.Stderr(ctx), "\n")
 	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
-	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
+	c.Check(output[1], gc.Matches, `Deploying charm .*`)
+	c.Check(output[2], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
@@ -445,6 +448,90 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
 }
 
+func (s *DeploySuite) TestCharmSeries(c *gc.C) {
+	deploySeriesTests := []struct {
+		requestedSeries string
+		force           bool
+		seriesFromCharm string
+		supportedSeries []string
+		modelSeries     string
+		ltsSeries       string
+		expectedSeries  string
+		message         string
+		err             string
+	}{{
+		ltsSeries:       "precise",
+		modelSeries:     "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		expectedSeries:  "trusty",
+		message:         "with the default charm metadata series %q",
+	}, {
+		requestedSeries: "trusty",
+		seriesFromCharm: "trusty",
+		expectedSeries:  "trusty",
+		message:         "with the user specified series %q",
+	}, {
+		requestedSeries: "wily",
+		seriesFromCharm: "trusty",
+		err:             `series "wily" not supported by charm, supported series are: trusty`,
+	}, {
+		requestedSeries: "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
+	}, {
+		ltsSeries: config.LatestLtsSeries(),
+		err:       `series .* not supported by charm, supported series are: .*`,
+	}, {
+		modelSeries: "xenial",
+		err:         `series "xenial" not supported by charm, supported series are: .*`,
+	}, {
+		requestedSeries: "wily",
+		seriesFromCharm: "trusty",
+		expectedSeries:  "wily",
+		message:         "with the user specified series %q",
+		force:           true,
+	}, {
+		requestedSeries: "wily",
+		supportedSeries: []string{"trusty", "precise"},
+		expectedSeries:  "wily",
+		message:         "with the user specified series %q",
+		force:           true,
+	}, {
+		ltsSeries:      config.LatestLtsSeries(),
+		force:          true,
+		expectedSeries: config.LatestLtsSeries(),
+		message:        "with the latest LTS series %q",
+	}, {
+		ltsSeries:      "precise",
+		modelSeries:    "xenial",
+		force:          true,
+		expectedSeries: "xenial",
+		message:        "with the configured model default series %q",
+	}}
+
+	for i, test := range deploySeriesTests {
+		c.Logf("test %d", i)
+		cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+			"name":            "test",
+			"type":            "dummy",
+			"uuid":            coretesting.EnvironmentTag.Id(),
+			"ca-cert":         coretesting.CACert,
+			"ca-private-key":  coretesting.CAKey,
+			"authorized-keys": coretesting.FakeAuthKeys,
+			"default-series":  test.modelSeries,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(series, gc.Equals, test.expectedSeries)
+		c.Check(msg, gc.Matches, test.message)
+	}
+}
+
 type DeployLocalSuite struct {
 	testing.RepoSuite
 }
@@ -496,39 +583,47 @@ var deployAuthorizationTests = []struct {
 	expectError  string
 	expectOutput string
 }{{
-	about:        "public charm, success",
-	uploadURL:    "cs:~bob/trusty/wordpress1-10",
-	deployURL:    "cs:~bob/trusty/wordpress1",
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress1-10" to the environment.`,
+	about:     "public charm, success",
+	uploadURL: "cs:~bob/trusty/wordpress1-10",
+	deployURL: "cs:~bob/trusty/wordpress1",
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress1-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress1-10" with the charm series "trusty".`,
 }, {
-	about:        "public charm, fully resolved, success",
-	uploadURL:    "cs:~bob/trusty/wordpress2-10",
-	deployURL:    "cs:~bob/trusty/wordpress2-10",
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress2-10" to the environment.`,
+	about:     "public charm, fully resolved, success",
+	uploadURL: "cs:~bob/trusty/wordpress2-10",
+	deployURL: "cs:~bob/trusty/wordpress2-10",
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress2-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, success",
 	uploadURL:    "cs:~bob/trusty/wordpress3-10",
 	deployURL:    "cs:~bob/trusty/wordpress3",
 	readPermUser: clientUserName,
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress3-10" to the environment.`,
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress3-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
 	uploadURL:    "cs:~bob/trusty/wordpress4-10",
 	deployURL:    "cs:~bob/trusty/wordpress4-10",
 	readPermUser: clientUserName,
-	expectOutput: `Added charm "cs:~bob/trusty/wordpress4-10" to the environment.`,
+	expectOutput: `
+Added charm "cs:~bob/trusty/wordpress4-10" to the environment.
+Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -561,7 +656,7 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
 	deployURL:    "cs:~bob/bundle/wordpress-simple3",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
@@ -587,13 +682,41 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		}
 		ctx, err := coretesting.RunCommand(c, newDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
+			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		output := strings.Trim(coretesting.Stderr(ctx), "\n")
-		c.Assert(output, gc.Equals, strings.TrimSpace(test.expectOutput))
+		c.Check(output, gc.Equals, strings.TrimSpace(test.expectOutput))
 	}
+}
+
+func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
+	output, err := runDeployCommand(c, "trusty/terms1")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+Added charm "cs:trusty/terms1-1" to the environment.
+Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
+`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"terms1": {charm: "cs:trusty/terms1-1"},
+	})
+	_, err = s.State.Unit("terms1/0")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
+	s.termsDischargerError = &httpbakery.Error{
+		Message: "term agreement required: term/1 term/2",
+		Code:    "term agreement required",
+	}
+	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
+	_, err := runDeployCommand(c, "quantal/terms1")
+	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
 const (
@@ -611,10 +734,13 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	handler    charmstore.HTTPCloseHandler
-	srv        *httptest.Server
-	client     *csclient.Client
-	discharger *bakerytest.Discharger
+	handler              charmstore.HTTPCloseHandler
+	srv                  *httptest.Server
+	client               *csclient.Client
+	discharger           *bakerytest.Discharger
+	termsDischarger      *bakerytest.Discharger
+	termsDischargerError error
+	termsString          string
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
@@ -631,13 +757,34 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		}, nil
 	})
 
+	s.termsDischargerError = nil
+	// Set up the third party terms discharger.
+	s.termsDischarger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		s.termsString = arg
+		return nil, s.termsDischargerError
+	})
+	s.termsString = ""
+
+	keyring := bakery.NewPublicKeyRing()
+
+	pk, err := httpbakery.PublicKeyForLocation(http.DefaultClient, s.discharger.Location())
+	c.Assert(err, gc.IsNil)
+	err = keyring.AddPublicKeyForLocation(s.discharger.Location(), true, pk)
+	c.Assert(err, gc.IsNil)
+
+	pk, err = httpbakery.PublicKeyForLocation(http.DefaultClient, s.termsDischarger.Location())
+	c.Assert(err, gc.IsNil)
+	err = keyring.AddPublicKeyForLocation(s.termsDischarger.Location(), true, pk)
+	c.Assert(err, gc.IsNil)
+
 	// Set up the charm store testing server.
 	db := s.Session.DB("juju-testing")
 	params := charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: s.discharger,
+		TermsLocation:    s.termsDischarger.Location(),
+		PublicKeyLocator: keyring,
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -802,7 +949,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
@@ -843,7 +990,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
@@ -879,7 +1026,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -906,7 +1053,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{AfterSteps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
+	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
 
 	c.Assert(err, jc.ErrorIsNil)

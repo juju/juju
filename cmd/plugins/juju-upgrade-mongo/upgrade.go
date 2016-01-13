@@ -243,8 +243,7 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 	}
 
 	defer haClient.Close()
-	// TODO: mongoupgrade mode should return a migratable thinguie.
-	results, err := haClient.MongoUpgradeMode(mongo.Mongo30wt)
+	results, err := haClient.MongoUpgradeMode(mongo.Mongo30)
 	if err != nil {
 		return upgradeMongoParams{}, errors.Annotate(err, "cannot enter mongo upgrade mode")
 	}

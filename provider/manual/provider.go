@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -45,18 +44,6 @@ func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config
 }
 
 func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"storage-auth-key": uuid.String(),
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
 	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
 		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}
@@ -125,15 +112,10 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		for _, key := range [...]string{
 			"bootstrap-user",
 			"bootstrap-host",
-			"storage-listen-ip",
 		} {
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
 				return nil, err
 			}
-		}
-		oldPort, newPort := oldEnvConfig.storagePort(), envConfig.storagePort()
-		if oldPort != newPort {
-			return nil, fmt.Errorf("cannot change storage-port from %q to %q", oldPort, newPort)
 		}
 		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
 		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
@@ -179,17 +161,6 @@ manual:
     # the current user.
     # bootstrap-user: joebloggs
 
-    # storage-listen-ip specifies the IP address that the
-    # bootstrap machine's Juju storage server will listen
-    # on. By default, storage will be served on all
-    # network interfaces.
-    # storage-listen-ip:
-
-    # storage-port specifes the TCP port that the
-    # bootstrap machine's Juju storage server will listen
-    # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
-    # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
-
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in
     # production systems.
@@ -207,11 +178,6 @@ manual:
 }
 
 func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	envConfig, err := p.validate(cfg, nil)
-	if err != nil {
-		return nil, err
-	}
 	attrs := make(map[string]string)
-	attrs["storage-auth-key"] = envConfig.storageAuthKey()
 	return attrs, nil
 }

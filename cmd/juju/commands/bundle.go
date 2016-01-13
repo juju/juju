@@ -26,6 +26,15 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var watchAll = func(c *api.Client) (allWatcher, error) {
+	return c.WatchAll()
+}
+
+type allWatcher interface {
+	Next() ([]multiwatcher.Delta, error)
+	Stop() error
+}
+
 // deploymentLogger is used to notify clients about the bundle deployment
 // progress.
 type deploymentLogger interface {
@@ -70,7 +79,7 @@ func deployBundle(
 	}
 
 	// Instantiate a watcher used to follow the deployment progress.
-	watcher, err := client.WatchAll()
+	watcher, err := watchAll(client)
 	if err != nil {
 		return errors.Annotate(err, "cannot watch environment")
 	}
@@ -176,12 +185,17 @@ type bundleHandler struct {
 	ignoredUnits    map[string]bool
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
-	watcher *api.AllWatcher
+	watcher allWatcher
 }
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
-	url, repo, err := resolveCharmStoreEntityURL(p.Charm, h.csclient.params, h.repoPath, h.conf)
+	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+		urlStr:   p.Charm,
+		csParams: h.csclient.params,
+		repoPath: h.repoPath,
+		conf:     h.conf,
+	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -657,7 +671,7 @@ func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id s
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	if err := client.ServiceSetCharm(service, id, false); err != nil {
+	if err := client.ServiceSetCharm(service, id, false, false); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)

@@ -210,8 +210,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
-		if mongo.BinariesAvailable(mongo.Mongo30wt) {
-			config.SetMongoVersion(mongo.Mongo30wt)
+		// We cannot set wired tiger as the storage because mongo
+		// shipped with ubuntu lacks js.
+		if mongo.BinariesAvailable(mongo.Mongo30) {
+			config.SetMongoVersion(mongo.Mongo30)
 		} else {
 			config.SetMongoVersion(mongo.Mongo24)
 		}

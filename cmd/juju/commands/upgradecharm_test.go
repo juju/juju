@@ -10,8 +10,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -99,7 +101,7 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:trusty/blah": charm not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:blah": charm or bundle not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
@@ -234,18 +236,49 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
 	s.AssertBlocked(c, err, ".*TestBlockUpgradesWithBundle.*")
 }
 
-func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
-	err := runUpgradeCharm(c, "riak", "--force")
+func (s *UpgradeCharmSuccessSuite) TestForcedSeriesUpgrade(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
+	err := runDeploy(c, path, "multi-series", "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	service, err := s.State.Service("multi-series")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Revision(), gc.Equals, 1)
+
+	// Copy files from a charm supporting a different set of series
+	// so we can try an upgrade requiring --force-series.
+	for _, f := range []string{"metadata.yaml", "revision"} {
+		err = utils.CopyFile(
+			filepath.Join(path, f),
+			filepath.Join(testcharms.Repo.CharmDirPath("multi-series2"), f))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err = runUpgradeCharm(c, "multi-series", "--path", path, "--force-series")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = service.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Revision(), gc.Equals, 8)
+	c.Assert(force, gc.Equals, false)
+	s.AssertCharmUploaded(c, ch.URL())
+	c.Assert(ch.URL().String(), gc.Equals, "local:precise/multi-series2-8")
+}
+
+func (s *UpgradeCharmSuccessSuite) TestForcedUnitsUpgrade(c *gc.C) {
+	err := runUpgradeCharm(c, "riak", "--force-units")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
 }
 
-func (s *UpgradeCharmSuccessSuite) TestBlockForcedUpgrade(c *gc.C) {
+func (s *UpgradeCharmSuccessSuite) TestBlockForcedUnitsUpgrade(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockForcedUpgrade")
-	err := runUpgradeCharm(c, "riak", "--force")
+	err := runUpgradeCharm(c, "riak", "--force-units")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)
 	// Local revision is not changed.
@@ -356,13 +389,13 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {

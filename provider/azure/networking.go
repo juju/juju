@@ -394,7 +394,7 @@ func internalSubnetId(resourceGroup, controllerResourceGroup, subscriptionId str
 	return path.Join(
 		"/subscriptions", subscriptionId,
 		"resourceGroups", controllerResourceGroup,
-		"providers/Microsoft.Network/virtualnetworks",
+		"providers/Microsoft.Network/virtualNetworks",
 		internalNetworkName, "subnets", resourceGroup,
 	)
 }

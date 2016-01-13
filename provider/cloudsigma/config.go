@@ -28,10 +28,6 @@ cloudsigma:
     # password: <secret>
 `
 
-const (
-	defaultStoragePort = 8040
-)
-
 var configFields = schema.Fields{
 	"username": schema.String(),
 	"password": schema.String(),

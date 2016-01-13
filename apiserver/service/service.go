@@ -159,6 +159,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 	_, err = jjj.DeployService(st,
 		jjj.DeployServiceParams{
 			ServiceName: args.ServiceName,
+			Series:      args.Series,
 			// TODO(dfc) ServiceOwner should be a tag
 			ServiceOwner:   owner,
 			Charm:          ch,
@@ -248,7 +249,7 @@ func (api *API) ServiceUpdate(args params.ServiceUpdate) error {
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceCharmUrl); err != nil {
+		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceSeries, args.ForceCharmUrl); err != nil {
 			return err
 		}
 	}
@@ -278,7 +279,7 @@ func (api *API) ServiceUpdate(args params.ServiceUpdate) error {
 // ServiceSetCharm sets the charm for a given service.
 func (api *API) ServiceSetCharm(args params.ServiceSetCharm) error {
 	// when forced units in error, don't block
-	if !args.Force {
+	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)
 		}
@@ -287,11 +288,11 @@ func (api *API) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return err
 	}
-	return api.serviceSetCharm(service, args.CharmUrl, args.Force)
+	return api.serviceSetCharm(service, args.CharmUrl, args.ForceSeries, args.ForceUnits)
 }
 
 // serviceSetCharm sets the charm for the given service.
-func (api *API) serviceSetCharm(service *state.Service, url string, forceUnits bool) error {
+func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries, forceUnits bool) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return err
@@ -300,7 +301,7 @@ func (api *API) serviceSetCharm(service *state.Service, url string, forceUnits b
 	if err != nil {
 		return err
 	}
-	return service.SetCharm(sch, forceUnits)
+	return service.SetCharm(sch, forceSeries, forceUnits)
 }
 
 // serviceSetSettingsYAML updates the settings for the given service,

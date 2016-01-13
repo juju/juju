@@ -158,7 +158,7 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
-	c.Log("mongo version is %q", s.mongodVersion)
+	c.Logf("mongo version is %q", s.mongodVersion)
 	obtained, err := mongo.Path(s.mongodVersion)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Matches, s.mongodPath)
@@ -339,8 +339,8 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}, {"juju-mongodb2.6"}, {"juju-mongodb3"}}},
-		{"u-series", [][]string{{"juju-mongodb"}, {"juju-mongodb2.6"}, {"juju-mongodb3"}}},
+		{"trusty", [][]string{{"juju-mongodb"}}},
+		{"u-series", [][]string{{"juju-mongodb"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")

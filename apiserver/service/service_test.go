@@ -603,11 +603,11 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) assertServiceSetCharm(c *gc.C, force bool) {
+func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    "cs:~who/precise/wordpress-3",
-		Force:       force,
+		ForceUnits:  forceUnits,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that the charm is not marked as forced.
@@ -618,11 +618,10 @@ func (s *serviceSuite) assertServiceSetCharm(c *gc.C, force bool) {
 	c.Assert(charm.URL().String(), gc.Equals, "cs:~who/precise/wordpress-3")
 }
 
-func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
+func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
 	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    "cs:~who/precise/wordpress-3",
-		Force:       force,
 	})
 	s.AssertBlocked(c, err, msg)
 }
@@ -642,10 +641,10 @@ func (s *serviceSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
 func (s *serviceSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
-	s.assertServiceSetCharmBlocked(c, false, "TestBlockChangesServiceSetCharm")
+	s.assertServiceSetCharmBlocked(c, "TestBlockChangesServiceSetCharm")
 }
 
-func (s *serviceSuite) TestClientServiceSetCharmForce(c *gc.C) {
+func (s *serviceSuite) TestClientServiceSetCharmForceUnits(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -664,7 +663,7 @@ func (s *serviceSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
-		Force:       true,
+		ForceUnits:  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -692,7 +691,8 @@ func (s *serviceSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
 	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
 		ServiceName: "badservice",
 		CharmUrl:    "cs:precise/wordpress-3",
-		Force:       true,
+		ForceSeries: true,
+		ForceUnits:  true,
 	})
 	c.Assert(err, gc.ErrorMatches, `service "badservice" not found`)
 }
@@ -710,6 +710,111 @@ func (s *serviceSuite) TestClientServiceAddCharmErrors(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, expect)
 	}
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmLegacy(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharm(c, "trusty/dummy-1", "dummy")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Even with forceSeries = true, we can't change a charm where
+	// the series is sepcified in the URL.
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		ForceSeries: true,
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
+	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			Series:      "precise",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series2")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			Series:      "precise",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series2", "multi-series2")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		ForceSeries: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/multi-series2-0")
+}
+
+func (s *serviceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
+	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{{
+			CharmUrl:    curl.String(),
+			ServiceName: "service",
+			Series:      "precise",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series-windows", "multi-series-windows")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+		ServiceName: "service",
+		CharmUrl:    curl.String(),
+		ForceSeries: true,
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, OS "Ubuntu" not supported by charm`)
 }
 
 type testModeCharmRepo struct {
