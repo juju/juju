@@ -97,6 +97,8 @@ class FakeEnvironmentState:
         self.token = None
         self.exposed = set()
         self.machine_host_names = {}
+        self.state = 'not-bootstrapped'
+        self.current_bundle = None
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -125,13 +127,18 @@ class FakeEnvironmentState:
     def bootstrap(self, name):
         self.name = name
         self.state_servers.append(self.add_machine())
+        self.state = 'bootstrapped'
 
     def destroy_environment(self):
         self._clear()
+        self.state = 'destroyed'
         return 0
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
+
+    def deploy_bundle(self, bundle_path):
+        self.current_bundle = bundle_path
 
     def add_unit(self, service_name):
         machines = self.services.setdefault(service_name, set())
@@ -248,6 +255,10 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
+    def quickstart(self, bundle):
+        self._backing_state.bootstrap(self.env.environment)
+        self._backing_state.deploy_bundle(bundle)
+
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
 
@@ -260,6 +271,9 @@ class FakeJujuClient:
         self._backing_state.deploy(charm_name, service_name)
 
     def wait_for_started(self):
+        pass
+
+    def wait_for_deploy_started(self):
         pass
 
     def get_status(self):
