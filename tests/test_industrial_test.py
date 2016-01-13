@@ -1816,6 +1816,8 @@ class TestAttemptSuiteFactory(TestCase):
                                       bootstrap_attempt=fake_bootstrap)
         self.assertEqual(OrderedDict([
             ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
+            ('prepare-suite', {'title': 'Prepare suite tests',
+                               'report_on': False}),
             ('fake-1-id', {'title': 'fake-1'}),
             ('fake-2-id', {'title': 'fake-2'}),
             ('destroy-env', {'title': 'destroy environment',
@@ -1836,6 +1838,8 @@ class TestAttemptSuite(TestCase):
         attempt_suite = AttemptSuite(factory, None, None)
         self.assertEqual(OrderedDict([
             ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
+            ('prepare-suite', {'title': 'Prepare suite tests',
+                               'report_on': False}),
             ('fake-1-id', {'title': 'fake-1'}),
             ('fake-2-id', {'title': 'fake-2'}),
             ('destroy-env', {'title': 'destroy environment',
@@ -1877,6 +1881,8 @@ class TestAttemptSuite(TestCase):
         self.assertEqual([
             {'test_id': 'fake-bootstrap-id'},
             {'test_id': 'fake-bootstrap-id', 'result': '1'},
+            {'test_id': 'prepare-suite'},
+            {'test_id': 'prepare-suite', 'result': True},
             {'test_id': 'fake-1-id'},
             {'test_id': 'fake-1-id', 'result': '1'},
             {'test_id': 'fake-2-id'},
