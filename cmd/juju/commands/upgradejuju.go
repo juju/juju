@@ -181,7 +181,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	if c.Version.Major > agentVersion.Major {
-		// We can only upgrade a major version if we're currently on 1.25.2 or later
+		// We can only upgrade a major version if we're currently on 1.25.3 or later
 		// and we're going to 2.0.x, and the version was explicitly requested.
 		if agentVersion.Major != 1 {
 			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
@@ -191,8 +191,8 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			ctx.Infof("Upgrades to %s must first go through juju 2.0.", c.Version)
 			retErr = true
 		}
-		if agentVersion.Minor < 25 || (agentVersion.Minor == 25 && agentVersion.Patch < 2) {
-			ctx.Infof("Upgrades to juju 2.0 must first go through juju 1.25.2 or higher.")
+		if comp := agentVersion.Compare(version.MustParse("1.25.3")); comp < 0 {
+			ctx.Infof("Upgrades to juju 2.0 must first go through juju 1.25.3 or higher.")
 			retErr = true
 		}
 		if retErr {
