@@ -18,7 +18,7 @@ import (
 func charmRes(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
 	var fp charmresource.Fingerprint
 	if fingerprint == "" {
-		built, err := charmresource.GenerateFingerprint([]byte(name))
+		built, err := charmresource.GenerateFingerprint(strings.NewReader(name))
 		c.Assert(err, jc.ErrorIsNil)
 		fp = built
 	} else {

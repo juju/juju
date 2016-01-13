@@ -27,7 +27,7 @@ type UploadSuite struct {
 func (s *UploadSuite) TestOkay(c *gc.C) {
 	s.response = "success"
 	data := "<data>"
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
 	c.Assert(err, jc.ErrorIsNil)

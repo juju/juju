@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +33,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	var size int64
 	var now time.Time

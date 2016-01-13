@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -54,7 +55,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, data string) resource.Resource {
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := resource.Resource{
