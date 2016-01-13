@@ -116,6 +116,8 @@ class TestTestControlHeterogeneous(TestCase):
     def test_test_control_heterogeneous(self):
         client = FakeJujuClient()
         bs_manager = FakeBootstrapManager(client)
+        # Prevent teardown
+        bs_manager.tear_down_client = MagicMock()
         test_control_heterogeneous(bs_manager, client, True)
         self.assertEqual(client._backing_state.exposed,
                          {'sink2', 'dummy-sink'})

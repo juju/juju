@@ -655,10 +655,12 @@ class FakeBootstrapManager:
             self.entered_runtime = True
             yield
         finally:
+            self.tear_down()
             self.exited_runtime = True
 
     def tear_down(self):
-        self.client.torn_down = True
+        self.tear_down_client.destroy_environment()
+        self.tear_down_client.torn_down = True
 
     @contextmanager
     def booted_context(self, upload_tools):
