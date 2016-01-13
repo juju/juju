@@ -161,12 +161,10 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			// The space is new, we need to create a valid name for it
 			// in state.
 			spaceName := string(space.ProviderId)
-			if !names.IsValidSpace(spaceName) {
-				// Convert the name into a valid name that isn't already in
-				// use.
-				spaceName = convertSpaceName(spaceName, spaceNames)
-				spaceNames.Add(spaceName)
-			}
+			// Convert the name into a valid name that isn't already in
+			// use.
+			spaceName = convertSpaceName(spaceName, spaceNames)
+			spaceNames.Add(spaceName)
 			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.
 			args := params.CreateSpacesParams{
