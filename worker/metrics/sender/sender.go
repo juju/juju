@@ -21,7 +21,28 @@ type sender struct {
 // Do sends metrics from the metric spool to the
 // state server via an api call.
 func (s *sender) Do(stop <-chan struct{}) error {
-	reader, err := s.factory.Reader()
+	err := SendMetrics(s.factory, s.client)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory) sender {
+	return sender{
+		client:  client,
+		factory: factory,
+	}
+}
+
+type metricsAdder interface {
+	// AddMetricBatches stores specified metric batches in the state.
+	AddMetricBatches(batches []params.MetricBatchParam) (map[string]error, error)
+}
+
+// SendMetrics reads metrics stored in a spool directory and sends them to the controller.
+func SendMetrics(factory spool.MetricFactory, client metricsAdder) error {
+	reader, err := factory.Reader()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -35,7 +56,7 @@ func (s *sender) Do(stop <-chan struct{}) error {
 	for _, batch := range batches {
 		sendBatches = append(sendBatches, spool.APIMetricBatch(batch))
 	}
-	results, err := s.client.AddMetricBatches(sendBatches)
+	results, err := client.AddMetricBatches(sendBatches)
 	if err != nil {
 		logger.Warningf("could not send metrics: %v", err)
 		return errors.Trace(err)
@@ -54,11 +75,4 @@ func (s *sender) Do(stop <-chan struct{}) error {
 		}
 	}
 	return nil
-}
-
-func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory) sender {
-	return sender{
-		client:  client,
-		factory: factory,
-	}
 }

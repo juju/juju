@@ -72,7 +72,8 @@ func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL
 	})
 }
 
-var newFactory = func(spoolDir string) MetricFactory {
+// NewFactory returns a new MetricFactory.
+var NewFactory = func(spoolDir string) MetricFactory {
 	return &factory{spoolDir: spoolDir}
 }
 
@@ -96,7 +97,7 @@ func newWorker(a agent.Agent) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking spool directory %q", metricsSpoolDir)
 	}
-	w := &spoolWorker{factory: newFactory(metricsSpoolDir)}
+	w := &spoolWorker{factory: NewFactory(metricsSpoolDir)}
 	go func() {
 		defer w.tomb.Done()
 		<-w.tomb.Dying()

@@ -197,6 +197,8 @@ func Main(args []string) int {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else if commandName == names.JujuDumpLogs {
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
+	} else if commandName == names.JujuCollectMetrics {
+		code = cmd.Main(&CollectMetricsCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, ctx, args)
 	}

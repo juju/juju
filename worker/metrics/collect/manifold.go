@@ -8,6 +8,7 @@
 package collect
 
 import (
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,15 +18,13 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 const defaultPeriod = 5 * time.Minute
@@ -40,7 +39,6 @@ type ManifoldConfig struct {
 	Period *time.Duration
 
 	AgentName       string
-	APICallerName   string
 	MetricSpoolName string
 	CharmDirName    string
 }
@@ -50,7 +48,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APICallerName,
 			config.MetricSpoolName,
 			config.CharmDirName,
 		},
@@ -64,11 +61,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// UnitCharmLookup can look up the charm URL for a unit tag.
-type UnitCharmLookup interface {
-	CharmURL(names.UnitTag) (*corecharm.URL, error)
-}
-
 var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceFunc) (*collect, error) {
 	period := defaultPeriod
 	if config.Period != nil {
@@ -79,17 +71,6 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 	if err := getResource(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
-	tag := agent.CurrentConfig().Tag()
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected a unit tag, got %v", tag)
-	}
-
-	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
-		return nil, err
-	}
-	uniterFacade := uniterapi.NewState(apiCaller, unitTag)
 
 	var metricFactory spool.MetricFactory
 	err := getResource(config.MetricSpoolName, &metricFactory)
@@ -104,45 +85,30 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 	}
 
 	collector := &collect{
-		period:          period,
-		agent:           agent,
-		unitCharmLookup: &unitCharmLookup{uniterFacade},
-		metricFactory:   metricFactory,
-		charmdir:        charmdir,
+		period:        period,
+		agent:         agent,
+		metricFactory: metricFactory,
+		charmdir:      charmdir,
 	}
 	return collector, nil
 }
 
-type unitCharmLookup struct {
-	st *uniterapi.State
-}
-
-// CharmURL implements UnitCharmLookup.
-func (r *unitCharmLookup) CharmURL(unitTag names.UnitTag) (*corecharm.URL, error) {
-	unit, err := r.st.Unit(unitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return unit.CharmURL()
-}
-
 type collect struct {
-	period          time.Duration
-	agent           agent.Agent
-	unitCharmLookup UnitCharmLookup
-	metricFactory   spool.MetricFactory
-	charmdir        fortress.Guest
+	period        time.Duration
+	agent         agent.Agent
+	metricFactory spool.MetricFactory
+	charmdir      fortress.Guest
 }
 
 var errMetricsNotDefined = errors.New("no metrics defined")
 
-var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm UnitCharmLookup, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
-	ch, err := corecharm.ReadCharm(paths.GetCharmDir())
+var newRecorder = func(unitTag names.UnitTag, charmDir string, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
+	ch, err := corecharm.ReadCharm(charmDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	chURL, err := unitCharm.CharmURL(unitTag)
+	chURL, err := charm.ReadCharmURL(path.Join(charmDir, charm.CharmURLPath))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,11 +142,20 @@ func (w *collect) do() error {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect")
 
-	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
+	err := CollectMetrics(unitTag, config.DataDir(), w.metricFactory)
+	if err != nil {
+		return errors.Annotate(err, "failed to collect metrics")
+	}
+	return nil
+}
+
+// CollectMetrics runs the collect metric hook and records collected metrics in a spool directory.
+func CollectMetrics(unitTag names.UnitTag, dataDir string, metricFactory spool.MetricFactory) error {
+	paths := uniter.NewWorkerPaths(dataDir, unitTag, "metrics-collect")
+
+	recorder, err := newRecorder(unitTag, paths.GetCharmDir(), metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {
-		logger.Tracef("%v", err)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "failed to instantiate metric recorder")
