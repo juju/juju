@@ -17,6 +17,9 @@ const (
 	// DigestSHA is the HTTP digest algorithm value used in juju's HTTP code.
 	DigestSHA DigestAlgorithm = "SHA"
 
+	// TODO(ericsnow) Replace usage of these with
+	// apiserver/common/http.ContentType*.
+
 	// The values used for content-type in juju's direct HTTP code:
 
 	// ContentTypeJSON is the HTTP content-type value used for JSON content.

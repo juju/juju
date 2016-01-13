@@ -14,58 +14,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type EndpointSpecSuite struct {
-	BaseSuite
-}
-
-var _ = gc.Suite(&EndpointSpecSuite{})
-
-func (s *EndpointSpecSuite) TestNewEndpointSpec(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointSpecSuite) TestAdd(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointSpecSuite) TestPattern(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointSpecSuite) TestMethods(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointSpecSuite) TestResolve(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-type EndpointsSuite struct {
-	BaseSuite
-}
-
-var _ = gc.Suite(&EndpointsSuite{})
-
-func (s *EndpointsSuite) TestNewEndpoints(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointsSuite) TestAdd(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointsSuite) TestSpecs(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointsSuite) TestResolve(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
-func (s *EndpointsSuite) TestResolveForMethods(c *gc.C) {
-	// TODO(ericsnow) This needs to be implemented ASAP.
-}
-
 type BaseSuite struct {
 	coretesting.BaseSuite
 
