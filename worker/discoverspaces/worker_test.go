@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -98,7 +99,21 @@ func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
 	s.startWorker()
-	spaces, err := s.State.AllSpaces()
+	var err error
+	var spaces []*state.Space
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err = s.State.AllSpaces()
+		if err != nil {
+			break
+		}
+		if len(spaces) == 4 {
+			// All spaces have been created.
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("spaces not imported")
+		}
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, jc.DeepEquals, nil)
 }
