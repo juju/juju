@@ -787,6 +787,11 @@ class BackupRestoreAttempt(SteppedStageAttempt):
 
 
 class AttemptSuiteFactory:
+    """Factory to produce AttemptSuite objects and backing data.
+
+    :ivar bootstrap_attempt: AttemptSuite class to use for bootstrap.
+    :ivar attempt_list: List of SteppedStageAttempts to perform.
+    """
 
     def __init__(self, attempt_list, bootstrap_attempt=None):
         if bootstrap_attempt is None:
@@ -817,10 +822,24 @@ class AttemptSuiteFactory:
         return result
 
     def factory(self, upgrade_sequence, log_dir):
+       """Emit an AttemptSuite.
+
+        :param upgrade_sequence: The sequence of jujus to upgrade, for
+            UpgradeJujuAttempt.
+        :param log_dir: Directory to store logs and other artifacts in.
+        """
         return AttemptSuite(self, upgrade_sequence, log_dir)
 
 
 class AttemptSuite(SteppedStageAttempt):
+    """A SteppedStageAttempt that runs other SteppedStageAttempts.
+
+    :ivar attempt_list: An AttemptSuiteFactory with the list of
+        SteppedStageAttempts to run.
+    :ivar upgrade_sequence: The sequence of jujus to upgrade, for
+        UpgradeJujuAttempt.
+    :ivar log_dir: Directory to store logs and other artifacts in.
+    """
 
     def __init__(self, attempt_list, upgrade_sequence, log_dir):
         self.attempt_list = attempt_list
@@ -832,6 +851,16 @@ class AttemptSuite(SteppedStageAttempt):
         return self.attempt_list.get_test_info()
 
     def iter_steps(self, client):
+        """Iterate through the steps of attempt_list.
+
+        Create a BootstrapManager.  First bootstrap in bootstrap_context using
+        attempt_list.bootstrap_attempt.  Then run the other
+        SteppedStageAttempts in runtime_context.  If any of this fails,
+        BootstrapManager will automatically tear down.  Otherwise, iterate
+        through DestroyEnvironmentAttempt.
+
+        The actual generator is _iter_bs_manager_steps, to simplify testing.
+        """
         bootstrap_attempt = self.attempt_list.bootstrap_attempt.factory(
             self.upgrade_sequence)
         bs_client = bootstrap_attempt.get_bootstrap_client(client)
