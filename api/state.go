@@ -307,7 +307,7 @@ func (st *State) Upgrader() *upgrader.State {
 }
 
 // Reboot returns access to the Reboot API
-func (st *State) Reboot() (*reboot.State, error) {
+func (st *State) Reboot() (reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil
