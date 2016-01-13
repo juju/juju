@@ -72,6 +72,7 @@ class MultiIndustrialTest:
     :ivar new_juju_path: Path to the non-system juju.
     :ivar stages: A list of StageAttempts.
     :ivar attempt_count: The number of attempts needed for each stage.
+    :ivar agent_stream: The agent stream to use for testing.
     """
 
     @classmethod
@@ -80,7 +81,8 @@ class MultiIndustrialTest:
         stages = cls.get_stages(suite, config)
         return cls(args.env, args.new_juju_path,
                    stages, args.log_dir, args.attempts, args.attempts * 2,
-                   args.new_agent_url, args.debug, args.old_stable)
+                   args.new_agent_url, args.debug, args.old_stable,
+                   args.agent_stream)
 
     @staticmethod
     def get_stages(suite, config):
@@ -88,7 +90,7 @@ class MultiIndustrialTest:
 
     def __init__(self, env, new_juju_path, stages, log_dir, attempt_count=2,
                  max_attempts=1, new_agent_url=None, debug=False,
-                 really_old_path=None):
+                 really_old_path=None, agent_stream=None):
         self.env = env
         self.really_old_path = really_old_path
         self.new_juju_path = new_juju_path
@@ -98,6 +100,7 @@ class MultiIndustrialTest:
         self.max_attempts = max_attempts
         self.debug = debug
         self.log_parent_dir = log_dir
+        self.agent_stream = agent_stream
 
     def make_results(self):
         """Return a results list for use in run_tests."""
@@ -150,7 +153,8 @@ class MultiIndustrialTest:
         paths = [self.really_old_path, stable_path, self.new_juju_path]
         upgrade_sequence = [p for p in paths if p is not None]
         stage_attempts = [self.stages.factory(upgrade_sequence,
-                                              self.log_parent_dir)]
+                                              self.log_parent_dir,
+                                              self.agent_stream)]
         return IndustrialTest.from_args(self.env, self.new_juju_path,
                                         stage_attempts, self.new_agent_url,
                                         self.debug)
@@ -273,7 +277,7 @@ class SteppedStageAttempt:
     """
 
     @classmethod
-    def factory(cls, upgrade_sequence):
+    def factory(cls, upgrade_sequence, agent_stream):
         return cls()
 
     @staticmethod
@@ -428,7 +432,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
         return dict([cls.prepare_upgrade.as_tuple()])
 
     @classmethod
-    def factory(cls, upgrade_sequence):
+    def factory(cls, upgrade_sequence, agent_stream):
         if len(upgrade_sequence) < 2:
             raise ValueError('Not enough paths for upgrade.')
         bootstrap_paths = dict(
@@ -821,14 +825,15 @@ class AttemptSuiteFactory:
         result.update(DestroyEnvironmentAttempt.get_test_info())
         return result
 
-    def factory(self, upgrade_sequence, log_dir):
+    def factory(self, upgrade_sequence, log_dir, agent_stream):
         """Emit an AttemptSuite.
 
         :param upgrade_sequence: The sequence of jujus to upgrade, for
             UpgradeJujuAttempt.
         :param log_dir: Directory to store logs and other artifacts in.
+        :param agent_stream: The agent stream to use for testing.
         """
-        return AttemptSuite(self, upgrade_sequence, log_dir)
+        return AttemptSuite(self, upgrade_sequence, log_dir, agent_stream)
 
 
 class AttemptSuite(SteppedStageAttempt):
@@ -839,12 +844,14 @@ class AttemptSuite(SteppedStageAttempt):
     :ivar upgrade_sequence: The sequence of jujus to upgrade, for
         UpgradeJujuAttempt.
     :ivar log_dir: Directory to store logs and other artifacts in.
+    :ivar agent_stream: The agent stream to use for testing.
     """
 
-    def __init__(self, attempt_list, upgrade_sequence, log_dir):
+    def __init__(self, attempt_list, upgrade_sequence, log_dir, agent_stream):
         self.attempt_list = attempt_list
         self.upgrade_sequence = upgrade_sequence
         self.log_dir = log_dir
+        self.agent_stream = agent_stream
 
     def get_test_info(self):
         """Describe the tests provided by this Stage."""
@@ -862,7 +869,7 @@ class AttemptSuite(SteppedStageAttempt):
         The actual generator is _iter_bs_manager_steps, to simplify testing.
         """
         bootstrap_attempt = self.attempt_list.bootstrap_attempt.factory(
-            self.upgrade_sequence)
+            self.upgrade_sequence, self.agent_stream)
         bs_client = bootstrap_attempt.get_bootstrap_client(client)
         bs_jes_enabled = bs_client.is_jes_enabled()
         jes_enabled = client.is_jes_enabled()
@@ -890,8 +897,9 @@ class AttemptSuite(SteppedStageAttempt):
                 bs_manager.client = client
                 bs_manager.tear_down_client = client
                 bs_manager.jes_enabled = jes_enabled
-                attempts = [a.factory(self.upgrade_sequence) for a in
-                            self.attempt_list.attempt_list]
+                attempts = [
+                    a.factory(self.upgrade_sequence, self.agent_stream)
+                    for a in self.attempt_list.attempt_list]
                 yield self.attempt_list.prepare_suite.as_result(True)
                 for attempt in attempts:
                     for result in attempt.iter_steps(client):
@@ -958,6 +966,8 @@ def parse_args(args=None):
     parser.add_argument('--new-agent-url')
     parser.add_argument('--single', action='store_true')
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--agent-stream',
+                        help='Agent stream to use for tests.')
     parser.add_argument(
         '--old-stable', help='Path to a version of juju that stable can'
         ' upgrade from.')
