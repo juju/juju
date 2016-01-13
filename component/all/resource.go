@@ -210,10 +210,6 @@ func (charmstoreClient) Close() error {
 	return nil
 }
 
-type apicommand interface {
-	NewAPIRoot() (api.Connection, error)
-}
-
 func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
 	apiCaller, err := newAPICaller()
 	if err != nil {
