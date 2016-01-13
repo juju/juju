@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -221,7 +222,8 @@ func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 }
 
 func newUploadResource(c *gc.C, name, data string) resource.Resource {
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	reader := strings.NewReader(data)
+	fp, err := charmresource.GenerateFingerprint(reader)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := resource.Resource{

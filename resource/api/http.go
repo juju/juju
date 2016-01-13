@@ -4,16 +4,15 @@
 package api
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -44,19 +43,15 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
 func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
-	// TODO(ericsnow) Use the newer GenerateFingerprint()...
-	data, err := ioutil.ReadAll(r)
+	sizer := utils.NewSizingReader(r)
+	fp, err := charmresource.GenerateFingerprint(sizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if _, err := r.Seek(0, os.SEEK_SET); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	fp, err := charmresource.GenerateFingerprint(data)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	size := sizer.Size()
 
 	method := "PUT"
 	// TODO(ericsnow) What about the rest of the URL?
@@ -68,8 +63,8 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Sha384", fp.String())
-	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
-	req.ContentLength = int64(len(data))
+	req.Header.Set("Content-Length", fmt.Sprint(size))
+	req.ContentLength = size
 
 	return req, nil
 }
@@ -92,12 +87,7 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	fingerprint := req.Header.Get("Content-Sha384") // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get("Content-Length")
 
-	// TODO(ericsnow) Use the newer ParseFingerprint().
-	fpData, err := hex.DecodeString(fingerprint)
-	if err != nil {
-		return "", "", 0, fp, errors.Annotate(err, "invalid fingerprint")
-	}
-	fp, err = charmresource.NewFingerprint(fpData)
+	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
 		return "", "", 0, fp, errors.Annotate(err, "invalid fingerprint")
 	}

@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/testing"
@@ -21,7 +22,7 @@ type CharmFormatterSuite struct {
 }
 
 func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
-	data := []byte("spamspamspam")
+	data := strings.NewReader("spamspamspam")
 	fp, err := charmresource.GenerateFingerprint(data)
 	c.Assert(err, jc.ErrorIsNil)
 	fingerprint := string(fp.Bytes())
@@ -47,7 +48,7 @@ type SvcFormatterSuite struct {
 }
 
 func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
-	fp, err := charmresource.GenerateFingerprint([]byte("something"))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
 	c.Assert(err, jc.ErrorIsNil)
 	r := resource.Resource{
 		Resource: charmresource.Resource{

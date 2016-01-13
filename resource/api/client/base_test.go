@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -67,7 +68,7 @@ func newResourceResult(c *gc.C, serviceID string, names ...string) ([]resource.R
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	fp, err := charmresource.GenerateFingerprint([]byte(data))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	var now time.Time
 	if username != "" {
