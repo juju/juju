@@ -535,12 +535,12 @@ def make_substrate_manager(client, required_attrs):
 class DestroyEnvironmentAttempt(SteppedStageAttempt):
     """Implementation of a destroy-environment stage."""
 
-    @staticmethod
-    def get_test_info():
-        """Describe the tests provided by this Stage."""
-        return OrderedDict([
-            ('destroy-env', {'title': 'destroy environment'}),
-            ('substrate-clean', {'title': 'check substrate clean'})])
+    destroy = StageInfo('destroy-env', 'destroy environment')
+    substrate_clean = StageInfo('substrate-clean', 'check substrate clean')
+
+    @classmethod
+    def get_stage_info(cls):
+        return [cls.destroy, cls.substrate_clean]
 
     @classmethod
     def get_security_groups(cls, client):
@@ -571,18 +571,14 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     def iter_steps(cls, client):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
-        results = {'test_id': 'destroy-env'}
-        yield results
+        yield cls.destroy.as_result()
         groups = cls.get_security_groups(client)
         client.destroy_environment(force=False)
         # If it hasn't raised an exception, destroy-environment succeeded.
-        results['result'] = True
-        yield results
-        results = {'test_id': 'substrate-clean'}
-        yield results
+        yield cls.destroy.as_result(True)
+        yield cls.substrate_clean.as_result()
         cls.check_security_groups(client, groups)
-        results['result'] = True
-        yield results
+        yield cls.substrate_clean.as_result(True)
 
 
 class EnsureAvailabilityAttempt(SteppedStageAttempt):
