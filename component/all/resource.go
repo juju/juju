@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
@@ -57,6 +58,15 @@ func (r resources) registerPublicFacade() {
 		server.Version,
 		r.newPublicFacade,
 	)
+
+	common.RegisterEnvHTTPHandler(
+		api.HTTPEndpointPattern,
+		common.HTTPHandlerSpec{
+			AuthKind:         names.UserTagKind,
+			StrictValidation: true,
+			NewHandler:       r.newHTTPHandler,
+		},
+	)
 }
 
 // newPublicFacade is passed into common.RegisterStandardFacade
@@ -73,6 +83,23 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 	}
 
 	return server.NewFacade(rst), nil
+}
+
+func (resources) newHTTPHandler(args common.NewHTTPHandlerArgs) http.Handler {
+	return server.NewLegacyHTTPHandler(
+		func(req *http.Request) (server.DataStore, names.Tag, error) {
+			st, err := args.Connect(req)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			rst, err := st.Resources()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return rst, nil
+		},
+	)
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.

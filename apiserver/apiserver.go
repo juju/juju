@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
-	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -360,10 +359,6 @@ func (srv *Server) httpEndpoints() []apihttp.Endpoint {
 		srv: srv,
 	}
 	srvDying := srv.tomb.Dying()
-
-	add(resourceapi.HTTPEndpointPattern,
-		newResourceHandler(httpCtxt),
-	)
 
 	if feature.IsDbLogEnabled() {
 		add("/logsink",
