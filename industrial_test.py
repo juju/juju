@@ -415,6 +415,7 @@ class CannotUpgradeToOldClient(CannotUpgradeToClient):
 
 
 class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
+    """Prepare to run an UpgradeJujuAttempt.  This is the bootstrap portion."""
 
     prepare_upgrade = StageInfo(
         'prepare-upgrade-juju',
@@ -439,6 +440,12 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
         self.bootstrap_paths = bootstrap_paths
 
     def get_bootstrap_client(self, client):
+        """Return a client to be used for bootstrapping.
+
+        Because we intend to upgrade, we produce a client that is older than
+        the supplied client.  In a correct upgrade_sequence, the path for
+        older clients come before the paths for newer clients.
+        """
         try:
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
@@ -447,6 +454,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
             client.env, bootstrap_path, client.debug)
 
     def iter_steps(self, client):
+        """Use a BootstrapAttempt with a different client."""
         ba = BootstrapAttempt()
         bootstrap_client = self.get_bootstrap_client(client)
         for result in ba.iter_steps(bootstrap_client):
@@ -456,6 +464,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
 
 
 class UpgradeJujuAttempt(SteppedStageAttempt):
+    """Perform an 'upgrade-juju' on the environment."""
 
     @staticmethod
     def get_test_info():
