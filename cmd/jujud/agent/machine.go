@@ -72,7 +72,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -750,14 +749,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, errors.Annotate(err, "cannot start machiner worker")
 		}
 		return w, err
-	})
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start api address updater worker")
-		}
-		return w, nil
 	})
 
 	if !featureflag.Enabled(feature.DisableRsyslog) {
