@@ -172,7 +172,7 @@ type Connection interface {
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
-	Reboot() (*reboot.State, error)
+	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
 	Environment() *environment.Facade
 	Logger() *apilogger.State
