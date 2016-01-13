@@ -69,7 +69,6 @@ from test_substrate import (
     make_os_security_groups,
     )
 from utility import (
-    LoggedException,
     temp_dir,
     )
 
