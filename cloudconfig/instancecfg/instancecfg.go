@@ -138,8 +138,11 @@ type InstanceConfig struct {
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
-	// Constraints holds the initial environment constraints.
+	// Constraints holds the machine constraints.
 	Constraints constraints.Value
+
+	// EnvironConstraints holds the initial environment constraints.
+	EnvironConstraints constraints.Value
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -457,7 +460,7 @@ func NewInstanceConfig(
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapInstanceConfig(cons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
+func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
@@ -470,6 +473,7 @@ func NewBootstrapInstanceConfig(cons constraints.Value, series, publicImageSigni
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
+	icfg.EnvironConstraints = environCons
 	return icfg, nil
 }
 
