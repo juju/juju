@@ -237,18 +237,12 @@ func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) er
 		return errors.Annotate(err, "can't get resources from state")
 	}
 
-	fp, err := charmresource.GenerateFingerprint(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, meta := range args.Charm.Meta().Resources {
 		res := resource.Resource{
 			Resource: charmresource.Resource{
 				Meta: meta,
 				// TODO(natefinch): how do we determine this at deploy time?
-				Origin:      charmresource.OriginUpload,
-				Fingerprint: fp,
+				Origin: charmresource.OriginUpload,
 			},
 		}
 
