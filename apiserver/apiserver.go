@@ -317,12 +317,13 @@ func (srv *Server) newHandlerArgs(spec common.HTTPHandlerConstraints) common.New
 	case names.UserTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedUser
 	case "":
+		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
 		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
 			st, err := ctxt.stateForRequestUnauthenticated(req)
 			return st, nil, err
 		}
 	default:
-		// TODO(ericsnow) Log a warning? Return an error?
+		logger.Warnf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
 		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
 			st, err := ctxt.stateForRequestUnauthenticated(req)
 			return st, nil, err
