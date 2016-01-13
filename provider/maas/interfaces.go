@@ -393,7 +393,7 @@ type ifaceInfo struct {
 }
 
 // extractInterfaces parses the XML output of lswh and extracts all
-// network interfaces, returing a map MAC address to ifaceInfo.
+// network interfaces, returning a map MAC address to ifaceInfo.
 func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]ifaceInfo, error) {
 	type Node struct {
 		Id          string `xml:"id,attr"`
@@ -447,7 +447,7 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	return interfaces, err
 }
 
-// setupNetworks prepares a []network.InterfaceInfo for the given instance.Any
+// setupNetworks prepares a []network.InterfaceInfo for the given instance. Any
 // disabled network interfaces (as discovered from the lshw output for the node)
 // will stay disabled.
 func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.InterfaceInfo, error) {

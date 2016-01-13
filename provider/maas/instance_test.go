@@ -92,10 +92,16 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
                   { "subnet": { "space": "bar" }, "ip_address": "8.7.6.5" },
                   { "subnet": { "space": "bar" }, "ip_address": "8.7.6.6" }
               ] },
-              { "name": "eth1", "links": [ { "subnet": { "space": "storage" }, "ip_address": "10.0.1.1" } ] },
-              { "name": "eth3", "links": [ { "subnet": { "space": "db" }, "ip_address": "fc00::123" } ] },
+              { "name": "eth1", "links": [
+                  { "subnet": { "space": "storage" }, "ip_address": "10.0.1.1" }
+               ] },
+              { "name": "eth3", "links": [
+                  { "subnet": { "space": "db" }, "ip_address": "fc00::123" }
+               ] },
               { "name": "eth4" },
-              { "name": "eth5", "links": [ { "mode": "link-up" } ] }
+              { "name": "eth5", "links": [
+                  { "mode": "link-up" }
+               ] }
            ],
 			"ip_addresses": [ "anything", "foo", "0.1.2.3" ]
 		}`
