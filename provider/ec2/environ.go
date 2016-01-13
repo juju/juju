@@ -1184,6 +1184,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 		for i := range r.Instances {
 			inst := r.Instances[i]
 			tagUUID, ok := getTagByKey(tags.JujuEnv, inst.Tags)
+			// tagless instances will always be included to avoid
+			// breakage of old environments, if one of these exists it might
+			// hinder the ability to deploy a second environment of the same
+			// name.
 			if ok && tagUUID != eUUID {
 				continue
 			}
@@ -1218,12 +1222,17 @@ func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) openPortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -1251,7 +1260,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) closePortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1259,6 +1268,10 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
 	if err != nil {
 		return err
 	}
@@ -1294,7 +1307,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in global group: %v", ports)
@@ -1306,7 +1319,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in global group: %v", ports)
@@ -1350,6 +1363,10 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 	var err error
 	jujuGroup := e.jujuGroupName()
 	g, err := e.groupByName(jujuGroup)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(e.legacyJujuGroupName())
+	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
@@ -1374,8 +1391,9 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	ec2inst := e.ec2()
 	defer func() {
 		jujuGroup := e.jujuGroupName()
+		legacyJujuGroup := e.legacyJujuGroupName()
 		for _, deletable := range deletables {
-			if deletable.Name != jujuGroup {
+			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
 				for a := longAttempt.Start(); a.Next(); {
 					_, err := ec2inst.DeleteSecurityGroup(deletable)
 					if err != nil {
@@ -1433,6 +1451,21 @@ func (e *environ) machineGroupName(machineId string) string {
 }
 
 func (e *environ) jujuGroupName() string {
+	return "juju-" + e.uuid()
+}
+
+// Legacy naming for groups, before multi environments with the same
+// name where supported.
+
+func (e *environ) legacyGlobalGroupName() string {
+	return fmt.Sprintf("%s-global", e.legacyJujuGroupName())
+}
+
+func (e *environ) legacyMachineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.legacyJujuGroupName(), machineId)
+}
+
+func (e *environ) legacyJujuGroupName() string {
 	return "juju-" + e.uuid()
 }
 
