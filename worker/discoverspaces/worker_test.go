@@ -93,7 +93,18 @@ func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No spaces will have been created, worker does nothing.
-	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err = s.State.AllSpaces()
+		if err != nil {
+			c.Fatalf("error fetching spaces: %v", err)
+		}
+		if len(spaces) != 0 {
+			c.Fatalf("spaces should not be created, we have %v", len(spaces))
+		}
+		if !a.HasNext() {
+			break
+		}
+	}
 }
 
 func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
