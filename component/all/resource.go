@@ -17,6 +17,7 @@ import (
 	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	commonhttp "github.com/juju/juju/apiserver/common/http"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
@@ -63,12 +64,12 @@ func (r resources) registerPublicFacade() {
 
 	common.RegisterEnvHTTPHandler(
 		api.HTTPEndpointPattern,
-		common.HTTPHandlerSpec{
-			Constraints: common.HTTPHandlerConstraints{
+		commonhttp.HandlerSpec{
+			Constraints: commonhttp.HandlerConstraints{
 				AuthKind:         names.UserTagKind,
 				StrictValidation: true,
 			},
-			NewHTTPHandler: r.newHTTPHandler,
+			NewHandler: r.newHTTPHandler,
 		},
 	)
 }
@@ -89,7 +90,7 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 	return server.NewFacade(rst), nil
 }
 
-func (resources) newHTTPHandler(args common.NewHTTPHandlerArgs) http.Handler {
+func (resources) newHTTPHandler(args commonhttp.NewHandlerArgs) http.Handler {
 	return server.NewLegacyHTTPHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
 			st, entity, err := args.Connect(req)
