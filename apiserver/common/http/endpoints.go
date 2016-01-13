@@ -70,12 +70,8 @@ func (hes Endpoints) Resolve(newArgs func(HandlerConstraints) NewHandlerArgs) []
 	var endpoints []Endpoint
 	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
+		// Note that the spec's default handler (if any) is not used.
 		for _, method := range spec.Methods() {
-			if method == "" {
-				// The default is discarded.
-				continue
-			}
-
 			hSpec := spec.Resolve(method, hes.UnsupportedMethodHandler)
 			args := newArgs(hSpec.Constraints)
 			handler := hSpec.NewHandler(args)

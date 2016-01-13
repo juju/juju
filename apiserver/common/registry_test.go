@@ -451,12 +451,11 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerFull(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 	specs := common.ExposeHTTPEndpointsRegistry()
 	s.checkSpecs(c, specs, []httpEndpointSpec{{
-		pattern: "/environment/:envuuid/spam",
-		methodHandlers: map[string]httpHandlerSpec{
-			"": httpHandlerSpec{
-				constraints: constraints,
-				handler:     s.handler,
-			},
+		pattern:        "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{},
+		defaultHandler: httpHandlerSpec{
+			constraints: constraints,
+			handler:     s.handler,
 		},
 	}})
 }
@@ -471,11 +470,10 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerBasic(c *gc.C) {
 
 	specs := common.ExposeHTTPEndpointsRegistry()
 	s.checkSpecs(c, specs, []httpEndpointSpec{{
-		pattern: "/environment/:envuuid/spam",
-		methodHandlers: map[string]httpHandlerSpec{
-			"": httpHandlerSpec{
-				handler: s.handler,
-			},
+		pattern:        "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{},
+		defaultHandler: httpHandlerSpec{
+			handler: s.handler,
 		},
 	}})
 }
@@ -564,19 +562,17 @@ func (s *HTTPEndpointRegistrySuite) TestRegisterEnvHTTPHandlerNoCollision(c *gc.
 	s.stub.CheckNoCalls(c)
 	specs := common.ExposeHTTPEndpointsRegistry()
 	s.checkSpecs(c, specs, []httpEndpointSpec{{
-		pattern: "/environment/:envuuid/spam",
-		methodHandlers: map[string]httpHandlerSpec{
-			"": httpHandlerSpec{
-				handler: otherHandler,
-			},
+		pattern:        "/environment/:envuuid/spam",
+		methodHandlers: map[string]httpHandlerSpec{},
+		defaultHandler: httpHandlerSpec{
+			handler: otherHandler,
 		},
 	}, {
-		pattern: "/environment/:envuuid/eggs",
-		methodHandlers: map[string]httpHandlerSpec{
-			"": httpHandlerSpec{
-				constraints: constraints,
-				handler:     s.handler,
-			},
+		pattern:        "/environment/:envuuid/eggs",
+		methodHandlers: map[string]httpHandlerSpec{},
+		defaultHandler: httpHandlerSpec{
+			constraints: constraints,
+			handler:     s.handler,
 		},
 	}})
 }
@@ -740,6 +736,7 @@ type httpHandlerSpec struct {
 type httpEndpointSpec struct {
 	pattern        string
 	methodHandlers map[string]httpHandlerSpec
+	defaultHandler httpHandlerSpec
 }
 
 func checkSpec(c *gc.C, spec commonhttp.EndpointSpec, expected httpEndpointSpec) {
@@ -749,15 +746,21 @@ func checkSpec(c *gc.C, spec commonhttp.EndpointSpec, expected httpEndpointSpec)
 		pattern:        spec.Pattern(),
 		methodHandlers: make(map[string]httpHandlerSpec),
 	}
+	var args commonhttp.NewHandlerArgs
+	if dflt, ok := spec.Default(); ok {
+		actual.defaultHandler = httpHandlerSpec{
+			constraints: dflt.Constraints,
+			handler:     dflt.NewHandler(args),
+		}
+	}
 	unhandled := &nopHTTPHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
 	for _, method := range spec.Methods() {
 		hSpec := spec.Resolve(method, unhandled)
-		handler := hSpec.NewHandler(commonhttp.NewHandlerArgs{})
+		handler := hSpec.NewHandler(args)
 		actual.methodHandlers[method] = httpHandlerSpec{
 			constraints: hSpec.Constraints,
 			handler:     handler,
 		}
-
 	}
 	c.Check(actual, jc.DeepEquals, expected)
 }

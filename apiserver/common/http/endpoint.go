@@ -20,6 +20,9 @@ type EndpointSpec struct {
 	// methodHandlers associates each supported HTTP method (e.g. GET, PUT)
 	// with the handler spec that supports it.
 	methodHandlers map[string]HandlerSpec
+
+	// defaultHandler is the handler spec to use for unrecognized HTTP methods.
+	defaultHandler *HandlerSpec
 }
 
 // NewEndpointSpec composes a new HTTP endpoint spec for the given
@@ -37,7 +40,7 @@ func NewEndpointSpec(pattern string, hSpec HandlerSpec, methods ...string) (Endp
 
 	if len(methods) == 0 {
 		// Short-circuit for the "all available" case.
-		spec.methodHandlers[""] = hSpec
+		spec.defaultHandler = &hSpec
 		return spec, nil
 	}
 
@@ -80,18 +83,27 @@ func (spec EndpointSpec) Methods() []string {
 	return methods
 }
 
+// Default returns a copy of the default handler spec, if there is one.
+// If not then false is returned.
+func (spec EndpointSpec) Default() (HandlerSpec, bool) {
+	if spec.defaultHandler == nil {
+		return HandlerSpec{}, false
+	}
+	return *spec.defaultHandler, true
+}
+
 // Resolve returns the HTTP handler spec for the given HTTP method.
 // The returned spec is guaranteed to have a valid NewHandler.
 // In the cases that the HTTP method is not supported, the provided
 // "unhandled" handler will be returned from NewHandler.
 func (spec EndpointSpec) Resolve(method string, unhandled http.Handler) HandlerSpec {
-	if unhandled == nil {
-		unhandled = unsupportedMethodHandler()
-	}
 	hSpec := spec.resolve(method)
 
 	// Handle the nil NewHandler/handler cases, treating them
 	// as "unhandled".
+	if unhandled == nil {
+		unhandled = unsupportedMethodHandler()
+	}
 	newHandler := hSpec.NewHandler
 	hSpec.NewHandler = func(args NewHandlerArgs) http.Handler {
 		if newHandler == nil {
@@ -112,12 +124,15 @@ func (spec EndpointSpec) Resolve(method string, unhandled http.Handler) HandlerS
 // is returned. If no default has been set then a zero-value spec is
 // returned.
 func (spec EndpointSpec) resolve(method string) HandlerSpec {
-	if hSpec, ok := spec.methodHandlers[method]; ok {
-		return hSpec
-	}
 	if method != "" {
-		// Fall back to the default, if any.
-		return spec.resolve("")
+		if hSpec, ok := spec.methodHandlers[method]; ok {
+			return hSpec
+		}
+		// Otherwise fall back to the default, if any.
+	}
+
+	if spec.defaultHandler != nil {
+		return *spec.defaultHandler
 	}
 
 	// No match and no default, so return an "unhandled" handler spec.
