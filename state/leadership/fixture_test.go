@@ -14,9 +14,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+const (
+	defaultMaxSleep = time.Hour
+	almostOneSecond = time.Second - time.Nanosecond
+)
+
 var (
 	defaultClockStart time.Time
-	almostOneSecond   = time.Second - time.Nanosecond
 )
 
 func init() {
@@ -33,7 +37,7 @@ func init() {
 }
 
 // offset returns the result of defaultClockStart.Add(d); it exists to make
-// exppiry tests easier to write.
+// expiry tests easier to write.
 func offset(d time.Duration) time.Time {
 	return defaultClockStart.Add(d)
 }
@@ -69,12 +73,12 @@ type Fixture struct {
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
 func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testing.Clock)) {
-	waitForAlarm := len(fix.leases) > 0
 	clock := testing.NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Clock:  clock,
-		Client: client,
+		Clock:    clock,
+		Client:   client,
+		MaxSleep: defaultMaxSleep,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -87,10 +91,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testin
 		}
 	}()
 	defer client.Wait(c)
-
-	if waitForAlarm {
-		waitAlarms(c, clock, 1)
-	}
+	waitAlarms(c, clock, 1)
 	test(manager, clock)
 }
 

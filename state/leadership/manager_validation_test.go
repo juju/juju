@@ -6,7 +6,9 @@ package leadership_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
@@ -23,17 +25,42 @@ var _ = gc.Suite(&ValidationSuite{})
 
 func (s *ValidationSuite) TestMissingClient(c *gc.C) {
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Clock: coretesting.NewClock(time.Now()),
+		Clock:    coretesting.NewClock(time.Now()),
+		MaxSleep: time.Minute,
 	})
-	c.Check(err, gc.ErrorMatches, "missing client")
+	c.Check(err, gc.ErrorMatches, "nil Client not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: NewClient(nil, nil),
+		Client:   NewClient(nil, nil),
+		MaxSleep: time.Minute,
 	})
-	c.Check(err, gc.ErrorMatches, "missing clock")
+	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(manager, gc.IsNil)
+}
+
+func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
+	manager, err := leadership.NewManager(leadership.ManagerConfig{
+		Client: NewClient(nil, nil),
+		Clock:  coretesting.NewClock(time.Now()),
+	})
+	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(manager, gc.IsNil)
+}
+
+func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
+	manager, err := leadership.NewManager(leadership.ManagerConfig{
+		Client:   NewClient(nil, nil),
+		Clock:    coretesting.NewClock(time.Now()),
+		MaxSleep: -time.Nanosecond,
+	})
+	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
