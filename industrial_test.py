@@ -822,7 +822,7 @@ class AttemptSuiteFactory:
         return result
 
     def factory(self, upgrade_sequence, log_dir):
-       """Emit an AttemptSuite.
+        """Emit an AttemptSuite.
 
         :param upgrade_sequence: The sequence of jujus to upgrade, for
             UpgradeJujuAttempt.
