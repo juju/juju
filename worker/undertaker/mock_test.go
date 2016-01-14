@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -28,11 +29,10 @@ type mockClient struct {
 	lock        sync.RWMutex
 	mockEnviron clientEnviron
 	watcher     watcher.NotifyWatcher
+	cfg         *config.Config
 }
 
 func (m *mockClient) mockCall(call string) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	m.calls <- call
 }
 
@@ -65,6 +65,10 @@ func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
 		TimeOfDeath: m.mockEnviron.TimeOfDeath,
 	}
 	return params.UndertakerEnvironInfoResult{Result: result}, nil
+}
+
+func (m *mockClient) EnvironConfig() (*config.Config, error) {
+	return m.cfg, nil
 }
 
 func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -34,8 +35,17 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
-	err := bootstrap.ValidateUploadAllowed(env, &arch)
+	err := bootstrap.ValidateUploadAllowed(env, &arch, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot build tools for "ppc64el" using a machine running on "amd64"`)
+}
+
+func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostOS(c *gc.C) {
+	// Host runs Ubuntu, want win2012 tools.
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
+	env := newEnviron("foo", useDefaultKeys, nil)
+	series := "win2012"
+	err := bootstrap.ValidateUploadAllowed(env, nil, &series)
+	c.Assert(err, gc.ErrorMatches, `cannot build tools for "win2012" using a machine running "Ubuntu"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
@@ -48,7 +58,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.ValidateUploadAllowed(env, nil)
+	err := bootstrap.ValidateUploadAllowed(env, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "ppc64el"`)
 }
 
@@ -56,8 +66,10 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	arm64 := "arm64"
+	centos7 := "centos7"
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
-	err := bootstrap.ValidateUploadAllowed(env, &arm64)
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.CentOS })
+	err := bootstrap.ValidateUploadAllowed(env, &arm64, &centos7)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -81,6 +93,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	type test struct {
 		version *version.Number
 		arch    *string
+		series  *string
 		dev     bool
 		filter  tools.Filter
 		stream  string
@@ -88,29 +101,35 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	tests := []test{{
 		version: nil,
 		arch:    nil,
+		series:  nil,
 		dev:     true,
 		filter:  tools.Filter{},
 	}, {
 		version: &vers,
 		arch:    nil,
+		series:  nil,
 		dev:     false,
 		filter:  tools.Filter{Number: vers},
 	}, {
 		version: &vers,
 		arch:    &arm64,
+		series:  nil,
 		filter:  tools.Filter{Arch: arm64, Number: vers},
 	}, {
 		version: &vers,
 		arch:    &arm64,
+		series:  nil,
 		dev:     true,
 		filter:  tools.Filter{Arch: arm64, Number: vers},
 	}, {
 		version: &devVers,
 		arch:    &arm64,
+		series:  nil,
 		filter:  tools.Filter{Arch: arm64, Number: devVers},
 	}, {
 		version: &devVers,
 		arch:    &arm64,
+		series:  nil,
 		filter:  tools.Filter{Arch: arm64, Number: devVers},
 		stream:  "devel",
 	}}
@@ -122,7 +141,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 			extra["agent-stream"] = test.stream
 		}
 		env := newEnviron("foo", useDefaultKeys, extra)
-		bootstrap.FindBootstrapTools(env, test.version, test.arch)
+		bootstrap.FindBootstrapTools(env, test.version, test.arch, test.series)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
 		if test.stream != "" {
@@ -142,7 +161,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, false)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
@@ -153,7 +172,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-version": "1.17.1",
 	})
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, false)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -165,7 +184,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	uploadedTools, err := bootstrap.FindAvailableTools(env, nil, nil, true)
+	uploadedTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
@@ -187,7 +206,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, true)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true)
 	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "i386"`)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 }
@@ -217,7 +236,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	toolsVersion := version.MustParse("10.11.12")
-	result, err := bootstrap.FindAvailableTools(env, &toolsVersion, nil, false)
+	result, err := bootstrap.FindAvailableTools(env, &toolsVersion, nil, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsCalled, gc.Equals, 1)
 	c.Assert(result, jc.DeepEquals, tools.List{
@@ -239,7 +258,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
-	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, false)
+	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
@@ -278,7 +297,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, false)
+	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)

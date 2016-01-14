@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,15 +19,18 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
+	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/undertaker"
 )
 
 type cmdSystemSuite struct {
@@ -171,4 +176,58 @@ func (s *cmdSystemSuite) TestListBlocks(c *gc.C) {
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Check(strippedOut, gc.Equals, expected)
+}
+
+func (s *cmdSystemSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "foo",
+	})
+	defer st.Close()
+
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.Close()
+
+	opc := make(chan dummy.Operation, 200)
+	dummy.Listen(opc)
+
+	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { conn.Close() })
+	client := undertakerapi.NewClient(conn)
+
+	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
+	mClock := testing.NewClock(startTime)
+	undertaker.NewUndertaker(client, mClock)
+
+	store, err := configstore.Default()
+	_, err = store.ReadInfo("dummyenv")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.run(c, "kill", "dummyenv", "-y")
+
+	// Ensure that Destroy was called on the hosted environment ...
+	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
+
+	// ... and that the configstore was removed.
+	_, err = store.ReadInfo("dummyenv")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// opRecvTimeout waits for any of the given kinds of operation to
+// be received from ops, and times out if not.
+func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+	st.StartSync()
+	for {
+		select {
+		case op := <-opc:
+			for _, k := range kinds {
+				if reflect.TypeOf(op) == reflect.TypeOf(k) {
+					return op
+				}
+			}
+			c.Logf("discarding unknown event %#v", op)
+		case <-time.After(testing.LongWait):
+			c.Fatalf("time out wating for operation")
+		}
+	}
 }

@@ -21,52 +21,46 @@ type volumeSuite struct {
 
 var _ = gc.Suite(&volumeSuite{})
 
-func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
-	return params.VolumeDetailsResult{
-		Details: &params.VolumeDetails{
-			VolumeTag: s.volumeTag.String(),
-			Status: params.EntityStatus{
-				Status: "attached",
-			},
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				s.machineTag.String(): params.VolumeAttachmentInfo{},
-			},
-			Storage: &params.StorageDetails{
-				StorageTag: "storage-data-0",
-				OwnerTag:   "unit-mysql-0",
-				Kind:       params.StorageKindFilesystem,
-				Status: params.EntityStatus{
-					Status: "attached",
-				},
-				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-mysql-0": params.StorageAttachmentDetails{
-						StorageTag: "storage-data-0",
-						UnitTag:    "unit-mysql-0",
-						MachineTag: "machine-66",
-					},
-				},
-			},
+func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
+	return params.VolumeDetails{
+		VolumeTag: s.volumeTag.String(),
+		Status: params.EntityStatus{
+			Status: "attached",
 		},
-		LegacyVolume: &params.LegacyVolumeDetails{
-			VolumeTag:  s.volumeTag.String(),
+		MachineAttachments: map[string]params.VolumeAttachmentInfo{
+			s.machineTag.String(): params.VolumeAttachmentInfo{},
+		},
+		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
-			UnitTag:    "unit-mysql-0",
+			OwnerTag:   "unit-mysql-0",
+			Kind:       params.StorageKindFilesystem,
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
+			Attachments: map[string]params.StorageAttachmentDetails{
+				"unit-mysql-0": params.StorageAttachmentDetails{
+					StorageTag: "storage-data-0",
+					UnitTag:    "unit-mysql-0",
+					MachineTag: "machine-66",
+				},
+			},
 		},
-		LegacyAttachments: []params.VolumeAttachment{{
-			VolumeTag:  s.volumeTag.String(),
-			MachineTag: s.machineTag.String(),
-		}},
 	}
 }
 
+func (s *volumeSuite) TestListVolumesNoFilters(c *gc.C) {
+	found, err := s.api.ListVolumes(params.VolumeFilters{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 0)
+}
+
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
-	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], gc.DeepEquals, s.expectedVolumeDetailsResult())
+	c.Assert(found.Results[0].Error, gc.IsNil)
+	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], gc.DeepEquals, s.expectedVolumeDetails())
 }
 
 func (s *volumeSuite) TestListVolumesError(c *gc.C) {
@@ -74,36 +68,44 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 	s.state.allVolumes = func() ([]state.Volume, error) {
 		return nil, errors.New(msg)
 	}
-	_, err := s.api.ListVolumes(params.VolumeFilter{})
-	c.Assert(err, gc.ErrorMatches, msg)
+	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, msg)
 }
 
 func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
 	s.state.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
-	results, err := s.api.ListVolumes(params.VolumeFilter{})
+	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Result, gc.HasLen, 0)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
-	filter := params.VolumeFilter{
+	filters := []params.VolumeFilter{{
 		Machines: []string{s.machineTag.String()},
-	}
-	found, err := s.api.ListVolumes(filter)
+	}}
+	found, err := s.api.ListVolumes(params.VolumeFilters{filters})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], jc.DeepEquals, s.expectedVolumeDetailsResult())
+	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error, gc.IsNil)
+	c.Assert(found.Results[0].Result[0], jc.DeepEquals, s.expectedVolumeDetails())
 }
 
 func (s *volumeSuite) TestListVolumesFilterNonMatching(c *gc.C) {
-	filter := params.VolumeFilter{
+	filters := []params.VolumeFilter{{
 		Machines: []string{"machine-42"},
-	}
-	found, err := s.api.ListVolumes(filter)
+	}}
+	found, err := s.api.ListVolumes(params.VolumeFilters{filters})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Result, gc.HasLen, 0)
+	c.Assert(found.Results[0].Error, gc.IsNil)
 }
 
 func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
@@ -112,17 +114,15 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 		HardwareId: "abc",
 		Persistent: true,
 	}
-	expected := s.expectedVolumeDetailsResult()
-	expected.Details.Info.Size = 123
-	expected.Details.Info.HardwareId = "abc"
-	expected.Details.Info.Persistent = true
-	expected.LegacyVolume.Size = 123
-	expected.LegacyVolume.HardwareId = "abc"
-	expected.LegacyVolume.Persistent = true
-	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	expected := s.expectedVolumeDetails()
+	expected.Info.Size = 123
+	expected.Info.HardwareId = "abc"
+	expected.Info.Persistent = true
+	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
 
 func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
@@ -130,19 +130,16 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
 	}
-	expected := s.expectedVolumeDetailsResult()
-	expected.Details.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
+	expected := s.expectedVolumeDetails()
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
 	}
-	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
-		DeviceName: "xvdf1",
-		ReadOnly:   true,
-	}
-	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
@@ -151,19 +148,17 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
 		ReadOnly: true,
 	}
-	expected := s.expectedVolumeDetailsResult()
-	expected.Details.Storage.Kind = params.StorageKindBlock
-	expected.Details.Storage.Status.Status = params.StatusAttached
-	expected.Details.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
+	expected := s.expectedVolumeDetails()
+	expected.Storage.Kind = params.StorageKindBlock
+	expected.Storage.Status.Status = params.StatusAttached
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
 		ReadOnly: true,
 	}
-	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
-		ReadOnly: true,
-	}
-	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result, gc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
@@ -179,22 +174,18 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 		BusAddress: "bus-addr",
 		ReadOnly:   true,
 	}
-	expected := s.expectedVolumeDetailsResult()
-	expected.Details.Storage.Kind = params.StorageKindBlock
-	expected.Details.Storage.Status.Status = params.StatusAttached
-	storageAttachmentDetails := expected.Details.Storage.Attachments["unit-mysql-0"]
+	expected := s.expectedVolumeDetails()
+	expected.Storage.Kind = params.StorageKindBlock
+	expected.Storage.Status.Status = params.StatusAttached
+	storageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
-	expected.Details.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails
-	expected.Details.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
+	expected.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
 		BusAddress: "bus-addr",
 		ReadOnly:   true,
 	}
-	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
-		BusAddress: "bus-addr",
-		ReadOnly:   true,
-	}
-	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0], jc.DeepEquals, expected)
+	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
 }

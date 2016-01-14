@@ -147,3 +147,11 @@ func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 
 	c.Assert(otherSt.removed, jc.IsTrue)
 }
+
+func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
+
+	cfg, err := hostedAPI.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, gc.NotNil)
+}

@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -269,6 +271,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
 	s.DefaultToolsStorage = stor
 
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

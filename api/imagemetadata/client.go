@@ -48,14 +48,22 @@ func (c *Client) List(
 
 // Save saves specified image metadata.
 // Supports bulk saves for scenarios like cloud image metadata caching at bootstrap.
-func (c *Client) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
-	in := params.MetadataSaveParams{Metadata: metadata}
+func (c *Client) Save(metadata []params.CloudImageMetadata) error {
+	in := params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{{metadata}},
+	}
 	out := params.ErrorResults{}
 	err := c.facade.FacadeCall("Save", in, &out)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return out.Results, nil
+	if len(out.Results) != 1 {
+		return errors.Errorf("exected 1 result, got %d", len(out.Results))
+	}
+	if out.Results[0].Error != nil {
+		return errors.Trace(out.Results[0].Error)
+	}
+	return nil
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and

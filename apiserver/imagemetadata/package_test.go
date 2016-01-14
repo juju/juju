@@ -13,14 +13,22 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/environs/configstore"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
+}
+
+func init() {
+	provider := mockEnvironProvider{}
+	environs.RegisterProvider("mock", provider)
 }
 
 type baseImageMetadataSuite struct {
@@ -35,13 +43,18 @@ type baseImageMetadataSuite struct {
 	calls []string
 }
 
+func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
+}
+
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
 	s.calls = []string{}
-	s.state = s.constructState()
+	s.state = s.constructState(testConfig(c))
 
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
@@ -58,34 +71,34 @@ const (
 	environConfig = "environConfig"
 )
 
-func (s *baseImageMetadataSuite) constructState() *mockState {
+func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 	return &mockState{
-		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 			s.calls = append(s.calls, findMetadata)
 			return nil, nil
 		},
-		saveMetadata: func(m cloudimagemetadata.Metadata) error {
+		saveMetadata: func(m []cloudimagemetadata.Metadata) error {
 			s.calls = append(s.calls, saveMetadata)
 			return nil
 		},
 		environConfig: func() (*config.Config, error) {
 			s.calls = append(s.calls, environConfig)
-			return testConfig(), nil
+			return cfg, nil
 		},
 	}
 }
 
 type mockState struct {
-	findMetadata  func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
-	saveMetadata  func(m cloudimagemetadata.Metadata) error
+	findMetadata  func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
+	saveMetadata  func(m []cloudimagemetadata.Metadata) error
 	environConfig func() (*config.Config, error)
 }
 
-func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 	return st.findMetadata(f)
 }
 
-func (st *mockState) SaveMetadata(m cloudimagemetadata.Metadata) error {
+func (st *mockState) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 	return st.saveMetadata(m)
 }
 
@@ -93,10 +106,15 @@ func (st *mockState) EnvironConfig() (*config.Config, error) {
 	return st.environConfig()
 }
 
-func testConfig() *config.Config {
-	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
-		"type": "nonex",
+func testConfig(c *gc.C) *config.Config {
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"type":         "mock",
+		"state-server": true,
+		"state-id":     "1",
 	})
-	cfg, _ := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }

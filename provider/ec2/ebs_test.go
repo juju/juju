@@ -63,15 +63,17 @@ type ebsVolumeSuite struct {
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.Tests.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
-	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	s.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }

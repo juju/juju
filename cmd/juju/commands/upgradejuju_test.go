@@ -101,16 +101,6 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "3.2.0"},
 	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
-	about:          "invalid --series",
-	currentVersion: "4.2.0-quantal-amd64",
-	args:           []string{"--series", "precise&quantal"},
-	expectInitErr:  `invalid value "precise&quantal" for flag --series: .*`,
-}, {
-	about:          "--series without --upload-tools",
-	currentVersion: "4.2.0-quantal-amd64",
-	args:           []string{"--series", "precise,quantal"},
-	expectInitErr:  "--series requires --upload-tools",
-}, {
 	about:          "--upload-tools with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
 	args:           []string{"--upload-tools", "--version", "3.1.0"},
@@ -261,13 +251,6 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
 	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
-}, {
-	about:          "upload with explicit series",
-	currentVersion: "2.2.0-quantal-amd64",
-	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools", "--series", "raring"},
-	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-raring-amd64"},
 }, {
 	about:          "upload dev version, currently on release version",
 	currentVersion: "2.1.0-quantal-amd64",

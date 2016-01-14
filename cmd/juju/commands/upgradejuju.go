@@ -39,7 +39,6 @@ type upgradeJujuCommand struct {
 	DryRun        bool
 	ResetPrevious bool
 	AssumeYes     bool
-	Series        []string
 }
 
 var upgradeJujuDoc = `
@@ -96,7 +95,6 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
-	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list (OBSOLETE)")
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
@@ -118,9 +116,6 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 			return fmt.Errorf("cannot specify build number when uploading tools")
 		}
 		c.Version = vers
-	}
-	if len(c.Series) > 0 && !c.UploadTools {
-		return fmt.Errorf("--series requires --upload-tools")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -150,10 +145,6 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
-	if len(c.Series) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
-	}
-
 	client, err := getUpgradeJujuAPI(c)
 	if err != nil {
 		return err
