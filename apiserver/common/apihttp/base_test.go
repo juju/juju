@@ -1,16 +1,16 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package http_test
+package apihttp_test
 
 import (
-	stdhttp "net/http"
+	"net/http"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/http"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -18,8 +18,8 @@ type BaseSuite struct {
 	coretesting.BaseSuite
 
 	stub    *testing.Stub
-	handler stdhttp.Handler
-	args    http.NewHandlerArgs
+	handler http.Handler
+	args    apihttp.NewHandlerArgs
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -27,11 +27,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.handler = &nopHandler{id: "suite default"}
-	s.args = http.NewHandlerArgs{}
+	s.args = apihttp.NewHandlerArgs{}
 }
 
-func (s *BaseSuite) newNewHandler(handler stdhttp.Handler) func(http.NewHandlerArgs) stdhttp.Handler {
-	return func(args http.NewHandlerArgs) stdhttp.Handler {
+func (s *BaseSuite) newNewHandler(handler http.Handler) func(apihttp.NewHandlerArgs) http.Handler {
+	return func(args apihttp.NewHandlerArgs) http.Handler {
 		s.stub.AddCall("NewHandler", args)
 		s.stub.NextErr() // pop one off
 
@@ -39,14 +39,14 @@ func (s *BaseSuite) newNewHandler(handler stdhttp.Handler) func(http.NewHandlerA
 	}
 }
 
-func (s *BaseSuite) newHandler(args http.NewHandlerArgs) stdhttp.Handler {
+func (s *BaseSuite) newHandler(args apihttp.NewHandlerArgs) http.Handler {
 	s.stub.AddCall("newHandler", args)
 	s.stub.NextErr() // pop one off
 
 	return s.handler
 }
 
-func (s *BaseSuite) newArgs(constraints http.HandlerConstraints) http.NewHandlerArgs {
+func (s *BaseSuite) newArgs(constraints apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
 	s.stub.AddCall("newArgs", constraints)
 	s.stub.NextErr() // pop one off
 
@@ -59,13 +59,13 @@ type nopHandler struct {
 	id string
 }
 
-func (nopHandler) ServeHTTP(stdhttp.ResponseWriter, *stdhttp.Request) {}
+func (nopHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}
 
 // TODO(ericsnow) Drop these...
 
 type httpHandlerSpec struct {
-	constraints http.HandlerConstraints
-	handler     stdhttp.Handler
+	constraints apihttp.HandlerConstraints
+	handler     http.Handler
 }
 
 type httpEndpointSpec struct {
@@ -73,7 +73,7 @@ type httpEndpointSpec struct {
 	methodHandlers map[string]httpHandlerSpec
 }
 
-func checkSpec(c *gc.C, spec http.EndpointSpec, expected httpEndpointSpec) {
+func checkSpec(c *gc.C, spec apihttp.EndpointSpec, expected httpEndpointSpec) {
 	// Note that we don't check HandlerSpec.NewHandler directly.
 	// Go does not support direct comparison of functions.
 	actual := httpEndpointSpec{
@@ -83,7 +83,7 @@ func checkSpec(c *gc.C, spec http.EndpointSpec, expected httpEndpointSpec) {
 	unhandled := &nopHandler{id: "unhandled"} // We use this to ensure unhandled mismatches.
 	for _, method := range spec.Methods() {
 		hSpec := spec.Resolve(method, unhandled)
-		handler := hSpec.NewHandler(http.NewHandlerArgs{})
+		handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 		actual.methodHandlers[method] = httpHandlerSpec{
 			constraints: hSpec.Constraints,
 			handler:     handler,
@@ -93,7 +93,7 @@ func checkSpec(c *gc.C, spec http.EndpointSpec, expected httpEndpointSpec) {
 	c.Check(actual, jc.DeepEquals, expected)
 }
 
-func checkSpecs(c *gc.C, specs []http.EndpointSpec, expected []httpEndpointSpec) {
+func checkSpecs(c *gc.C, specs []apihttp.EndpointSpec, expected []httpEndpointSpec) {
 	comment := gc.Commentf("len(%#v) != len(%#v)", specs, expected)
 	if !c.Check(len(specs), gc.Equals, len(expected), comment) {
 		return

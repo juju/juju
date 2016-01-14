@@ -1,14 +1,14 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package http_test
+package apihttp_test
 
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/http"
+	"github.com/juju/juju/apiserver/common/apihttp"
 )
 
 type EndpointSpecSuite struct {
@@ -18,11 +18,11 @@ type EndpointSpecSuite struct {
 var _ = gc.Suite(&EndpointSpecSuite{})
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecBasic(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -33,11 +33,11 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecBasic(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecNoMethods(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("/spam", hSpec)
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -50,11 +50,11 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecNoMethods(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecLowerCaseMethod(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "get")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "get")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -62,22 +62,22 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecLowerCaseMethod(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecEmptyMethod(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	_, err := http.NewEndpointSpec("/spam", hSpec, "")
+	_, err := apihttp.NewEndpointSpec("/spam", hSpec, "")
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `missing method`)
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecUnrecognizedMethod(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "<NOT VALID>")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "<NOT VALID>")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -85,11 +85,11 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecUnrecognizedMethod(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecTrailingSlash(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("/spam/", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam/", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -97,11 +97,11 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecTrailingSlash(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecRelativePattern(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -109,11 +109,11 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecRelativePattern(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecMissingPattern(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
 
-	spec, err := http.NewEndpointSpec("", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -121,9 +121,9 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecMissingPattern(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecMissingNewHandler(c *gc.C) {
-	var hSpec http.HandlerSpec
+	var hSpec apihttp.HandlerSpec
 
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
@@ -134,10 +134,10 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecMissingNewHandler(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddOkay(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("PUT", hSpec)
@@ -150,8 +150,8 @@ func (s *EndpointSpecSuite) TestAddOkay(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddLowerCase(c *gc.C) {
-	var hSpec http.HandlerSpec
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	var hSpec apihttp.HandlerSpec
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("put", hSpec)
@@ -162,8 +162,8 @@ func (s *EndpointSpecSuite) TestAddLowerCase(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddWithDefault(c *gc.C) {
-	var hSpec http.HandlerSpec
-	spec, err := http.NewEndpointSpec("/spam", hSpec)
+	var hSpec apihttp.HandlerSpec
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("PUT", hSpec)
@@ -176,8 +176,8 @@ func (s *EndpointSpecSuite) TestAddWithDefault(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddMissingMethod(c *gc.C) {
-	var hSpec http.HandlerSpec
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	var hSpec apihttp.HandlerSpec
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("", hSpec)
@@ -189,8 +189,8 @@ func (s *EndpointSpecSuite) TestAddMissingMethod(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddCollision(c *gc.C) {
-	var hSpec http.HandlerSpec
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	var hSpec apihttp.HandlerSpec
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("GET", hSpec)
@@ -202,8 +202,8 @@ func (s *EndpointSpecSuite) TestAddCollision(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestAddZeroValueHandlerSpec(c *gc.C) {
-	var hSpec http.HandlerSpec
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	var hSpec apihttp.HandlerSpec
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = spec.Add("PUT", hSpec)
@@ -216,10 +216,10 @@ func (s *EndpointSpecSuite) TestAddZeroValueHandlerSpec(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestDefaultWithDefault(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec)
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, ok := spec.Default()
@@ -229,10 +229,10 @@ func (s *EndpointSpecSuite) TestDefaultWithDefault(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestDefaultWithoutDefault(c *gc.C) {
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, ok := spec.Default()
@@ -241,121 +241,121 @@ func (s *EndpointSpecSuite) TestDefaultWithoutDefault(c *gc.C) {
 }
 
 func (s *EndpointSpecSuite) TestResolveOkay(c *gc.C) {
-	constraints := http.HandlerConstraints{
+	constraints := apihttp.HandlerConstraints{
 		AuthKind: "user",
 	}
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		Constraints: constraints,
 		NewHandler:  s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", orig, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	unhandled := &nopHandler{id: "unhandled"}
 
 	hSpec := spec.Resolve("GET", unhandled)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	hSpec.NewHandler = nil
-	c.Check(hSpec, jc.DeepEquals, http.HandlerSpec{
+	c.Check(hSpec, jc.DeepEquals, apihttp.HandlerSpec{
 		Constraints: constraints,
 	})
 	c.Check(handler, gc.Equals, s.handler)
 }
 
 func (s *EndpointSpecSuite) TestResolveMissingUnhandled(c *gc.C) {
-	constraints := http.HandlerConstraints{
+	constraints := apihttp.HandlerConstraints{
 		AuthKind: "user",
 	}
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		Constraints: constraints,
 		NewHandler:  s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", orig, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 
 	hSpec := spec.Resolve("GET", nil)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	hSpec.NewHandler = nil
-	c.Check(hSpec, jc.DeepEquals, http.HandlerSpec{
+	c.Check(hSpec, jc.DeepEquals, apihttp.HandlerSpec{
 		Constraints: constraints,
 	})
 	c.Check(handler, gc.Equals, s.handler)
 }
 
 func (s *EndpointSpecSuite) TestResolveMissingNewHandler(c *gc.C) {
-	constraints := http.HandlerConstraints{
+	constraints := apihttp.HandlerConstraints{
 		AuthKind: "user",
 	}
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		Constraints: constraints,
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", orig, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	unhandled := &nopHandler{id: "unhandled"}
 
 	hSpec := spec.Resolve("GET", unhandled)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	hSpec.NewHandler = nil
-	c.Check(hSpec, jc.DeepEquals, http.HandlerSpec{
+	c.Check(hSpec, jc.DeepEquals, apihttp.HandlerSpec{
 		Constraints: constraints,
 	})
 	c.Check(handler, gc.Equals, unhandled)
 }
 
 func (s *EndpointSpecSuite) TestResolveNoHandler(c *gc.C) {
-	constraints := http.HandlerConstraints{
+	constraints := apihttp.HandlerConstraints{
 		AuthKind: "user",
 	}
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		Constraints: constraints,
 		NewHandler:  s.newNewHandler(nil),
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", orig, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	unhandled := &nopHandler{id: "unhandled"}
 
 	hSpec := spec.Resolve("GET", unhandled)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	hSpec.NewHandler = nil
-	c.Check(hSpec, jc.DeepEquals, http.HandlerSpec{
+	c.Check(hSpec, jc.DeepEquals, apihttp.HandlerSpec{
 		Constraints: constraints,
 	})
 	c.Check(handler, gc.Equals, unhandled)
 }
 
 func (s *EndpointSpecSuite) TestResolveNotFoundWithDefault(c *gc.C) {
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig)
+	spec, err := apihttp.NewEndpointSpec("/spam", orig)
 	c.Assert(err, jc.ErrorIsNil)
 	unhandled := &nopHandler{id: "unhandled"}
 
 	hSpec := spec.Resolve("GET", unhandled)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	c.Check(handler, gc.Equals, s.handler)
 }
 
 func (s *EndpointSpecSuite) TestResolveNotFoundWithoutDefault(c *gc.C) {
-	orig := http.HandlerSpec{
+	orig := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", orig, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", orig, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	unhandled := &nopHandler{id: "unhandled"}
 
 	hSpec := spec.Resolve("PUT", unhandled)
 
 	s.stub.CheckNoCalls(c)
-	handler := hSpec.NewHandler(http.NewHandlerArgs{})
+	handler := hSpec.NewHandler(apihttp.NewHandlerArgs{})
 	c.Check(handler, gc.Equals, unhandled)
 }

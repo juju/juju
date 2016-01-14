@@ -3,7 +3,7 @@
 
 // TODO(ericsnow) Move this to its own package or even to another repo?
 
-package http
+package apihttp
 
 import (
 	"encoding/json"

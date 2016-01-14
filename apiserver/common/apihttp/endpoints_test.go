@@ -1,27 +1,27 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package http_test
+package apihttp_test
 
 import (
-	stdhttp "net/http"
+	"net/http"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/http"
+	"github.com/juju/juju/apiserver/common/apihttp"
 )
 
 type EndpointsSuite struct {
 	BaseSuite
 
-	resolvedHandler stdhttp.Handler
+	resolvedHandler http.Handler
 }
 
 var _ = gc.Suite(&EndpointsSuite{})
 
-func (s *EndpointsSuite) resolveHandler(spec http.EndpointSpec, method string, unhandled stdhttp.Handler, newArgs func(http.HandlerConstraints) http.NewHandlerArgs) stdhttp.Handler {
+func (s *EndpointsSuite) resolveHandler(spec apihttp.EndpointSpec, method string, unhandled http.Handler, newArgs func(apihttp.HandlerConstraints) apihttp.NewHandlerArgs) http.Handler {
 	s.stub.AddCall("resolveHandler", spec, method, unhandled, newArgs)
 	s.stub.NextErr() // Pop one off.
 
@@ -29,15 +29,15 @@ func (s *EndpointsSuite) resolveHandler(spec http.EndpointSpec, method string, u
 }
 
 func (s *EndpointsSuite) TestNewEndpoints(c *gc.C) {
-	endpoints := http.NewEndpoints()
+	endpoints := apihttp.NewEndpoints()
 	specs := endpoints.Specs()
 
 	c.Check(specs, gc.HasLen, 0)
 }
 
 func (s *EndpointsSuite) TestAddBasic(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	spec, err := http.NewEndpointSpec("/spam", http.HandlerSpec{
+	endpoints := apihttp.NewEndpoints()
+	spec, err := apihttp.NewEndpointSpec("/spam", apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -46,14 +46,14 @@ func (s *EndpointsSuite) TestAddBasic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(endpoints.Specs(), jc.DeepEquals, []http.EndpointSpec{
+	c.Check(endpoints.Specs(), jc.DeepEquals, []apihttp.EndpointSpec{
 		spec,
 	})
 }
 
 func (s *EndpointsSuite) TestAddZeroValueSpec(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	var spec http.EndpointSpec
+	endpoints := apihttp.NewEndpoints()
+	var spec apihttp.EndpointSpec
 
 	err := endpoints.Add(spec)
 
@@ -64,14 +64,14 @@ func (s *EndpointsSuite) TestAddZeroValueSpec(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestAddNoCollision(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	existing, err := http.NewEndpointSpec("/spam", http.HandlerSpec{
+	endpoints := apihttp.NewEndpoints()
+	existing, err := apihttp.NewEndpointSpec("/spam", apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = endpoints.Add(existing)
 	c.Assert(err, jc.ErrorIsNil)
-	spec, err := http.NewEndpointSpec("/eggs", http.HandlerSpec{
+	spec, err := apihttp.NewEndpointSpec("/eggs", apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,22 +80,22 @@ func (s *EndpointsSuite) TestAddNoCollision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(endpoints.Specs(), jc.DeepEquals, []http.EndpointSpec{
+	c.Check(endpoints.Specs(), jc.DeepEquals, []apihttp.EndpointSpec{
 		existing,
 		spec,
 	})
 }
 
 func (s *EndpointsSuite) TestAddCollisionDisjointMethods(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	hSpec := http.HandlerSpec{
+	endpoints := apihttp.NewEndpoints()
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	existing, err := http.NewEndpointSpec("/spam", hSpec, "POST")
+	existing, err := apihttp.NewEndpointSpec("/spam", hSpec, "POST")
 	c.Assert(err, jc.ErrorIsNil)
 	err = endpoints.Add(existing)
 	c.Assert(err, jc.ErrorIsNil)
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "PUT")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "PUT")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = endpoints.Add(spec)
@@ -103,21 +103,21 @@ func (s *EndpointsSuite) TestAddCollisionDisjointMethods(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Check(err, gc.ErrorMatches, `endpoint "/spam" already registered`)
-	c.Check(endpoints.Specs(), jc.DeepEquals, []http.EndpointSpec{
+	c.Check(endpoints.Specs(), jc.DeepEquals, []apihttp.EndpointSpec{
 		existing,
 	})
 }
 
 func (s *EndpointsSuite) TestAddCollisionOverlappingMethods(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	hSpec := http.HandlerSpec{
+	endpoints := apihttp.NewEndpoints()
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	existing, err := http.NewEndpointSpec("/spam", hSpec, "GET", "POST")
+	existing, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "POST")
 	c.Assert(err, jc.ErrorIsNil)
 	err = endpoints.Add(existing)
 	c.Assert(err, jc.ErrorIsNil)
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = endpoints.Add(spec)
@@ -125,19 +125,19 @@ func (s *EndpointsSuite) TestAddCollisionOverlappingMethods(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Check(err, gc.ErrorMatches, `endpoint "/spam" already registered`)
-	c.Check(endpoints.Specs(), jc.DeepEquals, []http.EndpointSpec{
+	c.Check(endpoints.Specs(), jc.DeepEquals, []apihttp.EndpointSpec{
 		existing,
 	})
 }
 
 func (s *EndpointsSuite) TestSpecsPreservesOrder(c *gc.C) {
-	endpoints := http.NewEndpoints()
-	hSpec := http.HandlerSpec{
+	endpoints := apihttp.NewEndpoints()
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	var expected []http.EndpointSpec
+	var expected []apihttp.EndpointSpec
 	for _, pat := range []string{"/spam", "/eggs", "/ham"} {
-		spec, err := http.NewEndpointSpec(pat, hSpec)
+		spec, err := apihttp.NewEndpointSpec(pat, hSpec)
 		c.Assert(err, jc.ErrorIsNil)
 		err = endpoints.Add(spec)
 		c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *EndpointsSuite) TestSpecsPreservesOrder(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestSpecsEmpty(c *gc.C) {
-	endpoints := http.NewEndpoints()
+	endpoints := apihttp.NewEndpoints()
 
 	specs := endpoints.Specs()
 
@@ -159,16 +159,16 @@ func (s *EndpointsSuite) TestSpecsEmpty(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveOneMethod(c *gc.C) {
-	reg := http.NewEndpoints()
-	expected := http.Endpoint{
+	reg := apihttp.NewEndpoints()
+	expected := apihttp.Endpoint{
 		Pattern: "/spam",
 		Method:  "GET",
 		Handler: s.handler,
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,13 +176,13 @@ func (s *EndpointsSuite) TestResolveOneMethod(c *gc.C) {
 	endpoints := reg.Resolve(s.newArgs)
 
 	s.stub.CheckCallNames(c, "newArgs", "newHandler")
-	c.Check(endpoints, jc.DeepEquals, []http.Endpoint{
+	c.Check(endpoints, jc.DeepEquals, []apihttp.Endpoint{
 		expected,
 	})
 }
 
 func (s *EndpointsSuite) TestResolveEmpty(c *gc.C) {
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 
 	endpoints := reg.Resolve(s.newArgs)
 
@@ -191,19 +191,19 @@ func (s *EndpointsSuite) TestResolveEmpty(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveMultipleMethods(c *gc.C) {
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range []string{"GET", "PUT", "DEL"} {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,18 +222,18 @@ func (s *EndpointsSuite) TestResolveMultipleMethods(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolvePreservesOrder(c *gc.C) {
-	reg := http.NewEndpoints()
-	hSpec := http.HandlerSpec{
+	reg := apihttp.NewEndpoints()
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	var expected []http.Endpoint
+	var expected []apihttp.Endpoint
 	for _, pat := range []string{"/spam", "/eggs", "/ham"} {
-		spec, err := http.NewEndpointSpec(pat, hSpec, "GET", "PUT")
+		spec, err := apihttp.NewEndpointSpec(pat, hSpec, "GET", "PUT")
 		c.Assert(err, jc.ErrorIsNil)
 		err = reg.Add(spec)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, method := range []string{"GET", "PUT"} {
-			expected = append(expected, http.Endpoint{
+			expected = append(expected, apihttp.Endpoint{
 				Pattern: pat,
 				Method:  method,
 				Handler: s.handler,
@@ -261,23 +261,23 @@ func (s *EndpointsSuite) TestResolvePreservesOrder(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveDefaultIgnored(c *gc.C) {
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range []string{"GET", "PUT", "DEL"} {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec1, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
+	spec1, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec1)
 	c.Assert(err, jc.ErrorIsNil)
-	spec2, err := http.NewEndpointSpec("/eggs", hSpec)
+	spec2, err := apihttp.NewEndpointSpec("/eggs", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,18 +296,18 @@ func (s *EndpointsSuite) TestResolveDefaultIgnored(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveMissingNewHandler(c *gc.C) {
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
 	reg.ResolveHandler = s.resolveHandler
 	s.resolvedHandler = unsupportedHandler
-	expected := http.Endpoint{
+	expected := apihttp.Endpoint{
 		Pattern: "/spam",
 		Method:  "GET",
 		Handler: unsupportedHandler,
 	}
-	var hSpec http.HandlerSpec // no handler
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	var hSpec apihttp.HandlerSpec // no handler
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,26 +317,26 @@ func (s *EndpointsSuite) TestResolveMissingNewHandler(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"resolveHandler",
 	)
-	c.Check(endpoints, jc.DeepEquals, []http.Endpoint{
+	c.Check(endpoints, jc.DeepEquals, []apihttp.Endpoint{
 		expected,
 	})
 }
 
 func (s *EndpointsSuite) TestResolveNoHandler(c *gc.C) {
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
 	reg.ResolveHandler = s.resolveHandler
 	s.resolvedHandler = unsupportedHandler
-	expected := http.Endpoint{
+	expected := apihttp.Endpoint{
 		Pattern: "/spam",
 		Method:  "GET",
 		Handler: unsupportedHandler,
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newNewHandler(nil),
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,25 +346,25 @@ func (s *EndpointsSuite) TestResolveNoHandler(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"resolveHandler",
 	)
-	c.Check(endpoints, jc.DeepEquals, []http.Endpoint{
+	c.Check(endpoints, jc.DeepEquals, []apihttp.Endpoint{
 		expected,
 	})
 }
 
 func (s *EndpointsSuite) TestResolveForMethodsBasic(c *gc.C) {
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range []string{"GET", "PUT"} {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +381,7 @@ func (s *EndpointsSuite) TestResolveForMethodsBasic(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveForMethodsEmpty(c *gc.C) {
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 
 	endpoints := reg.ResolveForMethods([]string{"GET", "PUT"}, s.newArgs)
 
@@ -390,18 +390,18 @@ func (s *EndpointsSuite) TestResolveForMethodsEmpty(c *gc.C) {
 }
 
 func (s *EndpointsSuite) TestResolveForMethodsPreservesOrder(c *gc.C) {
-	reg := http.NewEndpoints()
-	hSpec := http.HandlerSpec{
+	reg := apihttp.NewEndpoints()
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	var expected []http.Endpoint
+	var expected []apihttp.Endpoint
 	for _, pat := range []string{"/spam", "/eggs", "/ham"} {
-		spec, err := http.NewEndpointSpec(pat, hSpec, "GET", "PUT")
+		spec, err := apihttp.NewEndpointSpec(pat, hSpec, "GET", "PUT")
 		c.Assert(err, jc.ErrorIsNil)
 		err = reg.Add(spec)
 		c.Assert(err, jc.ErrorIsNil)
 		for _, method := range []string{"GET", "PUT"} {
-			expected = append(expected, http.Endpoint{
+			expected = append(expected, apihttp.Endpoint{
 				Pattern: pat,
 				Method:  method,
 				Handler: s.handler,
@@ -430,19 +430,19 @@ func (s *EndpointsSuite) TestResolveForMethodsPreservesOrder(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsPartialMatch(c *gc.C) {
 	methods := []string{"GET", "PUT"}
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,10 +460,10 @@ func (s *EndpointsSuite) TestResolveForMethodsPartialMatch(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsUseDefault(c *gc.C) {
 	methods := []string{"GET", "PUT", "DEL", "HEAD"}
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
@@ -471,10 +471,10 @@ func (s *EndpointsSuite) TestResolveForMethodsUseDefault(c *gc.C) {
 	}
 	defaultHandler := &nopHandler{id: "default"}
 	expected[2].Handler = defaultHandler
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", http.HandlerSpec{
+	spec, err := apihttp.NewEndpointSpec("/spam", apihttp.HandlerSpec{
 		NewHandler: s.newNewHandler(defaultHandler),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -502,24 +502,24 @@ func (s *EndpointsSuite) TestResolveForMethodsUseDefault(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsNoDefault(c *gc.C) {
 	methods := []string{"GET", "PUT"}
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
 	//reg.ResolveHandler = s.resolveHandler
 	//s.resolvedHandler = unsupportedHandler
-	var expected []http.Endpoint
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
 	expected[1].Handler = unsupportedHandler
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET")
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, "GET")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -539,19 +539,19 @@ func (s *EndpointsSuite) TestResolveForMethodsNoDefault(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsOnlyDefault(c *gc.C) {
 	methods := []string{"GET", "PUT", "DEL"}
-	reg := http.NewEndpoints()
-	var expected []http.Endpoint
+	reg := apihttp.NewEndpoints()
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: s.handler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec)
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -571,21 +571,21 @@ func (s *EndpointsSuite) TestResolveForMethodsOnlyDefault(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsMissingNewHandler(c *gc.C) {
 	methods := []string{"GET", "PUT"}
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
 	reg.ResolveHandler = s.resolveHandler
 	s.resolvedHandler = unsupportedHandler
-	var expected []http.Endpoint
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: unsupportedHandler,
 		})
 	}
-	var hSpec http.HandlerSpec // no handler
-	spec, err := http.NewEndpointSpec("/spam", hSpec, methods...)
+	var hSpec apihttp.HandlerSpec // no handler
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, methods...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -601,23 +601,23 @@ func (s *EndpointsSuite) TestResolveForMethodsMissingNewHandler(c *gc.C) {
 
 func (s *EndpointsSuite) TestResolveForMethodsNoHandler(c *gc.C) {
 	methods := []string{"GET", "PUT"}
-	reg := http.NewEndpoints()
+	reg := apihttp.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
 	reg.ResolveHandler = s.resolveHandler
 	s.resolvedHandler = unsupportedHandler
-	var expected []http.Endpoint
+	var expected []apihttp.Endpoint
 	for _, method := range methods {
-		expected = append(expected, http.Endpoint{
+		expected = append(expected, apihttp.Endpoint{
 			Pattern: "/spam",
 			Method:  method,
 			Handler: unsupportedHandler,
 		})
 	}
-	hSpec := http.HandlerSpec{
+	hSpec := apihttp.HandlerSpec{
 		NewHandler: s.newNewHandler(nil),
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, methods...)
+	spec, err := apihttp.NewEndpointSpec("/spam", hSpec, methods...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
