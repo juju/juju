@@ -49,20 +49,21 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		Source:          "custom",
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
 		ImageId:         "1",
 	}
 
-	errs, err := s.client.Save([]params.CloudImageMetadata{m})
+	err = s.client.Save([]params.CloudImageMetadata{m})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0].Error, gc.IsNil)
 
 	added, err := s.client.List("", "", nil, nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// m.Version would be deduced from m.Series
+	m.Version = "14.04"
 	c.Assert(added, jc.DeepEquals, []params.CloudImageMetadata{m})
 
 	// make sure it's in db too

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 // Policy is an interface provided to State that may
@@ -34,9 +35,9 @@ type Policy interface {
 	// or an error.
 	EnvironCapability(*config.Config) (EnvironCapability, error)
 
-	// ConstraintsValidator takes a *config.Config and returns a
-	// constraints.Validator or an error.
-	ConstraintsValidator(*config.Config) (constraints.Validator, error)
+	// ConstraintsValidator takes a *config.Config and SupportedArchitecturesQuerier
+	// to return a constraints.Validator or an error.
+	ConstraintsValidator(*config.Config, SupportedArchitecturesQuerier) (constraints.Validator, error)
 
 	// InstanceDistributor takes a *config.Config and returns an
 	// InstanceDistributor or an error.
@@ -110,7 +111,10 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	validator, err := st.policy.ConstraintsValidator(cfg)
+	validator, err := st.policy.ConstraintsValidator(
+		cfg,
+		&cloudimagemetadata.MetadataArchitectureQuerier{st.CloudImageMetadataStorage},
+	)
 	if errors.IsNotImplemented(err) {
 		return defaultValidator, nil
 	} else if err != nil {
@@ -204,4 +208,12 @@ type InstanceDistributor interface {
 	// to (e.g. because of concurrent deployments), then
 	// a new machine will be allocated.
 	DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error)
+}
+
+// SupportedArchitecturesQuerier implements access to stored cloud image metadata
+// to retrieve a collection of supported architectures.
+type SupportedArchitecturesQuerier interface {
+	// SupportedArchitectures returns a collection of unique architectures
+	// from cloud image metadata that satisfy passed in filtering parameters.
+	SupportedArchitectures(stream, region string) ([]string, error)
 }

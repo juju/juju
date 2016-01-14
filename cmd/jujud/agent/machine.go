@@ -960,7 +960,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 
 	// Ensure storage is available during upgrades.
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
+	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
 		unregisterSimplestreamsDataSource()
@@ -1103,9 +1103,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
-
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
 
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)

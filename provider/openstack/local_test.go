@@ -41,6 +41,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -902,7 +903,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
+	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -940,17 +941,30 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny",
+		imageMetadata,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c)
-	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+	_, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large",
+		imageMetadata,
+	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 
@@ -1013,7 +1027,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 
 func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 	src := func(env environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("my datasource", "bar", false), nil
+		return simplestreams.NewURLDataSource("my datasource", "bar", false, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
 	env := s.Open(c)
@@ -1687,6 +1701,9 @@ func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {

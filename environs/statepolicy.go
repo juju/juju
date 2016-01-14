@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
 )
 
@@ -39,12 +40,39 @@ func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCa
 	return New(cfg)
 }
 
-func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {
+func (environStatePolicy) ConstraintsValidator(cfg *config.Config, querier state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 	env, err := New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return env.ConstraintsValidator()
+
+	// Ensure that supported architectures are filtered based on cloud specification.
+	// TODO (anastasiamac 2015-12-22) this cries for a test \o/
+	region := ""
+	if cloudEnv, ok := env.(simplestreams.HasRegion); ok {
+		cloudCfg, err := cloudEnv.Region()
+		if err != nil {
+			return nil, err
+		}
+		region = cloudCfg.Region
+	}
+	arches, err := querier.SupportedArchitectures(env.Config().AgentStream(), region)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct provider specific validator.
+	val, err := env.ConstraintsValidator()
+	if err != nil {
+		return nil, err
+	}
+
+	// Update validator architectures with supported architectures from stored
+	// cloud image metadata.
+	if len(arches) != 0 {
+		val.UpdateVocabulary(constraints.Arch, arches)
+	}
+	return val, nil
 }
 
 func (environStatePolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
