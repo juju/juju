@@ -5,10 +5,14 @@ package all
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -274,14 +278,15 @@ func (r resources) registerHookContext() {
 	unitercontext.RegisterComponentFunc(
 		resource.ComponentName,
 		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
-			hctxClient := r.newUnitFacadeClient(config.APICaller)
+			unitID := names.NewUnitTag(config.UnitName).String()
+			hctxClient := r.newUnitFacadeClient(unitID, config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			return context.NewContextAPI(hctxClient, config.DataDir), nil
 		},
 	)
 
 	r.registerHookContextCommands()
-	r.registerHookContextFacades()
+	r.registerHookContextFacade()
 }
 
 type resourceHookContext struct {
@@ -310,7 +315,7 @@ func (c resources) registerHookContextCommands() {
 	)
 }
 
-func (r resources) registerHookContextFacades() {
+func (r resources) registerHookContextFacade() {
 	// Always start at 1 to distinguish between the default value.
 	const facadeVersion = 1
 
@@ -322,15 +327,47 @@ func (r resources) registerHookContextFacades() {
 	)
 }
 
+// resourcesUnitDatastore is a shim to elide serviceName from
+// ListResources.
+type resourcesUnitDataStore struct {
+	resources   corestate.Resources
+	serviceName string
+}
+
+func (ds *resourcesUnitDataStore) ListResources() ([]resource.Resource, error) {
+	return ds.resources.ListResources(ds.serviceName)
+}
+
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
 	res, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return internalserver.NewUnitFacade(res), nil
+	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit.ServiceName()}), nil
 }
 
-func (r resources) newUnitFacadeClient(caller base.APICaller) context.APIClient {
+type UnitDoer struct {
+	doer     internalclient.Doer
+	unitName string
+}
+
+func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
+	req.URL.Path = fmt.Sprintf("/units/%s%s", d.unitID, req.URL.Path)
+	return d.doer.Do(req, body, response)
+}
+
+func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) context.APIClient {
+
 	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
-	return internalclient.NewUnitFacadeClient(facadeCaller)
+	doer, err := caller.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	unitDoer := &UnitDoer{
+		doer:   doer,
+		unitID: unitName,
+	}
+
+	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer)
 }

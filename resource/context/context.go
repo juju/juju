@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
+	"github.com/juju/utils/hash"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -19,7 +20,7 @@ const HookContextFacade = resource.ComponentName + "-hook-context"
 
 type APIClient interface {
 	GetResourceInfo(resourceName string) (resource.Resource, error)
-	GetResourceDownloader(resourceName string) (io.Reader, error)
+	GetResourceDownloader(resourceName string) (io.ReadCloser, error)
 }
 
 func NewContextAPI(apiClient APIClient, unitDataDirPath string) *Context {
@@ -40,38 +41,19 @@ func (c *Context) GetResource(name string) (string, error) {
 
 	// TODO(katco): Check to see if we have latest version
 
-	checksumReader, checksumWriter := io.Pipe()
-	defer checksumReader.Close()
-	defer checksumWriter.Close()
-
-	var fingerprint []byte
-	fingerGenError := make(chan error)
-	defer close(fingerGenError)
-	go func() {
-		fp, err := charmresource.GenerateFingerprint(checksumReader)
-		if err != nil {
-			fingerGenError <- err
-		}
-		fingerprint = fp.Bytes()
-		close(fingerGenError)
-	}()
+	checksumWriter := charmresource.NewFingerprintHash()
 
 	resourceReader, err := c.apiClient.GetResourceDownloader(name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	defer resourceReader.Close()
 
-	if err := downloadAndWriteResourceToDisk(resourcePath, resourceReader, checksumWriter); err != nil {
+	hashingReader := hash.NewHashingReader(resourceReader, checksumWriter)
+	if err := downloadAndWriteResourceToDisk(resourcePath, hashingReader); err != nil {
 		return "", errors.Trace(err)
 	}
-
-	// Check that everything happened as expected.
-	if err := checksumWriter.Close(); err != nil {
-		// After this closes, fingerprint is correct
-		return "", errors.Trace(err)
-	} else if err := <-fingerGenError; err != nil {
-		return "", errors.Annotate(err, "error checking resource fingerprint")
-	} else if bytes.Equal(fingerprint, resourceInfo.Fingerprint.Bytes()) == false {
+	if bytes.Equal(checksumWriter.Fingerprint().Bytes(), resourceInfo.Fingerprint.Bytes()) == false {
 		return "", errors.Errorf("resource fingerprint does not match expected")
 	}
 
@@ -105,10 +87,9 @@ func resolveResourcePath(unitPath string, resourceInfo resource.Resource) string
 	return filepath.Join(unitPath, "resources", resourceInfo.Name, resourceInfo.Path)
 }
 
-func downloadAndWriteResourceToDisk(resourcePath string, resourceReader io.Reader, checkSumGen io.Writer) error {
+func downloadAndWriteResourceToDisk(resourcePath string, resourceReader io.Reader) error {
 	// TODO(katco): Potential race-condition: two commands running at
 	// once.
-	resourceReader = io.TeeReader(resourceReader, checkSumGen)
 	resourceHandle, err := os.OpenFile(resourcePath, os.O_CREATE, 0644)
 	if err != nil {
 		return errors.Trace(err)
