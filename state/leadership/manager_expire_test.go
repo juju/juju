@@ -99,8 +99,6 @@ func (s *ExpireLeadershipSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(_ leadership.ManagerWorker, clock *coretesting.Clock) {
-		// XXX(fwereade): do not land this; we need the notifyAlarms stuff from the future to be able to test this properly
-		time.Sleep(200 * time.Millisecond)
 		clock.Advance(time.Hour)
 	})
 }

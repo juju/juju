@@ -89,5 +89,14 @@ func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testin
 		}
 	}()
 	defer client.Wait(c)
+	waitAlarm(c, clock)
 	test(manager, clock)
+}
+
+func waitAlarm(c *gc.C, clock *testing.Clock) {
+	select {
+	case <-clock.Alarms():
+	case <-time.After(time.Second):
+		c.Fatalf("clock had no alarm set")
+	}
 }
