@@ -4,12 +4,14 @@
 package discoverspaces_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -39,8 +41,6 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.API = s.APIConnection.DiscoverSpaces()
-
-	//s.State.StartSync()
 
 	s.OpsChan = make(chan dummy.Operation, 10)
 	dummy.Listen(s.OpsChan)
@@ -229,22 +229,60 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 }
 
 func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
-	attrs := map[string]interface{}{"broken": "SupportsSpaceDiscovery"}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsSpaceDiscovery")
 
 	newWorker := discoverspaces.NewWorker(s.API)
-	err = worker.Stop(newWorker)
+	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
 }
 
 func (s *workerSuite) TestSpacesBroken(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
-	attrs := map[string]interface{}{"broken": "Spaces"}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertConfigParameterUpdated(c, "broken", "Spaces")
 
 	newWorker := discoverspaces.NewWorker(s.API)
-	err = worker.Stop(newWorker)
+	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
+}
+
+func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	spaceTag := names.NewSpaceTag("foo")
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{{
+			Public:     false,
+			SpaceTag:   spaceTag.String(),
+			ProviderId: "foo",
+		}}}
+	result, err := s.API.CreateSpaces(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	subnetArgs := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{{
+			SubnetProviderId: "1",
+			SpaceTag:         spaceTag.String(),
+			Zones:            []string{"zone1"},
+		}}}
+	subnetResult, err := s.API.AddSubnets(subnetArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetResult.Results, gc.HasLen, 1)
+	c.Assert(subnetResult.Results[0].Error, gc.IsNil)
+
+	s.startWorker()
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err := s.State.AllSpaces()
+		if err != nil {
+			break
+		}
+		if len(spaces) == 4 {
+			// All spaces have been created.
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("spaces not imported")
+		}
+	}
+	c.Assert(err, jc.ErrorIsNil)
 }
