@@ -52,9 +52,6 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	for _, m := range result.Results[0].Metrics {
-		c.Logf("%#v\n", m)
-	}
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
 	c.Assert(result.Results[0], gc.DeepEquals, params.EntityMetrics{
 		Metrics: []params.MetricResult{

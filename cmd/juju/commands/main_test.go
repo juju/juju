@@ -211,6 +211,7 @@ var commandNames = []string{
 	"cached-images",
 	"debug-hooks",
 	"debug-log",
+	"debug-metrics",
 	"deploy",
 	"destroy-environment",
 	"destroy-machine",

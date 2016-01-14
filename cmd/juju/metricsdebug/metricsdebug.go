@@ -55,8 +55,10 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 	}
 	if names.IsValidUnit(args[0]) {
 		c.Tag = names.NewUnitTag(args[0])
-	} else {
+	} else if names.IsValidService(args[0]) {
 		c.Tag = names.NewServiceTag(args[0])
+	} else {
+		return errors.Errorf("%q is not a valid unit or service", args[0])
 	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))

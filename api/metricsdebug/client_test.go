@@ -27,14 +27,6 @@ type metricsdebugSuiteMock struct {
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})
 
-/*
-func (s *metricsdebugSuiteMock) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.manager = metricsdebug.NewClient(s.APIState)
-	c.Assert(s.manager, gc.NotNil)
-}
-*/
-
 func (s *metricsdebugSuite) TestGetMetrics(c *gc.C) {
 	var called bool
 	now := time.Now()

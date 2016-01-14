@@ -47,11 +47,6 @@ var _ = gc.Suite(&DebugMetricsMockSuite{})
 
 func (s *DebugMetricsMockSuite) TestUnit(c *gc.C) {
 	client := MockGetMetricsClient{testing.Stub{}}
-	/*
-		metricsdebug.NewClient = func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
-			return &client, nil
-		}
-	*/
 	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
 		return &client, nil
 	})
@@ -62,17 +57,21 @@ func (s *DebugMetricsMockSuite) TestUnit(c *gc.C) {
 
 func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
 	client := MockGetMetricsClient{testing.Stub{}}
-	/*
-		metricsdebug.NewClient = func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
-			return &client, nil
-		}
-	*/
 	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered")
 	c.Assert(err, jc.ErrorIsNil)
 	client.CheckCall(c, 0, "GetMetrics", "service-metered")
+}
+
+func (s *DebugMetricsMockSuite) TestNotValidServiceOrUnit(c *gc.C) {
+	client := MockGetMetricsClient{testing.Stub{}}
+	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
+		return &client, nil
+	})
+	_, err := coretesting.RunCommand(c, metricsdebug.New(), "!!!!!!")
+	c.Assert(err, gc.ErrorMatches, `"!!!!!!" is not a valid unit or service`)
 }
 
 type DebugMetricsCommandSuite struct {
