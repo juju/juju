@@ -225,7 +225,6 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 			break
 		}
 	}
-
 }
 
 func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
