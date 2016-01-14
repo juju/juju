@@ -46,7 +46,7 @@ type upgradeJujuCommand struct {
 	// minMajorUpgradeVersion maps known major numbers to
 	// the minimum version that can be upgraded to that
 	// major version.  For example, users must be running
-	// 1.25.2 or later in order to upgrade to 2.0.
+	// 1.25.3 or later in order to upgrade to 2.0.
 	minMajorUpgradeVersion map[int]version.Number
 }
 
@@ -130,7 +130,7 @@ var (
 	errUpToDate            = stderrors.New("no upgrades available")
 	downgradeErrMsg        = "cannot change version from %s to %s"
 	minMajorUpgradeVersion = map[int]version.Number{
-		2: version.MustParse("1.25.2"),
+		2: version.MustParse("1.25.3"),
 	}
 )
 
@@ -150,7 +150,7 @@ var (
 // it can be used to upgrade the environment to N.0.*.  For
 // example, the 2.0.1 upgrade-juju command must be able to upgrade
 // environments running 1.* since it must be able to upgrade
-// environments from 1.25.2 -> 2.0.*.
+// environments from 1.25.3 -> 2.0.*.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
 	if runningAgentVer.Major == version.Current.Major {
 		return true
