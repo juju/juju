@@ -23,6 +23,8 @@ type Endpoints struct {
 	// for unsupported HTTP methods.
 	UnsupportedMethodHandler http.Handler
 
+	ResolveHandler func(spec EndpointSpec, method string, unhandled http.Handler, newArgs func(HandlerConstraints) NewHandlerArgs) http.Handler
+
 	// TODO(ericsnow) Support an ordering function field?
 }
 
@@ -31,6 +33,7 @@ func NewEndpoints() Endpoints {
 	return Endpoints{
 		patternSpecs:             make(map[string]EndpointSpec),
 		UnsupportedMethodHandler: unsupportedMethodHandler(),
+		ResolveHandler:           resolveHandler,
 	}
 }
 
@@ -72,9 +75,7 @@ func (hes Endpoints) Resolve(newArgs func(HandlerConstraints) NewHandlerArgs) []
 		spec := hes.patternSpecs[pattern]
 		// Note that the spec's default handler (if any) is not used.
 		for _, method := range spec.Methods() {
-			hSpec := spec.Resolve(method, hes.UnsupportedMethodHandler)
-			args := newArgs(hSpec.Constraints)
-			handler := hSpec.NewHandler(args)
+			handler := hes.ResolveHandler(spec, method, hes.UnsupportedMethodHandler, newArgs)
 
 			endpoints = append(endpoints, Endpoint{
 				Pattern: pattern,
@@ -92,9 +93,7 @@ func (hes Endpoints) ResolveForMethods(methods []string, newArgs func(HandlerCon
 	for _, pattern := range hes.orderedPatterns {
 		spec := hes.patternSpecs[pattern]
 		for _, method := range methods {
-			hSpec := spec.Resolve(method, hes.UnsupportedMethodHandler)
-			args := newArgs(hSpec.Constraints)
-			handler := hSpec.NewHandler(args)
+			handler := hes.ResolveHandler(spec, method, hes.UnsupportedMethodHandler, newArgs)
 
 			endpoints = append(endpoints, Endpoint{
 				Pattern: pattern,
@@ -104,4 +103,10 @@ func (hes Endpoints) ResolveForMethods(methods []string, newArgs func(HandlerCon
 		}
 	}
 	return endpoints
+}
+
+func resolveHandler(spec EndpointSpec, method string, unhandled http.Handler, newArgs func(HandlerConstraints) NewHandlerArgs) http.Handler {
+	hSpec := spec.Resolve(method, unhandled)
+	args := newArgs(hSpec.Constraints)
+	return hSpec.NewHandler(args)
 }
