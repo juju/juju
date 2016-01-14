@@ -106,6 +106,7 @@ func (s *MigrationSuite) TestEnvironmentDocFields(c *gc.C) {
 		// life will always be alive, or we won't be migrating
 		"Life",
 		"Owner",
+		"LatestAvailableTools",
 		// server uuid is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",

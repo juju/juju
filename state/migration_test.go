@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/migration"
+	"github.com/juju/juju/version"
 )
 
 type MigrationSuite struct {
@@ -19,7 +20,16 @@ type MigrationSuite struct {
 
 var _ = gc.Suite(&MigrationSuite{})
 
+func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.UpdateLatestToolsVersion(latestTools)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *MigrationSuite) TestExportEnvironmentInfo(c *gc.C) {
+	latestTools := version.MustParse("2.0.1")
+	s.setLatestTools(c, latestTools)
 	out, err := s.State.Export(s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -32,6 +42,7 @@ func (s *MigrationSuite) TestExportEnvironmentInfo(c *gc.C) {
 	config, err := env.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
+	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 }
 
 func (s *MigrationSuite) TestImportExisting(c *gc.C) {
@@ -43,6 +54,8 @@ func (s *MigrationSuite) TestImportExisting(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestImportNewEnv(c *gc.C) {
+	latestTools := version.MustParse("2.0.1")
+	s.setLatestTools(c, latestTools)
 	out, err := s.State.Export(s.State.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -59,6 +72,7 @@ func (s *MigrationSuite) TestImportNewEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newEnv.Owner(), gc.Equals, original.Owner())
+	c.Assert(newEnv.LatestToolsVersion(), gc.Equals, latestTools)
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	originalAttrs := originalConfig.AllAttrs()

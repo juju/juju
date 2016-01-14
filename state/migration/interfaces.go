@@ -5,6 +5,8 @@ package migration
 
 import (
 	"github.com/juju/names"
+
+	"github.com/juju/juju/version"
 )
 
 type Description interface {
@@ -16,6 +18,7 @@ type Model interface {
 	Tag() names.EnvironTag
 	Owner() names.UserTag
 	Config() map[string]interface{}
+	LatestToolsVersion() version.Number
 
 	Machines() []Machine
 }

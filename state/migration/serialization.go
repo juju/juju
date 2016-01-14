@@ -6,6 +6,8 @@ package migration
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+
+	"github.com/juju/juju/version"
 )
 
 // importModel constructs a new Model from a map that in normal usage situations
@@ -36,11 +38,16 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	result := &model{Version: 1}
 
 	fields := schema.Fields{
-		"owner":    schema.String(),
-		"config":   schema.StringMap(schema.Any()),
-		"machines": schema.StringMap(schema.Any()),
+		"owner":        schema.String(),
+		"config":       schema.StringMap(schema.Any()),
+		"latest-tools": schema.String(),
+		"machines":     schema.StringMap(schema.Any()),
 	}
-	checker := schema.FieldMap(fields, nil) // no defaults
+	// Some values don't have to be there.
+	defaults := schema.Defaults{
+		"latest-tools": schema.Omit,
+	}
+	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -52,6 +59,14 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 
 	result.Owner_ = valid["owner"].(string)
 	result.Config_ = valid["config"].(map[string]interface{})
+
+	if availableTools, ok := valid["latest-tools"]; ok {
+		num, err := version.Parse(availableTools.(string))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.LatestToolsVersion_ = num
+	}
 
 	machineMap := valid["machines"].(map[string]interface{})
 	machines, err := importMachines(machineMap)

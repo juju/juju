@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/migration"
+	"github.com/juju/juju/version"
 )
 
 // Export the representation of the environment into the database agnostic
@@ -39,8 +40,9 @@ func (st *State) Export(env names.EnvironTag) (migration.Description, error) {
 	}
 
 	args := migration.ModelArgs{
-		Owner:  environment.Owner(),
-		Config: envConfig.Settings,
+		Owner:              environment.Owner(),
+		Config:             envConfig.Settings,
+		LatestToolsVersion: environment.LatestToolsVersion(),
 	}
 
 	result := migration.NewDescription(args)
@@ -70,11 +72,17 @@ func (st *State) Import(description migration.Description) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, envSt, err := st.NewEnvironment(cfg, model.Owner())
+	env, envSt, err := st.NewEnvironment(cfg, model.Owner())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer envSt.Close()
+
+	if latest := model.LatestToolsVersion(); latest != version.Zero {
+		if err := env.UpdateLatestToolsVersion(latest); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	// Add machine docs...
 

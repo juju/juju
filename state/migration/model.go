@@ -5,6 +5,8 @@ package migration
 
 import (
 	"github.com/juju/names"
+
+	"github.com/juju/juju/version"
 )
 
 type description struct {
@@ -24,17 +26,19 @@ type description struct {
 }
 
 type ModelArgs struct {
-	Owner  names.UserTag
-	Config map[string]interface{}
+	Owner              names.UserTag
+	Config             map[string]interface{}
+	LatestToolsVersion version.Number
 }
 
 func NewDescription(args ModelArgs) Description {
 	return &description{
 		version: 1,
 		model: &model{
-			Version: 1,
-			Owner_:  args.Owner.Canonical(),
-			Config_: args.Config,
+			Version:             1,
+			Owner_:              args.Owner.Canonical(),
+			Config_:             args.Config,
+			LatestToolsVersion_: args.LatestToolsVersion,
 		},
 	}
 }
@@ -48,6 +52,8 @@ type model struct {
 
 	Owner_  string                 `yaml:"owner"`
 	Config_ map[string]interface{} `yaml:"config"`
+
+	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
 	Machines_ machines `yaml:"machines"`
 
@@ -82,6 +88,10 @@ func (m *model) Owner() names.UserTag {
 func (m *model) Config() map[string]interface{} {
 	// TODO: consider returning a deep copy.
 	return m.Config_
+}
+
+func (m *model) LatestToolsVersion() version.Number {
+	return m.LatestToolsVersion_
 }
 
 func (m *model) Machines() []Machine {
