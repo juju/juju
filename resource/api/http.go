@@ -3,7 +3,10 @@
 
 package api
 
+// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
+
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,9 +15,15 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 )
+
+var logger = loggo.GetLogger("juju.resource.api")
 
 const (
 	// HTTPEndpointPattern is the URL path pattern registered with
@@ -26,6 +35,14 @@ const (
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
 	HTTPEndpointPath = "/services/%s/resources/%s"
+)
+
+const (
+	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
+	ContentTypeRaw = "application/octet-stream"
+
+	// ContentTypeJSON is the HTTP content-type value used for JSON content.
+	ContentTypeJSON = "application/json"
 )
 
 // NewEndpointPath returns the API URL path for the identified resource.
@@ -61,7 +78,7 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 		return nil, errors.Trace(err)
 	}
 
-	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-Type", ContentTypeRaw)
 	req.Header.Set("Content-Sha384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(size))
 	req.ContentLength = size
@@ -78,7 +95,7 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	}
 
 	ctype := req.Header.Get("Content-Type")
-	if ctype != "application/octet-stream" {
+	if ctype != ContentTypeRaw {
 		return "", "", 0, fp, errors.Errorf("unsupported content type %q", ctype)
 	}
 
@@ -98,4 +115,34 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	}
 
 	return service, name, size, fp, nil
+}
+
+// TODO(ericsnow) These are copied from apiserver/httpcontext.go...
+
+// SendHTTPError sends a JSON-encoded error response
+// for errors encountered during processing.
+func SendHTTPError(w http.ResponseWriter, err error) {
+	err1, statusCode := common.ServerErrorAndStatus(err)
+	logger.Debugf("sending error: %d %v", statusCode, err1)
+	SendHTTPStatusAndJSON(w, statusCode, &params.ErrorResult{
+		Error: err1,
+	})
+}
+
+// SendStatusAndJSON sends an HTTP status code and
+// a JSON-encoded response to a client.
+func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		return
+	}
+
+	if statusCode == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	}
+	w.Header().Set("Content-Type", params.ContentTypeJSON)
+	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+	w.WriteHeader(statusCode)
+	w.Write(body)
 }
