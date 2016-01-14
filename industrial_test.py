@@ -235,13 +235,6 @@ class IndustrialTest:
             logging.exception(e)
             sys.exit(1)
 
-    def destroy_both(self):
-        """Destroy the environments of the old and new client."""
-        try:
-            self.old_client.destroy_environment(delete_jenv=True)
-        finally:
-            self.new_client.destroy_environment(delete_jenv=True)
-
     def run_stages(self):
         """Iterator of (boolean, boolean) for stage results.
 

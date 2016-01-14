@@ -977,21 +977,6 @@ class TestIndustrialTest(JujuPyTestCase):
         with self.assertRaises(CannotUpgradeToOldClient):
             list(industrial.run_stages())
 
-    def test_destroy_both_even_with_exception(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client, [
-            FakeStepAttempt.from_result(False, False),
-            FakeStepAttempt.from_result(True, True)])
-        with patch.object(old_client, 'destroy_environment',
-                          side_effect=Exception) as oc_mock:
-            with patch.object(new_client, 'destroy_environment',
-                              side_effect=Exception) as nc_mock:
-                with self.assertRaises(Exception):
-                    industrial.destroy_both()
-        oc_mock.assert_called_once_with(delete_jenv=True)
-        nc_mock.assert_called_once_with(delete_jenv=True)
-
     def test_run_attempt(self):
         old_client = FakeJujuClient()
         new_client = FakeJujuClient()
