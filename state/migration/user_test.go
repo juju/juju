@@ -4,10 +4,11 @@
 package migration
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
-	"time"
 
 	"github.com/juju/juju/testing"
 )
