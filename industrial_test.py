@@ -876,8 +876,9 @@ class AttemptSuite(SteppedStageAttempt):
         bs_manager = BootstrapManager(
             client.env.environment, bs_client, bs_client,
             bootstrap_host=None,
-            machines=[], series=None, agent_url=None, agent_stream=None,
-            region=None, log_dir=make_log_dir(self.log_dir), keep_env=True,
+            machines=[], series=None, agent_url=None,
+            agent_stream=self.agent_stream, region=None,
+            log_dir=make_log_dir(self.log_dir), keep_env=True,
             permanent=jes_enabled, jes_enabled=bs_jes_enabled)
         return self._iter_bs_manager_steps(bs_manager, client,
                                            bootstrap_attempt, jes_enabled)
@@ -991,7 +992,8 @@ def run_single(args):
     for suite in args.suite:
         factory = MultiIndustrialTest.get_stages(suite, env.config)
         upgrade_sequence = [upgrade_client.full_path, client.full_path]
-        suite = factory.factory(upgrade_sequence, args.log_dir)
+        suite = factory.factory(upgrade_sequence, args.log_dir,
+                                args.agent_stream)
         steps_iter = suite.iter_steps(client)
         for step in steps_iter:
             print(step)

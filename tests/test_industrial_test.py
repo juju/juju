@@ -1991,24 +1991,42 @@ class TestAttemptSuite(TestCase):
                                  'report_on': True}),
             ]), attempt_suite.get_test_info())
 
+    @contextmanager
+    def iter_steps_cxt(self, attempt_suite):
+        with patch('industrial_test.BootstrapManager') as mock_bm:
+            with patch.object(attempt_suite,
+                              '_iter_bs_manager_steps') as mock_ibms:
+                with patch('industrial_test.make_log_dir',
+                           return_value='qux-1'):
+                    yield (mock_ibms, mock_bm)
+
     def test_iter_steps(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
-        with temp_dir() as log_dir:
-            factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
-            attempt_suite = AttemptSuite(factory, None, log_dir, None)
+        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, 'asdf', None)
+        with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
             client = FakeJujuClient()
-            with patch('industrial_test.BootstrapManager') as mock_bm:
-                with patch.object(attempt_suite,
-                                  '_iter_bs_manager_steps') as mock_ibms:
-                    iterator = attempt_suite.iter_steps(client)
-        self.assertEqual(iterator, mock_ibms.return_value)
+            iterator = attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
             bootstrap_host=None, jes_enabled=False, keep_env=True,
-            log_dir=os.path.join(log_dir, '0'), machines=[], permanent=False,
+            log_dir='qux-1', machines=[], permanent=False,
             region=None, series=None)
-        mock_ibms.assert_called_once_with(mock_bm.return_value, client,
-                                          fake_bootstrap(), False)
+
+    def test_iter_steps_agent_stream(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
+        with self.iter_steps_cxt(attempt_suite) as (mock_ibms,
+                                       mock_bm):
+            client = FakeJujuClient()
+            iterator = attempt_suite.iter_steps(client)
+        self.assertEqual(iterator, mock_ibms.return_value)
+        mock_bm.assert_called_once_with(
+            'name', client, client, agent_stream='bar-stream', agent_url=None,
+            bootstrap_host=None, jes_enabled=False, keep_env=True,
+            log_dir='qux-1', machines=[], permanent=False,
+            region=None, series=None)
 
     def test__iter_bs_manager_steps(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
