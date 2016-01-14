@@ -97,6 +97,8 @@ class FakeEnvironmentState:
         self.token = None
         self.exposed = set()
         self.machine_host_names = {}
+        self.state = 'not-bootstrapped'
+        self.current_bundle = None
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -125,13 +127,18 @@ class FakeEnvironmentState:
     def bootstrap(self, name):
         self.name = name
         self.state_servers.append(self.add_machine())
+        self.state = 'bootstrapped'
 
     def destroy_environment(self):
         self._clear()
+        self.state = 'destroyed'
         return 0
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
+
+    def deploy_bundle(self, bundle_path):
+        self.current_bundle = bundle_path
 
     def add_unit(self, service_name):
         machines = self.services.setdefault(service_name, set())
@@ -183,7 +190,7 @@ class FakeJujuClient:
     The state is provided by _backing_state, so that multiple clients can
     manipulate the same state.
     """
-    def __init__(self, env=None):
+    def __init__(self, env=None, full_path=None, debug=False):
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
@@ -191,7 +198,12 @@ class FakeJujuClient:
                 'default-series': 'angsty',
                 }, juju_home='foo')
         self.env = env
+        self.full_path = full_path
+        self.debug = debug
         self._jes_enabled = False
+
+    def by_version(self, env, path, debug):
+        return FakeJujuClient(env, path, debug)
 
     def get_matching_agent_version(self):
         return '1.2-alpha3'
@@ -243,7 +255,15 @@ class FakeJujuClient:
     def bootstrap(self, upload_tools=False):
         self._backing_state.bootstrap(self.env.environment)
 
-    def destroy_environment(self, force=True):
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False):
+        yield
+
+    def quickstart(self, bundle):
+        self._backing_state.bootstrap(self.env.environment)
+        self._backing_state.deploy_bundle(bundle)
+
+    def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
 
     def add_ssh_machines(self, machines):
@@ -254,7 +274,10 @@ class FakeJujuClient:
             service_name = charm_name.split(':')[-1]
         self._backing_state.deploy(charm_name, service_name)
 
-    def wait_for_started(self):
+    def wait_for_started(self, timeout=1200, start=None):
+        pass
+
+    def wait_for_deploy_started(self):
         pass
 
     def get_status(self):
@@ -268,6 +291,9 @@ class FakeJujuClient:
         pass
 
     def wait_for_workloads(self):
+        pass
+
+    def get_juju_timings(self):
         pass
 
 
@@ -607,6 +633,12 @@ class TestEnvJujuClient(ClientTest):
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
         self.assertNotEqual(client.full_path, 'foo/bar/qux')
         self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
+
+    def test_by_version_keep_home(self):
+        env = SimpleEnvironment({}, juju_home='/foo/bar')
+        with patch('subprocess.check_output', return_value=' 4.3'):
+            EnvJujuClient.by_version(env, 'foo/bar/qux')
+        self.assertEqual('/foo/bar', env.juju_home)
 
     def test_full_args(self):
         env = SimpleEnvironment('foo')

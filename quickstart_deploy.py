@@ -9,6 +9,7 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    LoggedException,
 )
 
 
@@ -71,6 +72,8 @@ def main():
         bs_manager, args.bundle_path, args.service_count)
     try:
         quickstart.run()
+    except LoggedException:
+        sys.exit(1)
     except Exception as e:
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)

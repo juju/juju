@@ -44,6 +44,7 @@ from deploy_stack import (
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    get_juju_home,
     )
 from jujupy import (
     DEFAULT_JES_COMMAND_1x,
@@ -67,6 +68,7 @@ from test_jujupy import (
     FakePopen,
 )
 from utility import (
+    LoggedException,
     temp_dir,
 )
 
@@ -653,10 +655,12 @@ class FakeBootstrapManager:
             self.entered_runtime = True
             yield
         finally:
+            self.tear_down()
             self.exited_runtime = True
 
     def tear_down(self):
-        self.client.torn_down = True
+        self.tear_down_client.destroy_environment()
+        self.tear_down_client.torn_down = True
 
     @contextmanager
     def booted_context(self, upload_tools):
@@ -991,6 +995,20 @@ class TestBootstrapManager(FakeHomeTestCase):
                 td_mock.assert_called_once_with(tear_down_client, False,
                                                 try_jes=False)
 
+    def test_bootstrap_context_no_set_home(self):
+        orig_home = get_juju_home()
+        client = self.make_client()
+        jenv_path = get_jenv_path(client.env.juju_home, 'foobar')
+        os.makedirs(os.path.dirname(jenv_path))
+        with open(jenv_path, 'w'):
+            pass
+
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.env.juju_home, False, False, False)
+        with bs_manager.bootstrap_context([]):
+            self.assertEqual(orig_home, get_juju_home())
+
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
         client.env.juju_home = 'foobar'
@@ -1068,6 +1086,18 @@ class TestBootstrapManager(FakeHomeTestCase):
                           autospec=True) as ads_mock:
             with bs_manager.runtime_context(['baz']):
                 ads_mock.assert_called_once_with(['baz'])
+
+    def test_booted_context_handles_logged_exception(self):
+        client = FakeJujuClient()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            False, False)
+        with temp_dir() as juju_home:
+            client.env.juju_home = juju_home
+            with self.assertRaises(SystemExit):
+                with bs_manager.booted_context(False):
+                    raise LoggedException()
 
 
 class TestBootContext(FakeHomeTestCase):

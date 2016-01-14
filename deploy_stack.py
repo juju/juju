@@ -52,6 +52,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
+    LoggedException,
     PortTimeoutError,
     print_now,
     until_timeout,
@@ -571,21 +572,21 @@ class BootstrapManager:
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
-                                permanent=self.permanent):
+                                permanent=self.permanent, set_home=False):
             try:
                 try:
                     if not torn_down:
                         self.tear_down(try_jes=True)
                     yield
                 # If an exception is raised that indicates an error, log it
-                # before tearning down so that the error is closely tied to
+                # before tearing down so that the error is closely tied to
                 # the failed operation.
                 except Exception as e:
                     logging.exception(e)
                     if getattr(e, 'output', None):
                         print_now('\n')
                         print_now(e.output)
-                    sys.exit(1)
+                    raise LoggedException(e)
             except:
                 # If run from a windows machine may not have ssh to get
                 # logs
@@ -614,11 +615,12 @@ class BootstrapManager:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
+            # avoid logging GeneratorExit
             except GeneratorExit:
-                return
+                raise
             except BaseException as e:
                 logging.exception(e)
-                sys.exit(1)
+                raise LoggedException(e)
         finally:
             safe_print_status(self.client)
             if self.jes_enabled:
@@ -654,11 +656,14 @@ class BootstrapManager:
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
         """
-        with self.top_context() as machines:
-            with self.bootstrap_context(machines):
-                self.client.bootstrap(upload_tools)
-            with self.runtime_context(machines):
-                yield machines
+        try:
+            with self.top_context() as machines:
+                with self.bootstrap_context(machines):
+                    self.client.bootstrap(upload_tools)
+                with self.runtime_context(machines):
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
 
 
 @contextmanager
