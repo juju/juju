@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -711,6 +712,8 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
+var newEnvirons = environs.New
+
 func (a *MachineAgent) postUpgradeAPIWorker(
 	st api.Connection,
 	agentConfig agent.Config,
@@ -830,10 +833,19 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	if isEnvironManager {
-		// Start worker that stores missing published image metadata in state.
-		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			return newMetadataUpdater(st.MetadataUpdater()), nil
-		})
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not depend on simple streams do not need this worker.
+		// LP bug #1533896.
+		env, err := newEnvirons(envConfig)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting environ")
+		}
+		if _, ok := env.(simplestreams.HasRegion); ok {
+			// Start worker that stores published image metadata in state.
+			runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+				return newMetadataUpdater(st.MetadataUpdater()), nil
+			})
+		}
 	}
 
 	// Check if the network management is disabled.
