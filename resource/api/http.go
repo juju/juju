@@ -37,6 +37,14 @@ const (
 	HTTPEndpointPath = "/services/%s/resources/%s"
 )
 
+const (
+	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
+	ContentTypeRaw = "application/octet-stream"
+
+	// ContentTypeJSON is the HTTP content-type value used for JSON content.
+	ContentTypeJSON = "application/json"
+)
+
 // NewEndpointPath returns the API URL path for the identified resource.
 func NewEndpointPath(service, name string) string {
 	return fmt.Sprintf(HTTPEndpointPath, service, name)
@@ -49,14 +57,6 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 	name = url.Query().Get(":resource")
 	return service, name
 }
-
-const (
-	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
-	ContentTypeRaw = "application/octet-stream"
-
-	// ContentTypeJSON is the HTTP content-type value used for JSON content.
-	ContentTypeJSON = "application/json"
-)
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
 func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
