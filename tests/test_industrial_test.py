@@ -1,7 +1,10 @@
 # coding=utf-8
 from argparse import Namespace
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import (
+    closing,
+    contextmanager,
+    )
 import os
 from tempfile import (
     mkdtemp,
@@ -61,6 +64,7 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
+    FakePopen,
     )
 from test_substrate import (
     get_aws_env,
@@ -1225,10 +1229,11 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
-        with patch('subprocess.call', return_value=0) as mock_cc:
+        with patch.object(client, 'is_jes_enabled', return_value=False):
             with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
-                self.assertEqual(iterator.next(), {
-                    'test_id': 'destroy-env', 'result': True})
+                with patch('subprocess.call', return_value=0) as mock_cc:
+                    self.assertEqual(iterator.next(), {
+                        'test_id': 'destroy-env', 'result': True})
         gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, get_timeout_prefix(600) + (
             'juju', '--show-log', 'destroy-environment', 'steve', '-y'))
@@ -1242,7 +1247,8 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
         with patch('subprocess.call', return_value=0):
-            output = list(destroy_env.iter_test_results(client, client))
+            with patch.object(client, 'is_jes_enabled', return_value=False):
+                output = list(destroy_env.iter_test_results(client, client))
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
 
@@ -1252,14 +1258,26 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
         with patch('subprocess.call', return_value=1) as mock_cc:
-            with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
-                self.assertEqual(iterator.next(), {
-                    'test_id': 'destroy-env', 'result': False})
+            with patch.object(client, 'is_jes_enabled', return_value=False):
+                with patch.object(destroy_env,
+                                  'get_security_groups') as gsg_mock:
+                    self.assertEqual(iterator.next(), {
+                        'test_id': 'destroy-env', 'result': False})
         gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, get_timeout_prefix(600) + (
             'juju', '--show-log', 'destroy-environment', 'steve', '-y'))
         with self.assertRaises(StopIteration):
             iterator.next()
+
+    def test_iter_steps_kill_controller(self):
+        client = FakeJujuClient(jes_enabled=True)
+        destroy_env = DestroyEnvironmentAttempt()
+        iterator = iter_steps_validate_info(self, destroy_env, client)
+        with closing(iterator):
+            self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
+            self.assertEqual(iterator.next(), {
+                'test_id': 'destroy-env', 'result': True})
+        self.assertEqual('controller-killed', client._backing_state.state)
 
     @staticmethod
     def get_aws_client():

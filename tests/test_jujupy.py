@@ -134,6 +134,10 @@ class FakeEnvironmentState:
         self.state = 'destroyed'
         return 0
 
+    def kill_controller(self):
+        self._clear()
+        self.state = 'controller-killed'
+
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
 
@@ -190,7 +194,8 @@ class FakeJujuClient:
     The state is provided by _backing_state, so that multiple clients can
     manipulate the same state.
     """
-    def __init__(self, env=None, full_path=None, debug=False):
+    def __init__(self, env=None, full_path=None, debug=False,
+                 jes_enabled=False):
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
@@ -200,7 +205,7 @@ class FakeJujuClient:
         self.env = env
         self.full_path = full_path
         self.debug = debug
-        self._jes_enabled = False
+        self._jes_enabled = jes_enabled
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
@@ -266,6 +271,9 @@ class FakeJujuClient:
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
         return 0
+
+    def kill_controller(self):
+        self._backing_state.kill_controller()
 
     def add_ssh_machines(self, machines):
         self._backing_state.add_ssh_machines(machines)
