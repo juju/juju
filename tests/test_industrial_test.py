@@ -64,7 +64,6 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
-    FakePopen,
     )
 from test_substrate import (
     get_aws_env,
@@ -2039,7 +2038,7 @@ class TestAttemptSuite(TestCase):
         attempt_suite = AttemptSuite(factory, None, 'asdf', None)
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
             client = FakeJujuClient()
-            iterator = attempt_suite.iter_steps(client)
+            attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
             bootstrap_host=None, jes_enabled=False, keep_env=True,
@@ -2050,8 +2049,7 @@ class TestAttemptSuite(TestCase):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
-        with self.iter_steps_cxt(attempt_suite) as (mock_ibms,
-                                       mock_bm):
+        with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
             client = FakeJujuClient()
             iterator = attempt_suite.iter_steps(client)
         self.assertEqual(iterator, mock_ibms.return_value)
