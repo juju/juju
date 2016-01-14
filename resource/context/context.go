@@ -19,8 +19,7 @@ import (
 const HookContextFacade = resource.ComponentName + "-hook-context"
 
 type APIClient interface {
-	GetResourceInfo(resourceName string) (resource.Resource, error)
-	GetResourceDownloader(resourceName string) (io.ReadCloser, error)
+	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 
 func NewContextAPI(apiClient APIClient, unitDataDirPath string) *Context {
@@ -36,19 +35,17 @@ type Context struct {
 }
 
 func (c *Context) GetResource(name string) (string, error) {
-	resourceInfo, err := getResourceInfo(name, c.apiClient)
-	resourcePath := resolveResourcePath(c.unitDataDirPath, resourceInfo)
-
 	// TODO(katco): Check to see if we have latest version
 
 	checksumWriter := charmresource.NewFingerprintHash()
 
-	resourceReader, err := c.apiClient.GetResourceDownloader(name)
+	resourceInfo, resourceReader, err := c.apiClient.GetResource(name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer resourceReader.Close()
 
+	resourcePath := resolveResourcePath(c.unitDataDirPath, resourceInfo)
 	hashingReader := hash.NewHashingReader(resourceReader, checksumWriter)
 	if err := downloadAndWriteResourceToDisk(resourcePath, hashingReader); err != nil {
 		return "", errors.Trace(err)
@@ -58,10 +55,6 @@ func (c *Context) GetResource(name string) (string, error) {
 	}
 
 	return resourcePath, nil
-}
-
-func getResourceInfo(resourceName string, apiClient APIClient) (resource.Resource, error) {
-	return apiClient.GetResourceInfo(resourceName)
 }
 
 func (c *Context) Flush() error {

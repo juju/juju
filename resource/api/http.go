@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource"
 )
 
 var logger = loggo.GetLogger("juju.resource.api")
@@ -115,6 +116,20 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	}
 
 	return service, name, size, fp, nil
+}
+
+func UpdateDownloadResponse(resp http.ResponseWriter, resource resource.Resource) {
+	resp.Header().Set("Content-Type", ContentTypeRaw)
+	resp.Header().Set("Content-Length", fmt.Sprint(resource.Size))
+	resp.Header().Set("Content-Sha384", resource.Fingerprint.String())
+}
+
+func NewHTTPDownloadRequest(resourceName string) (*http.Request, error) {
+	return http.NewRequest("GET", "/resources/"+resourceName, nil)
+}
+
+func ExtractDownloadRequest(req *http.Request) string {
+	return req.URL.Query().Get(":resource")
 }
 
 // TODO(ericsnow) These are copied from apiserver/httpcontext.go...

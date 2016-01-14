@@ -338,6 +338,10 @@ func (ds *resourcesUnitDataStore) ListResources() ([]resource.Resource, error) {
 	return ds.resources.ListResources(ds.serviceName)
 }
 
+func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
+	return ds.resources.OpenResource(ds.serviceName, name)
+}
+
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
 	res, err := st.Resources()
 	if err != nil {
@@ -347,12 +351,12 @@ func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Uni
 }
 
 type UnitDoer struct {
-	doer     internalclient.Doer
+	doer     internalclient.UnitDoer
 	unitName string
 }
 
 func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
-	req.URL.Path = fmt.Sprintf("/units/%s%s", d.unitID, req.URL.Path)
+	req.URL.Path = fmt.Sprintf("/units/%s%s", d.unitName, req.URL.Path)
 	return d.doer.Do(req, body, response)
 }
 
@@ -361,12 +365,14 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) c
 	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
 	doer, err := caller.HTTPClient()
 	if err != nil {
-		return errors.Trace(err)
+		// TODO(katco): For demo; fix
+		panic(err)
+		//return errors.Trace(err)
 	}
 
 	unitDoer := &UnitDoer{
-		doer:   doer,
-		unitID: unitName,
+		doer:     doer,
+		unitName: unitName,
 	}
 
 	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer)

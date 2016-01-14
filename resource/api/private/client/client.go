@@ -1,12 +1,12 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/private"
 )
 
@@ -37,18 +37,28 @@ func (c *FacadeClient) GetResourceInfo(resourceName string) (resource.Resource, 
 		ResourceName: resourceName,
 	}
 	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {
-		return nil, errors.Annotate(err, "could not get resource info")
+		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	return response, nil
 }
 
-func (c *FacadeClient) GetResourceDownloader(resourceName string) (io.ReadCloser, error) {
+func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
 	var response *http.Response
-	url := fmt.Sprintf("/resources/%s", resourceName)
-	req := http.NewRequest("GET", url, nil)
+	req, err := api.NewHTTPDownloadRequest(resourceName)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
 	if err := c.doer.Do(req, nil, response); err != nil {
-		return nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	return response.Body, nil
+	// HACK(katco): Combine this into one request?
+	resourceInfo, err := c.GetResourceInfo(resourceName)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	// TODO(katco): Check headers against resource info
+	// TODO(katco): Check in on all the response headers
+	return resourceInfo, response.Body, nil
 }

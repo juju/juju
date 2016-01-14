@@ -7,6 +7,8 @@ import (
 )
 
 type UnitDataStore interface {
+	DownloadDataStore
+
 	ListResources() ([]resource.Resource, error)
 }
 
@@ -27,7 +29,7 @@ func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (api.Resour
 
 	resources, err := uf.dataStore.ListResources()
 	if err != nil {
-		api.SetResultError(&r.Results[i], err)
+		api.SetResultError(&r, err)
 	}
 
 	for i, res := range resources {
