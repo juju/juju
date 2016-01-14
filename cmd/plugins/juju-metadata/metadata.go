@@ -9,11 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"
 )
 
@@ -49,16 +46,10 @@ func Main(args []string) {
 	metadatacmd.Register(newToolsMetadataCommand())
 	metadatacmd.Register(newValidateToolsMetadataCommand())
 	metadatacmd.Register(newSignMetadataCommand())
-	if featureflag.Enabled(feature.ImageMetadata) {
-		metadatacmd.Register(newListImagesCommand())
-		metadatacmd.Register(newAddImageMetadataCommand())
-	}
+	metadatacmd.Register(newListImagesCommand())
+	metadatacmd.Register(newAddImageMetadataCommand())
 
 	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
-}
-
-func init() {
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func main() {
