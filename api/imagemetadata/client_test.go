@@ -271,7 +271,7 @@ func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Ids, gc.DeepEquals, []string{imageId})
 
-			if results, k := result.(*params.ErrorResults); k {
+			if results, ok := result.(*params.ErrorResults); ok {
 				results.Results = []params.ErrorResult{{}}
 			}
 
@@ -299,7 +299,7 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Delete")
 
-			if results, k := result.(*params.ErrorResults); k {
+			if results, ok := result.(*params.ErrorResults); ok {
 				results.Results = []params.ErrorResult{{}, {}}
 			}
 
@@ -308,16 +308,13 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 
 	client := imagemetadata.NewClient(apiCaller)
 	err := client.Delete(imageId)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
 	c.Assert(called, jc.IsTrue)
 }
 
 func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 	called := false
 	msg := "save failure"
-	expected := []params.ErrorResult{
-		params.ErrorResult{&params.Error{Message: msg}},
-	}
 
 	apiCaller := testing.APICallerFunc(
 		func(objType string,
@@ -330,8 +327,10 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Delete")
 
-			if results, k := result.(*params.ErrorResults); k {
-				results.Results = expected
+			if results, ok := result.(*params.ErrorResults); ok {
+				results.Results = []params.ErrorResult{
+					{&params.Error{Message: msg}},
+				}
 			}
 
 			return nil
@@ -339,7 +338,7 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 
 	client := imagemetadata.NewClient(apiCaller)
 	err := client.Delete("tst12345")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -360,6 +359,6 @@ func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
 		})
 	client := imagemetadata.NewClient(apiCaller)
 	err := client.Delete("tst12345")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
