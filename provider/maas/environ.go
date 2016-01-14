@@ -837,7 +837,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	series := args.InstanceConfig.Tools.Version.Series
 
-	cloudcfg, err := environ.newCloudinitConfig(hostname, "", series)
+	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
 		return nil, err
 	}
@@ -864,9 +864,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			// Use the new 1.9 API when available.
 			interfaces, err = maasObjectNetworkInterfaces(startedNode)
 		} else {
-			// Use the legacy approach, but the primary interface is no longer
-			// needed, and the networksToDisable no longer work.
-			interfaces, _, err = environ.setupNetworks(inst, nil)
+			// Use the legacy approach.
+			interfaces, err = environ.setupNetworks(inst)
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1018,15 +1017,10 @@ func renderEtcNetworkInterfacesScript() string {
 	return setupJujuNetworking()
 }
 
-// newCloudinitConfig creates a cloudinit.Config structure
-// suitable as a base for initialising a MAAS node.
-//
-// TODO(dimitern): primaryIface is no longer used, drop the argument and fix the
-// tests in a follow-up.
-//
-// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119309405
-func (environ *maasEnviron) newCloudinitConfig(hostname, _, ser string) (cloudinit.CloudConfig, error) {
-	cloudcfg, err := cloudinit.New(ser)
+// newCloudinitConfig creates a cloudinit.Config structure suitable as a base
+// for initialising a MAAS node.
+func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(forSeries)
 	if err != nil {
 		return nil, err
 	}
@@ -1037,7 +1031,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, _, ser string) (cloudin
 		return nil, errors.Trace(err)
 	}
 
-	operatingSystem, err := series.GetOSFromSeries(ser)
+	operatingSystem, err := series.GetOSFromSeries(forSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
