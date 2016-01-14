@@ -899,9 +899,12 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *network.Address, _, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
+	}
+	if addr == nil || addr.Value == "" {
+		return errors.NewNotValid(nil, "invalid address: nil or empty")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -913,17 +916,17 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
-		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
+		err = AssignPrivateIPAddress(ec2Inst, nicId, *addr)
+		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, *addr, err)
 		if err == nil {
-			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
+			logger.Tracef("allocated address %v for instance %v, NIC %v", *addr, instId, nicId)
 			break
 		}
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			if ec2Err.Code == invalidParameterValue {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
-				logger.Tracef("address %q not available for allocation", addr)
+				logger.Tracef("address %q not available for allocation", *addr)
 				return environs.ErrIPAddressUnavailable
 			} else if ec2Err.Code == privateAddressLimitExceeded {
 				logger.Tracef("no more addresses available on the subnet")

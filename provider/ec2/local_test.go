@@ -867,12 +867,19 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 	addr := network.Address{Value: "8.0.0.4"}
 
 	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", addr, "foo", "bar")
+	err = env.AllocateAddress(instId+"foo", "", &addr, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
 
 	// No network interface
-	err = env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err = env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
+
+	// Nil or empty address given.
+	err = env.AllocateAddress(instId, "", nil, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
+
+	err = env.AllocateAddress(instId, "", &network.Address{Value: ""}, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
@@ -899,7 +906,7 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualAddr, gc.Equals, addr)
 }
@@ -913,10 +920,7 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
-
-	err = env.AllocateAddress(instId, "", network.Address{}, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
@@ -929,7 +933,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
@@ -937,7 +941,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	addr := network.Address{Value: "8.0.0.4"}
 	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.ReleaseAddress(instId, "", addr, "", "")
@@ -1116,7 +1120,8 @@ func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.
 func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
 	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
-	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0], "foo", "bar")
+	addr := network.NewAddresses("1.2.3.4")[0]
+	err := env.AllocateAddress("i-foo", "net1", &addr, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
