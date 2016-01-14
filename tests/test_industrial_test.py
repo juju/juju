@@ -918,8 +918,8 @@ class TestIndustrialTest(JujuPyTestCase):
         self.assertEqual('destroyed', new_client._backing_state.state)
 
     def test_run_stages_recover_failure(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
+        old_client = FakeJujuClient()
+        new_client = FakeJujuClient()
         fsa = FakeStepAttempt([('foo', True, False), ('bar', True, True)])
         industrial = IndustrialTest(old_client, new_client, [
             fsa, FakeStepAttempt.from_result(True, True)])
