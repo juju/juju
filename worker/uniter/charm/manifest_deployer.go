@@ -76,7 +76,7 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 
 	// Detect and resolve state of charm directory.
-	baseURL, baseManifest, err := d.loadManifest(charmURLPath)
+	baseURL, baseManifest, err := d.loadManifest(CharmURLPath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -146,7 +146,7 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 func (d *manifestDeployer) finishDeploy() error {
 	logger.Debugf("finishing deploy of charm %q", d.staged.url)
 	oldPath := d.CharmPath(deployingURLPath)
-	newPath := d.CharmPath(charmURLPath)
+	newPath := d.CharmPath(CharmURLPath)
 	return utils.ReplaceFile(oldPath, newPath)
 }
 

@@ -15,7 +15,6 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -44,7 +43,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
 		AgentName:       "agent-name",
-		APICallerName:   "apicaller-name",
 		MetricSpoolName: "metric-spool-name",
 		CharmDirName:    "charmdir-name",
 	}
@@ -57,7 +55,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.dummyResources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
 		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
 		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
@@ -67,7 +64,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "metric-spool-name", "charmdir-name",
 	})
 }
 
@@ -75,7 +72,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "metric-spool-name", "charmdir-name",
 	} {
 		testResources := dt.StubResources{}
 		for k, v := range s.dummyResources {
@@ -95,7 +92,7 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 // TestCollectWorkerStarts ensures that the manifold correctly sets up the worker.
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			// Return a dummyRecorder here, because otherwise a real one
 			// *might* get instantiated and error out, if the periodic worker
 			// happens to fire before the worker shuts down (as seen in
@@ -123,7 +120,7 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 		isDeclaredMetric: true,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
@@ -147,7 +144,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		isDeclaredMetric: true,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
 	charmdir := &dummyCharmdir{aborted: true}
@@ -179,7 +176,7 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 		isDeclaredMetric: false,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
@@ -212,10 +209,6 @@ func (ac dummyAgentConfig) Tag() names.Tag {
 // DataDir implements agent.AgentConfig.
 func (ac dummyAgentConfig) DataDir() string {
 	return ac.dataDir
-}
-
-type dummyAPICaller struct {
-	base.APICaller
 }
 
 type dummyCharmdir struct {
