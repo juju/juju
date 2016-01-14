@@ -41,10 +41,10 @@ type deleteImageMetadataCommand struct {
 // Init implements Command.Init.
 func (c *deleteImageMetadataCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return errors.New("image id must be supplied when deleting image metadata")
+		return errors.New("image ID must be supplied when deleting image metadata")
 	}
 	if len(args) != 1 {
-		return errors.New("only one image id can be supplied as an argument to this command")
+		return errors.New("only one image ID can be supplied as an argument to this command")
 	}
 	c.ImageId = args[0]
 	return nil

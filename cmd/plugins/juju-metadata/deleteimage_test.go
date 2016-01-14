@@ -43,11 +43,11 @@ func (s *deleteImageSuite) TestDeleteImageMetadata(c *gc.C) {
 }
 
 func (s *deleteImageSuite) TestDeleteImageMetadataNoImageId(c *gc.C) {
-	s.assertDeleteImageMetadataErr(c, "image id must be supplied when deleting image metadata")
+	s.assertDeleteImageMetadataErr(c, "image ID must be supplied when deleting image metadata")
 }
 
 func (s *deleteImageSuite) TestDeleteImageMetadataManyImageIds(c *gc.C) {
-	s.assertDeleteImageMetadataErr(c, "only one image id can be supplied as an argument to this command", deleteTestId, deleteTestId)
+	s.assertDeleteImageMetadataErr(c, "only one image ID can be supplied as an argument to this command", deleteTestId, deleteTestId)
 }
 
 func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *gc.C) {

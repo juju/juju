@@ -91,7 +91,7 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 // DeleteMetadata implements Storage.DeleteMetadata.
 func (s *storage) DeleteMetadata(imageId string) error {
 	deleteOperation := func(docId string) txn.Op {
-		logger.Debugf("deleting metadata (id=%v) for image (id=%v)", docId, imageId)
+		logger.Debugf("deleting metadata (ID=%v) for image (ID=%v)", docId, imageId)
 		return txn.Op{
 			C:      s.collection,
 			Id:     docId,
@@ -101,7 +101,7 @@ func (s *storage) DeleteMetadata(imageId string) error {
 	}
 
 	noOp := func() ([]txn.Op, error) {
-		logger.Debugf("no metadata for image id %v to delete", imageId)
+		logger.Debugf("no metadata for image ID %v to delete", imageId)
 		return nil, jujutxn.ErrNoOperations
 	}
 
@@ -140,7 +140,6 @@ func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error
 	query := bson.D{{"image_id", imageId}}
 	if err := coll.Find(query).All(&docs); err != nil {
 		return nil, err
-		//		return nil, errors.Trace(err)
 	}
 	return docs, nil
 }

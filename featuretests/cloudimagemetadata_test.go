@@ -77,5 +77,5 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 	// make sure it's no longer in db too
 	afterDelete, err := coll.Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(afterDelete == 0, jc.IsTrue)
+	c.Assert(afterDelete, gc.Equals, 0)
 }
