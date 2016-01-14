@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -43,7 +44,9 @@ type Config struct {
 // ConfigPath returns the full path to Juju LXC config directory.
 // This is here so we do not have to import lxc/lxd into the provider.
 func ConfigPath(namespace string) string {
-	return lxd.ConfigPath(namespace)
+	// Here we use the same path as lxc for convention, but we could use
+	// any juju specific path.
+	return os.ExpandEnv(path.Join("$HOME/.config/lxc", namespace))
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -53,9 +56,10 @@ func (cfg Config) WithDefaults() (Config, error) {
 	// Also, note that cfg is a value receiver, so it is an implicit copy.
 
 	if cfg.Dirname == "" {
-		// TODO(ericsnow) Switch to filepath as soon as LXD does.
-		dirname := path.Dir(lxd.ConfigPath("DUMMY"))
+		// TODO(ericsnow) Switch to filepath as soon as LXD does,
+		dirname := path.Dir(ConfigPath("DUMMY"))
 		cfg.Dirname = path.Clean(dirname)
+		fmt.Println("cleaned config %s %s", dirname, cfg.Dirname)
 	}
 
 	var err error
@@ -87,9 +91,6 @@ func (cfg Config) Write() error {
 	if err := cfg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-
-	origConfigDir := updateLXDVars(cfg.Dirname)
-	defer updateLXDVars(origConfigDir)
 
 	if err := cfg.write(); err != nil {
 		return errors.Trace(err)
@@ -143,20 +144,6 @@ func prepareRemote(cfg Config, newCert Cert) error {
 	return nil
 }
 
-func updateLXDVars(dirname string) string {
-	// Change the hard-coded config dir that the raw client uses.
-	// TODO(ericsnow) This is exactly what happens in the lxc CLI for
-	// the LXD_CONF env var. Once the raw client accepts a path to the
-	// config dir we can drop this line.
-	// See:
-	//   https://github.com/lxc/lxd/blob/master/lxc/main.go
-	//   https://github.com/lxc/lxd/issues/1196
-	origConfigDir := lxd.ConfigDir
-	lxd.ConfigDir = dirname
-
-	return origConfigDir
-}
-
 //TODO(wwitzel3) make sure this is idempotent
 func initializeConfigDir(cfg Config) error {
 	logger.Debugf("initializing config dir %q", cfg.Dirname)
@@ -169,12 +156,12 @@ func initializeConfigDir(cfg Config) error {
 	// default config from memory if there isn't a config file on disk.
 	// So we load that and then explicitly save it to disk with a call
 	// to SaveConfig().
-	config, err := lxd.LoadConfig()
+	config, err := lxd.LoadConfig(cfg.resolve(configDefaultFile))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := lxd.SaveConfig(config); err != nil {
+	if err := lxd.SaveConfig(config, cfg.resolve(configDefaultFile)); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -205,7 +192,7 @@ func (cfg Config) writeConfigFile() error {
 	logger.Debugf("writing config file %q", filename)
 
 	// TODO(ericsnow) Cache the low-level config in Config?
-	rawCfg, err := lxd.LoadConfig()
+	rawCfg, err := lxd.LoadConfig(cfg.resolve(configDefaultFile))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -222,7 +209,7 @@ func (cfg Config) writeConfigFile() error {
 
 	// Write out the updated config, if changed.
 	// TODO(ericsnow) Check if changed.
-	if err := lxd.SaveConfig(rawCfg); err != nil {
+	if err := lxd.SaveConfig(rawCfg, cfg.resolve(configDefaultFile)); err != nil {
 		return errors.Trace(err)
 	}
 
