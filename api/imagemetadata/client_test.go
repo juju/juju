@@ -267,14 +267,11 @@ func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Delete")
 
-			args, ok := a.(params.MetadataImageIds)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Ids, gc.DeepEquals, []string{imageId})
+			c.Assert(a, gc.FitsTypeOf, params.MetadataImageIds{})
+			c.Assert(a.(params.MetadataImageIds).Ids, gc.DeepEquals, []string{imageId})
 
-			if results, ok := result.(*params.ErrorResults); ok {
-				results.Results = []params.ErrorResult{{}}
-			}
-
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}}
 			return nil
 		})
 
@@ -299,10 +296,8 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Delete")
 
-			if results, ok := result.(*params.ErrorResults); ok {
-				results.Results = []params.ErrorResult{{}, {}}
-			}
-
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}, {}}
 			return nil
 		})
 
@@ -327,12 +322,10 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Delete")
 
-			if results, ok := result.(*params.ErrorResults); ok {
-				results.Results = []params.ErrorResult{
-					{&params.Error{Message: msg}},
-				}
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{&params.Error{Message: msg}},
 			}
-
 			return nil
 		})
 
