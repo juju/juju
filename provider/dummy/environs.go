@@ -1103,9 +1103,10 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-// TODO(mfoord): This should support the broken setting
-// for injecting errors.
 func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
+		return false, err
+	}
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()

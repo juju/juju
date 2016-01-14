@@ -227,3 +227,24 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 	}
 
 }
+
+func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
+	attrs := map[string]interface{}{"broken": "SupportsSpaceDiscovery"}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newWorker := discoverspaces.NewWorker(s.API)
+	err = worker.Stop(newWorker)
+	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
+}
+
+func (s *workerSuite) TestSpacesBroken(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	attrs := map[string]interface{}{"broken": "Spaces"}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newWorker := discoverspaces.NewWorker(s.API)
+	err = worker.Stop(newWorker)
+	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
+}
