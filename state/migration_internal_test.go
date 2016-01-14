@@ -19,6 +19,32 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		environmentsC,
 	)
 
+	ignoredCollections := set.NewStrings(
+		// We don't export the controller environment at this stage.
+		stateServersC,
+		// Users aren't migrated.
+		usersC,
+		userLastLoginC,
+		// userenvnameC is just to provide a unique key constraint.
+		userenvnameC,
+		// Metrics aren't migrated.
+		metricsC,
+		metricsManagerC,
+		// leaseC is deprecated in favour of leasesC.
+		leaseC,
+		// Backup and restore information is not migrated.
+		restoreInfoC,
+		// upgradeInfoC is used to coordinate upgrades and schema migrations,
+		// and aren't needed for model migrations.
+		upgradeInfoC,
+		// Not exported, but the tools will possibly need to be either bundled
+		// with the representation or sent separately.
+		toolsmetadataC,
+		// Transaction stuff.
+		"txns",
+		"txns.log",
+	)
+
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
 		// environment
@@ -70,6 +96,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// actions
 		actionsC,
 		actionNotificationsC,
+		actionresultsC,
 
 		// done as part of machines/services/units
 		annotationsC,
@@ -84,13 +111,13 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	)
 
 	envCollections := set.NewStrings()
-	for name, info := range allCollections() {
-		if !info.global {
-			envCollections.Add(name)
-		}
+	for name := range allCollections() {
+		envCollections.Add(name)
 	}
 
-	remainder := envCollections.Difference(completedCollections)
+	known := completedCollections.Union(ignoredCollections)
+
+	remainder := envCollections.Difference(known)
 	remainder = remainder.Difference(todoCollections)
 
 	// If this test fails, it means that a new collection has been added

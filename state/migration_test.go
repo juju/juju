@@ -30,7 +30,7 @@ func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 func (s *MigrationSuite) TestExportEnvironmentInfo(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
-	out, err := s.State.Export(s.State.EnvironTag())
+	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	model := out.Model()
@@ -46,7 +46,7 @@ func (s *MigrationSuite) TestExportEnvironmentInfo(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestImportExisting(c *gc.C) {
-	out, err := s.State.Export(s.State.EnvironTag())
+	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.Import(out)
@@ -56,7 +56,7 @@ func (s *MigrationSuite) TestImportExisting(c *gc.C) {
 func (s *MigrationSuite) TestImportNewEnv(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
-	out, err := s.State.Export(s.State.EnvironTag())
+	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()

@@ -5,31 +5,21 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/version"
 )
 
-// Export the representation of the environment into the database agnostic
-// model description.
-func (st *State) Export(env names.EnvironTag) (migration.Description, error) {
-	envState := st
-	if st.EnvironTag() != env {
-		s, err := st.ForEnviron(env)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		envState = s
-		defer envState.Close()
-	}
-
-	environment, err := envState.Environment()
+// Export the current environment for the State. If a different environment
+// is required, the caller is expected to use st.ForEnviron(...) and close
+// the session as required.
+func (st *State) Export() (migration.Description, error) {
+	environment, err := st.Environment()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	settings, err := envState.readAllSettings()
+	settings, err := st.readAllSettings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
