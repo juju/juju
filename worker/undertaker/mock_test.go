@@ -31,8 +31,6 @@ type mockClient struct {
 }
 
 func (m *mockClient) mockCall(call string) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	m.calls <- call
 }
 
@@ -72,8 +70,9 @@ func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 }
 
 type mockEnvironResourceWatcher struct {
-	events chan struct{}
-	err    error
+	events    chan struct{}
+	closeOnce sync.Once
+	err       error
 }
 
 func (w *mockEnvironResourceWatcher) Changes() watcher.NotifyChannel {
@@ -81,7 +80,7 @@ func (w *mockEnvironResourceWatcher) Changes() watcher.NotifyChannel {
 }
 
 func (w *mockEnvironResourceWatcher) Kill() {
-	close(w.events)
+	w.closeOnce.Do(func() { close(w.events) })
 }
 
 func (w *mockEnvironResourceWatcher) Wait() error {

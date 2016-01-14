@@ -484,12 +484,12 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	name := env.Config().Name()
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)})
+	eUUID, _ := env.Config().UUID()
+	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)})
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	// The security group for this instance is now removed.
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", name)})
+	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID)})
 }
 
 // Due to bug #1300755 it can happen that the security group intended for
@@ -514,8 +514,8 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	name := env.Config().Name()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
+	eUUID, _ := env.Config().UUID()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -530,8 +530,8 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	name := env.Config().Name()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
+	eUUID, _ := env.Config().UUID()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
@@ -546,8 +546,8 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	name := env.Config().Name()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-global", name)}
+	eUUID, _ := env.Config().UUID()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-global", eUUID)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
@@ -800,12 +800,6 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
-	// Storage should be empty; it is not used anymore.
-	stor := env.(environs.EnvironStorage).Storage()
-	entries, err := stor.List("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entries, gc.HasLen, 0)
-
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
@@ -1033,51 +1027,6 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
-func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.(environs.EnvironStorage).Storage()
-	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
-		content := []byte{a}
-		name := string(content)
-		err := stor.Put(name, bytes.NewBuffer(content),
-			int64(len(content)))
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	reader, err := storage.Get(stor, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "a")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "a")
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.(environs.EnvironStorage).Storage()
-	// 6*26 = 156 items
-	for _, a := range []byte("abcdef") {
-		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
-			content := []byte{a, b}
-			name := string(content)
-			err := stor.Put(name, bytes.NewBuffer(content),
-				int64(len(content)))
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	reader, err := storage.Get(stor, "ab")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "ab")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "ab")
-	c.Assert(err, gc.NotNil)
-}
-
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
@@ -1202,17 +1151,8 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	env, err := environs.NewFromAttrs(newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
+	_, err = env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	// However, it works just fine if you use the one with the credentials set
-	err = s.env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	reader, err := s.env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, jc.ErrorIsNil)
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(string(contents), gc.Equals, "content")
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
@@ -1763,7 +1703,6 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"name":            "sample-no-swift",
 		"type":            "openstack",
 		"auth-mode":       "userpass",
-		"control-bucket":  "juju-test-no-swift",
 		"username":        s.cred.User,
 		"password":        s.cred.Secrets,
 		"region":          s.cred.Region,
