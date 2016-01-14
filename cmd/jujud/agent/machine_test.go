@@ -1536,6 +1536,10 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDep
 	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
 }
 
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForNonSimpleStreamDependentProviders(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageEnviron, "has provider which doesn't depend on simple streams")
+}
+
 func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
@@ -1556,29 +1560,6 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 	case <-started:
 		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
 	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
-	// Patch out the worker func before starting the agent.
-	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client) worker.Worker {
-		close(started)
-		return worker.NewNoOpWorker()
-	}
-	s.PatchValue(&newMetadataUpdater, newWorker)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for metadata update worker to start")
 	}
 }
 
