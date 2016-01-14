@@ -391,24 +391,23 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    try:
-        client.enable_container_address_allocation()
-        with bs_manager.top_context() as machines:
-            bootstrap_required = True
-            if args.clean_environment and clean_environment(client):
-                bootstrap_required = False
-            if bootstrap_required:
-                with bs_manager.bootstrap_context(machines):
-                    client.bootstrap(args.upload_tools)
-            with bs_manager.runtime_context(machines):
-                assess_container_networking(client, args.machine_type)
-            if args.clean_environment and not clean_environment(client):
-                return 1
-    except Exception as e:
-        # TODO(gz): Do we actually want to trap here? What's the harm in
-        #           propogating as bs_manager ensures we get logs anyway?
-        log.exception(e)
-        return 1
+    client.enable_container_address_allocation()
+    # TODO(gz): Having to manipulate client env state here to get the temp env
+    #           is ugly, would ideally be captured in an explicit scope.
+    update_env(client.env, bs_manager.temp_env_name, series=bs_manager.series,
+               agent_url=bs_manager.agent_url,
+               agent_stream=bs_manager.agent_stream, region=bs_manager.region)
+    with bs_manager.top_context() as machines:
+        bootstrap_required = True
+        if args.clean_environment and clean_environment(client):
+            bootstrap_required = False
+        if bootstrap_required:
+            with bs_manager.bootstrap_context(machines):
+                client.bootstrap(args.upload_tools)
+        with bs_manager.runtime_context(machines):
+            assess_container_networking(client, args.machine_type)
+        if args.clean_environment and not clean_environment(client):
+            return 1
     return 0
 
 

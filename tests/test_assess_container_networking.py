@@ -396,7 +396,8 @@ class TestMain(FakeHomeTestCase):
 
     @contextmanager
     def patch_main(self, argv, client, log_level, debug=False):
-        env = object()
+        env = SimpleEnvironment(argv[0], {"type": "ec2"})
+        client.env = env
         with patch("assess_container_networking.configure_logging",
                    autospec=True) as mock_cl:
             with patch("jujupy.SimpleEnvironment.from_config",
@@ -440,7 +441,7 @@ class TestMain(FakeHomeTestCase):
     def test_clean_existing_env(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
-        client = Mock(spec=["enable_container_address_allocation",
+        client = Mock(spec=["enable_container_address_allocation", "env",
                             "get_status", "is_jes_enabled", "wait_for",
                             "wait_for_started"])
         client.get_status.return_value = Status.from_text("""
@@ -454,6 +455,7 @@ class TestMain(FakeHomeTestCase):
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
         client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 0)
         mock_assess.assert_called_once_with(client, None)
@@ -463,7 +465,7 @@ class TestMain(FakeHomeTestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
         client = Mock(spec=["bootstrap", "enable_container_address_allocation",
-                            "get_status", "is_jes_enabled", "wait_for",
+                            "env", "get_status", "is_jes_enabled", "wait_for",
                             "wait_for_started"])
         client.get_status.side_effect = [
             Exception("Timeout"),
@@ -479,6 +481,7 @@ class TestMain(FakeHomeTestCase):
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
         client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual(
             "INFO Could not clean existing env: Timeout\n",
