@@ -224,6 +224,12 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
+	if err != nil {
+		// The log writer might be registerd by this same suite
+		// lets make sure.
+		_ = logsender.UninstallBufferedLogWriter()
+		logsCh, err = logsender.InstallBufferedLogWriter(1024)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := MachineAgentFactoryFn(
 		&agentConf, logsCh, &mockLoopDeviceManager{}, c.MkDir(),
@@ -791,9 +797,7 @@ func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupport
 	s.testAddresserNewWorkerResult(c, true)
 }
 
-func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
+func (s *MachineSuite) TestManageEnvironRunsDbLogPruner(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -801,19 +805,6 @@ func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *g
 
 	runner := s.singularRecord.nextRunner(c)
 	runner.waitForWorker(c, "dblogpruner")
-}
-
-func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	// Wait for the txnpruner to be started. This is started just after
-	// dblogpruner would be started.
-	runner := s.singularRecord.nextRunner(c)
-	started := set.NewStrings(runner.waitForWorker(c, "txnpruner")...)
-	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {

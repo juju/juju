@@ -102,14 +102,10 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	jar := apitesting.NewClearableCookieJar()
 	client := s.OpenAPI(c, nil, jar)
 
-	// Ensure that the discharger won't discharge and try
-	// logging in again. We should succeed in getting past
-	// authorization because we have the cookies (but
-	// the actual debug-log endpoint will return an error
-	// because there's no all-machines.log file).
 	dischargeError = true
-	conn, err := client.ConnectStream("/log", nil)
-	c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
+	conn, err := client.ConnectStream("/logfail", nil)
+	//c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
+	c.Assert(err, gc.ErrorMatches, "websocket.Dial .*")
 	c.Assert(conn, gc.Equals, nil)
 
 	// Then delete all the cookies by deleting the cookie jar

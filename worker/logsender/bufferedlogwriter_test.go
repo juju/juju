@@ -166,19 +166,6 @@ func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to uninstall log buffering: .+")
 }
 
-func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
-	logsCh, err := logsender.InstallBufferedLogWriter(10)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(logsCh, gc.IsNil)
-}
-
-func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriterNoFeatureFlag(c *gc.C) {
-	err := logsender.UninstallBufferedLogWriter()
-	// With the feature flag, uninstalling without first installing
-	// would result in an error.
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *bufferedLogWriterSuite) writeAndReceive(c *gc.C) {
 	now := time.Now()
 	s.writer.Write(loggo.INFO, "module", "filename", 99, now, "message")

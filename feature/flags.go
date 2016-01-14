@@ -4,10 +4,6 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
-import (
-	"github.com/juju/utils/featureflag"
-)
-
 // TODO (anastasiamac 2015-03-02)
 // Features that have commands that can be blocked,
 // command list for "juju block" and "juju unblock"
@@ -49,12 +45,6 @@ const PostNetCLIMVP = "post-net-cli-mvp"
 // dbLog indicates that Juju's logs go to MongoDB. It is not exported
 // because it should be checked for using IsDbLogEnabled.
 const dbLog = "db-log"
-
-// IsDbLogEnabled returns true if logging to MongoDB should be enabled
-// based on the dbLog or JES feature flags.
-func IsDbLogEnabled() bool {
-	return featureflag.Enabled(dbLog) || featureflag.Enabled(JES)
-}
 
 // DisableRsyslog will stop the writing of the rsyslog accumulation and
 // forwarding configuration files by stopping the rsyslog workers.

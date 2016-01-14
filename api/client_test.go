@@ -381,15 +381,6 @@ func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
-func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	// Shows both the unmarshalling of a real error, and
-	// that the api server is connected.
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
-	c.Assert(reader, gc.IsNil)
-}
-
 func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	reader, err := s.APIState.ConnectStream("foo", nil)
 	c.Assert(err, gc.ErrorMatches, `path must start with "/"`)
