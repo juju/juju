@@ -136,9 +136,11 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("1"),
+				CIDR:              "192.168.1.0/24",
 				AvailabilityZones: []string{"zone1"},
 			}, {
 				ProviderId:        network.Id("2"),
+				CIDR:              "192.168.2.0/24",
 				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		Name:       "another-foo-99",
@@ -146,6 +148,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("3"),
+				CIDR:              "192.168.3.0/24",
 				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		Name:       "foo-2",
@@ -153,6 +156,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("4"),
+				CIDR:              "192.168.4.0/24",
 				AvailabilityZones: []string{"zone1"},
 			}}}, {
 		Name:       "empty",
@@ -160,6 +164,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		Subnets: []network.SubnetInfo{
 			{
 				ProviderId:        network.Id("5"),
+				CIDR:              "192.168.5.0/24",
 				AvailabilityZones: []string{"zone1"},
 			}}}}
 	expectedSpaceMap := make(map[string]network.SpaceInfo)
@@ -170,5 +175,14 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		expected, ok := expectedSpaceMap[space.Name()]
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(space.ProviderId(), gc.Equals, expected.ProviderId)
+		subnets, err := space.Subnets()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(len(subnets), gc.Equals, len(expected.Subnets))
+		for i, subnet := range subnets {
+			expectedSubnet := expected.Subnets[i]
+			c.Assert(subnet.ProviderId(), gc.Equals, expectedSubnet.ProviderId)
+			c.Assert([]string{subnet.AvailabilityZone()}, jc.DeepEquals, expectedSubnet.AvailabilityZones)
+			c.Assert(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
+		}
 	}
 }
