@@ -129,7 +129,6 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		}
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
 		ProviderId: network.Id("foo"),
@@ -185,4 +184,46 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			c.Assert(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
+}
+
+func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	s.startWorker()
+	var err error
+	var spaces []*state.Space
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err = s.State.AllSpaces()
+		if err != nil {
+			break
+		}
+		if len(spaces) == 4 {
+			// All spaces have been created.
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("spaces not imported")
+		}
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	newWorker := discoverspaces.NewWorker(s.API)
+
+	// This ensures that the worker can handle re-importing without error.
+	defer func() {
+		c.Assert(worker.Stop(newWorker), jc.ErrorIsNil)
+	}()
+
+	// Check that no extra spaces are imported.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err = s.State.AllSpaces()
+		if err != nil {
+			break
+		}
+		if len(spaces) != 4 {
+			c.Fatalf("unexpected number of spaces: %v", len(spaces))
+		}
+		if !a.HasNext() {
+			break
+		}
+	}
+
 }
