@@ -39,3 +39,6 @@ const DisableRsyslog = "disable-rsyslog"
 
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"
+
+// ImageMetadata allows custom image metadata to be recorded in state.
+const ImageMetadata = "image-metadata"
