@@ -27,26 +27,28 @@ type UserArgs struct {
 
 func NewUser(args UserArgs) User {
 	u := &user{
-		Name_:           args.Name.Canonical(),
-		DisplayName_:    args.DisplayName,
-		CreatedBy_:      args.CreatedBy.Canonical(),
-		DateCreated_:    args.DateCreated.Format(time.RFC3339Nano),
-		ReadOnly_:       args.ReadOnly,
+		Name_:        args.Name.Canonical(),
+		DisplayName_: args.DisplayName,
+		CreatedBy_:   args.CreatedBy.Canonical(),
+		DateCreated_: args.DateCreated,
+		ReadOnly_:    args.ReadOnly,
 	}
-	empty:=time.Time{}
-	if args.LastConnection != empty {
-		u.LastConnection_ = args.LastConnection.Format(time.RFC3339Nano)
+	if !args.LastConnection.IsZero() {
+		value := args.LastConnection
+		u.LastConnection_ = &value
 	}
 	return u
 }
 
 type user struct {
-	Name_           string    `yaml:"name"`
-	DisplayName_    string    `yaml:"display-name"`
-	CreatedBy_      string    `yaml:"created-by"`
-	DateCreated_    string `yaml:"date-created"`
-	LastConnection_ string `yaml:"last-connection,omitempty"`
-	ReadOnly_       bool      `yaml:"read-only,omitempty"`
+	Name_        string    `yaml:"name"`
+	DisplayName_ string    `yaml:"display-name,omitempty"`
+	CreatedBy_   string    `yaml:"created-by"`
+	DateCreated_ time.Time `yaml:"date-created"`
+	// Can't use omitempty with time.Time, it just doesn't work,
+	// so use a pointer in the struct.
+	LastConnection_ *time.Time `yaml:"last-connection,omitempty"`
+	ReadOnly_       bool       `yaml:"read-only,omitempty"`
 }
 
 func (u *user) Name() names.UserTag {
@@ -66,10 +68,11 @@ func (u *user) DateCreated() time.Time {
 }
 
 func (u *user) LastConnection() time.Time {
-	if u.LastConnection_ != "" {
-
+	var zero time.Time
+	if u.LastConnection_ == nil {
+		return zero
 	}
-	return time.Time{}
+	return *u.LastConnection_
 }
 
 func (u *user) ReadOnly() bool {
@@ -116,20 +119,22 @@ var userDeserializationFuncs = map[int]userDeserializationFunc{
 }
 
 func importUserV1(source map[string]interface{}) (*user, error) {
-	result := &user{}
-
 	fields := schema.Fields{
-		"name":         schema.String(),
-		"display-name":         schema.String(),
-		"created-by":         schema.String(),
-		"read-only": schema.Bool(),
+		"name":            schema.String(),
+		"display-name":    schema.String(),
+		"created-by":      schema.String(),
+		"read-only":       schema.Bool(),
+		"date-created":    SchemaTime(),
+		"last-connection": SchemaTime(),
 	}
 
-	DateCreated_    time.Time `yaml:"date-created"`
-	LastConnection_ time.Time `yaml:"last-connection"`
-
-	checker := schema.FieldMap(fields, nil) // no defaults
-
+	// Some values don't have to be there.
+	defaults := schema.Defaults{
+		"display-name":    "",
+		"last-connection": time.Time{},
+		"read-only":       false,
+	}
+	checker := schema.FieldMap(fields, defaults)
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "user v1 schema check failed")
@@ -138,13 +143,18 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	result.Id_ = valid["id"].(string)
-	userList := valid["containers"].([]interface{})
-	users, err := importUserList(userList, importUserV1)
-	if err != nil {
-		return nil, errors.Annotatef(err, "containers")
+	result := &user{
+		Name_:        valid["name"].(string),
+		DisplayName_: valid["display-name"].(string),
+		CreatedBy_:   valid["created-by"].(string),
+		DateCreated_: valid["date-created"].(time.Time),
+		ReadOnly_:    valid["read-only"].(bool),
 	}
-	result.Containers_ = users
+
+	lastConn := valid["last-connection"].(time.Time)
+	if !lastConn.IsZero() {
+		result.LastConnection_ = &lastConn
+	}
 
 	return result, nil
 
