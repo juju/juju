@@ -3,19 +3,13 @@
 
 package server
 
-// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
-
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource/api"
 )
 
@@ -54,7 +48,7 @@ func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, err
 func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	st, tag, err := h.Connect(req)
 	if err != nil {
-		sendHTTPError(resp, err)
+		api.SendHTTPError(resp, err)
 		return
 	}
 
@@ -73,49 +67,12 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	case "PUT":
 		logger.Infof("handling resource upload request")
 		if err := h.HandleUpload(username, st, req); err != nil {
-			sendHTTPError(resp, err)
+			api.SendHTTPError(resp, err)
 			return
 		}
-
-		// TODO(ericsnow) Clean this up.
-		body := "success"
-		resp.Header().Set("Content-Type", api.ContentTypeJSON)
-		resp.Header().Set("Content-Length", fmt.Sprint(len(body)))
-		resp.WriteHeader(http.StatusOK)
-		resp.Write([]byte(body))
-
+		api.SendHTTPStatusAndJSON(resp, http.StatusOK, "success")
 		logger.Infof("resource upload request successful")
 	default:
-		sendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
-}
-
-// TODO(ericsnow) There are copied from apiserver/httpcontext.go...
-
-// sendHTTPError sends a JSON-encoded error response
-// for errors encountered during processing.
-func sendHTTPError(w http.ResponseWriter, err error) {
-	err1, statusCode := common.ServerErrorAndStatus(err)
-	logger.Debugf("sending error: %d %v", statusCode, err1)
-	sendHTTPStatusAndJSON(w, statusCode, &params.ErrorResult{
-		Error: err1,
-	})
-}
-
-// sendStatusAndJSON sends an HTTP status code and
-// a JSON-encoded response to a client.
-func sendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
-	body, err := json.Marshal(response)
-	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
-	}
-
-	if statusCode == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	}
-	w.Header().Set("Content-Type", params.ContentTypeJSON)
-	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-	w.WriteHeader(statusCode)
-	w.Write(body)
 }

@@ -149,11 +149,11 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
 	s.stub.CheckCall(c, 4, "WriteHeader", http.StatusOK)
-	s.stub.CheckCall(c, 5, "Write", "success")
+	s.stub.CheckCall(c, 5, "Write", `"success"`)
 	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
-		"Content-Length": []string{"7"},
+		"Content-Length": []string{"9"},
 	})
 }
 
