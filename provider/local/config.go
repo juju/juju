@@ -77,7 +77,7 @@ var (
 	configDefaults = schema.Defaults{
 		RootDirKey:       "",
 		NetworkBridgeKey: "",
-		ContainerKey:     string(instance.LXC),
+		ContainerKey:     string(instance.LXD),
 		BootstrapIpKey:   schema.Omit,
 		NamespaceKey:     "",
 	}
