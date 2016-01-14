@@ -77,16 +77,11 @@ class MultiIndustrialTest:
 
     @classmethod
     def from_args(cls, args, suite):
-        config = SimpleEnvironment.from_config(args.env).config
-        stages = cls.get_stages(suite, config)
+        stages = suites[suite]
         return cls(args.env, args.new_juju_path,
                    stages, args.log_dir, args.attempts, args.attempts * 2,
                    args.new_agent_url, args.debug, args.old_stable,
                    args.agent_stream)
-
-    @staticmethod
-    def get_stages(suite, config):
-        return suites[suite]
 
     def __init__(self, env, new_juju_path, stages, log_dir, attempt_count=2,
                  max_attempts=1, new_agent_url=None, debug=False,
@@ -986,7 +981,7 @@ def run_single(args):
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
     for suite in args.suite:
-        factory = MultiIndustrialTest.get_stages(suite, env.config)
+        factory = suites[suite]
         upgrade_sequence = [upgrade_client.full_path, client.full_path]
         suite = factory.factory(upgrade_sequence, args.log_dir,
                                 args.agent_stream)

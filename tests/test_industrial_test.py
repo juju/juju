@@ -390,39 +390,6 @@ class TestMultiIndustrialTest(TestCase):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
             self.assertEqual(mit.agent_stream, 'foo-stream')
 
-    def test_get_stages(self):
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(QUICK, {'type': 'foo'}),
-            AttemptSuiteFactory([]))
-
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                FULL, {'type': 'foo'}), AttemptSuiteFactory([
-                    UpgradeCharmAttempt, DeployManyAttempt,
-                    BackupRestoreAttempt, EnsureAvailabilityAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                DENSITY, {'type': 'foo'}), AttemptSuiteFactory([
-                    DeployManyAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                BACKUP, {'type': 'foo'}), AttemptSuiteFactory([
-                    BackupRestoreAttempt]))
-
-    def test_get_stages_maas(self):
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(QUICK, {'type': 'maas'}),
-            AttemptSuiteFactory([]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                FULL, {'type': 'maas'}), AttemptSuiteFactory([
-                    UpgradeCharmAttempt, DeployManyAttempt,
-                    BackupRestoreAttempt, EnsureAvailabilityAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                DENSITY, {'type': 'maas'}), AttemptSuiteFactory([
-                    DeployManyAttempt]))
-
     def test_density_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
