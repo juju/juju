@@ -127,14 +127,14 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 func (s *MigrationSuite) TestEnvironmentDocFields(c *gc.C) {
 	fields := set.NewStrings(
-		// uuid and name are constructed from the model config
+		// UUID and Mame are constructed from the model config.
 		"UUID",
 		"Name",
-		// life will always be alive, or we won't be migrating
+		// Life will always be alive, or we won't be migrating.
 		"Life",
 		"Owner",
 		"LatestAvailableTools",
-		// server uuid is recreated when the new model is created in the
+		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
 		// Both of the times for dying and death are empty as the model
