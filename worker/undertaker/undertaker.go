@@ -13,6 +13,7 @@ import (
 
 	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 )
 
@@ -52,6 +53,21 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker
 			// Nothing to do. We don't remove environment docs for a state server
 			// environment.
 			return nil
+		}
+
+		cfg, err := client.EnvironConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		env, err := environs.New(cfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = env.Destroy()
+		if err != nil {
+			return errors.Trace(err)
 		}
 
 		tod := clock.Now()

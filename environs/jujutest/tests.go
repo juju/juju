@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -26,7 +27,7 @@ import (
 type Tests struct {
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
-
+	sstesting.TestDataSuite
 	// ConfigStore holds the configuration storage
 	// used when preparing the environment.
 	// This is initialized by SetUpTest.

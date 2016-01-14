@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
 )
@@ -20,21 +19,12 @@ import (
 // Imlementation of InstanceBroker: methods for starting and stopping instances.
 //
 
-var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
-
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, err
-	}
-
-	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
-	if err != nil {
-		return nil, err
-	}
+var findInstanceImage = func(
+	matchingImages []*imagemetadata.ImageMetadata,
+) (*imagemetadata.ImageMetadata, error) {
 	if len(matchingImages) == 0 {
 		return nil, errors.New("no matching image meta data")
 	}
-
 	return matchingImages[0], nil
 }
 
@@ -63,13 +53,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("tools not found")
 	}
 
-	region, _ := env.Region()
-	img, err := findInstanceImage(env, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: region,
-		Series:    args.Tools.AllSeries(),
-		Arches:    args.Tools.Arches(),
-		Stream:    env.Config().ImageStream(),
-	}))
+	img, err := findInstanceImage(args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}
