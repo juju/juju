@@ -60,7 +60,6 @@ func NewSuperCommand() cmd.Command {
 		metadatacmd.Register(newAddImageMetadataCommand())
 		metadatacmd.Register(newDeleteImageMetadataCommand())
 	}
-
 	return metadatacmd
 }
 
