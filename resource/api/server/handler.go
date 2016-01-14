@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource/api"
 )
 
 // TODO(ericsnow) Define the HTTPHandlerConstraints here? Perhaps
@@ -78,7 +79,7 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 
 		// TODO(ericsnow) Clean this up.
 		body := "success"
-		resp.Header().Set("Content-Type", "application/json")
+		resp.Header().Set("Content-Type", api.ContentTypeJSON)
 		resp.Header().Set("Content-Length", fmt.Sprint(len(body)))
 		resp.WriteHeader(http.StatusOK)
 		resp.Write([]byte(body))

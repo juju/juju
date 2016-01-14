@@ -41,6 +41,14 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 	return service, name
 }
 
+const (
+	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
+	ContentTypeRaw = "application/octet-stream"
+
+	// ContentTypeJSON is the HTTP content-type value used for JSON content.
+	ContentTypeJSON = "application/json"
+)
+
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
 func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
 	sizer := utils.NewSizingReader(r)
@@ -61,7 +69,7 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 		return nil, errors.Trace(err)
 	}
 
-	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-Type", ContentTypeRaw)
 	req.Header.Set("Content-Sha384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(size))
 	req.ContentLength = size
@@ -78,7 +86,7 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	}
 
 	ctype := req.Header.Get("Content-Type")
-	if ctype != "application/octet-stream" {
+	if ctype != ContentTypeRaw {
 		return "", "", 0, fp, errors.Errorf("unsupported content type %q", ctype)
 	}
 
