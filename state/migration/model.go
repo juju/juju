@@ -4,7 +4,9 @@
 package migration
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/version"
 )
@@ -55,6 +57,7 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
+	Users_    users    `yaml:"users"`
 	Machines_ machines `yaml:"machines"`
 
 	// TODO: add extra entities, but initially focus on Machines.
@@ -63,11 +66,6 @@ type model struct {
 	// Spaces
 	// Storage
 
-}
-
-type machines struct {
-	Version   int        `yaml:"version"`
-	Machines_ []*machine `yaml:"machines"`
 }
 
 func (m *model) Tag() names.EnvironTag {
@@ -94,6 +92,21 @@ func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
 }
 
+func (m *model) Users() []User {
+	var result []User
+	for _, user := range m.Users_.Users_ {
+		result = append(result, user)
+	}
+	return result
+}
+
+func (m *model) setUsers(userList []*user) {
+	m.Users_ = users{
+		Version: 1,
+		Users_:  userList,
+	}
+}
+
 func (m *model) Machines() []Machine {
 	var result []Machine
 	for _, machine := range m.Machines_.Machines_ {
@@ -109,19 +122,78 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
-type machine struct {
-	Id_         string     `yaml:"id"`
-	Containers_ []*machine `yaml:"containers"`
-}
-
-func (m *machine) Id() names.MachineTag {
-	return names.NewMachineTag(m.Id_)
-}
-
-func (m *machine) Containers() []Machine {
-	var result []Machine
-	for _, container := range m.Containers_ {
-		result = append(result, container)
+// importModel constructs a new Model from a map that in normal usage situations
+// will be the result of interpreting a large YAML document.
+//
+// This method is a package internal serialisation method.
+func importModel(source map[string]interface{}) (*model, error) {
+	version, err := getVersion(source)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return result
+
+	importFunc, ok := modelDeserializationFuncs[version]
+	if !ok {
+		return nil, errors.NotValidf("version %d", version)
+	}
+
+	return importFunc(source)
+}
+
+type modelDeserializationFunc func(map[string]interface{}) (*model, error)
+
+var modelDeserializationFuncs = map[int]modelDeserializationFunc{
+	1: importModelV1,
+}
+
+func importModelV1(source map[string]interface{}) (*model, error) {
+	result := &model{Version: 1}
+
+	fields := schema.Fields{
+		"owner":        schema.String(),
+		"config":       schema.StringMap(schema.Any()),
+		"latest-tools": schema.String(),
+		"users":        schema.StringMap(schema.Any()),
+		"machines":     schema.StringMap(schema.Any()),
+	}
+	// Some values don't have to be there.
+	defaults := schema.Defaults{
+		"latest-tools": schema.Omit,
+	}
+	checker := schema.FieldMap(fields, defaults)
+
+	coerced, err := checker.Coerce(source, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "model v1 schema check failed")
+	}
+	valid := coerced.(map[string]interface{})
+	// From here we know that the map returned from the schema coercion
+	// contains fields of the right type.
+
+	result.Owner_ = valid["owner"].(string)
+	result.Config_ = valid["config"].(map[string]interface{})
+
+	if availableTools, ok := valid["latest-tools"]; ok {
+		num, err := version.Parse(availableTools.(string))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.LatestToolsVersion_ = num
+	}
+
+	userMap := valid["users"].(map[string]interface{})
+	users, err := importUsers(userMap)
+	if err != nil {
+		return nil, errors.Annotatef(err, "users")
+	}
+	result.setUsers(users)
+
+	machineMap := valid["machines"].(map[string]interface{})
+	machines, err := importMachines(machineMap)
+	if err != nil {
+		return nil, errors.Annotatef(err, "machines")
+	}
+	result.setMachines(machines)
+
+	return result, nil
 }
