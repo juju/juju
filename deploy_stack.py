@@ -615,6 +615,7 @@ class BootstrapManager:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
+            # avoid logging GeneratorExit
             except GeneratorExit:
                 raise
             except BaseException as e:
