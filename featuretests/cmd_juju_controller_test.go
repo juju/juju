@@ -204,7 +204,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 	c.Check(strippedOut, gc.Equals, expected)
 }
 
-func (s *cmdSystemSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
+func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "foo",
 	})
@@ -229,7 +229,7 @@ func (s *cmdSystemSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.
 	_, err = store.ReadInfo("dummyenv")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "kill", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummyenv", "-y")
 
 	// Ensure that Destroy was called on the hosted environment ...
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
