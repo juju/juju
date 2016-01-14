@@ -1,7 +1,10 @@
 # coding=utf-8
 from argparse import Namespace
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import (
+    closing,
+    contextmanager,
+    )
 import os
 from tempfile import (
     mkdtemp,
@@ -164,6 +167,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.new_juju_path, 'new-juju')
         self.assertEqual(args.log_dir, 'log-dir')
         self.assertEqual(args.suite, [QUICK])
+        self.assertIs(args.agent_stream, None)
 
     def test_parse_args_attempts(self):
         args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
@@ -221,6 +225,13 @@ class TestParseArgs(TestCase):
         args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
         self.assertIs(args.old_stable, None)
 
+    def test_parse_args_agent_stream(self):
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir',
+                           '--agent-stream', 'asdf'])
+        self.assertEqual(args.agent_stream, 'asdf')
+        args = parse_args(['rai', 'new-juju', QUICK, 'log-dir'])
+        self.assertIs(args.old_stable, None)
+
 
 class FakeStepAttempt:
 
@@ -265,7 +276,7 @@ class FakeAttemptClass:
     normal methods on FakeAttemptClass.
     """
 
-    def factory(self, upgrade_sequence):
+    def factory(self, upgrade_sequence, attempt_stream):
         return self()
 
     def __init__(self, title, *result, **kwargs):
@@ -301,7 +312,7 @@ class TestMultiIndustrialTest(TestCase):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=[DENSITY],
             log_dir='log-dir', new_agent_url=None, debug=False,
-            old_stable=None)
+            old_stable=None, agent_stream=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, QUICK)
         self.assertEqual(mit.env, 'foo')
@@ -309,12 +320,13 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 7)
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(mit.log_parent_dir, 'log-dir')
+        self.assertIs(mit.agent_stream, None)
         self.assertEqual(
             mit.stages, AttemptSuiteFactory([]))
         args = Namespace(
             env='bar', new_juju_path='new-path2', attempts=6, suite=[FULL],
             log_dir='log-dir2', new_agent_url=None, debug=False,
-            old_stable=None)
+            old_stable=None, agent_stream=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertEqual(mit.env, 'bar')
@@ -322,6 +334,7 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 6)
         self.assertEqual(mit.max_attempts, 12)
         self.assertEqual(mit.log_parent_dir, 'log-dir2')
+        self.assertIs(mit.agent_stream, None)
         self.assertEqual(
             mit.stages, AttemptSuiteFactory([
                 UpgradeCharmAttempt, DeployManyAttempt,
@@ -330,7 +343,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_maas(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', log_dir='log-dir',
-            attempts=7, new_agent_url=None, debug=False, old_stable=None)
+            attempts=7, new_agent_url=None, debug=False, old_stable=None,
+            agent_stream=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
         self.assertEqual(
@@ -339,7 +353,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_debug(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', log_dir='log-dir',
-            attempts=7, new_agent_url=None, debug=False, old_stable=None)
+            attempts=7, new_agent_url=None, debug=False, old_stable=None,
+            agent_stream=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
             self.assertEqual(mit.debug, False)
@@ -351,16 +366,29 @@ class TestMultiIndustrialTest(TestCase):
         args = Namespace(
             env='foo', new_juju_path='new-path', log_dir='log-dir',
             attempts=7, new_agent_url=None, debug=False,
-            old_stable='really-old-path')
+            old_stable='really-old-path', agent_stream=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertEqual(mit.really_old_path, 'really-old-path')
         args = Namespace(
             env='bar', new_juju_path='new-path2', log_dir='log-dir',
-            attempts=6, new_agent_url=None, debug=False, old_stable=None)
+            attempts=6, new_agent_url=None, debug=False, old_stable=None,
+            agent_stream=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args, FULL)
         self.assertIs(mit.really_old_path, None)
+
+    def test_from_args_agent_stream(self):
+        args = Namespace(
+            env='foo', new_juju_path='new-path', log_dir='log-dir',
+            attempts=7, new_agent_url=None, debug=False, old_stable=None,
+            agent_stream='foo-stream')
+        with temp_env('foo', {'type': 'maas'}):
+            mit = MultiIndustrialTest.from_args(args, DENSITY)
+            self.assertEqual(mit.debug, False)
+            args.debug = True
+            mit = MultiIndustrialTest.from_args(args, DENSITY)
+            self.assertEqual(mit.agent_stream, 'foo-stream')
 
     def test_get_stages(self):
         self.assertEqual(
@@ -399,7 +427,7 @@ class TestMultiIndustrialTest(TestCase):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
             log_dir='log-dir', new_agent_url=None, debug=False,
-            old_stable=None)
+            old_stable=None, agent_stream=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
         self.assertEqual(
@@ -409,7 +437,7 @@ class TestMultiIndustrialTest(TestCase):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
             log_dir='log-dir', new_agent_url=None, debug=False,
-            old_stable=None)
+            old_stable=None, agent_stream=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, BACKUP)
         self.assertEqual(
@@ -419,7 +447,7 @@ class TestMultiIndustrialTest(TestCase):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
             log_dir='log-dir', new_agent_url='http://example.net',
-            debug=False, old_stable=None)
+            debug=False, old_stable=None, agent_stream=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args, suite=QUICK)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
@@ -872,7 +900,7 @@ class TestIndustrialTest(JujuPyTestCase):
             FakeAttemptClass('foo', False, True, new_path='bar-path'),
             FakeAttemptClass('bar', True, True, new_path='bar-path')])
         log_dir = use_context(self, temp_dir())
-        suite = suite_factory.factory([], log_dir)
+        suite = suite_factory.factory([], log_dir, None)
         industrial = IndustrialTest(old_client, new_client, [suite])
         with patch('industrial_test.BootstrapManager',
                    fake_bootstrap_manager):
@@ -891,7 +919,7 @@ class TestIndustrialTest(JujuPyTestCase):
         suite_factory = AttemptSuiteFactory([
             FakeAttemptClass('foo', True, False, new_path='bar-path'),
             FakeAttemptClass('bar', True, True, new_path='bar-path')])
-        suite = suite_factory.factory([], log_dir)
+        suite = suite_factory.factory([], log_dir, None)
         industrial = IndustrialTest(old_client, new_client, [suite])
         with patch('industrial_test.BootstrapManager',
                    fake_bootstrap_manager):
@@ -909,7 +937,8 @@ class TestIndustrialTest(JujuPyTestCase):
         log_dir = use_context(self, temp_dir())
         suite = AttemptSuiteFactory([
             FakeAttemptClass('foo', False, False),
-            FakeAttemptClass('bar', True, True)]).factory([], log_dir)
+            FakeAttemptClass('bar', True, True)]).factory([], log_dir,
+                                                          'foo-stream')
         industrial = IndustrialTest(old_client, new_client, [suite])
         with patch('industrial_test.BootstrapManager',
                    fake_bootstrap_manager):
@@ -968,7 +997,7 @@ class TestIndustrialTest(JujuPyTestCase):
         new_client = FakeJujuClient()
         attempt = FakeStepAttempt.from_result(True, True)
         log_dir = use_context(self, temp_dir())
-        suite = AttemptSuiteFactory([attempt]).factory([], log_dir)
+        suite = AttemptSuiteFactory([attempt]).factory([], log_dir, None)
         industrial = IndustrialTest(old_client, new_client,
                                     [suite])
 
@@ -1145,7 +1174,7 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             def __init__(self):
                 super(StubSA, self).__init__()
 
-        self.assertIs(type(StubSA.factory(['a', 'b', 'c'])), StubSA)
+        self.assertIs(type(StubSA.factory(['a', 'b', 'c'], None)), StubSA)
 
     def test_get_test_info(self):
 
@@ -1199,10 +1228,11 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
-        with patch('subprocess.call') as mock_cc:
+        with patch.object(client, 'is_jes_enabled', return_value=False):
             with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
-                self.assertEqual(iterator.next(), {
-                    'test_id': 'destroy-env', 'result': True})
+                with patch('subprocess.call', return_value=0) as mock_cc:
+                    self.assertEqual(iterator.next(), {
+                        'test_id': 'destroy-env', 'result': True})
         gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, get_timeout_prefix(600) + (
             'juju', '--show-log', 'destroy-environment', 'steve', '-y'))
@@ -1215,10 +1245,38 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     def test_iter_test_results(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
-        with patch('subprocess.call'):
-            output = list(destroy_env.iter_test_results(client, client))
+        with patch('subprocess.call', return_value=0):
+            with patch.object(client, 'is_jes_enabled', return_value=False):
+                output = list(destroy_env.iter_test_results(client, client))
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
+
+    def test_iter_steps_failure(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        iterator = iter_steps_validate_info(self, destroy_env, client)
+        self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
+        with patch('subprocess.call', return_value=1) as mock_cc:
+            with patch.object(client, 'is_jes_enabled', return_value=False):
+                with patch.object(destroy_env,
+                                  'get_security_groups') as gsg_mock:
+                    self.assertEqual(iterator.next(), {
+                        'test_id': 'destroy-env', 'result': False})
+        gsg_mock.assert_called_once_with(client)
+        assert_juju_call(self, mock_cc, client, get_timeout_prefix(600) + (
+            'juju', '--show-log', 'destroy-environment', 'steve', '-y'))
+        with self.assertRaises(StopIteration):
+            iterator.next()
+
+    def test_iter_steps_kill_controller(self):
+        client = FakeJujuClient(jes_enabled=True)
+        destroy_env = DestroyEnvironmentAttempt()
+        iterator = iter_steps_validate_info(self, destroy_env, client)
+        with closing(iterator):
+            self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
+            self.assertEqual(iterator.next(), {
+                'test_id': 'destroy-env', 'result': True})
+        self.assertEqual('controller-killed', client._backing_state.state)
 
     @staticmethod
     def get_aws_client():
@@ -1670,21 +1728,22 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
 class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_factory(self):
-        uj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        uj_attempt = PrepareUpgradeJujuAttempt.factory(
+            ['a', 'b', 'c'], None)
         self.assertIs(type(uj_attempt), PrepareUpgradeJujuAttempt)
         self.assertEqual(uj_attempt.bootstrap_paths, {'b': 'a', 'c': 'b'})
 
     def test_factory_empty(self):
         with self.assertRaisesRegexp(
                 ValueError, 'Not enough paths for upgrade.'):
-            PrepareUpgradeJujuAttempt.factory(['a'])
+            PrepareUpgradeJujuAttempt.factory(['a'], None)
         with self.assertRaisesRegexp(
                 ValueError, 'Not enough paths for upgrade.'):
-            PrepareUpgradeJujuAttempt.factory([])
+            PrepareUpgradeJujuAttempt.factory([], None)
 
     def test_get_bootstrap_client(self):
         client = FakeJujuClient(full_path='c', debug=True)
-        puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'], None)
         bootstrap_client = puj_attempt.get_bootstrap_client(client)
         self.assertIsNot(bootstrap_client, client)
         self.assertIs(client.debug, bootstrap_client.debug)
@@ -1918,10 +1977,11 @@ class TestAttemptSuiteFactory(TestCase):
         fake_bootstrap = FakeAttemptClass('bootstrap')
         factory = AttemptSuiteFactory([],
                                       bootstrap_attempt=fake_bootstrap)
-        attempt_suite = factory.factory(['1', '2'], 'log-1')
+        attempt_suite = factory.factory(['1', '2'], 'log-1', 'foo-stream')
         self.assertEqual(factory, attempt_suite.attempt_list)
         self.assertEqual(['1', '2'], attempt_suite.upgrade_sequence)
         self.assertEqual('log-1', attempt_suite.log_dir)
+        self.assertEqual('foo-stream', attempt_suite.agent_stream)
 
     def test_get_test_info(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap')
@@ -1950,7 +2010,7 @@ class TestAttemptSuite(TestCase):
         fake_2 = FakeAttemptClass('fake-2')
         factory = AttemptSuiteFactory([fake_1, fake_2],
                                       bootstrap_attempt=fake_bootstrap)
-        attempt_suite = AttemptSuite(factory, None, None)
+        attempt_suite = AttemptSuite(factory, None, None, None)
         self.assertEqual(OrderedDict([
             ('fake-bootstrap-id', {'title': 'fake-bootstrap'}),
             ('prepare-suite', {'title': 'Prepare suite tests',
@@ -1963,24 +2023,41 @@ class TestAttemptSuite(TestCase):
                                  'report_on': True}),
             ]), attempt_suite.get_test_info())
 
+    @contextmanager
+    def iter_steps_cxt(self, attempt_suite):
+        with patch('industrial_test.BootstrapManager') as mock_bm:
+            with patch.object(attempt_suite,
+                              '_iter_bs_manager_steps') as mock_ibms:
+                with patch('industrial_test.make_log_dir',
+                           return_value='qux-1'):
+                    yield (mock_ibms, mock_bm)
+
     def test_iter_steps(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
-        with temp_dir() as log_dir:
-            factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
-            attempt_suite = AttemptSuite(factory, None, log_dir)
+        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, 'asdf', None)
+        with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
             client = FakeJujuClient()
-            with patch('industrial_test.BootstrapManager') as mock_bm:
-                with patch.object(attempt_suite,
-                                  '_iter_bs_manager_steps') as mock_ibms:
-                    iterator = attempt_suite.iter_steps(client)
-        self.assertEqual(iterator, mock_ibms.return_value)
+            attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
             bootstrap_host=None, jes_enabled=False, keep_env=True,
-            log_dir=os.path.join(log_dir, '0'), machines=[], permanent=False,
+            log_dir='qux-1', machines=[], permanent=False,
             region=None, series=None)
-        mock_ibms.assert_called_once_with(mock_bm.return_value, client,
-                                          fake_bootstrap(), False)
+
+    def test_iter_steps_agent_stream(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
+        with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
+            client = FakeJujuClient()
+            iterator = attempt_suite.iter_steps(client)
+        self.assertEqual(iterator, mock_ibms.return_value)
+        mock_bm.assert_called_once_with(
+            'name', client, client, agent_stream='bar-stream', agent_url=None,
+            bootstrap_host=None, jes_enabled=False, keep_env=True,
+            log_dir='qux-1', machines=[], permanent=False,
+            region=None, series=None)
 
     def test__iter_bs_manager_steps(self):
         fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
@@ -1988,7 +2065,7 @@ class TestAttemptSuite(TestCase):
         fake_2 = FakeAttemptClass('fake-2', '1', '2')
         factory = AttemptSuiteFactory([fake_1, fake_2],
                                       bootstrap_attempt=fake_bootstrap)
-        attempt_suite = AttemptSuite(factory, None, None)
+        attempt_suite = AttemptSuite(factory, None, None, None)
         client = FakeJujuClient()
         bs_manager = FakeBootstrapManager(client)
         steps = list(attempt_suite._iter_bs_manager_steps(
