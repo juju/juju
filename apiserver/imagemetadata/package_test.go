@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/names"
-	jtesting "github.com/juju/testing"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -72,7 +72,7 @@ const (
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 	return &mockState{
-		Stub: &jtesting.Stub{},
+		Stub: &gitjujutesting.Stub{},
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 			return nil, nil
 		},
@@ -89,7 +89,7 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 }
 
 type mockState struct {
-	*jtesting.Stub
+	*gitjujutesting.Stub
 
 	findMetadata   func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error

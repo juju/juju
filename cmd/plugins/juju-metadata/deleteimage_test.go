@@ -5,7 +5,7 @@ package main
 
 import (
 	"github.com/juju/errors"
-	jtesting "github.com/juju/testing"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -34,7 +34,7 @@ func (s *deleteImageSuite) SetUpTest(c *gc.C) {
 			s.deletedIds = append(s.deletedIds, imageId)
 			return nil
 		},
-		Stub: &jtesting.Stub{},
+		Stub: &gitjujutesting.Stub{},
 	}
 }
 
@@ -84,7 +84,7 @@ func (s *deleteImageSuite) assertDeleteImageMetadataErr(c *gc.C, errorMsg string
 }
 
 type mockDeleteAPI struct {
-	*jtesting.Stub
+	*gitjujutesting.Stub
 
 	delete func(imageId string) error
 }
