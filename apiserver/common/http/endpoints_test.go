@@ -4,6 +4,8 @@
 package http_test
 
 import (
+	stdhttp "net/http"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,9 +15,18 @@ import (
 
 type EndpointsSuite struct {
 	BaseSuite
+
+	resolvedHandler stdhttp.Handler
 }
 
 var _ = gc.Suite(&EndpointsSuite{})
+
+func (s *EndpointsSuite) resolveHandler(spec http.EndpointSpec, method string, unhandled stdhttp.Handler, newArgs func(http.HandlerConstraints) http.NewHandlerArgs) stdhttp.Handler {
+	s.stub.AddCall("resolveHandler", spec, method, unhandled, newArgs)
+	s.stub.NextErr() // Pop one off.
+
+	return s.resolvedHandler
+}
 
 func (s *EndpointsSuite) TestNewEndpoints(c *gc.C) {
 	endpoints := http.NewEndpoints()
@@ -262,7 +273,7 @@ func (s *EndpointsSuite) TestResolveDefaultIgnored(c *gc.C) {
 	hSpec := http.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec1, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL", "")
+	spec1, err := http.NewEndpointSpec("/spam", hSpec, "GET", "PUT", "DEL")
 	c.Assert(err, jc.ErrorIsNil)
 	err = reg.Add(spec1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -288,6 +299,8 @@ func (s *EndpointsSuite) TestResolveMissingNewHandler(c *gc.C) {
 	reg := http.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
+	reg.ResolveHandler = s.resolveHandler
+	s.resolvedHandler = unsupportedHandler
 	expected := http.Endpoint{
 		Pattern: "/spam",
 		Method:  "GET",
@@ -301,7 +314,9 @@ func (s *EndpointsSuite) TestResolveMissingNewHandler(c *gc.C) {
 
 	endpoints := reg.Resolve(s.newArgs)
 
-	s.stub.CheckCallNames(c, "newArgs", "newHandler")
+	s.stub.CheckCallNames(c,
+		"resolveHandler",
+	)
 	c.Check(endpoints, jc.DeepEquals, []http.Endpoint{
 		expected,
 	})
@@ -311,6 +326,8 @@ func (s *EndpointsSuite) TestResolveNoHandler(c *gc.C) {
 	reg := http.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
+	reg.ResolveHandler = s.resolveHandler
+	s.resolvedHandler = unsupportedHandler
 	expected := http.Endpoint{
 		Pattern: "/spam",
 		Method:  "GET",
@@ -326,7 +343,9 @@ func (s *EndpointsSuite) TestResolveNoHandler(c *gc.C) {
 
 	endpoints := reg.Resolve(s.newArgs)
 
-	s.stub.CheckCallNames(c, "newArgs", "newHandler")
+	s.stub.CheckCallNames(c,
+		"resolveHandler",
+	)
 	c.Check(endpoints, jc.DeepEquals, []http.Endpoint{
 		expected,
 	})
@@ -455,12 +474,14 @@ func (s *EndpointsSuite) TestResolveForMethodsUseDefault(c *gc.C) {
 	hSpec := http.HandlerSpec{
 		NewHandler: s.newHandler,
 	}
-	spec, err := http.NewEndpointSpec("/spam", hSpec, "GET", "HEAD", "PUT") // in a different order
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Add("", http.HandlerSpec{
+	spec, err := http.NewEndpointSpec("/spam", http.HandlerSpec{
 		NewHandler: s.newNewHandler(defaultHandler),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	for _, method := range []string{"GET", "HEAD", "PUT"} { // in a different order
+		err := spec.Add(method, hSpec)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = reg.Add(spec)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -472,7 +493,7 @@ func (s *EndpointsSuite) TestResolveForMethodsUseDefault(c *gc.C) {
 		"newArgs",
 		"newHandler",
 		"newArgs",
-		"newHandler",
+		"NewHandler",
 		"newArgs",
 		"newHandler",
 	)
@@ -484,6 +505,8 @@ func (s *EndpointsSuite) TestResolveForMethodsNoDefault(c *gc.C) {
 	reg := http.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
+	//reg.ResolveHandler = s.resolveHandler
+	//s.resolvedHandler = unsupportedHandler
 	var expected []http.Endpoint
 	for _, method := range methods {
 		expected = append(expected, http.Endpoint{
@@ -504,10 +527,12 @@ func (s *EndpointsSuite) TestResolveForMethodsNoDefault(c *gc.C) {
 	endpoints := reg.ResolveForMethods(methods, s.newArgs)
 
 	s.stub.CheckCallNames(c,
+		//"resolveHandler",
+		//"resolveHandler",
 		"newArgs",
 		"newHandler",
 		"newArgs",
-		"newHandler",
+		//"newHandler",
 	)
 	c.Check(endpoints, jc.DeepEquals, expected)
 }
@@ -549,6 +574,8 @@ func (s *EndpointsSuite) TestResolveForMethodsMissingNewHandler(c *gc.C) {
 	reg := http.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
+	reg.ResolveHandler = s.resolveHandler
+	s.resolvedHandler = unsupportedHandler
 	var expected []http.Endpoint
 	for _, method := range methods {
 		expected = append(expected, http.Endpoint{
@@ -566,10 +593,8 @@ func (s *EndpointsSuite) TestResolveForMethodsMissingNewHandler(c *gc.C) {
 	endpoints := reg.ResolveForMethods(methods, s.newArgs)
 
 	s.stub.CheckCallNames(c,
-		"newArgs",
-		"newHandler",
-		"newArgs",
-		"newHandler",
+		"resolveHandler",
+		"resolveHandler",
 	)
 	c.Check(endpoints, jc.DeepEquals, expected)
 }
@@ -579,6 +604,8 @@ func (s *EndpointsSuite) TestResolveForMethodsNoHandler(c *gc.C) {
 	reg := http.NewEndpoints()
 	unsupportedHandler := &nopHandler{id: "unsupported"}
 	reg.UnsupportedMethodHandler = unsupportedHandler
+	reg.ResolveHandler = s.resolveHandler
+	s.resolvedHandler = unsupportedHandler
 	var expected []http.Endpoint
 	for _, method := range methods {
 		expected = append(expected, http.Endpoint{
@@ -598,10 +625,8 @@ func (s *EndpointsSuite) TestResolveForMethodsNoHandler(c *gc.C) {
 	endpoints := reg.ResolveForMethods(methods, s.newArgs)
 
 	s.stub.CheckCallNames(c,
-		"newArgs",
-		"newHandler",
-		"newArgs",
-		"newHandler",
+		"resolveHandler",
+		"resolveHandler",
 	)
 	c.Check(endpoints, jc.DeepEquals, expected)
 }

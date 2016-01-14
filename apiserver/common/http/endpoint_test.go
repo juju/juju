@@ -27,7 +27,7 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecBasic(c *gc.C) {
 
 	s.stub.CheckNoCalls(c)
 	c.Check(spec.Pattern(), gc.Equals, "/spam")
-	c.Check(spec.Methods(), gc.Equals, []string{"GET", "PUT"})
+	c.Check(spec.Methods(), jc.DeepEquals, []string{"GET", "PUT"})
 	_, ok := spec.Default()
 	c.Check(ok, jc.IsFalse)
 }
@@ -43,9 +43,10 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecNoMethods(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 	c.Check(spec.Pattern(), gc.Equals, "/spam")
 	c.Check(spec.Methods(), gc.HasLen, 0)
-	dflt, ok := spec.Default()
+	_, ok := spec.Default()
 	c.Check(ok, jc.IsTrue)
-	c.Check(dflt, jc.DeepEquals, hSpec)
+	// We don't check the actual default because Go doesn't let us
+	// compare functions.
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecLowerCaseMethod(c *gc.C) {
@@ -57,7 +58,7 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecLowerCaseMethod(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(spec.Methods(), gc.Equals, []string{"GET"})
+	c.Check(spec.Methods(), jc.DeepEquals, []string{"GET"})
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecEmptyMethod(c *gc.C) {
@@ -80,7 +81,7 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecUnrecognizedMethod(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(spec.Methods(), gc.Equals, []string{"<NOT VALID>"})
+	c.Check(spec.Methods(), jc.DeepEquals, []string{"<NOT VALID>"})
 }
 
 func (s *EndpointSpecSuite) TestNewEndpointSpecTrailingSlash(c *gc.C) {
@@ -128,11 +129,8 @@ func (s *EndpointSpecSuite) TestNewEndpointSpecMissingNewHandler(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 	c.Check(spec.Pattern(), gc.Equals, "/spam")
 	c.Check(spec.Methods(), jc.DeepEquals, []string{"GET"})
-	dflt, ok := spec.Default()
-	c.Check(ok, jc.IsTrue)
-	c.Check(dflt, jc.DeepEquals, hSpec)
-	// We don't actually check the handler spec since we can't
-	// compare functions.
+	_, ok := spec.Default()
+	c.Check(ok, jc.IsFalse)
 }
 
 func (s *EndpointSpecSuite) TestAddOkay(c *gc.C) {
