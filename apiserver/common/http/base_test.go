@@ -61,6 +61,8 @@ type nopHandler struct {
 
 func (nopHandler) ServeHTTP(stdhttp.ResponseWriter, *stdhttp.Request) {}
 
+// TODO(ericsnow) Drop these...
+
 type httpHandlerSpec struct {
 	constraints http.HandlerConstraints
 	handler     stdhttp.Handler
