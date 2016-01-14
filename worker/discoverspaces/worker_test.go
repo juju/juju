@@ -74,7 +74,7 @@ func (s *workerSuite) TestConvertSpaceName(c *gc.C) {
 		{"", empty, "empty"},
 		{"foo\u2318", empty, "foo"},
 		{"foo--", empty, "foo"},
-		{"foo--foo----bar", empty, "foo-foo-bar"},
+		{"-foo--foo----bar-", empty, "foo-foo-bar"},
 		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
 		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
 		{"---", set.NewStrings("empty"), "empty-2"},
