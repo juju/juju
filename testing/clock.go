@@ -7,8 +7,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-
-	"github.com/juju/utils/clock"
 )
 
 // timerClock exposes the underlying Clock's capabilities to a Timer.
@@ -81,19 +79,6 @@ func (clock *Clock) After(d time.Duration) <-chan time.Time {
 		clock.setAlarm(clock.now.Add(d), func() { notify <- clock.now })
 	}
 	return notify
-}
-
-// AfterFunc is part of the clock.Clock interface.
-func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
-	defer clock.notifyAlarm()
-	clock.mu.Lock()
-	defer clock.mu.Unlock()
-	if d <= 0 {
-		f()
-		return &stoppedTimer{}
-	}
-	id := clock.setAlarm(clock.now.Add(d), f)
-	return &Timer{id, clock}
 }
 
 // Advance advances the result of Now by the supplied duration, and sends
