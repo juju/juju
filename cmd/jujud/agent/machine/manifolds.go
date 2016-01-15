@@ -6,6 +6,7 @@ package machine
 import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -60,6 +62,11 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+
+	// NewRsyslogConfigWorker is a function used by rsyslog. It creates and
+	// returns a new RsyslogConfigWorker based on the specified configuration
+	// parameters.
+	NewRsyslogConfigWorker func(*apirsyslog.State, coreagent.Config, rsyslog.RsyslogMode) (worker.Worker, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -181,6 +188,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
+		// The rsyslog config updater is a leaf worker that causes rsyslog
+		// to send messages to the state servers. We should only need one
+		// of these in a consolidated agent.
+		rsyslogConfigUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+			NewRsyslogConfigWorker: config.NewRsyslogConfigWorker,
+		}),
+
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
 		// means.
@@ -210,5 +229,6 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	rsyslogConfigUpdaterName = "rsyslog-config-updater"
 	machinerName             = "machiner"
 )
