@@ -37,7 +37,7 @@ func (c *setCommand) Info() *cmd.Info {
 		Args:    "key=[value] ...",
 		Purpose: "replace environment values",
 		Doc:     strings.TrimSpace(setEnvHelpDoc),
-		Aliases: []string{"set-env"},
+		Aliases: []string{"set-env", "set-model"},
 	}
 }
 

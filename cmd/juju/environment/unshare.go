@@ -49,6 +49,7 @@ func (c *unshareCommand) Info() *cmd.Info {
 		Args:    "<user> ...",
 		Purpose: "unshare the current environment with a user",
 		Doc:     strings.TrimSpace(unshareEnvHelpDoc),
+		Aliases: []string{"unshare-model"},
 	}
 }
 
