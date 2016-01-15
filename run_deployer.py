@@ -18,6 +18,7 @@ from remote import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    scoped_environ,
 )
 
 
@@ -44,12 +45,16 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def check_health(cmd_path, env_name=''):
+def check_health(cmd_path, env_name='', environ=None):
     """Run the health checker command and raise on error."""
     try:
         cmd = (cmd_path, env_name)
-        logging.debug('Calling {}'.format(cmd))
-        sub_output = subprocess.check_output(cmd)
+        logging.info('Calling {}'.format(cmd))
+        if environ:
+            logging.info('PATH: {}'.format(environ.get('PATH')))
+            logging.info('JUJU_HOME: {}'.format(environ.get('JUJU_HOME')))
+        with scoped_environ(environ):
+            sub_output = subprocess.check_output(cmd)
         logging.info('Health check output: {}'.format(sub_output))
     except OSError as e:
         logging.error(
@@ -88,7 +93,8 @@ def assess_deployer(args, client):
     client.deployer(args.bundle_path, args.bundle_name)
     client.wait_for_workloads()
     if args.health_cmd:
-        check_health(args.health_cmd, args.temp_env_name)
+        environ = client._shell_environ()
+        check_health(args.health_cmd, args.temp_env_name, environ)
     if args.upgrade:
         client.juju('status', ())
         if args.upgrade_condition:
@@ -97,7 +103,8 @@ def assess_deployer(args, client):
         assess_upgrade(client, args.juju_bin)
         client.wait_for_workloads()
         if args.health_cmd:
-            check_health(args.health_cmd, args.temp_env_name)
+            environ = client._shell_environ()
+            check_health(args.health_cmd, args.temp_env_name, environ)
 
 
 def main(argv=None):
