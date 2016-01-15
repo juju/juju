@@ -49,7 +49,10 @@ def check_health(cmd_path, env_name='', environ=None):
     """Run the health checker command and raise on error."""
     try:
         cmd = (cmd_path, env_name)
-        logging.debug('Calling {}'.format(cmd))
+        logging.info('Calling {}'.format(cmd))
+        if environ:
+            logging.info('PATH: {}'.format(environ.get('PATH')))
+            logging.info('JUJU_HOME: {}'.format(environ.get('JUJU_HOME')))
         with scoped_environ(environ):
             sub_output = subprocess.check_output(cmd)
         logging.info('Health check output: {}'.format(sub_output))
@@ -87,6 +90,10 @@ def apply_condition(client, condition):
 
 def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
+    environ = client._shell_environ()
+    print 'PATH: {}'.format(environ.get('PATH'))
+    print 'JUJU_HOME: {}'.format(environ.get('JUJU_HOME'))
+    return
     client.deployer(args.bundle_path, args.bundle_name)
     client.wait_for_workloads()
     if args.health_cmd:
