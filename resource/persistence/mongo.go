@@ -168,9 +168,16 @@ func doc2resource(doc resourceDoc) (resource.Resource, error) {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
 
-	fp, err := charmresource.NewFingerprint(doc.Fingerprint)
-	if err != nil {
-		return res, errors.Annotate(err, "got invalid data from DB")
+	// A placeholder (no content stored) for a local charm's resource
+	// does not have a fingerprint, neither is size nor username nor
+	// timestamp set. The fingerprint is the only where we have to
+	// treat it specially.
+	var fp charmresource.Fingerprint
+	if len(doc.Fingerprint) != 0 {
+		fp, err = charmresource.NewFingerprint(doc.Fingerprint)
+		if err != nil {
+			return res, errors.Annotate(err, "got invalid data from DB")
+		}
 	}
 
 	res = resource.Resource{
