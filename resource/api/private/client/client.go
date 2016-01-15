@@ -48,7 +48,7 @@ func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.R
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-	if err := c.doer.Do(req, nil, response); err != nil {
+	if err := c.doer.Do(req, nil, &response); err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 

@@ -289,14 +289,6 @@ func (r resources) registerHookContext() {
 	r.registerHookContextFacade()
 }
 
-type resourceHookContext struct {
-	jujuc.Context
-}
-
-func (c resourceHookContext) GetResource(name string) (string, error) {
-	return "", errors.NotImplementedf("")
-}
-
 func (c resources) registerHookContextCommands() {
 	if markRegistered(resource.ComponentName, "hook-context-commands") == false {
 		return
@@ -305,8 +297,16 @@ func (c resources) registerHookContextCommands() {
 	jujuc.RegisterCommand(
 		context.ResourceGetCmdName,
 		func(ctx jujuc.Context) (jujucmd.Command, error) {
-			compCtx := resourceHookContext{ctx}
-			cmd, err := context.NewResourceGetCmd(compCtx)
+			compCtx, err := ctx.Component(resource.ComponentName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// TODO(katco): Check type assertion; don't panic
+			typedCtx, ok := compCtx.(*context.Context)
+			if !ok {
+				return nil, errors.Trace(err)
+			}
+			cmd, err := context.NewResourceGetCmd(typedCtx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

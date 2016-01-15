@@ -36,11 +36,12 @@ func (c ResourceGetCmd) Info() *cmd.Info {
 	}
 }
 
-func (c ResourceGetCmd) Init(args []string) error {
+func (c *ResourceGetCmd) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("missing required resource name")
+	} else if err := cmd.CheckEmpty(args[1:]); err != nil {
+		return errors.Trace(err)
 	}
-
 	c.resourceName = args[0]
 	return nil
 }
