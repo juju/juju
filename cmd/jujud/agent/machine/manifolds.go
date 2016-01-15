@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
@@ -181,6 +182,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the state server addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
 		// means.
@@ -210,5 +220,6 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 )
