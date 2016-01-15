@@ -53,7 +53,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-environment",
 		Args:    "<environment name>",
-		Purpose: "terminate all machines and other associated resources for a non-system environment",
+		Purpose: "terminate all machines and other associated resources for a non-controller environment",
 		Doc:     destroyDoc,
 		Aliases: []string{"destroy-model"},
 	}
@@ -98,10 +98,10 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot read environment info")
 	}
 
-	// Verify that we're not destroying a system
+	// Verify that we're not destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID == apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is a system; use 'juju system destroy' to destroy it", c.envName)
+		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", c.envName)
 	}
 
 	if !c.assumeYes {

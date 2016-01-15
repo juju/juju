@@ -127,7 +127,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 
 func (s *DestroySuite) TestSystemDestroyFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, `"test1" is a system; use 'juju system destroy' to destroy it`)
+	c.Assert(err, gc.ErrorMatches, `"test1" is a controller; use 'juju destroy-controller' to destroy it`)
 	checkEnvironmentExistsInStore(c, "test1", s.store)
 }
 
