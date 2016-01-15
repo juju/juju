@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/terminationworker"
@@ -198,6 +199,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			NewRsyslogConfigWorker: config.NewRsyslogConfigWorker,
 		}),
+
+		// The machiner Worker will wait for the identified machine to become
+		// Dying and make it Dead; or until the machine becomes Dead by other
+		// means.
+		machinerName: machiner.Manifold(machiner.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+			WriteUninstallFile: config.WriteUninstallFile,
+		}),
 	}
 }
 
@@ -217,4 +230,5 @@ const (
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
 	rsyslogConfigUpdaterName = "rsyslog-config-updater"
+	machinerName             = "machiner"
 )

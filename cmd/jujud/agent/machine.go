@@ -88,9 +88,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
@@ -123,7 +121,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -729,29 +726,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
-	// Containers only have machine addresses, so we can't ignore them.
-	if names.IsContainerMachine(agentConfig.Tag().Id()) {
-		ignoreMachineAddresses = false
-	}
-	if ignoreMachineAddresses {
-		logger.Infof("machine addresses not used, only addresses from provider")
-	}
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
-		w, err := newMachiner(machiner.Config{
-			MachineAccessor: accessor,
-			Tag:             agentConfig.Tag().(names.MachineTag),
-			ClearMachineAddressesOnStart: ignoreMachineAddresses,
-			NotifyMachineDead: func() error {
-				return a.writeUninstallAgentFile()
-			},
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machiner worker")
-		}
-		return w, err
-	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
 		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
@@ -1062,15 +1036,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
-			// TODO(axw) 2013-09-24 bug #1229507
-			// Make another job to enable storage.
-			// There's nothing special about this.
-			return localstorage.NewWorker(agentConfig), nil
-		})
-	}
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:

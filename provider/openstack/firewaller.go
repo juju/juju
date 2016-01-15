@@ -430,5 +430,7 @@ func (c *defaultFirewaller) machineGroupName(machineId string) string {
 }
 
 func (c *defaultFirewaller) jujuGroupName() string {
-	return fmt.Sprintf("juju-%s", c.environ.name)
+	cfg := c.environ.Config()
+	eUUID, _ := cfg.UUID()
+	return fmt.Sprintf("juju-%s", eUUID)
 }
