@@ -22,8 +22,9 @@ type Model interface {
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
 	Users() []User
-
 	Machines() []Machine
+
+	AddUser(UserArgs)
 }
 
 type User interface {

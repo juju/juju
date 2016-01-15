@@ -25,7 +25,7 @@ type UserArgs struct {
 	ReadOnly       bool
 }
 
-func NewUser(args UserArgs) User {
+func newUser(args UserArgs) *user {
 	u := &user{
 		Name_:        args.Name.Canonical(),
 		DisplayName_: args.DisplayName,

@@ -454,3 +454,7 @@ func IsManagerMachineError(err error) bool {
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
+
+func UpdateEnvUserLastConnection(e *EnvironmentUser, when time.Time) error {
+	return e.updateLastConnection(when)
+}

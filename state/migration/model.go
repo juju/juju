@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/schema"
@@ -41,6 +43,9 @@ func NewDescription(args ModelArgs) Description {
 			Owner_:              args.Owner.Canonical(),
 			Config_:             args.Config,
 			LatestToolsVersion_: args.LatestToolsVersion,
+			Users_: users{
+				Version: 1,
+			},
 		},
 	}
 }
@@ -92,12 +97,24 @@ func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
 }
 
+// Implement length-based sort with ByLen type.
+type ByName []User
+
+func (a ByName) Len() int           { return len(a) }
+func (a ByName) Less(i, j int) bool { return a[i].Name().Canonical() < a[j].Name().Canonical() }
+func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
 func (m *model) Users() []User {
 	var result []User
 	for _, user := range m.Users_.Users_ {
 		result = append(result, user)
 	}
+	sort.Sort(ByName(result))
 	return result
+}
+
+func (m *model) AddUser(args UserArgs) {
+	m.Users_.Users_ = append(m.Users_.Users_, newUser(args))
 }
 
 func (m *model) setUsers(userList []*user) {
