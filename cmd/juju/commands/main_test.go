@@ -203,34 +203,51 @@ var commandNames = []string{
 	"add-unit",
 	"api-endpoints",
 	"api-info",
+	"add-user",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
 	"cached-images",
+	"change-user-password",
+	"create-environment",
+	"create-model", // alias for create-environment
 	"debug-hooks",
 	"debug-log",
 	"deploy",
+	"destroy-controller",
 	"destroy-environment",
 	"destroy-machine",
+	"destroy-model", // alias for destroy-environment
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"disable-user",
+	"enable-user",
 	"ensure-availability",
 	"env", // alias for switch
-	"environment",
 	"expose",
 	"generate-config", // alias for init
 	"get",
 	"get-constraints",
+	"get-user-credentials",
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
 	"help-tool",
 	"init",
+	"kill-controller",
+	"list-all-blocks",
+	"list-controllers",
+	"list-environments",
+	"list-models", // alias for list-environments
+	"list-shares",
+	"list-users",
+	"login",
 	"machine",
 	"publish",
+	"remove-all-blocks",
 	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
@@ -244,6 +261,8 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"share-environment",
+	"show-user",
 	"space",
 	"ssh",
 	"stat", // alias for status
@@ -254,14 +273,16 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
+	"use-environment",
+	"use-model", // alias for use-environment
 	"unblock",
 	"unexpose",
 	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
+	"unshare-environment",
 	"upgrade-charm",
 	"upgrade-juju",
-	"user",
 	"version",
 }
 
@@ -285,23 +306,32 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
-	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
+	// Use sorted values here so we can better see what is wrong.
+	registered := getHelpCommandNames(c)
+	unknown := registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing := cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
 	setFeatureFlags(strings.Join(devFeatures, ","))
-	c.Assert(getHelpCommandNames(c), jc.SameContents, commandNames)
+	registered = getHelpCommandNames(c)
+	unknown = registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing = cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 }
 
-func getHelpCommandNames(c *gc.C) []string {
+func getHelpCommandNames(c *gc.C) set.Strings {
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
-	var names []string
+	names := set.NewStrings()
 	for _, line := range lines {
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		names = append(names, f[0])
+		names.Add(f[0])
 	}
 	return names
 }
@@ -318,12 +348,12 @@ var topicNames = []string{
 	"basics",
 	"commands",
 	"constraints",
+	"controllers",
 	"ec2-provider",
 	"global-options",
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"juju-systems",
 	"local-provider",
 	"logging",
 	"maas-provider",

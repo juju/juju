@@ -28,7 +28,7 @@ type switchCommand struct {
 }
 
 var switchDoc = `
-Show or change the default juju environment or system name.
+Show or change the default juju environment or controller name.
 
 If no command line parameters are passed, switch will output the current
 environment as defined by the file $JUJU_HOME/current-environment.
@@ -38,13 +38,13 @@ current environment file if it represents a valid environment name as
 specified in the environments.yaml file.
 `
 
-const systemSuffix = " (system)"
+const controllerSuffix = " (controller)"
 
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
 		Args:    "[environment name]",
-		Purpose: "show or change the default juju environment or system name",
+		Purpose: "show or change the default juju environment or controller name",
 		Doc:     switchDoc,
 		Aliases: []string{"env"},
 	}
@@ -69,12 +69,12 @@ func getConfigstoreOptions() (set.Strings, set.Strings, error) {
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to list environments in config store")
 	}
-	systemNames, err := store.ListSystems()
+	controllerNames, err := store.ListSystems()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list systems in config store")
+		return nil, nil, errors.Annotate(err, "failed to list controllers in config store")
 	}
-	// Also include the systems.
-	return set.NewStrings(environmentNames...), set.NewStrings(systemNames...), nil
+	// Also include the controllers.
+	return set.NewStrings(environmentNames...), set.NewStrings(controllerNames...), nil
 }
 
 func (c *switchCommand) Run(ctx *cmd.Context) error {
@@ -100,21 +100,21 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	configEnvirons, configSystems, err := getConfigstoreOptions()
+	configEnvirons, configControllers, err := getConfigstoreOptions()
 	if err != nil {
 		return err
 	}
 	names = names.Union(configEnvirons)
-	names = names.Union(configSystems)
+	names = names.Union(configControllers)
 
 	if c.List {
-		// List all environments and systems.
+		// List all environments and controllers.
 		if c.EnvName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names.SortedValues() {
-			if configSystems.Contains(name) && !configEnvirons.Contains(name) {
-				name += systemSuffix
+			if configControllers.Contains(name) && !configEnvirons.Contains(name) {
+				name += controllerSuffix
 			}
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
@@ -131,7 +131,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	current, isSystem, err := envcmd.CurrentConnectionName()
+	current, isController, err := envcmd.CurrentConnectionName()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,8 +139,8 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		if envFileExists {
 			current = environments.Default
 		}
-	} else if isSystem {
-		current += systemSuffix
+	} else if isController {
+		current += controllerSuffix
 	}
 
 	// Handle the different operation modes.
@@ -155,15 +155,15 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
-			return errors.Errorf("%q is not a name of an existing defined environment or system", c.EnvName)
+			return errors.Errorf("%q is not a name of an existing defined environment or controller", c.EnvName)
 		}
-		// If the name is not in the environment set, but is in the system
-		// set, then write the name into the current system file.
-		logger.Debugf("systems: %v", configSystems)
+		// If the name is not in the environment set, but is in the controller
+		// set, then write the name into the current controller file.
+		logger.Debugf("controllers: %v", configControllers)
 		logger.Debugf("environs: %v", configEnvirons)
 		newEnv := c.EnvName
-		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			return envcmd.SetCurrentSystem(ctx, newEnv)
+		if configControllers.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
+			return envcmd.SetCurrentController(ctx, newEnv)
 		}
 		return envcmd.SetCurrentEnvironment(ctx, newEnv)
 	}

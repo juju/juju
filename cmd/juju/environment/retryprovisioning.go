@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newRetryProvisioningCommand() cmd.Command {
+func NewRetryProvisioningCommand() cmd.Command {
 	return envcmd.Wrap(&retryProvisioningCommand{})
 }
 

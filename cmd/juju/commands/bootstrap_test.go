@@ -460,7 +460,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := testing.HomePath(".juju", "environments", envName+".jenv")
+	jenvFile := testing.HomePath(".juju", "environments", "cache.yaml")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 

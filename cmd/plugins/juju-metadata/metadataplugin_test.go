@@ -11,11 +11,8 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
@@ -58,7 +55,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 
 	ps := exec.Command(os.Args[0], localArgs...)
 
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome(), os.Getenv(osenv.JujuFeatureFlagEnvKey))
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -66,7 +63,9 @@ func badrun(c *gc.C, exit int, args ...string) string {
 	return string(output)
 }
 
-func getHelpCommandNames(c *gc.C) []string {
+func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
+	// Check that we have correctly registered all the sub commands
+	// by checking the help output.
 	out := badrun(c, 0, "--help")
 	c.Log(out)
 	var names []string
@@ -75,29 +74,8 @@ func getHelpCommandNames(c *gc.C) []string {
 	for _, line := range strings.Split(commandHelp, "\n") {
 		names = append(names, strings.TrimSpace(strings.Split(line, " - ")[0]))
 	}
-	return names
-}
-
-func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
-	// Check that we have correctly registered all the sub commands
-	// by checking the help output.
-
-	// Remove add/list-image for the first test because the feature is not
-	// enabled by default.
-	devFeatures := set.NewStrings("add-image", "list-images")
-
-	// Remove features behind dev_flag for the first test since they are not
-	// enabled.
-	cmdSet := set.NewStrings(metadataCommandNames...).Difference(devFeatures)
-
-	// Test default commands.
 	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
-
-	// Enable development features, and test again. We should now see the
-	// development commands.
-	s.SetFeatureFlags(feature.ImageMetadata)
-	c.Assert(getHelpCommandNames(c), gc.DeepEquals, metadataCommandNames)
+	c.Assert(names, gc.DeepEquals, metadataCommandNames)
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
@@ -120,11 +98,9 @@ func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {
 }
 
 func (s *MetadataSuite) TestHelpListImages(c *gc.C) {
-	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "list-images")
 }
 
 func (s *MetadataSuite) TestHelpAddImage(c *gc.C) {
-	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "add-image")
 }
