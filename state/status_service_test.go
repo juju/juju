@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 type ServiceStatusSuite struct {
@@ -35,14 +36,14 @@ func (s *ServiceStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.service.SetStatus(state.Status("vliegkat"), "orville", nil)
+	err := s.service.SetStatus(status.Status("vliegkat"), "orville", nil)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *ServiceStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.service.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+	err := s.service.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
 		"pew.pew": "zap",
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -55,7 +56,7 @@ func (s *ServiceStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.service.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+	err := s.service.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
 		"$ping": map[string]interface{}{
 			"foo.bar": 123,
 		},
@@ -67,7 +68,7 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := service.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$ping": map[string]interface{}{
@@ -90,18 +91,18 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.service.SetStatus(state.StatusActive, "not really", nil)
+	err = s.service.SetStatus(status.StatusActive, "not really", nil)
 	c.Check(err, gc.ErrorMatches, `cannot set status: service not found`)
 
 	statusInfo, err := s.service.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: service not found`)
-	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
+	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
 func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
 	now := time.Now()
 
-	err := s.service.SetStatus(state.StatusMaintenance, "", nil)
+	err := s.service.SetStatus(status.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.service.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +111,7 @@ func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
-	err = s.service.SetStatus(state.StatusMaintenance, "", nil)
+	err = s.service.SetStatus(status.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.service.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,30 +124,30 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	// place.
 
 	// Create a unit with each possible status.
-	addUnit := func(status state.Status) *state.Unit {
+	addUnit := func(status status.Status) *state.Unit {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
 		err = unit.SetStatus(status, "blam", nil)
 		c.Assert(err, gc.IsNil)
 		return unit
 	}
-	blockedUnit := addUnit(state.StatusBlocked)
-	waitingUnit := addUnit(state.StatusWaiting)
-	maintenanceUnit := addUnit(state.StatusMaintenance)
-	terminatedUnit := addUnit(state.StatusTerminated)
-	activeUnit := addUnit(state.StatusActive)
-	unknownUnit := addUnit(state.StatusUnknown)
+	blockedUnit := addUnit(status.StatusBlocked)
+	waitingUnit := addUnit(status.StatusWaiting)
+	maintenanceUnit := addUnit(status.StatusMaintenance)
+	terminatedUnit := addUnit(status.StatusTerminated)
+	activeUnit := addUnit(status.StatusActive)
+	unknownUnit := addUnit(status.StatusUnknown)
 
 	// ...and create one with error status by setting it on the agent :-/.
 	errorUnit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = errorUnit.Agent().SetStatus(state.StatusError, "blam", nil)
+	err = errorUnit.Agent().SetStatus(status.StatusError, "blam", nil)
 	c.Assert(err, gc.IsNil)
 
 	// For each status, in order of severity, check the service status is
 	// derived from that unit status; then remove that unit and proceed to
 	// the next severity.
-	checkAndRemove := func(unit *state.Unit, status state.Status) {
+	checkAndRemove := func(unit *state.Unit, status status.Status) {
 		info, err := s.service.Status()
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(info.Status, gc.Equals, status)
@@ -158,24 +159,24 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 		err = unit.Remove()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	checkAndRemove(errorUnit, state.StatusError)
-	checkAndRemove(blockedUnit, state.StatusBlocked)
-	checkAndRemove(waitingUnit, state.StatusWaiting)
-	checkAndRemove(maintenanceUnit, state.StatusMaintenance)
-	checkAndRemove(terminatedUnit, state.StatusTerminated)
-	checkAndRemove(activeUnit, state.StatusActive)
-	checkAndRemove(unknownUnit, state.StatusUnknown)
+	checkAndRemove(errorUnit, status.StatusError)
+	checkAndRemove(blockedUnit, status.StatusBlocked)
+	checkAndRemove(waitingUnit, status.StatusWaiting)
+	checkAndRemove(maintenanceUnit, status.StatusMaintenance)
+	checkAndRemove(terminatedUnit, status.StatusTerminated)
+	checkAndRemove(activeUnit, status.StatusActive)
+	checkAndRemove(unknownUnit, status.StatusUnknown)
 }
 
 func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
 	unit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetStatus(state.StatusBlocked, "pow", nil)
+	err = unit.SetStatus(status.StatusBlocked, "pow", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.service.SetStatus(state.StatusMaintenance, "zot", nil)
+	err = s.service.SetStatus(status.StatusMaintenance, "zot", nil)
 	c.Assert(err, gc.IsNil)
 
 	info, err := s.service.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(info.Status, gc.Equals, state.StatusMaintenance)
+	c.Check(info.Status, gc.Equals, status.StatusMaintenance)
 }

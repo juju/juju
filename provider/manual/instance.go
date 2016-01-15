@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type manualBootstrapInstance struct {
@@ -17,8 +18,11 @@ func (manualBootstrapInstance) Id() instance.Id {
 	return BootstrapInstanceId
 }
 
-func (manualBootstrapInstance) Status() string {
-	return ""
+func (manualBootstrapInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.StatusUnknown,
+		Message: "",
+	}
 }
 
 func (manualBootstrapInstance) Refresh() error {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/status"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2/bson"
@@ -125,9 +126,9 @@ func AddFilesystemStatus(st *State) error {
 // If the filesystem has not been provisioned, then it should be Pending;
 // if it has been provisioned, but there is an unprovisioned attachment, then
 // it should be Attaching; otherwise it is Attached.
-func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
+func upgradingFilesystemStatus(st *State, filesystem Filesystem) (status.Status, error) {
 	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
-		return StatusPending, nil
+		return status.StatusPending, nil
 	}
 	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
 	if err != nil {
@@ -136,10 +137,10 @@ func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error)
 	for _, attachment := range attachments {
 		_, err := attachment.Info()
 		if errors.IsNotProvisioned(err) {
-			return StatusAttaching, nil
+			return status.StatusAttaching, nil
 		}
 	}
-	return StatusAttached, nil
+	return status.StatusAttached, nil
 }
 
 // MigrateSettingsSchema migrates the schema of the settings collection,

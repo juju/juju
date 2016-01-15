@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
@@ -132,7 +133,7 @@ func (api *API) listStorageDetails(filter params.StorageFilter) ([]params.Storag
 func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.StorageDetails, error) {
 	// Get information from underlying volume or filesystem.
 	var persistent bool
-	var statusEntity state.StatusGetter
+	var statusEntity status.StatusGetter
 	if si.Kind() != state.StorageKindBlock {
 		// TODO(axw) when we support persistent filesystems,
 		// e.g. CephFS, we'll need to do set "persistent"

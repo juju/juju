@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 // StatusParams holds parameters for the Status call.
@@ -34,11 +35,11 @@ type FullStatus struct {
 
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
-	Agent AgentStatus
+	JujuStatus AgentStatus
 
 	DNSName       string
 	InstanceId    instance.Id
-	InstanceState string
+	MachineStatus AgentStatus
 	Series        string
 	Id            string
 	Containers    map[string]MachineStatus
@@ -79,7 +80,7 @@ type UnitStatus struct {
 
 	// Until Juju 2.0, we need to continue to return legacy agent state values
 	// as top level struct attributes when the "FullStatus" API is called.
-	AgentState     Status
+	AgentState     status.Status
 	AgentStateInfo string
 	AgentVersion   string
 	Life           string
@@ -135,7 +136,7 @@ func (epStatus *EndpointStatus) String() string {
 
 // AgentStatus holds status info about a machine or unit agent.
 type AgentStatus struct {
-	Status  Status
+	Status  status.Status
 	Info    string
 	Data    map[string]interface{}
 	Since   *time.Time
@@ -155,19 +156,15 @@ type LegacyMachineStatus struct {
 	InstanceId string // Not type instance.Id just to match original api.
 }
 
-// TODO(ericsnow) Rename to StatusHistoryArgs.
-
-// StatusHistory holds the parameters to filter a status history query.
-type StatusHistory struct {
+// StatusHistoryArgs holds the parameters to filter a status history query.
+type StatusHistoryArgs struct {
 	Kind HistoryKind
 	Size int
 	Name string
 }
 
-// TODO(ericsnow) Rename to UnitStatusHistoryResult.
-
-// UnitStatusHistory holds a slice of statuses.
-type UnitStatusHistory struct {
+// StatusHistoryResults holds a slice of statuses.
+type StatusHistoryResults struct {
 	Statuses []AgentStatus
 }
 
@@ -193,7 +190,7 @@ type StatusResult struct {
 	Error  *Error
 	Id     string
 	Life   Life
-	Status Status
+	Status status.Status
 	Info   string
 	Data   map[string]interface{}
 	Since  *time.Time
@@ -227,6 +224,14 @@ const (
 	KindAgent HistoryKind = "agent"
 	// KindWorkload represents a charm workload status history entry.
 	KindWorkload HistoryKind = "workload"
+	// KindMachineInstance represents an entry for a machine instance.
+	KindMachineInstance = "machineinstance"
+	// KindMachine represents an entry for a machine.
+	KindMachine = "machine"
+	// KindContainerInstance represents an entry for a container instance.
+	KindContainerInstance = "containerinstance"
+	// KindMachine represents an entry for a container.
+	KindContainer = "container"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
@@ -236,137 +241,4 @@ const (
 	Alive Life = "alive"
 	Dying Life = "dying"
 	Dead  Life = "dead"
-)
-
-// Status represents the status of an entity.
-// It could be a unit, machine or its agent.
-type Status multiwatcher.Status
-
-const (
-	// Status values common to machine and unit agents.
-
-	// StatusError means the entity requires human intervention
-	// in order to operate correctly.
-	StatusError Status = "error"
-
-	// StatusStarted is set when:
-	// The entity is actively participating in the model.
-	// For unit agents, this is a state we preserve for backwards
-	// compatibility with scripts during the life of Juju 1.x.
-	// In Juju 2.x, the agent-state will remain “active” and scripts
-	// will watch the unit-state instead for signals of service readiness.
-	StatusStarted Status = "started"
-)
-
-const (
-	// Status values specific to machine agents.
-
-	// StatusPending is set when:
-	// The machine is not yet participating in the model.
-	StatusPending Status = "pending"
-
-	// StatusStopped is set when:
-	// The machine's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped Status = "stopped"
-
-	// StatusDown is set when:
-	// The machine ought to be signalling activity, but it cannot be
-	// detected.
-	StatusDown Status = "down"
-)
-
-const (
-	// Status values specific to unit agents.
-
-	// StatusAllocating is set when:
-	// The machine on which a unit is to be hosted is still being
-	// spun up in the cloud.
-	StatusAllocating Status = "allocating"
-
-	// StatusRebooting is set when:
-	// The machine on which this agent is running is being rebooted.
-	// The juju-agent should move from rebooting to idle when the reboot is complete.
-	StatusRebooting Status = "rebooting"
-
-	// StatusExecuting is set when:
-	// The agent is running a hook or action. The human-readable message should reflect
-	// which hook or action is being run.
-	StatusExecuting Status = "executing"
-
-	// StatusIdle is set when:
-	// Once the agent is installed and running it will notify the Juju server and its state
-	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
-	// error (e.g it loses contact with the Juju server) moves it to a different state.
-	StatusIdle Status = "idle"
-
-	// StatusFailed is set when:
-	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected. It might also be that the unit agent
-	// detected an unrecoverable condition and managed to tell the Juju server about it.
-	StatusFailed Status = "failed"
-
-	// StatusLost is set when:
-	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
-	// the unit agent ought to be signalling activity, but none has been detected.
-	StatusLost Status = "lost"
-)
-
-const (
-	// Status values specific to services and units, reflecting the
-	// state of the software itself.
-
-	// StatusMaintenance is set when:
-	// The unit is not yet providing services, but is actively doing stuff
-	// in preparation for providing those services.
-	// This is a "spinning" state, not an error state.
-	// It reflects activity on the unit itself, not on peers or related units.
-	StatusMaintenance Status = "maintenance"
-
-	// StatusTerminated is set when:
-	// This unit used to exist, we have a record of it (perhaps because of storage
-	// allocated for it that was flagged to survive it). Nonetheless, it is now gone.
-	StatusTerminated Status = "terminated"
-
-	// StatusUnknown is set when:
-	// A unit-agent has finished calling install, config-changed, and start,
-	// but the charm has not called status-set yet.
-	StatusUnknown Status = "unknown"
-
-	// StatusWaiting is set when:
-	// The unit is unable to progress to an active state because a service to
-	// which it is related is not running.
-	StatusWaiting Status = "waiting"
-
-	// StatusBlocked is set when:
-	// The unit needs manual intervention to get back to the Running state.
-	StatusBlocked Status = "blocked"
-
-	// StatusActive is set when:
-	// The unit believes it is correctly offering all the services it has
-	// been asked to offer.
-	StatusActive Status = "active"
-)
-
-const (
-	// Status values specific to storage.
-
-	// StatusAttaching indicates that the storage is being attached
-	// to a machine.
-	StatusAttaching Status = "attaching"
-
-	// StatusAttached indicates that the storage is attached to a
-	// machine.
-	StatusAttached Status = "attached"
-
-	// StatusDetaching indicates that the storage is being detached
-	// from a machine.
-	StatusDetaching Status = "detaching"
-
-	// StatusDetached indicates that the storage is not attached to
-	// any machine.
-	StatusDetached Status = "detached"
-
-	// StatusDestroying indicates that the storage is being destroyed.
-	StatusDestroying Status = "destroying"
 )

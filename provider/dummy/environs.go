@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -1525,10 +1526,14 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status() string {
+func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
-	return inst.status
+	return instance.InstanceStatus{
+		Status:  status.StatusUnknown,
+		Message: inst.status,
+	}
+
 }
 
 // SetInstanceAddresses sets the addresses associated with the given

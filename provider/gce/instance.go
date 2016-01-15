@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/status"
 )
 
 type environInstance struct {
@@ -32,8 +33,12 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() string {
-	return inst.base.Status()
+func (inst *environInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.StatusUnknown,
+		Message: inst.base.Status(),
+	}
+
 }
 
 // Addresses implements instance.Instance.

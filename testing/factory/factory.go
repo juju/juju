@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
@@ -83,7 +84,7 @@ type ServiceParams struct {
 	Name    string
 	Charm   *state.Charm
 	Creator names.Tag
-	Status  *state.StatusInfo
+	Status  *status.StatusInfo
 }
 
 // UnitParams are used to create units.
@@ -92,7 +93,7 @@ type UnitParams struct {
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
-	Status      *state.StatusInfo
+	Status      *status.StatusInfo
 }
 
 // RelationParams are used to create relations.

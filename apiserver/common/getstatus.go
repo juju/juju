@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // ErrIsNotLeader is an error for operations that require for a
@@ -46,9 +47,9 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 		return result
 	}
 	switch getter := entity.(type) {
-	case state.StatusGetter:
+	case status.StatusGetter:
 		statusInfo, err := getter.Status()
-		result.Status = params.Status(statusInfo.Status)
+		result.Status = statusInfo.Status
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
 		result.Since = statusInfo.Since
@@ -170,7 +171,7 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		result.Results[i].Service.Status = params.Status(serviceStatus.Status)
+		result.Results[i].Service.Status = serviceStatus.Status
 		result.Results[i].Service.Info = serviceStatus.Message
 		result.Results[i].Service.Data = serviceStatus.Data
 		result.Results[i].Service.Since = serviceStatus.Since
@@ -178,7 +179,7 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 		result.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
 		for uTag, r := range unitStatuses {
 			ur := params.StatusResult{
-				Status: params.Status(r.Status),
+				Status: r.Status,
 				Info:   r.Message,
 				Data:   r.Data,
 				Since:  r.Since,
@@ -190,9 +191,9 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 }
 
 // EntityStatusFromState converts a state.StatusInfo into a params.EntityStatus.
-func EntityStatusFromState(status state.StatusInfo) params.EntityStatus {
+func EntityStatusFromState(status status.StatusInfo) params.EntityStatus {
 	return params.EntityStatus{
-		params.Status(status.Status),
+		status.Status,
 		status.Message,
 		status.Data,
 		status.Since,

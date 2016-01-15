@@ -11,6 +11,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -69,8 +70,20 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return result.Result, nil
 }
 
+func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: m.tag.String(), Status: status, Info: message, Data: data},
+	}}
+	err := m.st.facade.FacadeCall("SetInstanceStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -85,7 +98,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data map[string]i
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (params.Status, string, error) {
+func (m *Machine) Status() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},

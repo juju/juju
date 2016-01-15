@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 type statusFormatter struct {
@@ -85,21 +86,15 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	// New server
-	agent := machine.Agent
 	out = machineStatus{
-		AgentState:     agent.Status,
-		AgentStateInfo: agent.Info,
-		AgentVersion:   agent.Version,
-		Life:           agent.Life,
-		Err:            agent.Err,
-		DNSName:        machine.DNSName,
-		InstanceId:     machine.InstanceId,
-		InstanceState:  machine.InstanceState,
-		Series:         machine.Series,
-		Id:             machine.Id,
-		Containers:     make(map[string]machineStatus),
-		Hardware:       machine.Hardware,
+		JujuStatus:    sf.getStatusInfoContents(machine.JujuStatus),
+		DNSName:       machine.DNSName,
+		InstanceId:    machine.InstanceId,
+		MachineStatus: sf.getStatusInfoContents(machine.MachineStatus),
+		Series:        machine.Series,
+		Id:            machine.Id,
+		Containers:    make(map[string]machineStatus),
+		Hardware:      machine.Hardware,
 	}
 
 	for k, m := range machine.Containers {
@@ -197,6 +192,20 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	return out
 }
 
+func (sf *statusFormatter) getStatusInfoContents(inst params.AgentStatus) statusInfoContents {
+	info := statusInfoContents{
+		Err:     inst.Err,
+		Current: inst.Status,
+		Message: inst.Info,
+		Version: inst.Version,
+		Life:    inst.Life,
+	}
+	if inst.Since != nil {
+		info.Since = common.FormatTime(inst.Since, sf.isoTime)
+	}
+	return info
+}
+
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     unit.Workload.Err,
@@ -224,7 +233,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	if unit.Workload.Status == params.StatusError {
+	if unit.Workload.Status == status.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -65,6 +66,8 @@ type StartInstanceParams struct {
 	// ImageMetadata is a collection of image metadata
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata
+
+	StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
 }
 
 // StartInstanceResult holds the result of an
