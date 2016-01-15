@@ -1124,20 +1124,19 @@ class TestBootContext(FakeHomeTestCase):
                                  return_value=0))
         if jes:
             output = jes
-            help_index = 1
             po_count = 3
+            if keep_env:
+                po_count -= 1
         else:
             output = ''
-            help_index = 0
             po_count = 2
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), call_index=help_index)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), call_index=help_index +
-            1)
+        for help_index in range(po_count):
+            assert_juju_call(self, po_mock, client, (
+                'juju', '--show-log', 'help', 'commands'),
+                call_index=help_index)
         self.assertEqual(po_count, po_mock.call_count)
         if jes:
             runtime_config = os.path.join(client.env.juju_home, 'environments',
