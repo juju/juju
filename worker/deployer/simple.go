@@ -109,14 +109,17 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
 	// TODO(dfc)
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
-	// TODO(dfc)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
+	// TODO(dfc)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
@@ -141,7 +144,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			},
 		})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := conf.Write(); err != nil {
 		return err
