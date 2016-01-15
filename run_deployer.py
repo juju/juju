@@ -90,10 +90,6 @@ def apply_condition(client, condition):
 
 def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
-    environ = client._shell_environ()
-    print 'PATH: {}'.format(environ.get('PATH'))
-    print 'JUJU_HOME: {}'.format(environ.get('JUJU_HOME'))
-    return
     client.deployer(args.bundle_path, args.bundle_name)
     client.wait_for_workloads()
     if args.health_cmd:
