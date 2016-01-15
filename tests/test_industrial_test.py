@@ -1290,7 +1290,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
                 with patch.object(destroy_env,
                                   'get_security_groups') as gsg_mock:
                     with patch.object(client, 'kill_controller',
-                            side_effect=Exception) as kc_mock:
+                                      side_effect=Exception) as kc_mock:
                         with self.assertRaises(Exception):
                             iterator.next()
         kc_mock.assert_called_once_with()
