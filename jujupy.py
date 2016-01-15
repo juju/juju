@@ -309,27 +309,17 @@ class EnvJujuClient:
                 self.env.environment))
 
     def create_environment(self, controller_client, config_file):
-        seen_cmd = self.get_jes_command()
-        if seen_cmd == OPTIONAL_JES_COMMAND:
-            controller_option = ('-s', controller_client.env.environment)
-        else:
-            controller_option = ('-c', controller_client.env.environment)
-        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
-            self.env.environment, '--config', config_file), include_e=False)
+        self.juju('create-model', (
+            '-c', controller_client.env.environment, self.env.environment,
+            '--config', config_file), include_e=False)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
-            force_arg = ('--force',)
-        else:
-            force_arg = ()
+            raise ValueError('Force not supported.')
         exit_status = self.juju(
-            'destroy-environment',
-            (self.env.environment,) + force_arg + ('-y',),
-            self.env.needs_sudo(), check=False, include_e=False,
+            'destroy-model', (self.env.environment, '-y',),
+            check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
-        if delete_jenv:
-            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
-            ensure_deleted(jenv_path)
         return exit_status
 
     def kill_controller(self):
@@ -775,7 +765,35 @@ class EnvJujuClient:
         return self.action_fetch(id, action, timeout)
 
 
-class EnvJujuClient22(EnvJujuClient):
+class EnvJujuClient1X(EnvJujuClient):
+    """Base for all 1.x client drivers."""
+
+    def create_environment(self, controller_client, config_file):
+        seen_cmd = self.get_jes_command()
+        if seen_cmd == OPTIONAL_JES_COMMAND:
+            controller_option = ('-s', controller_client.env.environment)
+        else:
+            controller_option = ('-c', controller_client.env.environment)
+        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
+            self.env.environment, '--config', config_file), include_e=False)
+
+    def destroy_environment(self, force=True, delete_jenv=False):
+        if force:
+            force_arg = ('--force',)
+        else:
+            force_arg = ()
+        exit_status = self.juju(
+            'destroy-environment',
+            (self.env.environment,) + force_arg + ('-y',),
+            self.env.needs_sudo(), check=False, include_e=False,
+            timeout=timedelta(minutes=10).total_seconds())
+        if delete_jenv:
+            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
+            ensure_deleted(jenv_path)
+        return exit_status
+
+
+class EnvJujuClient22(EnvJujuClient1X):
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -787,7 +805,7 @@ class EnvJujuClient22(EnvJujuClient):
         return env
 
 
-class EnvJujuClient26(EnvJujuClient):
+class EnvJujuClient26(EnvJujuClient1X):
     """Drives Juju 2.6-series clients."""
 
     def __init__(self, *args, **kwargs):
