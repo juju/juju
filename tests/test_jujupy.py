@@ -1818,13 +1818,13 @@ class TestEnvJujuClient1X(ClientTest):
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
-            version = EnvJujuClient.get_version()
+            version = EnvJujuClient1X.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
     def test_get_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            EnvJujuClient.get_version('foo/bar/baz')
+            EnvJujuClient1X.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
     def test_get_matching_agent_version(self):
@@ -1860,7 +1860,7 @@ class TestEnvJujuClient1X(ClientTest):
         juju_mock.assert_called_with(
             'upgrade-juju', ('--upload-tools',))
 
-    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
+    @patch.object(EnvJujuClient1X, 'get_full_path', return_value='fake-path')
     def test_by_version(self, gfp_mock):
         def juju_cmd_iterator():
             yield '1.17'
@@ -1875,40 +1875,40 @@ class TestEnvJujuClient1X(ClientTest):
             yield '1.27.1'
 
         context = patch.object(
-            EnvJujuClient, 'get_version',
+            EnvJujuClient1X, 'get_version',
             side_effect=juju_cmd_iterator().send)
         with context:
             self.assertIs(EnvJujuClient,
-                          type(EnvJujuClient.by_version(None)))
+                          type(EnvJujuClient1X.by_version(None)))
             with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
-                EnvJujuClient.by_version(None)
+                EnvJujuClient1X.by_version(None)
             with self.assertRaisesRegexp(Exception,
                                          'Unsupported juju: 1.16.1'):
-                EnvJujuClient.by_version(None)
-            client = EnvJujuClient.by_version(None)
+                EnvJujuClient1X.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(EnvJujuClient, type(client))
             self.assertEqual('1.15', client.version)
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient22)
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24-alpha1')
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient24)
             self.assertEqual(client.version, '1.24.7')
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient25)
             self.assertEqual(client.version, '1.25.1')
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient26)
             self.assertEqual(client.version, '1.26.1')
-            client = EnvJujuClient.by_version(None)
+            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '1.27.1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            client = EnvJujuClient.by_version(None, 'foo/bar/qux')
+            client = EnvJujuClient1X.by_version(None, 'foo/bar/qux')
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
         self.assertNotEqual(client.full_path, 'foo/bar/qux')
         self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
@@ -1916,7 +1916,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_by_version_keep_home(self):
         env = SimpleEnvironment({}, juju_home='/foo/bar')
         with patch('subprocess.check_output', return_value=' 4.3'):
-            EnvJujuClient.by_version(env, 'foo/bar/qux')
+            EnvJujuClient1X.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
     def test_full_args(self):
@@ -1952,14 +1952,14 @@ class TestEnvJujuClient1X(ClientTest):
     def test_bootstrap_hpcloud(self):
         env = SimpleEnvironment('hp')
         with patch.object(env, 'hpcloud', lambda: True):
-            with patch.object(EnvJujuClient, 'juju') as mock:
+            with patch.object(EnvJujuClient1X, 'juju') as mock:
                 EnvJujuClient1X(env, None, None).bootstrap()
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
@@ -1968,7 +1968,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
-        with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
+        with patch.object(EnvJujuClient1X, 'juju', autospec=True) as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
@@ -1978,7 +1978,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_non_sudo(self):
         env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
@@ -2973,7 +2973,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
@@ -2984,7 +2984,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deployer_with_bundle_name(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
@@ -2996,7 +2996,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_quickstart_maas(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'maas'}),
                                  '1.23-series-arch', '/juju')
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
@@ -3007,7 +3007,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_quickstart_local(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', '/juju')
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
@@ -3018,7 +3018,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_quickstart_nonlocal(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'nonlocal'}),
                                  '1.23-series-arch', '/juju')
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'quickstart',
@@ -3029,7 +3029,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_action_do(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+        with patch.object(EnvJujuClient1X, 'get_juju_output') as mock:
             mock.return_value = \
                 "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
             id = client.action_do("foo/0", "myaction", "param=5")
@@ -3041,7 +3041,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_action_do_error(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+        with patch.object(EnvJujuClient1X, 'get_juju_output') as mock:
             mock.return_value = "some bad text"
             with self.assertRaisesRegexp(Exception,
                                          "Action id not found in output"):
@@ -3050,7 +3050,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_action_fetch(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+        with patch.object(EnvJujuClient1X, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
             mock.return_value = ret
             out = client.action_fetch("123")
@@ -3063,7 +3063,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
         ret = "status: pending\nfoo: bar"
-        with patch.object(EnvJujuClient,
+        with patch.object(EnvJujuClient1X,
                           'get_juju_output', return_value=ret):
             with self.assertRaisesRegexp(Exception,
                                          "timed out waiting for action"):
@@ -3072,7 +3072,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_action_do_fetch(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+        with patch.object(EnvJujuClient1X, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
             # setting side_effect to an iterable will return the next value
             # from the list each time the function is called.
