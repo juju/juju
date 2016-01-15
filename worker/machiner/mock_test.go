@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machiner"
 )
@@ -54,7 +55,7 @@ func (m *mockMachine) SetMachineAddresses(addresses []network.Address) error {
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (m *mockMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	m.MethodCall(m, "SetStatus", status, info, data)
 	return m.NextErr()
 }

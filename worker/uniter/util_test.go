@@ -32,7 +32,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -600,7 +600,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
+		status:       status.StatusError,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -623,7 +623,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
+		status:       status.StatusError,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -644,7 +644,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{minion: s.minion})
-	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.StatusIdle})
 	step(c, ctx, waitHooks(startupHooks(s.minion)))
 	step(c, ctx, verifyCharm{})
 }
@@ -667,7 +667,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.StatusIdle})
 	step(c, ctx, waitHooks(startupHooks(false)))
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -683,25 +683,25 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type statusfunc func() (state.StatusInfo, error)
+type statusfunc func() (status.StatusInfo, error)
 
 type statusfuncGetter func(ctx *context) statusfunc
 
 var unitStatusGetter = func(ctx *context) statusfunc {
-	return func() (state.StatusInfo, error) {
+	return func() (status.StatusInfo, error) {
 		return ctx.unit.Status()
 	}
 }
 
 var agentStatusGetter = func(ctx *context) statusfunc {
-	return func() (state.StatusInfo, error) {
+	return func() (status.StatusInfo, error) {
 		return ctx.unit.AgentStatus()
 	}
 }
 
 type waitUnitAgent struct {
 	statusGetter func(ctx *context) statusfunc
-	status       params.Status
+	status       status.Status
 	info         string
 	data         map[string]interface{}
 	charm        int
@@ -984,7 +984,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnitAgent{
-			status: params.StatusIdle,
+			status: status.StatusIdle,
 		},
 		waitHooks(startupHooks(false)),
 		verifyCharm{},
@@ -994,7 +994,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
+			status:       status.StatusError,
 			info:         "upgrade failed",
 			charm:        1,
 		},
@@ -1014,7 +1014,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
+			status:       status.StatusError,
 			info:         "upgrade failed",
 			charm:        s.revision,
 		},
@@ -1027,7 +1027,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			err := ctx.unit.SetAgentStatus(state.StatusIdle, "", nil)
+			err := ctx.unit.SetAgentStatus(status.StatusIdle, "", nil)
 			c.Check(err, jc.ErrorIsNil)
 		}},
 		startUniter{},
@@ -1734,7 +1734,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnitAgent{
-			status: params.StatusIdle,
+			status: status.StatusIdle,
 		},
 		waitHooks(startupHooks(false)),
 		verifyGitCharm{dirty: true},
@@ -1750,7 +1750,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
+			status:       status.StatusError,
 			info:         "upgrade failed",
 			charm:        1,
 		},

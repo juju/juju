@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -184,11 +185,11 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
@@ -199,7 +200,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
@@ -211,7 +212,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
@@ -226,7 +227,7 @@ func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			updateStatusHookTick{},
 			waitHooks{"update-status"},
 		),
@@ -245,7 +246,7 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 			// Resolve and hook should run.
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitHooks{},
 			updateStatusHookTick{},
@@ -263,11 +264,11 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusMaintenance,
+				status:       status.StatusMaintenance,
 				info:         "installing charm software",
 			},
 			waitHooks{"config-changed"},
@@ -280,7 +281,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -292,7 +293,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			fixHook{"start"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitHooks{"start", "config-changed"},
 			verifyRunning{},
@@ -309,7 +310,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			createUniter{},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
@@ -318,7 +319,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "leader-elected"`,
 				data: map[string]interface{}{
 					"hook": "leader-elected",
@@ -327,7 +328,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -336,7 +337,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -359,11 +360,11 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			// TODO(axw) confirm with fwereade that this is correct.
 			// Previously we would see "start", "config-changed".
@@ -383,7 +384,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -395,7 +396,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitHooks{"config-changed", "start"},
 			verifyRunning{},
@@ -409,7 +410,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			assertYaml{"charm/config.out", map[string]interface{}{
@@ -453,7 +454,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			waitHooks{},
 			verifyHookSyncLockLocked,
 			releaseHookSyncLock,
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
@@ -502,12 +503,12 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -519,12 +520,12 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1, forced: true},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -537,7 +538,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -550,12 +551,12 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			waitHooks{"config-changed"},
@@ -567,7 +568,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -581,7 +582,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -594,7 +595,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			fixHook{"upgrade-charm"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -648,11 +649,11 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 
@@ -665,12 +666,12 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -730,7 +731,7 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -742,12 +743,12 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusMaintenance,
+				status:       status.StatusMaintenance,
 				info:         "installing charm software",
 				charm:        1,
 			},
@@ -771,7 +772,7 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 			// useful to wait until that point...
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -787,7 +788,7 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitHooks{"config-changed"},
@@ -824,12 +825,12 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			verifyCharm{
@@ -848,12 +849,12 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			verifyCharm{revision: 1},
@@ -867,12 +868,12 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  2,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        2,
 			},
 			verifyCharm{
@@ -898,7 +899,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2, forced: true},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  2,
 			},
 
@@ -934,12 +935,12 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			verifyCharm{revision: 1},
@@ -954,12 +955,12 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			upgradeCharm{revision: 2, forced: true},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  2,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        2,
 			},
 			verifyCharm{revision: 2},
@@ -1007,12 +1008,12 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        1,
 			},
 			verifyGitCharm{revision: 1},
@@ -1028,11 +1029,11 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyGitCharm{dirty: true},
@@ -1049,7 +1050,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         "upgrade failed",
 				charm:        1,
 			},
@@ -1059,7 +1060,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  1,
 			},
 			verifyGitCharm{revision: 1},
@@ -1077,11 +1078,11 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 2, forced: true},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 				charm:  2,
 			}, waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 				charm:        2,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -1236,11 +1237,11 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			addRelation{waitJoin: true},
@@ -1277,7 +1278,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			startupRelationError{"db-relation-joined"},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "db-relation-joined"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-joined",
@@ -1290,7 +1291,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			startupRelationError{"db-relation-changed"},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "db-relation-changed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-changed",
@@ -1305,7 +1306,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			removeRelationUnit{"mysql/0"},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "db-relation-departed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-departed",
@@ -1321,7 +1322,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			relationDying,
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "db-relation-broken"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-broken",
@@ -1347,10 +1348,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1360,10 +1361,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				results: map[string]interface{}{},
 				status:  params.ActionCompleted,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"action-fail causes the action to fail with a message",
@@ -1378,10 +1379,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1394,9 +1395,9 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				message: "I'm afraid I can't let you do that, Dave.",
 				status:  params.ActionFailed,
 			}}},
-			waitUnitAgent{status: params.StatusIdle}, waitUnitAgent{
+			waitUnitAgent{status: status.StatusIdle}, waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"action-fail with the wrong arguments fails but is not an error",
@@ -1411,10 +1412,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1427,10 +1428,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				message: "A real message",
 				status:  params.ActionFailed,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"actions with correct params passed are not an error",
@@ -1445,10 +1446,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1470,10 +1471,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				},
 				status: params.ActionCompleted,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"actions with incorrect params passed are not an error but fail",
@@ -1488,10 +1489,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1505,10 +1506,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionFailed,
 				message: `cannot run "snapshot" action: validation failed: (root).outfile : must be of type string, given 2`,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"actions not defined in actions.yaml fail without causing a uniter error",
@@ -1522,10 +1523,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1536,10 +1537,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionFailed,
 				message: `cannot run "snapshot" action: not defined`,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"pending actions get consumed",
@@ -1557,10 +1558,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			addAction{"action-log", nil},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1577,10 +1578,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				results: map[string]interface{}{},
 				status:  params.ActionCompleted,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"actions not implemented fail but are not errors",
@@ -1594,10 +1595,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
@@ -1608,10 +1609,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionFailed,
 				message: `action not implemented on unit "u/0"`,
 			}}},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 		), ut(
 			"actions may run from ModeHookError, but do not clear the error",
@@ -1625,7 +1626,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			addAction{"action-log", nil},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -1638,16 +1639,16 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			}}},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "start"`,
 				data:         map[string]interface{}{"hook": "start"},
 			},
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusMaintenance,
+				status:       status.StatusMaintenance,
 				info:         "installing charm software",
 			},
 		),
@@ -1754,11 +1755,11 @@ func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitActionResults{[]actionResult{{
 				name: "action-reboot",
@@ -1790,11 +1791,11 @@ func (s *UniterSuite) TestRebootFinishesHook(c *gc.C) {
 			waitHooks{"install"},
 			startUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"leader-elected", "config-changed", "start"},
 		)})
@@ -1819,11 +1820,11 @@ func (s *UniterSuite) TestRebootNowKillsHook(c *gc.C) {
 			waitHooks{"install"},
 			startUniter{},
 			waitUnitAgent{
-				status: params.StatusIdle,
+				status: status.StatusIdle,
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
+				status:       status.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		)})
@@ -1846,7 +1847,7 @@ func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
 			waitAddresses{},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         fmt.Sprintf(`hook failed: "install"`),
 			},
 		),
@@ -1862,7 +1863,7 @@ func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
 			createUniter{},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -1871,7 +1872,7 @@ func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
 			runCommands{"exit 0"},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
-				status:       params.StatusError,
+				status:       status.StatusError,
 				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -2086,7 +2087,7 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 			serveCharm{},
 			createUniter{executorFunc: executorFunc},
 			waitUnitAgent{
-				status: params.StatusFailed,
+				status: status.StatusFailed,
 				info:   "resolver loop error",
 			},
 			expectError{".*some error occurred.*"},

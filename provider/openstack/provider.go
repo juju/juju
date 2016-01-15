@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -286,8 +287,11 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status() string {
-	return inst.getServerDetail().Status
+func (inst *openstackInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.StatusUnknown,
+		Message: inst.getServerDetail().Status,
+	}
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {

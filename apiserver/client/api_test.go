@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -107,11 +108,11 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status state.Status, info string, data map[string]interface{}) error
+	SetStatus(statuSettable status.Status, info string, data map[string]interface{}) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(state.StatusStarted, "", nil)
+	err := entity.SetStatus(status.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -158,8 +159,12 @@ var scenarioStatus = &params.FullStatus{
 		"0": {
 			Id:         "0",
 			InstanceId: instance.Id("i-machine-0"),
-			Agent: params.AgentStatus{
+			JujuStatus: params.AgentStatus{
 				Status: "started",
+				Data:   make(map[string]interface{}),
+			},
+			MachineStatus: params.AgentStatus{
+				Status: status.StatusPending,
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -171,8 +176,12 @@ var scenarioStatus = &params.FullStatus{
 		"1": {
 			Id:         "1",
 			InstanceId: instance.Id("i-machine-1"),
-			Agent: params.AgentStatus{
+			JujuStatus: params.AgentStatus{
 				Status: "started",
+				Data:   make(map[string]interface{}),
+			},
+			MachineStatus: params.AgentStatus{
+				Status: status.StatusPending,
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -184,8 +193,12 @@ var scenarioStatus = &params.FullStatus{
 		"2": {
 			Id:         "2",
 			InstanceId: instance.Id("i-machine-2"),
-			Agent: params.AgentStatus{
+			JujuStatus: params.AgentStatus{
 				Status: "started",
+				Data:   make(map[string]interface{}),
+			},
+			MachineStatus: params.AgentStatus{
+				Status: status.StatusPending,
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -237,12 +250,9 @@ var scenarioStatus = &params.FullStatus{
 						Status: "idle",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState:     "error",
-					AgentStateInfo: "blam",
-					Machine:        "1",
+					Machine: "1",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
-							AgentState: "pending",
 							Workload: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
@@ -256,7 +266,6 @@ var scenarioStatus = &params.FullStatus{
 					},
 				},
 				"wordpress/1": {
-					AgentState: "pending",
 					Workload: params.AgentStatus{
 						Status: "unknown",
 						Info:   "Waiting for agent initialization to finish",
@@ -271,7 +280,6 @@ var scenarioStatus = &params.FullStatus{
 					Machine: "2",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
-							AgentState: "pending",
 							Workload: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
@@ -424,7 +432,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			err := wu.SetAgentStatus(state.StatusError, "blam", sd)
+			err := wu.SetAgentStatus(status.StatusError, "blam", sd)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 

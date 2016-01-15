@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -202,8 +203,8 @@ func (m *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
-func (m *mockVolume) Status() (state.StatusInfo, error) {
-	return state.StatusInfo{Status: state.StatusAttached}, nil
+func (m *mockVolume) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.StatusAttached}, nil
 }
 
 type mockFilesystem struct {
@@ -239,8 +240,8 @@ func (m *mockFilesystem) Info() (state.FilesystemInfo, error) {
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
-func (m *mockFilesystem) Status() (state.StatusInfo, error) {
-	return state.StatusInfo{Status: state.StatusAttached}, nil
+func (m *mockFilesystem) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.StatusAttached}, nil
 }
 
 type mockFilesystemAttachment struct {

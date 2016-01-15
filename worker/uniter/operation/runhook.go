@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -134,12 +134,12 @@ func (rh *runHook) beforeHook() error {
 	switch rh.info.Kind {
 	case hooks.Install:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(params.StatusMaintenance),
+			Status: string(status.StatusMaintenance),
 			Info:   "installing charm software",
 		})
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(params.StatusMaintenance),
+			Status: string(status.StatusMaintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
 	}
@@ -161,7 +161,7 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 	case hooks.Stop:
 		// Charm is no longer of this world.
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(params.StatusTerminated),
+			Status: string(status.StatusTerminated),
 		})
 	case hooks.Start:
 		if hasRunStatusSet {
@@ -171,7 +171,7 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(params.StatusUnknown),
+			Status: string(status.StatusUnknown),
 		})
 	}
 	if err != nil {

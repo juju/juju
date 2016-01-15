@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -119,5 +120,5 @@ func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 
 // SetExecutingStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetExecutingStatus(message string) error {
-	return setAgentStatus(opc.u, params.StatusExecuting, message, nil)
+	return setAgentStatus(opc.u, status.StatusExecuting, message, nil)
 }

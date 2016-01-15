@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -97,8 +98,8 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	environConfig := dummyConfig(c)
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil)
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())
