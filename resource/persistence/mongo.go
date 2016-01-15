@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -135,69 +134,46 @@ type resourceDoc struct {
 func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.
+	serialized := resource.Serialize(res)
 	return &resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
-		Name:    res.Name,
-		Type:    res.Type.String(),
-		Path:    res.Path,
-		Comment: res.Comment,
+		Name:    serialized.Name,
+		Type:    serialized.Type,
+		Path:    serialized.Path,
+		Comment: serialized.Comment,
 
-		Origin:      res.Origin.String(),
-		Revision:    res.Revision,
-		Fingerprint: res.Fingerprint.Bytes(),
-		Size:        res.Size,
+		Origin:      serialized.Origin,
+		Revision:    serialized.Revision,
+		Fingerprint: serialized.Fingerprint,
+		Size:        serialized.Size,
 
-		Username:  res.Username,
-		Timestamp: res.Timestamp,
+		Username:  serialized.Username,
+		Timestamp: serialized.Timestamp,
 	}
 }
 
 // doc2resource returns the resource.Resource represented by the doc.
 func doc2resource(doc resourceDoc) (resource.Resource, error) {
-	var res resource.Resource
+	serialized := resource.Serialized{
+		Name:    doc.Name,
+		Type:    doc.Type,
+		Path:    doc.Path,
+		Comment: doc.Comment,
 
-	resType, err := charmresource.ParseType(doc.Type)
-	if err != nil {
-		return res, errors.Annotate(err, "got invalid data from DB")
-	}
+		Origin:      doc.Origin,
+		Revision:    doc.Revision,
+		Fingerprint: doc.Fingerprint,
+		Size:        doc.Size,
 
-	origin, err := charmresource.ParseOrigin(doc.Origin)
-	if err != nil {
-		return res, errors.Annotate(err, "got invalid data from DB")
-	}
-
-	// A placeholder (no content stored) for a local charm's resource
-	// does not have a fingerprint, neither is size nor username nor
-	// timestamp set. The fingerprint is the only where we have to
-	// treat it specially.
-	var fp charmresource.Fingerprint
-	if len(doc.Fingerprint) != 0 {
-		fp, err = charmresource.NewFingerprint(doc.Fingerprint)
-		if err != nil {
-			return res, errors.Annotate(err, "got invalid data from DB")
-		}
-	}
-
-	res = resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    doc.Name,
-				Type:    resType,
-				Path:    doc.Path,
-				Comment: doc.Comment,
-			},
-			Origin:      origin,
-			Revision:    doc.Revision,
-			Fingerprint: fp,
-			Size:        doc.Size,
-		},
 		Username:  doc.Username,
 		Timestamp: doc.Timestamp,
 	}
-	if err := res.Validate(); err != nil {
+	res, err := serialized.Deserialize()
+	if err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
+
 	return res, nil
 }
