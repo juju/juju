@@ -281,11 +281,6 @@ func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
-	//content := "some data\n..."
-	//fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	//c.Assert(err, jc.ErrorIsNil)
-	//now := time.Now().UTC()
-
 	serviceID := "a-service"
 	id := Persistence{}.resourceID("spam", serviceID)
 	res, err := doc2resource(resourceDoc{
@@ -297,11 +292,6 @@ func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 		Path: "spam.tgz",
 
 		Origin: "upload",
-		//Fingerprint: fp.Bytes(),
-		//Size:        int64(len(content)),
-
-		//Username:  "a-user",
-		//Timestamp: now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -313,20 +303,11 @@ func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 				Path: "spam.tgz",
 			},
 			Origin: charmresource.OriginUpload,
-			//Fingerprint: fp,
-			//Size:        int64(len(content)),
 		},
-		//Username:  "a-user",
-		//Timestamp: now,
 	})
 }
 
 func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
-	//content := "some data\n..."
-	//fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	//c.Assert(err, jc.ErrorIsNil)
-	//now := time.Now().UTC()
-
 	serviceID := "a-service"
 	id := Persistence{}.resourceID("spam", serviceID)
 	doc := resource2doc(id, serviceID, resource.Resource{
@@ -337,11 +318,7 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 				Path: "spam.tgz",
 			},
 			Origin: charmresource.OriginUpload,
-			//Fingerprint: fp,
-			//Size:        int64(len(content)),
 		},
-		//Username:  "a-user",
-		//Timestamp: now,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -353,10 +330,5 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 		Path: "spam.tgz",
 
 		Origin: "upload",
-		//Fingerprint: fp.Bytes(),
-		//Size:        int64(len(content)),
-
-		//Username:  "a-user",
-		//Timestamp: now,
 	})
 }
