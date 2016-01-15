@@ -1349,13 +1349,13 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityG
 		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
 	}
 
-	deletables := []ec2.SecurityGroup{}
+	securityGroups := []ec2.SecurityGroup{}
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
-			deletables = append(deletables, inst.SecurityGroups...)
+			securityGroups = append(securityGroups, inst.SecurityGroups...)
 		}
 	}
-	return deletables, nil
+	return securityGroups, nil
 }
 
 func (e *environ) cleanEnvironmentSecurityGroup() error {
@@ -1383,16 +1383,20 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	deletables, err := e.instanceSecurityGroups(ids)
+	securityGroups, err := e.instanceSecurityGroups(ids)
 	if err != nil {
 		// We should not stop termination because of this.
 		logger.Warningf("cannot determine security groups to delete: %v", err)
 	}
 	ec2inst := e.ec2()
 	defer func() {
+		// TODO(perrito666) we need to tag global security groups to be able
+		// to tell them appart from future groups that are neither machine
+		// nor environment group.
+		// https://bugs.launchpad.net/juju-core/+bug/1534289
 		jujuGroup := e.jujuGroupName()
 		legacyJujuGroup := e.legacyJujuGroupName()
-		for _, deletable := range deletables {
+		for _, deletable := range securityGroups {
 			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
 				for a := longAttempt.Start(); a.Next(); {
 					_, err := ec2inst.DeleteSecurityGroup(deletable)
