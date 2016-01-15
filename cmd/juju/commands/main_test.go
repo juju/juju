@@ -234,6 +234,7 @@ var commandNames = []string{
 	"get-user-credentials",
 	"get-env", // alias for get-environment
 	"get-environment",
+	"get-model", // alias for get-environment
 	"help",
 	"help-tool",
 	"init",
@@ -261,7 +262,9 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"set-model", // alias for set-environment
 	"share-environment",
+	"share-model", // alias for share-environment
 	"show-user",
 	"space",
 	"ssh",
@@ -280,7 +283,9 @@ var commandNames = []string{
 	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
+	"unset-model", // alias for unset-environment
 	"unshare-environment",
+	"unshare-model", // alias for unshare-environment
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",

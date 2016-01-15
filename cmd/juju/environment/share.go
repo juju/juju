@@ -49,6 +49,7 @@ func (c *shareCommand) Info() *cmd.Info {
 		Args:    "<user> ...",
 		Purpose: "share the current environment with another user",
 		Doc:     strings.TrimSpace(shareEnvHelpDoc),
+		Aliases: []string{"share-model"},
 	}
 }
 
