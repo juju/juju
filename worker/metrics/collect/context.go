@@ -46,6 +46,7 @@ func (ctx *hookContext) UnitName() string {
 
 // Flush implements runner.Context.
 func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
+	logger.Warningf("error occurred running process %q: %v", process, ctxErr)
 	return ctx.recorder.Close()
 }
 

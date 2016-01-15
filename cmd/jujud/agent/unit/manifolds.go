@@ -162,7 +162,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// restricted context that can safely run concurrently with other hooks.
 		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
 			AgentName:       AgentName,
-			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
 			CharmDirName:    CharmDirName,
 		}),

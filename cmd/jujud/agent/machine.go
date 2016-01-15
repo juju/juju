@@ -111,10 +111,11 @@ import (
 const bootstrapMachineId = "0"
 
 var (
-	logger       = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay   = 3 * time.Second
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
+	logger             = loggo.GetLogger("juju.cmd.jujud")
+	retryDelay         = 3 * time.Second
+	jujuRun            = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
+	jujuDumpLogs       = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
+	jujuCollectMetrics = paths.MustSucceed(paths.JujuCollectMetrics(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -1841,7 +1842,7 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{jujuRun, jujuDumpLogs, jujuCollectMetrics} {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)

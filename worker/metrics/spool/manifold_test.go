@@ -31,7 +31,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.factory = &stubFactory{}
-	s.PatchValue(spool.NewFactory, s.factory.newFactory)
+	s.PatchValue(&spool.NewFactory, s.factory.newFactory)
 	s.manifold = spool.Manifold(spool.ManifoldConfig{
 		AgentName: "agent-name",
 	})
