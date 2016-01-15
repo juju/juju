@@ -38,14 +38,15 @@ func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
 
 // FormatCharmResource converts the resource info into a FormattedCharmResource.
 func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
+	serialized := resource.SerializeCharmResource(res)
 	return FormattedCharmResource{
-		Name:          res.Name,
-		Type:          res.Type.String(),
-		Path:          res.Path,
-		Comment:       res.Comment,
-		Revision:      res.Revision,
-		Origin:        res.Origin.String(),
-		Fingerprint:   res.Fingerprint.String(),
+		Name:          serialized.Name,
+		Type:          serialized.Type,
+		Path:          serialized.Path,
+		Comment:       serialized.Comment,
+		Revision:      serialized.Revision,
+		Origin:        serialized.Origin,
+		Fingerprint:   res.Fingerprint.String(), // ...the hex string.
 		charmRevision: charmRevision(res),
 	}
 }

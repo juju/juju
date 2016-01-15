@@ -90,7 +90,7 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 // CharmResource2API converts a charm resource into
 // a CharmResource struct.
 func CharmResource2API(res charmresource.Resource) CharmResource {
-	serialized := resource.Serialize(resource.Resource{Resource: res})
+	serialized := resource.SerializeCharmResource(res)
 	return CharmResource{
 		Name:        serialized.Name,
 		Type:        serialized.Type,
@@ -106,13 +106,19 @@ func CharmResource2API(res charmresource.Resource) CharmResource {
 // API2CharmResource converts an API CharmResource struct into
 // a charm resource.
 func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
-	apiRes := Resource{
-		CharmResource: apiInfo,
-		// TODO(ericsnow) We may need to set Username and Timestamp temporarily.
+	serialized := resource.Serialized{
+		Name:        apiInfo.Name,
+		Type:        apiInfo.Type,
+		Path:        apiInfo.Path,
+		Comment:     apiInfo.Comment,
+		Origin:      apiInfo.Origin,
+		Revision:    apiInfo.Revision,
+		Fingerprint: apiInfo.Fingerprint,
+		Size:        apiInfo.Size,
 	}
-	res, err := API2Resource(apiRes)
+	res, err := serialized.DeserializeCharm()
 	if err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+		return res, errors.Trace(err)
 	}
-	return res.Resource, nil
+	return res, nil
 }
