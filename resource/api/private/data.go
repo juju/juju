@@ -1,13 +1,23 @@
 package private
 
-type GetDownloaderArgs struct {
-	ResourceName string
-}
+import (
+	"github.com/juju/juju/apiserver/params"
+
+	"github.com/juju/juju/resource/api"
+)
 
 type ListResourcesArgs struct {
 	ResourceNames []string
 }
 
-type GetResourceInfoArgs struct {
-	ResourceName string
+type ResourcesResult struct {
+	params.ErrorResult
+
+	Resources []ResourceResult
+}
+
+type ResourceResult struct {
+	params.ErrorResult
+
+	Resource api.Resource
 }

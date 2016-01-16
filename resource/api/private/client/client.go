@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/private"
@@ -31,17 +33,6 @@ type FacadeClient struct {
 	doer UnitDoer
 }
 
-func (c *FacadeClient) GetResourceInfo(resourceName string) (resource.Resource, error) {
-	var response resource.Resource
-	args := private.GetResourceInfoArgs{
-		ResourceName: resourceName,
-	}
-	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {
-		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
-	}
-	return response, nil
-}
-
 func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)
@@ -53,7 +44,7 @@ func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.R
 	}
 
 	// HACK(katco): Combine this into one request?
-	resourceInfo, err := c.GetResourceInfo(resourceName)
+	resourceInfo, err := c.getResourceInfo(resourceName)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -61,4 +52,32 @@ func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.R
 	// TODO(katco): Check headers against resource info
 	// TODO(katco): Check in on all the response headers
 	return resourceInfo, response.Body, nil
+}
+
+func (c *FacadeClient) getResourceInfo(resourceName string) (resource.Resource, error) {
+	var response private.ResourcesResult
+
+	args := private.ListResourcesArgs{
+		ResourceNames: []string{resourceName},
+	}
+	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {
+		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
+	}
+	if response.Error != nil {
+		err, _ := common.RestoreError(response.Error)
+		return resource.Resource{}, errors.Trace(err)
+	}
+
+	if len(response.Resources) != 1 {
+		return resource.Resource{}, errors.New("got bad response from API server")
+	}
+	if response.Resources[0].Error != nil {
+		err, _ := common.RestoreError(response.Error)
+		return resource.Resource{}, errors.Trace(err)
+	}
+	res, err := api.API2Resource(response.Resources[0].Resource)
+	if err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
+	return res, nil
 }

@@ -1,6 +1,9 @@
 package server
 
 import (
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/private"
@@ -22,18 +25,24 @@ type UnitFacade struct {
 	dataStore UnitDataStore
 }
 
-func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (api.ResourcesResult, error) {
-
-	var r api.ResourcesResult
-	r.Resources = make([]api.Resource, len(args.ResourceNames))
+func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.ResourcesResult, error) {
+	var r private.ResourcesResult
+	r.Resources = make([]private.ResourceResult, len(args.ResourceNames))
 
 	resources, err := uf.dataStore.ListResources()
 	if err != nil {
-		api.SetResultError(&r, err)
+		r.Error = common.ServerError(err)
 	}
 
-	for i, res := range resources {
-		r.Resources[i] = api.Resource2API(res)
+	for i, name := range args.ResourceNames {
+		r.Resources[i].Error = common.ServerError(errors.NotFoundf("resource %q", name))
+		for _, res := range resources {
+			if name == res.Name {
+				r.Resources[i].Resource = api.Resource2API(res)
+				r.Resources[i].Error = nil
+				break
+			}
+		}
 	}
 	return r, nil
 }
