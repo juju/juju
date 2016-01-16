@@ -77,12 +77,15 @@ func ResourceExistsOnFilesystem(resourcePath string) (bool, error) {
 }
 
 func resolveResourcePath(unitPath string, resourceInfo resource.Resource) string {
-	return filepath.Join(unitPath, "resources", resourceInfo.Name, resourceInfo.Path)
+	return filepath.Join(unitPath, resourceInfo.Name, resourceInfo.Path)
 }
 
 func downloadAndWriteResourceToDisk(resourcePath string, resourceReader io.Reader) error {
 	// TODO(katco): Potential race-condition: two commands running at
 	// once.
+	if err := os.MkdirAll(filepath.Dir(resourcePath), 0755); err != nil {
+		return errors.Trace(err)
+	}
 	resourceHandle, err := os.OpenFile(resourcePath, os.O_CREATE, 0644)
 	if err != nil {
 		return errors.Trace(err)
