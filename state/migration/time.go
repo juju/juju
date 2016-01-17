@@ -19,6 +19,7 @@ func SchemaTime() schema.Checker {
 
 type timeC struct{}
 
+// Coerce implements schema.Checker Coerce method.
 func (c timeC) Coerce(v interface{}, path []string) (interface{}, error) {
 	var empty time.Time
 	switch reflect.TypeOf(v).Kind() {

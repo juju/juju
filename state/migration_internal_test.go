@@ -149,7 +149,7 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// EnvUUID probably shouldn't be exported, and is inherited
+		// EnvUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"EnvUUID",
 		// Tracked fields:
@@ -166,7 +166,7 @@ func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// EnvUUID probably shouldn't be exported, and is inherited
+		// EnvUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"EnvUUID",
 		// UserName is captured in the migration.User.

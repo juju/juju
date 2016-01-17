@@ -42,7 +42,6 @@ func (st *State) Export() (migration.Description, error) {
 		Config:             envConfig.Settings,
 		LatestToolsVersion: environment.LatestToolsVersion(),
 	}
-
 	result := migration.NewDescription(args)
 
 	export.model = result.Model()
