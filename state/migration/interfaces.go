@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"time"
+
 	"github.com/juju/names"
 
 	"github.com/juju/juju/version"
@@ -19,8 +21,19 @@ type Model interface {
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
-
+	Users() []User
 	Machines() []Machine
+
+	AddUser(UserArgs)
+}
+
+type User interface {
+	Name() names.UserTag
+	DisplayName() string
+	CreatedBy() names.UserTag
+	DateCreated() time.Time
+	LastConnection() time.Time
+	ReadOnly() bool
 }
 
 type Machine interface {

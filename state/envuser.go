@@ -124,6 +124,10 @@ func IsNeverConnectedError(err error) bool {
 
 // UpdateLastConnection updates the last connection time of the environment user.
 func (e *EnvironmentUser) UpdateLastConnection() error {
+	return e.updateLastConnection(nowToTheSecond())
+}
+
+func (e *EnvironmentUser) updateLastConnection(when time.Time) error {
 	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
 	defer closer()
 
@@ -138,7 +142,7 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
 		EnvUUID:        e.EnvironmentTag().Id(),
 		UserName:       e.UserName(),
-		LastConnection: nowToTheSecond(),
+		LastConnection: when,
 	}
 	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
 	return errors.Trace(err)
@@ -191,7 +195,7 @@ func (st *State) AddEnvironmentUser(spec EnvUserSpec) (*EnvironmentUser, error) 
 	}
 
 	envuuid := st.EnvironUUID()
-	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
+	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("environment user %q", spec.User.Canonical())
@@ -209,7 +213,7 @@ func envUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
+func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &envUserDoc{
 		ID:          envUserID(user),
@@ -218,7 +222,7 @@ func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName 
 		DisplayName: displayName,
 		ReadOnly:    readOnly,
 		CreatedBy:   creatorname,
-		DateCreated: nowToTheSecond(),
+		DateCreated: dateCreated,
 	}
 	return txn.Op{
 		C:      envUsersC,
