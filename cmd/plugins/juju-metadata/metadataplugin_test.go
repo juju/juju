@@ -58,7 +58,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 
 	ps := exec.Command(os.Args[0], localArgs...)
 
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome(), os.Getenv(osenv.JujuFeatureFlagEnvKey))
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -70,8 +70,9 @@ func getHelpCommandNames(c *gc.C) []string {
 	out := badrun(c, 0, "--help")
 	c.Log(out)
 	var names []string
-	commandHelp := strings.SplitAfter(out, "commands:")[1]
-	commandHelp = strings.TrimSpace(commandHelp)
+	commandHelpStrings := strings.SplitAfter(out, "commands:")
+	c.Assert(len(commandHelpStrings), gc.Equals, 2)
+	commandHelp := strings.TrimSpace(commandHelpStrings[1])
 	for _, line := range strings.Split(commandHelp, "\n") {
 		names = append(names, strings.TrimSpace(strings.Split(line, " - ")[0]))
 	}
@@ -97,7 +98,7 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Enable development features, and test again. We should now see the
 	// development commands.
 	s.SetFeatureFlags(feature.ImageMetadata)
-	c.Assert(getHelpCommandNames(c), gc.DeepEquals, metadataCommandNames)
+	c.Assert(getHelpCommandNames(c), jc.SameContents, metadataCommandNames)
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
