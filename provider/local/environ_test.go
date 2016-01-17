@@ -269,9 +269,8 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 		"env",
 		"JUJU_HOME=" + osenv.JujuHome(),
 		os.Args[0],
-		"destroy-environment",
+		"kill-controller",
 		"-y",
-		"--force",
 		env.Config().Name(),
 	}
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")

@@ -21,12 +21,12 @@ type shareSuite struct {
 var _ = gc.Suite(&shareSuite{})
 
 func (s *shareSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := environment.NewShareCommand(s.fake)
+	command, _ := environment.NewShareCommandForTest(s.fake)
 	return testing.RunCommand(c, command, args...)
 }
 
 func (s *shareSuite) TestInit(c *gc.C) {
-	wrappedCmd, shareCmd := environment.NewShareCommand(s.fake)
+	wrappedCmd, shareCmd := environment.NewShareCommandForTest(s.fake)
 	err := testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no users specified")
 
