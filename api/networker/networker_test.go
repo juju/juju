@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type networkerSuite struct {
@@ -348,8 +348,8 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 
 	// Start network interface watcher.
 	w, err := s.networker.WatchInterfaces(names.NewMachineTag("0"))
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 	wc.AssertOneChange()
 
 	// Disable the first interface.
@@ -409,8 +409,4 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	err = containerIfaces[0].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// Stop watcher; check Changes chan closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
