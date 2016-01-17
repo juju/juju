@@ -77,10 +77,10 @@ all-changes includes all alteration commands
     unset-env
     upgrade-charm
     upgrade-juju
-    user add
-    user change-password
-    user disable
-    user enable
+    add-user
+    change-user-password
+    disable-user
+    enable-user
 
 Examples:
    To allow the environment to be destroyed:

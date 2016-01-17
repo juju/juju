@@ -9,12 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 )
 
 var (
@@ -208,9 +206,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		User:     configstore.DefaultAdminUsername,
 		Password: cfg.AdminSecret(),
 	}
-	if featureflag.Enabled(feature.JES) {
-		endpoint.ServerUUID = endpoint.EnvironUUID
-	}
+	endpoint.ServerUUID = endpoint.EnvironUUID
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())
