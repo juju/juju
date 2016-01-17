@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -564,6 +565,20 @@ func constructStartInstanceParams(
 		}
 	}
 
+	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
+	for i, metadata := range provisioningInfo.ImageMetadata {
+		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
+			Id:          metadata.ImageId,
+			Arch:        metadata.Arch,
+			RegionAlias: metadata.Region,
+			RegionName:  metadata.Region,
+			Storage:     metadata.RootStorageType,
+			Stream:      metadata.Stream,
+			VirtType:    metadata.VirtType,
+			Version:     metadata.Version,
+		}
+	}
+
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
@@ -572,6 +587,7 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }
 
@@ -650,6 +666,21 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
+		// TODO(dimitern): The following few fields are required, but no longer
+		// matter and will be dropped or changed soon as part of making spaces
+		// and subnets usable across the board.
+		if info.NetworkName == "" {
+			info.NetworkName = network.DefaultPrivate
+		}
+		if info.ProviderId == "" {
+			info.ProviderId = network.DefaultPrivate
+		}
+		if info.CIDR == "" {
+			// TODO(dimitern): This is only when NOT using addressable
+			// containers, as we don't fetch the subnet details, but since
+			// networks in state are going away real soon, it's not important.
+			info.CIDR = "0.0.0.0/32"
+		}
 		if !names.IsValidNetwork(info.NetworkName) {
 			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
 		}

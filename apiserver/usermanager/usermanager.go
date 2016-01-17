@@ -49,7 +49,7 @@ func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
 	// TODO(thumper): PERMISSIONS Change this permission check when we have
 	// real permissions. For now, only the owner of the initial environment is
 	// able to add users.
-	initialEnv, err := api.state.StateServerEnvironment()
+	initialEnv, err := api.state.ControllerEnvironment()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -10,26 +10,20 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/feature"
 	statebackups "github.com/juju/juju/state/backups"
 )
 
 var backupsDoc = `
-"juju backups" is used to manage backups of the state of a juju environment.
-`
+"juju backups" is used to manage backups of the state of a juju controller.
+Backups are only supported on juju controllers, not hosted environments.  For
+more information on juju controllers, see:
 
-var jesBackupsDoc = `
-"juju backups" is used to manage backups of the state of a juju system.
-Backups are only supported on juju systems, not hosted environments.  For
-more information on juju systems, see:
-
-    juju help juju-systems
+    juju help juju-controllers
 `
 
 const backupsPurpose = "create, manage, and restore backups of juju's state"
@@ -41,10 +35,6 @@ type Command struct {
 
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
-	if featureflag.Enabled(feature.JES) {
-		backupsDoc = jesBackupsDoc
-	}
-
 	backupsCmd := Command{
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{

@@ -8,13 +8,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	cmdenvironment "github.com/juju/juju/cmd/juju/environment"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -27,19 +26,21 @@ type cmdEnvironmentSuite struct {
 
 func (s *cmdEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 }
 
 func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
-	command := cmdenvironment.NewSuperCommand()
-	context, err := testing.RunCommand(c, command, args...)
+	context := testing.Context(c)
+	jujuCmd := commands.NewJujuCommand(context)
+	err := testing.InitCommand(jujuCmd, args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = jujuCmd.Run(context)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
 func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "share", username)
+	context := s.run(c, "share-environment", username)
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -57,14 +58,19 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share", username)
+	context := s.run(c, "share-environment", username)
 	user := names.NewUserTag(username)
 	envuser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envuser, gc.NotNil)
 
+	// Because we are calling into juju through the main command,
+	// and the main command adds a warning logging writer, we need
+	// to clear the logging writers here.
+	loggo.RemoveWriter("warning")
+
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "unshare", username)
+	context = s.run(c, "unshare-environment", username)
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -77,13 +83,18 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share", username)
+	context := s.run(c, "share-environment", username)
 	user := names.NewUserTag(username)
 	envuser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envuser, gc.NotNil)
 
-	context = s.run(c, "users")
+	// Because we are calling into juju through the main command,
+	// and the main command adds a warning logging writer, we need
+	// to clear the logging writers here.
+	loggo.RemoveWriter("warning")
+
+	context = s.run(c, "list-shares")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME               DATE CREATED  LAST CONNECTION\n"+
@@ -97,12 +108,12 @@ func (s *cmdEnvironmentSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "get", "special")
+	context := s.run(c, "get-environment", "special")
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
 func (s *cmdEnvironmentSuite) TestSet(c *gc.C) {
-	s.run(c, "set", "special=known")
+	s.run(c, "set-environment", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
@@ -110,7 +121,7 @@ func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "unset", "special")
+	s.run(c, "unset-environment", "special")
 	s.assertEnvValueMissing(c, "special")
 }
 
@@ -122,26 +133,6 @@ func (s *cmdEnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 	output := testing.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
 	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
-}
-
-func (s *cmdEnvironmentSuite) TestGetConstraints(c *gc.C) {
-	cons := constraints.Value{CpuPower: uint64p(250)}
-	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := s.run(c, "get-constraints")
-	c.Check(testing.Stdout(ctx), gc.Equals, "cpu-power=250\n")
-}
-
-func (s *cmdEnvironmentSuite) TestSetConstraints(c *gc.C) {
-	s.run(c, "set-constraints", "mem=4G", "cpu-power=250")
-
-	cons, err := s.State.EnvironConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{
-		CpuPower: uint64p(250),
-		Mem:      uint64p(4096),
-	})
 }
 
 func (s *cmdEnvironmentSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {

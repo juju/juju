@@ -26,11 +26,11 @@ using the --output option.
 
 Examples:
     # Add user "foobar" with a strong random password is generated.
-    juju user add foobar
+    juju add-user foobar
 
 
 See Also:
-    juju help user change-password
+    juju help change-user-password
 `
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
@@ -39,13 +39,13 @@ type AddUserAPI interface {
 	Close() error
 }
 
-func newAddCommand() cmd.Command {
-	return envcmd.WrapSystem(&addCommand{})
+func NewAddCommand() cmd.Command {
+	return envcmd.WrapController(&addCommand{})
 }
 
 // addCommand adds new users into a Juju Server.
 type addCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api         AddUserAPI
 	User        string
 	DisplayName string
@@ -55,7 +55,7 @@ type addCommand struct {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-user",
 		Args:    "<username> [<display name>]",
 		Purpose: "adds a user",
 		Doc:     useraddCommandDoc,

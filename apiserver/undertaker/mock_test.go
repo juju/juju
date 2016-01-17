@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/undertaker"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -89,6 +90,10 @@ func (m *mockState) IsStateServer() bool {
 
 func (m *mockState) Environment() (undertaker.Environment, error) {
 	return m.env, nil
+}
+
+func (m *mockState) EnvironConfig() (*config.Config, error) {
+	return &config.Config{}, nil
 }
 
 // mockEnvironment implements Environment interface and allows inspection of called

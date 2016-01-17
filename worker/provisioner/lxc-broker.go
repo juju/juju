@@ -683,6 +683,17 @@ func prepareOrGetContainerInterfaceInfo(
 		return nil, errors.Trace(err)
 	}
 
+	dnsServers, searchDomain, dnsErr := localDNSServers()
+
+	if dnsErr != nil {
+		return nil, errors.Trace(dnsErr)
+	}
+
+	for i, _ := range preparedInfo {
+		preparedInfo[i].DNSServers = dnsServers
+		preparedInfo[i].DNSSearch = searchDomain
+	}
+
 	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
 	// Most likely there will be only one item in the list, but check
 	// all of them for forward compatibility.

@@ -15,9 +15,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -361,6 +363,19 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
+	// Inject an "AllWatcher" that never delivers a result.
+	ch := make(chan struct{})
+	defer close(ch)
+	watcher := mockAllWatcher{
+		next: func() []multiwatcher.Delta {
+			<-ch
+			return nil
+		},
+	}
+	s.PatchValue(&watchAll, func(*api.Client) (allWatcher, error) {
+		return watcher, nil
+	})
+
 	testcharms.UploadCharm(c, s.client, "trusty/django-0", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
 	s.PatchValue(&updateUnitStatusPeriod, 0*time.Second)
@@ -1348,4 +1363,16 @@ deployment of bundle "local:bundle/example-0" completed`
 		"foo":    "bar",
 		"answer": "42",
 	})
+}
+
+type mockAllWatcher struct {
+	next func() []multiwatcher.Delta
+}
+
+func (w mockAllWatcher) Next() ([]multiwatcher.Delta, error) {
+	return w.next(), nil
+}
+
+func (mockAllWatcher) Stop() error {
+	return nil
 }
