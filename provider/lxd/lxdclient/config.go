@@ -28,7 +28,7 @@ const (
 // Config contains the config values used for a connection to the LXD API.
 type Config struct {
 	// Namespace identifies the namespace to associate with containers
-	// and other resources with which the client interacts. If may be
+	// and other resources with which the client interacts. It may be
 	// blank.
 	Namespace string
 
