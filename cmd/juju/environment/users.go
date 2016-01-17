@@ -20,7 +20,7 @@ import (
 
 const userCommandDoc = `List all users with access to the current environment`
 
-func newUsersCommand() cmd.Command {
+func NewUsersCommand() cmd.Command {
 	return envcmd.Wrap(&usersCommand{})
 }
 
@@ -55,7 +55,7 @@ func (c *usersCommand) getAPI() (UsersAPI, error) {
 // Info implements Command.Info.
 func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "users",
+		Name:    "list-shares",
 		Purpose: "shows all users with access to the current environment",
 		Doc:     userCommandDoc,
 	}

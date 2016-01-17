@@ -48,12 +48,12 @@ type environmentDoc struct {
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
 }
 
-// StateServerEnvironment returns the environment that was bootstrapped.
+// ControllerEnvironment returns the environment that was bootstrapped.
 // This is the only environment that can have state server machines.
 // The owner of this environment is also considered "special", in that
 // they are the only user that is able to create other users (until we
 // have more fine grained permissions), and they cannot be disabled.
-func (st *State) StateServerEnvironment() (*Environment, error) {
+func (st *State) ControllerEnvironment() (*Environment, error) {
 	ssinfo, err := st.StateServerInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get state server info")
@@ -130,7 +130,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		}
 	}
 
-	ssEnv, err := st.StateServerEnvironment()
+	ssEnv, err := st.ControllerEnvironment()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not load state server environment")
 	}
@@ -209,9 +209,9 @@ func (e *Environment) UUID() string {
 	return e.doc.UUID
 }
 
-// ServerUUID returns the universally unique identifier of the server in which
-// the environment is running.
-func (e *Environment) ServerUUID() string {
+// ControllerUUID returns the universally unique identifier of the controller
+// in which the environment is running.
+func (e *Environment) ControllerUUID() string {
 	return e.doc.ServerUUID
 }
 

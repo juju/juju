@@ -149,8 +149,8 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestStateServerEnvironment(c *gc.C) {
-	env, err := s.State.StateServerEnvironment()
+func (s *EnvironSuite) TestControllerEnvironment(c *gc.C) {
+	env, err := s.State.ControllerEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedTag := names.NewEnvironTag(env.UUID())
@@ -161,12 +161,12 @@ func (s *EnvironSuite) TestStateServerEnvironment(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
-func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments(c *gc.C) {
+func (s *EnvironSuite) TestControllerEnvironmentAccessibleFromOtherEnvironments(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
 	_, st, err := s.State.NewEnvironment(cfg, names.NewUserTag("test@remote"))
 	defer st.Close()
 
-	env, err := st.StateServerEnvironment()
+	env, err := st.ControllerEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Tag(), gc.Equals, s.envTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
@@ -242,7 +242,7 @@ func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.EnvironUUID())
 }
 
-func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
+func (s *EnvironSuite) TestDestroyControllerEnvironment(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
@@ -258,7 +258,7 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
+func (s *EnvironSuite) TestDestroyControllerEnvironmentFails(c *gc.C) {
 	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := s.State.Environment()
@@ -354,7 +354,7 @@ func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(
 	c.Assert(controllerEnv.Life(), gc.Equals, state.Dead)
 }
 
-func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
+func (s *EnvironSuite) TestDestroyControllerEnvironmentRace(c *gc.C) {
 	// Simulate an environment being added just before the remove txn is
 	// called.
 	defer state.SetBeforeHooks(c, s.State, func() {

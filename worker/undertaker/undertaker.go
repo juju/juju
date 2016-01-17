@@ -12,6 +12,7 @@ import (
 
 	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -72,6 +73,11 @@ func (u *undertaker) run() error {
 		return nil
 	}
 
+	err = u.destroyProviderEnv()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	tod := u.clock.Now()
 	if envInfo.TimeOfDeath != nil {
 		// If TimeOfDeath is not nil, the environment was already dead
@@ -129,6 +135,19 @@ func (u *undertaker) processDyingEnv() error {
 			// Yes, we ignore the error. See comment above.
 		}
 	}
+}
+
+func (u *undertaker) destroyProviderEnv() error {
+	cfg, err := u.client.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = env.Destroy()
+	return errors.Trace(err)
 }
 
 func (u *undertaker) processDeadEnv(timeOfDeath time.Time) error {

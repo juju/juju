@@ -18,7 +18,7 @@ import (
 )
 
 // All of the functionality of the UserInfo api call is contained elsewhere.
-// This suite provides basic tests for the "user info" command
+// This suite provides basic tests for the "show-user" command
 type UserListCommandSuite struct {
 	BaseSuite
 }
@@ -26,7 +26,7 @@ type UserListCommandSuite struct {
 var _ = gc.Suite(&UserListCommandSuite{})
 
 func newUserListCommand() cmd.Command {
-	return user.NewListCommand(&fakeUserListAPI{})
+	return user.NewListCommandForTest(&fakeUserListAPI{})
 }
 
 type fakeUserListAPI struct{}

@@ -86,7 +86,7 @@ func findMatchingImages(e *azureEnviron, location, series string, arches []strin
 	if err != nil {
 		return nil, err
 	}
-	images, _, err := imagemetadata.Fetch(sources, constraint, signedImageDataOnly)
+	images, _, err := imagemetadata.Fetch(sources, constraint)
 	if len(images) == 0 || errors.IsNotFound(err) {
 		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
 	} else if err != nil {
