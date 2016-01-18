@@ -1123,32 +1123,28 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 	}
 	return []network.SpaceInfo{{
 		ProviderId: network.Id("foo"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("1"),
-				AvailabilityZones: []string{"zone1"},
-			}, {
-				ProviderId:        network.Id("2"),
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("1"),
+			AvailabilityZones: []string{"zone1"},
+		}, {
+			ProviderId:        network.Id("2"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		ProviderId: network.Id("Another Foo 99!"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("3"),
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("3"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		ProviderId: network.Id("foo-"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("4"),
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("4"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		ProviderId: network.Id("---"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("5"),
-				AvailabilityZones: []string{"zone1"},
-			}}}}, nil
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("5"),
+			AvailabilityZones: []string{"zone1"},
+		}}}}, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
