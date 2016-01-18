@@ -256,7 +256,7 @@ class EnvJujuClient:
         if self.env is None or not include_e:
             e_arg = ()
         else:
-            e_arg = ('-e', self.env.environment)
+            e_arg = ('-m', self.env.environment)
         if timeout is None:
             prefix = ()
         else:
@@ -275,6 +275,8 @@ class EnvJujuClient:
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
         self.env = env
+        if version == '2.0-alpha2':
+            version = '2.0-alpha1'
         self.version = version
         self.full_path = full_path
         self.debug = debug
@@ -693,6 +695,8 @@ class EnvJujuClient:
             raise Exception("Timed out waiting for %s" % thing)
 
     def get_matching_agent_version(self, no_build=False):
+        if self.version == '2.0-alpha2':
+            return '2.0-alpha1'
         # strip the series and srch from the built version.
         version_parts = self.version.split('-')
         if len(version_parts) == 4:
@@ -787,6 +791,28 @@ class EnvJujuClient:
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
+
+    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+        # sudo is not needed for devel releases.
+        if self.env is None or not include_e:
+            e_arg = ()
+        else:
+            e_arg = ('-e', self.env.environment)
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
+        logging = '--debug' if self.debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
 
 class EnvJujuClient1X(EnvJujuClient):
