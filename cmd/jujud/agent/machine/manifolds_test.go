@@ -51,6 +51,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"apiworkers",
 		"reboot",
 		"logging-config-updater",
+		"rsyslog-config-updater",
+		"machiner",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }

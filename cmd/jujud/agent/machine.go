@@ -89,7 +89,6 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
@@ -97,7 +96,6 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -123,7 +121,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -480,14 +477,15 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			Agent:                agent.APIHostPortsSetter{a},
-			UpgradeStepsLock:     a.upgradeComplete,
-			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
-			OpenStateForUpgrade:  a.openStateForUpgrade,
-			WriteUninstallFile:   a.writeUninstallAgentFile,
-			StartAPIWorkers:      a.startAPIWorkers,
-			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			PreviousAgentVersion:   previousAgentVersion,
+			Agent:                  agent.APIHostPortsSetter{a},
+			UpgradeStepsLock:       a.upgradeComplete,
+			UpgradeCheckLock:       a.initialUpgradeCheckComplete,
+			OpenStateForUpgrade:    a.openStateForUpgrade,
+			WriteUninstallFile:     a.writeUninstallAgentFile,
+			StartAPIWorkers:        a.startAPIWorkers,
+			PreUpgradeSteps:        upgrades.PreUpgradeSteps,
+			NewRsyslogConfigWorker: cmdutil.NewRsyslogConfigWorker,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -726,29 +724,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
-	// Containers only have machine addresses, so we can't ignore them.
-	if names.IsContainerMachine(agentConfig.Tag().Id()) {
-		ignoreMachineAddresses = false
-	}
-	if ignoreMachineAddresses {
-		logger.Infof("machine addresses not used, only addresses from provider")
-	}
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
-		w, err := newMachiner(machiner.Config{
-			MachineAccessor: accessor,
-			Tag:             agentConfig.Tag().(names.MachineTag),
-			ClearMachineAddressesOnStart: ignoreMachineAddresses,
-			NotifyMachineDead: func() error {
-				return a.writeUninstallAgentFile()
-			},
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machiner worker")
-		}
-		return w, err
-	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
 		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
@@ -757,20 +732,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 		return w, nil
 	})
-
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		rsyslogMode := rsyslog.RsyslogModeForwarding
-		if isEnvironManager {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-		}
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
-			}
-			return w, nil
-		})
-	}
 
 	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 		api, err := apiConn.DiskManager()
