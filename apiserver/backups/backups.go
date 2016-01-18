@@ -36,7 +36,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	// For now, backup operations are only permitted on the system environment.
+	// For now, backup operations are only permitted on the controller environment.
 	if !st.IsStateServer() {
 		return nil, errors.New("backups are not supported for hosted environments")
 	}

@@ -54,7 +54,7 @@ func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
 }
 
 type stubCommand struct {
-	envcmd.JujuCommandBase
+	envcmd.EnvCommandBase
 	stub    *testing.Stub
 	info    *cmd.Info
 	envName string

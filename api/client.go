@@ -340,19 +340,10 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
-// EnvironmentInfo holds information about the Juju environment.
-type EnvironmentInfo struct {
-	DefaultSeries string
-	ProviderType  string
-	Name          string
-	UUID          string
-	ServerUUID    string
-}
-
 // EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	info := new(EnvironmentInfo)
-	err := c.facade.FacadeCall("EnvironmentInfo", nil, info)
+func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
+	var info params.EnvironmentInfo
+	err := c.facade.FacadeCall("EnvironmentInfo", nil, &info)
 	return info, err
 }
 
@@ -789,6 +780,9 @@ type DebugLogParams struct {
 	// Replay tells the server to start at the start of the log file rather
 	// than the end. If replay is true, backlog is ignored.
 	Replay bool
+	// NoTail tells the server to only return the logs it has now, and not
+	// to wait for new logs to arrive.
+	NoTail bool
 }
 
 // WatchDebugLog returns a ReadCloser that the caller can read the log
@@ -816,6 +810,9 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))
+	}
+	if args.NoTail {
+		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
 	if args.Limit > 0 {
 		attrs.Set("maxLines", fmt.Sprint(args.Limit))

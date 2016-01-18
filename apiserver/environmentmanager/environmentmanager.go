@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -25,7 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.JES)
+	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
@@ -76,7 +75,7 @@ func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
 		return errors.Trace(err)
 	}
 	if isAdmin {
-		logger.Tracef("%q is a system admin", apiUser.Canonical())
+		logger.Tracef("%q is a controller admin", apiUser.Canonical())
 		return nil
 	}
 
@@ -118,7 +117,7 @@ func (em *EnvironmentManagerAPI) ConfigSkeleton(args params.EnvironmentSkeletonC
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	stateServerEnv, err := em.state.StateServerEnvironment()
+	stateServerEnv, err := em.state.ControllerEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -295,7 +294,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	result := params.Environment{}
 	// Get the state server environment first. We need it both for the state
 	// server owner and the ability to get the config.
-	stateServerEnv, err := em.state.StateServerEnvironment()
+	stateServerEnv, err := em.state.ControllerEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

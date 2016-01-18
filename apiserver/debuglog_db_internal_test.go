@@ -30,6 +30,7 @@ func (s *debugLogDBIntSuite) SetUpTest(c *gc.C) {
 func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	reqParams := &debugLogParams{
 		fromTheStart:  false,
+		noTail:        true,
 		backlog:       11,
 		filterLevel:   loggo.INFO,
 		includeEntity: []string{"foo"},
@@ -45,7 +46,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		// Start time will be used once the client is extended to send
 		// time range arguments.
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
-
+		c.Assert(params.NoTail, jc.IsTrue)
 		c.Assert(params.MinLevel, gc.Equals, loggo.INFO)
 		c.Assert(params.InitialLines, gc.Equals, 11)
 		c.Assert(params.IncludeEntity, jc.DeepEquals, []string{"foo"})

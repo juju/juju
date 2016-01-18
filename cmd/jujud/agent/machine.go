@@ -714,11 +714,9 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 	})
 
-	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
-		})
-	}
+	runner.StartWorker("logsender", func() (worker.Worker, error) {
+		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
+	})
 
 	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
@@ -894,7 +892,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 
 	// Ensure storage is available during upgrades.
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
+	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
 		unregisterSimplestreamsDataSource()
@@ -1029,9 +1027,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
-
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
 	if err != nil {
@@ -1087,11 +1082,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
-			if feature.IsDbLogEnabled() {
-				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
-				})
-			}
+			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil

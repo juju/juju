@@ -43,7 +43,7 @@ particular service brilliantly. All you have to do is use any available charm
 seconds, on any cloud or server or virtual machine.
 
 See Also:
-    juju help juju-systems
+    juju help controllers
     juju help bootstrap
     juju help topics
     https://jujucharms.com/docs

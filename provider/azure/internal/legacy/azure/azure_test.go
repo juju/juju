@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	testing "github.com/juju/juju/testing"
 )
@@ -33,15 +34,12 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
-
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.UploadArches = []string{arch.AMD64}
 }
@@ -96,5 +94,5 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*im
 		"/streams/v1/index.json":                string(index),
 		"/" + imagemetadata.ProductMetadataPath: string(products),
 	}
-	s.PatchValue(&testRoundTripper.Sub, testing.NewCannedRoundTripper(files, nil))
+	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 }
