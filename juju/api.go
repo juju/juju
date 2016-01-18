@@ -103,7 +103,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
 	// This enables people to copy environment files
-	// into their .juju/environments directory and have
+	// into their .config/juju/environments directory and have
 	// them be directly useful with no further configuration changes.
 	envs, err := environs.ReadEnvirons("")
 	if err == nil {

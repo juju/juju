@@ -102,7 +102,7 @@ need to be immutable, and I'm not sure whether that's implemented yet.]
 
 An `environments file` is a YAML file containing environment configurations.
 Juju cannot operate without a valid environments file, which must be saved at
-`~/.juju/environments.yaml` on the client machine.
+`~/.config/juju/environments.yaml` on the client machine.
 
 The simplest functional environments file looks like this:
 

@@ -64,7 +64,7 @@ ENVIRONMENT = (
         -e ENV, this takes precedence.
         """)),
     ('JUJU_HOME', textwrap.dedent("""\
-        Overrides the default Juju configuration directory of ~/.juju.
+        Overrides the default Juju configuration directory of ~/.config/juju.
         """)),
     ('AWS_ACCESS_KEY_ID', textwrap.dedent("""\
         The access-key for your AWS account.
@@ -144,7 +144,7 @@ such as OpenStack, Amazon AWS, or bare metal.
 man_foot = """\
 .SH "FILES"
 .TP
-.I "~/.juju/environments.yaml"
+.I "~/.config/juju/environments.yaml"
 This is the Juju config file, which you can use to specify multiple
 environments in which to deploy.
 

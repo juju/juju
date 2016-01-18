@@ -43,6 +43,8 @@ const (
 	// This includes args and output.
 	// Default is 1.
 	JujuCLIVersion = "JUJU_CLI_VERSION"
+
+	XDGConfigHome = "XDG_CONFIG_HOME"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

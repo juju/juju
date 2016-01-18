@@ -360,8 +360,8 @@ const (
 //     ~/.ssh/id_dsa.pub
 //     ~/.ssh/id_rsa.pub
 //     ~/.ssh/identity.pub
-//     ~/.juju/<name>-cert.pem
-//     ~/.juju/<name>-private-key.pem
+//     ~/.config/juju/<name>-cert.pem
+//     ~/.config/juju/<name>-private-key.pem
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
