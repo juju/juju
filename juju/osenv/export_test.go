@@ -4,8 +4,8 @@
 package osenv
 
 var (
-	JujuHomeWin   = jujuHomeWin
-	JujuHomeLinux = jujuHomeLinux
-	MergeEnvUnix  = mergeEnvUnix
-	MergeEnvWin   = mergeEnvWin
+	JujuXDGDataHomeWin   = jujuXDGDataHomeWin
+	JujuXDGDataHomeLinux = jujuXDGDataHomeLinux
+	MergeEnvUnix         = mergeEnvUnix
+	MergeEnvWin          = mergeEnvWin
 )

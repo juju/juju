@@ -16,8 +16,10 @@ Start by generating a generic configuration file for Juju, using the command:
 
   juju init
 
-This will create the '~/.juju/' directory (or $JUJU_HOME, if set) if it doesn't
-already exist and generate a file, 'environments.yaml' in that directory.
+This will create the $JUJU_DATA directory, if set, otherwise it will try
+$XDG_DATA_HOME/juju if said variable is set or finally default to
+~/.local/share/juju if it doesn't already exist and generate a file, 
+'environments.yaml' in that directory.
 `
 const helpProviderEnd = `
 See Also:

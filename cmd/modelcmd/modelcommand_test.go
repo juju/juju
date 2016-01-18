@@ -29,11 +29,11 @@ import (
 )
 
 type ModelCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 }
 
@@ -46,7 +46,7 @@ func (s *ModelCommandSuite) TestGetDefaultModel(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestGetDefaultModelNothingSet(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuXDGDataHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := modelcmd.GetDefaultModel()
@@ -117,7 +117,7 @@ func (s *ModelCommandSuite) TestModelCommandInitControllerFile(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitNoEnvFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuXDGDataHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureModelName(c, "")
@@ -174,7 +174,7 @@ func testEnsureModelName(c *gc.C, expect string, args ...string) {
 }
 
 type ConnectionEndpointSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	store    configstore.Storage
 	endpoint configstore.APIEndpoint
 }
@@ -317,7 +317,7 @@ func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
 }
 
 type EnvConfigSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	client  *fakeEnvGetter
 	store   configstore.Storage
 	envName string
@@ -337,7 +337,7 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 }
 
 func (s *EnvConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.envName = "test-model"
 	s.client = &fakeEnvGetter{results: createBootstrapInfo(c, s.envName)}
 

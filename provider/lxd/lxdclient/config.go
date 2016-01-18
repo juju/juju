@@ -45,7 +45,12 @@ type Config struct {
 func ConfigPath(namespace string) string {
 	// Here we use the same path as lxc for convention, but we could use
 	// any juju specific path.
-	return os.ExpandEnv(path.Join("$HOME/.config/lxc", namespace))
+	userHome := os.Getenv("HOME")
+	if userHome == "" {
+		logger.Warningf("$HOME is not set, lxd config path will be set relative to /")
+	}
+
+	return os.ExpandEnv(path.Join(userHome, ".config/lxc", namespace))
 }
 
 // WithDefaults updates a copy of the config with default values

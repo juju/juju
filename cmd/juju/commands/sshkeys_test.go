@@ -20,7 +20,7 @@ import (
 )
 
 type SSHKeysSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&SSHKeysSuite{})

@@ -21,7 +21,7 @@ import (
 )
 
 type createSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fake       *fakeCreateClient
 	parser     func(interface{}) (interface{}, error)
 	store      configstore.Storage
@@ -32,7 +32,7 @@ type createSuite struct {
 var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeCreateClient{}
 	s.parser = nil
 	store := configstore.Default

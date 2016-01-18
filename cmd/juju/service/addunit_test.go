@@ -18,7 +18,7 @@ import (
 )
 
 type AddUnitSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeServiceAddUnitAPI
 }
 
@@ -64,7 +64,7 @@ func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 }
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeServiceAddUnitAPI{service: "some-service-name", numUnits: 1, envType: "dummy"}
 }
 
