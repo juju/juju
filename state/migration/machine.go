@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+
+	"github.com/juju/juju/version"
 )
 
 type machines struct {
@@ -15,7 +17,26 @@ type machines struct {
 }
 
 type machine struct {
-	Id_         string     `yaml:"id"`
+	Id_ string `yaml:"id"`
+
+	Nonce_             string         `yaml:"nonce"`
+	PasswordHash_      string         `yaml:"password-hash"`
+	Placement_         string         `yaml:"placement,omitempty"`
+	Instance_          *cloudInstance `yaml:"instance"`
+	Series_            string         `yaml:"series"`
+	ContainerType_     string         `yaml:"container-type,omitempty"`
+	ProviderAddresses_ []*address     `yaml:"provider-addresses"`
+	MachineAddresses_  []*address     `yaml:"machine-addresses"`
+
+	PreferredPublicAddress_  *address `yaml:"preferred-public-address"`
+	PreferredPrivateAddress_ *address `yaml:"preferred-private-address"`
+
+	Tools_ AgentTools `yaml:"tools"`
+	Jobs_  []string   `yaml:"jobs"`
+
+	SupportedContainers_    []string `yaml:"supported-containers,omitempty"`
+	SupportedContainersSet_ bool     `yaml:"supported-containers-set,omitempty"`
+
 	Containers_ []*machine `yaml:"containers"`
 }
 
@@ -43,6 +64,66 @@ type cloudInstance struct {
 
 func (m *machine) Id() names.MachineTag {
 	return names.NewMachineTag(m.Id_)
+}
+
+func (m *machine) Nonce() string {
+	return m.Nonce_
+}
+
+func (m *machine) PasswordHash() string {
+	return m.PasswordHash_
+}
+
+func (m *machine) Placement() string {
+	return m.Placement_
+}
+
+func (m *machine) Instance() CloudInstance {
+	return m.Instance_
+}
+
+func (m *machine) Series() string {
+	return m.Series_
+}
+
+func (m *machine) ContainerType() string {
+	return m.ContainerType_
+}
+
+func (m *machine) ProviderAddresses() []Address {
+	var result []Address
+	for _, addr := range m.ProviderAddresses_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+func (m *machine) MachineAddresses() []Address {
+	var result []Address
+	for _, addr := range m.MachineAddresses_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+func (m *machine) PreferredPublicAddress() Address {
+	return m.PreferredPublicAddress_
+}
+
+func (m *machine) PreferredPrivateAddress() Address {
+	return m.PreferredPrivateAddress_
+}
+
+func (m *machine) Tools() AgentTools {
+	return m.Tools_
+}
+
+func (m *machine) Jobs() []string {
+	return m.Jobs_
+}
+
+func (m *machine) SupportedContainers() ([]string, bool) {
+	return m.SupportedContainers_, m.SupportedContainersSet_
 }
 
 func (m *machine) Containers() []Machine {
@@ -119,4 +200,40 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 
 	return result, nil
 
+}
+
+func (c *cloudInstance) InstanceId() string {
+	return c.InstanceId_
+}
+
+func (c *cloudInstance) Status() string {
+	return c.Status_
+}
+
+func (c *cloudInstance) Architecture() *string {
+	return c.Architecture_
+}
+
+func (c *cloudInstance) Memory() *uint64 {
+	return c.Memory_
+}
+
+func (c *cloudInstance) RootDisk() *uint64 {
+	return c.RootDisk_
+}
+
+func (c *cloudInstance) CpuCores() *uint64 {
+	return c.CpuCores_
+}
+
+func (c *cloudInstance) CpuPower() *uint64 {
+	return c.CpuPower_
+}
+
+func (c *cloudInstance) Tags() *[]string {
+	return c.Tags_
+}
+
+func (c *cloudInstance) AvailabilityZone() *string {
+	return c.AvailabilityZone_
 }

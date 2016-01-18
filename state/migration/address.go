@@ -5,7 +5,6 @@ package migration
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
 )
 
@@ -52,7 +51,7 @@ func (a *address) Origin() string {
 func importAddress(source map[string]interface{}) (*address, error) {
 	version, err := getVersion(source)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "address version schema check failed")
 	}
 
 	importFunc, ok := addressDeserializationFuncs[version]
@@ -70,8 +69,6 @@ var addressDeserializationFuncs = map[int]addressDeserializationFunc{
 }
 
 func importAddressV1(source map[string]interface{}) (*address, error) {
-	result := &address{Version: 1}
-
 	fields := schema.Fields{
 		"value":        schema.String(),
 		"type":         schema.String(),

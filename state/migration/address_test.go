@@ -18,36 +18,45 @@ type AddressSerializationSuite struct {
 var _ = gc.Suite(&AddressSerializationSuite{})
 
 func (*AddressSerializationSuite) TestNil(c *gc.C) {
-	_, err := importAddresss(nil)
-	c.Check(err, gc.ErrorMatches, "addresss version schema check failed: .*")
+	_, err := importAddress(nil)
+	c.Check(err, gc.ErrorMatches, "address version schema check failed: .*")
 }
 
 func (*AddressSerializationSuite) TestMissingVersion(c *gc.C) {
-	_, err := importAddresss(map[string]interface{}{
+	_, err := importAddress(map[string]interface{}{
 		"value": "",
 		"type":  "",
 	})
-	c.Check(err.Error(), gc.Equals, "addresss version schema check failed: version: expected int, got nothing")
+	c.Check(err.Error(), gc.Equals, "address version schema check failed: version: expected int, got nothing")
 }
 
-func (*AddressSerializationSuite) TestMissingAddresss(c *gc.C) {
-	_, err := importAddresss(map[string]interface{}{
+func (*AddressSerializationSuite) TestMissingValue(c *gc.C) {
+	_, err := importAddress(map[string]interface{}{
 		"version": 1,
+		"type":    "",
 	})
-	c.Check(err.Error(), gc.Equals, "addresss version schema check failed: addresss: expected list, got nothing")
+	c.Check(err.Error(), gc.Equals, "address v1 schema check failed: value: expected string, got nothing")
+}
+
+func (*AddressSerializationSuite) TestMissingType(c *gc.C) {
+	_, err := importAddress(map[string]interface{}{
+		"version": 1,
+		"value":   "",
+	})
+	c.Check(err.Error(), gc.Equals, "address v1 schema check failed: type: expected string, got nothing")
 }
 
 func (*AddressSerializationSuite) TestNonIntVersion(c *gc.C) {
-	_, err := importAddresss(map[string]interface{}{
+	_, err := importAddress(map[string]interface{}{
 		"version": "hello",
 		"value":   "",
 		"type":    "",
 	})
-	c.Check(err.Error(), gc.Equals, `addresss version schema check failed: version: expected int, got string("hello")`)
+	c.Check(err.Error(), gc.Equals, `address version schema check failed: version: expected int, got string("hello")`)
 }
 
 func (*AddressSerializationSuite) TestUnknownVersion(c *gc.C) {
-	_, err := importAddresss(map[string]interface{}{
+	_, err := importAddress(map[string]interface{}{
 		"version": 42,
 		"value":   "",
 		"type":    "",
@@ -56,7 +65,7 @@ func (*AddressSerializationSuite) TestUnknownVersion(c *gc.C) {
 }
 
 func (*AddressSerializationSuite) TestParsing(c *gc.C) {
-	addr, err := importMachines(map[string]interface{}{
+	addr, err := importAddress(map[string]interface{}{
 		"version":      1,
 		"value":        "no",
 		"type":         "content",
@@ -65,7 +74,7 @@ func (*AddressSerializationSuite) TestParsing(c *gc.C) {
 		"origin":       "here",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := *address{
+	expected := &address{
 		Version:      1,
 		Value_:       "no",
 		Type_:        "content",
@@ -77,13 +86,13 @@ func (*AddressSerializationSuite) TestParsing(c *gc.C) {
 }
 
 func (*AddressSerializationSuite) TestOptionalValues(c *gc.C) {
-	addr, err := importMachines(map[string]interface{}{
+	addr, err := importAddress(map[string]interface{}{
 		"version": 1,
 		"value":   "no",
 		"type":    "content",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := *address{
+	expected := &address{
 		Version: 1,
 		Value_:  "no",
 		Type_:   "content",
@@ -92,40 +101,13 @@ func (*AddressSerializationSuite) TestOptionalValues(c *gc.C) {
 }
 
 func (*AddressSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := addresss{
-		Version: 1,
-		Addresss_: []*address{
-			&address{
-				Id_: "0",
-			},
-			&address{
-				Id_: "1",
-				Containers_: []*address{
-					&address{
-						Id_: "1/lxc/0",
-					},
-					&address{
-						Id_: "1/lxc/1",
-					},
-				},
-			},
-			&address{
-				Id_: "2",
-				Containers_: []*address{
-					&address{
-						Id_: "2/kvm/0",
-						Containers_: []*address{
-							&address{
-								Id_: "2/kvm/0/lxc/0",
-							},
-							&address{
-								Id_: "2/kvm/0/lxc/1",
-							},
-						},
-					},
-				},
-			},
-		},
+	initial := &address{
+		Version:      1,
+		Value_:       "no",
+		Type_:        "content",
+		NetworkName_: "validation",
+		Scope_:       "done",
+		Origin_:      "here",
 	}
 
 	bytes, err := yaml.Marshal(initial)
@@ -135,8 +117,8 @@ func (*AddressSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresss, err := importAddresss(source)
+	addresss, err := importAddress(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(addresss, jc.DeepEquals, initial.Addresss_)
+	c.Assert(addresss, jc.DeepEquals, initial)
 }
