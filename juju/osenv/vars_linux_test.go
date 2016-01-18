@@ -15,5 +15,5 @@ import (
 func (s *varsSuite) TestJujuHome(c *gc.C) {
 	path := `/foo/bar/baz/`
 	s.PatchEnvironment("HOME", path)
-	c.Assert(osenv.JujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
+	c.Assert(osenv.JujuHomeLinux(), gc.Equals, filepath.Join(path, ".config", "juju"))
 }

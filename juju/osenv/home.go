@@ -15,7 +15,7 @@ import (
 // jujuHome stores the path to the juju configuration
 // folder, which is only meaningful when running the juju
 // CLI tool, and is typically defined by $JUJU_HOME or
-// $HOME/.juju as default.
+// $XDG_CONFIG_HOME/juju as default.
 var (
 	jujuHomeMu sync.Mutex
 	jujuHome   string
@@ -71,11 +71,14 @@ func JujuHomeDir() string {
 
 // jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
 func jujuHomeLinux() string {
-	home := utils.Home()
-	if home == "" {
-		return ""
+	xdgConfig := os.Getenv(XDGConfigHome)
+	if xdgConfig != "" {
+		return filepath.Join(xdgConfig, "juju")
 	}
-	return filepath.Join(home, ".juju")
+	// If xdg config home is not defined, the standard indicates that its default value
+	// is $HOME/.config
+	home := utils.Home()
+	return filepath.Join(home, ".config", "juju")
 }
 
 // jujuHomeWin returns the directory where juju should store application-specific files on Windows.

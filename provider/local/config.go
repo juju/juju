@@ -34,9 +34,9 @@ const (
 // defined by the local provider.
 var configSchema = environschema.Fields{
 	RootDirKey: {
-		Description: `The directory that is used for the database. The default location is $JUJU_HOME/<env-name>. $JUJU_HOME defaults to ~/.juju. Override if needed.`,
+		Description: `The directory that is used for the database. The default location is $JUJU_HOME/<env-name>. $JUJU_HOME defaults to ~/.config/juju. Override if needed.`,
 		Type:        environschema.Tstring,
-		Example:     "~/.juju/local",
+		Example:     "~/.config/juju/local",
 	},
 	BootstrapIpKey: {
 		Description: `The IP address of the bootstrap machine`,

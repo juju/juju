@@ -37,6 +37,14 @@ const (
 	// JujuStatusIsoTimeEnvKey is the env var which if true, will cause status
 	// timestamps to be written in RFC3339 format.
 	JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
+
+	// JujuCLIVersion is a numeric value (1, 2, 3 etc) representing
+	// the oldest CLI version which should be adhered to.
+	// This includes args and output.
+	// Default is 1.
+	JujuCLIVersion = "JUJU_CLI_VERSION"
+
+	XDGConfigHome = "XDG_CONFIG_HOME"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.
