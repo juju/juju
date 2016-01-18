@@ -20,11 +20,11 @@ const listCommandDoc = `
 List all the current users in the Juju server.
 
 See Also:
-   juju help user info
+   juju help show-user
 `
 
-func newListCommand() cmd.Command {
-	return envcmd.WrapSystem(&listCommand{})
+func NewListCommand() cmd.Command {
+	return envcmd.WrapController(&listCommand{})
 }
 
 // listCommand shows all the users in the Juju server.
@@ -36,7 +36,7 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-users",
 		Purpose: "shows all users",
 		Doc:     listCommandDoc,
 	}

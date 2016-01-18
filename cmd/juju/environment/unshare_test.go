@@ -21,12 +21,12 @@ type unshareSuite struct {
 var _ = gc.Suite(&unshareSuite{})
 
 func (s *unshareSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := environment.NewUnshareCommand(s.fake)
+	command, _ := environment.NewUnshareCommandForTest(s.fake)
 	return testing.RunCommand(c, command, args...)
 }
 
 func (s *unshareSuite) TestInit(c *gc.C) {
-	wrappedCommand, unshareCmd := environment.NewUnshareCommand(s.fake)
+	wrappedCommand, unshareCmd := environment.NewUnshareCommandForTest(s.fake)
 	err := testing.InitCommand(wrappedCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "no users specified")
 

@@ -818,7 +818,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify)
+	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify, simplestreams.SPECIFIC_CLOUD_DATA, false)
 	return *datasource, nil
 }
 
@@ -966,7 +966,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-	})
+	}, args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}

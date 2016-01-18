@@ -444,9 +444,10 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
+		Cert:   []byte(coretesting.ServerCert),
+		Key:    []byte(coretesting.ServerKey),
+		Tag:    names.NewMachineTag("0"),
+		LogDir: c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

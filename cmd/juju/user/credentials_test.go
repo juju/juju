@@ -28,7 +28,7 @@ func (s *CredentialsCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CredentialsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	wrappedCommand, _ := user.NewCredentialsCommand()
+	wrappedCommand, _ := user.NewCredentialsCommandForTest()
 	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
@@ -52,7 +52,7 @@ func (s *CredentialsCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewCredentialsCommand()
+		wrappedCommand, command := user.NewCredentialsCommandForTest()
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.OutPath, gc.Equals, test.outPath)

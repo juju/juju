@@ -16,36 +16,36 @@ import (
 
 const userCredentialsDoc = `
 Writes out the current user and credentials to a file that can be used
-with 'juju system login' to allow the user to access the same environments
+with 'juju controller login' to allow the user to access the same environments
 as the same user from another machine.
 
 Examples:
 
-    $ juju user credentials --output staging.creds
+    $ juju get-user-credentials --output staging.creds
 
     # copy the staging.creds file to another machine
 
-    $ juju system login staging --server staging.creds --keep-password
+    $ juju login staging --server staging.creds --keep-password
 
 
 See Also:
-    juju system login
+    juju help login
 `
 
-func newCredentialsCommand() cmd.Command {
-	return envcmd.WrapSystem(&credentialsCommand{})
+func NewCredentialsCommand() cmd.Command {
+	return envcmd.WrapController(&credentialsCommand{})
 }
 
 // credentialsCommand changes the password for a user.
 type credentialsCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	OutPath string
 }
 
 // Info implements Command.Info.
 func (c *credentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "credentials",
+		Name:    "get-user-credentials",
 		Purpose: "save the credentials and server details to a file",
 		Doc:     userCredentialsDoc,
 	}

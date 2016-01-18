@@ -39,7 +39,7 @@ const (
 // authenticate the simple streams data on http://cloud-images.ubuntu.com.
 // Declared as a var so it can be overidden for testing.
 // See http://bazaar.launchpad.net/~smoser/simplestreams/trunk/view/head:/examples/keys/cloud-images.pub
-var simplestreamsImagesPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+var SimplestreamsImagesPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
 mQINBFCMc9EBEADDKn9mOi9VZhW+0cxmu3aFZWMg0p7NEKuIokkEdd6P+BRITccO
@@ -130,11 +130,11 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 		if publicKey == "" {
-			publicKey = simplestreamsImagesPublicKey
+			publicKey = SimplestreamsImagesPublicKey
 		}
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
 	}
 
 	// Fallback to image metadata for existing Ubuntu images.
@@ -145,7 +145,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	if defaultUbuntuURL != "" {
 		result = append(
 			result,
-			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, simplestreamsImagesPublicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, SimplestreamsImagesPublicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
 	}
 
 	return result, nil
@@ -233,11 +233,10 @@ func (im *ImageMetadata) productId() string {
 // then unsigned data is used.
 func Fetch(
 	sources []simplestreams.DataSource, cons *ImageConstraint,
-	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
+) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
-		OnlySigned:       onlySigned,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
 			DataType:      ImageIds,

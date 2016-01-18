@@ -18,7 +18,7 @@ type stateInterface interface {
 	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
-	StateServerEnvironment() (*state.Environment, error)
+	ControllerEnvironment() (*state.Environment, error)
 }
 
 type stateShim struct {
