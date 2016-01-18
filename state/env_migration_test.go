@@ -55,32 +55,32 @@ func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
 	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mig.EnvUUID(), gc.Equals, s.State2.EnvironUUID())
-	c.Assert(mig.Id(), gc.Equals, mig.EnvUUID()+":0")
+	c.Check(mig.EnvUUID(), gc.Equals, s.State2.EnvironUUID())
+	c.Check(mig.Id(), gc.Equals, mig.EnvUUID()+":0")
 
-	c.Assert(mig.StartTime(), gc.Equals, s.clock.Now())
+	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
 
-	c.Assert(mig.SuccessTime().IsZero(), jc.IsTrue)
-	c.Assert(mig.EndTime().IsZero(), jc.IsTrue)
-	c.Assert(mig.StatusMessage(), gc.Equals, "")
-	c.Assert(mig.Owner(), gc.Equals, "owner")
-	c.Assert(mig.TargetController(), gc.Equals, "uuid")
+	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
+	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
+	c.Check(mig.StatusMessage(), gc.Equals, "")
+	c.Check(mig.Owner(), gc.Equals, "owner")
+	c.Check(mig.TargetController(), gc.Equals, "uuid")
 
 	assertPhase(c, mig, migration.QUIESCE)
-	c.Assert(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
+	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
 
 	outApiAddrs, err := mig.TargetAPIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outApiAddrs, gc.HasLen, len(apiAddrs))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(outApiAddrs, gc.HasLen, len(apiAddrs))
 	for i, inAddr := range apiAddrs {
 		outAddr := outApiAddrs[i]
-		c.Assert(inAddr.Address.Value, gc.Equals, outAddr.Address.Value)
-		c.Assert(inAddr.Port, gc.Equals, outAddr.Port)
+		c.Check(inAddr.Address.Value, gc.Equals, outAddr.Address.Value)
+		c.Check(inAddr.Port, gc.Equals, outAddr.Port)
 	}
 
 	username, password := mig.TargetAuthInfo()
-	c.Assert(username, gc.Equals, "user")
-	c.Assert(password, gc.Equals, "password")
+	c.Check(username, gc.Equals, "user")
+	c.Check(password, gc.Equals, "password")
 
 	assertEnvMigActive(c, s.State2)
 }
@@ -92,25 +92,25 @@ func (s *EnvMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 
 	mig2, err := state.CreateEnvMigration(st2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig2.Id(), gc.Equals, st2.EnvironUUID()+":0")
+	c.Check(mig2.Id(), gc.Equals, st2.EnvironUUID()+":0")
 
 	mig3, err := state.CreateEnvMigration(st3, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig3.Id(), gc.Equals, st3.EnvironUUID()+":0")
+	c.Check(mig3.Id(), gc.Equals, st3.EnvironUUID()+":0")
 }
 
 func (s *EnvMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 	createAndAbort := func() string {
 		mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 		return mig.Id()
 	}
 
 	envUUID := s.State2.EnvironUUID()
-	c.Assert(createAndAbort(), gc.Equals, envUUID+":0")
-	c.Assert(createAndAbort(), gc.Equals, envUUID+":1")
-	c.Assert(createAndAbort(), gc.Equals, envUUID+":2")
+	c.Check(createAndAbort(), gc.Equals, envUUID+":0")
+	c.Check(createAndAbort(), gc.Equals, envUUID+":1")
+	c.Check(createAndAbort(), gc.Equals, envUUID+":2")
 }
 
 func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
@@ -120,7 +120,7 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 
 	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig.Id(), gc.Equals, envUUID+":0")
+	c.Check(mig.Id(), gc.Equals, envUUID+":0")
 
 	// This attempt will fail because a migration is already in
 	// progress.
@@ -133,7 +133,7 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 
 	mig, err = state.CreateEnvMigration(s.State2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig.Id(), gc.Equals, envUUID+":1")
+	c.Check(mig.Id(), gc.Equals, envUUID+":1")
 }
 
 func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
@@ -152,7 +152,7 @@ func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
 
 		// Ensure that CreateEnvMigration complains that the field is missing.
 		mig, err := state.CreateEnvMigration(s.State2, args)
-		c.Assert(mig, gc.IsNil)
+		c.Check(mig, gc.IsNil)
 		c.Check(errors.IsNotValid(err), jc.IsTrue)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", name))
 	}
@@ -163,8 +163,8 @@ func (s *EnvMigrationSuite) TestCreateWithControllerEnv(c *gc.C) {
 		s.State, // This is the State for the controller
 		s.stdArgs,
 	)
-	c.Assert(mig, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "controllers can't be migrated")
+	c.Check(mig, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "controllers can't be migrated")
 }
 
 func (s *EnvMigrationSuite) TestCreateFailsForMigratedEnvs(c *gc.C) {
@@ -177,8 +177,8 @@ func (s *EnvMigrationSuite) TestCreateMigrationInProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := state.CreateEnvMigration(s.State2, s.stdArgs)
-	c.Assert(mig2, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "failed to create migration: already in progress")
+	c.Check(mig2, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
 func (s *EnvMigrationSuite) TestCreateMigrationRace(c *gc.C) {
@@ -189,8 +189,8 @@ func (s *EnvMigrationSuite) TestCreateMigrationRace(c *gc.C) {
 	}).Check()
 
 	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
-	c.Assert(mig, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "failed to create migration: already in progress")
+	c.Check(mig, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
 func (s *EnvMigrationSuite) TestGet(c *gc.C) {
@@ -205,8 +205,8 @@ func (s *EnvMigrationSuite) TestGet(c *gc.C) {
 
 func (s *EnvMigrationSuite) TestGetNotExist(c *gc.C) {
 	mig, err := state.GetEnvMigration(s.State2, s.clock)
-	c.Assert(mig, gc.IsNil)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(mig, gc.IsNil)
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
@@ -217,7 +217,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		mig, err := state.GetEnvMigration(s.State2, s.clock)
-		c.Assert(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", envUUID, i))
+		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", envUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	}
@@ -313,7 +313,7 @@ func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mig.SetPhase(migration.SUCCESS)
-	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: QUIESCE -> SUCCESS")
+	c.Check(err, gc.ErrorMatches, "failed to update phase: illegal change: QUIESCE -> SUCCESS")
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
@@ -369,15 +369,15 @@ func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 func assertPhase(c *gc.C, mig *state.EnvMigration, phase migration.Phase) {
 	actualPhase, err := mig.Phase()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualPhase, gc.Equals, phase)
+	c.Check(actualPhase, gc.Equals, phase)
 }
 
 func assertEnvMigActive(c *gc.C, st *state.State) {
-	c.Assert(isEnvMigrationActive(c, st), jc.IsTrue)
+	c.Check(isEnvMigrationActive(c, st), jc.IsTrue)
 }
 
 func assertEnvMigNotActive(c *gc.C, st *state.State) {
-	c.Assert(isEnvMigrationActive(c, st), jc.IsFalse)
+	c.Check(isEnvMigrationActive(c, st), jc.IsFalse)
 }
 
 func isEnvMigrationActive(c *gc.C, st *state.State) bool {
