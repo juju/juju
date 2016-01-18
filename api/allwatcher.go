@@ -32,7 +32,7 @@ func NewAllWatcher(caller base.APICaller, id *string) *AllWatcher {
 //
 // There should be no need to call this from outside of the api
 // package. It is only used by Client.WatchAllEnvs in
-// api/systemmanager.
+// api/controller.
 func NewAllEnvWatcher(caller base.APICaller, id *string) *AllWatcher {
 	return newAllWatcher("AllEnvWatcher", caller, id)
 }

@@ -25,7 +25,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -167,11 +166,6 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Make the download take a while so that we verify that
-	// the download happens before the upgrader checks if
-	// it's been stopped.
-	dummy.SetStorageDelay(coretesting.ShortWait)
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()
@@ -324,8 +318,6 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dummy.SetStorageDelay(coretesting.ShortWait)
-
 	u := s.makeUpgrader(c)
 	err = u.Stop()
 	s.expectInitialUpgradeCheckNotDone(c)
@@ -355,8 +347,6 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dummy.SetStorageDelay(coretesting.ShortWait)
-
 	u := s.makeUpgrader(c)
 	err = u.Stop()
 	s.expectInitialUpgradeCheckNotDone(c)
@@ -385,8 +375,6 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 		c, stor, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), downgradeVersion)
 	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
 	c.Assert(err, jc.ErrorIsNil)
-
-	dummy.SetStorageDelay(coretesting.ShortWait)
 
 	u := s.makeUpgrader(c)
 	err = u.Stop()

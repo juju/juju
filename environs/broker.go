@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -56,6 +57,10 @@ type StartInstanceParams struct {
 	// in. It is only populated when valid positive spaces constraints
 	// are present.
 	SubnetsToZones map[network.Id][]string
+
+	// ImageMetadata is a collection of image metadata
+	// that may be used to start this instance.
+	ImageMetadata []*imagemetadata.ImageMetadata
 }
 
 // StartInstanceResult holds the result of an

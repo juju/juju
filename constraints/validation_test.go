@@ -4,6 +4,8 @@
 package constraints_test
 
 import (
+	"regexp"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -339,4 +341,28 @@ func (s *validationSuite) TestMergeError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 	_, err = validator.Merge(cons, consFallback)
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
+}
+
+func (s *validationSuite) TestUpdateVocabulary(c *gc.C) {
+	validator := constraints.NewValidator()
+	attributeName := "arch"
+	originalValues := []string{"amd64"}
+	validator.RegisterVocabulary(attributeName, originalValues)
+
+	cons := constraints.MustParse("arch=amd64")
+	_, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons2 := constraints.MustParse("arch=ppc64el")
+	_, err = validator.Validate(cons2)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`invalid constraint value: arch=ppc64el
+valid values are: [amd64]`))
+
+	additionalValues := []string{"ppc64el"}
+	validator.UpdateVocabulary(attributeName, additionalValues)
+
+	_, err = validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(cons2)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -72,7 +72,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -88,9 +87,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
@@ -123,7 +120,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -705,48 +701,14 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
-		})
-	}
+	runner.StartWorker("logsender", func() (worker.Worker, error) {
+		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
+	})
 
 	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
-
-	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
-	// Containers only have machine addresses, so we can't ignore them.
-	if names.IsContainerMachine(agentConfig.Tag().Id()) {
-		ignoreMachineAddresses = false
-	}
-	if ignoreMachineAddresses {
-		logger.Infof("machine addresses not used, only addresses from provider")
-	}
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
-		w, err := newMachiner(machiner.Config{
-			MachineAccessor: accessor,
-			Tag:             agentConfig.Tag().(names.MachineTag),
-			ClearMachineAddressesOnStart: ignoreMachineAddresses,
-			NotifyMachineDead: func() error {
-				return a.writeUninstallAgentFile()
-			},
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machiner worker")
-		}
-		return w, err
-	})
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start api address updater worker")
-		}
-		return w, nil
-	})
 
 	if !featureflag.Enabled(feature.DisableRsyslog) {
 		rsyslogMode := rsyslog.RsyslogModeForwarding
@@ -917,7 +879,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 
 	// Ensure storage is available during upgrades.
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
+	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
 		unregisterSimplestreamsDataSource()
@@ -1052,9 +1014,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor)
-
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
 	if err != nil {
@@ -1063,15 +1022,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
-			// TODO(axw) 2013-09-24 bug #1229507
-			// Make another job to enable storage.
-			// There's nothing special about this.
-			return localstorage.NewWorker(agentConfig), nil
-		})
-	}
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
@@ -1119,11 +1069,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
-			if feature.IsDbLogEnabled() {
-				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
-				})
-			}
+			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
