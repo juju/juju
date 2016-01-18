@@ -22,7 +22,7 @@ type EnvMigrationSuite struct {
 	ConnSuite
 	State2  *state.State
 	clock   *coretesting.Clock
-	stdArgs state.EnvMigrationArgs
+	stdSpec state.EnvMigrationSpec
 }
 
 var _ = gc.Suite(new(EnvMigrationSuite))
@@ -37,7 +37,7 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 	s.clock = coretesting.NewClock(time.Now().Truncate(time.Second))
 
 	// Plausible migration arguments to test with.
-	s.stdArgs = state.EnvMigrationArgs{
+	s.stdSpec = state.EnvMigrationSpec{
 		Owner:            "owner",
 		TargetController: "uuid",
 		TargetAPIAddresses: []network.HostPort{
@@ -51,8 +51,8 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
-	apiAddrs := s.stdArgs.TargetAPIAddresses
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	apiAddrs := s.stdSpec.TargetAPIAddresses
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.EnvUUID(), gc.Equals, s.State2.EnvironUUID())
@@ -90,18 +90,18 @@ func (s *EnvMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 	st3 := s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { st3.Close() })
 
-	mig2, err := state.CreateEnvMigration(st2, s.stdArgs)
+	mig2, err := state.CreateEnvMigration(st2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig2.Id(), gc.Equals, st2.EnvironUUID()+":0")
 
-	mig3, err := state.CreateEnvMigration(st3, s.stdArgs)
+	mig3, err := state.CreateEnvMigration(st3, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig3.Id(), gc.Equals, st3.EnvironUUID()+":0")
 }
 
 func (s *EnvMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 	createAndAbort := func() string {
-		mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+		mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 		return mig.Id()
@@ -118,26 +118,26 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	// when the create txn is going to fail.
 	envUUID := s.State2.EnvironUUID()
 
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig.Id(), gc.Equals, envUUID+":0")
 
 	// This attempt will fail because a migration is already in
 	// progress.
-	_, err = state.CreateEnvMigration(s.State2, s.stdArgs)
+	_, err = state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, gc.ErrorMatches, ".+already in progress")
 
 	// Now abort the migration and create another. The Id sequence
 	// should have only incremented by 1.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 
-	mig, err = state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err = state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig.Id(), gc.Equals, envUUID+":1")
 }
 
-func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
-	typ := reflect.TypeOf(s.stdArgs)
+func (s *EnvMigrationSuite) TestCreateWithMissingSpecFields(c *gc.C) {
+	typ := reflect.TypeOf(s.stdSpec)
 	numFields := typ.NumField()
 	for i := 0; i < numFields; i++ {
 		name := typ.Field(i).Name
@@ -145,13 +145,13 @@ func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
 			continue
 		}
 
-		// Copy the args and clear a field by setting it to its zero value.
-		args := s.stdArgs
-		field := reflect.ValueOf(&args).Elem().Field(i)
+		// Copy the spec and clear a field by setting it to its zero value.
+		spec := s.stdSpec
+		field := reflect.ValueOf(&spec).Elem().Field(i)
 		field.Set(reflect.Zero(field.Type()))
 
 		// Ensure that CreateEnvMigration complains that the field is missing.
-		mig, err := state.CreateEnvMigration(s.State2, args)
+		mig, err := state.CreateEnvMigration(s.State2, spec)
 		c.Check(mig, gc.IsNil)
 		c.Check(errors.IsNotValid(err), jc.IsTrue)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", name))
@@ -161,7 +161,7 @@ func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
 func (s *EnvMigrationSuite) TestCreateWithControllerEnv(c *gc.C) {
 	mig, err := state.CreateEnvMigration(
 		s.State, // This is the State for the controller
-		s.stdArgs,
+		s.stdSpec,
 	)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "controllers can't be migrated")
@@ -172,29 +172,29 @@ func (s *EnvMigrationSuite) TestCreateFailsForMigratedEnvs(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestCreateMigrationInProgress(c *gc.C) {
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig2, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Check(mig2, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
 func (s *EnvMigrationSuite) TestCreateMigrationRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State2, func() {
-		mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+		mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 		c.Assert(mig, gc.Not(gc.IsNil))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
 func (s *EnvMigrationSuite) TestGet(c *gc.C) {
-	mig1, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig1, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := state.GetEnvMigration(s.State2, s.clock)
@@ -213,7 +213,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	envUUID := s.State2.EnvironUUID()
 
 	for i := 0; i < 10; i++ {
-		_, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+		_, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
 
 		mig, err := state.GetEnvMigration(s.State2, s.clock)
@@ -224,7 +224,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestRefresh(c *gc.C) {
-	mig1, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig1, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mig2, err := state.GetEnvMigration(s.State2, s.clock)
@@ -242,7 +242,7 @@ func (s *EnvMigrationSuite) TestRefresh(c *gc.C) {
 func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	st := s.State2
 
-	mig, err := state.CreateEnvMigration(st, s.stdArgs)
+	mig, err := state.CreateEnvMigration(st, s.stdSpec)
 	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -309,7 +309,7 @@ func (s *EnvMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mig.SetPhase(migration.SUCCESS)
@@ -317,7 +317,7 @@ func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make mig stale by changing the phase with another instance.
@@ -333,7 +333,7 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make mig stale by changing the phase with another instance. The
@@ -351,7 +351,7 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
-	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	defer state.SetBeforeHooks(c, s.State2, func() {

@@ -199,9 +199,9 @@ func (mig *EnvMigration) Refresh() error {
 	return nil
 }
 
-// EnvMigrationArgs defines the arguments required to create an
+// EnvMigrationSpec defines the arguments required to create an
 // EnvMigration instance.
-type EnvMigrationArgs struct {
+type EnvMigrationSpec struct {
 	Owner              string
 	TargetController   string
 	TargetAPIAddresses []network.HostPort
@@ -210,7 +210,7 @@ type EnvMigrationArgs struct {
 	Clock              clock.Clock
 }
 
-func (a *EnvMigrationArgs) checkAndNormalise() error {
+func (a *EnvMigrationSpec) checkAndNormalise() error {
 	if a.Owner == "" {
 		return errors.NotValidf("empty Owner")
 	}
@@ -238,15 +238,15 @@ func (a *EnvMigrationArgs) checkAndNormalise() error {
 // CreateEnvMigration initialises state that tracks an environment
 // migration. It will return an error if there is already an
 // environment migration in progress.
-func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error) {
-	if err := args.checkAndNormalise(); err != nil {
+func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error) {
+	if err := spec.checkAndNormalise(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if st.IsStateServer() {
 		return nil, errors.New("controllers can't be migrated")
 	}
 
-	t0 := args.Clock.Now()
+	t0 := spec.Clock.Now()
 	envUUID := st.EnvironUUID()
 	var doc envMigrationDoc
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -264,15 +264,15 @@ func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error)
 		doc = envMigrationDoc{
 			Id:               fmt.Sprintf("%s:%d", envUUID, seq),
 			EnvUUID:          envUUID,
-			Owner:            args.Owner,
+			Owner:            spec.Owner,
 			StartTime:        t0,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: t0,
-			TargetController: args.TargetController,
-			TargetUser:       args.TargetUser,
-			TargetPassword:   args.TargetPassword,
+			TargetController: spec.TargetController,
+			TargetUser:       spec.TargetUser,
+			TargetPassword:   spec.TargetPassword,
 		}
-		for _, address := range args.TargetAPIAddresses {
+		for _, address := range spec.TargetAPIAddresses {
 			doc.TargetAPIAddresses = append(doc.TargetAPIAddresses, address.String())
 		}
 		return []txn.Op{
@@ -297,7 +297,7 @@ func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error)
 	return &EnvMigration{
 		doc:   doc,
 		st:    st,
-		clock: args.Clock,
+		clock: spec.Clock,
 	}, nil
 }
 
