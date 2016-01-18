@@ -168,16 +168,20 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	}
 	for _, space := range spaces {
 		expected, ok := expectedSpaceMap[space.Name()]
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(space.ProviderId(), gc.Equals, expected.ProviderId)
+		if !c.Check(ok, jc.IsTrue) {
+			continue
+		}
+		c.Check(space.ProviderId(), gc.Equals, expected.ProviderId)
 		subnets, err := space.Subnets()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(subnets), gc.Equals, len(expected.Subnets))
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		c.Check(len(subnets), gc.Equals, len(expected.Subnets))
 		for i, subnet := range subnets {
 			expectedSubnet := expected.Subnets[i]
-			c.Assert(subnet.ProviderId(), gc.Equals, expectedSubnet.ProviderId)
-			c.Assert([]string{subnet.AvailabilityZone()}, jc.DeepEquals, expectedSubnet.AvailabilityZones)
-			c.Assert(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
+			c.Check(subnet.ProviderId(), gc.Equals, expectedSubnet.ProviderId)
+			c.Check([]string{subnet.AvailabilityZone()}, jc.DeepEquals, expectedSubnet.AvailabilityZones)
+			c.Check(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
 }
