@@ -784,6 +784,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: keyring,
+		TermsLocation:    s.termsDischarger.Location(),
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
 	c.Assert(err, jc.ErrorIsNil)
