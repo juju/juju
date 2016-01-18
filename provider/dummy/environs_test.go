@@ -209,7 +209,7 @@ func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	// Without change space discovery is not supported.
 	ok, err := e.SupportsSpaceDiscovery()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it on.
 	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
@@ -223,7 +223,7 @@ func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	c.Assert(isEnabled, jc.IsTrue)
 	ok, err = e.SupportsSpaceDiscovery()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
