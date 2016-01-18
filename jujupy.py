@@ -332,13 +332,10 @@ class EnvJujuClient:
             '-c', controller_client.env.environment, self.env.environment,
             '--config', config_file), include_e=False)
 
-    def destroy_environment(self, force=True, delete_jenv=False):
-        if force:
-            raise ValueError('Force not supported.')
+    def destroy_model(self):
         exit_status = self.juju(
             'destroy-model', (self.env.environment, '-y',),
-            check=False, include_e=False,
-            timeout=timedelta(minutes=10).total_seconds())
+            include_e=False, timeout=timedelta(minutes=10).total_seconds())
         return exit_status
 
     def kill_controller(self):
@@ -795,6 +792,10 @@ class EnvJujuClient1X(EnvJujuClient):
             controller_option = ('-c', controller_client.env.environment)
         self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
             self.env.environment, '--config', config_file), include_e=False)
+
+    def destroy_model(self):
+        """With JES enabled, destroy-environment destroys the model."""
+        self.destroy_environment(force=False)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:

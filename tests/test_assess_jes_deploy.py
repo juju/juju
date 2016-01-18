@@ -6,6 +6,7 @@ from mock import (
 from assess_jes_deploy import (
     check_services,
     env_token,
+    hosted_environment,
     jes_setup,
     make_hosted_env_client,
 )
@@ -15,6 +16,7 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
 )
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestJES(unittest.TestCase):
@@ -148,3 +150,15 @@ class TestJES(unittest.TestCase):
         old_client = EnvJujuClient(env, None, '/a/path')
         new_client = make_hosted_env_client(old_client, 'test')
         self.assertIs(False, hasattr(new_client, '_use_jes'))
+
+
+class TestHostedEnvironment(unittest.TestCase):
+
+    def test_hosted_environment(self):
+        hosting_client = FakeJujuClient()
+        with hosted_environment(hosting_client, 'bar') as client:
+            model_state = client._backing_state
+            self.assertEqual({'name-bar': model_state},
+                             hosting_client._backing_state.models)
+            self.assertEqual('created', model_state.state)
+        self.assertEqual('model-destroyed', model_state.state)

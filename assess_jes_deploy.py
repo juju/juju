@@ -105,7 +105,7 @@ def hosted_environment(system_client, suffix):
         sys.exit(1)
     finally:
         # TODO(gz): May want to gather logs from hosted env here.
-        client.destroy_environment(force=False)
+        client.destroy_model()
 
 
 def check_services(client):

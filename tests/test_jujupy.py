@@ -100,6 +100,7 @@ class FakeEnvironmentState:
         self.machine_host_names = {}
         self.state = 'not-bootstrapped'
         self.current_bundle = None
+        self.models = {}
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -138,6 +139,16 @@ class FakeEnvironmentState:
     def kill_controller(self):
         self._clear()
         self.state = 'controller-killed'
+
+    def create_model(self, name):
+        state = FakeEnvironmentState()
+        self.models[name] = state
+        state.state = 'created'
+        return state
+
+    def destroy_model(self):
+        self._clear()
+        self.state = 'model-destroyed'
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -208,6 +219,16 @@ class FakeJujuClient:
         self.debug = debug
         self._jes_enabled = jes_enabled
 
+    def clone(self, env, full_path=None, debug=None):
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
+        client = self.__class__(env, full_path, debug,
+                                jes_enabled=self._jes_enabled)
+        client._backing_state = self._backing_state
+        return client
+
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
@@ -268,6 +289,14 @@ class FakeJujuClient:
     def quickstart(self, bundle):
         self._backing_state.bootstrap(self.env.environment)
         self._backing_state.deploy_bundle(bundle)
+
+    def create_environment(self, controller_client, config_file):
+        model_state = controller_client._backing_state.create_model(
+            self.env.environment)
+        self._backing_state = model_state
+
+    def destroy_model(self):
+        self._backing_state.destroy_model()
 
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
@@ -838,41 +867,16 @@ class TestEnvJujuClient(ClientTest):
     def test_destroy_environment(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
+        self.assertIs(False, hasattr(client, 'destroy_environment'))
+
+    def test_destroy_model(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju') as mock:
-            client.destroy_environment(force=False)
+            client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
-            check=False, include_e=False, timeout=600.0)
-
-    def test_destroy_environment_no_force(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
-            client.destroy_environment(force=False)
-            mock.assert_called_with(
-                'destroy-model', ('foo', '-y'), check=False, include_e=False,
-                timeout=600.0)
-
-    def test_destroy_environment_force(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
-        with patch.object(client, 'juju'):
-            with self.assertRaisesRegexp(ValueError, 'Force not supported.'):
-                client.destroy_environment(force=True)
-
-    def test_destroy_environment_delete_jenv(self):
-        # delete_jenv is a no-op for 2.0
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
-        with patch.object(client, 'juju'):
-            with temp_env({}) as juju_home:
-                client.env.juju_home = juju_home
-                jenv_path = get_jenv_path(juju_home, 'foo')
-                os.makedirs(os.path.dirname(jenv_path))
-                open(jenv_path, 'w')
-                self.assertTrue(os.path.exists(jenv_path))
-                client.destroy_environment(force=False, delete_jenv=True)
-                self.assertTrue(os.path.exists(jenv_path))
+            include_e=False, timeout=600.0)
 
     def test_kill_controller_system(self):
         self.do_kill_controller('system', 'system kill')
@@ -2154,6 +2158,15 @@ class TestEnvJujuClient1X(ClientTest):
                 self.assertTrue(os.path.exists(jenv_path))
                 client.destroy_environment(delete_jenv=True)
                 self.assertFalse(os.path.exists(jenv_path))
+
+    def test_destroy_model(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_model()
+        mock.assert_called_with(
+            'destroy-environment', ('foo', '-y'),
+            False, check=False, include_e=False, timeout=600.0)
 
     def test_kill_controller_system(self):
         self.do_kill_controller('system', 'system kill')
