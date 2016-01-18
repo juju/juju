@@ -6,9 +6,9 @@ from assess_recovery import (
     make_client_from_args,
     parse_args,
 )
-from jujuconfig import get_jenv_path
 from jujupy import (
     EnvJujuClient,
+    get_cache_path,
     SimpleEnvironment,
     _temp_env as temp_env,
 )
@@ -85,9 +85,9 @@ def make_mocked_client(name, status_error=None):
     patch.object(client, 'wait_for_ha', autospec=True).start()
     patch.object(
         client, 'get_status', autospec=True, side_effect=status_error).start()
-    patch.object(client, 'destroy_environment', autospec=True).start()
+    patch.object(client, 'kill_controller', autospec=True).start()
     patch.object(client, 'is_jes_enabled', autospec=True,
-                 return_value=False).start()
+                 return_value=True).start()
     return client
 
 
@@ -107,7 +107,6 @@ class TestMain(FakeHomeTestCase):
     def test_ha(self, so_mock, cc_mock, co_mock,
                 dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
-        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             main(['./', 'foo', 'log_dir',
@@ -118,13 +117,13 @@ class TestMain(FakeHomeTestCase):
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
-        self.assertEqual(2, client.destroy_environment.call_count)
+        self.assertEqual(2, client.kill_controller.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
-        jenv_path = get_jenv_path(client.env.juju_home, client.env.environment)
-        dl_mock.assert_called_once_with(client, 'log_dir', jenv_path,
+        cache_path = get_cache_path(client.env.juju_home)
+        dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
                                         {})
         self.assertEqual(0, ns_mock.call_count)
 
@@ -132,7 +131,6 @@ class TestMain(FakeHomeTestCase):
                       dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         error = Exception()
         client = make_mocked_client('foo', status_error=error)
-        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             with self.assertRaises(SystemExit):
@@ -144,25 +142,24 @@ class TestMain(FakeHomeTestCase):
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
-        self.assertEqual(2, client.destroy_environment.call_count)
+        self.assertEqual(2, client.kill_controller.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
         ns_mock.assert_called_once_with(error)
-        jenv_path = get_jenv_path(client.env.juju_home, client.env.environment)
-        dl_mock.assert_called_once_with(client, 'log_dir', jenv_path,
+        cache_path = get_cache_path(client.env.juju_home)
+        dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
                                         {'0': 'new_host'})
 
     def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
                                    dns_mock, ds_mock, di_mock, ws_mock,
                                    ns_mock, dl_mock):
         client = make_mocked_client('foo')
-        client.destroy_environment.return_value = 0
         with patch('assess_recovery.make_client', autospec=True,
                    return_value=client):
             with patch.object(client, 'bootstrap', side_effect=Exception):
                 with self.assertRaises(SystemExit):
                     main(['./', 'foo', 'log_dir',
                           '--ha', '--charm-prefix', 'prefix'])
-        self.assertEqual(2, client.destroy_environment.call_count)
+        self.assertEqual(2, client.kill_controller.call_count)
