@@ -22,6 +22,6 @@ $SCRIPTS/write_industrial_test_metadata.py $new_juju_dir/buildvars.json \
   $environment metadata.json
 s3cmd -c $s3cfg put metadata.json $s3base-metadata.json
 timeout -sINT -k 10m 1d $SCRIPTS/industrial_test.py $environment $new_juju \
-  $logs --old-stable $old_stable_juju $suite --attempts $attempts \
+  --old-stable $old_stable_juju $suite $logs --attempts $attempts \
   --json-file results.json $extra_args
 s3cmd -c $s3cfg put results.json $s3base-results.json
