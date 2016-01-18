@@ -130,7 +130,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.StateServerEnvironment()
+	env, err := s.State.ControllerEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Owner()
 }

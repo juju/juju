@@ -59,6 +59,7 @@ func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
 	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
+	cs.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
@@ -140,6 +141,7 @@ func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	cs.ToolsFixture.SetUpTest(c)
 	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
+	cs.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {

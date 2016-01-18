@@ -70,6 +70,7 @@ var upgradeJujuTests = []struct {
 	expectErr      string
 	expectVersion  string
 	expectUploaded []string
+	upgradeMap     map[int]version.Number
 }{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0-quantal-amd64",
@@ -93,18 +94,21 @@ var upgradeJujuTests = []struct {
 }, {
 	about:          "major version upgrade to incompatible version",
 	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
 	args:           []string{"--version", "5.2.0"},
-	expectInitErr:  "cannot upgrade to version incompatible with CLI",
+	expectErr:      `unknown version "5.2.0"`,
 }, {
 	about:          "major version downgrade to incompatible version",
 	currentVersion: "4.2.0-quantal-amd64",
+	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectInitErr:  "cannot upgrade to version incompatible with CLI",
+	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
 	about:          "--upload-tools with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
+	agentVersion:   "4.2.0",
 	args:           []string{"--upload-tools", "--version", "3.1.0"},
-	expectInitErr:  "cannot upgrade to version incompatible with CLI",
+	expectErr:      "cannot change version from 4.2.0 to 3.1.0",
 }, {
 	about:          "--upload-tools with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
@@ -123,23 +127,17 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
 }, {
-	about:          "latest current release matching CLI, major version",
-	tools:          []string{"3.2.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "2.8.2",
-	expectVersion:  "3.2.0",
-}, {
 	about:          "latest current release matching CLI, major version, no matching major tools",
 	tools:          []string{"2.8.2-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
+	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no matching tools available",
+	expectVersion:  "2.8.2",
 }, {
 	about:          "latest current release matching CLI, major version, no matching tools",
 	tools:          []string{"3.3.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
+	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible tools available",
+	expectVersion:  "2.8.2",
 }, {
 	about:          "no next supported available",
 	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
@@ -167,11 +165,12 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.3-dev0",
 }, {
 	about:          "specified major version",
-	tools:          []string{"3.2.0-quantal-amd64"},
-	currentVersion: "3.2.0-quantal-amd64",
+	tools:          []string{"3.0.2-quantal-amd64"},
+	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	args:           []string{"--version", "3.2.0"},
-	expectVersion:  "3.2.0",
+	args:           []string{"--version", "3.0.2"},
+	expectVersion:  "3.0.2",
+	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified version missing, but already set",
 	currentVersion: "3.0.0-quantal-amd64",
@@ -213,12 +212,26 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
-	about:          "major version downgrade to incompatible version",
+	about:          "incompatible version (minor != 0)",
+	tools:          []string{"3.2.0-quantal-amd64"},
+	currentVersion: "4.2.0-quantal-amd64",
+	agentVersion:   "3.2.0",
+	args:           []string{"--version", "3.2.0"},
+	expectErr:      "cannot upgrade a 3.2.0 environment with a 4.2.0 client",
+}, {
+	about:          "incompatible version (env major > client major)",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
+	expectErr:      "cannot upgrade a 4.2.0 environment with a 3.2.0 client",
+}, {
+	about:          "incompatible version (env major < client major - 1)",
+	tools:          []string{"3.2.0-quantal-amd64"},
+	currentVersion: "4.0.2-quantal-amd64",
+	agentVersion:   "2.0.0",
+	args:           []string{"--version", "3.2.0"},
+	expectErr:      "cannot upgrade a 2.0.0 environment with a 4.0.2 client",
 }, {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
@@ -301,8 +314,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		s.PatchValue(&version.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&series.HostSeries, func() string { return current.Series })
-		var com upgradeJujuCommand
-		if err := coretesting.InitCommand(envcmd.Wrap(&com), test.args); err != nil {
+		com := newUpgradeJujuCommand(test.upgradeMap)
+		if err := coretesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
@@ -329,7 +342,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
-		err = envcmd.Wrap(&com).Run(coretesting.Context(c))
+		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 			continue
@@ -427,7 +440,8 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	cmd := envcmd.Wrap(&upgradeJujuCommand{})
+	s.PatchValue(&version.Current, version.MustParse("1.99.99"))
+	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Binary{
@@ -441,7 +455,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	cmd := envcmd.Wrap(&upgradeJujuCommand{})
+	s.PatchValue(&version.Current, version.MustParse("1.99.99"))
+	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
@@ -463,14 +478,10 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			about:          "dry run outputs and doesn't change anything when uploading tools",
 			cmdArgs:        []string{"--upload-tools", "--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
-			currentVersion: "2.0.0-quantal-amd64",
+			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `available tools:
-    2.1-dev1-quantal-amd64
-    2.1.0-quantal-amd64
-    2.1.2-quantal-i386
     2.1.3-quantal-amd64
-    2.2.3-quantal-amd64
 best version:
     2.1.3
 upgrade to this version by running
@@ -518,36 +529,14 @@ upgrade to this version by running
 		s.Reset(c)
 		tools.DefaultBaseURL = ""
 
-		current := version.MustParseBinary(test.currentVersion)
-		s.PatchValue(&version.Current, current.Number)
-		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-		s.PatchValue(&series.HostSeries, func() string { return current.Series })
-		var com upgradeJujuCommand
-		err := coretesting.InitCommand(envcmd.Wrap(&com), test.cmdArgs)
-		c.Assert(err, jc.ErrorIsNil)
-		toolsDir := c.MkDir()
-		updateAttrs := map[string]interface{}{
-			"agent-version":      test.agentVersion,
-			"agent-metadata-url": "file://" + toolsDir + "/tools",
-		}
+		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
 
-		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+		com := newUpgradeJujuCommand(nil)
+		err := coretesting.InitCommand(com, test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
-		versions := make([]version.Binary, len(test.tools))
-		for i, v := range test.tools {
-			versions[i], err = version.ParseBinary(v)
-			if err != nil {
-				c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
-			}
-		}
-		if len(versions) > 0 {
-			stor, err := filestorage.NewFileStorageWriter(toolsDir)
-			c.Assert(err, jc.ErrorIsNil)
-			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
-		}
 
 		ctx := coretesting.Context(c)
-		err = envcmd.Wrap(&com).Run(ctx)
+		err = com.Run(ctx)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
@@ -558,6 +547,173 @@ upgrade to this version by running
 		c.Assert(agentVer, gc.Equals, version.MustParse(test.agentVersion))
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)
+	}
+}
+
+func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agentVersion string, tools []string) {
+	current := version.MustParseBinary(currentVersion)
+	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+
+	toolsDir := c.MkDir()
+	updateAttrs := map[string]interface{}{
+		"agent-version":      agentVersion,
+		"agent-metadata-url": "file://" + toolsDir + "/tools",
+	}
+
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	versions := make([]version.Binary, len(tools))
+	for i, v := range tools {
+		versions[i], err = version.ParseBinary(v)
+		if err != nil {
+			c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
+		}
+	}
+	if len(versions) > 0 {
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
+		c.Assert(err, jc.ErrorIsNil)
+		envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
+	}
+}
+
+func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
+	toolsList49Only := `available tools:
+    4.9.0-trusty-amd64
+best version:
+    4.9.0
+`
+	tests := []struct {
+		about             string
+		cmdArgs           []string
+		tools             []string
+		currentVersion    string
+		agentVersion      string
+		expectedVersion   string
+		expectedCmdOutput string
+		expectedLogOutput string
+		excludedLogOutput string
+		expectedErr       string
+		upgradeMap        map[int]version.Number
+	}{{
+		about:             "upgrade previous major to latest previous major",
+		tools:             []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
+		currentVersion:    "5.0.0-trusty-amd64",
+		agentVersion:      "4.8.5",
+		expectedVersion:   "4.9.0",
+		expectedCmdOutput: toolsList49Only,
+		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.0\).*started upgrade to 4.9.0.*`,
+	}, {
+		about:             "upgrade previous major to latest previous major --dry-run still warns",
+		tools:             []string{"5.0.1-trusty-amd64", "4.9.0-trusty-amd64"},
+		currentVersion:    "5.0.1-trusty-amd64",
+		agentVersion:      "4.8.5",
+		expectedVersion:   "4.9.0",
+		expectedCmdOutput: toolsList49Only,
+		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.1\).*started upgrade to 4.9.0.*`,
+	}, {
+		about:             "upgrade previous major to latest previous major with --version",
+		cmdArgs:           []string{"--version=4.9.0"},
+		tools:             []string{"5.0.2-trusty-amd64", "4.9.0-trusty-amd64", "4.8.0-trusty-amd64"},
+		currentVersion:    "5.0.2-trusty-amd64",
+		agentVersion:      "4.7.5",
+		expectedVersion:   "4.9.0",
+		expectedCmdOutput: toolsList49Only,
+		expectedLogOutput: `.*version 4.9.0 incompatible with this client \(5.0.2\).*started upgrade to 4.9.0.*`,
+	}, {
+		about:             "can upgrade lower major version to current major version at minimum level",
+		cmdArgs:           []string{"--version=6.0.5"},
+		tools:             []string{"6.0.5-trusty-amd64", "5.9.9-trusty-amd64"},
+		currentVersion:    "6.0.0-trusty-amd64",
+		agentVersion:      "5.9.8",
+		expectedVersion:   "6.0.5",
+		excludedLogOutput: `incompatible with this client (6.0.0)`,
+		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
+	}, {
+		about:             "can upgrade lower major version to current major version above minimum level",
+		cmdArgs:           []string{"--version=6.0.5"},
+		tools:             []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
+		currentVersion:    "6.0.1-trusty-amd64",
+		agentVersion:      "5.10.8",
+		expectedVersion:   "6.0.5",
+		excludedLogOutput: `incompatible with this client (6.0.1)`,
+		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
+	}, {
+		about:           "can upgrade current to next major version",
+		cmdArgs:         []string{"--version=6.0.5"},
+		tools:           []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
+		currentVersion:  "5.10.8-trusty-amd64",
+		agentVersion:    "5.10.8",
+		expectedVersion: "6.0.5",
+		upgradeMap:      map[int]version.Number{6: version.MustParse("5.9.8")},
+	}, {
+		about:             "upgrade fails if not at minimum version",
+		cmdArgs:           []string{"--version=7.0.1"},
+		tools:             []string{"7.0.1-trusty-amd64"},
+		currentVersion:    "7.0.1-trusty-amd64",
+		agentVersion:      "6.0.0",
+		expectedVersion:   "6.0.0",
+		expectedCmdOutput: "upgrades to a new major version must first go through 6.7.8\n",
+		expectedErr:       "unable to upgrade to requested version",
+		upgradeMap:        map[int]version.Number{7: version.MustParse("6.7.8")},
+	}, {
+		about:             "upgrade fails if not a minor of 0",
+		cmdArgs:           []string{"--version=7.1.1"},
+		tools:             []string{"7.0.1-trusty-amd64", "7.1.1-trusty-amd64"},
+		currentVersion:    "7.0.1-trusty-amd64",
+		agentVersion:      "6.7.8",
+		expectedVersion:   "6.7.8",
+		expectedCmdOutput: "upgrades to 7.1.1 must first go through juju 7.0\n",
+		expectedErr:       "unable to upgrade to requested version",
+		upgradeMap:        map[int]version.Number{7: version.MustParse("6.7.8")},
+	}, {
+		about:           "upgrade fails if not at minimum version and not a minor of 0",
+		cmdArgs:         []string{"--version=7.1.1"},
+		tools:           []string{"7.0.1-trusty-amd64", "7.1.1-trusty-amd64"},
+		currentVersion:  "7.0.1-trusty-amd64",
+		agentVersion:    "6.0.0",
+		expectedVersion: "6.0.0",
+		expectedCmdOutput: "upgrades to 7.1.1 must first go through juju 7.0\n" +
+			"upgrades to a new major version must first go through 6.7.8\n",
+		expectedErr: "unable to upgrade to requested version",
+		upgradeMap:  map[int]version.Number{7: version.MustParse("6.7.8")},
+	}}
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		s.Reset(c)
+		tools.DefaultBaseURL = ""
+
+		s.setUpEnvAndTools(c, test.currentVersion, test.agentVersion, test.tools)
+
+		com := newUpgradeJujuCommand(test.upgradeMap)
+		err := coretesting.InitCommand(com, test.cmdArgs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		ctx := coretesting.Context(c)
+		err = com.Run(ctx)
+		if test.expectedErr != "" {
+			c.Check(err, gc.ErrorMatches, test.expectedErr)
+		} else if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+
+		// Check agent version doesn't change
+		cfg, err := s.State.EnvironConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		agentVer, ok := cfg.AgentVersion()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(agentVer, gc.Equals, version.MustParse(test.expectedVersion))
+		output := coretesting.Stderr(ctx)
+		if test.expectedCmdOutput != "" {
+			c.Check(output, gc.Equals, test.expectedCmdOutput)
+		}
+		if test.expectedLogOutput != "" {
+			c.Check(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, test.expectedLogOutput)
+		}
+		if test.excludedLogOutput != "" {
+			c.Check(c.GetTestLog(), gc.Not(jc.Contains), test.excludedLogOutput)
+		}
 	}
 }
 

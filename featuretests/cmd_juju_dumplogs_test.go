@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -29,7 +28,6 @@ type dumpLogsCommandSuite struct {
 
 func (s *dumpLogsCommandSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 }
 
 func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {

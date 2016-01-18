@@ -1072,13 +1072,18 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
 		// Any instId starting with "i-alloc-" when the feature flag is off will
 		// still work, in order to be able to test MAAS 1.8+ environment where
 		// we can use devices for containers.
 		if !strings.HasPrefix(string(instId), "i-alloc-") {
 			return errors.NotSupportedf("address allocation")
+		}
+		// Also, in this case we expect addr to be non-nil, but empty, so it can
+		// be used as an output argument (same as in provider/maas).
+		if addr == nil || addr.Value != "" {
+			return errors.NewNotValid(nil, "invalid address: nil or non-empty")
 		}
 	}
 
@@ -1093,11 +1098,16 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
+
+	if addr.Value == "" {
+		*addr = network.NewAddress(fmt.Sprintf("0.10.0.%v", estate.maxAddr))
+	}
+
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetId:   subnetId,
-		Address:    addr,
+		Address:    *addr,
 		MACAddress: macAddress,
 		HostName:   hostname,
 	}
