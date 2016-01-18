@@ -132,40 +132,36 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
 		ProviderId: network.Id("foo"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("1"),
-				CIDR:              "192.168.1.0/24",
-				AvailabilityZones: []string{"zone1"},
-			}, {
-				ProviderId:        network.Id("2"),
-				CIDR:              "192.168.2.0/24",
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("1"),
+			CIDR:              "192.168.1.0/24",
+			AvailabilityZones: []string{"zone1"},
+		}, {
+			ProviderId:        network.Id("2"),
+			CIDR:              "192.168.2.0/24",
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		Name:       "another-foo-99",
 		ProviderId: network.Id("Another Foo 99!"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("3"),
-				CIDR:              "192.168.3.0/24",
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("3"),
+			CIDR:              "192.168.3.0/24",
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		Name:       "foo-2",
 		ProviderId: network.Id("foo-"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("4"),
-				CIDR:              "192.168.4.0/24",
-				AvailabilityZones: []string{"zone1"},
-			}}}, {
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("4"),
+			CIDR:              "192.168.4.0/24",
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
 		Name:       "empty",
 		ProviderId: network.Id("---"),
-		Subnets: []network.SubnetInfo{
-			{
-				ProviderId:        network.Id("5"),
-				CIDR:              "192.168.5.0/24",
-				AvailabilityZones: []string{"zone1"},
-			}}}}
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("5"),
+			CIDR:              "192.168.5.0/24",
+			AvailabilityZones: []string{"zone1"},
+		}}}}
 	expectedSpaceMap := make(map[string]network.SpaceInfo)
 	for _, space := range expectedSpaces {
 		expectedSpaceMap[space.Name] = space
