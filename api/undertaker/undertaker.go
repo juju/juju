@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 )
 
@@ -25,6 +26,7 @@ type UndertakerClient interface {
 	ProcessDyingEnviron() error
 	RemoveEnviron() error
 	WatchEnvironResources() (watcher.NotifyWatcher, error)
+	EnvironConfig() (*config.Config, error)
 }
 
 // NewClient creates a new client for accessing the undertaker API.
@@ -94,4 +96,23 @@ func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	}
 	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// EnvironConfig returns configuration information on the environment needed
+// by the undertaker worker.
+func (c *Client) EnvironConfig() (*config.Config, error) {
+	p, err := c.params()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result params.EnvironConfigResult
+	err = c.facade.FacadeCall("EnvironConfig", p, &result)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := config.New(config.NoDefaults, result.Config)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

@@ -109,7 +109,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, jc.IsTrue)
-	expectConstraints := constraints.MustParse("mem=1024M")
+	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
+	expectEnvironConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	initialAddrs := network.NewAddresses(
 		"zeroonetwothree",
@@ -119,12 +120,13 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.3.3", // not a lxc bridge address
 	)
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       initialAddrs,
-		Constraints:     expectConstraints,
-		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-		InstanceId:      "i-bootstrap",
-		Characteristics: expectHW,
-		SharedSecret:    "abc123",
+		Addresses:            initialAddrs,
+		BootstrapConstraints: expectBootstrapConstraints,
+		EnvironConstraints:   expectEnvironConstraints,
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+		InstanceId:           "i-bootstrap",
+		Characteristics:      expectHW,
+		SharedSecret:         "abc123",
 	}
 	filteredAddrs := network.NewAddresses(
 		"zeroonetwothree",
@@ -164,10 +166,14 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check that environment configuration has been added.
+	// Check that environment configuration has been added, and
+	// environment constraints set.
 	newEnvCfg, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnvCfg.AllAttrs(), gc.DeepEquals, envCfg.AllAttrs())
+	gotEnvironConstraints, err := st.EnvironConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotEnvironConstraints, gc.DeepEquals, expectEnvironConstraints)
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -175,9 +181,9 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(m.Series(), gc.Equals, series.HostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
-	gotConstraints, err := m.Constraints()
+	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
+	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
 	c.Assert(err, jc.ErrorIsNil)
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,13 +269,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
-	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Constraints:     expectConstraints,
-		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-		InstanceId:      "i-bootstrap",
-		Characteristics: expectHW,
+		BootstrapConstraints: constraints.MustParse("mem=1024M"),
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+		InstanceId:           "i-bootstrap",
+		Characteristics:      expectHW,
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.String(),

@@ -10,10 +10,13 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
@@ -65,6 +68,10 @@ type ManifoldsConfig struct {
 	// It returns true, unless the supplied conf identifies the machine agent
 	// running directly on the host system in a local environment.
 	ShouldWriteProxyFiles func(conf coreagent.Config) bool
+
+	// LogSource defines the channel type used to send log message
+	// structs within the machine agent.
+	LogSource logsender.LogRecordCh
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -196,6 +203,36 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			ShouldWriteProxyFiles: config.ShouldWriteProxyFiles,
 		}),
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the state server addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		// The machiner Worker will wait for the identified machine to become
+		// Dying and make it Dead; or until the machine becomes Dead by other
+		// means.
+		machinerName: machiner.Manifold(machiner.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+			WriteUninstallFile: config.WriteUninstallFile,
+		}),
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			LogSource: config.LogSource,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+		}),
 	}
 }
 
@@ -215,4 +252,7 @@ const (
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdater       = "proxy-config-updater"
+	apiAddressUpdaterName    = "api-address-updater"
+	machinerName             = "machiner"
+	logSenderName            = "log-sender"
 )

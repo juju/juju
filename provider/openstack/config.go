@@ -66,10 +66,6 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		EnvVars:     identity.CredEnvRegion,
 	},
-	"control-bucket": {
-		Description: "The name to use for the control bucket (do not set unless you know what you are doing!).",
-		Type:        environschema.Tstring,
-	},
 	"use-floating-ip": {
 		Description: "Whether a floating IP address is required to give the nodes a public IP address. Some installations assign public IP addresses by default without requiring a floating IP address.",
 		Type:        environschema.Tbool,
@@ -127,10 +123,6 @@ func (c *environConfig) accessKey() string {
 
 func (c *environConfig) secretKey() string {
 	return c.attrs["secret-key"].(string)
-}
-
-func (c *environConfig) controlBucket() string {
-	return c.attrs["control-bucket"].(string)
 }
 
 func (c *environConfig) useFloatingIP() bool {
@@ -249,9 +241,6 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		attrs := old.UnknownAttrs()
 		if region, _ := attrs["region"].(string); ecfg.region() != region {
 			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
-		}
-		if controlBucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != controlBucket {
-			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", controlBucket, ecfg.controlBucket())
 		}
 	}
 

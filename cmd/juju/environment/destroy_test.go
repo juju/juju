@@ -79,12 +79,12 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := environment.NewDestroyCommand(s.api)
+	cmd := environment.NewDestroyCommandForTest(s.api)
 	return testing.RunCommand(c, cmd, args...)
 }
 
-func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return environment.NewDestroyCommand(s.api)
+func (s *DestroySuite) NewDestroyCommand() cmd.Command {
+	return environment.NewDestroyCommandForTest(s.api)
 }
 
 func checkEnvironmentExistsInStore(c *gc.C, name string, store configstore.Storage) {
@@ -127,7 +127,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 
 func (s *DestroySuite) TestSystemDestroyFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, `"test1" is a system; use 'juju system destroy' to destroy it`)
+	c.Assert(err, gc.ErrorMatches, `"test1" is a controller; use 'juju destroy-controller' to destroy it`)
 	checkEnvironmentExistsInStore(c, "test1", s.store)
 }
 
@@ -166,7 +166,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test2")
+	_, errc := cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "environment destruction: aborted")
@@ -179,7 +179,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test2")
+	_, errc = cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "environment destruction: aborted")
@@ -193,7 +193,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test2")
+		_, errc = cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
 		select {
 		case err := <-errc:
 			c.Check(err, jc.ErrorIsNil)

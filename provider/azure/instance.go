@@ -164,7 +164,7 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 			if ipConfiguration.Properties.Subnet == nil {
 				continue
 			}
-			if to.String(ipConfiguration.Properties.Subnet.ID) != internalSubnetId {
+			if strings.ToLower(to.String(ipConfiguration.Properties.Subnet.ID)) != strings.ToLower(internalSubnetId) {
 				continue
 			}
 			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
@@ -211,6 +211,19 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 	for _, ports := range ports {
 		ruleName := securityRuleName(prefix, ports)
+
+		// Check if the rule already exists; OpenPorts must be idempotent.
+		var found bool
+		for _, rule := range securityRules {
+			if to.String(rule.Name) == ruleName {
+				found = true
+				break
+			}
+		}
+		if found {
+			logger.Debugf("security rule %q already exists", ruleName)
+			continue
+		}
 		logger.Debugf("creating security rule %q", ruleName)
 
 		priority, err := nextSecurityRulePriority(nsg, securityRuleInternalMax+1, securityRuleMax)

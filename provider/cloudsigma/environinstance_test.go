@@ -63,7 +63,7 @@ func (s *environInstanceSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) environs.Environ {
-	s.PatchValue(&findInstanceImage, func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
+	s.PatchValue(&findInstanceImage, func([]*imagemetadata.ImageMetadata) (*imagemetadata.ImageMetadata, error) {
 		img := &imagemetadata.ImageMetadata{
 			Id: validImageId,
 		}

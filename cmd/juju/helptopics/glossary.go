@@ -40,6 +40,15 @@ Charm URL
   revision, if specified, points to a specific revision of the charm pointed to
   by the rest of the URL. It must be a non-negative integer.
 
+Controller
+  A Juju Controller, also sometimes called the controller environment,
+  describes the environment that runs and manages the Juju API servers and the
+  underlying database.
+
+  The controller environment is what is created when the bootstrap command is
+  called. This controller environment is a normal Juju environment that just
+  happens to have machines that manage Juju.
+
 Endpoint
   The combination of a service name and a relation name.
 

@@ -8,6 +8,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+var ErrEnvironmentNotDying = errors.New("environment is not dying")
+
 // ProcessDyingEnviron checks if there are any machines or services left in
 // state. If there are none, the environment's life is changed from dying to dead.
 func (st *State) ProcessDyingEnviron() (err error) {
@@ -18,7 +20,7 @@ func (st *State) ProcessDyingEnviron() (err error) {
 		}
 
 		if env.Life() != Dying {
-			return nil, errors.New("environment is not dying")
+			return nil, errors.Trace(ErrEnvironmentNotDying)
 		}
 
 		if st.IsStateServer() {

@@ -7,7 +7,7 @@ const CurrentStreamsVersion = currentStreamsVersion
 
 // SetSigningPublicKey sets a new public key for testing and returns the original key.
 func SetSigningPublicKey(key string) string {
-	oldKey := simplestreamsImagesPublicKey
-	simplestreamsImagesPublicKey = key
+	oldKey := SimplestreamsImagesPublicKey
+	SimplestreamsImagesPublicKey = key
 	return oldKey
 }
