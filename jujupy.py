@@ -226,6 +226,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient26
         elif re.match('^1\.', version):
             client_class = EnvJujuClient1X
+        elif re.match('^2\.0-alpha1', version):
+            client_class = EnvJujuClient2A1
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -781,6 +783,10 @@ class EnvJujuClient:
         """
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
+
+
+class EnvJujuClient2A1(EnvJujuClient):
+    """Drives Juju 2.0-alpha1 clients."""
 
 
 class EnvJujuClient1X(EnvJujuClient):
