@@ -210,7 +210,6 @@ func (api *API) retrievePublished() error {
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not rely on simplestreams, don't need to do anything here.
-		// LP bug #1533896.
 		return nil
 	} else {
 		// If we can determine current region,

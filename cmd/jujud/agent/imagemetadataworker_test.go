@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,10 +12,11 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
+// MachineMockProviderSuite runs worker tests that depend
+// on provider that has cloud region support.
 type MachineMockProviderSuite struct {
 	commonMachineSuite
 }
@@ -47,12 +46,7 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timeout while waiting for metadata update worker to start")
-	}
+	s.assertChannelActive(c, started, "metadata update worker to start")
 }
 
 // dummyEnviron is an environment with region support.

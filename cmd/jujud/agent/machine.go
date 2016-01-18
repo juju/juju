@@ -835,10 +835,9 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if isEnvironManager {
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		// LP bug #1533896.
 		env, err := newEnvirons(envConfig)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting environ")
+			return nil, errors.Annotate(err, "getting environ")
 		}
 		if _, ok := env.(simplestreams.HasRegion); ok {
 			// Start worker that stores published image metadata in state.
