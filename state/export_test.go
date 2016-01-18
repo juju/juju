@@ -454,9 +454,3 @@ func IsManagerMachineError(err error) bool {
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
-
-// Environment migration related exports
-var (
-	IsEnvMigrationActive = isEnvMigrationActive
-	ParseEnvMigPhase     = parseEnvMigPhase
-)

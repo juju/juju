@@ -12,61 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	migration "github.com/juju/juju/core/envmigration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
-
-type EnvMigrationPhaseSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(new(EnvMigrationPhaseSuite))
-
-func (s *EnvMigrationPhaseSuite) TestStringValid(c *gc.C) {
-	c.Assert(state.EnvMigPRECHECK.String(), gc.Equals, "PRECHECK")
-	c.Assert(state.EnvMigUNKNOWN.String(), gc.Equals, "UNKNOWN")
-	c.Assert(state.EnvMigABORT.String(), gc.Equals, "ABORT")
-}
-
-func (s *EnvMigrationPhaseSuite) TestInvalid(c *gc.C) {
-	c.Assert(state.EnvMigPhase(-1).String(), gc.Equals, "UNKNOWN")
-	c.Assert(state.EnvMigPhase(9999).String(), gc.Equals, "UNKNOWN")
-}
-
-func (s *EnvMigrationPhaseSuite) TestParseValid(c *gc.C) {
-	phase, ok := state.ParseEnvMigPhase("REAP")
-	c.Assert(phase, gc.Equals, state.EnvMigREAP)
-	c.Assert(ok, jc.IsTrue)
-}
-
-func (s *EnvMigrationPhaseSuite) TestParseInvalid(c *gc.C) {
-	phase, ok := state.ParseEnvMigPhase("foo")
-	c.Assert(phase, gc.Equals, state.EnvMigUNKNOWN)
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *EnvMigrationPhaseSuite) TestIsTerminal(c *gc.C) {
-	c.Check(state.EnvMigQUIESCE.IsTerminal(), jc.IsFalse)
-	c.Check(state.EnvMigSUCCESS.IsTerminal(), jc.IsFalse)
-	c.Check(state.EnvMigABORT.IsTerminal(), jc.IsTrue)
-	c.Check(state.EnvMigREAPFAILED.IsTerminal(), jc.IsTrue)
-	c.Check(state.EnvMigDONE.IsTerminal(), jc.IsTrue)
-}
-
-func (s *EnvMigrationPhaseSuite) TestIsNext(c *gc.C) {
-	c.Check(state.EnvMigQUIESCE.IsNext(state.EnvMigSUCCESS), jc.IsFalse)
-	c.Check(state.EnvMigQUIESCE.IsNext(state.EnvMigABORT), jc.IsTrue)
-	c.Check(state.EnvMigQUIESCE.IsNext(state.EnvMigREADONLY), jc.IsTrue)
-	c.Check(state.EnvMigQUIESCE.IsNext(state.EnvMigPhase(-1)), jc.IsFalse)
-
-	c.Check(state.EnvMigABORT.IsNext(state.EnvMigQUIESCE), jc.IsFalse)
-}
-
-func (s *EnvMigrationPhaseSuite) TestForOrphans(c *gc.C) {
-	// XXX also do other consistency checks
-	c.Skip("XXX to do")
-}
 
 type EnvMigrationSuite struct {
 	ConnSuite
@@ -116,7 +66,7 @@ func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
 	c.Assert(mig.Owner(), gc.Equals, "owner")
 	c.Assert(mig.TargetController(), gc.Equals, "uuid")
 
-	assertPhase(c, mig, state.EnvMigQUIESCE)
+	assertPhase(c, mig, migration.QUIESCE)
 	c.Assert(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
 
 	outApiAddrs, err := mig.TargetAPIAddresses()
@@ -153,7 +103,7 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 	createAndAbort := func() string {
 		mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(state.EnvMigABORT), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 		return mig.Id()
 	}
 
@@ -179,7 +129,7 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 
 	// Now abort the migration and create another. The Id sequence
 	// should have only incremented by 1.
-	c.Assert(mig.SetPhase(state.EnvMigABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 
 	mig, err = state.CreateEnvMigration(s.State2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +218,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		mig, err := state.GetEnvMigration(s.State2, s.clock)
 		c.Assert(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", envUUID, i))
 
-		c.Assert(mig.SetPhase(state.EnvMigABORT), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	}
 }
 
@@ -279,13 +229,13 @@ func (s *EnvMigrationSuite) TestRefresh(c *gc.C) {
 	mig2, err := state.GetEnvMigration(s.State2, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig1.SetPhase(state.EnvMigREADONLY)
+	err = mig1.SetPhase(migration.READONLY)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertPhase(c, mig2, state.EnvMigQUIESCE)
+	assertPhase(c, mig2, migration.QUIESCE)
 	err = mig2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig2, state.EnvMigREADONLY)
+	assertPhase(c, mig2, migration.READONLY)
 }
 
 func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
@@ -298,15 +248,15 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	mig2, err := state.GetEnvMigration(st, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	phases := []state.EnvMigPhase{
-		state.EnvMigREADONLY,
-		state.EnvMigPRECHECK,
-		state.EnvMigIMPORT,
-		state.EnvMigVALIDATION,
-		state.EnvMigSUCCESS,
-		state.EnvMigLOGTRANSFER,
-		state.EnvMigREAP,
-		state.EnvMigDONE,
+	phases := []migration.Phase{
+		migration.READONLY,
+		migration.PRECHECK,
+		migration.IMPORT,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.DONE,
 	}
 
 	var successTime time.Time
@@ -319,10 +269,10 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 
 		// Check success timestamp is set only when EnvMigSUCCESS is
 		// reached.
-		if phase < state.EnvMigSUCCESS {
+		if phase < migration.SUCCESS {
 			c.Assert(mig.SuccessTime().IsZero(), jc.IsTrue)
 		} else {
-			if phase == state.EnvMigSUCCESS {
+			if phase == migration.SUCCESS {
 				successTime = s.clock.Now()
 			}
 			c.Assert(mig.SuccessTime(), gc.Equals, successTime)
@@ -341,9 +291,9 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 
 	// Now move to the final phase (DONE) and ensure fields are set as
 	// expected.
-	err = mig.SetPhase(state.EnvMigDONE)
+	err = mig.SetPhase(migration.DONE)
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig, state.EnvMigDONE)
+	assertPhase(c, mig, migration.DONE)
 	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
 	c.Assert(mig.EndTime(), gc.Equals, s.clock.Now())
 	assertEnvMigNotActive(c, s.State2)
@@ -361,7 +311,7 @@ func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
 	mig, err := state.CreateEnvMigration(s.State2, s.stdArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mig.SetPhase(state.EnvMigSUCCESS)
+	err = mig.SetPhase(migration.SUCCESS)
 	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: QUIESCE -> SUCCESS")
 }
 
@@ -372,13 +322,13 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
 	// Make mig stale by changing the phase with another instance.
 	mig2, err := state.GetEnvMigration(s.State2, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mig2.SetPhase(state.EnvMigREADONLY)
+	err = mig2.SetPhase(migration.READONLY)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Setting to READONLY when the phase is already READONLY should be ok.
-	err = mig.SetPhase(state.EnvMigREADONLY)
+	err = mig.SetPhase(migration.READONLY)
 	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig, state.EnvMigREADONLY)
+	assertPhase(c, mig, migration.READONLY)
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
@@ -390,13 +340,13 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
 	// change (via any EnvMigration instance) should fail.
 	mig2, err := state.GetEnvMigration(s.State2, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mig2.SetPhase(state.EnvMigABORT)
+	err = mig2.SetPhase(migration.ABORT)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Setting to READONLY when the phase is already READONLY should be ok.
-	err = mig.SetPhase(state.EnvMigREADONLY)
+	err = mig.SetPhase(migration.READONLY)
 	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: ABORT -> READONLY")
-	assertPhase(c, mig, state.EnvMigABORT)
+	assertPhase(c, mig, migration.ABORT)
 }
 
 func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
@@ -406,16 +356,16 @@ func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State2, func() {
 		mig, err := state.GetEnvMigration(s.State2, s.clock)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(state.EnvMigREADONLY), jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(state.EnvMigPRECHECK), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
 	}).Check()
 
-	err = mig.SetPhase(state.EnvMigREADONLY)
+	err = mig.SetPhase(migration.READONLY)
 	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: PRECHECK -> READONLY")
-	assertPhase(c, mig, state.EnvMigPRECHECK)
+	assertPhase(c, mig, migration.PRECHECK)
 }
 
-func assertPhase(c *gc.C, mig *state.EnvMigration, phase state.EnvMigPhase) {
+func assertPhase(c *gc.C, mig *state.EnvMigration, phase migration.Phase) {
 	actualPhase, err := mig.Phase()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualPhase, gc.Equals, phase)

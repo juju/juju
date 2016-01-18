@@ -16,118 +16,12 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	migration "github.com/juju/juju/core/envmigration"
 	"github.com/juju/juju/network"
 )
 
 // This file contains functionality for managing the state documents
 // used by Juju to track model migrations.
-
-// EnvMigPhase values specify environment migration phases.
-type EnvMigPhase int
-
-// Enumerate all possible migration phases.
-const (
-	EnvMigUNKNOWN EnvMigPhase = iota
-	EnvMigQUIESCE
-	EnvMigREADONLY
-	EnvMigPRECHECK
-	EnvMigIMPORT
-	EnvMigVALIDATION
-	EnvMigSUCCESS
-	EnvMigLOGTRANSFER
-	EnvMigREAP
-	EnvMigREAPFAILED
-	EnvMigDONE
-	EnvMigABORT
-)
-
-var envMigPhaseNames = []string{
-	"UNKNOWN",
-	"QUIESCE",
-	"READONLY",
-	"PRECHECK",
-	"VALIDATION",
-	"IMPORT",
-	"SUCCESS",
-	"LOGTRANSFER",
-	"REAP",
-	"REAPFAILED",
-	"DONE",
-	"ABORT",
-}
-
-// String returns the name of an environment migration phase constant.
-func (p EnvMigPhase) String() string {
-	i := int(p)
-	if i >= 0 && i < len(envMigPhaseNames) {
-		return envMigPhaseNames[i]
-	}
-	return "UNKNOWN"
-}
-
-// IsNext returns true if the gven phase is a valid next environment
-// migration phase.
-func (p EnvMigPhase) IsNext(targetPhase EnvMigPhase) bool {
-	nextPhases, exists := envMigTransitions[p]
-	if !exists {
-		return false
-	}
-	for _, nextPhase := range nextPhases {
-		if nextPhase == targetPhase {
-			return true
-		}
-	}
-	return false
-}
-
-// IsTerminal returns true if the phase is one which signifies the end
-// of a migration.
-func (p EnvMigPhase) IsTerminal() bool {
-	for _, t := range envMigTerminalPhases {
-		if p == t {
-			return true
-		}
-	}
-	return false
-}
-
-// Define all possible phase transitions.
-//
-// The keys are the "from" states and the values enumerate the
-// possible "to" states.
-var envMigTransitions = map[EnvMigPhase][]EnvMigPhase{
-	EnvMigQUIESCE:     {EnvMigREADONLY, EnvMigABORT},
-	EnvMigREADONLY:    {EnvMigPRECHECK, EnvMigABORT},
-	EnvMigPRECHECK:    {EnvMigIMPORT, EnvMigABORT},
-	EnvMigIMPORT:      {EnvMigVALIDATION, EnvMigABORT},
-	EnvMigVALIDATION:  {EnvMigSUCCESS, EnvMigABORT},
-	EnvMigSUCCESS:     {EnvMigLOGTRANSFER},
-	EnvMigLOGTRANSFER: {EnvMigREAP},
-	EnvMigREAP:        {EnvMigDONE, EnvMigREAPFAILED},
-}
-
-var envMigTerminalPhases []EnvMigPhase
-
-func init() {
-	// Compute the terminal phases.
-	for p := 0; p <= len(envMigPhaseNames); p++ {
-		phase := EnvMigPhase(p)
-		if _, exists := envMigTransitions[phase]; !exists {
-			envMigTerminalPhases = append(envMigTerminalPhases, phase)
-		}
-	}
-}
-
-// parseEnvMigPhase converts a string environment migration phase name
-// to its constant value.
-func parseEnvMigPhase(target string) (EnvMigPhase, bool) {
-	for p, name := range envMigPhaseNames {
-		if target == name {
-			return EnvMigPhase(p), true
-		}
-	}
-	return EnvMigUNKNOWN, false
-}
 
 // EnvMigration represents the state of an migration attempt for an
 // environment.
@@ -172,20 +66,20 @@ func (mig *EnvMigration) StartTime() time.Time {
 }
 
 // SuccessTime returns the time when the migration reached
-// EnvMigSuccess.
+// SUCCESS.
 func (mig *EnvMigration) SuccessTime() time.Time {
 	return mig.doc.SuccessTime
 }
 
-// EndTime returns the time when the migration reached EnvMigDONE or
-// EnvMigReapFailed.
+// EndTime returns the time when the migration reached DONE or
+// REAPFAILED
 func (mig *EnvMigration) EndTime() time.Time {
 	return mig.doc.EndTime
 }
 
 // Phase returns the migration's phase.
-func (mig *EnvMigration) Phase() (EnvMigPhase, error) {
-	phase, ok := parseEnvMigPhase(mig.doc.Phase)
+func (mig *EnvMigration) Phase() (migration.Phase, error) {
+	phase, ok := migration.ParsePhase(mig.doc.Phase)
 	if !ok {
 		return phase, errors.Errorf("invalid phase in DB: %v", mig.doc.Phase)
 	}
@@ -233,7 +127,7 @@ func (mig *EnvMigration) TargetAuthInfo() (string, string) {
 // SetPhase sets the phase of the migration. An error will be returned
 // if the new phase does not follow the current phase or if the
 // migration is no longer active.
-func (mig *EnvMigration) SetPhase(nextPhase EnvMigPhase) error {
+func (mig *EnvMigration) SetPhase(nextPhase migration.Phase) error {
 	now := mig.clock.Now()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -260,7 +154,7 @@ func (mig *EnvMigration) SetPhase(nextPhase EnvMigPhase) error {
 			"phase":              nextPhase.String(),
 			"phase-changed-time": now,
 		}
-		if nextPhase == EnvMigSUCCESS {
+		if nextPhase == migration.SUCCESS {
 			update["success-time"] = now
 		}
 		if nextPhase.IsTerminal() {
@@ -356,7 +250,7 @@ func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error)
 	envUUID := st.EnvironUUID()
 	var doc envMigrationDoc
 	buildTxn := func(int) ([]txn.Op, error) {
-		if isActive, err := isEnvMigrationActive(st, envUUID); err != nil {
+		if isActive, err := IsEnvMigrationActive(st, envUUID); err != nil {
 			return nil, errors.Trace(err)
 		} else if isActive {
 			return nil, errors.New("already in progress")
@@ -372,7 +266,7 @@ func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error)
 			EnvUUID:          envUUID,
 			Owner:            args.Owner,
 			StartTime:        t0,
-			Phase:            EnvMigQUIESCE.String(),
+			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: t0,
 			TargetController: args.TargetController,
 			TargetUser:       args.TargetUser,
@@ -407,16 +301,6 @@ func CreateEnvMigration(st *State, args EnvMigrationArgs) (*EnvMigration, error)
 	}, nil
 }
 
-func isEnvMigrationActive(st *State, envUUID string) (bool, error) {
-	active, closer := st.getCollection(activeEnvMigrationsC)
-	defer closer()
-	n, err := active.FindId(envUUID).Count()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return n > 0, nil
-}
-
 // GetEnvMigration returns the most recent EnvMigration for an environment (if any).
 func GetEnvMigration(st *State, refClock clock.Clock) (*EnvMigration, error) {
 	migColl, closer := st.getCollection(envMigrationsC)
@@ -431,4 +315,16 @@ func GetEnvMigration(st *State, refClock clock.Clock) (*EnvMigration, error) {
 	}
 
 	return &EnvMigration{st: st, doc: doc, clock: refClock}, nil
+}
+
+// IsEnvMigrationActive return true if a migration is in progress for
+// the given environment.
+func IsEnvMigrationActive(st *State, envUUID string) (bool, error) {
+	active, closer := st.getCollection(activeEnvMigrationsC)
+	defer closer()
+	n, err := active.FindId(envUUID).Count()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return n > 0, nil
 }
