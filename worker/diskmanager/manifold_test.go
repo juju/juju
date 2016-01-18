@@ -23,7 +23,7 @@ type manifoldSuite struct {
 
 var _ = gc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestMachineDiskmanger(c *gc.C) {
+func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
 
 	called := false
 
@@ -39,11 +39,7 @@ func (s *manifoldSuite) TestMachineDiskmanger(c *gc.C) {
 			return nil
 		})
 
-	origFunc := diskmanager.NewWorker
-	defer func() { diskmanager.NewWorker = origFunc }()
-
-	// Test a machine agent
-	diskmanager.NewWorker = func(l diskmanager.ListBlockDevicesFunc, b diskmanager.BlockDeviceSetter) worker.Worker {
+	s.PatchValue(&diskmanager.NewWorker, func(l diskmanager.ListBlockDevicesFunc, b diskmanager.BlockDeviceSetter) worker.Worker {
 		called = true
 
 		c.Assert(l, gc.FitsTypeOf, diskmanager.DefaultListBlockDevices)
@@ -54,7 +50,7 @@ func (s *manifoldSuite) TestMachineDiskmanger(c *gc.C) {
 		c.Assert(api, gc.NotNil)
 
 		return nil
-	}
+	})
 
 	a := &dummyAgent{
 		tag: names.NewMachineTag("1"),

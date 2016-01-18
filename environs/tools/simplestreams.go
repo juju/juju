@@ -164,11 +164,10 @@ func (t *ToolsMetadata) productId() (string, error) {
 // then unsigned data is used.
 func Fetch(
 	sources []simplestreams.DataSource, cons *ToolsConstraint,
-	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
+) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
-		OnlySigned:       onlySigned,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
 			DataType:        ContentDownload,
@@ -351,13 +350,12 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
 func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
+	metadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, toolsConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}

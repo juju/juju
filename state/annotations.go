@@ -116,10 +116,9 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
 		}
-		if env.UUID() == env.doc.ServerUUID {
-			// This is a state server environment, and
-			// cannot be removed. Ergo, we can skip the
-			// existence check below.
+		if env.UUID() == env.ControllerUUID() {
+			// This is the controller environment, and cannot be removed.
+			// Ergo, we can skip the existence check below.
 			return ops, nil
 		}
 	}

@@ -7,6 +7,5 @@ var (
 	ListBlockDevices = listBlockDevices
 	BlockDeviceInUse = &blockDeviceInUse
 	DoWork           = doWork
+	NewWorkerFunc    = newWorker
 )
-
-var NewWorkerFunc = newWorker

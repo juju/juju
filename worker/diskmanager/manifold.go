@@ -25,13 +25,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker trivially wraps NewWorker for use in a util.PostUpgradeManifold.
-//
-// TODO(waigani) - It's not tested at the moment, because the scaffolding
-// necessary is too unwieldy/distracting to introduce at this point.
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	tag, ok := a.CurrentConfig().Tag().(names.MachineTag)
+	t := a.CurrentConfig().Tag()
+	tag, ok := t.(names.MachineTag)
 	if !ok {
-		return nil, errors.New("unable to obtain api.Connection")
+		return nil, errors.Errorf("expected MachineTag, got %#v", t)
 	}
 
 	api := apidiskmanager.NewState(apiCaller, tag)

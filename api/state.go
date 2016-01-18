@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
@@ -308,16 +307,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 	return uniter.NewState(st, unitTag), nil
 }
 
-// DiskManager returns a version of the state that provides functionality
-// required by the diskmanager worker.
-func (st *state) DiskManager() (*diskmanager.State, error) {
-	machineTag, ok := st.authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
-	}
-	return diskmanager.NewState(st, machineTag), nil
-}
-
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
 func (st *state) Firewaller() *firewaller.State {
@@ -336,7 +325,7 @@ func (st *state) Upgrader() *upgrader.State {
 }
 
 // Reboot returns access to the Reboot API
-func (st *state) Reboot() (*reboot.State, error) {
+func (st *state) Reboot() (reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil

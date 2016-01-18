@@ -12,6 +12,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/undertaker"
@@ -47,13 +52,15 @@ func (c *clock) advanceAfterNextNow(d time.Duration) {
 }
 
 func (s *undertakerSuite) TestAPICalls(c *gc.C) {
+	cfg, uuid := dummyCfgAndUUID(c)
 	client := &mockClient{
 		calls: make(chan string),
 		mockEnviron: clientEnviron{
 			Life: state.Dying,
-			UUID: utils.MustNewUUID().String(),
+			UUID: uuid,
 			HasMachinesAndServices: true,
 		},
+		cfg: cfg,
 		watcher: &mockEnvironResourceWatcher{
 			events: make(chan struct{}),
 		},
@@ -120,11 +127,13 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 	mockWatcher := &mockEnvironResourceWatcher{
 		events: make(chan struct{}, 1),
 	}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 	client := &mockClient{
 		calls: make(chan string, 1),
 		mockEnviron: clientEnviron{
 			Life:     state.Dying,
-			UUID:     utils.MustNewUUID().String(),
+			UUID:     uuid.String(),
 			IsSystem: true,
 		},
 		watcher: mockWatcher,
@@ -183,15 +192,17 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 	mClock := testing.NewClock(startTime)
 	halfDayEarlier := mClock.Now().Add(-12 * time.Hour)
 
+	cfg, uuid := dummyCfgAndUUID(c)
 	client := &mockClient{
 		calls: make(chan string, 1),
 		// Mimic the situation where the worker is started after the
 		// environment has been set to dead 12hrs ago.
 		mockEnviron: clientEnviron{
 			Life:        state.Dead,
-			UUID:        utils.MustNewUUID().String(),
+			UUID:        uuid,
 			TimeOfDeath: &halfDayEarlier,
 		},
+		cfg: cfg,
 	}
 
 	wg := sync.WaitGroup{}
@@ -245,4 +256,21 @@ func assertNoMoreCalls(c *gc.C, client *mockClient) {
 		c.Fatalf("unexpected API call: %q", call)
 	case <-time.After(testing.ShortWait):
 	}
+}
+
+func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
+	cfg := testingEnvConfig(c)
+	uuid, ok := cfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	return cfg, uuid
+}
+
+// testingEnvConfig prepares an environment configuration using
+// the dummy provider.
+func testingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
 }

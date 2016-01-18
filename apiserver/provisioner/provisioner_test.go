@@ -60,6 +60,9 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
+	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
+		"image-stream": "daily",
+	}
 	s.JujuConnSuite.SetUpTest(c)
 	// We're testing with address allocation on by default. There are
 	// separate tests to check the behavior when the flag is not
