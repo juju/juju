@@ -212,22 +212,22 @@ type EnvMigrationArgs struct {
 
 func (a *EnvMigrationArgs) checkAndNormalise() error {
 	if a.Owner == "" {
-		return errors.New("argument missing: Owner")
+		return errors.NotValidf("empty Owner")
 	}
 	if a.TargetController == "" {
-		return errors.New("argument missing: TargetController")
+		return errors.NotValidf("empty TargetController")
 	}
 	if a.TargetAPIAddresses == nil {
-		return errors.New("argument missing: TargetAPIAddresses")
+		return errors.NotValidf("empty TargetAPIAddresses")
 	}
 	if len(a.TargetAPIAddresses) < 1 {
-		return errors.New("argument missing: TargetAPIAddresses")
+		return errors.NotValidf("empty TargetAPIAddresses")
 	}
 	if a.TargetUser == "" {
-		return errors.New("argument missing: TargetUser")
+		return errors.NotValidf("empty TargetUser")
 	}
 	if a.TargetPassword == "" {
-		return errors.New("argument missing: TargetPassword")
+		return errors.NotValidf("empty TargetPassword")
 	}
 	if a.Clock == nil {
 		a.Clock = clock.WallClock

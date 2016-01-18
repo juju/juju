@@ -153,7 +153,8 @@ func (s *EnvMigrationSuite) TestCreateWithMissingArgs(c *gc.C) {
 		// Ensure that CreateEnvMigration complains that the field is missing.
 		mig, err := state.CreateEnvMigration(s.State2, args)
 		c.Assert(mig, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("argument missing: %s", name))
+		c.Check(errors.IsNotValid(err), jc.IsTrue)
+		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", name))
 	}
 }
 
