@@ -27,7 +27,6 @@ type discoverspacesWorker struct {
 	tomb tomb.Tomb
 }
 
-var invalidChars = regexp.MustCompile("[^0-9a-z-]")
 var dashPrefix = regexp.MustCompile("^-*")
 var dashSuffix = regexp.MustCompile("-*$")
 var multipleDashes = regexp.MustCompile("--+")
@@ -37,7 +36,7 @@ func convertSpaceName(name string, existing set.Strings) string {
 	name = strings.Replace(name, " ", "-", -1)
 	name = strings.ToLower(name)
 	// Replace any character that isn't in the set "-", "a-z", "0-9".
-	name = invalidChars.ReplaceAllString(name, "")
+	name = network.SpaceInvalidChars.ReplaceAllString(name, "")
 	// Get rid of any dashes at the start as that isn't valid.
 	name = dashPrefix.ReplaceAllString(name, "")
 	// And any at the end.
