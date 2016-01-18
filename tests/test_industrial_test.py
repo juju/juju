@@ -391,39 +391,6 @@ class TestMultiIndustrialTest(TestCase):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
             self.assertEqual(mit.agent_stream, 'foo-stream')
 
-    def test_get_stages(self):
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(QUICK, {'type': 'foo'}),
-            AttemptSuiteFactory([]))
-
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                FULL, {'type': 'foo'}), AttemptSuiteFactory([
-                    UpgradeCharmAttempt, DeployManyAttempt,
-                    BackupRestoreAttempt, EnsureAvailabilityAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                DENSITY, {'type': 'foo'}), AttemptSuiteFactory([
-                    DeployManyAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                BACKUP, {'type': 'foo'}), AttemptSuiteFactory([
-                    BackupRestoreAttempt]))
-
-    def test_get_stages_maas(self):
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(QUICK, {'type': 'maas'}),
-            AttemptSuiteFactory([]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                FULL, {'type': 'maas'}), AttemptSuiteFactory([
-                    UpgradeCharmAttempt, DeployManyAttempt,
-                    BackupRestoreAttempt, EnsureAvailabilityAttempt]))
-        self.assertEqual(
-            MultiIndustrialTest.get_stages(
-                DENSITY, {'type': 'maas'}), AttemptSuiteFactory([
-                    DeployManyAttempt]))
-
     def test_density_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7,
@@ -952,8 +919,8 @@ class TestIndustrialTest(JujuPyTestCase):
         self.assertEqual('destroyed', new_client._backing_state.state)
 
     def test_run_stages_recover_failure(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
+        old_client = FakeJujuClient()
+        new_client = FakeJujuClient()
         fsa = FakeStepAttempt([('foo', True, False), ('bar', True, True)])
         industrial = IndustrialTest(old_client, new_client, [
             fsa, FakeStepAttempt.from_result(True, True)])
@@ -977,21 +944,6 @@ class TestIndustrialTest(JujuPyTestCase):
         industrial = IndustrialTest(old, new, [PrepareUpgradeJujuAttempt({})])
         with self.assertRaises(CannotUpgradeToOldClient):
             list(industrial.run_stages())
-
-    def test_destroy_both_even_with_exception(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client, [
-            FakeStepAttempt.from_result(False, False),
-            FakeStepAttempt.from_result(True, True)])
-        with patch.object(old_client, 'destroy_environment',
-                          side_effect=Exception) as oc_mock:
-            with patch.object(new_client, 'destroy_environment',
-                              side_effect=Exception) as nc_mock:
-                with self.assertRaises(Exception):
-                    industrial.destroy_both()
-        oc_mock.assert_called_once_with(delete_jenv=True)
-        nc_mock.assert_called_once_with(delete_jenv=True)
 
     def test_run_attempt(self):
         old_client = FakeJujuClient()
