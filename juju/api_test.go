@@ -35,7 +35,7 @@ import (
 )
 
 type NewAPIStateSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 }
@@ -43,18 +43,18 @@ type NewAPIStateSuite struct {
 var _ = gc.Suite(&NewAPIStateSuite{})
 
 func (cs *NewAPIStateSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (cs *NewAPIStateSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuHomeSuite.TearDownSuite(c)
+	cs.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 	cs.PatchValue(&dummy.LogDir, c.MkDir())
@@ -64,7 +64,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuHomeSuite.TearDownTest(c)
+	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
@@ -103,7 +103,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 }
 
 type NewAPIClientSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 }
@@ -111,7 +111,7 @@ type NewAPIClientSuite struct {
 var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Since most tests use invalid testing API server addresses, we
@@ -132,12 +132,12 @@ func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 
 func (cs *NewAPIClientSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuHomeSuite.TearDownSuite(c)
+	cs.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	cs.ToolsFixture.SetUpTest(c)
-	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.PatchValue(&dummy.LogDir, c.MkDir())
 }
@@ -146,7 +146,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuHomeSuite.TearDownTest(c)
+	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage) {
@@ -1230,7 +1230,7 @@ var dummyStoreInfo = &environInfo{
 }
 
 type EnvironInfoTest struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&EnvironInfoTest{})

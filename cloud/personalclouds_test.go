@@ -15,7 +15,7 @@ import (
 )
 
 type personalCloudSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&personalCloudSuite{})
@@ -35,7 +35,7 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 	}
 	err := cloud.WritePersonalCloudMetadata(&clouds)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(osenv.JujuHomePath("clouds.yaml"))
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 clouds:
@@ -56,14 +56,14 @@ func (s *personalCloudSuite) TestReadPersonalCloudsNone(c *gc.C) {
 }
 
 func (s *personalCloudSuite) TestReadPersonalClouds(c *gc.C) {
-	s.setupReadClouds(c, osenv.JujuHomePath("clouds.yaml"))
+	s.setupReadClouds(c, osenv.JujuXDGDataHomePath("clouds.yaml"))
 	clouds, err := cloud.PersonalCloudMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPersonalClouds(c, clouds)
 }
 
 func (s *personalCloudSuite) TestReadUserSpecifiedClouds(c *gc.C) {
-	file := osenv.JujuHomePath("somemoreclouds.yaml")
+	file := osenv.JujuXDGDataHomePath("somemoreclouds.yaml")
 	s.setupReadClouds(c, file)
 	clouds, err := cloud.ParseCloudMetadataFile(file)
 	c.Assert(err, jc.ErrorIsNil)

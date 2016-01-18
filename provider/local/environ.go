@@ -469,7 +469,7 @@ func (env *localEnviron) Destroy() error {
 			return err
 		}
 		args := []string{
-			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			"env", osenv.JujuXDGDataHomeEnvKey + "=" + osenv.JujuXDGDataHome(),
 			juju, "kill-controller", "-y", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)

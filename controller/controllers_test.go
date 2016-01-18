@@ -8,12 +8,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"fmt"
+
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 )
 
 type ControllersSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&ControllersSuite{})

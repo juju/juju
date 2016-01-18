@@ -22,7 +22,7 @@ import (
 type listCredentialsSuite struct {
 	testing.BaseSuite
 
-	jujuHome string
+	jujuXDGDataHome string
 }
 
 var _ = gc.Suite(&listCredentialsSuite{})
@@ -69,16 +69,16 @@ var sampleCredentials = &jujucloud.Credentials{
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.jujuHome = c.MkDir()
-	oldJujuHome := osenv.SetJujuHome(s.jujuHome)
+	s.jujuXDGDataHome = c.MkDir()
+	oldJujuXDGDataHome := osenv.SetJujuXDGDataHome(s.jujuXDGDataHome)
 	s.AddCleanup(func(c *gc.C) {
-		osenv.SetJujuHome(oldJujuHome)
+		osenv.SetJujuXDGDataHome(oldJujuXDGDataHome)
 	})
 
 	// Write $JUJU_HOME/credentials.yaml.
 	data, err := yaml.Marshal(sampleCredentials)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.jujuHome, "credentials.yaml"), data, 0600)
+	err = ioutil.WriteFile(filepath.Join(s.jujuXDGDataHome, "credentials.yaml"), data, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -147,7 +147,7 @@ func (s *listCredentialsSuite) TestListCredentialsJSON(c *gc.C) {
 }
 
 func (s *listCredentialsSuite) TestListCredentialsFileMissing(c *gc.C) {
-	err := os.RemoveAll(s.jujuHome)
+	err := os.RemoveAll(s.jujuXDGDataHome)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out := s.listCredentials(c)

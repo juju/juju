@@ -15,14 +15,14 @@ import (
 )
 
 type FileSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&FileSuite{})
 
 func (s *FileSuite) TestWriteFile(c *gc.C) {
 	writeTestControllersFile(c)
-	data, err := ioutil.ReadFile(osenv.JujuHomePath("controllers.yaml"))
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("controllers.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testControllersYAML[1:])
 }
@@ -34,7 +34,7 @@ func (s *FileSuite) TestReadNoFile(c *gc.C) {
 }
 
 func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
-	err := ioutil.WriteFile(osenv.JujuHomePath("controllers.yaml"), []byte(""), 0600)
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllers, err := controller.ControllerMetadata()

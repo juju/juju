@@ -30,7 +30,7 @@ var switchDoc = `
 Show or change the default juju model or controller name.
 
 If no command line parameters are passed, switch will output the current
-model as defined by the file $JUJU_HOME/current-model.
+model as defined by the file $JUJU_DATA/current-model.
 
 If a command line parameter is passed in, that value will is stored in the
 current model file if it represents a valid model name.

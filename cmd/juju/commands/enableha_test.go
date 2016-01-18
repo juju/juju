@@ -26,8 +26,8 @@ import (
 )
 
 type EnableHASuite struct {
-	// TODO (cherylj) change this back to a FakeJujuHomeSuite to
-	// remove the mongo dependency once enable-ha is
+	// TODO (cherylj) change this back to a FakeJujuXDGDataHomeSuite to
+	// remove the mongo dependency once ensure-availability is
 	// moved under a supercommand again.
 	testing.JujuConnSuite
 	fake *fakeHAClient

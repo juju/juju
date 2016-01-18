@@ -100,7 +100,7 @@ func CloudByName(name string) (*Cloud, error) {
 // JujuPublicCloudsPath is the location where public cloud information is
 // expected to be found. Requires JUJU_HOME to be set.
 func JujuPublicCloudsPath() string {
-	return osenv.JujuHomePath("public-clouds.yaml")
+	return osenv.JujuXDGDataHomePath("public-clouds.yaml")
 }
 
 // PublicCloudMetadata looks in searchPath for cloud metadata files and if none

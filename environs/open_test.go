@@ -24,14 +24,14 @@ import (
 )
 
 type OpenSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&OpenSuite{})
 
 func (s *OpenSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
@@ -39,7 +39,7 @@ func (s *OpenSuite) SetUpTest(c *gc.C) {
 func (s *OpenSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {

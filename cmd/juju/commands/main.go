@@ -64,7 +64,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	if err = juju.InitJujuHome(); err != nil {
+	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
@@ -84,7 +84,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Name:                "juju",
 		Doc:                 jujuDoc,
 		MissingCallback:     RunPlugin,
-		UserAliasesFilename: osenv.JujuHomePath("aliases"),
+		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",

@@ -22,7 +22,7 @@ import (
 )
 
 type ImageMetadataSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	environ []string
 	dir     string
 }
@@ -30,12 +30,12 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	cacheTestEnvConfig(c)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.config")
+var logger = loggo.GetLogger("juju.environs.local/share")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.
@@ -356,8 +356,10 @@ const (
 //     ~/.ssh/id_dsa.pub
 //     ~/.ssh/id_rsa.pub
 //     ~/.ssh/identity.pub
-//     ~/.juju/<name>-cert.pem
-//     ~/.juju/<name>-private-key.pem
+//     ~/.local/share/juju/<name>-cert.pem
+//     ~/.local/share/juju/<name>-private-key.pem
+//
+// if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
@@ -700,8 +702,8 @@ func isEmpty(val interface{}) bool {
 //
 // The defined[attr+"-path"] key is always deleted.
 func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
-	if !osenv.IsJujuHomeSet() {
-		logger.Debugf("JUJU_HOME not set, not attempting to read file %q", defaultPath)
+	if !osenv.IsJujuXDGDataHomeSet() {
+		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
 		return nil
 	}
 	pathAttr := attr + "-path"
@@ -720,7 +722,7 @@ func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath str
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = osenv.JujuHomePath(path)
+		path = osenv.JujuXDGDataHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

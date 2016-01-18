@@ -20,7 +20,7 @@ import (
 )
 
 type providerSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	testMAASObject *gomaasapi.TestMAASObject
 }
@@ -28,7 +28,7 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
@@ -49,7 +49,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
 }
@@ -57,12 +57,12 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.testMAASObject.TestServer.Clear()
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.testMAASObject.Close()
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"

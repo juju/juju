@@ -47,14 +47,14 @@ type ServerFile struct {
 // across both the current executable and across different executables.
 
 func getCurrentModelFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentModelFilename)
+	return filepath.Join(osenv.JujuXDGDataHome(), CurrentModelFilename)
 }
 
 func getCurrentControllerFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
+	return filepath.Join(osenv.JujuXDGDataHome(), CurrentControllerFilename)
 }
 
-// ReadCurrentModel reads the file $JUJU_HOME/current-model and
+// ReadCurrentModel reads the file $JUJU_DATA/current-model and
 // return the value stored there.  If the file doesn't exist an empty string
 // is returned and no error.
 func ReadCurrentModel() (string, error) {
@@ -74,7 +74,7 @@ func ReadCurrentModel() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// ReadCurrentController reads the file $JUJU_HOME/current-controller and
+// ReadCurrentController reads the file $JUJU_DATA/current-controller and
 // return the value stored there. If the file doesn't exist an empty string is
 // returned and no error.
 func ReadCurrentController() (string, error) {
@@ -95,7 +95,7 @@ func ReadCurrentController() (string, error) {
 }
 
 // WriteCurrentModel writes the envName to the file
-// $JUJU_HOME/current-model file.
+// $JUJU_DATA/current-model file.
 func WriteCurrentModel(envName string) error {
 	lock, err := acquireEnvironmentLock("write current-model")
 	if err != nil {
@@ -119,7 +119,7 @@ func WriteCurrentModel(envName string) error {
 }
 
 // WriteCurrentController writes the controllerName to the file
-// $JUJU_HOME/current-controller file.
+// $JUJU_DATA/current-controller file.
 func WriteCurrentController(controllerName string) error {
 	lock, err := acquireEnvironmentLock("write current-controller")
 	if err != nil {
@@ -146,7 +146,7 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 	// NOTE: any reading or writing from the directory should be done with a
 	// fslock to make sure we have a consistent read or write.  Also worth
 	// noting, we should use a very short timeout.
-	lock, err := fslock.NewLock(osenv.JujuHome(), lockName, fslock.Defaults())
+	lock, err := fslock.NewLock(osenv.JujuXDGDataHome(), lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
