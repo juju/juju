@@ -1,7 +1,6 @@
 from argparse import Namespace
 import unittest
 from mock import (
-    Mock,
     patch,
     )
 from assess_jes_deploy import (
