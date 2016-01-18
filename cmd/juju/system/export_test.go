@@ -114,3 +114,18 @@ func NewListBlocksCommand(api listBlocksAPI, apierr error) cmd.Command {
 		apierr: apierr,
 	})
 }
+
+type CtrData ctrData
+type EnvData envData
+
+func FmtCtrStatus(data CtrData) string {
+	return fmtCtrStatus(ctrData(data))
+}
+
+func FmtEnvStatus(data EnvData) string {
+	return fmtEnvStatus(envData(data))
+}
+
+func NewData(api destroySystemAPI, ctrUUID string) (ctrData, []envData, error) {
+	return newData(api, ctrUUID)
+}

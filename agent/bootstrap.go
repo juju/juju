@@ -31,9 +31,11 @@ type BootstrapMachineConfig struct {
 	// Addresses holds the bootstrap machine's addresses.
 	Addresses []network.Address
 
-	// Constraints holds the bootstrap machine's constraints.
-	// This value is also used for the environment-level constraints.
-	Constraints constraints.Value
+	// BootstrapConstraints holds the bootstrap machine's constraints.
+	BootstrapConstraints constraints.Value
+
+	// EnvironConstraints holds the environment-level constraints.
+	EnvironConstraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
 	Jobs []multiwatcher.MachineJob
@@ -140,7 +142,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 }
 
 func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
+	if err := st.SetEnvironConstraints(cfg.EnvironConstraints); err != nil {
 		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
 	}
 	m, err := initBootstrapMachine(c, st, cfg)
@@ -177,7 +179,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 		Addresses:               cfg.Addresses,
 		Series:                  series.HostSeries(),
 		Nonce:                   BootstrapNonce,
-		Constraints:             cfg.Constraints,
+		Constraints:             cfg.BootstrapConstraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
 		Jobs: jobs,

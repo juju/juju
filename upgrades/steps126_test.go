@@ -26,6 +26,7 @@ func (s *steps126Suite) TestStateStepsFor126(c *gc.C) {
 		"add the version field to all settings docs",
 		"add status to filesystem",
 		"upgrade environment config",
+		"provider side upgrades",
 		"update machine preferred addresses",
 		"add default endpoint bindings to services",
 	}

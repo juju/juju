@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -61,6 +62,9 @@ type StartInstanceParams struct {
 	// provider-specific space IDs. It is populated when provisioning a machine
 	// to host a unit of a service with endpoint bindings.
 	EndpointBindings map[string]network.Id
+	// ImageMetadata is a collection of image metadata
+	// that may be used to start this instance.
+	ImageMetadata []*imagemetadata.ImageMetadata
 }
 
 // StartInstanceResult holds the result of an

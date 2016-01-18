@@ -16,13 +16,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -65,6 +66,19 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
+}
+
+func (suite *environSuite) setupFakeTools(c *gc.C) {
+	suite.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	storageDir := c.MkDir()
+	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+}
+
+func (suite *environSuite) addNode(jsonText string) instance.Id {
+	node := suite.testMAASObject.TestServer.NewNode(jsonText)
+	resourceURI, _ := node.GetField("resource_uri")
+	return instance.Id(resourceURI)
 }
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
@@ -216,6 +230,75 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+var testNetworkValues = []struct {
+	includeNetworks []string
+	excludeNetworks []string
+	expectedResult  url.Values
+}{
+	{
+		nil,
+		nil,
+		url.Values{},
+	},
+	{
+		[]string{"included_net_1"},
+		nil,
+		url.Values{"networks": {"included_net_1"}},
+	},
+	{
+		nil,
+		[]string{"excluded_net_1"},
+		url.Values{"not_networks": {"excluded_net_1"}},
+	},
+	{
+		[]string{"included_net_1", "included_net_2"},
+		[]string{"excluded_net_1", "excluded_net_2"},
+		url.Values{
+			"networks":     {"included_net_1", "included_net_2"},
+			"not_networks": {"excluded_net_1", "excluded_net_2"},
+		},
+	},
+}
+
+func (suite *environSuite) getInstance(systemId string) *maasInstance {
+	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
+	node := suite.testMAASObject.TestServer.NewNode(input)
+	return &maasInstance{&node}
+}
+
+func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
+	var vlan string
+	if vlanTag == 0 {
+		vlan = "null"
+	} else {
+		vlan = fmt.Sprintf("%d", vlanTag)
+	}
+
+	if defaultGateway != "null" {
+		// since we use %s below only "null" (if passed) should remain unquoted.
+		defaultGateway = fmt.Sprintf("%q", defaultGateway)
+	}
+
+	// TODO(dimitern): Use JSON tags on structs, JSON encoder, or at least
+	// text/template below and in similar cases.
+	input := fmt.Sprintf(`{
+		"name": %q,
+		"ip":"192.168.%d.2",
+		"netmask": "255.255.255.0",
+		"vlan_tag": %s,
+		"description": "%s_%d_%d",
+		"default_gateway": %s
+	}`,
+		name,
+		id,
+		vlan,
+		name, id, vlanTag,
+		defaultGateway,
+	)
+	network := suite.testMAASObject.TestServer.NewNetwork(input)
+	return &network
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
@@ -405,15 +488,6 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*409.*")
 }
 
-func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
-	rc, _, err := source.Fetch(filename)
-	c.Assert(err, jc.ErrorIsNil)
-	defer rc.Close()
-	retrieved, err := ioutil.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retrieved, gc.DeepEquals, content)
-}
-
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := suite.makeEnviron()
 	// Add a dummy file to storage so we can use that to check the
@@ -475,6 +549,31 @@ func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	env := suite.makeEnviron()
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
+
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
+
+	networks, err := env.getNetworkMACs("net_1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
+
+	networks, err = env.getNetworkMACs("net_2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
+
+	networks, err = env.getNetworkMACs("net_3")
+	c.Check(networks, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
@@ -516,6 +615,7 @@ func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
+	testServer := suite.testMAASObject.TestServer
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
 		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
@@ -528,24 +628,24 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, jc.ErrorIsNil)
 
-	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	testServer.AddNodeDetails("node1", lshwXML)
 	// resulting CIDR 192.168.2.1/24
 	suite.getNetwork("LAN", 2, 42)
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
 	// resulting CIDR 192.168.3.1/24
 	suite.getNetwork("Virt", 3, 0)
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	testServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	if duplicates {
-		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
-		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
+		testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
+		testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
 	}
 
 	// needed for getNodeGroups to work
-	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
-	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	testServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	testServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
 
 	jsonText1 := `{
 		"ip_range_high":        "192.168.2.255",
@@ -595,17 +695,16 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 		"static_ip_range_high": "172.16.8.255",
 		"interface":            "eth3"
 	}`
-	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
-	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
-	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
-	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
+	testServer.NewNodegroupInterface("uuid-0", jsonText1)
+	testServer.NewNodegroupInterface("uuid-0", jsonText2)
+	testServer.NewNodegroupInterface("uuid-1", jsonText3)
+	testServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return testInstance
 }
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesNotSupported(c *gc.C) {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
 	testInstance := suite.createSubnets(c, false)
-
 	subnetsInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -896,12 +995,14 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
+
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -910,9 +1011,37 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
+	// Work around the lack of support for devices PUT and POST without hostname
+	// set in gomaasapi's testservices
+	newParams := func(macAddress string, instId instance.Id, hostnameSuffix string) url.Values {
+		c.Check(macAddress, gc.Equals, "aa:bb:cc:dd:ee:f0") // passed to AllocateAddress() below
+		c.Check(instId, gc.Equals, testInstance.Id())
+		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
+		params := make(url.Values)
+		params.Add("mac_addresses", macAddress)
+		params.Add("hostname", "auto-generated.maas")
+		params.Add("parent", extractSystemId(instId))
+		return params
+	}
+	suite.PatchValue(&NewDeviceParams, newParams)
+	updateHostname := func(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
+		c.Check(client, gc.NotNil)
+		c.Check(deviceID, gc.Matches, `node-[0-9a-f-]+`)
+		c.Check(deviceHostname, gc.Equals, "auto-generated.maas")  // "generated" above in NewDeviceParams()
+		c.Check(hostnameSuffix, gc.Equals, "juju-machine-0-kvm-5") // passed to AllocateAddress() below
+		return "auto-generated-juju-lxc.maas", nil
+	}
+	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
+
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(
+		testInstance.Id(),
+		"LAN",
+		&network.Address{Value: "192.168.2.1"},
+		"aa:bb:cc:dd:ee:f0",
+		"juju-machine-0-kvm-5",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
@@ -923,7 +1052,7 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 
 	hostname, err := device["hostname"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostname, gc.Equals, "bar")
+	c.Assert(hostname, gc.Equals, "auto-generated.maas")
 
 	parent, err := device["parent"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
@@ -946,7 +1075,72 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := macMap["mac_address"].GetString()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mac, gc.Equals, "foo")
+	c.Assert(mac, gc.Equals, "aa:bb:cc:dd:ee:f0")
+}
+
+func (suite *environSuite) TestTransformDeviceHostname(c *gc.C) {
+	for i, test := range []struct {
+		deviceHostname string
+		hostnameSuffix string
+
+		expectedOutput string
+		expectedError  string
+	}{{
+		deviceHostname: "shiny-town.maas",
+		hostnameSuffix: "juju-machine-1-lxc-2",
+		expectedOutput: "shiny-town-juju-machine-1-lxc-2.maas",
+	}, {
+		deviceHostname: "foo.subdomain.example.com",
+		hostnameSuffix: "suffix",
+		expectedOutput: "foo-suffix.subdomain.example.com",
+	}, {
+		deviceHostname: "bad-food.example.com",
+		hostnameSuffix: "suffix.example.org",
+		expectedOutput: "bad-food-suffix.example.org.example.com",
+	}, {
+		deviceHostname: "strangers-and.freaks",
+		hostnameSuffix: "just-this",
+		expectedOutput: "strangers-and-just-this.freaks",
+	}, {
+		deviceHostname: "no-dot-hostname",
+		hostnameSuffix: "anything",
+		expectedError:  `unexpected device "dev-id" hostname "no-dot-hostname"`,
+	}, {
+		deviceHostname: "anything",
+		hostnameSuffix: "",
+		expectedError:  "hostname suffix cannot be empty",
+	}} {
+		c.Logf(
+			"test #%d: %q + %q -> %q (err: %s)",
+			i, test.deviceHostname, test.hostnameSuffix,
+			test.expectedOutput, test.expectedError,
+		)
+		output, err := transformDeviceHostname("dev-id", test.deviceHostname, test.hostnameSuffix)
+		if test.expectedError != "" {
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(output, gc.Equals, "")
+			continue
+		}
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(output, gc.Equals, test.expectedOutput)
+	}
+}
+
+func (suite *environSuite) patchDeviceCreation() {
+	// Work around the lack of support for devices PUT and POST without hostname
+	// set in gomaasapi's testservices
+	newParams := func(macAddress string, instId instance.Id, _ string) url.Values {
+		params := make(url.Values)
+		params.Add("mac_addresses", macAddress)
+		params.Add("hostname", "auto-generated.maas")
+		params.Add("parent", extractSystemId(instId))
+		return params
+	}
+	suite.PatchValue(&NewDeviceParams, newParams)
+	updateHostname := func(_ *gomaasapi.MAASObject, _, _, _ string) (string, error) {
+		return "auto-generated-juju-lxc.maas", nil
+	}
+	suite.PatchValue(&UpdateDeviceHostname, updateHostname)
 }
 
 func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
@@ -954,6 +1148,7 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
+	suite.patchDeviceCreation()
 
 	responses := []string{
 		"claim_sticky_ip_address failed",
@@ -962,8 +1157,9 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 		"unexpected ip_addresses in response",
 		"IP in ip_addresses not a string",
 	}
-	reserveIP := func(devices gomaasapi.MAASObject, deviceId string, addr network.Address) (network.Address, error) {
-		c.Check(deviceId, gc.Matches, "node-[a-f0-9]+")
+	reserveIP := func(_ gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
+		c.Check(deviceID, gc.Matches, "node-[a-f0-9]+")
+		c.Check(macAddress, gc.Matches, "aa:bb:cc:dd:ee:f0")
 		c.Check(addr, jc.DeepEquals, network.Address{})
 		nextError := responses[0]
 		return network.Address{}, errors.New(nextError)
@@ -971,7 +1167,11 @@ func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 	suite.PatchValue(&ReserveIPAddressOnDevice, reserveIP)
 
 	for len(responses) > 0 {
-		err := env.AllocateAddress(testInstance.Id(), network.AnySubnet, network.Address{}, "mac-address", "hostname")
+		addr := &network.Address{}
+		err := env.AllocateAddress(
+			testInstance.Id(), network.AnySubnet, addr,
+			"aa:bb:cc:dd:ee:f0", "juju-lxc",
+		)
 		c.Check(err, gc.ErrorMatches, responses[0])
 		responses = responses[1:]
 	}
@@ -998,14 +1198,20 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
+	suite.patchDeviceCreation()
+
 	addr := network.NewAddress("192.168.2.1")
-	err := env.AllocateAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &addr, "foo", "juju-lxc")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
 	c.Assert(devicesArray, gc.HasLen, 1)
 
-	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "bar")
+	// Since we're mocking out updateDeviceHostname, no need to check if the
+	// hostname was updated (only manually tested for now until we change
+	// gomaasapi).
+
+	err = env.ReleaseAddress(testInstance.Id(), "LAN", addr, "foo", "juju-lxc")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray = suite.getDeviceArray(c)
@@ -1013,22 +1219,25 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
-	err := env.AllocateAddress(instId, "bar", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "bar", &addr, "foo", "juju-lxc")
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
-	err := env.AllocateAddress(testInstance.Id(), "bar", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "bar", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: bar")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1038,7 +1247,7 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err := env.AllocateAddress(testInstance.Id(), "LAN", ipAddress, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &ipAddress, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
@@ -1053,10 +1262,11 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
@@ -1073,6 +1283,7 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	// Patch short attempt params.
 	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
 		Min: 5,
@@ -1091,7 +1302,7 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ReleaseAddress must fail with 5 retries.

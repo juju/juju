@@ -65,11 +65,9 @@ func (s *metricsAdderSuite) TestAddMetricBatches(c *gc.C) {
 
 func (s *metricsAdderSuite) TestAddMetricBatchesFails(c *gc.C) {
 	var called bool
-	var callParams params.MetricBatchParams
 	metricsadder.PatchFacadeCall(s, s.adder, func(request string, args, response interface{}) error {
-		p, ok := args.(params.MetricBatchParams)
+		_, ok := args.(params.MetricBatchParams)
 		c.Assert(ok, jc.IsTrue)
-		callParams = p
 		called = true
 		c.Assert(request, gc.Equals, "AddMetricBatches")
 		result := response.(*params.ErrorResults)

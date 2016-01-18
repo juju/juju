@@ -1410,7 +1410,7 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	ecfg := env.getSnapshot().ecfg
 	return simplestreams.CloudSpec{
 		Region:   ecfg.location(),
-		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
+		Endpoint: getEndpoint(ecfg.location()),
 	}, nil
 }
 

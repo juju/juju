@@ -65,6 +65,7 @@ var facadeVersions = map[string]int{
 	"Uniter":                       2,
 	"UserManager":                  0,
 	"VolumeAttachmentsWatcher":     1,
+	"Undertaker":                   1,
 }
 
 // bestVersion tries to find the newest version in the version list that we can

@@ -51,7 +51,6 @@ type configTest struct {
 	expect                  map[string]interface{}
 	envVars                 map[string]string
 	region                  string
-	controlBucket           string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
@@ -79,8 +78,7 @@ func restoreEnvVars(envVars map[string]string) {
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "openstack",
-		"control-bucket": "x",
+		"type": "openstack",
 	}).Merge(t.config)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -102,7 +100,7 @@ func (t configTest) check(c *gc.C) {
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
-		osenv := e.(*environ)
+		osenv := e.(*Environ)
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
 		c.Assert(err, jc.ErrorIsNil)
@@ -119,9 +117,8 @@ func (t configTest) check(c *gc.C) {
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
-	ecfg := e.(*environ).ecfg()
+	ecfg := e.(*Environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
@@ -182,7 +179,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 		s.savedVars[v] = os.Getenv(v)
 		os.Setenv(v, val)
 	}
-	s.PatchValue(&authenticateClient, func(*environ) error { return nil })
+	s.PatchValue(&authenticateClient, func(*Environ) error { return nil })
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
@@ -321,18 +318,6 @@ var configTests = []configTest{
 		},
 		err: `invalid auth-url value "invalid"`,
 	}, {
-		summary: "invalid control-bucket",
-		config: attrs{
-			"control-bucket": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "changing control-bucket",
-		change: attrs{
-			"control-bucket": "new-x",
-		},
-		err: `cannot change control-bucket from "x" to "new-x"`,
-	}, {
 		summary: "valid auth args",
 		config: attrs{
 			"username":    "jujuer",
@@ -470,7 +455,6 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	s.setupEnvCredentials()
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":                  "openstack",
-		"control-bucket":        "x",
 		"default-image-id":      "id-1234",
 		"default-instance-type": "big",
 	})
@@ -488,43 +472,6 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
-	s.setupEnvCredentials()
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "openstack",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*environ).ecfg().controlBucket()
-	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
-
-	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*environ).ecfg().controlBucket()
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
-}
-
-func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
-	s.setupEnvCredentials()
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "openstack",
-		"control-bucket": "burblefoo",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*environ).ecfg().controlBucket()
-	c.Assert(bucket, gc.Equals, "burblefoo")
-}
-
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	s.setupEnvCredentials()
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -535,7 +482,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 
 	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+	source, ok := env.(*Environ).ecfg().StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "cinder")
 }

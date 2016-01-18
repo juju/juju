@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
@@ -516,12 +518,17 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
+	publicKey, err := simplestreams.UserPublicSigningKey()
+	if err != nil {
+		return nil, err
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
 	return instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		pInfo.Series,
+		publicKey,
 		task.secureServerConnection,
 		nil,
 		stateInfo,
@@ -587,6 +594,19 @@ func constructStartInstanceParams(
 			endpointBindings[endpoint] = network.Id(space)
 		}
 	}
+	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
+	for i, metadata := range provisioningInfo.ImageMetadata {
+		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
+			Id:          metadata.ImageId,
+			Arch:        metadata.Arch,
+			RegionAlias: metadata.Region,
+			RegionName:  metadata.Region,
+			Storage:     metadata.RootStorageType,
+			Stream:      metadata.Stream,
+			VirtType:    metadata.VirtType,
+			Version:     metadata.Version,
+		}
+	}
 
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
@@ -597,6 +617,7 @@ func constructStartInstanceParams(
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
 		EndpointBindings:  endpointBindings,
+		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }
 
@@ -675,6 +696,21 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
+		// TODO(dimitern): The following few fields are required, but no longer
+		// matter and will be dropped or changed soon as part of making spaces
+		// and subnets usable across the board.
+		if info.NetworkName == "" {
+			info.NetworkName = network.DefaultPrivate
+		}
+		if info.ProviderId == "" {
+			info.ProviderId = network.DefaultPrivate
+		}
+		if info.CIDR == "" {
+			// TODO(dimitern): This is only when NOT using addressable
+			// containers, as we don't fetch the subnet details, but since
+			// networks in state are going away real soon, it's not important.
+			info.CIDR = "0.0.0.0/32"
+		}
 		if !names.IsValidNetwork(info.NetworkName) {
 			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
 		}

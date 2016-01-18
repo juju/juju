@@ -15,10 +15,11 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/testing"
+	testing "github.com/juju/juju/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -33,15 +34,12 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
-
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.UploadArches = []string{arch.AMD64}
 }
@@ -54,7 +52,7 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	s.PatchValue(&signedImageDataOnly, false)
 	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
 		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil
@@ -96,5 +94,5 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*im
 		"/streams/v1/index.json":                string(index),
 		"/" + imagemetadata.ProductMetadataPath: string(products),
 	}
-	s.PatchValue(&testRoundTripper.Sub, jujutest.NewCannedRoundTripper(files, nil))
+	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 }

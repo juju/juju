@@ -19,7 +19,7 @@ type Subnet struct {
 	CIDR string `json:"CIDR"`
 
 	// ProviderId is the provider-specific subnet ID (if applicable).
-	ProviderId string `json:"ProviderId,omitempty`
+	ProviderId string `json:"ProviderId,omitempty"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.

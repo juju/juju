@@ -218,17 +218,23 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlagAllocateSuccess(c *gc.C) {
 	container := s.newCustomAPI(c, "i-alloc-me", true, false)
 	args := s.makeArgs(container)
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
-		DeviceIndex:   0,
-		InterfaceName: "eth0",
-		ConfigType:    "dhcp",
-		MACAddress:    "regex:" + regexpMACAddress,
-		ProviderId:    "juju-private",
-		NetworkName:   "juju-private",
+		DeviceIndex:    0,
+		NetworkName:    "juju-private",
+		ProviderId:     "dummy-eth0",
+		InterfaceName:  "eth0",
+		DNSServers:     []string{"ns1.dummy", "ns2.dummy"},
+		GatewayAddress: "0.10.0.1",
+		ConfigType:     "static",
+		MACAddress:     "regex:" + regexpMACAddress,
+		Address:        "regex:0.10.0.[0-9]{1,3}", // we don't care about the actual value.
 	}}), "")
 
 	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
 		loggo.INFO,
-		`reserved address for container "0/lxc/0" with MAC address ".+" \(using DHCP\)`,
+		`allocated address ".+" on instance "i-alloc-me" for container "juju-machine-0-lxc-0"`,
+	}, {
+		loggo.INFO,
+		`assigned address ".+" to container "0/lxc/0"`,
 	}})
 }
 

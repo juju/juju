@@ -6,9 +6,9 @@ package maas_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"

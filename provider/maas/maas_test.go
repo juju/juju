@@ -11,11 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -27,9 +26,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 )
-
-// Ensure maasEnviron supports environs.NetworkingEnviron.
-var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
 
 type providerSuite struct {
 	coretesting.FakeJujuHomeSuite
@@ -51,6 +47,9 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	})
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
+	})
+	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
+		return addrs
 	})
 }
 

@@ -61,12 +61,13 @@ var (
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	EnvConfig        map[string]interface{}
-	Constraints      constraints.Value
-	Hardware         instance.HardwareCharacteristics
-	InstanceId       string
-	AdminUsername    string
-	ImageMetadataDir string
+	EnvConfig            map[string]interface{}
+	BootstrapConstraints constraints.Value
+	EnvironConstraints   constraints.Value
+	Hardware             instance.HardwareCharacteristics
+	InstanceId           string
+	AdminUsername        string
+	ImageMetadataDir     string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -87,7 +88,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "environ-constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -247,12 +249,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
-				Addresses:       addrs,
-				Constraints:     c.Constraints,
-				Jobs:            jobs,
-				InstanceId:      instanceId,
-				Characteristics: c.Hardware,
-				SharedSecret:    sharedSecret,
+				Addresses:            addrs,
+				BootstrapConstraints: c.BootstrapConstraints,
+				EnvironConstraints:   c.EnvironConstraints,
+				Jobs:                 jobs,
+				InstanceId:           instanceId,
+				Characteristics:      c.Hardware,
+				SharedSecret:         sharedSecret,
 			},
 			dialOpts,
 			environs.NewStatePolicy(),
@@ -271,11 +274,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
-		if err := c.saveCustomImageMetadata(st); err != nil {
+		if err := c.saveCustomImageMetadata(st, env); err != nil {
 			return err
 		}
 
-		// TODO (anastasiamac 2015-09-24) Remove this once search path is updated..
 		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
 		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
@@ -283,7 +285,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Populate the storage pools.
-	if err := c.populateDefaultStoragePools(st); err != nil {
+	if err = c.populateDefaultStoragePools(st); err != nil {
 		return err
 	}
 
@@ -438,25 +440,41 @@ var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
 // and saves it in state server.
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
-
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	return storeImageMetadataFromFiles(st, env, datasource)
+}
 
+// storeImageMetadataFromFiles puts image metadata found in sources into state.
+func storeImageMetadataFromFiles(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	if inst, ok := env.(simplestreams.HasRegion); ok {
+		// If we can determine current region,
+		// we want only metadata specific to this region.
+		cloud, err := inst.Region()
+		if err != nil {
+			return err
+		}
+		imageConstraint.CloudSpec = cloud
+	}
+
+	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot read image metadata")
 	}
+	return storeImageMetadataInState(st, info.Source, source.Priority(), existingMetadata)
+}
 
+// storeImageMetadataInState writes image metadata into state store.
+func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
-	msg := ""
-	for _, one := range existingMetadata {
+	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
+	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Stream:          one.Stream,
@@ -464,8 +482,9 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
-				Source:          "custom",
+				Source:          source,
 			},
+			priority,
 			one.Id,
 		}
 		s, err := seriesFromVersion(one.Version)
@@ -473,13 +492,10 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
-		err = st.CloudImageMetadataStorage.SaveMetadata(m)
-		if err != nil {
-			return errors.Annotatef(err, "cannot cache image metadata %v", m)
-		}
+		metadataState[i] = m
 	}
-	if len(msg) > 0 {
-		return errors.New(msg)
+	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil
 }

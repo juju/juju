@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -205,6 +208,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 	}
 
+	if w.icfg.PublicImageSigningKey != "" {
+		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+	}
+
 	// Make the lock dir and change the ownership of the lock dir itself to
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
@@ -315,9 +323,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.icfg.Constraints.String()
-		if cons != "" {
-			cons = " --constraints " + shquote(cons)
+		bootstrapCons := w.icfg.Constraints.String()
+		if bootstrapCons != "" {
+			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
+		}
+		environCons := w.icfg.EnvironConstraints.String()
+		if environCons != "" {
+			environCons = " --environ-constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -339,7 +351,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
-				cons +
+				bootstrapCons +
+				environCons +
 				metadataDir +
 				loggingOption,
 		)

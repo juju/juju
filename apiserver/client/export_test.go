@@ -24,7 +24,10 @@ var (
 
 type MachineAndContainers machineAndContainers
 
-var StartSerialWaitParallel = startSerialWaitParallel
+var (
+	StartSerialWaitParallel = startSerialWaitParallel
+	GetEnvironment          = &getEnvironment
+)
 
 type StateInterface stateInterface
 
