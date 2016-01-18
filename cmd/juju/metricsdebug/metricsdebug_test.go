@@ -86,7 +86,7 @@ func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
@@ -106,7 +106,7 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
@@ -126,7 +126,7 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
@@ -147,7 +147,7 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(
 }
 
 func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered", "-n", "2")
@@ -156,7 +156,7 @@ func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestUnitJsonOutput(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
