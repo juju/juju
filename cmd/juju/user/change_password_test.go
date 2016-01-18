@@ -43,7 +43,7 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	changePasswordCommand, _ := user.NewChangePasswordCommand(s.mockAPI, s.mockEnvironInfo)
+	changePasswordCommand, _ := user.NewChangePasswordCommandForTest(s.mockAPI, s.mockEnvironInfo)
 	return testing.RunCommand(c, changePasswordCommand, args...)
 }
 
@@ -87,7 +87,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewChangePasswordCommand(nil, nil)
+		wrappedCommand, command := user.NewChangePasswordCommandForTest(nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)

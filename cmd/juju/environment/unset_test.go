@@ -20,12 +20,12 @@ type UnsetSuite struct {
 var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewUnsetCommand(s.fake)
+	command := environment.NewUnsetCommandForTest(s.fake)
 	return testing.RunCommand(c, command, args...)
 }
 
 func (s *UnsetSuite) TestInit(c *gc.C) {
-	unsetCmd := environment.NewUnsetCommand(s.fake)
+	unsetCmd := environment.NewUnsetCommandForTest(s.fake)
 	// Only empty is a problem.
 	err := testing.InitCommand(unsetCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no keys specified")

@@ -675,6 +675,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,
 			Tag:       names.NewMachineTag("0"),
+			LogDir:    c.MkDir(),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -770,7 +771,7 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }
 
-func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
+func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -786,7 +787,7 @@ func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
 }
 
-func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
+func (s *loginSuite) TestControllerEnvironmentBadCreds(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -978,17 +979,17 @@ type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
 }
 
-func (s *macaroonLoginSuite) TestLoginToSystem(c *gc.C) {
+func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 	// Note that currently we cannot use macaroon auth
-	// to log into the system rather than an environment
+	// to log into the controller rather than an environment
 	// because there's no place to store the fact that
-	// a given external user is allowed access to the system.
+	// a given external user is allowed access to the controller.
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
 	info := s.APIInfo(c)
 
-	// Zero the environment tag so that we log into the system
+	// Zero the environment tag so that we log into the controller
 	// not the environment.
 	info.EnvironTag = names.EnvironTag{}
 

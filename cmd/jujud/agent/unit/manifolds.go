@@ -77,7 +77,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				AgentName:         AgentName,
 				APICallerName:     APICallerName,
 				UpgradeWaiterName: util.UpgradeWaitNotRequired,
 			},
@@ -105,9 +104,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
-		APIAdddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+		APIAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -195,7 +195,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 const (
 	AgentName                = "agent"
-	APIAdddressUpdaterName   = "api-address-updater"
+	APIAddressUpdaterName    = "api-address-updater"
 	APICallerName            = "api-caller"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"

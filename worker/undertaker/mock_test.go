@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher"
 )
@@ -28,11 +29,10 @@ type mockClient struct {
 	lock        sync.RWMutex
 	mockEnviron clientEnviron
 	watcher     watcher.NotifyWatcher
+	cfg         *config.Config
 }
 
 func (m *mockClient) mockCall(call string) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	m.calls <- call
 }
 
@@ -67,13 +67,18 @@ func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
 	return params.UndertakerEnvironInfoResult{Result: result}, nil
 }
 
+func (m *mockClient) EnvironConfig() (*config.Config, error) {
+	return m.cfg, nil
+}
+
 func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	return m.watcher, nil
 }
 
 type mockEnvironResourceWatcher struct {
-	events chan struct{}
-	err    error
+	events    chan struct{}
+	closeOnce sync.Once
+	err       error
 }
 
 func (w *mockEnvironResourceWatcher) Changes() watcher.NotifyChannel {
@@ -81,7 +86,7 @@ func (w *mockEnvironResourceWatcher) Changes() watcher.NotifyChannel {
 }
 
 func (w *mockEnvironResourceWatcher) Kill() {
-	close(w.events)
+	w.closeOnce.Do(func() { close(w.events) })
 }
 
 func (w *mockEnvironResourceWatcher) Wait() error {
