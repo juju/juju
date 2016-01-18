@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -26,9 +25,8 @@ import (
 // EnvMigration represents the state of an migration attempt for an
 // environment.
 type EnvMigration struct {
-	st    *State
-	doc   envMigrationDoc
-	clock clock.Clock
+	st  *State
+	doc envMigrationDoc
 }
 
 // envMigrationDoc tracks the state of a migration attempt for an
@@ -128,7 +126,7 @@ func (mig *EnvMigration) TargetAuthInfo() (string, string) {
 // if the new phase does not follow the current phase or if the
 // migration is no longer active.
 func (mig *EnvMigration) SetPhase(nextPhase migration.Phase) error {
-	now := mig.clock.Now()
+	now := GetClock().Now()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -207,7 +205,6 @@ type EnvMigrationSpec struct {
 	TargetAPIAddresses []network.HostPort
 	TargetUser         string
 	TargetPassword     string
-	Clock              clock.Clock
 }
 
 func (a *EnvMigrationSpec) checkAndNormalise() error {
@@ -229,9 +226,6 @@ func (a *EnvMigrationSpec) checkAndNormalise() error {
 	if a.TargetPassword == "" {
 		return errors.NotValidf("empty TargetPassword")
 	}
-	if a.Clock == nil {
-		a.Clock = clock.WallClock
-	}
 	return nil
 }
 
@@ -246,7 +240,7 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 		return nil, errors.New("controllers can't be migrated")
 	}
 
-	t0 := spec.Clock.Now()
+	now := GetClock().Now()
 	envUUID := st.EnvironUUID()
 	var doc envMigrationDoc
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -265,9 +259,9 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 			Id:               fmt.Sprintf("%s:%d", envUUID, seq),
 			EnvUUID:          envUUID,
 			Owner:            spec.Owner,
-			StartTime:        t0,
+			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
-			PhaseChangedTime: t0,
+			PhaseChangedTime: now,
 			TargetController: spec.TargetController,
 			TargetUser:       spec.TargetUser,
 			TargetPassword:   spec.TargetPassword,
@@ -295,14 +289,13 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 	}
 
 	return &EnvMigration{
-		doc:   doc,
-		st:    st,
-		clock: spec.Clock,
+		doc: doc,
+		st:  st,
 	}, nil
 }
 
 // GetEnvMigration returns the most recent EnvMigration for an environment (if any).
-func GetEnvMigration(st *State, refClock clock.Clock) (*EnvMigration, error) {
+func GetEnvMigration(st *State) (*EnvMigration, error) {
 	migColl, closer := st.getCollection(envMigrationsC)
 	defer closer()
 
@@ -314,7 +307,7 @@ func GetEnvMigration(st *State, refClock clock.Clock) (*EnvMigration, error) {
 		return nil, errors.Annotate(err, "migration lookup failed")
 	}
 
-	return &EnvMigration{st: st, doc: doc, clock: refClock}, nil
+	return &EnvMigration{st: st, doc: doc}, nil
 }
 
 // IsEnvMigrationActive return true if a migration is in progress for

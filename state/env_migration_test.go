@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	migration "github.com/juju/juju/core/envmigration"
@@ -28,13 +29,16 @@ type EnvMigrationSuite struct {
 var _ = gc.Suite(new(EnvMigrationSuite))
 
 func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
+	s.clock = coretesting.NewClock(time.Now().Truncate(time.Second))
+	s.PatchValue(&state.GetClock, func() clock.Clock {
+		return s.clock
+	})
+
 	s.ConnSuite.SetUpTest(c)
 
 	// Create a hosted environment to migrated.
 	s.State2 = s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
-
-	s.clock = coretesting.NewClock(time.Now().Truncate(time.Second))
 
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.EnvMigrationSpec{
@@ -46,7 +50,6 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 		},
 		TargetUser:     "user",
 		TargetPassword: "password",
-		Clock:          s.clock,
 	}
 }
 
@@ -140,11 +143,6 @@ func (s *EnvMigrationSuite) TestCreateWithMissingSpecFields(c *gc.C) {
 	typ := reflect.TypeOf(s.stdSpec)
 	numFields := typ.NumField()
 	for i := 0; i < numFields; i++ {
-		name := typ.Field(i).Name
-		if name == "Clock" { // Clock is allowed to be empty
-			continue
-		}
-
 		// Copy the spec and clear a field by setting it to its zero value.
 		spec := s.stdSpec
 		field := reflect.ValueOf(&spec).Elem().Field(i)
@@ -154,7 +152,7 @@ func (s *EnvMigrationSuite) TestCreateWithMissingSpecFields(c *gc.C) {
 		mig, err := state.CreateEnvMigration(s.State2, spec)
 		c.Check(mig, gc.IsNil)
 		c.Check(errors.IsNotValid(err), jc.IsTrue)
-		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", name))
+		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", typ.Field(i).Name))
 	}
 }
 
@@ -197,14 +195,14 @@ func (s *EnvMigrationSuite) TestGet(c *gc.C) {
 	mig1, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := state.GetEnvMigration(s.State2, s.clock)
+	mig2, err := state.GetEnvMigration(s.State2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mig1.Id(), gc.Equals, mig2.Id())
 }
 
 func (s *EnvMigrationSuite) TestGetNotExist(c *gc.C) {
-	mig, err := state.GetEnvMigration(s.State2, s.clock)
+	mig, err := state.GetEnvMigration(s.State2)
 	c.Check(mig, gc.IsNil)
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 }
@@ -216,7 +214,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		_, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
 
-		mig, err := state.GetEnvMigration(s.State2, s.clock)
+		mig, err := state.GetEnvMigration(s.State2)
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", envUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
@@ -227,7 +225,7 @@ func (s *EnvMigrationSuite) TestRefresh(c *gc.C) {
 	mig1, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := state.GetEnvMigration(s.State2, s.clock)
+	mig2, err := state.GetEnvMigration(s.State2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mig1.SetPhase(migration.READONLY)
@@ -246,7 +244,7 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2, err := state.GetEnvMigration(st, s.clock)
+	mig2, err := state.GetEnvMigration(st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	phases := []migration.Phase{
@@ -321,7 +319,7 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make mig stale by changing the phase with another instance.
-	mig2, err := state.GetEnvMigration(s.State2, s.clock)
+	mig2, err := state.GetEnvMigration(s.State2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mig2.SetPhase(migration.READONLY)
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +337,7 @@ func (s *EnvMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
 	// Make mig stale by changing the phase with another instance. The
 	// phase is changed to a terminal phase so that any future phase
 	// change (via any EnvMigration instance) should fail.
-	mig2, err := state.GetEnvMigration(s.State2, s.clock)
+	mig2, err := state.GetEnvMigration(s.State2)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mig2.SetPhase(migration.ABORT)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,7 +353,7 @@ func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	defer state.SetBeforeHooks(c, s.State2, func() {
-		mig, err := state.GetEnvMigration(s.State2, s.clock)
+		mig, err := state.GetEnvMigration(s.State2)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
 		c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
