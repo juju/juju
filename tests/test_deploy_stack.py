@@ -86,7 +86,7 @@ def make_logs(log_dir):
 class DeployStackTestCase(FakeHomeTestCase):
 
     def test_destroy_environment(self):
-        client = EnvJujuClient(
+        client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(client,
                           'destroy_environment', autospec=True) as de_mock:
@@ -98,7 +98,7 @@ class DeployStackTestCase(FakeHomeTestCase):
 
     def test_destroy_environment_with_manual_type_aws(self):
         os.environ['AWS_ACCESS_KEY'] = 'fake-juju-ci-testing-key'
-        client = EnvJujuClient(
+        client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
         with patch.object(client,
                           'destroy_environment', autospec=True) as de_mock:
@@ -109,7 +109,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         dji_mock.assert_called_once_with('foo')
 
     def test_destroy_environment_with_manual_type_non_aws(self):
-        client = EnvJujuClient(
+        client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
         with patch.object(client,
                           'destroy_environment', autospec=True) as de_mock:
