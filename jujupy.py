@@ -224,6 +224,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient25
         elif re.match('^1\.26[.-]', version):
             client_class = EnvJujuClient26
+        elif re.match('^1\.', version):
+            client_class = EnvJujuClient1X
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)

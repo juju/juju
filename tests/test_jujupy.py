@@ -676,12 +676,13 @@ class TestEnvJujuClient(ClientTest):
             yield '1.25.1'
             yield '1.26.1'
             yield '1.27.1'
+            yield '2.0-alpha1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
             side_effect=juju_cmd_iterator().send)
         with context:
-            self.assertIs(EnvJujuClient,
+            self.assertIs(EnvJujuClient1X,
                           type(EnvJujuClient.by_version(None)))
             with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
                 EnvJujuClient.by_version(None)
@@ -689,7 +690,7 @@ class TestEnvJujuClient(ClientTest):
                                          'Unsupported juju: 1.16.1'):
                 EnvJujuClient.by_version(None)
             client = EnvJujuClient.by_version(None)
-            self.assertIs(EnvJujuClient, type(client))
+            self.assertIs(EnvJujuClient1X, type(client))
             self.assertEqual('1.15', client.version)
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient22)
@@ -706,8 +707,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient26)
             self.assertEqual(client.version, '1.26.1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient1X)
             self.assertEqual(client.version, '1.27.1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-alpha1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
@@ -1943,12 +1947,13 @@ class TestEnvJujuClient1X(ClientTest):
             yield '1.25.1'
             yield '1.26.1'
             yield '1.27.1'
+            yield '2.0-alpha1'
 
         context = patch.object(
             EnvJujuClient1X, 'get_version',
             side_effect=juju_cmd_iterator().send)
         with context:
-            self.assertIs(EnvJujuClient,
+            self.assertIs(EnvJujuClient1X,
                           type(EnvJujuClient1X.by_version(None)))
             with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
                 EnvJujuClient1X.by_version(None)
@@ -1956,7 +1961,7 @@ class TestEnvJujuClient1X(ClientTest):
                                          'Unsupported juju: 1.16.1'):
                 EnvJujuClient1X.by_version(None)
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(EnvJujuClient, type(client))
+            self.assertIs(EnvJujuClient1X, type(client))
             self.assertEqual('1.15', client.version)
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient22)
@@ -1973,8 +1978,11 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient26)
             self.assertEqual(client.version, '1.26.1')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient1X)
             self.assertEqual(client.version, '1.27.1')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-alpha1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
