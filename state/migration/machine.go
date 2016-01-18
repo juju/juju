@@ -19,6 +19,28 @@ type machine struct {
 	Containers_ []*machine `yaml:"containers"`
 }
 
+// Keeping the agentTools with the machine code, because we hope
+// that one day we will succeed in merging the unit agents with the
+// machine agents.
+type agentTools struct {
+	Version_ version.Binary `yaml:"version"`
+	URL_     string         `yaml:"url"`
+	SHA256_  string         `yaml:"sha256"`
+	Size_    int64          `yaml:"size"`
+}
+
+type cloudInstance struct {
+	InstanceId_       string    `yaml:"instance-id"`
+	Status_           string    `yaml:"status"`
+	Architecture_     *string   `yaml:"architecture"`
+	Memory_           *uint64   `yaml:"memory"`
+	RootDisk_         *uint64   `yaml:"root-disk"`
+	CpuCores_         *uint64   `yaml:"cpu-cores"`
+	CpuPower_         *uint64   `yaml:"cpu-power"`
+	Tags_             *[]string `yaml:"tags"`
+	AvailabilityZone_ *string   `yaml:"availability-zone"`
+}
+
 func (m *machine) Id() names.MachineTag {
 	return names.NewMachineTag(m.Id_)
 }
