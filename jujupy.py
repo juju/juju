@@ -228,7 +228,13 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
 
-    def clone(self, env=None, version=None, full_path=None, debug=None):
+    def clone(self, env=None, version=None, full_path=None, debug=None,
+              cls=None):
+        """Create a clone of this EnvJujuClient.
+
+        By default, the class, environment, version, full_path, and debug
+        settings will match the original, but each can be overridden.
+        """
         if env is None:
             env = self.env
         if version is None:
@@ -237,7 +243,9 @@ class EnvJujuClient:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        return self.__class__(env, version, full_path, debug=debug)
+        if cls is None:
+            cls = self.__class__
+        return cls(env, version, full_path, debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
@@ -824,8 +832,15 @@ class EnvJujuClient26(EnvJujuClient1X):
         self._use_jes = False
         self._use_container_address_allocation = False
 
-    def clone(self):
-        client = super(EnvJujuClient26, self).clone()
+    def clone(self, env=None, version=None, full_path=None, debug=None,
+              cls=None):
+        """Create a clone of this EnvJujuClient.
+
+        By default, the class, environment, version, full_path, and debug
+        settings will match the original, but each can be overridden.
+        """
+        client = super(EnvJujuClient26, self).clone(env, version, full_path,
+                                                    debug, cls)
         client._use_jes = self._use_jes
         client._use_container_address_allocation = (
             self._use_container_address_allocation)

@@ -424,6 +424,29 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
         self.assertItemsEqual(['cloudsigma', 'jes'], flags)
 
+    def test_clone_unchanged(self):
+        client1 = self.client_class(
+            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
+        client2 = client1.clone()
+        self.assertIsNot(client1, client2)
+        self.assertIs(type(client1), type(client2))
+        self.assertIs(client1.env, client2.env)
+        self.assertEqual(client1.version, client2.version)
+        self.assertEqual(client1.full_path, client2.full_path)
+        self.assertIs(client1.debug, client2.debug)
+
+    def test_clone_changed(self):
+        client1 = self.client_class(
+            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
+        env2 = SimpleEnvironment('bar')
+        client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
+                                cls=EnvJujuClient1X)
+        self.assertIs(EnvJujuClient1X, type(client2))
+        self.assertIs(env2, client2.env)
+        self.assertEqual('1.28', client2.version)
+        self.assertEqual('other/path', client2.full_path)
+        self.assertIs(False, client2.debug)
+
     def test_clone_defaults(self):
         client1 = self.client_class(
             SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
@@ -685,7 +708,9 @@ class TestEnvJujuClient(ClientTest):
         client1 = EnvJujuClient(SimpleEnvironment('foo'), '1.27', 'full/path',
                                 debug=True)
         env2 = SimpleEnvironment('bar')
-        client2 = client1.clone(env2, '1.28', 'other/path', debug=False)
+        client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
+                                cls=EnvJujuClient1X)
+        self.assertIs(EnvJujuClient1X, type(client2))
         self.assertIs(env2, client2.env)
         self.assertEqual('1.28', client2.version)
         self.assertEqual('other/path', client2.full_path)
