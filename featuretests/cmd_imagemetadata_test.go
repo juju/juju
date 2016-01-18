@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cmdmetadata "github.com/juju/juju/cmd/plugins/juju-metadata"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
@@ -21,6 +22,7 @@ type CmdImageMetadataSuite struct {
 
 func (s *CmdImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.ImageMetadata)
 }
 
 func (s *CmdImageMetadataSuite) run(c *gc.C, args ...string) *cmd.Context {

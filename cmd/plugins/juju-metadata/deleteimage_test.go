@@ -16,7 +16,7 @@ import (
 const deleteTestId = "tst12345"
 
 type deleteImageSuite struct {
-	BaseClouImageMetadataSuite
+	BaseCloudImageMetadataSuite
 
 	mockAPI *mockDeleteAPI
 
@@ -26,7 +26,7 @@ type deleteImageSuite struct {
 var _ = gc.Suite(&deleteImageSuite{})
 
 func (s *deleteImageSuite) SetUpTest(c *gc.C) {
-	s.BaseClouImageMetadataSuite.SetUpTest(c)
+	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.deletedIds = []string{}
 	s.mockAPI = &mockDeleteAPI{

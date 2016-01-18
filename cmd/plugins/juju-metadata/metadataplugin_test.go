@@ -86,7 +86,7 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 
 	// Remove add/list-image for the first test because the feature is not
 	// enabled by default.
-	devFeatures := set.NewStrings("add-image", "list-images")
+	devFeatures := set.NewStrings("add-image", "list-images", "delete-image")
 
 	// Remove features behind dev_flag for the first test since they are not
 	// enabled.
@@ -132,5 +132,6 @@ func (s *MetadataSuite) TestHelpAddImage(c *gc.C) {
 }
 
 func (s *MetadataSuite) TestHelpDeleteImage(c *gc.C) {
+	s.SetFeatureFlags(feature.ImageMetadata)
 	s.assertHelpOutput(c, "delete-image")
 }
