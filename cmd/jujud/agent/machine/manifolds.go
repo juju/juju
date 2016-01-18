@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
@@ -61,6 +62,10 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+
+	// LogSource defines the channel type used to send log message
+	// structs within the machine agent.
+	LogSource logsender.LogRecordCh
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -181,7 +186,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
-
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -201,6 +205,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 			WriteUninstallFile: config.WriteUninstallFile,
+		}),
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			LogSource: config.LogSource,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
 		}),
 	}
 }
@@ -222,4 +236,5 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
+	logSenderName            = "log-sender"
 )
