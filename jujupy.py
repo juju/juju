@@ -228,6 +228,17 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
 
+    def clone(self, env=None, version=None, full_path=None, debug=None):
+        if env is None:
+            env = self.env
+        if version is None:
+            version = self.version
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
+        return self.__class__(env, version, full_path, debug=debug)
+
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
         if self.env is None or not include_e:
@@ -812,6 +823,13 @@ class EnvJujuClient26(EnvJujuClient1X):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
         self._use_container_address_allocation = False
+
+    def clone(self):
+        client = super(EnvJujuClient26, self).clone()
+        client._use_jes = self._use_jes
+        client._use_container_address_allocation = (
+            self._use_container_address_allocation)
+        return client
 
     def enable_jes(self):
         """Enable JES if JES is optional.

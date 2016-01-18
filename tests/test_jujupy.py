@@ -424,6 +424,26 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
         self.assertItemsEqual(['cloudsigma', 'jes'], flags)
 
+    def test_clone_defaults(self):
+        client1 = self.client_class(
+            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
+        client2 = client1.clone()
+        self.assertIsNot(client1, client2)
+        self.assertIs(self.client_class, type(client2))
+        self.assertIs(False, client2._use_jes)
+        self.assertIs(False, client2._use_container_address_allocation)
+
+    def test_clone_enabled(self):
+        client1 = self.client_class(
+            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
+        client1._use_jes = True
+        client1._use_container_address_allocation = True
+        client2 = client1.clone()
+        self.assertIsNot(client1, client2)
+        self.assertIs(self.client_class, type(client2))
+        self.assertIs(True, client2._use_jes)
+        self.assertIs(True, client2._use_container_address_allocation)
+
 
 class TestEnvJujuClient25(TestEnvJujuClient26):
 
@@ -649,6 +669,27 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_output', return_value=' 4.3'):
             EnvJujuClient.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
+
+    def test_clone_unchanged(self):
+        client1 = EnvJujuClient(SimpleEnvironment('foo'), '1.27', 'full/path',
+                                debug=True)
+        client2 = client1.clone()
+        self.assertIsNot(client1, client2)
+        self.assertIs(type(client1), type(client2))
+        self.assertIs(client1.env, client2.env)
+        self.assertEqual(client1.version, client2.version)
+        self.assertEqual(client1.full_path, client2.full_path)
+        self.assertIs(client1.debug, client2.debug)
+
+    def test_clone_changed(self):
+        client1 = EnvJujuClient(SimpleEnvironment('foo'), '1.27', 'full/path',
+                                debug=True)
+        env2 = SimpleEnvironment('bar')
+        client2 = client1.clone(env2, '1.28', 'other/path', debug=False)
+        self.assertIs(env2, client2.env)
+        self.assertEqual('1.28', client2.version)
+        self.assertEqual('other/path', client2.full_path)
+        self.assertIs(False, client2.debug)
 
     def test_full_args(self):
         env = SimpleEnvironment('foo')
