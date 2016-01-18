@@ -933,8 +933,8 @@ class TestIndustrialTest(JujuPyTestCase):
         fsa = FakeStepAttempt([('foo', True, True), ('bar', False, True)])
         industrial = IndustrialTest(old_client, new_client, [
             fsa, FakeStepAttempt.from_result(True, True)])
-        with patch.object(old_client, 'destroy_environment'):
-            with patch.object(new_client, 'destroy_environment'):
+        with patch.object(old_client, 'kill_controller'):
+            with patch.object(new_client, 'kill_controller'):
                 self.assertEqual(list(industrial.run_stages()), [
                     ('foo', True, True), ('bar', False, True)])
 
@@ -1225,8 +1225,9 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     def test_iter_test_results(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
-        with patch('subprocess.call', return_value=0):
-            with patch.object(client, 'is_jes_enabled', return_value=False):
+        with patch('subprocess.call'):
+            with patch.object(client, 'get_jes_command',
+                              return_value='kill-controller'):
                 output = list(destroy_env.iter_test_results(client, client))
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
