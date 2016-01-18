@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/watcher"
 )
 
 // filesystemsChanged is called when the lifecycle states of the filesystems
@@ -40,7 +41,7 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	for _, tag := range dead {
 		filesystemTags = append(filesystemTags, tag.(names.FilesystemTag))
 	}
-	filesystemResults, err := ctx.filesystemAccessor.Filesystems(filesystemTags)
+	filesystemResults, err := ctx.config.Filesystems.Filesystems(filesystemTags)
 	if err != nil {
 		return errors.Annotatef(err, "getting filesystem information")
 	}
@@ -66,7 +67,8 @@ func filesystemsChanged(ctx *context, changes []string) error {
 
 // filesystemAttachmentsChanged is called when the lifecycle states of the filesystem
 // attachments with the provided IDs have been seen to have changed.
-func filesystemAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error {
+func filesystemAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
+	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := attachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
@@ -84,7 +86,7 @@ func filesystemAttachmentsChanged(ctx *context, ids []params.MachineStorageId) e
 	// Get filesystem information for alive and dying filesystem attachments, so
 	// we can attach/detach.
 	ids = append(alive, dying...)
-	filesystemAttachmentResults, err := ctx.filesystemAccessor.FilesystemAttachments(ids)
+	filesystemAttachmentResults, err := ctx.config.Filesystems.FilesystemAttachments(ids)
 	if err != nil {
 		return errors.Annotatef(err, "getting filesystem attachment information")
 	}
@@ -380,7 +382,7 @@ func processAliveFilesystemAttachments(
 func filesystemAttachmentParams(
 	ctx *context, ids []params.MachineStorageId,
 ) ([]storage.FilesystemAttachmentParams, error) {
-	paramsResults, err := ctx.filesystemAccessor.FilesystemAttachmentParams(ids)
+	paramsResults, err := ctx.config.Filesystems.FilesystemAttachmentParams(ids)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem attachment params")
 	}
@@ -400,7 +402,7 @@ func filesystemAttachmentParams(
 
 // filesystemParams obtains the specified filesystems' parameters.
 func filesystemParams(ctx *context, tags []names.FilesystemTag) ([]storage.FilesystemParams, error) {
-	paramsResults, err := ctx.filesystemAccessor.FilesystemParams(tags)
+	paramsResults, err := ctx.config.Filesystems.FilesystemParams(tags)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem params")
 	}

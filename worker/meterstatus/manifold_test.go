@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/api/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -246,15 +246,14 @@ func (s *stubMeterStatusClient) WatchMeterStatus() (watcher.NotifyWatcher, error
 	return s, nil
 }
 
-func (s *stubMeterStatusClient) Changes() <-chan struct{} {
+func (s *stubMeterStatusClient) Changes() watcher.NotifyChannel {
 	return s.changes
 }
 
-func (s *stubMeterStatusClient) Stop() error {
-	return nil
+func (s *stubMeterStatusClient) Kill() {
 }
 
-func (s *stubMeterStatusClient) Err() error {
+func (s *stubMeterStatusClient) Wait() error {
 	return nil
 }
 

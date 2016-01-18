@@ -9,9 +9,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -58,12 +58,18 @@ type Machiner struct {
 //
 // The machineDead function will be called immediately after the machine's
 // lifecycle is updated to Dead.
-func NewMachiner(cfg Config) (worker.Worker, error) {
+var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
-	mr := &Machiner{config: cfg}
-	return worker.NewNotifyWorker(mr), nil
+	handler := &Machiner{config: cfg}
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: handler,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {

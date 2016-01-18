@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -92,16 +93,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
-		APIAdddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+		APIAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -189,7 +192,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 const (
 	AgentName                = "agent"
-	APIAdddressUpdaterName   = "api-address-updater"
+	APIAddressUpdaterName    = "api-address-updater"
 	APICallerName            = "api-caller"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"

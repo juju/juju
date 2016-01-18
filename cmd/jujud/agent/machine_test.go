@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -266,8 +266,8 @@ const initialMachinePassword = "machine-password-1234567890"
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 	s.metricAPI = newMockMetricAPI()
-	s.PatchValue(&getMetricAPI, func(_ api.Connection) apimetricsmanager.MetricsManagerClient {
-		return s.metricAPI
+	s.PatchValue(&getMetricAPI, func(_ api.Connection) (apimetricsmanager.MetricsManagerClient, error) {
+		return s.metricAPI, nil
 	})
 	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
 	// Most of these tests normally finish sub-second on a fast machine.
@@ -487,14 +487,14 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		inited:   make(chan struct{}),
+		inited:   newSignal(),
 		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
 		ctx.st = st
 		ctx.agentConfig = agentConfig
-		close(ctx.inited)
+		ctx.inited.trigger()
 		return ctx
 	}
 	return ctx, func() { newDeployContext = orig }
@@ -583,9 +583,9 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
-	started := make(chan struct{})
+	started := newSignal()
 	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
-		close(started)
+		started.trigger()
 		return resumer.NewResumer(st)
 	})
 
@@ -603,16 +603,16 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 
 	// Now make sure the resumer starts.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("resumer worker not started as expected")
 	}
 }
 
 func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
-	started := make(chan struct{})
-	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) worker.Worker {
-		close(started)
+	started := newSignal()
+	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) (worker.Worker, error) {
+		started.trigger()
 		return instancepoller.NewWorker(st)
 	})
 
@@ -631,7 +631,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 
 	// Now make sure the resumer starts.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("instancepoller worker not started as expected")
 	}
@@ -643,9 +643,9 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {
 		return config.FwNone, nil
 	})
-	started := make(chan struct{})
+	started := newSignal()
 	s.AgentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
-		close(started)
+		started.trigger()
 		return newDummyWorker(), nil
 	})
 
@@ -663,7 +663,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 
 	// Now make sure the firewaller doesn't start.
 	select {
-	case <-started:
+	case <-started.triggered():
 		c.Fatalf("firewaller worker unexpectedly started")
 	case <-time.After(startWorkerWait):
 	}
@@ -718,13 +718,10 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
-	started := make(chan struct{}, 1)
+	started := newSignal()
 	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
-		select {
-		case started <- struct{}{}:
-		default:
-		}
+		started.trigger()
 		return newDummyWorker(), nil
 	})
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
@@ -734,7 +731,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for peergrouper worker to be started")
 	}
@@ -744,9 +741,9 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 	// TODO(dimitern): Fix this in a follow-up.
 	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
 
-	started := make(chan struct{})
+	started := newSignal()
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
-		close(started)
+		started.trigger()
 		w, err := addresser.NewWorker(api)
 		c.Check(err, jc.ErrorIsNil)
 		if expectFinished {
@@ -772,7 +769,7 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 	r.waitForWorker(c, "cleaner")
 
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for addresser to start")
 	}
@@ -904,7 +901,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
-	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
+	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
@@ -913,13 +910,13 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	done := make(chan error)
 	go func() { done <- a.Run(nil) }()
 	select {
-	case <-a.initialAgentUpgradeCheckComplete:
+	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for upgrade check")
 	}
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageEnviron, a, done)
-	c.Assert(a.isAgentUpgradePending(), jc.IsFalse)
+	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsFalse)
 }
 
 var fastDialOpts = api.DialOpts{
@@ -949,16 +946,6 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
-}
-
-func (s *MachineSuite) assertJobWithAPI(
-	c *gc.C,
-	job state.MachineJob,
-	test func(agent.Config, api.Connection),
-) {
-	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st interface{}) {
-		test(cfg, st.(api.Connection))
-	})
 }
 
 func (s *MachineSuite) assertJobWithState(
@@ -1195,40 +1182,22 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-func (s *MachineSuite) TestOpenStateFailsForJobHostUnits(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
-		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
-func (s *MachineSuite) TestOpenStateFailsForJobManageNetworking(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageNetworking, func(conf agent.Config, st api.Connection) {
-		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
-func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
-		s.AssertCanOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
 func (s *MachineSuite) TestOpenAPIStateWorksForJobHostUnits(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobHostUnits)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
 func (s *MachineSuite) TestOpenAPIStateWorksForJobManageNetworking(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobManageNetworking)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
 func (s *MachineSuite) TestOpenAPIStateWorksForJobManageEnviron(c *gc.C) {
 	machine, conf, _ := s.primeAgent(c, state.JobManageEnviron)
-	s.runOpenAPISTateTest(c, machine, conf)
+	s.runOpenAPIStateTest(c, machine, conf)
 }
 
-func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
+func (s *MachineSuite) runOpenAPIStateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
 	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
 
 	// Set a failing password...
@@ -1287,7 +1256,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
-	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+	_, done := s.waitForOpenState(c, &reportOpenedState, a)
 
 	// Symlinks should have been created
 	for _, link := range []string{jujuRun, jujuDumpLogs} {
@@ -1319,7 +1288,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	}
 
 	// Start the agent and wait for it be running.
-	_, done := s.waitForOpenState(c, &reportOpenedAPI, a)
+	_, done := s.waitForOpenState(c, &reportOpenedState, a)
 
 	// juju-run symlink should have been recreated.
 	for _, link := range links {
@@ -1332,8 +1301,11 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
 
-func (s *MachineSuite) TestProxyUpdater(c *gc.C) {
+func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
 	s.assertProxyUpdater(c, true)
+}
+
+func (s *MachineSuite) TestProxyUpdaterNoSystemFileUpdate(c *gc.C) {
 	s.assertProxyUpdater(c, false)
 }
 
@@ -1356,8 +1328,8 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Patch out the actual worker func.
-	started := make(chan struct{})
-	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) worker.Worker {
+	started := newSignal()
+	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) (worker.Worker, error) {
 		// Direct check of the behaviour flag.
 		c.Check(writeSystemFiles, gc.Equals, expectWriteSystemFiles)
 		// Indirect check that we get a functional API.
@@ -1367,24 +1339,23 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 			c.Check(actualSettings, jc.DeepEquals, expectSettings)
 		}
 		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
-			close(started)
+			started.trigger()
 			return nil
-		})
+		}), nil
 	}
 	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
-	s.primeAgent(c, state.JobHostUnits)
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
-		for {
-			select {
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timeout while waiting for proxy updater to start")
-			case <-started:
-				c.Assert(gotConf, jc.DeepEquals, conf)
-				return
-			}
-		}
-	})
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for proxy updater to start")
+	case <-started.triggered():
+		c.Assert(gotConf, jc.DeepEquals, a.CurrentConfig())
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
@@ -1417,18 +1388,22 @@ func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
 
 func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.AgentSuite.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
-	s.assertJobWithAPI(c, job, func(conf agent.Config, st api.Connection) {
-		select {
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timeout while waiting for rsyslog worker to be created")
-		case mode := <-created:
-			c.Assert(mode, gc.Equals, expectedMode)
-		}
-	})
+
+	stm, _, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for rsyslog worker to be created")
+	case mode := <-created:
+		c.Assert(mode, gc.Equals, expectedMode)
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
@@ -1459,9 +1434,9 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
-	started := make(chan struct{})
+	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
-		close(started)
+		started.trigger()
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newDiskManager, newWorker)
@@ -1474,7 +1449,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for diskmanager worker to start")
 	}
@@ -1520,9 +1495,9 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDep
 
 func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
 	// Patch out the worker func before starting the agent.
-	started := make(chan struct{})
+	started := newSignal()
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
-		close(started)
+		started.trigger()
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
@@ -1535,7 +1510,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
 	case <-time.After(coretesting.ShortWait):
 	}
@@ -1543,9 +1518,9 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 
 func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
-	started := make(chan struct{})
+	started := newSignal()
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
-		close(started)
+		started.trigger()
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
@@ -1558,7 +1533,7 @@ func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for metadata update worker to start")
 	}
@@ -1567,23 +1542,12 @@ func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
-	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		c.Check(scope, gc.Equals, m.Tag())
-		// storageDir is not empty for machine scoped storage provisioners
-		c.Assert(storageDir, gc.Not(gc.Equals), "")
-		close(started)
-		return worker.NewNoOpWorker()
+	started := newSignal()
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Scope, gc.Equals, m.Tag())
+		c.Check(config.Validate(), jc.ErrorIsNil)
+		started.trigger()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
@@ -1594,7 +1558,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for storage worker to start")
 	}
@@ -1604,33 +1568,23 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 
 	var numWorkers, machineWorkers, environWorkers uint32
-	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		// storageDir is empty for environ storage provisioners
-		if storageDir == "" {
-			c.Check(scope, gc.Equals, s.State.EnvironTag())
+	started := newSignal()
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Validate(), jc.ErrorIsNil)
+		switch config.Scope {
+		case s.State.EnvironTag():
 			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
-		}
-		if storageDir != "" {
-			c.Check(scope, gc.Equals, m.Tag())
+		case m.Tag():
 			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
+		default:
+			c.Errorf("unexpected scope %v", config.Scope)
 		}
 		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
-			close(started)
+			started.trigger()
 		}
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
@@ -1641,7 +1595,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 		c.Assert(atomic.LoadUint32(&numWorkers), gc.Equals, uint32(2))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for storage worker to start")
@@ -1649,11 +1603,11 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
-	started := make(chan struct{})
+	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
-		close(started)
+		started.trigger()
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
@@ -1666,18 +1620,18 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 
 	// Wait for worker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for certificate update worker to start")
 	}
 }
 
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
-	started := make(chan struct{})
+	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
-		close(started)
+		started.trigger()
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
@@ -1690,7 +1644,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonS
 
 	// Ensure the worker is not started.
 	select {
-	case <-started:
+	case <-started.triggered():
 		c.Fatalf("certificate update worker unexpectedly started")
 	case <-time.After(coretesting.ShortWait):
 	}
@@ -1847,12 +1801,15 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
 		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 		default:
 		}
-		return machiner.NewMachiner(cfg)
+
+		// The test just cares that NewMachiner is called with the correct
+		// value, nothing else is done with the worker.
+		return newDummyWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
@@ -2029,27 +1986,13 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 
 	// Check that newStorageWorker is called and the environ tag is scoped to
 	// that of the new environment tag.
-	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		// storageDir is empty for environ storage provisioners
-		if storageDir == "" {
-			// If this is the worker for the new environment,
-			// close the channel.
-			if scope == st.EnvironTag() {
-				close(started)
-			}
+	started := newSignal()
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Validate(), jc.ErrorIsNil)
+		if config.Scope == st.EnvironTag() {
+			started.trigger()
 		}
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
@@ -2058,7 +2001,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 
 	// Wait for newStorageWorker to be started.
 	select {
-	case <-started:
+	case <-started.triggered():
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for storage worker to start")
 	}
@@ -2539,4 +2482,29 @@ func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
 	m.detachLoopDevicesArgRootfs = rootfs
 	m.detachLoopDevicesArgPrefix = prefix
 	return nil
+}
+
+func newSignal() *signal {
+	return &signal{ch: make(chan struct{})}
+}
+
+type signal struct {
+	mu sync.Mutex
+	ch chan struct{}
+}
+
+func (s *signal) triggered() <-chan struct{} {
+	return s.ch
+}
+
+func (s *signal) trigger() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	select {
+	case <-s.ch:
+		// Already closed.
+	default:
+		close(s.ch)
+	}
 }

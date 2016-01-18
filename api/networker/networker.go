@@ -8,9 +8,10 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 const networkerFacade = "Networker"
@@ -102,6 +103,6 @@ func (st *state) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, e
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

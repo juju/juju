@@ -5,10 +5,12 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/watcher"
 )
 
 // Client provides access to the undertaker API
@@ -92,7 +94,7 @@ func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
