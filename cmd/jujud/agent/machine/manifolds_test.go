@@ -52,6 +52,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"reboot",
 		"logging-config-updater",
 		"disk-manager",
+		"proxy-config-updater",
 		"log-sender",
 		"api-address-updater",
 		"machiner",
