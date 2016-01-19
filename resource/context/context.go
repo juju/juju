@@ -84,13 +84,18 @@ func downloadAndWriteResourceToDisk(resourcePath string, resourceReader io.Reade
 	// TODO(katco): Potential race-condition: two commands running at
 	// once.
 	if err := os.MkdirAll(filepath.Dir(resourcePath), 0755); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "could not create resource dir")
 	}
 	resourceHandle, err := os.OpenFile(resourcePath, os.O_CREATE, 0644)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "could not create new file for resource")
 	}
 
-	_, err = io.Copy(resourceHandle, resourceReader)
-	return errors.Trace(err)
+	// TODO(ericsnow) This needs to be atomic?
+	// (e.g. write to separate dir and move the dir into place)
+	if _, err := io.Copy(resourceHandle, resourceReader); err != nil {
+		return errors.Annotate(err, "could not write resource to file")
+	}
+
+	return nil
 }
