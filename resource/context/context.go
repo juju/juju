@@ -51,7 +51,7 @@ func (c *Context) GetResource(name string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	if bytes.Equal(checksumWriter.Fingerprint().Bytes(), resourceInfo.Fingerprint.Bytes()) == false {
-		return "", errors.Errorf("resource fingerprint does not match expected")
+		return "", errors.Errorf("resource fingerprint does not match expected (%q != %q)", checksumWriter.Fingerprint(), resourceInfo.Fingerprint.Bytes())
 	}
 
 	return resourcePath, nil
