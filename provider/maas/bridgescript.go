@@ -206,9 +206,6 @@ class NetworkInterfaceParser(object):
     def physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
 
-    def logical_interfaces(self):
-        return {x.iface.name: x.iface for x in [y for y in self._stanzas if y.is_logical_interface]}
-
     def __iter__(self):  # class iter
         for s in self._stanzas:
             yield s
