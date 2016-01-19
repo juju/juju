@@ -475,7 +475,7 @@ class EnvJujuClient:
         return self.juju('deploy', tuple(args))
 
     def remove_service(self, service):
-        self.juju('destroy-service', (service,))
+        self.juju('remove-service', (service,))
 
     def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
@@ -810,6 +810,9 @@ class EnvJujuClient2A1(EnvJujuClient):
         # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def remove_service(self, service):
+        self.juju('destroy-service', (service,))
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
