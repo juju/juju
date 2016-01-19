@@ -10,14 +10,17 @@ import (
 	"github.com/juju/errors"
 )
 
+// ResourceGetCmdName is the name of the resource-get command.
 const ResourceGetCmdName = "resource-get"
 
+// NewResourceGetCmd creates a new ResourceGetCmd for the given hook context.
 func NewResourceGetCmd(c HookContext) (*ResourceGetCmd, error) {
 	return &ResourceGetCmd{
 		hookContext: c,
 	}, nil
 }
 
+// ResourceGetCmd provides the functionality of the resource-get command.
 type ResourceGetCmd struct {
 	cmd.CommandBase
 
@@ -25,6 +28,7 @@ type ResourceGetCmd struct {
 	resourceName string
 }
 
+// Info implements cmd.Command.
 func (c ResourceGetCmd) Info() *cmd.Info {
 	return &cmd.Info{
 		Name: ResourceGetCmdName,
@@ -36,6 +40,7 @@ func (c ResourceGetCmd) Info() *cmd.Info {
 	}
 }
 
+// Init implements cmd.Command.
 func (c *ResourceGetCmd) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("missing required resource name")
@@ -46,6 +51,7 @@ func (c *ResourceGetCmd) Init(args []string) error {
 	return nil
 }
 
+// Run implements cmd.Command.
 func (c ResourceGetCmd) Run(ctx *cmd.Context) error {
 	filePath, err := c.hookContext.DownloadResource(c.resourceName)
 	if err != nil {

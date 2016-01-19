@@ -16,24 +16,42 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
+// HookContextFacade is the name of the API facade for resources in the uniter.
 const HookContextFacade = resource.ComponentName + "-hook-context"
 
+// APIClient exposes the uniter API functionality needed for resources.
 type APIClient interface {
+	// GetResource returns the resource info and content for the given
+	// name (and unit-implied service).
 	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 
-func NewContextAPI(apiClient APIClient, unitDataDirPath string) *Context {
+// HookContext exposes the functionality exposed by the resources context.
+type HookContext interface {
+	// DownloadResource downloads the named resource and returns
+	// the path to which it was downloaded.
+	DownloadResource(name string) (filePath string, _ error)
+}
+
+// NewContextAPI returns a new Content for the given API client and data dir.
+func NewContextAPI(apiClient APIClient, dataDir string) *Context {
 	return &Context{
-		apiClient:       apiClient,
-		unitDataDirPath: unitDataDirPath,
+		apiClient: apiClient,
+		dataDir:   dataDir,
 	}
 }
 
+// Content is the resources portion of a uniter hook context.
 type Context struct {
-	apiClient       APIClient
-	unitDataDirPath string
+	apiClient APIClient
+	dataDir   string
 }
 
+// DownloadResource downloads the named resource and returns the path
+// to which it was downloaded. If the resource does not exist or has
+// not been uploaded yet then errors.NotFound is returned.
+//
+// Note that the downloaded file is checked for correctness.
 func (c *Context) DownloadResource(name string) (string, error) {
 	// TODO(katco): Check to see if we have latest version
 
@@ -65,29 +83,18 @@ func (c *Context) DownloadResource(name string) (string, error) {
 	return resourcePath, nil
 }
 
+// Flush implements jujuc.Context.
 func (c *Context) Flush() error {
 	return nil
 }
 
-type HookContext interface {
-	DownloadResource(name string) (filePath string, _ error)
-}
-
-func ResourceExistsOnFilesystem(resourcePath string) (bool, error) {
-
-	if _, err := os.Stat(resourcePath); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, errors.Trace(err)
-	}
-	return true, nil
-}
-
+// resolveResourcePath returns the full path to the resource.
 func resolveResourcePath(unitPath string, resourceInfo resource.Resource) string {
 	return filepath.Join(unitPath, resourceInfo.Name, resourceInfo.Path)
 }
 
+// downloadAndWriteResourceToDisk stores the provided resource content
+// to disk at the given path.
 func downloadAndWriteResourceToDisk(resourcePath string, resourceReader io.Reader) error {
 	// TODO(ericsnow) This needs to be atomic?
 	// (e.g. write to separate dir and move the dir into place)
