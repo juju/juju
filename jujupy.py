@@ -813,7 +813,7 @@ class EnvJujuClient2A1(EnvJujuClient):
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
 
-class EnvJujuClient1X(EnvJujuClient):
+class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
     def create_environment(self, controller_client, config_file):

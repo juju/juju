@@ -118,10 +118,10 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 with patch('jujupy.GroupReporter._write', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'foo', 'local:chaos-monkey'),
+            'juju', '--show-log', 'deploy', '-m', 'foo', 'local:chaos-monkey'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-e', 'foo', 'ser1',
+            'juju', '--show-log', 'add-relation', '-m', 'foo', 'ser1',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
         self.assertEqual(gjo_mock.call_count, 2)

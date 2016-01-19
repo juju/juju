@@ -1167,7 +1167,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
         with patch('subprocess.Popen') as popen_mock:
             self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         assert_juju_call(self, popen_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'steve',
+            'juju', '--show-log', 'bootstrap', '-m', 'steve',
             '--constraints', 'mem=2G'))
         statuses = [
             {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
@@ -1405,7 +1405,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3'})
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'ensure-availability', '-e', 'steve', '-n',
+            'juju', '--show-log', 'ensure-availability', '-m', 'steve', '-n',
             '3'))
         status = {
             'machines': {
@@ -1448,13 +1448,13 @@ class TestDeployManyAttempt(JujuPyTestCase):
             for container in range(deploy_many.container_count):
                 target = 'lxc:{}'.format(host)
                 service = 'ubuntu{}x{}'.format(host, container)
-                yield ('juju', '--show-log', 'deploy', '-e', 'steve', '--to',
+                yield ('juju', '--show-log', 'deploy', '-m', 'steve', '--to',
                        target, 'ubuntu', service)
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count
         for guest in range(100, total_guests + 100):
-            yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
+            yield ('juju', '--show-log', 'remove-machine', '-m', 'steve',
                    '--force', str(guest))
 
     def test_iter_steps(self):
@@ -1472,7 +1472,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                                  {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+                'juju', '--show-log', 'add-machine', '-m', 'steve'), index)
 
         status = {
             'machines': dict((str(x), {'agent-state': 'started'})
@@ -1543,7 +1543,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 {'test_id': 'remove-machine-many-instance'})
         for num in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'remove-machine', '-e', 'steve',
+                'juju', '--show-log', 'remove-machine', '-m', 'steve',
                 str(num + 1)), num)
 
         statuses = [
@@ -1571,7 +1571,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                                  {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+                'juju', '--show-log', 'add-machine', '-m', 'steve'), index)
 
         status = {
             'machines': dict((str(x), {'agent-state': 'started'})
@@ -1621,7 +1621,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                                  {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+                'juju', '--show-log', 'add-machine', '-m', 'steve'), index)
         gs_mock.assert_called_once_with()
 
         status = {
@@ -1639,10 +1639,10 @@ class TestDeployManyAttempt(JujuPyTestCase):
                              deploy_iter.next())
         for x in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'destroy-machine', '-e', 'steve',
+                'juju', '--show-log', 'destroy-machine', '-m', 'steve',
                 '--force', str((x + 1))), x * 2)
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'add-machine', '-e', 'steve'), x * 2 + 1)
+                'juju', '--show-log', 'add-machine', '-m', 'steve'), x * 2 + 1)
 
         status = {
             'machines': dict((str(x), {'agent-state': 'started'})
@@ -1707,7 +1707,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
             self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, po_mock, client, (
-                'juju', '--show-log', 'restore', '-e', 'baz',
+                'juju', '--show-log', 'restore', '-m', 'baz',
                 os.path.abspath('juju-backup-24.tgz')))
         po_mock.return_value.wait.return_value = 0
         with patch('os.unlink') as ul_mock:
@@ -1767,7 +1767,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                              puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
+            'juju', '--show-log', 'bootstrap', '-m', 'steve', '--constraints',
             'mem=2G'))
         po_mock.return_value.wait.return_value = 0
         self.assertEqual(puj_iterator.next(),
@@ -1802,7 +1802,7 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual({'test_id': 'upgrade-juju'}, uj_iterator.next())
         assert_juju_call(self, cc_mock, future_client, (
-            'juju', '--show-log', 'upgrade-juju', '-e', 'steve', '--version',
+            'juju', '--show-log', 'upgrade-juju', '-m', 'steve', '--version',
             future_client.get_matching_agent_version()))
         version_status = {
             'machines': {'0': {
@@ -1842,7 +1842,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertIn('summary', metadata)
         self.assertIn('description', metadata)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-e', 'steve',
+            'juju', '--show-log', 'deploy', '-m', 'steve',
             'local:trusty/mycharm', '--repository', temp_repository))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
@@ -1872,7 +1872,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'upgrade-charm', '-e', 'steve',
+            'juju', '--show-log', 'upgrade-charm', '-m', 'steve',
             'mycharm', '--repository', temp_repository))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
