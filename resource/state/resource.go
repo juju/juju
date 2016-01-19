@@ -136,6 +136,10 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
+	if resourceInfo.Fingerprint.IsZero() {
+		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
+	}
+
 	resourceReader, resSize, err := st.storage.Get(storagePath(name, serviceID))
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
