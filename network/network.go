@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -33,6 +34,10 @@ const (
 // DefaultSpace is the name used for the default space for an environment.
 // TODO(dimitern): Make this configurable per environment.
 const DefaultSpace = "default"
+
+// SpaceInvalidChars is a regexp for validating that space names contain no
+// invalid characters.
+var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")
 
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {

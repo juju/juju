@@ -4,17 +4,21 @@
 package discoverspaces
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
+
+	"github.com/juju/juju/api/discoverspaces"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.discoverspaces")
@@ -22,6 +26,38 @@ var logger = loggo.GetLogger("juju.discoverspaces")
 type discoverspacesWorker struct {
 	api  *discoverspaces.API
 	tomb tomb.Tomb
+}
+
+var dashPrefix = regexp.MustCompile("^-*")
+var dashSuffix = regexp.MustCompile("-*$")
+var multipleDashes = regexp.MustCompile("--+")
+
+func convertSpaceName(name string, existing set.Strings) string {
+	// First lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+	// Replace any character that isn't in the set "-", "a-z", "0-9".
+	name = network.SpaceInvalidChars.ReplaceAllString(name, "")
+	// Get rid of any dashes at the start as that isn't valid.
+	name = dashPrefix.ReplaceAllString(name, "")
+	// And any at the end.
+	name = dashSuffix.ReplaceAllString(name, "")
+	// Repleace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
+	// Special case of when the space name was only dashes or invalid
+	// characters!
+	if name == "" {
+		name = "empty"
+	}
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+	return name
 }
 
 // NewWorker returns a worker
@@ -112,35 +148,53 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
-		spaceName := string(space.ProviderId)
-		spaceName = strings.Replace(spaceName, " ", "-", -1)
-		spaceName = strings.ToLower(spaceName)
-		if !names.IsValidSpace(spaceName) {
-			// XXX generate a valid name here
-			logger.Errorf("invalid space name %v", spaceName)
-			return errors.Errorf("invalid space name: %q", spaceName)
-		}
-		spaceTag := names.NewSpaceTag(spaceName)
-		_, ok := stateSpaceMap[string(space.ProviderId)]
-		if !ok {
-			// XXX skip spaces with no subnets(?)
+		// Check if the space is already in state, in which case we know
+		// its name.
+		stateSpace, ok := stateSpaceMap[string(space.ProviderId)]
+		var spaceTag names.SpaceTag
+		if ok {
+			spaceName := stateSpace.Name
+			if !names.IsValidSpace(spaceName) {
+				// Can only happen if an invalid name is stored
+				// in state.
+				logger.Errorf("space %q has an invalid name, ignoring", spaceName)
+				continue
+
+			}
+			spaceTag = names.NewSpaceTag(spaceName)
+
+		} else {
+			// The space is new, we need to create a valid name for it
+			// in state.
+			spaceName := string(space.ProviderId)
+			// Convert the name into a valid name that isn't already in
+			// use.
+			spaceName = convertSpaceName(spaceName, spaceNames)
+			spaceNames.Add(spaceName)
+			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.
 			args := params.CreateSpacesParams{
 				Spaces: []params.CreateSpaceParams{{
-					Public:   false,
-					SpaceTag: spaceTag.String(),
+					Public:     false,
+					SpaceTag:   spaceTag.String(),
+					ProviderId: string(space.ProviderId),
 				}}}
-			// XXX check the error result too.
-			_, err = dw.api.CreateSpaces(args)
+			result, err := dw.api.CreateSpaces(args)
 			if err != nil {
-				logger.Errorf("invalid creating space %v", err)
+				logger.Errorf("error creating space %v", err)
 				return errors.Trace(err)
+			}
+			if len(result.Results) != 1 {
+				return errors.Errorf("unexpected number of results from CreateSpaces, should be 1: %v", result)
+			}
+			if result.Results[0].Error != nil {
+				return errors.Errorf("error from CreateSpaces: %v", result.Results[0].Error)
 			}
 		}
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
-		logger.Debugf("Created space %v with %v subnets", spaceName, len(space.Subnets))
+		logger.Debugf("Created space %v with %v subnets", spaceTag.String(), len(space.Subnets))
 		for _, subnet := range space.Subnets {
 			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
 				continue
@@ -155,16 +209,15 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					SpaceTag:         spaceTag.String(),
 					Zones:            zones,
 				}}}
-			// XXX check the error result too.
 			logger.Tracef("Adding subnet %v", subnet.CIDR)
 			result, err := dw.api.AddSubnets(args)
 			if err != nil {
 				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)
 			}
-
-			// XXX needs doing properly (check len(result.Results
-			// == 1).
+			if len(result.Results) != 1 {
+				return errors.Errorf("unexpected number of results from AddSubnets, should be 1: %v", result)
+			}
 			if result.Results[0].Error != nil {
 				logger.Errorf("error creating subnet %v", result.Results[0].Error)
 				return errors.Errorf("error creating subnet %v", result.Results[0].Error)
