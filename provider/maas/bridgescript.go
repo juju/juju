@@ -79,12 +79,7 @@ class LogicalInterface(object):
         self.is_bonded = [x for x in self.options if "bond-" in x]
         self.is_alias = ":" in self.name
         self.is_vlan = [x for x in self.options if x.startswith("vlan-raw-device")]
-
-    def is_active(self):
-        for o in self.options:
-            if o.startswith('bond-master '):
-                return False
-        return self.method == "dhcp" or self.method == "static"
+        self.is_active = self.method == "dhcp" or self.method == "static"
 
     def __str__(self):
         return self.name
@@ -92,7 +87,7 @@ class LogicalInterface(object):
     # Returns an ordered set of stanzas to bridge this interface.
     def bridge(self, prefix, add_auto_stanza):
         # Note: the testing order here is significant.
-        if not self.is_active():
+        if not self.is_active:
             return self._bridge_inactive(add_auto_stanza)
         elif self.is_alias:
             return self._bridge_alias(add_auto_stanza)

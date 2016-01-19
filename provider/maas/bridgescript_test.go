@@ -109,6 +109,18 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithLoopbackOnly(c *gc.C) {
 	s.assertScript(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected, "br-")
 }
 
+func (s *bridgeConfigSuite) TestBridgeScriptBondWithVLANs(c *gc.C) {
+	s.assertScript(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected, "br-")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptVLANWithInactive(c *gc.C) {
+	s.assertScript(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected, "br-")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptVLANWithActiveDHCPDevice(c *gc.C) {
+	s.assertScript(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected, "br-")
+}
+
 func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, bridgePrefix string) (output string, exitCode int) {
 	script := fmt.Sprintf("%q --bridge-prefix=%q %q\n",
 		s.testPythonScript,
@@ -857,3 +869,221 @@ iface lo inet loopback`
 
 const networkLoopbackOnlyExpected = `auto lo
 iface lo inet loopback`
+
+const networkStaticBondWithVLANsInitial = `auto eth0
+iface eth0 inet manual
+    bond-master bond0
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-lacp_rate slow
+
+auto eth1
+iface eth1 inet manual
+    bond-master bond0
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-lacp_rate slow
+
+auto bond0
+iface bond0 inet static
+    address 10.17.20.211/24
+    gateway 10.17.20.1
+    dns-nameservers 10.17.20.200
+    bond-slaves none
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    hwaddress 52:54:00:1c:f1:5b
+    bond-lacp_rate slow
+
+auto bond0.2
+iface bond0.2 inet static
+    address 192.168.2.102/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 2
+
+auto bond0.3
+iface bond0.3 inet static
+    address 192.168.3.101/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 3
+
+dns-nameservers 10.17.20.200
+dns-search maas19`
+
+const networkStaticBondWithVLANsExpected = `auto eth0
+iface eth0 inet manual
+    bond-master bond0
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-lacp_rate slow
+
+auto eth1
+iface eth1 inet manual
+    bond-master bond0
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    bond-lacp_rate slow
+
+auto bond0
+iface bond0 inet manual
+    address 10.17.20.211/24
+    gateway 10.17.20.1
+    dns-nameservers 10.17.20.200
+    bond-slaves none
+    bond-mode active-backup
+    bond-xmit_hash_policy layer2
+    bond-miimon 100
+    mtu 1500
+    hwaddress 52:54:00:1c:f1:5b
+    bond-lacp_rate slow
+
+auto br-bond0
+iface br-bond0 inet static
+    address 10.17.20.211/24
+    gateway 10.17.20.1
+    dns-nameservers 10.17.20.200
+    mtu 1500
+    hwaddress 52:54:00:1c:f1:5b
+    bridge_ports bond0
+
+iface bond0.2 inet manual
+    address 192.168.2.102/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 2
+
+auto br-bond0.2
+iface br-bond0.2 inet static
+    address 192.168.2.102/24
+    mtu 1500
+    bridge_ports bond0.2
+
+iface bond0.3 inet manual
+    address 192.168.3.101/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 3
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+
+auto br-bond0.3
+iface br-bond0.3 inet static
+    address 192.168.3.101/24
+    mtu 1500
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    bridge_ports bond0.3`
+
+const networkVLANWithInactiveDeviceInitial = `auto eth0
+iface eth0 inet static
+    dns-nameservers 10.17.20.200
+    gateway 10.17.20.1
+    address 10.17.20.211/24
+    mtu 1500
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+auto eth1.2
+iface eth1.2 inet dhcp
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+
+dns-nameservers 10.17.20.200
+dns-search maas19
+`
+
+const networkVLANWithInactiveDeviceExpected = `iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    dns-nameservers 10.17.20.200
+    gateway 10.17.20.1
+    address 10.17.20.211/24
+    mtu 1500
+    bridge_ports eth0
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+iface eth1.2 inet manual
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+
+auto br-eth1.2
+iface br-eth1.2 inet dhcp
+    mtu 1500
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    bridge_ports eth1.2
+`
+
+const networkVLANWithActiveDHCPDeviceInitial = `auto eth0
+iface eth0 inet static
+    dns-nameservers 10.17.20.200
+    gateway 10.17.20.1
+    address 10.17.20.211/24
+    mtu 1500
+
+auto eth1
+iface eth1 inet dhcp
+    mtu 1500
+
+auto eth1.2
+iface eth1.2 inet dhcp
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+
+dns-nameservers 10.17.20.200
+dns-search maas19
+`
+
+const networkVLANWithActiveDHCPDeviceExpected = `iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    dns-nameservers 10.17.20.200
+    gateway 10.17.20.1
+    address 10.17.20.211/24
+    mtu 1500
+    bridge_ports eth0
+
+iface eth1 inet manual
+
+auto br-eth1
+iface br-eth1 inet dhcp
+    mtu 1500
+    bridge_ports eth1
+
+iface eth1.2 inet manual
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+
+auto br-eth1.2
+iface br-eth1.2 inet dhcp
+    mtu 1500
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    bridge_ports eth1.2`
