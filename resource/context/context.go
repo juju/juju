@@ -4,14 +4,14 @@
 package context
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
 
-	"bytes"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
+	"github.com/juju/utils"
 	"github.com/juju/utils/hash"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
@@ -45,13 +45,21 @@ func (c *Context) DownloadResource(name string) (string, error) {
 	}
 	defer resourceReader.Close()
 
-	resourcePath := resolveResourcePath(c.unitDataDirPath, resourceInfo)
 	hashingReader := hash.NewHashingReader(resourceReader, checksumWriter)
-	if err := downloadAndWriteResourceToDisk(resourcePath, hashingReader); err != nil {
+	sizingReader := utils.NewSizingReader(hashingReader)
+
+	resourcePath := resolveResourcePath(c.unitDataDirPath, resourceInfo)
+	if err := downloadAndWriteResourceToDisk(resourcePath, sizingReader); err != nil {
 		return "", errors.Trace(err)
 	}
-	if bytes.Equal(checksumWriter.Fingerprint().Bytes(), resourceInfo.Fingerprint.Bytes()) == false {
-		return "", errors.Errorf("resource fingerprint does not match expected (%q != %q)", checksumWriter.Fingerprint(), resourceInfo.Fingerprint.Bytes())
+
+	size := sizingReader.Size()
+	if size != resourceInfo.Size {
+		return "", errors.Errorf("resource size does not match expected (%d != %d)", size, resourceInfo.Size)
+	}
+	fp := checksumWriter.Fingerprint()
+	if bytes.Equal(fp.Bytes(), resourceInfo.Fingerprint.Bytes()) == false {
+		return "", errors.Errorf("resource fingerprint does not match expected (%q != %q)", fp, resourceInfo.Fingerprint)
 	}
 
 	return resourcePath, nil
