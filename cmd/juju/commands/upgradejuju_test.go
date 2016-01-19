@@ -174,24 +174,24 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "2.3-dev0"},
 	expectVersion:  "2.3-dev0",
 }, {
-	about:          "specified major version from 1.25.3",
+	about:          "specified major version from 1.25.4",
 	tools:          []string{"2.0.1-quantal-amd64"},
-	currentVersion: "1.25.3-quantal-amd64",
-	agentVersion:   "1.25.3",
+	currentVersion: "1.25.4-quantal-amd64",
+	agentVersion:   "1.25.4",
 	args:           []string{"--version", "2.0.1"},
 	expectVersion:  "2.0.1",
 }, {
 	about:          "specified major version from 1.26-alpha2",
 	tools:          []string{"2.0.0-quantal-amd64"},
-	currentVersion: "1.25.3-quantal-amd64",
+	currentVersion: "1.25.4-quantal-amd64",
 	agentVersion:   "1.26-alpha2",
 	args:           []string{"--version", "2.0.0"},
 	expectVersion:  "2.0.0",
 }, {
 	about:          "specified valid major upgrade with no tools available",
-	tools:          []string{"1.25.3-quantal-amd64"},
-	currentVersion: "1.25.3-quantal-amd64",
-	agentVersion:   "1.25.3",
+	tools:          []string{"1.25.4-quantal-amd64"},
+	currentVersion: "1.25.4-quantal-amd64",
+	agentVersion:   "1.25.4",
 	args:           []string{"--version", "2.0.0"},
 	expectErr:      "no matching tools available",
 }, {
@@ -726,16 +726,16 @@ func (s *UpgradeJujuSuite) TestMinimumVersionForMajorUpgrade(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
 
 		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "Upgrades to juju 2.0 must first go through juju 1.25.3 or higher.\n")
+		c.Assert(output, gc.Equals, "Upgrades to juju 2.0 must first go through juju 1.25.4 or higher.\n")
 	}
 }
 
 func (s *UpgradeJujuSuite) TestMajorVersionRestriction(c *gc.C) {
 	for _, vers := range []string{"2.1.4", "3.0.0"} {
 		c.Logf("testing TestMajorVersionRestriction with version: %s", vers)
-		s.PatchValue(&version.Current, version.MustParseBinary("1.25.3-trusty-amd64"))
+		s.PatchValue(&version.Current, version.MustParseBinary("1.25.4-trusty-amd64"))
 		updateAttrs := map[string]interface{}{
-			"agent-version": "1.25.3",
+			"agent-version": "1.25.4",
 		}
 		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -769,7 +769,7 @@ func (s *UpgradeJujuSuite) TestMinFromAndMaxToMajorVersion(c *gc.C) {
 
 	output := coretesting.Stderr(ctx)
 	c.Assert(output, gc.Equals, "Upgrades to 2.1.4 must first go through juju 2.0.\n"+
-		"Upgrades to juju 2.0 must first go through juju 1.25.3 or higher.\n")
+		"Upgrades to juju 2.0 must first go through juju 1.25.4 or higher.\n")
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
