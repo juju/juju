@@ -1,3 +1,6 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package client
 
 import (
@@ -12,15 +15,22 @@ import (
 	"github.com/juju/juju/resource/api/private"
 )
 
+// FacadeCaller exposes the raw API caller functionality needed here.
 type FacadeCaller interface {
+	// FacadeCall makes an API request.
 	FacadeCall(request string, params, response interface{}) error
 }
 
-// Doer
+// UnitDoer exposes the raw API HTTP caller functionality needed here.
 type UnitDoer interface {
+	// Do sends the HTTP request/body and unpacks the response into
+	// the provided "resp". If that is a **http.Response then it is
+	// unpacked as-is. Otherwise it is unmarshaled from JSON.
 	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
 }
 
+// NewUnitFacadeClient creates a new API client for the resources
+// portion of the uniter facade.
 func NewUnitFacadeClient(facadeCaller FacadeCaller, doer UnitDoer) *FacadeClient {
 	return &FacadeClient{
 		FacadeCaller: facadeCaller,
@@ -28,11 +38,16 @@ func NewUnitFacadeClient(facadeCaller FacadeCaller, doer UnitDoer) *FacadeClient
 	}
 }
 
+// FacadeClient is an API client for the resources portion
+// of the uniter facade.
 type FacadeClient struct {
 	FacadeCaller
 	doer UnitDoer
 }
 
+// GetResource opens the resource (metadata/blob), if it exists, via
+// the HTTP API and returns it. If it does not exist or hasn't been
+// uploaded yet then errors.NotFound is returned.
 func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)

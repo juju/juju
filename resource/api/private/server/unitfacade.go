@@ -1,3 +1,6 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package server
 
 import (
@@ -9,22 +12,30 @@ import (
 	"github.com/juju/juju/resource/api/private"
 )
 
+// UnitDataStore exposes the data storage functionality needed here.
+// All functionality is tied to the unit's service.
 type UnitDataStore interface {
 	DownloadDataStore
 
+	// ListResources lists all the resources for the service.
 	ListResources() ([]resource.Resource, error)
 }
 
+// NewUnitFacade returns the resources portion of the uniter's API facade.
 func NewUnitFacade(dataStore UnitDataStore) *UnitFacade {
 	return &UnitFacade{
 		dataStore: dataStore,
 	}
 }
 
+// UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
 	dataStore UnitDataStore
 }
 
+// GetResourceInfo returns the resource info for each of the given
+// resource names (for the implicit service). If any one is missing then
+// the corresponding result is set with errors.NotFound.
 func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.ResourcesResult, error) {
 	var r private.ResourcesResult
 	r.Resources = make([]private.ResourceResult, len(args.ResourceNames))
