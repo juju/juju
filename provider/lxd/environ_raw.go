@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type rawProvider struct {
