@@ -103,14 +103,9 @@ class MonkeyRunner:
             args = args + (enablement_arg,)
             if monkey_id is not None:
                 args = args + ('monkey-id={}'.format(monkey_id),)
-            action_out = self.client.get_juju_output('action do', *args)
-            if not action_out.startswith('Action queued with id'):
-                raise Exception(
-                    'Unexpected output from "juju action do": {}'.format(
-                        action_out))
-            logging.info(action_out)
+
+            id = self.client.action_do(*args)
             if not self.monkey_ids.get(unit_name):
-                id = action_out.split().pop()
                 logging.info('Setting the monkey-id for {} to: {}'.format(
                     unit_name, id))
                 self.monkey_ids[unit_name] = id

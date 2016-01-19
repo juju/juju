@@ -274,16 +274,22 @@ class TestUnleashOnce(FakeHomeTestCase):
                 ('get', 'jenkins'): charm_config,
                 ('action do', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
-                 ): 'Action queued with id: abcd',
+                 ): ('Action queued with id: '
+                     'abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
                 ('action do', 'chaos-monkey/0', 'start', 'mode=single',
-                 'enablement-timeout=120', 'monkey-id=abcd'
-                 ): 'Action queued with id: efgh',
+                 'enablement-timeout=120',
+                 'monkey-id=abcdabcdabcdabcdabcdabcdabcdabcdabcd'
+                 ): ('Action queued with id: '
+                     'efabefabefabefabefabefabefabefabefab'),
                 ('action do', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120'
-                 ): 'Action queued with id: 1234',
+                 ): ('Action queued with id: '
+                     '123412341234123412341234123412341234'),
                 ('action do', 'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=120', 'monkey-id=1234'
-                 ): 'Action queued with id: 5678',
+                 'enablement-timeout=120',
+                 'monkey-id=123412341234123412341234123412341234'
+                 ): ('Action queued with id: '
+                     '567856785678567856785678567856785678'),
                 }
             return output[args]
 
@@ -307,8 +313,10 @@ class TestUnleashOnce(FakeHomeTestCase):
             output = {
                 ('status',): status,
                 ('action do', 'chaos-monkey/1', 'start', 'mode=single',
-                 'enablement-timeout=120', 'monkey-id=1234'
-                 ): 'Action queued with id: abcd',
+                 'enablement-timeout=120',
+                 'monkey-id=123412341234123412341234123412341234'
+                 ): ('Action queued with id: '
+                     'abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -316,7 +324,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             returned = monkey_runner.unleash_once()
-        expected = ['abcd', '1234']
+        expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
                 call('status'),
@@ -338,10 +346,12 @@ class TestUnleashOnce(FakeHomeTestCase):
                 call('status'),
                 call('action do',
                      'chaos-monkey/1', 'start', 'mode=single',
-                     'enablement-timeout=120', 'monkey-id=1234'),
+                     'enablement-timeout=120',
+                     'monkey-id=123412341234123412341234123412341234'),
                 call('action do',
                      'chaos-monkey/0', 'start', 'mode=single',
-                     'enablement-timeout=120', 'monkey-id=abcd'),
+                     'enablement-timeout=120',
+                     'monkey-id=abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
             ],
             gjo_mock.call_args_list)
         self.assertTrue('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
@@ -350,7 +360,8 @@ class TestUnleashOnce(FakeHomeTestCase):
         with patch.object(client, 'get_juju_output', side_effect=output2,
                           autospec=True):
             monkey_runner.unleash_once()
-        self.assertEqual('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
+        self.assertEqual('1234' * 9,
+                         monkey_runner.monkey_ids['chaos-monkey/1'])
 
     def test_unleash_once_raises_for_unexpected_action_output(self):
         def output(*args, **kwargs):
@@ -382,7 +393,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True):
             with self.assertRaisesRegexp(
-                    Exception, 'Unexpected output from "juju action do":'):
+                    Exception, 'Action id not found in output: Action fail'):
                 monkey_runner.unleash_once()
 
 
