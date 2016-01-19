@@ -44,7 +44,7 @@ func (c *getCommand) Info() *cmd.Info {
 		Args:    "[<environment key>]",
 		Purpose: "view environment values",
 		Doc:     strings.TrimSpace(getEnvHelpDoc),
-		Aliases: []string{"get-env"},
+		Aliases: []string{"get-env", "get-model"},
 	}
 }
 

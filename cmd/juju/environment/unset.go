@@ -38,7 +38,7 @@ func (c *unsetCommand) Info() *cmd.Info {
 		Args:    "<environment key> ...",
 		Purpose: "unset environment values",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
-		Aliases: []string{"unset-env"},
+		Aliases: []string{"unset-env", "unset-model"},
 	}
 }
 
