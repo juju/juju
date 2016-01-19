@@ -38,36 +38,32 @@ func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
 
 // FormatCharmResource converts the resource info into a FormattedCharmResource.
 func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
-	serialized := resource.SerializeCharmResource(res)
 	return FormattedCharmResource{
-		Name:        serialized.Name,
-		Type:        serialized.Type,
-		Path:        serialized.Path,
-		Comment:     serialized.Comment,
-		Revision:    serialized.Revision,
-		Origin:      serialized.Origin,
-		Fingerprint: res.Fingerprint.String(), // ...the hex string.
-
+		Name:          res.Name,
+		Type:          res.Type.String(),
+		Path:          res.Path,
+		Comment:       res.Comment,
+		Revision:      res.Revision,
+		Origin:        res.Origin.String(),
+		Fingerprint:   res.Fingerprint.String(), // ...the hex string.
 		charmRevision: charmRevision(res),
 	}
 }
 
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
 func FormatSvcResource(res resource.Resource) FormattedSvcResource {
-	serialized := resource.Serialize(res)
 	used := !res.IsPlaceholder()
 	return FormattedSvcResource{
-		Name:        serialized.Name,
-		Type:        serialized.Type,
-		Path:        serialized.Path,
-		Comment:     serialized.Comment,
-		Revision:    serialized.Revision,
-		Origin:      serialized.Origin,
-		Fingerprint: res.Fingerprint.String(),
-		Used:        used,
-		Timestamp:   serialized.Timestamp,
-		Username:    serialized.Username,
-
+		Name:             res.Name,
+		Type:             res.Type.String(),
+		Path:             res.Path,
+		Comment:          res.Comment,
+		Revision:         res.Revision,
+		Origin:           res.Origin.String(),
+		Fingerprint:      res.Fingerprint.String(),
+		Used:             used,
+		Timestamp:        res.Timestamp,
+		Username:         res.Username,
 		combinedRevision: combinedRevision(res),
 		combinedOrigin:   combinedOrigin(used, res),
 		usedYesNo:        usedYesNo(used),

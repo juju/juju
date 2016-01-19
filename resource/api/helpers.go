@@ -68,56 +68,75 @@ func APIResult2Resources(apiResult ResourcesResult) ([]resource.Resource, error)
 // API2Resource converts an API Resource struct into
 // a resource.Resource.
 func API2Resource(apiRes Resource) (resource.Resource, error) {
-	serialized := resource.Serialized{
-		Name:        apiRes.Name,
-		Type:        apiRes.Type,
-		Path:        apiRes.Path,
-		Comment:     apiRes.Comment,
-		Origin:      apiRes.Origin,
-		Revision:    apiRes.Revision,
-		Fingerprint: apiRes.Fingerprint,
-		Size:        apiRes.Size,
-		Username:    apiRes.Username,
-		Timestamp:   apiRes.Timestamp,
-	}
-	res, err := serialized.Deserialize()
+	var res resource.Resource
+
+	charmRes, err := API2CharmResource(apiRes.CharmResource)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
+
+	res = resource.Resource{
+		Resource:  charmRes,
+		Username:  apiRes.Username,
+		Timestamp: apiRes.Timestamp,
+	}
+
+	if err := res.Validate(); err != nil {
+		return res, errors.Trace(err)
+	}
+
 	return res, nil
 }
 
 // CharmResource2API converts a charm resource into
 // a CharmResource struct.
 func CharmResource2API(res charmresource.Resource) CharmResource {
-	serialized := resource.SerializeCharmResource(res)
 	return CharmResource{
-		Name:        serialized.Name,
-		Type:        serialized.Type,
-		Path:        serialized.Path,
-		Comment:     serialized.Comment,
-		Origin:      serialized.Origin,
-		Revision:    serialized.Revision,
-		Fingerprint: serialized.Fingerprint,
-		Size:        serialized.Size,
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Origin:      res.Origin.String(),
+		Revision:    res.Revision,
+		Fingerprint: res.Fingerprint.Bytes(),
+		Size:        res.Size,
 	}
 }
 
 // API2CharmResource converts an API CharmResource struct into
 // a charm resource.
 func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
-	serialized := resource.Serialized{
-		Name:        apiInfo.Name,
-		Type:        apiInfo.Type,
-		Path:        apiInfo.Path,
-		Comment:     apiInfo.Comment,
-		Origin:      apiInfo.Origin,
+	var res charmresource.Resource
+
+	rtype, err := charmresource.ParseType(apiInfo.Type)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	origin, err := charmresource.ParseOrigin(apiInfo.Origin)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	fp, err := resource.DeserializeFingerprint(apiInfo.Fingerprint)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	res = charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:    apiInfo.Name,
+			Type:    rtype,
+			Path:    apiInfo.Path,
+			Comment: apiInfo.Comment,
+		},
+		Origin:      origin,
 		Revision:    apiInfo.Revision,
-		Fingerprint: apiInfo.Fingerprint,
+		Fingerprint: fp,
 		Size:        apiInfo.Size,
 	}
-	res, err := serialized.DeserializeCharm()
-	if err != nil {
+
+	if err := res.Validate(); err != nil {
 		return res, errors.Trace(err)
 	}
 	return res, nil

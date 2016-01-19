@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -134,46 +135,62 @@ type resourceDoc struct {
 func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.
-	serialized := resource.Serialize(res)
 	return &resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
-		Name:    serialized.Name,
-		Type:    serialized.Type,
-		Path:    serialized.Path,
-		Comment: serialized.Comment,
+		Name:    res.Name,
+		Type:    res.Type.String(),
+		Path:    res.Path,
+		Comment: res.Comment,
 
-		Origin:      serialized.Origin,
-		Revision:    serialized.Revision,
-		Fingerprint: serialized.Fingerprint,
-		Size:        serialized.Size,
+		Origin:      res.Origin.String(),
+		Revision:    res.Revision,
+		Fingerprint: res.Fingerprint.Bytes(),
+		Size:        res.Size,
 
-		Username:  serialized.Username,
-		Timestamp: serialized.Timestamp,
+		Username:  res.Username,
+		Timestamp: res.Timestamp,
 	}
 }
 
 // doc2resource returns the resource.Resource represented by the doc.
 func doc2resource(doc resourceDoc) (resource.Resource, error) {
-	serialized := resource.Serialized{
-		Name:    doc.Name,
-		Type:    doc.Type,
-		Path:    doc.Path,
-		Comment: doc.Comment,
+	var res resource.Resource
 
-		Origin:      doc.Origin,
-		Revision:    doc.Revision,
-		Fingerprint: doc.Fingerprint,
-		Size:        doc.Size,
-
-		Username:  doc.Username,
-		Timestamp: doc.Timestamp,
-	}
-	res, err := serialized.Deserialize()
+	resType, err := charmresource.ParseType(doc.Type)
 	if err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
 
+	origin, err := charmresource.ParseOrigin(doc.Origin)
+	if err != nil {
+		return res, errors.Annotate(err, "got invalid data from DB")
+	}
+
+	fp, err := resource.DeserializeFingerprint(doc.Fingerprint)
+	if err != nil {
+		return res, errors.Annotate(err, "got invalid data from DB")
+	}
+
+	res = resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    doc.Name,
+				Type:    resType,
+				Path:    doc.Path,
+				Comment: doc.Comment,
+			},
+			Origin:      origin,
+			Revision:    doc.Revision,
+			Fingerprint: fp,
+			Size:        doc.Size,
+		},
+		Username:  doc.Username,
+		Timestamp: doc.Timestamp,
+	}
+	if err := res.Validate(); err != nil {
+		return res, errors.Annotate(err, "got invalid data from DB")
+	}
 	return res, nil
 }
