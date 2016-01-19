@@ -210,7 +210,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, utils.VerifySSLHostnames),
+			"local metadata directory", toolsURL, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false),
 		}
 	}
 	params.Stream = c.stream

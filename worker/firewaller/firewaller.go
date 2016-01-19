@@ -130,7 +130,9 @@ func (fw *Firewaller) loop() error {
 				return watcher.EnsureErr(fw.machinesWatcher)
 			}
 			for _, machineId := range change {
-				fw.machineLifeChanged(names.NewMachineTag(machineId))
+				if err := fw.machineLifeChanged(names.NewMachineTag(machineId)); err != nil {
+					return err
+				}
 			}
 			if !reconciled {
 				reconciled = true

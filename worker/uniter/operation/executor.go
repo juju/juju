@@ -65,7 +65,7 @@ func (x *executor) State() State {
 
 // Run is part of the Executor interface.
 func (x *executor) Run(op Operation) (runErr error) {
-	logger.Infof("running operation %v", op)
+	logger.Debugf("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {
 		unlock, err := x.acquireMachineLock(fmt.Sprintf("executing operation: %s", op.String()))
@@ -99,13 +99,13 @@ func (x *executor) Run(op Operation) (runErr error) {
 
 // Skip is part of the Executor interface.
 func (x *executor) Skip(op Operation) error {
-	logger.Infof("skipping operation %v", op)
+	logger.Debugf("skipping operation %v", op)
 	return x.do(op, stepCommit)
 }
 
 func (x *executor) do(op Operation, step executorStep) (err error) {
 	message := step.message(op)
-	logger.Infof(message)
+	logger.Debugf(message)
 	newState, firstErr := step.run(op, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(*newState)

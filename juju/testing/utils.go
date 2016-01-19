@@ -5,8 +5,6 @@ package testing
 
 import (
 	"bytes"
-	"fmt"
-	"reflect"
 	"text/template"
 
 	jc "github.com/juju/testing/checkers"
@@ -75,27 +73,28 @@ func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 //     VLANTag: 42,
 // })
 func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate state.SubnetInfo) {
-	infot := reflect.TypeOf(infoTemplate)
 	for subnetIndex := 0; subnetIndex < int(numSubnets); subnetIndex++ {
 		info := infoTemplate // make a copy each time.
 
-		for fieldIndex := 0; fieldIndex < infot.NumField(); fieldIndex++ {
-			fieldv := reflect.ValueOf(&info).Elem().Field(fieldIndex)
-
-			if fieldv.Kind() != reflect.String {
-				// Skip non string fields.
-				continue
-			}
-
-			text := fmt.Sprint(fieldv.Interface())
-			t, err := template.New("").Parse(text)
+		// permute replaces the contents of *s with the result of interpreting
+		// *s as a template.
+		permute := func(s string) string {
+			t, err := template.New("").Parse(s)
 			c.Assert(err, jc.ErrorIsNil)
 
 			var buf bytes.Buffer
 			err = t.Execute(&buf, subnetIndex)
 			c.Assert(err, jc.ErrorIsNil)
-			fieldv.SetString(buf.String())
+			return buf.String()
 		}
+
+		info.ProviderId = network.Id(permute(string(info.ProviderId)))
+		info.CIDR = permute(info.CIDR)
+		info.AllocatableIPHigh = permute(info.AllocatableIPHigh)
+		info.AllocatableIPLow = permute(info.AllocatableIPLow)
+		info.AvailabilityZone = permute(info.AvailabilityZone)
+		info.SpaceName = permute(info.SpaceName)
+
 		_, err := st.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)
 	}

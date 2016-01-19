@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -102,7 +101,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series)
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, icfg.Series, "")
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
@@ -119,8 +118,9 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints: checkCons,
-		Placement:   checkPlacement,
+		BootstrapConstraints: checkCons,
+		EnvironConstraints:   checkCons,
+		Placement:            checkPlacement,
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
@@ -202,7 +202,7 @@ var testSSHTimeout = config.SSHTimeoutOpts{
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 	ctx := coretesting.Context(c)
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, `waited for `+testSSHTimeout.Timeout.String()+` without getting any addresses`)
 	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
@@ -211,7 +211,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	ctx := coretesting.Context(c)
 	interrupted := make(chan os.Signal, 1)
 	interrupted <- os.Interrupt
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
@@ -226,7 +226,7 @@ func (brokenAddresses) Addresses() ([]network.Address, error) {
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 	ctx := coretesting.Context(c)
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, testSSHTimeout)
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
 	c.Check(coretesting.Stderr(ctx), gc.Equals, "Waiting for address\n")
 }
@@ -243,7 +243,7 @@ func (n *neverOpensPort) Addresses() ([]network.Address, error) {
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	ctx := coretesting.Context(c)
 	// 0.x.y.z addresses are always invalid
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
 		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.3`)
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
@@ -273,7 +273,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
 	interrupted := make(chan os.Signal, 1)
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout)
+	_, err := common.WaitSSH(ctx.Stderr, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	// Exact timing is imprecise but it should have tried a few times before being killed
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
@@ -298,7 +298,7 @@ func (ac *addressesChange) Addresses() ([]network.Address, error) {
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	ctx := coretesting.Context(c)
-	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,
 		nil,
 		{"0.1.2.3"},

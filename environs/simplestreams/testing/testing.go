@@ -7,13 +7,14 @@ package testing
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
 )
@@ -534,22 +535,60 @@ var imageData = map[string]string{
 `,
 }
 
-var testRoundTripper *jujutest.ProxyRoundTripper
+var TestRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	testRoundTripper.RegisterForScheme("test")
+	TestRoundTripper.RegisterForScheme("test")
+	TestRoundTripper.RegisterForScheme("signedtest")
 }
 
 type TestDataSuite struct{}
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
-		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
+	TestRoundTripper.Sub = testing.NewCannedRoundTripper(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
 func (s *TestDataSuite) TearDownSuite(c *gc.C) {
-	testRoundTripper.Sub = nil
+	TestRoundTripper.Sub = nil
+}
+
+const (
+	UnsignedJsonSuffix = ".json"
+	SignedJsonSuffix   = ".sjson"
+)
+
+func SetRoundTripperFiles(files map[string]string, errorFiles map[string]int) {
+	TestRoundTripper.Sub = testing.NewCannedRoundTripper(files, errorFiles)
+}
+
+func AddSignedFiles(c *gc.C, files map[string]string) map[string]string {
+	all := make(map[string]string)
+	for name, content := range files {
+		all[name] = content
+		// Sign file content
+		r := strings.NewReader(content)
+		bytes, err := ioutil.ReadAll(r)
+		c.Assert(err, jc.ErrorIsNil)
+		signedName, signedContent, err := SignMetadata(name, bytes)
+		c.Assert(err, jc.ErrorIsNil)
+		all[signedName] = string(signedContent)
+	}
+	return all
+}
+
+func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
+	signString := func(unsigned string) string {
+		return strings.Replace(unsigned, UnsignedJsonSuffix, SignedJsonSuffix, -1)
+	}
+
+	// Make sure that contents point to signed files too.
+	signedFileData := signString(string(fileData))
+	signedBytes, err := simplestreams.Encode(strings.NewReader(signedFileData), SignedMetadataPrivateKey, PrivateKeyPassphrase)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return signString(fileName), signedBytes, nil
 }
 
 func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURLs []string) {

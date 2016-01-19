@@ -63,8 +63,8 @@ type DeployCommand struct {
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
-	AfterSteps []DeployStep
-	Bindings   map[string]string
+	Bindings map[string]string
+	Steps    []DeployStep
 }
 
 const deployDoc = `
@@ -82,7 +82,7 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-  
+
 The current series for charms is determined first by the default-series environment
 setting, followed by the preferred series for the charm in the charm store.
 
@@ -179,8 +179,10 @@ See Also:
 type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
-	// Run the deploy step.
-	Run(api.Connection, *http.Client, DeploymentInfo) error
+	// RunPre runs before the call is made to add the charm to the environment.
+	RunPre(api.Connection, *http.Client, DeploymentInfo) error
+	// RunPost runs after the call is made to add the charm to the environment.
+	RunPost(api.Connection, *http.Client, DeploymentInfo) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -213,7 +215,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure service endpoint bindings to spaces")
-	for _, step := range c.AfterSteps {
+	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
 }
@@ -360,6 +362,10 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// Store the charm in state.
 	curl, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
 	if err != nil {
+		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
+			terms := strings.Join(err1.Terms, " ")
+			return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+		}
 		return errors.Annotatef(err, "storing charm for URL %q", charmOrBundleURL)
 	}
 	ctx.Infof("Added charm %q to the environment.", curl)
@@ -464,6 +470,28 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
+	state, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deployInfo := DeploymentInfo{
+		CharmURL:    curl,
+		ServiceName: serviceName,
+		EnvUUID:     client.EnvironmentUUID(),
+	}
+
+	for _, step := range c.Steps {
+		err = step.RunPre(state, httpClient, deployInfo)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := deployer.serviceDeploy(serviceDeployParams{
 		curl.String(),
 		serviceName,
@@ -480,27 +508,22 @@ func (c *DeployCommand) deployCharm(
 		return err
 	}
 
-	state, err := c.NewAPIRoot()
+	state, err = c.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	httpClient, err := c.HTTPClient()
+	httpClient, err = c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deployInfo := DeploymentInfo{
-		CharmURL:    curl,
-		ServiceName: serviceName,
-		EnvUUID:     client.EnvironmentUUID(),
-	}
-
-	for _, step := range c.AfterSteps {
-		err = step.Run(state, httpClient, deployInfo)
+	for _, step := range c.Steps {
+		err = step.RunPost(state, httpClient, deployInfo)
 		if err != nil {
 			return err
 		}
 	}
+
 	return err
 }
 

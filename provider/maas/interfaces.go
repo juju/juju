@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -259,11 +259,12 @@ func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][
 
 // networkDetails holds information about a MAAS network.
 type networkDetails struct {
-	Name        string
-	IP          string
-	Mask        string
-	VLANTag     int
-	Description string
+	Name           string
+	IP             string
+	Mask           string
+	VLANTag        int
+	Description    string
+	DefaultGateway string
 }
 
 // getInstanceNetworks returns a list of all MAAS networks for a given node.
@@ -473,17 +474,22 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Int
 			return nil, errors.Annotatef(err, "getNetworkMACs failed")
 		}
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
+		var defaultGateway network.Address
+		if netw.DefaultGateway != "" {
+			defaultGateway = network.NewAddress(netw.DefaultGateway)
+		}
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
 				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
-					MACAddress:    mac,
-					InterfaceName: ifinfo.InterfaceName,
-					DeviceIndex:   ifinfo.DeviceIndex,
-					CIDR:          netCIDR.String(),
-					VLANTag:       netw.VLANTag,
-					ProviderId:    network.Id(netw.Name),
-					NetworkName:   netw.Name,
-					Disabled:      ifinfo.Disabled,
+					MACAddress:     mac,
+					InterfaceName:  ifinfo.InterfaceName,
+					DeviceIndex:    ifinfo.DeviceIndex,
+					CIDR:           netCIDR.String(),
+					VLANTag:        netw.VLANTag,
+					ProviderId:     network.Id(netw.Name),
+					NetworkName:    netw.Name,
+					Disabled:       ifinfo.Disabled,
+					GatewayAddress: defaultGateway,
 				})
 			}
 		}

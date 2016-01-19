@@ -9,10 +9,11 @@ import (
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
@@ -71,28 +72,15 @@ func DeleteBucket(s storage.Storage) error {
 	return deleteBucket(s.(*ec2storage))
 }
 
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
-
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
-
-var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-func UseTestImageData(files map[string]string) {
+func UseTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		imagemetadata.DefaultBaseURL = "test:"
-		signedImageDataOnly = false
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 	} else {
-		signedImageDataOnly = true
-		testRoundTripper.Sub = nil
-		imagemetadata.DefaultBaseURL = origImagesUrl
+		sstesting.SetRoundTripperFiles(nil, nil)
 	}
 }
 
@@ -102,7 +90,6 @@ func UseTestRegionData(content map[string]aws.Region) {
 	} else {
 		allRegions = aws.Regions
 	}
-
 }
 
 // UseTestInstanceTypeData causes the given instance type
@@ -150,6 +137,38 @@ func (s *ec2storage) ResetMadeBucket() {
 	s.madeBucket = false
 }
 
+func makeImage(id, storage, virtType, arch, version, region string) *imagemetadata.ImageMetadata {
+	return &imagemetadata.ImageMetadata{
+		Id:         id,
+		Storage:    storage,
+		VirtType:   virtType,
+		Arch:       arch,
+		Version:    version,
+		RegionName: region,
+		Endpoint:   "https://ec2.endpoint.com",
+		Stream:     "released",
+	}
+}
+
+var TestImageMetadata = []*imagemetadata.ImageMetadata{
+	// 14.04:amd64
+	makeImage("ami-00000033", "ssd", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000039", "ebs", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000035", "ssd", "hvm", "amd64", "14.04", "test"),
+
+	// 14.04:i386
+	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
+
+	// 12.10:amd64
+	makeImage("ami-01000035", "ssd", "hvm", "amd64", "12.10", "test"),
+
+	// 12.10:i386
+	makeImage("ami-01000034", "ssd", "pv", "i386", "12.10", "test"),
+
+	// 13.04:i386
+	makeImage("ami-02000034", "ssd", "pv", "i386", "13.04", "test"),
+}
+
 var TestImagesData = map[string]string{
 	"/streams/v1/index.json": `
         {
@@ -173,14 +192,14 @@ var TestImagesData = map[string]string{
             "com.ubuntu.cloud:server:12.10:i386",
             "com.ubuntu.cloud:server:13.04:i386"
            ],
-           "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
+           "path": "streams/v1/com.ubuntu.cloud:released:aws.json"
           }
          },
          "updated": "Wed, 01 May 2013 13:31:26 +0000",
          "format": "index:1.0"
         }
 `,
-	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
+	"/streams/v1/com.ubuntu.cloud:released:aws.json": `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {

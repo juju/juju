@@ -66,7 +66,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -258,7 +258,7 @@ type MultiEnvStateSuite struct {
 
 func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -2057,6 +2057,53 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err = s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Placement: []*instance.Placement{
+			{instance.MachineScope, m.Id()},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": cannot deploy to machine .*: series does not match")
+}
+
+func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// A charm with a series in its URL is implicitly supported by that
+	// series only.
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: "centos7",
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+}
+
+func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// A charm with a series in its URL is implicitly supported by that
+	// series only.
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: charm.URL().Series,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
+	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	// A charm with supported series can only be force-deployed to series
+	// of the same operating systems as the suppoted series.
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: "centos7",
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+}
+
 func (s *StateSuite) TestAllServices(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()
@@ -2921,7 +2968,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	err = state.SetEnvLifeDying(st, st.EnvironUUID())
+	err = state.SetEnvLifeDead(st, st.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveAllEnvironDocs()

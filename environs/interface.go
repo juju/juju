@@ -6,7 +6,6 @@ package environs
 import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -73,12 +72,6 @@ type EnvironConfigUpgrader interface {
 	// version upgrade, so the upgrades package is not tightly coupled
 	// to provider upgrades.
 	UpgradeConfig(cfg *config.Config) (*config.Config, error)
-}
-
-// EnvironStorage implements storage access for an environment.
-type EnvironStorage interface {
-	// Storage returns storage specific to the environment.
-	Storage() storage.Storage
 }
 
 // ConfigGetter implements access to an environment's configuration.
