@@ -1439,7 +1439,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newDiskManager, newWorker)
+	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
