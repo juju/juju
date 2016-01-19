@@ -13,14 +13,13 @@ def main():
     for val in substitutes.values():
         for subval in val:
             assert subval not in sys.argv, '{} not permitted.'.format(subval)
-    env = dict(os.environ)
     for arg in sys.argv[1:]:
         arg = substitutes.get(arg, [arg])
         args.extend(arg)
     if '--version' in args:
-        print '2.0-alpha2'
+        print '2.0-alpha2-fake-wrapper'
         return 0
-    return subprocess.call([os.environ['REAL_JUJU']] + args, env=env)
+    return subprocess.call([os.environ['REAL_JUJU']] + args)
 
 
 if __name__ == '__main__':

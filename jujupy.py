@@ -275,8 +275,8 @@ class EnvJujuClient:
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
         self.env = env
-        if version == '2.0-alpha2':
-            version = '2.0-alpha1'
+        if version == '2.0-alpha2-fake-wrapper':
+            version = '2.0-alpha1-juju-wrapped'
         self.version = version
         self.full_path = full_path
         self.debug = debug
@@ -695,8 +695,6 @@ class EnvJujuClient:
             raise Exception("Timed out waiting for %s" % thing)
 
     def get_matching_agent_version(self, no_build=False):
-        if self.version == '2.0-alpha2':
-            return '2.0-alpha1'
         # strip the series and srch from the built version.
         version_parts = self.version.split('-')
         if len(version_parts) == 4:
