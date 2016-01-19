@@ -1439,7 +1439,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newDiskManager, newWorker)
+	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1801,12 +1801,15 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
 		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 		default:
 		}
-		return machiner.NewMachiner(cfg)
+
+		// The test just cares that NewMachiner is called with the correct
+		// value, nothing else is done with the worker.
+		return newDummyWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
