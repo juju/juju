@@ -782,7 +782,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '1.38'}},
+                'agent-version': '2.0-zeta1'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
@@ -803,7 +803,8 @@ class TestTestUpgrade(FakeHomeTestCase):
                     with patch('deploy_stack.get_random_string',
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
-                                   side_effect=lambda cls: '1.38'):
+                                   side_effect=lambda cls:
+                                   '2.0-zeta1-arch-series'):
                             yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
@@ -814,7 +815,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo', '--version',
-            '1.38'), 0)
+            '2.0-zeta1'), 0)
         self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
@@ -828,11 +829,11 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_called_once_with('1.38', 600)
+            wfv_mock.assert_called_once_with('2.0-zeta1', 600)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_called_once_with('1.38', 1200)
+        wfv_mock.assert_called_once_with('2.0-zeta1', 1200)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
@@ -1185,10 +1186,10 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar'), 1)
 
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1213,10 +1214,10 @@ class TestBootContext(FakeHomeTestCase):
                               keep_env=True, upload_tools=False):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar'), 1)
 
     def test_upload_tools(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1239,7 +1240,7 @@ class TestBootContext(FakeHomeTestCase):
                               keep_env=False, upload_tools=True):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'bar', '--upload-tools',
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
             '--constraints', 'mem=2G'), 0)
 
     def test_calls_update_env(self):
@@ -1273,7 +1274,7 @@ class TestBootContext(FakeHomeTestCase):
             client.env, 'bar', series='wacky', bootstrap_host=None,
             agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'bar',
+            'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
     def test_with_bootstrap_failure(self):
