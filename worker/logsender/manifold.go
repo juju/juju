@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/worker"
@@ -21,27 +22,10 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a logger
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: []string{
-			config.APICallerName,
-		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			if config.UpgradeWaiterName != util.UpgradeWaitNotRequired {
-				var upgradesDone bool
-				if err := getResource(config.UpgradeWaiterName, &upgradesDone); err != nil {
-					return nil, err
-				}
-				if !upgradesDone {
-					return nil, dependency.ErrMissing
-				}
-			}
 
-			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
-				return nil, err
-			}
-
-			return New(config.LogSource, logsender.NewAPI(apiCaller)), nil
-		},
+	newWorker := func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+		return New(config.LogSource, logsender.NewAPI(apiCaller)), nil
 	}
+
+	return util.PostUpgradeManifold(config.PostUpgradeManifoldConfig, newWorker)
 }

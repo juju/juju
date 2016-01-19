@@ -229,6 +229,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			LogSource: config.LogSource,
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
 				APICallerName:     apiCallerName,
 				UpgradeWaiterName: upgradeWaiterName,
 			},

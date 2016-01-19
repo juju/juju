@@ -77,6 +77,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         AgentName,
 				APICallerName:     APICallerName,
 				UpgradeWaiterName: util.UpgradeWaitNotRequired,
 			},
