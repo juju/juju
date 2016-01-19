@@ -279,7 +279,10 @@ func (r resources) registerHookContext() {
 		resource.ComponentName,
 		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
 			unitID := names.NewUnitTag(config.UnitName).String()
-			hctxClient := r.newUnitFacadeClient(unitID, config.APICaller)
+			hctxClient, err := r.newUnitFacadeClient(unitID, config.APICaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			return context.NewContextAPI(hctxClient, config.DataDir), nil
 		},
@@ -360,14 +363,12 @@ func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{
 	return d.doer.Do(req, body, response)
 }
 
-func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) context.APIClient {
+func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
 	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
 	doer, err := caller.HTTPClient()
 	if err != nil {
-		// TODO(katco): For demo; fix
-		panic(err)
-		//return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	unitDoer := &UnitDoer{
@@ -375,5 +376,5 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) c
 		unitName: unitName,
 	}
 
-	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer)
+	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer), nil
 }
