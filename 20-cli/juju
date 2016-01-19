@@ -9,6 +9,7 @@ def main():
         '-m': ['-e'],
         'run-action': ['action', 'do'],
         'show-action-output': ['action', 'fetch'],
+        'remove-service': ['destroy-service'],
     }
     args = []
     forbidden_values = set()
