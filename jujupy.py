@@ -474,6 +474,9 @@ class EnvJujuClient:
             args.extend([service])
         return self.juju('deploy', tuple(args))
 
+    def remove_service(self, service):
+        self.juju('destroy-service', (service,))
+
     def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
         args = (

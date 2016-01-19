@@ -314,6 +314,9 @@ class FakeJujuClient:
             service_name = charm_name.split(':')[-1]
         self._backing_state.deploy(charm_name, service_name)
 
+    def remove_service(self, service):
+        self._backing_state.destroy_service(service)
+
     def wait_for_started(self, timeout=1200, start=None):
         pass
 
@@ -1070,6 +1073,13 @@ class TestEnvJujuClient(ClientTest):
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
+
+    def test_remove_service(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('destroy-service', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
@@ -2372,6 +2382,13 @@ class TestEnvJujuClient1X(ClientTest):
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
+
+    def test_remove_service(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('destroy-service', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient1X(
