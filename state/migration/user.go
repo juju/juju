@@ -124,8 +124,8 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		"display-name":    schema.String(),
 		"created-by":      schema.String(),
 		"read-only":       schema.Bool(),
-		"date-created":    SchemaTime(),
-		"last-connection": SchemaTime(),
+		"date-created":    schema.Time(),
+		"last-connection": schema.Time(),
 	}
 
 	// Some values don't have to be there.
