@@ -272,20 +272,20 @@ class TestUnleashOnce(FakeHomeTestCase):
             output = {
                 ('status',): status,
                 ('get', 'jenkins'): charm_config,
-                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): ('Action queued with id: '
                      'abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
-                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120',
                  'monkey-id=abcdabcdabcdabcdabcdabcdabcdabcdabcd'
                  ): ('Action queued with id: '
                      'efabefabefabefabefabefabefabefabefab'),
-                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): ('Action queued with id: '
                      '123412341234123412341234123412341234'),
-                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120',
                  'monkey-id=123412341234123412341234123412341234'
                  ): ('Action queued with id: '
@@ -312,7 +312,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             })
             output = {
                 ('status',): status,
-                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120',
                  'monkey-id=123412341234123412341234123412341234'
                  ): ('Action queued with id: '
@@ -328,9 +328,9 @@ class TestUnleashOnce(FakeHomeTestCase):
         self.assertEqual(
             [
                 call('status'),
-                call('action do', 'chaos-monkey/1', 'start', 'mode=single',
+                call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
-                call('action do', 'chaos-monkey/0', 'start', 'mode=single',
+                call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                      'enablement-timeout=120'),
             ],
             gjo_mock.call_args_list)
@@ -344,11 +344,11 @@ class TestUnleashOnce(FakeHomeTestCase):
         self.assertEqual(
             [
                 call('status'),
-                call('action do',
+                call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',
                      'monkey-id=123412341234123412341234123412341234'),
-                call('action do',
+                call('run-action',
                      'chaos-monkey/0', 'start', 'mode=single',
                      'enablement-timeout=120',
                      'monkey-id=abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
@@ -383,7 +383,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             })
             output = {
                 ('status',): status,
-                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
+                ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action fail',
                 }

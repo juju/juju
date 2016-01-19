@@ -1833,7 +1833,7 @@ class TestEnvJujuClient(ClientTest):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
         mock.assert_called_once_with(
-            'action do', 'foo/0', 'myaction', "param=5"
+            'run-action', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -1854,7 +1854,7 @@ class TestEnvJujuClient(ClientTest):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_once_with(
-            'action fetch', '123', "--wait", "1m"
+            'show-action-output', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):

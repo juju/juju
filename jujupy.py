@@ -745,9 +745,7 @@ class EnvJujuClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        # the command has to be "action fetch" so that the -e <env> args are
-        # placed after "fetch", since that's where action requires them to be.
-        out = self.get_juju_output("action fetch", id, "--wait", timeout)
+        out = self.get_juju_output("show-action-output", id, "--wait", timeout)
         status = yaml_loads(out)["status"]
         if status != "completed":
             name = ""
@@ -766,9 +764,7 @@ class EnvJujuClient:
         """
         args = (unit, action) + args
 
-        # the command has to be "action do" so that the -e <env> args are
-        # placed after "do", since that's where action requires them to be.
-        output = self.get_juju_output("action do", *args)
+        output = self.get_juju_output("run-action", *args)
         action_id_pattern = re.compile(
             'Action queued with id: ([a-f0-9\-]{36})')
         match = action_id_pattern.search(output)
@@ -811,6 +807,46 @@ class EnvJujuClient2A1(EnvJujuClient):
         # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def action_fetch(self, id, action=None, timeout="1m"):
+        """Fetches the results of the action with the given id.
+
+        Will wait for up to 1 minute for the action results.
+        The action name here is just used for an more informational error in
+        cases where it's available.
+        Returns the yaml output of the fetched action.
+        """
+        # the command has to be "action fetch" so that the -e <env> args are
+        # placed after "fetch", since that's where action requires them to be.
+        out = self.get_juju_output("action fetch", id, "--wait", timeout)
+        status = yaml_loads(out)["status"]
+        if status != "completed":
+            name = ""
+            if action is not None:
+                name = " " + action
+            raise Exception(
+                "timed out waiting for action%s to complete during fetch" %
+                name)
+        return out
+
+    def action_do(self, unit, action, *args):
+        """Performs the given action on the given unit.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the id of the queued action.
+        """
+        args = (unit, action) + args
+
+        # the command has to be "action do" so that the -e <env> args are
+        # placed after "do", since that's where action requires them to be.
+        output = self.get_juju_output("action do", *args)
+        action_id_pattern = re.compile(
+            'Action queued with id: ([a-f0-9\-]{36})')
+        match = action_id_pattern.search(output)
+        if match is None:
+            raise Exception("Action id not found in output: %s" %
+                            output)
+        return match.group(1)
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):
