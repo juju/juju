@@ -34,7 +34,7 @@ type Context struct {
 	unitDataDirPath string
 }
 
-func (c *Context) GetResource(name string) (string, error) {
+func (c *Context) DownloadResource(name string) (string, error) {
 	// TODO(katco): Check to see if we have latest version
 
 	checksumWriter := charmresource.NewFingerprintHash()
@@ -62,7 +62,7 @@ func (c *Context) Flush() error {
 }
 
 type HookContext interface {
-	GetResource(name string) (filePath string, _ error)
+	DownloadResource(name string) (filePath string, _ error)
 }
 
 func ResourceExistsOnFilesystem(resourcePath string) (bool, error) {

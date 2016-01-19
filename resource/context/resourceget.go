@@ -47,9 +47,9 @@ func (c *ResourceGetCmd) Init(args []string) error {
 }
 
 func (c ResourceGetCmd) Run(ctx *cmd.Context) error {
-	filePath, err := c.hookContext.GetResource(c.resourceName)
+	filePath, err := c.hookContext.DownloadResource(c.resourceName)
 	if err != nil {
-		return errors.Annotate(err, "could not get resource")
+		return errors.Annotate(err, "could not download resource")
 	}
 
 	if _, err := fmt.Fprintf(ctx.Stdout, filePath); err != nil {
