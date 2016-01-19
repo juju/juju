@@ -211,7 +211,18 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	hostPorts := network.AddressesWithPort(addrs, apiPort)
+	var hostPorts []network.HostPort
+	// First try to select the correct address using the default space where all
+	// API servers should be accessible on.
+	spaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	if ok {
+		logger.Debugf("selected %q as API address, using space %q", spaceAddr.Value, network.DefaultSpace)
+		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
+	} else {
+		// Fallback to using all instead.
+		hostPorts = network.AddressesWithPort(addrs, apiPort)
+	}
+
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 

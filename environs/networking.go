@@ -40,9 +40,20 @@ type Networking interface {
 	// (e.g. "subnetId must be set").
 	SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
-	// SupportsSpaces returns whether the current environment supports spaces. The
-	// returned error satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	// SupportsSpaces returns whether the current environment supports
+	// spaces. The returned error satisfies errors.IsNotSupported(),
+	// unless a general API failure occurs.
 	SupportsSpaces() (bool, error)
+
+	// SupportsSpaceDiscovery returns whether the current environment
+	// supports discovering spaces from the provider. The returned error
+	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	SupportsSpaceDiscovery() (bool, error)
+
+	// Spaces returns a slice of network.SpaceInfo with info, including
+	// details of all associated subnets, about all spaces known to the
+	// provider that have subnets available.
+	Spaces() ([]network.SpaceInfo, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

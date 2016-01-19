@@ -1053,6 +1053,26 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+// TODO: (mfoord) make this configurable.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	return true, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+// TODO(mfoord): This should be configurable.
+func (env *environ) SupportSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
+// Spaces is specified on environs.Networking.
+// TODO(mfoord): This should support the broken setting
+// for injecting errors and allow returning a pre-canned
+// list of spaces.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	return []network.SpaceInfo{}, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {

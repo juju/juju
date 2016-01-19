@@ -30,6 +30,10 @@ const (
 	DefaultProviderId = "juju-unknown"
 )
 
+// DefaultSpace is the name used for the default space for an environment.
+// TODO(dimitern): Make this configurable per environment.
+const DefaultSpace = "default"
+
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
 	errors.Err
@@ -86,14 +90,15 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceName holds the juju network space associated with this
-	// subnet. Can be empty if not supported.
-	SpaceName string
+	// SpaceProviderId holds the provider Id of the space associated with
+	// this subnet. Can be empty if not supported.
+	SpaceProviderId Id
 }
 
 type SpaceInfo struct {
-	Name  string
-	CIDRs []string
+	Name       string
+	ProviderId Id
+	Subnets    []SubnetInfo
 }
 type BySpaceName []SpaceInfo
 
@@ -177,6 +182,11 @@ type InterfaceInfo struct {
 	// hostnames to configure as DNS servers for this network
 	// interface.
 	DNSServers []Address
+
+	// MTU is the Maximum Transmission Unit controlling the maximum size of the
+	// protocol packats that the interface can pass through. It is only used
+	// when > 0.
+	MTU int
 
 	// DNSSearch contains the default DNS domain to use for
 	// non-FQDN lookups.

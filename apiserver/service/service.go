@@ -103,6 +103,13 @@ func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.
 	return result, nil
 }
 
+// ServicesDeployWithBindings fetches the charms from the charm store and deploys them
+// using the specified placement directives and saving the specified endpoint bindings.
+// It is identical to ServicesDeployWithPlacement, but only exists when the API supports bindings.
+func (api *API) ServicesDeployWithBindings(args params.ServicesDeploy) (params.ErrorResults, error) {
+	return api.ServicesDeployWithPlacement(args)
+}
+
 // DeployService fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new service facade.
@@ -161,15 +168,16 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			ServiceName: args.ServiceName,
 			Series:      args.Series,
 			// TODO(dfc) ServiceOwner should be a tag
-			ServiceOwner:   owner,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
-			Placement:      args.Placement,
-			Networks:       requestedNetworks,
-			Storage:        args.Storage,
+			ServiceOwner:     owner,
+			Charm:            ch,
+			NumUnits:         args.NumUnits,
+			ConfigSettings:   settings,
+			Constraints:      args.Constraints,
+			ToMachineSpec:    args.ToMachineSpec,
+			Placement:        args.Placement,
+			Networks:         requestedNetworks,
+			Storage:          args.Storage,
+			EndpointBindings: args.EndpointBindings,
 		})
 	return err
 }

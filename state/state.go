@@ -1096,16 +1096,17 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 type AddServiceArgs struct {
-	Name        string
-	Series      string
-	Owner       string
-	Charm       *Charm
-	Networks    []string
-	Storage     map[string]StorageConstraints
-	Settings    charm.Settings
-	NumUnits    int
-	Placement   []*instance.Placement
-	Constraints constraints.Value
+	Name             string
+	Series           string
+	Owner            string
+	Charm            *Charm
+	Networks         []string
+	Storage          map[string]StorageConstraints
+	EndpointBindings map[string]string
+	Settings         charm.Settings
+	NumUnits         int
+	Placement        []*instance.Placement
+	Constraints      constraints.Value
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1141,7 +1142,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1239,6 +1239,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
+	endpointBindingsOp, err := createEndpointBindingsOp(
+		st, svc.globalKey(),
+		args.EndpointBindings, args.Charm.Meta(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	statusDoc := statusDoc{
 		EnvUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
@@ -1256,11 +1264,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
+		createRequestedNetworksOp(st, svc.globalKey(), nil),
+		endpointBindingsOp,
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1281,6 +1288,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	// Collect peer relation addition operations.
+	//
+	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+	// follow-up.
 	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1549,7 +1559,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
-		ProviderId:        args.ProviderId,
+		ProviderId:        string(args.ProviderId),
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,

@@ -494,10 +494,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	prereqOps = []txn.Op{
 		createConstraintsOp(st, globalKey, template.Constraints),
 		createStatusOp(st, globalKey, statusDoc),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
 		createRequestedNetworksOp(st, globalKey, template.RequestedNetworks),
 		createMachineBlockDevicesOp(mdoc.Id),
 	}

@@ -943,9 +943,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	defer p.Stop()
 
 	// Add the spaces used in constraints.
-	_, err := s.State.AddSpace("space1", nil, false)
+	_, err := s.State.AddSpace("space1", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 1 subnet into space1, and 2 into space2.
@@ -1042,7 +1042,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C) {
-	_, err := s.State.AddSpace("empty", nil, false)
+	_, err := s.State.AddSpace("empty", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=empty",

@@ -14,7 +14,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	3e9b30af648f96e85d8f41f946ae4a1ce0ce588b	2015-06-11T10:42:44Z
-github.com/juju/bundlechanges	git	ad10a12382f17c55d3f30049671bddfe514cdcdd	2015-11-19T12:03:14Z
+github.com/juju/bundlechanges	git	ad533f529b3b4a8bb2b76bf6213f1ef6b68df392	2016-01-06T16:13:59Z
 github.com/juju/cmd	git	33554d631f79b840d76673665b292215882ba90a	2015-10-28T03:05:29Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
@@ -50,7 +50,7 @@ gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
 gopkg.in/goose.v1	git	33121bddecedb2c9f9053c5c84ee729c379ab5ac	2015-11-13T22:25:24Z
 gopkg.in/inconshreveable/log15.v2	git	b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f	2015-09-21T21:38:54Z
-gopkg.in/juju/charm.v6-unstable	git	ba541b945799430ccfcbab02453d898bfa714f27	2015-11-24T15:06:54Z
+gopkg.in/juju/charm.v6-unstable	git	0d22d549d60dbc5011064710a2913073ed951975	2016-01-06T15:03:58Z
 gopkg.in/juju/charmrepo.v2-unstable	git	b17697d8bb60cdac7d8ffd61e1357c9977cc2096	2015-11-30T13:55:09Z
 gopkg.in/juju/charmstore.v5-unstable	git	c727ba087ec577cd0f9d0eca475279992e7a626f	2015-12-16T15:38:24Z
 gopkg.in/juju/environschema.v1	git	7bea6a9a531586600a7741e9bdd5e3c978ffda15	2015-10-20T16:12:31Z

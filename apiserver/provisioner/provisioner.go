@@ -415,44 +415,54 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, err
 	}
+
 	volumes, err := p.machineVolumeParams(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// TODO(dimitern) Drop this once we only use spaces for
 	// deployments.
 	networks, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}
+
 	var jobs []multiwatcher.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}
+
 	tags, err := p.machineTags(m, jobs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	subnetsToZones, err := p.machineSubnetsAndZones(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 
+	endpointBindings, err := p.machineEndpointBindings(m)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
+	}
 	imageMetadata, err := p.availableImageMetadata(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get available image metadata")
 	}
 
 	return &params.ProvisioningInfo{
-		Constraints:    cons,
-		Series:         m.Series(),
-		Placement:      m.Placement(),
-		Networks:       networks,
-		Jobs:           jobs,
-		Volumes:        volumes,
-		Tags:           tags,
-		SubnetsToZones: subnetsToZones,
-		ImageMetadata:  imageMetadata,
+		Constraints:      cons,
+		Series:           m.Series(),
+		Placement:        m.Placement(),
+		Networks:         networks,
+		Jobs:             jobs,
+		Volumes:          volumes,
+		Tags:             tags,
+		SubnetsToZones:   subnetsToZones,
+		EndpointBindings: endpointBindings,
+		ImageMetadata:    imageMetadata,
 	}, nil
 }
 
@@ -1393,7 +1403,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 
 func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo) (*state.Subnet, error) {
 	stateSubnetInfo := state.SubnetInfo{
-		ProviderId:        string(subnetInfo.ProviderId),
+		ProviderId:        subnetInfo.ProviderId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AllocatableIPHigh: subnetInfo.AllocatableIPHigh.String(),
@@ -1496,7 +1506,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 			logger.Warningf(warningPrefix + "no availability zone(s) set")
 			continue
 		}
-		subnetsToZones[providerId] = []string{zone}
+		subnetsToZones[string(providerId)] = []string{zone}
 	}
 	return subnetsToZones, nil
 }
@@ -1514,10 +1524,48 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	if err != nil {
 		return nil, err
 	}
-
 	sort.Sort(metadataList(data))
 	logger.Debugf("available image metadata for provisioning: %v", data)
 	return data, nil
+}
+
+func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, err
+	}
+	var combinedBindings map[string]string
+	processedServicesSet := set.NewStrings()
+	for _, unit := range units {
+		if !unit.IsPrincipal() {
+			continue
+		}
+		service, err := unit.Service()
+		if err != nil {
+			return nil, err
+		}
+		if processedServicesSet.Contains(service.Name()) {
+			// Already processed, skip it.
+			continue
+		}
+		bindings, err := service.EndpointBindings()
+		if err != nil {
+			return nil, err
+		}
+		processedServicesSet.Add(service.Name())
+
+		if len(bindings) == 0 {
+			continue
+		}
+		if combinedBindings == nil {
+			combinedBindings = make(map[string]string)
+		}
+
+		for endpoint, space := range bindings {
+			combinedBindings[endpoint] = space
+		}
+	}
+	return combinedBindings, nil
 }
 
 // constructImageConstraint returns environment-specific criteria used to look for image metadata.

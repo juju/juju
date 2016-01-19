@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
@@ -125,6 +126,7 @@ var (
 	peergrouperNew           = peergrouper.New
 	newMachiner              = machiner.NewMachiner
 	newNetworker             = networker.NewNetworker
+	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
@@ -1269,6 +1271,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
 		return newAddresser(apiSt.Addresser())
+	})
+	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
+		return newDiscoverSpaces(apiSt.DiscoverSpaces()), nil
 	})
 
 	if machine.IsManager() {

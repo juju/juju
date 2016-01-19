@@ -751,9 +751,9 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", nil, true)
+	_, err := s.State.AddSpace("space1", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Only the first subnet of space2 has AllocatableIPLow|High set.
@@ -868,7 +868,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(c *gc.C) {
 	// Add an empty space.
-	_, err := s.State.AddSpace("empty", nil, true)
+	_, err := s.State.AddSpace("empty", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=empty")

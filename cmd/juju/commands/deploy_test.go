@@ -783,8 +783,8 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		TermsLocation:    s.termsDischarger.Location(),
 		PublicKeyLocator: keyring,
+		TermsLocation:    s.termsDischarger.Location(),
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -846,11 +846,25 @@ func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
 
 // serviceInfo holds information about a deployed service.
 type serviceInfo struct {
-	charm       string
-	config      charm.Settings
-	constraints constraints.Value
-	exposed     bool
-	storage     map[string]state.StorageConstraints
+	charm            string
+	config           charm.Settings
+	constraints      constraints.Value
+	exposed          bool
+	storage          map[string]state.StorageConstraints
+	endpointBindings map[string]string
+}
+
+// assertDeployedServiceBindings checks that services were deployed into the expected spaces.
+// It is separate to assertServicesDeployed because it is only relevant to one test.
+func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, service := range services {
+		endpointBindings, err := service.EndpointBindings()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(endpointBindings, jc.DeepEquals, info[service.Name()].endpointBindings)
+	}
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
@@ -1058,4 +1072,60 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
+}
+
+type ParseBindSuite struct {
+}
+
+var _ = gc.Suite(&ParseBindSuite{})
+
+const bindErrPrefix = "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
+
+func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: ""}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "foo@a bar@b"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"foo": "a", "bar": "b"})
+}
+
+func (s *ParseBindSuite) TestBindParseNoRelation(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "@default"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "default"})
+}
+
+func (s *ParseBindSuite) TestBindParseNoAt(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "foo"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Could not find '@'.")
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "foo@bar@baz"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Found multiple @ in binding. Did you forget to space-separate the binding list?")
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseDoc(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1@space1 rel2@space2 @space3"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1@spa#ce1"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Space name invalid.")
+	c.Assert(deploy.Bindings, gc.IsNil)
 }

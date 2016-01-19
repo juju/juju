@@ -577,6 +577,7 @@ func constructStartInstanceParams(
 			},
 		}
 	}
+
 	var subnetsToZones map[network.Id][]string
 	if provisioningInfo.SubnetsToZones != nil {
 		// Convert subnet provider ids from string to network.Id.
@@ -586,6 +587,13 @@ func constructStartInstanceParams(
 		}
 	}
 
+	var endpointBindings map[string]network.Id
+	if len(provisioningInfo.EndpointBindings) != 0 {
+		endpointBindings = make(map[string]network.Id)
+		for endpoint, space := range provisioningInfo.EndpointBindings {
+			endpointBindings[endpoint] = network.Id(space)
+		}
+	}
 	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
 	for i, metadata := range provisioningInfo.ImageMetadata {
 		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
@@ -608,6 +616,7 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }

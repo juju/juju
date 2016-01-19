@@ -256,6 +256,7 @@ var perEnvSingularWorkers = []string{
 	"addresserworker",
 	"environ-provisioner",
 	"charm-revision-updater",
+	"discoverspaces",
 	"instancepoller",
 	"firewaller",
 	"unitassigner",

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
@@ -365,6 +366,11 @@ func (st *state) Deployer() *deployer.State {
 // Addresser returns access to the Addresser API.
 func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
+}
+
+// DiscoverSpaces returns access to the DiscoverSpacesAPI.
+func (st *state) DiscoverSpaces() *discoverspaces.API {
+	return discoverspaces.NewAPI(st)
 }
 
 // Environment returns access to the Environment API
