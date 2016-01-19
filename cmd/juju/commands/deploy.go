@@ -505,8 +505,8 @@ func (c *DeployCommand) deployCharm(
 }
 
 // parseBind parses the --bind option. Valid forms are:
-// * relation-name@space-name
-// * @space-name
+// * relation-name=space-name
+// * =space-name
 // * The above in a space separated list to specify multiple bindings,
 //   e.g. "rel1@space1 rel2@space2 @space3"
 func (c *DeployCommand) parseBind() error {
@@ -521,18 +521,18 @@ func (c *DeployCommand) parseBind() error {
 			continue
 		}
 
-		e := "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
-		v := strings.Split(s, "@")
+		e := "--bind must be in the form '[<relation-name>]=<space> [[<relation2-name>]=<space2> ...]'. "
+		v := strings.Split(s, "=")
 		switch len(v) {
 		case 1:
-			return errors.New(e + "Could not find '@'.")
+			return errors.New(e + "Could not find '='.")
 		case 2:
 			if !names.IsValidSpace(v[1]) {
 				return errors.New(e + "Space name invalid.")
 			}
 			bindings[v[0]] = v[1]
 		default:
-			return errors.New(e + "Found multiple @ in binding. Did you forget to space-separate the binding list?")
+			return errors.New(e + "Found multiple = in binding. Did you forget to space-separate the binding list?")
 		}
 	}
 	c.Bindings = bindings

@@ -1025,7 +1025,7 @@ type ParseBindSuite struct {
 
 var _ = gc.Suite(&ParseBindSuite{})
 
-const bindErrPrefix = "--bind must be in the form '[<relation-name>]@<space> [[<relation2-name>]@<space2> ...]'. "
+const bindErrPrefix = "--bind must be in the form '[<relation-name>]=<space> [[<relation2-name>]=<space2> ...]'. "
 
 func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: ""}
@@ -1035,14 +1035,14 @@ func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "foo@a bar@b"}
+	deploy := &DeployCommand{BindToSpaces: "foo=a bar=b"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"foo": "a", "bar": "b"})
 }
 
 func (s *ParseBindSuite) TestBindParseNoRelation(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "@default"}
+	deploy := &DeployCommand{BindToSpaces: "=default"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "default"})
@@ -1051,26 +1051,26 @@ func (s *ParseBindSuite) TestBindParseNoRelation(c *gc.C) {
 func (s *ParseBindSuite) TestBindParseNoAt(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: "foo"}
 	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Could not find '@'.")
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Could not find '='.")
 	c.Assert(deploy.Bindings, gc.IsNil)
 }
 
 func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "foo@bar@baz"}
+	deploy := &DeployCommand{BindToSpaces: "foo=bar=baz"}
 	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Found multiple @ in binding. Did you forget to space-separate the binding list?")
+	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Found multiple = in binding. Did you forget to space-separate the binding list?")
 	c.Assert(deploy.Bindings, gc.IsNil)
 }
 
 func (s *ParseBindSuite) TestBindParseDoc(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1@space1 rel2@space2 @space3"}
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1 rel2=space2 =space3"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
 }
 
 func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1@spa#ce1"}
+	deploy := &DeployCommand{BindToSpaces: "rel1=spa#ce1"}
 	err := deploy.parseBind()
 	c.Assert(err.Error(), gc.Equals, bindErrPrefix+"Space name invalid.")
 	c.Assert(deploy.Bindings, gc.IsNil)
