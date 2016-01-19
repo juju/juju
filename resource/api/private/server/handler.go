@@ -51,6 +51,7 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	switch req.Method {
 	case "GET":
 		logger.Infof("handling resource download request")
+
 		resource, resourceReader, err := h.HandleDownload(st, req)
 		if err != nil {
 			logger.Errorf("cannot fetch resource reader: %v", err)
@@ -63,10 +64,13 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 
 		resp.WriteHeader(http.StatusOK)
 		if _, err := io.Copy(resp, resourceReader); err != nil {
+			// We cannot use api.SendHTTPError here, so we log the error
+			// and move on.
 			logger.Errorf("unable to complete stream for resource: %v", err)
-		} else {
-			logger.Infof("resource download request successful")
+			return
 		}
+
+		logger.Infof("resource download request successful")
 	default:
 		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
