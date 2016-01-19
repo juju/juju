@@ -451,7 +451,11 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
+	_, err = s.state.AddEnvironmentUser(EnvUserSpec{
+		User:        ownerTag,
+		CreatedBy:   ownerTag,
+		DisplayName: "",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a coule of test spaces, but notably NOT the default one.
