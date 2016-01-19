@@ -224,9 +224,32 @@ class EnvJujuClient:
             client_class = EnvJujuClient25
         elif re.match('^1\.26[.-]', version):
             client_class = EnvJujuClient26
+        elif re.match('^1\.', version):
+            client_class = EnvJujuClient1X
+        elif re.match('^2\.0-alpha1', version):
+            client_class = EnvJujuClient2A1
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
+
+    def clone(self, env=None, version=None, full_path=None, debug=None,
+              cls=None):
+        """Create a clone of this EnvJujuClient.
+
+        By default, the class, environment, version, full_path, and debug
+        settings will match the original, but each can be overridden.
+        """
+        if env is None:
+            env = self.env
+        if version is None:
+            version = self.version
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
+        if cls is None:
+            cls = self.__class__
+        return cls(env, version, full_path, debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
@@ -309,27 +332,14 @@ class EnvJujuClient:
                 self.env.environment))
 
     def create_environment(self, controller_client, config_file):
-        seen_cmd = self.get_jes_command()
-        if seen_cmd == OPTIONAL_JES_COMMAND:
-            controller_option = ('-s', controller_client.env.environment)
-        else:
-            controller_option = ('-c', controller_client.env.environment)
-        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
-            self.env.environment, '--config', config_file), include_e=False)
+        self.juju('create-model', (
+            '-c', controller_client.env.environment, self.env.environment,
+            '--config', config_file), include_e=False)
 
-    def destroy_environment(self, force=True, delete_jenv=False):
-        if force:
-            force_arg = ('--force',)
-        else:
-            force_arg = ()
+    def destroy_model(self):
         exit_status = self.juju(
-            'destroy-environment',
-            (self.env.environment,) + force_arg + ('-y',),
-            self.env.needs_sudo(), check=False, include_e=False,
-            timeout=timedelta(minutes=10).total_seconds())
-        if delete_jenv:
-            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
-            ensure_deleted(jenv_path)
+            'destroy-model', (self.env.environment, '-y',),
+            include_e=False, timeout=timedelta(minutes=10).total_seconds())
         return exit_status
 
     def kill_controller(self):
@@ -775,7 +785,43 @@ class EnvJujuClient:
         return self.action_fetch(id, action, timeout)
 
 
-class EnvJujuClient22(EnvJujuClient):
+class EnvJujuClient2A1(EnvJujuClient):
+    """Drives Juju 2.0-alpha1 clients."""
+
+
+class EnvJujuClient1X(EnvJujuClient):
+    """Base for all 1.x client drivers."""
+
+    def create_environment(self, controller_client, config_file):
+        seen_cmd = self.get_jes_command()
+        if seen_cmd == OPTIONAL_JES_COMMAND:
+            controller_option = ('-s', controller_client.env.environment)
+        else:
+            controller_option = ('-c', controller_client.env.environment)
+        self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
+            self.env.environment, '--config', config_file), include_e=False)
+
+    def destroy_model(self):
+        """With JES enabled, destroy-environment destroys the model."""
+        self.destroy_environment(force=False)
+
+    def destroy_environment(self, force=True, delete_jenv=False):
+        if force:
+            force_arg = ('--force',)
+        else:
+            force_arg = ()
+        exit_status = self.juju(
+            'destroy-environment',
+            (self.env.environment,) + force_arg + ('-y',),
+            self.env.needs_sudo(), check=False, include_e=False,
+            timeout=timedelta(minutes=10).total_seconds())
+        if delete_jenv:
+            jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
+            ensure_deleted(jenv_path)
+        return exit_status
+
+
+class EnvJujuClient22(EnvJujuClient1X):
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -787,13 +833,27 @@ class EnvJujuClient22(EnvJujuClient):
         return env
 
 
-class EnvJujuClient26(EnvJujuClient):
+class EnvJujuClient26(EnvJujuClient1X):
     """Drives Juju 2.6-series clients."""
 
     def __init__(self, *args, **kwargs):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
         self._use_container_address_allocation = False
+
+    def clone(self, env=None, version=None, full_path=None, debug=None,
+              cls=None):
+        """Create a clone of this EnvJujuClient.
+
+        By default, the class, environment, version, full_path, and debug
+        settings will match the original, but each can be overridden.
+        """
+        client = super(EnvJujuClient26, self).clone(env, version, full_path,
+                                                    debug, cls)
+        client._use_jes = self._use_jes
+        client._use_container_address_allocation = (
+            self._use_container_address_allocation)
+        return client
 
     def enable_jes(self):
         """Enable JES if JES is optional.

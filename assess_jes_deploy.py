@@ -28,13 +28,9 @@ from utility import (
 
 def make_hosted_env_client(client, suffix):
     env_name = '{}-{}'.format(client.env.environment, suffix)
-    hosted_environment = SimpleEnvironment(env_name, dict(client.env.config))
-    hosted_env_client = EnvJujuClient.by_version(
-        hosted_environment, client.full_path, client.debug,
-    )
-    hosted_env_client.env.juju_home = client.env.juju_home
-    if not hosted_env_client.is_jes_enabled():
-        hosted_env_client.enable_jes()
+    hosted_environment = SimpleEnvironment(env_name, dict(client.env.config),
+                                           client.env.juju_home)
+    hosted_env_client = client.clone(hosted_environment)
     return hosted_env_client
 
 
@@ -109,7 +105,7 @@ def hosted_environment(system_client, suffix):
         sys.exit(1)
     finally:
         # TODO(gz): May want to gather logs from hosted env here.
-        client.destroy_environment(force=False)
+        client.destroy_model()
 
 
 def check_services(client):
