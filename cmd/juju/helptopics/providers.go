@@ -18,7 +18,7 @@ Start by generating a generic configuration file for Juju, using the command:
   juju init
 
 This will create the '~/.juju/' directory (or $JUJU_HOME, if set) if it doesn't
-already exist and generate a file, 'environments.yaml' in that directory.
+already exist and generate a file, 'models.yaml' in that directory.
 `
 const helpProviderEnd = `
 See Also:
@@ -148,7 +148,7 @@ const helpEC2Provider = `
 Configuring the EC2 environment requires telling Juju about your AWS access key
 and secret key. To do this, you can either set the 'AWS_ACCESS_KEY_ID' and
 'AWS_SECRET_ACCESS_KEY' environment variables[1] (as usual for other EC2 tools)
-or you can add access-key and secret-key options to your environments.yaml.
+or you can add access-key and secret-key options to your models.yaml.
 These are already in place in the generated config, you just need to uncomment
 them out. For example:
 

@@ -182,7 +182,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 	defer f.Close()
 
 	// Remove write permissions to the environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Chmod(envPath, 0200)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -282,7 +282,7 @@ func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
 	defer f.Close()
 
 	// Remove the Juju environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 

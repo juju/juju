@@ -24,7 +24,7 @@ type SwitchSimpleSuite struct {
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
 func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -38,7 +38,7 @@ func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
 		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
 	}
 
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Chmod(envPath, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -53,7 +53,7 @@ func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, newSwitchCommand())

@@ -574,7 +574,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 
 	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-m", envName)
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring models.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {

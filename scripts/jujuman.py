@@ -144,9 +144,9 @@ such as OpenStack, Amazon AWS, or bare metal.
 man_foot = """\
 .SH "FILES"
 .TP
-.I "~/.juju/environments.yaml"
+.I "~/.juju/models.yaml"
 This is the Juju config file, which you can use to specify multiple
-environments in which to deploy.
+models in which to deploy.
 
 A config file can be created using
 .B juju init

@@ -46,7 +46,7 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironment(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := envcmd.GetDefaultEnvironment()
@@ -117,7 +117,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitControllerFile(c *gc.C) 
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureEnvName(c, "")

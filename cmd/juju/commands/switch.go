@@ -35,7 +35,7 @@ environment as defined by the file $JUJU_HOME/current-environment.
 
 If a command line parameter is passed in, that value will is stored in the
 current environment file if it represents a valid environment name as
-specified in the environments.yaml file.
+specified in the models.yaml file.
 `
 
 const controllerSuffix = " (controller)"
