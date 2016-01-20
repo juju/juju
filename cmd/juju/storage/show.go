@@ -28,8 +28,8 @@ Storage instances to display are specified by storage ids.
 * note use of positional arguments
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= yaml)

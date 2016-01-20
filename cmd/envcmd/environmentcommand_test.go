@@ -4,6 +4,7 @@
 package envcmd_test
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -77,14 +78,14 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
+func (s *EnvironmentCommandSuite) TestEnvironCommandMInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
-	testEnsureEnvName(c, "explicit", "-e", "explicit")
+	testEnsureEnvName(c, "explicit", "-m", "explicit")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicitLongForm(c *gc.C) {
+func (s *EnvironmentCommandSuite) TestEnvironCommandModelInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
-	testEnsureEnvName(c, "explicit", "--environment", "explicit")
+	testEnsureEnvName(c, "explicit", "--model", "explicit")
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
@@ -161,8 +162,11 @@ func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
 func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
 	wrapped := envcmd.Wrap(cmd, envcmd.EnvSkipFlags)
-	err := cmdtesting.InitCommand(wrapped, []string{"-e", "testenv"})
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -e")
+	args := []string{"-m", "testenv"}
+	err := cmdtesting.InitCommand(wrapped, args)
+	// 1st position is always the flag
+	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 type testCommand struct {
@@ -220,7 +224,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, "-e", "env-name")
+	cmd, err := initTestCommand(c, "-m", "env-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,7 +232,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, "-e", "no-such-env")
+	cmd, err := initTestCommand(c, "-m", "no-such-env")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -250,7 +254,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		return new(closer), nil
 	})
 
-	cmd, err := initTestCommand(c, "-e", "env-name")
+	cmd, err := initTestCommand(c, "-m", "env-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(true)
 	c.Assert(err, jc.ErrorIsNil)

@@ -42,7 +42,7 @@ validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
 The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_ENV.
 Series, Region, and Endpoint are the key attributes.
 
 The key environment attributes may be overridden using command arguments, so
@@ -91,7 +91,7 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
-	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
+	f.StringVar(&c.stream, "stream", "", "the images stream (defaults to released)")
 }
 
 func (c *validateImageMetadataCommand) Init(args []string) error {

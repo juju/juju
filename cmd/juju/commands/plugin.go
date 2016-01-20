@@ -25,7 +25,7 @@ const JujuPluginPrefix = "juju-"
 
 // This is a very rudimentary method used to extract common Juju
 // arguments from the full list passed to the plugin. Currently,
-// there is only one such argument: -e env
+// there is only one such argument: -m env
 // If more than just -e is required, the method can be improved then.
 func extractJujuArgs(args []string) []string {
 	var jujuArgs []string
@@ -33,7 +33,7 @@ func extractJujuArgs(args []string) []string {
 	for nextArg := 0; nextArg < nrArgs; {
 		arg := args[nextArg]
 		nextArg++
-		if arg != "-e" {
+		if arg != "-m" {
 			continue
 		}
 		jujuArgs = append(jujuArgs, arg)

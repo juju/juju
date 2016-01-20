@@ -25,8 +25,8 @@ Both pool types and names must be valid.
 Valid pool types are pool types that are registered for Juju environment.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= yaml)

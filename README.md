@@ -130,7 +130,7 @@ pass an additional flag, `--upload-tools` to instruct the `juju` client to build
 a set of tools from source and upload them to the environment as part of the
 bootstrap process.
 
-    juju bootstrap -e your-environment --upload-tools {--debug}
+    juju bootstrap -m your-model --upload-tools {--debug}
 
 
 Installing bash completion for juju

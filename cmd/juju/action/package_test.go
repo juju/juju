@@ -39,12 +39,14 @@ func TestPackage(t *testing.T) {
 type BaseActionSuite struct {
 	jujutesting.IsolationSuite
 	command cmd.Command
-}
 
-var _ = gc.Suite(&FetchSuite{})
+	modelFlags []string
+}
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 	s.command = action.NewSuperCommand()
+
+	s.modelFlags = []string{"-m", "--model"}
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {

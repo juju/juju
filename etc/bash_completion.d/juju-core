@@ -46,11 +46,11 @@ _juju_list_commands() {
 }
 
 # Print (return) flags for juju action, shamelessly excluding
-# -e/--environment for cleaner completion for common usage cases
+# -m/--model for cleaner completion for common usage cases
 # (e.g. juju ssh <TAB>, etc)
 _juju_flags_for() {
     test -z "${1}" && return 0
-    juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|egrep -v -- '^(-e|--environment)'|sort -u
+    juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|egrep -v -- '^(-m|--model)'|sort -u
 }
 
 # Print (return) guessed completion function for cmd.

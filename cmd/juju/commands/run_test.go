@@ -277,7 +277,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock.block = true
 	_, err := testing.RunCommand(c, newRunCommand(),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
-		"-e blah",
+		"-m blah",
 	)
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged

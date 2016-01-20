@@ -136,10 +136,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "error: flag provided but not defined: --cheese\n",
 	}, {
-		summary: "known option, but specified before command",
+		summary: "unknown option specified before command",
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "known option, but specified before command",
+		args:    []string{"--model", "blah", "bootstrap"},
+		code:    2,
+		out:     "error: flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},

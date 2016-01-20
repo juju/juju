@@ -35,10 +35,10 @@ var configHeader = `
 # are optional and have specified default values. For more info, see the
 # Juju documentation.
 
-# The default environment is chosen when an environment is not
+# The default model is chosen when a model is not
 # specified using any of the following, in descending order of precedence:
-#  1. -e or --environment command line parameter, passed after the command, e.g.
-#     $ juju add-unit -e myenv myservice
+#  1. -m or --model command line parameter, passed after the command, e.g.
+#     $ juju add-unit -m myenv myservice
 #  2. By setting JUJU_ENV environment variable.
 #  3. Using the juju switch command like this:
 #     $ juju switch myenv

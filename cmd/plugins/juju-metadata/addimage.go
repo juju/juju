@@ -30,8 +30,8 @@ image-id
    image identifier
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 --region
    cloud region (= region of current model)
 --series (= current model preferred series)

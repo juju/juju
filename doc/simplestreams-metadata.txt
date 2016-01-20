@@ -197,7 +197,7 @@ Generate image metadata using
 
 As a minimum, the above command needs to know the image id to use and a directory in which to write the files.
 Other required parameters like region, series, architecture etc are taken from the current Juju environment (or
-an environment specified with the -e option). These parameters can also be overridden on the command line.
+a model specified with the -m option). These parameters can also be overridden on the command line.
 
 The image metadata command can be run multiple times with different regions, series, architecture, and
 it will keep adding to the metadata files. Once all required image ids have been added, the index and product
@@ -216,7 +216,7 @@ ensure an image id can be discovered for a given scenario (region series, arch):
   juju metadata validate-images
 
 If run without parameters, the validation command will take all required details from the current Juju
-environment (or as specified by -e) and print the image id it would use to spin up an instance.
+model (or as specified by -m) and print the image id it would use to spin up an instance.
 Alternatively, series, region, architecture etc can be specified on the command line to override values
 in the environment config.
 

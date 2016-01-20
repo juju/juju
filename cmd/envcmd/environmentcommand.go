@@ -314,8 +314,8 @@ func (c *EnvCommandBase) ConnectionName() string {
 // EnvironCommand wrapper.
 type WrapEnvOption func(*environCommandWrapper)
 
-// EnvSkipFlags instructs the wrapper to skip --e and
-// --environment flag definition.
+// EnvSkipFlags instructs the wrapper to skip --m and
+// --model flag definition.
 func EnvSkipFlags(w *environCommandWrapper) {
 	w.skipFlags = true
 }
@@ -369,8 +369,8 @@ type environCommandWrapper struct {
 
 func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
-		f.StringVar(&w.envName, "e", "", "juju environment to operate in")
-		f.StringVar(&w.envName, "environment", "", "")
+		f.StringVar(&w.envName, "m", "", "juju model to operate in")
+		f.StringVar(&w.envName, "model", "", "")
 	}
 	w.EnvironCommand.SetFlags(f)
 }

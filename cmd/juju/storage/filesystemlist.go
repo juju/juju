@@ -25,8 +25,8 @@ const filesystemListCommandDoc = `
 List filesystems in the environment.
 
 options:
--e, --environment (= "")
-    juju environment to operate in
+-m, --model (= "")
+    juju model to operate in
 -o, --output (= "")
     specify an output file
 [machine]

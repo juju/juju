@@ -53,7 +53,7 @@ server to the local directory remote-logs:
 
 Copy a local file to the second apache unit of the environment "testing":
 
-    juju scp -e testing foo.txt apache2/1:
+    juju scp -m testing foo.txt apache2/1:
 `
 
 func (c *scpCommand) Info() *cmd.Info {
