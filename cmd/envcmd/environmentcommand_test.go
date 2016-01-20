@@ -148,14 +148,14 @@ func (s *EnvironmentCommandSuite) TestCompatVersion(c *gc.C) {
 func (s *EnvironmentCommandSuite) TestCompatVersionDefault(c *gc.C) {
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
 }
 
 func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuCLIVersion, "invalid")
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
+	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
 }
 
 func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {

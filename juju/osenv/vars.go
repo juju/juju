@@ -41,7 +41,7 @@ const (
 	// JujuCLIVersion is a numeric value (1, 2, 3 etc) representing
 	// the oldest CLI version which should be adhered to.
 	// This includes args and output.
-	// Default is 1.
+	// Default is 2.
 	JujuCLIVersion = "JUJU_CLI_VERSION"
 )
 

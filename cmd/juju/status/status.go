@@ -85,12 +85,8 @@ func (c *statusCommand) Info() *cmd.Info {
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 
-	oneLineFormatter := FormatOneline
-	defaultFormat := "yaml"
-	if c.CompatVersion() > 1 {
-		defaultFormat = "tabular"
-		oneLineFormatter = FormatOnelineV2
-	}
+	defaultFormat := "tabular"
+	oneLineFormatter := FormatOnelineV2
 
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

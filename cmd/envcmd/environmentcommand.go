@@ -29,6 +29,8 @@ var logger = loggo.GetLogger("juju.cmd.envcmd")
 // has been explicitly specified, and there is no default environment.
 var ErrNoEnvironmentSpecified = errors.New("no environment specified")
 
+const DefaultCompatVersion = 2
+
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
 // JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
@@ -288,7 +290,7 @@ func (c *EnvCommandBase) CompatVersion() int {
 	if c.compatVerson != nil {
 		return *c.compatVerson
 	}
-	compatVerson := 1
+	compatVerson := DefaultCompatVersion
 	val := os.Getenv(osenv.JujuCLIVersion)
 	if val != "" {
 		vers, err := strconv.Atoi(val)

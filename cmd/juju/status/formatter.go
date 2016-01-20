@@ -64,40 +64,21 @@ func (sf *statusFormatter) format() formattedStatus {
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	if machine.Agent.Status == "" {
-		// Older server
-		// TODO: this will go away at some point (v1.21?).
-		out = machineStatus{
-			AgentState:     machine.AgentState,
-			AgentStateInfo: machine.AgentStateInfo,
-			AgentVersion:   machine.AgentVersion,
-			Life:           machine.Life,
-			Err:            machine.Err,
-			DNSName:        machine.DNSName,
-			InstanceId:     machine.InstanceId,
-			InstanceState:  machine.InstanceState,
-			Series:         machine.Series,
-			Id:             machine.Id,
-			Containers:     make(map[string]machineStatus),
-			Hardware:       machine.Hardware,
-		}
-	} else {
-		// New server
-		agent := machine.Agent
-		out = machineStatus{
-			AgentState:     agent.Status,
-			AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
-			AgentVersion:   agent.Version,
-			Life:           agent.Life,
-			Err:            agent.Err,
-			DNSName:        machine.DNSName,
-			InstanceId:     machine.InstanceId,
-			InstanceState:  machine.InstanceState,
-			Series:         machine.Series,
-			Id:             machine.Id,
-			Containers:     make(map[string]machineStatus),
-			Hardware:       machine.Hardware,
-		}
+	// New server
+	agent := machine.Agent
+	out = machineStatus{
+		AgentState:     agent.Status,
+		AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
+		AgentVersion:   agent.Version,
+		Life:           agent.Life,
+		Err:            agent.Err,
+		DNSName:        machine.DNSName,
+		InstanceId:     machine.InstanceId,
+		InstanceState:  machine.InstanceState,
+		Series:         machine.Series,
+		Id:             machine.Id,
+		Containers:     make(map[string]machineStatus),
+		Hardware:       machine.Hardware,
 	}
 
 	for k, m := range machine.Containers {
@@ -184,15 +165,6 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		}
 	}
 
-	// These legacy fields will be dropped for Juju 2.0.
-	if sf.compatVersion < 2 || out.AgentStatusInfo.Current == "" {
-		out.Err = info.unit.Err
-		out.AgentState = info.unit.AgentState
-		out.AgentStateInfo = info.unit.AgentStateInfo
-		out.Life = info.unit.Life
-		out.AgentVersion = info.unit.AgentVersion
-	}
-
 	for k, m := range info.unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(unitFormatInfo{
 			unit:          m,
@@ -231,18 +203,11 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	// This logic has no business here but can't be moved until Juju 2.0.
-	statusInfo := unit.Workload.Info
-	if unit.Workload.Status == "" {
-		// Old server that doesn't support this field and others.
-		// Just use the info string as-is.
-		statusInfo = unit.AgentStateInfo
-	}
 	if unit.Workload.Status == params.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				unit.Workload.Info = statusInfo + " for " + ep.String()
+				unit.Workload.Info = unit.Workload.Info + " for " + ep.String()
 				unit.AgentStateInfo = unit.Workload.Info
 			}
 		}
