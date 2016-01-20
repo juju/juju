@@ -87,13 +87,11 @@ type Machine interface {
 type CloudInstance interface {
 	InstanceId() string
 	Status() string
-	// The instance attributes below use pointers as they are all
-	// optional.
-	Architecture() *string
-	Memory() *uint64
-	RootDisk() *uint64
-	CpuCores() *uint64
-	CpuPower() *uint64
-	Tags() *[]string
-	AvailabilityZone() *string
+	Architecture() string
+	Memory() uint64
+	RootDisk() uint64
+	CpuCores() uint64
+	CpuPower() uint64
+	Tags() []string
+	AvailabilityZone() string
 }

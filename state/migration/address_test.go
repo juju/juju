@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package migration
@@ -7,61 +7,38 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/testing"
 )
 
 type AddressSerializationSuite struct {
-	testing.BaseSuite
+	SerializationSuite
 }
 
 var _ = gc.Suite(&AddressSerializationSuite{})
 
-func (*AddressSerializationSuite) TestNil(c *gc.C) {
-	_, err := importAddress(nil)
-	c.Check(err, gc.ErrorMatches, "address version schema check failed: .*")
+func (s *AddressSerializationSuite) SetUpTest(c *gc.C) {
+	s.SerializationSuite.SetUpTest(c)
+	s.importName = "address"
+	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
+		return importAddress(m)
+	}
+	s.testFields = func(m map[string]interface{}) {
+		m["value"] = ""
+		m["type"] = ""
+	}
 }
 
-func (*AddressSerializationSuite) TestMissingVersion(c *gc.C) {
-	_, err := importAddress(map[string]interface{}{
-		"value": "",
-		"type":  "",
-	})
-	c.Check(err.Error(), gc.Equals, "address version schema check failed: version: expected int, got nothing")
-}
-
-func (*AddressSerializationSuite) TestMissingValue(c *gc.C) {
-	_, err := importAddress(map[string]interface{}{
-		"version": 1,
-		"type":    "",
-	})
+func (s *AddressSerializationSuite) TestMissingValue(c *gc.C) {
+	testMap := s.makeMap(1)
+	delete(testMap, "value")
+	_, err := importAddress(testMap)
 	c.Check(err.Error(), gc.Equals, "address v1 schema check failed: value: expected string, got nothing")
 }
 
-func (*AddressSerializationSuite) TestMissingType(c *gc.C) {
-	_, err := importAddress(map[string]interface{}{
-		"version": 1,
-		"value":   "",
-	})
+func (s *AddressSerializationSuite) TestMissingType(c *gc.C) {
+	testMap := s.makeMap(1)
+	delete(testMap, "type")
+	_, err := importAddress(testMap)
 	c.Check(err.Error(), gc.Equals, "address v1 schema check failed: type: expected string, got nothing")
-}
-
-func (*AddressSerializationSuite) TestNonIntVersion(c *gc.C) {
-	_, err := importAddress(map[string]interface{}{
-		"version": "hello",
-		"value":   "",
-		"type":    "",
-	})
-	c.Check(err.Error(), gc.Equals, `address version schema check failed: version: expected int, got string("hello")`)
-}
-
-func (*AddressSerializationSuite) TestUnknownVersion(c *gc.C) {
-	_, err := importAddress(map[string]interface{}{
-		"version": 42,
-		"value":   "",
-		"type":    "",
-	})
-	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
 }
 
 func (*AddressSerializationSuite) TestParsing(c *gc.C) {

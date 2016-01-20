@@ -7,51 +7,27 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/testing"
 )
 
 type MachineSerializationSuite struct {
-	testing.BaseSuite
+	SliceSerializationSuite
 }
 
 var _ = gc.Suite(&MachineSerializationSuite{})
 
-func (*MachineSerializationSuite) TestNil(c *gc.C) {
-	_, err := importMachines(nil)
-	c.Check(err, gc.ErrorMatches, "machines version schema check failed: .*")
+func (s *MachineSerializationSuite) SetUpTest(c *gc.C) {
+	s.SliceSerializationSuite.SetUpTest(c)
+	s.importName = "machines"
+	s.sliceName = "machines"
+	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
+		return importMachines(m)
+	}
+	s.testFields = func(m map[string]interface{}) {
+		m["machines"] = []interface{}{}
+	}
 }
 
-func (*MachineSerializationSuite) TestMissingVersion(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"machines": []interface{}{},
-	})
-	c.Check(err.Error(), gc.Equals, "machines version schema check failed: version: expected int, got nothing")
-}
-
-func (*MachineSerializationSuite) TestMissingMachines(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"version": 1,
-	})
-	c.Check(err.Error(), gc.Equals, "machines version schema check failed: machines: expected list, got nothing")
-}
-
-func (*MachineSerializationSuite) TestNonIntVersion(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"version":  "hello",
-		"machines": []interface{}{},
-	})
-	c.Check(err.Error(), gc.Equals, `machines version schema check failed: version: expected int, got string("hello")`)
-}
-
-func (*MachineSerializationSuite) TestUnknownVersion(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"version":  42,
-		"machines": []interface{}{},
-	})
-	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
-}
-
+// TODO MAYBE: move this test into the slice serialization base.
 func (*MachineSerializationSuite) TestMachinesIsMap(c *gc.C) {
 	_, err := importMachines(map[string]interface{}{
 		"version":  42,
@@ -60,39 +36,63 @@ func (*MachineSerializationSuite) TestMachinesIsMap(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `machines version schema check failed: machines[0]: expected map, got string("hello")`)
 }
 
+func minimalCloudInstanceMap() map[string]interface{} {
+	return map[string]interface{}{
+		"version":     1,
+		"instance-id": "instance id",
+		"status":      "some status",
+	}
+}
+
+func minimalCloudInstance() *cloudInstance {
+	return &cloudInstance{
+		Version:     1,
+		InstanceId_: "instance id",
+		Status_:     "some status",
+	}
+}
+
 func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	machines, err := importMachines(map[string]interface{}{
 		"version": 1,
 		"machines": []interface{}{
 			map[string]interface{}{
 				"id":         "0",
+				"instance":   minimalCloudInstanceMap(),
 				"containers": []interface{}{},
 			},
 			map[string]interface{}{
-				"id": "1",
+				"id":       "1",
+				"instance": minimalCloudInstanceMap(),
 				"containers": []interface{}{
 					map[string]interface{}{
 						"id":         "1/lxc/0",
+						"instance":   minimalCloudInstanceMap(),
 						"containers": []interface{}{},
 					},
 					map[string]interface{}{
 						"id":         "1/lxc/1",
+						"instance":   minimalCloudInstanceMap(),
 						"containers": []interface{}{},
 					},
 				},
 			},
 			map[string]interface{}{
-				"id": "2",
+				"id":       "2",
+				"instance": minimalCloudInstanceMap(),
 				"containers": []interface{}{
 					map[string]interface{}{
-						"id": "2/kvm/0",
+						"id":       "2/kvm/0",
+						"instance": minimalCloudInstanceMap(),
 						"containers": []interface{}{
 							map[string]interface{}{
 								"id":         "2/kvm/0/lxc/0",
+								"instance":   minimalCloudInstanceMap(),
 								"containers": []interface{}{},
 							},
 							map[string]interface{}{
 								"id":         "2/kvm/0/lxc/1",
+								"instance":   minimalCloudInstanceMap(),
 								"containers": []interface{}{},
 							},
 						},
@@ -103,30 +103,38 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []*machine{
 		&machine{
-			Id_: "0",
+			Id_:       "0",
+			Instance_: minimalCloudInstance(),
 		},
 		&machine{
-			Id_: "1",
+			Id_:       "1",
+			Instance_: minimalCloudInstance(),
 			Containers_: []*machine{
 				&machine{
-					Id_: "1/lxc/0",
+					Id_:       "1/lxc/0",
+					Instance_: minimalCloudInstance(),
 				},
 				&machine{
-					Id_: "1/lxc/1",
+					Id_:       "1/lxc/1",
+					Instance_: minimalCloudInstance(),
 				},
 			},
 		},
 		&machine{
-			Id_: "2",
+			Id_:       "2",
+			Instance_: minimalCloudInstance(),
 			Containers_: []*machine{
 				&machine{
-					Id_: "2/kvm/0",
+					Id_:       "2/kvm/0",
+					Instance_: minimalCloudInstance(),
 					Containers_: []*machine{
 						&machine{
-							Id_: "2/kvm/0/lxc/0",
+							Id_:       "2/kvm/0/lxc/0",
+							Instance_: minimalCloudInstance(),
 						},
 						&machine{
-							Id_: "2/kvm/0/lxc/1",
+							Id_:       "2/kvm/0/lxc/1",
+							Instance_: minimalCloudInstance(),
 						},
 					},
 				},
@@ -141,30 +149,38 @@ func (*MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Version: 1,
 		Machines_: []*machine{
 			&machine{
-				Id_: "0",
+				Id_:       "0",
+				Instance_: minimalCloudInstance(),
 			},
 			&machine{
-				Id_: "1",
+				Id_:       "1",
+				Instance_: minimalCloudInstance(),
 				Containers_: []*machine{
 					&machine{
-						Id_: "1/lxc/0",
+						Id_:       "1/lxc/0",
+						Instance_: minimalCloudInstance(),
 					},
 					&machine{
-						Id_: "1/lxc/1",
+						Id_:       "1/lxc/1",
+						Instance_: minimalCloudInstance(),
 					},
 				},
 			},
 			&machine{
-				Id_: "2",
+				Id_:       "2",
+				Instance_: minimalCloudInstance(),
 				Containers_: []*machine{
 					&machine{
-						Id_: "2/kvm/0",
+						Id_:       "2/kvm/0",
+						Instance_: minimalCloudInstance(),
 						Containers_: []*machine{
 							&machine{
-								Id_: "2/kvm/0/lxc/0",
+								Id_:       "2/kvm/0/lxc/0",
+								Instance_: minimalCloudInstance(),
 							},
 							&machine{
-								Id_: "2/kvm/0/lxc/1",
+								Id_:       "2/kvm/0/lxc/1",
+								Instance_: minimalCloudInstance(),
 							},
 						},
 					},
@@ -184,4 +200,38 @@ func (*MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(machines, jc.DeepEquals, initial.Machines_)
+}
+
+type CloudInstanceSerializationSuite struct {
+	SerializationSuite
+}
+
+var _ = gc.Suite(&CloudInstanceSerializationSuite{})
+
+func (s *CloudInstanceSerializationSuite) SetUpTest(c *gc.C) {
+	s.importName = "cloudInstance"
+	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
+		return importCloudInstance(m)
+	}
+}
+
+func (s *CloudInstanceSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	const MaxUint64 = 1<<64 - 1
+	initial := &cloudInstance{
+		Version:     1,
+		InstanceId_: "instance id",
+		Status_:     "some status",
+		RootDisk_:   64,
+		CpuPower_:   MaxUint64,
+	}
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var source map[string]interface{}
+	err = yaml.Unmarshal(bytes, &source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	instance, err := importCloudInstance(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instance, jc.DeepEquals, initial)
 }

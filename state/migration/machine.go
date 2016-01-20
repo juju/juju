@@ -51,15 +51,20 @@ type agentTools struct {
 }
 
 type cloudInstance struct {
-	InstanceId_       string    `yaml:"instance-id"`
-	Status_           string    `yaml:"status"`
-	Architecture_     *string   `yaml:"architecture"`
-	Memory_           *uint64   `yaml:"memory"`
-	RootDisk_         *uint64   `yaml:"root-disk"`
-	CpuCores_         *uint64   `yaml:"cpu-cores"`
-	CpuPower_         *uint64   `yaml:"cpu-power"`
-	Tags_             *[]string `yaml:"tags"`
-	AvailabilityZone_ *string   `yaml:"availability-zone"`
+	Version int `yaml:"version"`
+
+	InstanceId_ string `yaml:"instance-id"`
+	Status_     string `yaml:"status"`
+	// For all the optional values, empty values make no sense, and
+	// it would be better to have them not set rather than set with
+	// a nonsense value.
+	Architecture_     string   `yaml:"architecture,omitempty"`
+	Memory_           uint64   `yaml:"memory,omitempty"`
+	RootDisk_         uint64   `yaml:"root-disk,omitempty"`
+	CpuCores_         uint64   `yaml:"cpu-cores,omitempty"`
+	CpuPower_         uint64   `yaml:"cpu-power,omitempty"`
+	Tags_             []string `yaml:"tags,omitempty"`
+	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
 }
 
 func (m *machine) Id() names.MachineTag {
@@ -178,6 +183,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 
 	fields := schema.Fields{
 		"id":         schema.String(),
+		"instance":   schema.StringMap(schema.Any()),
 		"containers": schema.List(schema.StringMap(schema.Any())),
 	}
 	checker := schema.FieldMap(fields, nil) // no defaults
@@ -189,8 +195,14 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-
 	result.Id_ = valid["id"].(string)
+
+	instance, err := importCloudInstance(valid["instance"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.Instance_ = instance
+
 	machineList := valid["containers"].([]interface{})
 	machines, err := importMachineList(machineList, importMachineV1)
 	if err != nil {
@@ -210,30 +222,105 @@ func (c *cloudInstance) Status() string {
 	return c.Status_
 }
 
-func (c *cloudInstance) Architecture() *string {
+func (c *cloudInstance) Architecture() string {
 	return c.Architecture_
 }
 
-func (c *cloudInstance) Memory() *uint64 {
+func (c *cloudInstance) Memory() uint64 {
 	return c.Memory_
 }
 
-func (c *cloudInstance) RootDisk() *uint64 {
+func (c *cloudInstance) RootDisk() uint64 {
 	return c.RootDisk_
 }
 
-func (c *cloudInstance) CpuCores() *uint64 {
+func (c *cloudInstance) CpuCores() uint64 {
 	return c.CpuCores_
 }
 
-func (c *cloudInstance) CpuPower() *uint64 {
+func (c *cloudInstance) CpuPower() uint64 {
 	return c.CpuPower_
 }
 
-func (c *cloudInstance) Tags() *[]string {
+func (c *cloudInstance) Tags() []string {
 	return c.Tags_
 }
 
-func (c *cloudInstance) AvailabilityZone() *string {
+func (c *cloudInstance) AvailabilityZone() string {
 	return c.AvailabilityZone_
+}
+
+// importAddress constructs a new Address from a map that in normal usage situations
+// will be the result of interpreting a large YAML document.
+//
+// This method is a package internal serialisation method.
+func importCloudInstance(source map[string]interface{}) (*cloudInstance, error) {
+	version, err := getVersion(source)
+	if err != nil {
+		return nil, errors.Annotate(err, "cloudInstance version schema check failed")
+	}
+
+	importFunc, ok := cloudInstanceDeserializationFuncs[version]
+	if !ok {
+		return nil, errors.NotValidf("version %d", version)
+	}
+
+	return importFunc(source)
+}
+
+type cloudInstanceDeserializationFunc func(map[string]interface{}) (*cloudInstance, error)
+
+var cloudInstanceDeserializationFuncs = map[int]cloudInstanceDeserializationFunc{
+	1: importCloudInstanceV1,
+}
+
+func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error) {
+	fields := schema.Fields{
+		"instance-id":       schema.String(),
+		"status":            schema.String(),
+		"architecture":      schema.String(),
+		"memory":            schema.Uint(),
+		"root-disk":         schema.Uint(),
+		"cpu-cores":         schema.Uint(),
+		"cpu-power":         schema.Uint(),
+		"tags":              schema.List(schema.String()),
+		"availability-zone": schema.String(),
+	}
+	// Some values don't have to be there.
+	defaults := schema.Defaults{
+		"architecture":      "",
+		"memory":            uint64(0),
+		"root-disk":         uint64(0),
+		"cpu-cores":         uint64(0),
+		"cpu-power":         uint64(0),
+		"tags":              schema.Omit,
+		"availability-zone": "",
+	}
+	checker := schema.FieldMap(fields, defaults)
+
+	coerced, err := checker.Coerce(source, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cloudInstance v1 schema check failed")
+	}
+	valid := coerced.(map[string]interface{})
+	// From here we know that the map returned from the schema coercion
+	// contains fields of the right type.
+
+	var tags []string
+	if vtags, ok := valid["tags"]; ok {
+		tags = vtags.([]string)
+	}
+
+	return &cloudInstance{
+		Version:           1,
+		InstanceId_:       valid["instance-id"].(string),
+		Status_:           valid["status"].(string),
+		Architecture_:     valid["architecture"].(string),
+		Memory_:           valid["memory"].(uint64),
+		RootDisk_:         valid["root-disk"].(uint64),
+		CpuCores_:         valid["cpu-cores"].(uint64),
+		CpuPower_:         valid["cpu-power"].(uint64),
+		Tags_:             tags,
+		AvailabilityZone_: valid["availability-zone"].(string),
+	}, nil
 }
