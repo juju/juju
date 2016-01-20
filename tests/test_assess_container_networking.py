@@ -1,4 +1,3 @@
-from argparse import Namespace
 from copy import deepcopy
 from contextlib import contextmanager
 import logging
@@ -6,7 +5,6 @@ import logging
 from mock import (
     patch,
     Mock,
-    MagicMock,
 )
 
 from jujupy import (

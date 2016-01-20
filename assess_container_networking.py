@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from argparse import ArgumentParser
+import collections
+import contextlib
 from copy import (
     copy,
     deepcopy,
@@ -18,10 +20,6 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string,
     update_env,
-)
-from jujupy import (
-    SimpleEnvironment,
-    EnvJujuClient,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -386,12 +384,10 @@ def assess_container_networking(client, machine_type):
     _assess_container_networking(client, types, hosts, containers)
 
 
-def main(argv=None):
-    args = parse_args(argv)
-    configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
+@contextlib.contextmanager
+def cleaned_bootstrap_context(bs_manager, args):
+    ctx = collections.namedtuple("CleanedBootstrapContext", ["return_code"])(0)
     client = bs_manager.client
-    client.enable_container_address_allocation()
     # TODO(gz): Having to manipulate client env state here to get the temp env
     #           is ugly, would ideally be captured in an explicit scope.
     update_env(client.env, bs_manager.temp_env_name, series=bs_manager.series,
@@ -405,10 +401,19 @@ def main(argv=None):
             with bs_manager.bootstrap_context(machines):
                 client.bootstrap(args.upload_tools)
         with bs_manager.runtime_context(machines):
-            assess_container_networking(client, args.machine_type)
+            yield ctx
         if args.clean_environment and not clean_environment(client):
-            return 1
-    return 0
+            ctx.return_code = 1
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    bs_manager.client.enable_container_address_allocation()
+    with cleaned_bootstrap_context(bs_manager, args) as ctx:
+        assess_container_networking(bs_manager.client, args.machine_type)
+    return ctx.return_code
 
 
 if __name__ == '__main__':
