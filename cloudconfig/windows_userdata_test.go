@@ -19,7 +19,7 @@ var WindowsUserdata = `#ps1_sysnative
 
 $ErrorActionPreference = "Stop"
 
-function ExecRetry($command, $maxRetryCount = 10, $retryInterval=2)
+function ExecRetry($command, $maxRetryCount = 5, $retryInterval = 15)
 {
 	$currErrorActionPreference = $ErrorActionPreference
 	$ErrorActionPreference = "Continue"
@@ -35,7 +35,7 @@ function ExecRetry($command, $maxRetryCount = 10, $retryInterval=2)
 		catch [System.Exception]
 		{
 			$retryCount++
-			if ($retryCount -ge $maxRetryCount)
+			if (($maxRetryCount -gt 0) -and ($retryCount -ge $maxRetryCount))
 			{
 				$ErrorActionPreference = $currErrorActionPreference
 				throw
@@ -861,7 +861,7 @@ mkdir 'C:\Juju\log\juju'
 mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") }
+ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") } -1
 $dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"
 $dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
 if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
