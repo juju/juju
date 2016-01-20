@@ -17,8 +17,7 @@ type machines struct {
 }
 
 type machine struct {
-	Id_ string `yaml:"id"`
-
+	Id_                string         `yaml:"id"`
 	Nonce_             string         `yaml:"nonce"`
 	PasswordHash_      string         `yaml:"password-hash"`
 	Placement_         string         `yaml:"placement,omitempty"`
@@ -31,23 +30,13 @@ type machine struct {
 	PreferredPublicAddress_  *address `yaml:"preferred-public-address"`
 	PreferredPrivateAddress_ *address `yaml:"preferred-private-address"`
 
-	Tools_ AgentTools `yaml:"tools"`
-	Jobs_  []string   `yaml:"jobs"`
+	Tools_ *agentTools `yaml:"tools"`
+	Jobs_  []string    `yaml:"jobs"`
 
 	SupportedContainers_    []string `yaml:"supported-containers,omitempty"`
 	SupportedContainersSet_ bool     `yaml:"supported-containers-set,omitempty"`
 
 	Containers_ []*machine `yaml:"containers"`
-}
-
-// Keeping the agentTools with the machine code, because we hope
-// that one day we will succeed in merging the unit agents with the
-// machine agents.
-type agentTools struct {
-	Version_ version.Binary `yaml:"version"`
-	URL_     string         `yaml:"url"`
-	SHA256_  string         `yaml:"sha256"`
-	Size_    int64          `yaml:"size"`
 }
 
 type cloudInstance struct {
@@ -182,11 +171,21 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	result := &machine{}
 
 	fields := schema.Fields{
-		"id":         schema.String(),
-		"instance":   schema.StringMap(schema.Any()),
-		"containers": schema.List(schema.StringMap(schema.Any())),
+		"id":             schema.String(),
+		"nonce":          schema.String(),
+		"password-hash":  schema.String(),
+		"placement":      schema.String(),
+		"instance":       schema.StringMap(schema.Any()),
+		"series":         schema.String(),
+		"container-type": schema.String(),
+		"tools":          schema.StringMap(schema.Any()),
+		"containers":     schema.List(schema.StringMap(schema.Any())),
 	}
-	checker := schema.FieldMap(fields, nil) // no defaults
+	defaults := schema.Defaults{
+		"placement":      "",
+		"container-type": "",
+	}
+	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -196,12 +195,23 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 	result.Id_ = valid["id"].(string)
+	result.Nonce_ = valid["nonce"].(string)
+	result.PasswordHash_ = valid["password-hash"].(string)
+	result.Placement_ = valid["placement"].(string)
+	result.Series_ = valid["series"].(string)
+	result.ContainerType_ = valid["container-type"].(string)
 
 	instance, err := importCloudInstance(valid["instance"].(map[string]interface{}))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result.Instance_ = instance
+
+	tools, err := importAgentTools(valid["tools"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.Tools_ = tools
 
 	machineList := valid["containers"].([]interface{})
 	machines, err := importMachineList(machineList, importMachineV1)
@@ -250,8 +260,9 @@ func (c *cloudInstance) AvailabilityZone() string {
 	return c.AvailabilityZone_
 }
 
-// importAddress constructs a new Address from a map that in normal usage situations
-// will be the result of interpreting a large YAML document.
+// importCloudInstance constructs a new cloudInstance from a map that in
+// normal usage situations will be the result of interpreting a large YAML
+// document.
 //
 // This method is a package internal serialisation method.
 func importCloudInstance(source map[string]interface{}) (*cloudInstance, error) {
@@ -322,5 +333,88 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		CpuPower_:         valid["cpu-power"].(uint64),
 		Tags_:             tags,
 		AvailabilityZone_: valid["availability-zone"].(string),
+	}, nil
+}
+
+// Keeping the agentTools with the machine code, because we hope
+// that one day we will succeed in merging the unit agents with the
+// machine agents.
+type agentTools struct {
+	Version_      int            `yaml:"version"`
+	ToolsVersion_ version.Binary `yaml:"tools-version"`
+	URL_          string         `yaml:"url"`
+	SHA256_       string         `yaml:"sha256"`
+	Size_         int64          `yaml:"size"`
+}
+
+func (a *agentTools) Version() version.Binary {
+	return a.ToolsVersion_
+}
+func (a *agentTools) URL() string {
+	return a.URL_
+}
+
+func (a *agentTools) SHA256() string {
+	return a.SHA256_
+}
+
+func (a *agentTools) Size() int64 {
+	return a.Size_
+}
+
+// importAgentTools constructs a new agentTools instance from a map that in
+// normal usage situations will be the result of interpreting a large YAML
+// document.
+//
+// This method is a package internal serialisation method.
+func importAgentTools(source map[string]interface{}) (*agentTools, error) {
+	version, err := getVersion(source)
+	if err != nil {
+		return nil, errors.Annotate(err, "agentTools version schema check failed")
+	}
+
+	importFunc, ok := agentToolsDeserializationFuncs[version]
+	if !ok {
+		return nil, errors.NotValidf("version %d", version)
+	}
+
+	return importFunc(source)
+}
+
+type agentToolsDeserializationFunc func(map[string]interface{}) (*agentTools, error)
+
+var agentToolsDeserializationFuncs = map[int]agentToolsDeserializationFunc{
+	1: importAgentToolsV1,
+}
+
+func importAgentToolsV1(source map[string]interface{}) (*agentTools, error) {
+	fields := schema.Fields{
+		"tools-version": schema.String(),
+		"url":           schema.String(),
+		"sha256":        schema.String(),
+		"size":          schema.Int(),
+	}
+	checker := schema.FieldMap(fields, nil) // no defaults
+
+	coerced, err := checker.Coerce(source, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "agentTools v1 schema check failed")
+	}
+	valid := coerced.(map[string]interface{})
+	// From here we know that the map returned from the schema coercion
+	// contains fields of the right type.
+
+	verString := valid["tools-version"].(string)
+	toolsVersion, err := version.ParseBinary(verString)
+	if err != nil {
+		return nil, errors.Annotatef(err, "agentTools tools-version")
+	}
+
+	return &agentTools{
+		Version_:      1,
+		ToolsVersion_: toolsVersion,
+		URL_:          valid["url"].(string),
+		SHA256_:       valid["sha256"].(string),
+		Size_:         valid["size"].(int64),
 	}, nil
 }

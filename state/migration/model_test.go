@@ -100,14 +100,8 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 			"users":   []interface{}{},
 		},
 		"machines": map[string]interface{}{
-			"version": 1,
-			"machines": []interface{}{
-				map[string]interface{}{
-					"id":         "0",
-					"instance":   minimalCloudInstanceMap(),
-					"containers": []interface{}{},
-				},
-			},
+			"version":  1,
+			"machines": []interface{}{},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
