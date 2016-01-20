@@ -6,8 +6,8 @@ package local_test
 import (
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/kvm"
@@ -107,7 +107,7 @@ func (s *configSuite) TestSetNetworkBridge(c *gc.C) {
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid := minimalConfig(c)
-	expectedRootDir := filepath.Join(utils.Home(), ".config", "juju", "test")
+	expectedRootDir := filepath.Join(gitjujutesting.JujuHomePath(), "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
@@ -125,7 +125,7 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	valid := localConfig(c, map[string]interface{}{
 		"root-dir": "~/.config/juju/foo",
 	})
-	expectedRootDir := filepath.Join(utils.Home(), ".config", "juju", "foo")
+	expectedRootDir := filepath.Join(gitjujutesting.JujuHomePath(), "foo")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

@@ -11,6 +11,12 @@ import (
 )
 
 const (
+	// If you are adding variables here that could be defined
+	// in a system and therefore changing the behavior on test
+	// suites please take a moment to add them to JujuOSEnvSuite
+	// setup so they are cleared before running the suites using
+	// it.
+
 	JujuEnvEnvKey           = "JUJU_ENV"
 	JujuHomeEnvKey          = "JUJU_HOME"
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
@@ -44,6 +50,8 @@ const (
 	// Default is 1.
 	JujuCLIVersion = "JUJU_CLI_VERSION"
 
+	// XDGConfigHome is a path where config for the running user
+	// should be stored according to the xdg standard.
 	XDGConfigHome = "XDG_CONFIG_HOME"
 )
 

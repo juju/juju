@@ -460,7 +460,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := testing.HomePath(".config", "juju", "environments", "cache.yaml")
+	jenvFile := testing.JujuHomePath("environments", "cache.yaml")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -826,7 +826,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C, envName string) environs.Environ {
-	jenvDir := testing.HomePath(".config", "juju", "environments")
+	jenvDir := testing.JujuHomePath("environments")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 	coretesting.WriteEnvironments(c, envConfig)

@@ -146,7 +146,7 @@ func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
 	xdgHome := gitjujutesting.HomePath(".config")
 	err := os.Mkdir(xdgHome, 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	jujuHome := gitjujutesting.HomePath(".config", "juju")
+	jujuHome := gitjujutesting.JujuHomePath()
 	err = os.Mkdir(jujuHome, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
