@@ -611,14 +611,19 @@ func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 }
 
 func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
-	suite.getNetwork("test_network", 123, 321)
+	suite.newNetwork("test_network", 123, 321, "null")
 	testInstance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
 	networks, err := suite.makeEnviron().getInstanceNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, gc.DeepEquals, []networkDetails{
-		{Name: "test_network", IP: "192.168.123.1", Mask: "255.255.255.0", VLANTag: 321,
-			Description: "test_network_123_321"},
+	c.Check(networks, gc.DeepEquals, []networkDetails{{
+		Name:           "test_network",
+		IP:             "192.168.123.2",
+		Mask:           "255.255.255.0",
+		VLANTag:        321,
+		Description:    "test_network_123_321",
+		DefaultGateway: "", // "null" and "" are treated as N/A.
+	},
 	})
 }
 
@@ -736,11 +741,11 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.getNetwork("LAN", 2, 42)
+	suite.newNetwork("LAN", 2, 42, "null")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.getNetwork("Virt", 3, 0)
+	suite.newNetwork("Virt", 3, 0, "0.1.2.3") // primary + gateway
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
-	suite.getNetwork("WLAN", 1, 0)
+	suite.newNetwork("WLAN", 1, 0, "") // "" same as "null" for gateway
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
@@ -754,7 +759,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 		case 0:
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
 				MACAddress:    "aa:bb:cc:dd:ee:ff",
-				CIDR:          "192.168.1.1/24",
+				CIDR:          "192.168.1.2/24",
 				NetworkName:   "WLAN",
 				ProviderId:    "WLAN",
 				VLANTag:       0,
@@ -766,7 +771,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
 				DeviceIndex:   1,
 				MACAddress:    "aa:bb:cc:dd:ee:f1",
-				CIDR:          "192.168.2.1/24",
+				CIDR:          "192.168.2.2/24",
 				NetworkName:   "LAN",
 				ProviderId:    "LAN",
 				VLANTag:       42,
@@ -775,14 +780,15 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			})
 		case 2:
 			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
-				MACAddress:    "aa:bb:cc:dd:ee:f2",
-				CIDR:          "192.168.3.1/24",
-				NetworkName:   "Virt",
-				ProviderId:    "Virt",
-				VLANTag:       0,
-				DeviceIndex:   2,
-				InterfaceName: "vnet1",
-				Disabled:      false,
+				MACAddress:     "aa:bb:cc:dd:ee:f2",
+				CIDR:           "192.168.3.2/24",
+				NetworkName:    "Virt",
+				ProviderId:     "Virt",
+				VLANTag:        0,
+				DeviceIndex:    2,
+				InterfaceName:  "vnet1",
+				Disabled:       false,
+				GatewayAddress: network.NewAddress("0.1.2.3"), // from newNetwork("Virt", 3, 0, "0.1.2.3")
 			})
 		}
 	}
