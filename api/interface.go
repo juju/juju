@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
@@ -165,7 +164,6 @@ type Connection interface {
 	Networker() networker.State
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	DiskManager() (*diskmanager.State, error)
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -193,6 +194,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
+		// The diskmanager worker periodically lists block devices on the
+		// machine it runs on. This worker will be run on all Juju-managed
+		// machines (one per machine agent).
+		diskmanagerName: diskmanager.Manifold(diskmanager.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
@@ -203,6 +213,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			ShouldWriteProxyFiles: config.ShouldWriteProxyFiles,
 		}),
+
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -223,6 +234,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			WriteUninstallFile: config.WriteUninstallFile,
 		}),
+
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
@@ -252,6 +264,7 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	diskmanagerName          = "disk-manager"
 	proxyConfigUpdater       = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
