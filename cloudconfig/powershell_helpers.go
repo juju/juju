@@ -26,12 +26,11 @@ var winPowershellHelperFunctions = `
 
 $ErrorActionPreference = "Stop"
 
-function ExecRetry($command, $maxRetryCount = 5, $retryInterval = 15)
+function ExecRetry($command, $retryInterval = 15)
 {
 	$currErrorActionPreference = $ErrorActionPreference
 	$ErrorActionPreference = "Continue"
 
-	$retryCount = 0
 	while ($true)
 	{
 		try
@@ -41,17 +40,8 @@ function ExecRetry($command, $maxRetryCount = 5, $retryInterval = 15)
 		}
 		catch [System.Exception]
 		{
-			$retryCount++
-			if (($maxRetryCount -gt 0) -and ($retryCount -ge $maxRetryCount))
-			{
-				$ErrorActionPreference = $currErrorActionPreference
-				throw
-			}
-			else
-			{
-				Write-Error $_.Exception
-				Start-Sleep $retryInterval
-			}
+			Write-Error $_.Exception
+			Start-Sleep $retryInterval
 		}
 	}
 

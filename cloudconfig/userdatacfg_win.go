@@ -91,7 +91,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`mkdir $binDir`,
 		`$WebClient = New-Object System.Net.WebClient`,
 		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
-		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") } -1`, w.icfg.Tools.URL),
+		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`, w.icfg.Tools.URL),
 		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
 		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
 			w.icfg.Tools.Version),
