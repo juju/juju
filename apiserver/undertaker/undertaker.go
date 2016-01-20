@@ -120,3 +120,16 @@ func (u *UndertakerAPI) WatchEnvironResources() params.NotifyWatchResults {
 		},
 	}
 }
+
+// EnvironConfig returns the environment's configuration.
+func (u *UndertakerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
+	result := params.EnvironConfigResult{}
+
+	config, err := u.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	allAttrs := config.AllAttrs()
+	result.Config = allAttrs
+	return result, nil
+}

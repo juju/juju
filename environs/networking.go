@@ -14,9 +14,12 @@ import (
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
-	// AllocateAddress requests a specific address to be allocated for the
-	// given instance on the given subnet.
-	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
+	// AllocateAddress requests a specific address to be allocated for the given
+	// instance on the given subnet, using the specified macAddress and
+	// hostnameSuffix. If addr is empty, this is interpreted as an output
+	// argument, which will contain the allocated address. Otherwise, addr must
+	// be non-empty and will be allocated as specified, if possible.
+	AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostnameSuffix string) error
 
 	// ReleaseAddress releases a specific address previously allocated with
 	// AllocateAddress.

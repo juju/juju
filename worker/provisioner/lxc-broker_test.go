@@ -331,13 +331,12 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	AssertFileContains(c, lxc_conf, expect...)
 }
 
-func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
+func (s *lxcBrokerSuite) startInstancePopulatesNetworkInfo(c *gc.C) (*environs.StartInstanceResult, error) {
 	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
 		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
 	})
 	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
-	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
+	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\nnameserver ns2.dummy\nsearch dummy\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
 
@@ -346,11 +345,16 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
-	result, err := s.broker.StartInstance(environs.StartInstanceParams{
+	return s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 	})
+}
+
+func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithAddressAllocation(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	result, err := s.startInstancePopulatesNetworkInfo(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
@@ -361,11 +365,31 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
 		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy"),
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearch:      "dummy",
 		Address:        network.NewAddress("0.1.2.3"),
 		GatewayAddress: network.NewAddress("0.1.2.1"),
 		NetworkName:    network.DefaultPrivate,
 		ProviderId:     network.DefaultProviderId,
+	})
+}
+
+func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithoutAddressAllocation(c *gc.C) {
+	s.SetFeatureFlags()
+	result, err := s.startInstancePopulatesNetworkInfo(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
+		InterfaceName:  "dummy0", // generated from the device index.
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearch:      "dummy",
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 	})
 }
 
