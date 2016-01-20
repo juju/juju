@@ -85,8 +85,8 @@ func (s *ListBlocksSuite) TestListBlocksTabular(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(ctx), gc.Equals, ""+
 		"NAME   ENVIRONMENT UUID  OWNER         BLOCKS\n"+
-		"test1  test1-uuid        cheryl@local  destroy-environment\n"+
-		"test2  test2-uuid        bob@local     destroy-environment,all-changes\n"+
+		"test1  test1-uuid        cheryl@local  destroy-model\n"+
+		"test2  test2-uuid        bob@local     destroy-model,all-changes\n"+
 		"\n")
 }
 

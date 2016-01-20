@@ -51,7 +51,7 @@ The first time this runs it might take a bit, as it's doing a netinstall for
 the container, it's around a 300 megabyte download. Subsequent bootstraps
 should be much quicker. You'll be asked for your 'sudo' password, which is
 needed because only root can create LXC containers. When you need to destroy
-the environment, do 'juju destroy-environment local' and you could be asked
+the environment, do 'juju destroy-model local' and you could be asked
 for your 'sudo' password again.
 
 You deploy charms from the charm store using the following commands:

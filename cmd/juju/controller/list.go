@@ -35,9 +35,9 @@ multiple environments.
 
 See Also:
     juju help controllers
-    juju help list-environments
-    juju help create-environment
-    juju help use-environment
+    juju help list-models
+    juju help create-model
+    juju help use-model
 `
 
 // Info implements Command.Info

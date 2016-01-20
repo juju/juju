@@ -85,7 +85,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyEnvs, "destroy-all-environments", false, "destroy all hosted environments in the controller")
+	f.BoolVar(&c.destroyEnvs, "destroy-all-models", false, "destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
 }
 

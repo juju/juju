@@ -58,12 +58,12 @@ the --keep-password flag.
 Bob can then list all the environments within that controller that he has
 access to:
 
-    $ juju list-environments
+    $ juju list-model
     NAME  OWNER  LAST CONNECTION
 
-The list could well be empty. Bob can create an environment to use:
+The list could well be empty. Bob can create an model to use:
 
-    $ juju create-environment test
+    $ juju create-model test
     created environment "test"
     staging (controller) -> test
 
@@ -78,13 +78,13 @@ new environment has no machines, and no services.
 Bob wants to collaborate with Mary on this environment. A user for Mary needs
 to exist in the controller before Bob is able to share the environment with her.
 
-    $ juju share-environment mary
+    $ juju share-model mary
     ERROR could not share environment: user "mary" does not exist locally: user "mary" not found
 
 Bob gets the controller administrator to add a user for Mary, and then shares the
 environment with Mary.
 
-    $ juju share-environment mary
+    $ juju share-model mary
     $ juju list-shares
     NAME        DATE CREATED    LAST CONNECTION
     bob@local   5 minutes ago   just now
@@ -93,13 +93,13 @@ environment with Mary.
 When Mary has used her credentials to connect to the juju controller, she can see
 Bob's environment.
 
-    $ juju list-environments
+    $ juju list-models
     NAME  OWNER      LAST CONNECTION
     test  bob@local  never connected
 
 Mary can use this environment.
 
-    $ juju use-environment test
+    $ juju use-model test
     mary-server (controller) -> bob-test
 
 The local name for the environment is by default 'owner-name', so since this

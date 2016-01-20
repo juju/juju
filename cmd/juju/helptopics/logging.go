@@ -106,14 +106,14 @@ environment variable
 setting the logging-config option at bootstrap time
   - juju bootstrap --logging-config='...'
 or setting the logging-config option later
-  - juju set-environment logging-config='...'
+  - juju set-model logging-config='...'
 
 The configuration format taken by all these mechanisms is the same:
 one or more "module.prefix=LEVEL" items separated by semicolons.
 
 Example:
 
-  juju set-environment logging-config "juju=WARNING; unit=INFO"
+  juju set-model logging-config "juju=WARNING; unit=INFO"
 
 Valid logging levels:
   CRITICAL

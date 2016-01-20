@@ -52,21 +52,20 @@ the --config option, the command line args take priority.
 
 Examples:
 
-    juju create-environment new-env
+    juju create-model new-env
 
-    juju create-environment new-env --config=aws-creds.yaml
+    juju create-model new-env --config=aws-creds.yaml
 
 See Also:
-    juju help environment share
+    juju help model share
 `
 
 func (c *createEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create-environment",
+		Name:    "create-model",
 		Args:    "<name> [key=[value] ...]",
-		Purpose: "create an environment within the Juju Environment Server",
+		Purpose: "create an model within the Juju Environment Server",
 		Doc:     strings.TrimSpace(createEnvHelpDoc),
-		Aliases: []string{"create-model"},
 	}
 }
 

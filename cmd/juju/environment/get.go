@@ -35,16 +35,15 @@ the end of the command line.
 
 Example:
   
-  juju get-environment default-series  (returns the default series for the environment)
+  juju get-model default-series  (returns the default series for the model)
 `
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get-environment",
-		Args:    "[<environment key>]",
-		Purpose: "view environment values",
+		Name:    "get-model",
+		Args:    "[<model key>]",
+		Purpose: "view model values",
 		Doc:     strings.TrimSpace(getEnvHelpDoc),
-		Aliases: []string{"get-env", "get-model"},
 	}
 }
 

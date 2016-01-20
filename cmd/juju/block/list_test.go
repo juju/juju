@@ -32,9 +32,9 @@ func (s *listCommandSuite) TestListEmpty(c *gc.C) {
 	ctx, err := testing.RunCommand(c, block.NewListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
-destroy-environment  =off
-remove-object        =off
-all-changes          =off
+destroy-model  =off
+remove-object  =off
+all-changes    =off
 `)
 }
 
@@ -43,9 +43,9 @@ func (s *listCommandSuite) TestList(c *gc.C) {
 	ctx, err := testing.RunCommand(c, block.NewListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
-destroy-environment  =off
-remove-object        =on, Test this one
-all-changes          =off
+destroy-model  =off
+remove-object  =on, Test this one
+all-changes    =off
 `)
 }
 
@@ -54,7 +54,7 @@ func (s *listCommandSuite) TestListYaml(c *gc.C) {
 	ctx, err := testing.RunCommand(c, block.NewListCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
-- block: destroy-environment
+- block: destroy-model
   enabled: false
 - block: remove-object
   enabled: true
@@ -68,6 +68,6 @@ func (s *listCommandSuite) TestListJson(c *gc.C) {
 	s.mockClient.SwitchBlockOn(string(multiwatcher.BlockRemove), "Test this one")
 	ctx, err := testing.RunCommand(c, block.NewListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, `[{"block":"destroy-environment","enabled":false},{"block":"remove-object","enabled":true,"message":"Test this one"},{"block":"all-changes","enabled":false}]
+	c.Assert(testing.Stdout(ctx), gc.Equals, `[{"block":"destroy-model","enabled":false},{"block":"remove-object","enabled":true,"message":"Test this one"},{"block":"all-changes","enabled":false}]
 `)
 }
