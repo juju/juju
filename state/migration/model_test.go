@@ -67,11 +67,7 @@ func (*ModelSerializationSuite) TestParsing(c *gc.C) {
 		"machines": map[string]interface{}{
 			"version": 1,
 			"machines": []interface{}{
-				map[string]interface{}{
-					"id":         "0",
-					"instance":   minimalCloudInstanceMap(),
-					"containers": []interface{}{},
-				},
+				minimalMachineMap("0"),
 			},
 		},
 	})
