@@ -857,7 +857,7 @@ func (suite *environSuite) TestNetworkInterfacesLegacy(c *gc.C) {
 	expectedInfo := []network.InterfaceInfo{{
 		DeviceIndex:      0,
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
-		CIDR:             "192.168.1.1/24",
+		CIDR:             "192.168.1.2/24",
 		ProviderSubnetId: "WLAN",
 		VLANTag:          0,
 		InterfaceName:    "wlan0",
@@ -866,11 +866,11 @@ func (suite *environSuite) TestNetworkInterfacesLegacy(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.1.2", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		CIDR:             "192.168.2.1/24",
+		CIDR:             "192.168.2.2/24",
 		ProviderSubnetId: "LAN",
 		VLANTag:          42,
 		InterfaceName:    "eth0",
@@ -878,12 +878,12 @@ func (suite *environSuite) TestNetworkInterfacesLegacy(c *gc.C) {
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
-		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
+		GatewayAddress:   network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.2.2", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
-		CIDR:             "192.168.3.1/24",
+		CIDR:             "192.168.3.2/24",
 		ProviderSubnetId: "Virt",
 		VLANTag:          0,
 		InterfaceName:    "vnet1",
@@ -892,7 +892,7 @@ func (suite *environSuite) TestNetworkInterfacesLegacy(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.3.2", network.ScopeCloudLocal),
 	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
