@@ -102,6 +102,10 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 				unitTag:  "ubuntu/0",
 			}, nil
 		})
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:ubuntu-1"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +127,11 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,10 +155,14 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
 	charmdir := &dummyCharmdir{aborted: true}
 	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource := dt.StubGetResource(s.dummyResources)
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, getResource)
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,7 +171,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 	charmdir = &dummyCharmdir{aborted: false}
 	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource = dt.StubGetResource(s.dummyResources)
-	collectEntity, err = (*collect.NewCollect)(s.manifoldConfig, getResource)
+	collectEntity, err = collect.NewCollect(s.manifoldConfig, getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +191,11 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{}, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
