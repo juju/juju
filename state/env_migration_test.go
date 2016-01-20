@@ -42,7 +42,7 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.EnvMigrationSpec{
 		Owner: "owner",
-		TargetInfo: state.EnvMigrationTargetInfo{
+		TargetInfo: state.EnvMigTargetInfo{
 			ControllerTag: names.NewEnvironTag("uuid"),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",

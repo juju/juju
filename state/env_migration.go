@@ -22,16 +22,16 @@ import (
 // This file contains functionality for managing the state documents
 // used by Juju to track model migrations.
 
-// EnvMigration represents the state of an migration attempt for an
+// EnvMig represents the state of an migration attempt for an
 // environment.
 type EnvMigration struct {
 	st  *State
-	doc envMigrationDoc
+	doc envMigDoc
 }
 
-// envMigrationDoc tracks the state of a migration attempt for an
+// envMigDoc tracks the state of a migration attempt for an
 // environment.
-type envMigrationDoc struct {
+type envMigDoc struct {
 	// XXX docs
 	Id               string    `bson:"_id"`
 	EnvUUID          string    `bson:"env-uuid"`
@@ -105,12 +105,12 @@ func (mig *EnvMigration) Owner() string {
 
 // TargetInfo returns the details required to connect to the
 // migration's target controller.
-func (mig *EnvMigration) TargetInfo() (*EnvMigrationTargetInfo, error) {
+func (mig *EnvMigration) TargetInfo() (*EnvMigTargetInfo, error) {
 	entityTag, err := names.ParseTag(mig.doc.TargetEntityTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &EnvMigrationTargetInfo{
+	return &EnvMigTargetInfo{
 		ControllerTag: names.NewEnvironTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
@@ -182,7 +182,7 @@ func (mig *EnvMigration) Refresh() error {
 	migColl, closer := mig.st.getCollection(envMigrationsC)
 	defer closer()
 
-	var doc envMigrationDoc
+	var doc envMigDoc
 	err := migColl.FindId(mig.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("migration")
@@ -198,18 +198,17 @@ func (mig *EnvMigration) Refresh() error {
 // EnvMigration instance.
 type EnvMigrationSpec struct {
 	Owner      string
-	TargetInfo EnvMigrationTargetInfo
+	TargetInfo EnvMigTargetInfo
 }
 
-// EnvMigrationTargetInfo holds the details required to connect to a
+// EnvMigTargetInfo holds the details required to connect to a
 // migration's target controller.
 //
 // TODO(mjs) - Note the similarity to api.Info :-/. It would be nice
 // to be able to use api.Info here but state can't import api and
 // moving api.Info to live under the core package is too big a project
 // to be done right now.
-// XXX name is too long
-type EnvMigrationTargetInfo struct {
+type EnvMigTargetInfo struct {
 	// ControllerTag holds tag for the target controller.
 	ControllerTag names.EnvironTag
 
@@ -247,7 +246,7 @@ func (spec *EnvMigrationSpec) checkAndNormalise() error {
 	if target.CACert == "" {
 		return errors.NotValidf("empty CACert")
 	}
-	// XXX need ot validating that Addrs include ports and are sensible
+	// XXX need to validate that Addrs include ports and are sensible
 	if target.EntityTag.Id() == "" {
 		return errors.NotValidf("empty EntityTag")
 	}
@@ -270,7 +269,7 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 
 	now := GetClock().Now()
 	envUUID := st.EnvironUUID()
-	var doc envMigrationDoc
+	var doc envMigDoc
 	buildTxn := func(int) ([]txn.Op, error) {
 		if isActive, err := IsEnvMigrationActive(st, envUUID); err != nil {
 			return nil, errors.Trace(err)
@@ -283,7 +282,7 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 			return nil, errors.Trace(err)
 		}
 
-		doc = envMigrationDoc{
+		doc = envMigDoc{
 			Id:               fmt.Sprintf("%s:%d", envUUID, seq),
 			EnvUUID:          envUUID,
 			Owner:            spec.Owner,
@@ -323,7 +322,7 @@ func GetEnvMigration(st *State) (*EnvMigration, error) {
 	migColl, closer := st.getCollection(envMigrationsC)
 	defer closer()
 
-	var doc envMigrationDoc
+	var doc envMigDoc
 	err := migColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("migration")
