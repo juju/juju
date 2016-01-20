@@ -208,7 +208,7 @@ var stdFailureMsg = `failed to destroy controller %q
 
 If the controller is unusable, then you may run
 
-    juju controller kill
+    juju kill-controller
 
 to forcibly destroy the controller. Upon doing so, review
 your environment provider console for any resources that need
