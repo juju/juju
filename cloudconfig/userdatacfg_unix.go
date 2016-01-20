@@ -348,7 +348,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			// The bootstrapping is always run with debug on.
 			w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
 				bootstrapCons +

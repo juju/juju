@@ -87,7 +87,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
 	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "environ-constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
@@ -99,7 +99,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
-		return cmdutil.RequiredError("env-config")
+		return cmdutil.RequiredError("model-config")
 	}
 	if c.InstanceId == "" {
 		return cmdutil.RequiredError("instance-id")
