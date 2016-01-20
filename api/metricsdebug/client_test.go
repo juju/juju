@@ -120,7 +120,10 @@ func assertSameMetric(c *gc.C, a params.MetricResult, b *state.MetricBatch) {
 }
 
 func (s *metricsdebugSuite) TestFeatureGetMetrics(c *gc.C) {
-	metric := s.Factory.MakeMetric(c, nil)
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit})
 	metrics, err := s.manager.GetMetrics("unit-metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 1)
@@ -128,7 +131,7 @@ func (s *metricsdebugSuite) TestFeatureGetMetrics(c *gc.C) {
 }
 
 func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: meteredCharm,
 	})
@@ -154,7 +157,7 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetrics(c *gc.C) {
 }
 
 func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithService(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: meteredCharm,
 	})
