@@ -18,7 +18,7 @@ import (
 )
 
 // All of the functionality of the AddUser api call is contained elsewhere.
-// This suite provides basic tests for the "user add" command
+// This suite provides basic tests for the "add-user" command
 type UserAddCommandSuite struct {
 	BaseSuite
 	mockAPI        *mockAddUserAPI
@@ -42,7 +42,7 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	addCommand, _ := user.NewAddCommand(s.mockAPI)
+	addCommand, _ := user.NewAddCommandForTest(s.mockAPI)
 	return testing.RunCommand(c, addCommand, args...)
 }
 
@@ -79,7 +79,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewAddCommand(s.mockAPI)
+		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)

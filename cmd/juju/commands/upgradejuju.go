@@ -26,8 +26,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func newUpgradeJujuCommand() cmd.Command {
-	return envcmd.Wrap(&upgradeJujuCommand{})
+func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+	if minUpgradeVers == nil {
+		minUpgradeVers = minMajorUpgradeVersion
+	}
+	return envcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers})
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.
@@ -39,6 +42,12 @@ type upgradeJujuCommand struct {
 	DryRun        bool
 	ResetPrevious bool
 	AssumeYes     bool
+
+	// minMajorUpgradeVersion maps known major numbers to
+	// the minimum version that can be upgraded to that
+	// major version.  For example, users must be running
+	// 1.25.3 or later in order to upgrade to 2.0.
+	minMajorUpgradeVersion map[int]version.Number
 }
 
 var upgradeJujuDoc = `
@@ -103,9 +112,6 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 		if err != nil {
 			return err
 		}
-		if vers.Major != version.Current.Major {
-			return fmt.Errorf("cannot upgrade to version incompatible with CLI")
-		}
 		if c.UploadTools && vers.Build != 0 {
 			// TODO(fwereade): when we start taking versions from actual built
 			// code, we should disable --version when used with --upload-tools.
@@ -120,7 +126,40 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-var errUpToDate = stderrors.New("no upgrades available")
+var (
+	errUpToDate            = stderrors.New("no upgrades available")
+	downgradeErrMsg        = "cannot change version from %s to %s"
+	minMajorUpgradeVersion = map[int]version.Number{
+		2: version.MustParse("1.25.3"),
+	}
+)
+
+// canUpgradeRunningVersion determines if the version of the running
+// environment can be upgraded using this version of the
+// upgrade-juju command.  Only versions with a minor version
+// of 0 are expected to be able to upgrade environments running
+// the previous major version.
+//
+// This check is needed because we do not guarantee API
+// compatibility across major versions.  For example, a 3.3.0
+// version of the upgrade-juju command may not know how to upgrade
+// an environment running juju 4.0.0.
+//
+// The exception is that a N.0.* client must be able to upgrade
+// an environment one major version prior (N-1.*.*) so that
+// it can be used to upgrade the environment to N.0.*.  For
+// example, the 2.0.1 upgrade-juju command must be able to upgrade
+// environments running 1.* since it must be able to upgrade
+// environments from 1.25.3 -> 2.0.*.
+func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
+	if runningAgentVer.Major == version.Current.Major {
+		return true
+	}
+	if version.Current.Minor == 0 && runningAgentVer.Major == (version.Current.Major-1) {
+		return true
+	}
+	return false
+}
 
 func formatTools(tools coretools.List) string {
 	formatted := make([]string, len(tools))
@@ -166,7 +205,73 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	context, err := c.initVersions(client, cfg)
+
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return fmt.Errorf("incomplete environment configuration")
+	}
+
+	if c.UploadTools && c.Version == version.Zero {
+		// Currently, uploading tools assumes the version to be
+		// the same as version.Current if not specified with
+		// --version.
+		c.Version = version.Current
+	}
+	warnCompat := false
+	switch {
+	case !canUpgradeRunningVersion(agentVersion):
+		// This version of upgrade-juju cannot upgrade the running
+		// environment version (can't guarantee API compatibility).
+		return fmt.Errorf("cannot upgrade a %s environment with a %s client",
+			agentVersion, version.Current)
+	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
+		// The specified version would downgrade the environment.
+		// Don't upgrade and return an error.
+		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
+	case agentVersion.Major != version.Current.Major:
+		// Running environment is the previous major version (a higher major
+		// version wouldn't have passed the check in canUpgradeRunningVersion).
+		if c.Version == version.Zero || c.Version.Major == agentVersion.Major {
+			// Not requesting an upgrade across major release boundary.
+			// Warn of incompatible CLI and filter on the prior major version
+			// when searching for available tools.
+			// TODO(cherylj) Add in a suggestion to upgrade to 2.0 if
+			// no matching tools are found (bug 1532670)
+			warnCompat = true
+			break
+		}
+		// User requested an upgrade to the next major version.
+		// Fallthrough to the next case to verify that the upgrade
+		// conditions are met.
+		fallthrough
+	case c.Version.Major > agentVersion.Major:
+		// User is requesting an upgrade to a new major number
+		// Only upgrade to a different major number if:
+		// 1 - Explicitly requested with --version or using --upload-tools, and
+		// 2 - The environment is running a valid version to upgrade from, and
+		// 3 - The upgrade is to a minor version of 0.
+		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
+		if !ok {
+			return errors.Errorf("unknown version %q", c.Version)
+		}
+		retErr := false
+		if c.Version.Minor != 0 {
+			ctx.Infof("upgrades to %s must first go through juju %d.0",
+				c.Version, c.Version.Major)
+			retErr = true
+		}
+		if comp := agentVersion.Compare(minVer); comp < 0 {
+			ctx.Infof("upgrades to a new major version must first go through %s",
+				minVer)
+			retErr = true
+		}
+		if retErr {
+			return fmt.Errorf("unable to upgrade to requested version")
+		}
+	}
+
+	context, err := c.initVersions(client, cfg, agentVersion, warnCompat)
 	if err != nil {
 		return err
 	}
@@ -181,6 +286,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	ctx.Infof("available tools:\n%s", formatTools(context.tools))
 	ctx.Infof("best version:\n    %s", context.chosen)
+	if warnCompat {
+		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, version.Current)
+	}
 	if c.DryRun {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
@@ -238,17 +346,21 @@ func (c *upgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config) (*upgradeContext, error) {
-	agent, ok := cfg.AgentVersion()
-	if !ok {
-		// Can't happen. In theory.
-		return nil, fmt.Errorf("incomplete environment configuration")
-	}
-	if c.Version == agent {
+func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config, agentVersion version.Number, filterOnPrior bool) (*upgradeContext, error) {
+	if c.Version == agentVersion {
 		return nil, errUpToDate
 	}
-	clientVersion := version.Current
-	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
+	filterVersion := version.Current
+	if c.Version != version.Zero {
+		filterVersion = c.Version
+	} else if filterOnPrior {
+		// Trying to find the latest of the prior major version.
+		// TODO (cherylj) if no tools found, suggest upgrade to
+		// the current client version.
+		filterVersion.Major--
+	}
+	logger.Debugf("searching for tools with major: %d", filterVersion.Major)
+	findResult, err := client.FindTools(filterVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -260,15 +372,15 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		if !c.UploadTools {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
-			if c.Version == version.Zero && agent.Major == clientVersion.Major {
+			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
 				return nil, errUpToDate
 			}
 			return nil, err
 		}
 	}
 	return &upgradeContext{
-		agent:     agent,
-		client:    clientVersion,
+		agent:     agentVersion,
+		client:    version.Current,
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
@@ -306,6 +418,10 @@ func (context *upgradeContext) uploadTools() (err error) {
 	// ...but there's no way we have time for that now. In the meantime,
 	// considering the use cases, this should work well enough; but it
 	// won't detect an incompatible major-version change, which is a shame.
+	//
+	// TODO(cherylj) If the determination of version changes, we will
+	// need to also change the upgrade version checks in Run() that check
+	// if a major upgrade is allowed.
 	if context.chosen == version.Zero {
 		context.chosen = context.client
 	}
@@ -345,18 +461,15 @@ func (context *upgradeContext) uploadTools() (err error) {
 func (context *upgradeContext) validate() (err error) {
 	if context.chosen == version.Zero {
 		// No explicitly specified version, so find the version to which we
-		// need to upgrade. If the CLI and agent major versions match, we find
-		// next available stable release to upgrade to by incrementing the
-		// minor version, starting from the current agent version and doing
-		// major.minor+1.patch=0. If the CLI has a greater major version,
-		// we just use the CLI version as is.
+		// need to upgrade. We find next available stable release to upgrade
+		// to by incrementing the minor version, starting from the current
+		// agent version and doing major.minor+1.patch=0.
+
+		// Upgrading across a major release boundary requires that the version
+		// be specified with --version.
 		nextVersion := context.agent
-		if nextVersion.Major == context.client.Major {
-			nextVersion.Minor += 1
-			nextVersion.Patch = 0
-		} else {
-			nextVersion = context.client
-		}
+		nextVersion.Minor += 1
+		nextVersion.Patch = 0
 
 		newestNextStable, found := context.tools.NewestCompatible(nextVersion)
 		if found {
@@ -396,7 +509,7 @@ func (context *upgradeContext) validate() (err error) {
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change version from %s to %s", context.agent, context.chosen)
+		return fmt.Errorf(downgradeErrMsg, context.agent, context.chosen)
 	}
 
 	return nil
