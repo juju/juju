@@ -5,16 +5,15 @@ package state_test
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	migration "github.com/juju/juju/core/envmigration"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,19 +41,18 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.EnvMigrationSpec{
-		Owner:            "owner",
-		TargetController: "uuid",
-		TargetAPIAddresses: []network.HostPort{
-			{network.Address{Value: "1.2.3.4"}, 5555},
-			{network.Address{Value: "4.3.2.1"}, 6666},
+		Owner: "owner",
+		TargetInfo: state.EnvMigrationTargetInfo{
+			ControllerTag: names.NewEnvironTag("uuid"),
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			EntityTag:     names.NewUserTag("user"),
+			Password:      "password",
 		},
-		TargetUser:     "user",
-		TargetPassword: "password",
 	}
 }
 
 func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
-	apiAddrs := s.stdSpec.TargetAPIAddresses
 	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -67,23 +65,13 @@ func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "")
 	c.Check(mig.Owner(), gc.Equals, "owner")
-	c.Check(mig.TargetController(), gc.Equals, "uuid")
+
+	info, err := mig.TargetInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
 
 	assertPhase(c, mig, migration.QUIESCE)
 	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
-
-	outApiAddrs, err := mig.TargetAPIAddresses()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(outApiAddrs, gc.HasLen, len(apiAddrs))
-	for i, inAddr := range apiAddrs {
-		outAddr := outApiAddrs[i]
-		c.Check(inAddr.Address.Value, gc.Equals, outAddr.Address.Value)
-		c.Check(inAddr.Port, gc.Equals, outAddr.Port)
-	}
-
-	username, password := mig.TargetAuthInfo()
-	c.Check(username, gc.Equals, "user")
-	c.Check(password, gc.Equals, "password")
 
 	assertEnvMigActive(c, s.State2)
 }
@@ -140,19 +128,63 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestCreateWithMissingSpecFields(c *gc.C) {
-	typ := reflect.TypeOf(s.stdSpec)
-	numFields := typ.NumField()
-	for i := 0; i < numFields; i++ {
-		// Copy the spec and clear a field by setting it to its zero value.
+	tests := []struct {
+		fieldName   string
+		tweakSpec   func(*state.EnvMigrationSpec)
+		errorPrefix string
+	}{{
+		"Owner",
+		func(spec *state.EnvMigrationSpec) {
+			spec.Owner = ""
+		},
+		"empty",
+	}, {
+		"ControllerTag",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.ControllerTag = names.NewEnvironTag("")
+		},
+		"empty",
+	}, {
+		"Addrs",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.Addrs = nil
+		},
+		"nil",
+	}, {
+		"Addrs",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.Addrs = []string{}
+		},
+		"empty",
+	}, {
+		"CACert",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.CACert = ""
+		},
+		"empty",
+	}, {
+		"EntityTag",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.EntityTag = names.NewMachineTag("")
+		},
+		"empty",
+	}, {
+		"Password",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.Password = ""
+		},
+		"empty",
+	}}
+	for _, test := range tests {
+		c.Log(test.fieldName)
 		spec := s.stdSpec
-		field := reflect.ValueOf(&spec).Elem().Field(i)
-		field.Set(reflect.Zero(field.Type()))
+		test.tweakSpec(&spec)
 
-		// Ensure that CreateEnvMigration complains that the field is missing.
+		// Ensure that CreateEnvMigration rejects the missing field.
 		mig, err := state.CreateEnvMigration(s.State2, spec)
 		c.Check(mig, gc.IsNil)
 		c.Check(errors.IsNotValid(err), jc.IsTrue)
-		c.Check(err, gc.ErrorMatches, fmt.Sprintf("empty %s.+", typ.Field(i).Name))
+		c.Check(err, gc.ErrorMatches, fmt.Sprintf("%s %s .+", test.errorPrefix, test.fieldName))
 	}
 }
 
@@ -165,8 +197,8 @@ func (s *EnvMigrationSuite) TestCreateWithControllerEnv(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "controllers can't be migrated")
 }
 
-func (s *EnvMigrationSuite) TestCreateFailsForMigratedEnvs(c *gc.C) {
-	c.Skip("XXX todo")
+func (s *EnvMigrationSuite) TestCreateFailsForAlreadyMigratedEnvs(c *gc.C) {
+	c.Fatal("XXX todo")
 }
 
 func (s *EnvMigrationSuite) TestCreateMigrationInProgress(c *gc.C) {
@@ -299,11 +331,11 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestABORTCleanup(c *gc.C) {
-	c.Skip("XXX to do")
+	c.Fatal("XXX to do")
 }
 
 func (s *EnvMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
-	c.Skip("XXX to do")
+	c.Fatal("XXX to do")
 }
 
 func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {

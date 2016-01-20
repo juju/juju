@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	migration "github.com/juju/juju/core/envmigration"
-	"github.com/juju/juju/network"
 )
 
 // This file contains functionality for managing the state documents
@@ -32,19 +32,21 @@ type EnvMigration struct {
 // envMigrationDoc tracks the state of a migration attempt for an
 // environment.
 type envMigrationDoc struct {
-	Id                 string    `bson:"_id"`
-	EnvUUID            string    `bson:"env-uuid"`
-	StartTime          time.Time `bson:"start-time"`
-	SuccessTime        time.Time `bson:"success-time"`
-	EndTime            time.Time `bson:"end-time"`
-	Phase              string    `bson:"phase"`
-	PhaseChangedTime   time.Time `bson:"phase-changed-time"`
-	StatusMessage      string    `bson:"status-message"`
-	Owner              string    `bson:"owner"`
-	TargetController   string    `bson:"target-controller"`
-	TargetAPIAddresses []string  `bson:"target-api-addresses"`
-	TargetUser         string    `bson:"target-user"`
-	TargetPassword     string    `bson:"target-password"`
+	// XXX docs
+	Id               string    `bson:"_id"`
+	EnvUUID          string    `bson:"env-uuid"`
+	StartTime        time.Time `bson:"start-time"`
+	SuccessTime      time.Time `bson:"success-time"`
+	EndTime          time.Time `bson:"end-time"`
+	Phase            string    `bson:"phase"`
+	PhaseChangedTime time.Time `bson:"phase-changed-time"`
+	StatusMessage    string    `bson:"status-message"`
+	Owner            string    `bson:"owner"`
+	TargetController string    `bson:"target-controller"`
+	TargetAddrs      []string  `bson:"target-addrs"`
+	TargetCACert     string    `bson:"target-cacert"`
+	TargetEntityTag  string    `bson:"target-entity"`
+	TargetPassword   string    `bson:"target-password"`
 }
 
 // Id returns a unique identifier for the environment migration.
@@ -70,7 +72,7 @@ func (mig *EnvMigration) SuccessTime() time.Time {
 }
 
 // EndTime returns the time when the migration reached DONE or
-// REAPFAILED
+// REAPFAILED.
 func (mig *EnvMigration) EndTime() time.Time {
 	return mig.doc.EndTime
 }
@@ -101,25 +103,20 @@ func (mig *EnvMigration) Owner() string {
 	return mig.doc.Owner
 }
 
-// TargetController returns UUID of the controller being migrated to.
-func (mig *EnvMigration) TargetController() string {
-	return mig.doc.TargetController
-}
-
-// TargetAPIAddresses returns IP addresses (and ports) of controller
-// being migrated to.
-func (mig *EnvMigration) TargetAPIAddresses() ([]network.HostPort, error) {
-	out, err := network.ParseHostPorts(mig.doc.TargetAPIAddresses...)
+// TargetInfo returns the details required to connect to the
+// migration's target controller.
+func (mig *EnvMigration) TargetInfo() (*EnvMigrationTargetInfo, error) {
+	entityTag, err := names.ParseTag(mig.doc.TargetEntityTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return out, nil
-}
-
-// TargetAuthInfo returns username and password to use to authenticate
-// to the target controller.
-func (mig *EnvMigration) TargetAuthInfo() (string, string) {
-	return mig.doc.TargetUser, mig.doc.TargetPassword
+	return &EnvMigrationTargetInfo{
+		ControllerTag: names.NewEnvironTag(mig.doc.TargetController),
+		Addrs:         mig.doc.TargetAddrs,
+		CACert:        mig.doc.TargetCACert,
+		EntityTag:     entityTag,
+		Password:      mig.doc.TargetPassword,
+	}, nil
 }
 
 // SetPhase sets the phase of the migration. An error will be returned
@@ -197,34 +194,65 @@ func (mig *EnvMigration) Refresh() error {
 	return nil
 }
 
-// EnvMigrationSpec defines the arguments required to create an
+// EnvMigrationSpec holds the information required to create an
 // EnvMigration instance.
 type EnvMigrationSpec struct {
-	Owner              string
-	TargetController   string
-	TargetAPIAddresses []network.HostPort
-	TargetUser         string
-	TargetPassword     string
+	Owner      string
+	TargetInfo EnvMigrationTargetInfo
 }
 
-func (a *EnvMigrationSpec) checkAndNormalise() error {
-	if a.Owner == "" {
+// EnvMigrationTargetInfo holds the details required to connect to a
+// migration's target controller.
+//
+// TODO(mjs) - Note the similarity to api.Info :-/. It would be nice
+// to be able to use api.Info here but state can't import api and
+// moving api.Info to live under the core package is too big a project
+// to be done right now.
+// XXX name is too long
+type EnvMigrationTargetInfo struct {
+	// ControllerTag holds tag for the target controller.
+	ControllerTag names.EnvironTag
+
+	// Addrs holds the addresses and ports of the target controller's
+	// API servers.
+	Addrs []string
+
+	// CACert holds the CA certificate that will be used to validate
+	// the target API server's certificate, in PEM format.
+	CACert string
+
+	// EntityTag holds the entity to authenticate with to the target
+	// controller.
+	EntityTag names.Tag
+
+	// Password holds the password to use with TargetEntityTag.
+	Password string
+}
+
+func (spec *EnvMigrationSpec) checkAndNormalise() error {
+	if spec.Owner == "" {
 		return errors.NotValidf("empty Owner")
 	}
-	if a.TargetController == "" {
-		return errors.NotValidf("empty TargetController")
+	target := &spec.TargetInfo
+	// XXX validate ControllerTag
+	if target.ControllerTag.Id() == "" {
+		return errors.NotValidf("empty ControllerTag")
 	}
-	if a.TargetAPIAddresses == nil {
-		return errors.NotValidf("empty TargetAPIAddresses")
+	if target.Addrs == nil {
+		return errors.NotValidf("nil Addrs")
 	}
-	if len(a.TargetAPIAddresses) < 1 {
-		return errors.NotValidf("empty TargetAPIAddresses")
+	if len(target.Addrs) < 1 {
+		return errors.NotValidf("empty Addrs")
 	}
-	if a.TargetUser == "" {
-		return errors.NotValidf("empty TargetUser")
+	if target.CACert == "" {
+		return errors.NotValidf("empty CACert")
 	}
-	if a.TargetPassword == "" {
-		return errors.NotValidf("empty TargetPassword")
+	// XXX need ot validating that Addrs include ports and are sensible
+	if target.EntityTag.Id() == "" {
+		return errors.NotValidf("empty EntityTag")
+	}
+	if target.Password == "" {
+		return errors.NotValidf("empty Password")
 	}
 	return nil
 }
@@ -262,27 +290,23 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
-			TargetController: spec.TargetController,
-			TargetUser:       spec.TargetUser,
-			TargetPassword:   spec.TargetPassword,
+			TargetController: spec.TargetInfo.ControllerTag.Id(),
+			TargetAddrs:      spec.TargetInfo.Addrs,
+			TargetCACert:     spec.TargetInfo.CACert,
+			TargetEntityTag:  spec.TargetInfo.EntityTag.String(),
+			TargetPassword:   spec.TargetInfo.Password,
 		}
-		for _, address := range spec.TargetAPIAddresses {
-			doc.TargetAPIAddresses = append(doc.TargetAPIAddresses, address.String())
-		}
-		return []txn.Op{
-			{
-				C:      envMigrationsC,
-				Id:     doc.Id,
-				Assert: txn.DocMissing,
-				Insert: &doc,
-			},
-			{
-				C:      activeEnvMigrationsC,
-				Id:     envUUID,
-				Assert: txn.DocMissing,
-				Insert: bson.M{"id": doc.Id},
-			},
-		}, nil
+		return []txn.Op{{
+			C:      envMigrationsC,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: &doc,
+		}, {
+			C:      activeEnvMigrationsC,
+			Id:     envUUID,
+			Assert: txn.DocMissing,
+			Insert: bson.M{"id": doc.Id},
+		}}, nil
 	}
 	if err := st.run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
