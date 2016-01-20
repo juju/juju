@@ -45,14 +45,14 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 		Comment:       res.Comment,
 		Revision:      res.Revision,
 		Origin:        res.Origin.String(),
-		Fingerprint:   res.Fingerprint.String(),
+		Fingerprint:   res.Fingerprint.String(), // ...the hex string.
 		charmRevision: charmRevision(res),
 	}
 }
 
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
 func FormatSvcResource(res resource.Resource) FormattedSvcResource {
-	used := !res.Timestamp.IsZero()
+	used := !res.IsPlaceholder()
 	return FormattedSvcResource{
 		Name:             res.Name,
 		Type:             res.Type.String(),

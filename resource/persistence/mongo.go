@@ -168,7 +168,7 @@ func doc2resource(doc resourceDoc) (resource.Resource, error) {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}
 
-	fp, err := charmresource.NewFingerprint(doc.Fingerprint)
+	fp, err := resource.DeserializeFingerprint(doc.Fingerprint)
 	if err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
 	}

@@ -13,6 +13,19 @@ import (
 )
 
 // Resource defines a single resource within Juju state.
+//
+// A resource may be a "placeholder", meaning it is only partially
+// populated pending an upload (whether local or from the charm store).
+// In that case the following fields are not set:
+//
+//   Timestamp
+//   Username
+//
+// For "upload" placeholders, the following additional fields are
+// not set:
+//
+//   Fingerprint
+//   Size
 type Resource struct {
 	resource.Resource
 
@@ -26,6 +39,11 @@ type Resource struct {
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
+	// TODO(ericsnow) Ensure that the "placeholder" fields are not set
+	// if IsLocalPlaceholder() returns true (and that they *are* set
+	// otherwise)? Also ensure an "upload" origin in the "placeholder"
+	// case?
+
 	if err := res.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad info")
 	}
@@ -37,4 +55,15 @@ func (res Resource) Validate() error {
 	}
 
 	return nil
+}
+
+// IsPlaceholder indicates whether or not the resource is a
+// "placeholder" (partially populated pending an upload).
+func (res Resource) IsPlaceholder() bool {
+	return res.Timestamp.IsZero()
+}
+
+// TimestampGranular returns the timestamp at a resolution of 1 second.
+func (res Resource) TimestampGranular() time.Time {
+	return time.Unix(res.Timestamp.Unix(), 0)
 }
