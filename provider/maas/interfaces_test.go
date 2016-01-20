@@ -806,23 +806,24 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.getNetwork("LAN", 2, 42)
+	suite.newNetwork("LAN", 2, 42, "192.168.2.1")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.getNetwork("Virt", 3, 0)
+	suite.newNetwork("Virt", 3, 0, "")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		CIDR:          "192.168.2.1/24",
-		NetworkName:   "LAN",
-		ProviderId:    "LAN",
-		VLANTag:       42,
-		DeviceIndex:   1,
-		InterfaceName: "eth0",
-		Disabled:      false,
+		MACAddress:     "aa:bb:cc:dd:ee:f1",
+		CIDR:           "192.168.2.2/24",
+		NetworkName:    "LAN",
+		ProviderId:     "LAN",
+		VLANTag:        42,
+		DeviceIndex:    1,
+		InterfaceName:  "eth0",
+		Disabled:       false,
+		GatewayAddress: network.NewAddress("192.168.2.1"),
 	}})
 }
 
@@ -838,7 +839,7 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.getNetwork("Virt", 3, 0)
+	suite.newNetwork("Virt", 3, 0, "")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
 	c.Assert(err, jc.ErrorIsNil)
