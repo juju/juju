@@ -516,7 +516,7 @@ generate_streams() {
         # Only new juju 1.21* can see devel and proposed.
         local agents=$(
             find $DEST_DIST/tools/releases/ -name 'juju-*' |
-            sed -r '/-1.1/d; /-1.20/d'
+            sed -r '/-1.1/d; /-1.20/d')
         cp --no-clobber $agents $JUJU_DIST/tools/$PURPOSE/
     fi
 
