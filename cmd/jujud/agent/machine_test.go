@@ -139,6 +139,24 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 }
 
+func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
+	// Wait for channel to be active.
+	select {
+	case <-aChannel:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for %v", intent)
+	}
+}
+
+func (s *commonMachineSuite) assertChannelInactive(c *gc.C, aChannel chan struct{}, intent string) {
+	// Now make sure the channel is not active.
+	select {
+	case <-aChannel:
+		c.Fatalf("%v unexpectedly", intent)
+	case <-time.After(startWorkerWait):
+	}
+}
+
 func fakeCmd(path string) {
 	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
 	if err != nil {
@@ -600,13 +618,7 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "charm-revision-updater")
-
-	// Now make sure the resumer starts.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("resumer worker not started as expected")
-	}
+	s.assertChannelActive(c, started, "resumer worker to start")
 }
 
 func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
@@ -628,13 +640,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "charm-revision-updater")
-
-	// Now make sure the resumer starts.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("instancepoller worker not started as expected")
-	}
+	s.assertChannelActive(c, started, "instancepoller worker to start")
 }
 
 const startWorkerWait = 250 * time.Millisecond
@@ -660,13 +666,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "charm-revision-updater")
-
-	// Now make sure the firewaller doesn't start.
-	select {
-	case <-started:
-		c.Fatalf("firewaller worker unexpectedly started")
-	case <-time.After(startWorkerWait):
-	}
+	s.assertChannelInactive(c, started, "firewaller started")
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
@@ -733,11 +733,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	go func() {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for peergrouper worker to be started")
-	}
+	s.assertChannelActive(c, started, "peergroupercworker to start")
 }
 
 func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
@@ -770,12 +766,7 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "cleaner")
-
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for addresser to start")
-	}
+	s.assertChannelActive(c, started, "addresser to start")
 }
 
 func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
@@ -830,11 +821,8 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	}()
 	// Wait for configuration to be finished
 	<-a.WorkersStarted()
-	select {
-	case <-calledChan:
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("we failed to call UseMultipleCPUs()")
-	}
+	s.assertChannelActive(c, calledChan, "UseMultipleCPUs() to be called")
+
 	c.Check(a.Stop(), jc.ErrorIsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
 	m2, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -846,11 +834,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// Wait until all the workers have been started, and then kill everything
 	<-a2.workersStarted
 	c.Check(a2.Stop(), jc.ErrorIsNil)
-	select {
-	case <-calledChan:
-		c.Errorf("we should not have called UseMultipleCPUs()")
-	case <-time.After(coretesting.ShortWait):
-	}
+	s.assertChannelInactive(c, calledChan, "UseMultipleCPUs() was called")
 }
 
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
@@ -1471,13 +1455,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for diskmanager worker to start")
-	}
+	s.assertChannelActive(c, started, "diskmanager worker to start")
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
@@ -1518,6 +1496,10 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDep
 	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
 }
 
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForNonSimpleStreamDependentProviders(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageEnviron, "has provider which doesn't depend on simple streams")
+}
+
 func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
@@ -1532,36 +1514,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
-	// Patch out the worker func before starting the agent.
-	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client) worker.Worker {
-		close(started)
-		return worker.NewNoOpWorker()
-	}
-	s.PatchValue(&newMetadataUpdater, newWorker)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for metadata update worker to start")
-	}
+	s.assertChannelInactive(c, started, "metadata update worker started")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
@@ -1591,13 +1544,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for storage worker to start")
-	}
+	s.assertChannelActive(c, started, "storage worker to start")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
@@ -1663,13 +1610,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for certificate update worker to start")
-	}
+	s.assertChannelActive(c, started, "certificate to be updated")
 }
 
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
@@ -1687,13 +1628,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonS
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Ensure the worker is not started.
-	select {
-	case <-started:
-		c.Fatalf("certificate update worker unexpectedly started")
-	case <-time.After(coretesting.ShortWait):
-	}
+	s.assertChannelInactive(c, started, "certificate was updated")
 }
 
 func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
@@ -1723,12 +1658,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	// Wait for certificate to be updated.
-	select {
-	case <-updated:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for certificate to be updated")
-	}
+	s.assertChannelActive(c, updated, "certificate to be updated")
 }
 
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
@@ -1768,12 +1698,7 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	// Wait for certificate to be updated.
-	select {
-	case <-updated:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for certificate to be updated")
-	}
+	s.assertChannelActive(c, updated, "certificate to be updated")
 }
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
@@ -2055,13 +1980,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 
 	_, closer = s.setUpAgent(c)
 	defer closer()
-
-	// Wait for newStorageWorker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for storage worker to start")
-	}
+	s.assertChannelActive(c, started, "storage worker to start")
 }
 
 func (s *MachineSuite) setUpNewEnvironment(c *gc.C) (newSt *state.State, closer func()) {
@@ -2190,13 +2109,7 @@ func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
 	// new environ workers.
 	r := s.singularRecord.nextRunner(c)
 	r.waitForWorker(c, "undertaker")
-
-	// Now make sure the undertaker starts.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("undertaker worker not started as expected")
-	}
+	s.assertChannelActive(c, started, "undertaker worker to start")
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

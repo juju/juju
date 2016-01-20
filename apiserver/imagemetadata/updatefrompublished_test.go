@@ -178,9 +178,8 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	}
 
 	err := s.api.UpdateFromPublishedImages()
-	c.Assert(err, gc.ErrorMatches, ".*environment cloud specification cannot be determined.*")
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertCalls(c, []string{environConfig})
-
 	c.Assert(saved, jc.SameContents, []cloudimagemetadata.Metadata{})
 }
 
