@@ -6,6 +6,7 @@ package context
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -39,8 +40,11 @@ func NewContextAPI(apiClient APIClient, dataDir string) *Context {
 		apiClient: apiClient,
 		dataDir:   dataDir,
 
+		tempDir:            func() (string, error) { return ioutil.TempDir("", "juju-resource-") },
+		removeDir:          os.RemoveAll,
 		createResourceFile: createResourceFile,
 		writeResource:      writeResource,
+		replaceDirectory:   replaceDirectory,
 	}
 }
 
@@ -49,8 +53,11 @@ type Context struct {
 	apiClient APIClient
 	dataDir   string
 
+	tempDir            func() (string, error)
+	removeDir          func(string) error
 	createResourceFile func(path string) (io.WriteCloser, error)
 	writeResource      func(io.Writer, io.Reader) (int64, charmresource.Fingerprint, error)
+	replaceDirectory   func(string, string) error
 }
 
 // DownloadResource downloads the named resource and returns the path
@@ -63,7 +70,18 @@ func (c *Context) DownloadResource(name string) (string, error) {
 	// once.
 	// TODO(katco): Check to see if we have latest version
 
-	resourcePath, _, err := c.downloadResource(name)
+	tempDir, err := c.tempDir()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer c.removeDir(tempDir)
+
+	info, err := c.downloadResource(name, tempDir)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	resourcePath, err := c.replaceResourceDir(tempDir, info)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -77,21 +95,18 @@ func (c *Context) Flush() error {
 }
 
 // downloadResource downloads the named resource to the provided path.
-func (c *Context) downloadResource(name string) (string, resource.Resource, error) {
-	// TODO(ericsnow) This needs to be atomic?
-	// (e.g. write to separate dir and move the dir into place)
-
+func (c *Context) downloadResource(name, tempDir string) (resource.Resource, error) {
 	info, resourceReader, err := c.apiClient.GetResource(name)
 	if err != nil {
-		return "", resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 	defer resourceReader.Close()
 
-	resourcePath := resolveResourcePath(c.dataDir, info)
+	resourcePath := resolveResourcePath(tempDir, info)
 
 	target, err := c.createResourceFile(resourcePath)
 	if err != nil {
-		return "", resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 	defer target.Close()
 
@@ -102,14 +117,28 @@ func (c *Context) downloadResource(name string) (string, resource.Resource, erro
 	}
 	size, fp, err := c.writeResource(target, content.data)
 	if err != nil {
-		return "", resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 
 	if err := content.verify(size, fp); err != nil {
-		return "", resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 
-	return resourcePath, info, nil
+	return info, nil
+}
+
+// replaceResourceDir replaces the original resource dir
+// with the temporary resource dir.
+func (c *Context) replaceResourceDir(tempDir string, info resource.Resource) (string, error) {
+	oldDir := filepath.Dir(resolveResourcePath(tempDir, info))
+	resourcePath := resolveResourcePath(c.dataDir, info)
+	resDir := filepath.Dir(resourcePath)
+
+	if err := c.replaceDirectory(resDir, oldDir); err != nil {
+		return "", errors.Annotate(err, "could not replace existing resource directory")
+	}
+
+	return resourcePath, nil
 }
 
 // resourceContent holds a reader for the content of a resource along
@@ -133,8 +162,8 @@ func (c resourceContent) verify(size int64, fp charmresource.Fingerprint) error 
 }
 
 // resolveResourcePath returns the full path to the resource.
-func resolveResourcePath(unitPath string, resourceInfo resource.Resource) string {
-	return filepath.Join(unitPath, resourceInfo.Name, resourceInfo.Path)
+func resolveResourcePath(dataDir string, resourceInfo resource.Resource) string {
+	return filepath.Join(dataDir, resourceInfo.Name, resourceInfo.Path)
 }
 
 // createResourceFile creates the file into which a resource's content
@@ -166,4 +195,17 @@ func writeResource(target io.Writer, source io.Reader) (size int64, fp charmreso
 	size = sizingReader.Size()
 	fp = checksumWriter.Fingerprint()
 	return size, fp, nil
+}
+
+// replaceDirectory replaces the target directory with the source. This
+// involves removing the target if it exists and then moving the source
+// into place.
+func replaceDirectory(targetDir, sourceDir string) error {
+	if err := os.RemoveAll(targetDir); err != nil {
+		return errors.Trace(err)
+	}
+	if err := os.Rename(targetDir, sourceDir); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
