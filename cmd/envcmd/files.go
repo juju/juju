@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	CurrentEnvironmentFilename = "current-environment"
+	CurrentEnvironmentFilename = "current-model"
 	CurrentControllerFilename  = "current-controller"
 
 	lockName = "current.lock"
@@ -54,11 +54,11 @@ func getCurrentControllerFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
 }
 
-// ReadCurrentEnvironment reads the file $JUJU_HOME/current-environment and
+// ReadCurrentEnvironment reads the file $JUJU_HOME/current-model and
 // return the value stored there.  If the file doesn't exist an empty string
 // is returned and no error.
 func ReadCurrentEnvironment() (string, error) {
-	lock, err := acquireEnvironmentLock("read current-environment")
+	lock, err := acquireEnvironmentLock("read current-model")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -95,9 +95,9 @@ func ReadCurrentController() (string, error) {
 }
 
 // WriteCurrentEnvironment writes the envName to the file
-// $JUJU_HOME/current-environment file.
+// $JUJU_HOME/current-model file.
 func WriteCurrentEnvironment(envName string) error {
-	lock, err := acquireEnvironmentLock("write current-environment")
+	lock, err := acquireEnvironmentLock("write current-model")
 	if err != nil {
 		return errors.Trace(err)
 	}

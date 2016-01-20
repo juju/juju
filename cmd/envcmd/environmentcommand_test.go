@@ -102,7 +102,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
-	// If there is a current-environment file, use that.
+	// If there is a current-model file, use that.
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureEnvName(c, "fubar")

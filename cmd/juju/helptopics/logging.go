@@ -99,7 +99,7 @@ logging setup configured for the environment.
 You can configure Juju's logging system using a number of different
 mechanisms:
 
-environments.yaml
+models.yaml
   - all environments support 'logging-config' as a key
 environment variable
   - export JUJU_LOGGING_CONFIG='...'

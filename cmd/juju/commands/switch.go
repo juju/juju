@@ -31,7 +31,7 @@ var switchDoc = `
 Show or change the default juju environment or controller name.
 
 If no command line parameters are passed, switch will output the current
-environment as defined by the file $JUJU_HOME/current-environment.
+environment as defined by the file $JUJU_HOME/current-model.
 
 If a command line parameter is passed in, that value will is stored in the
 current environment file if it represents a valid environment name as
