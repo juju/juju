@@ -149,7 +149,7 @@ init_tools_maybe() {
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
         echo "Seeding devel with $INIT_VERSION proposed agents"
-        cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
+        cp $DESTINATION/juju-dist/tools/devel/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
         cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
@@ -419,9 +419,9 @@ generate_streams() {
 
     set -x
     if [[ $RELEASE == "IGNORE" ]]; then
-        minor_version=$(juju version | sed -r 's,1.([^.-]+).*,\1,')
+        minor_version=$(juju version | sed -r 's,[1-2].([^.-]+).*,\1,')
     else
-        minor_version=$(echo "$RELEASE" | sed -r 's,1.([^.-]+).*,\1,')
+        minor_version=$(echo "$RELEASE" | sed -r 's,[1-2].([^.-]+).*,\1,')
     fi
     if (( $minor_version > 20 )); then
         CLEAN="--clean"
@@ -515,8 +515,8 @@ generate_streams() {
     else
         # Only new juju 1.21* can see devel and proposed.
         local agents=$(
-            find $DEST_DIST/tools/releases/ -name 'juju-1.2*' |
-            sed -r '/1.20/d')
+            find $DEST_DIST/tools/releases/ -name 'juju-*' |
+            sed -r '/-1.1/d; /-1.20/d'
         cp --no-clobber $agents $JUJU_DIST/tools/$PURPOSE/
     fi
 
