@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
 	"github.com/juju/utils"
-	"github.com/juju/utils/hash"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -184,15 +183,15 @@ func createResourceFile(path string) (io.WriteCloser, error) {
 // to the target. The size and fingerprint are returned.
 func writeResource(target io.Writer, source io.Reader) (size int64, fp charmresource.Fingerprint, err error) {
 	checksumWriter := charmresource.NewFingerprintHash()
-	hashingReader := hash.NewHashingReader(source, checksumWriter)
-	sizingReader := utils.NewSizingReader(hashingReader)
-	source = sizingReader
+	hashingReader := io.TeeReader(source, checksumWriter)
+	var st utils.SizeTracker
+	source = io.TeeReader(hashingReader, &st)
 
 	if _, err := io.Copy(target, source); err != nil {
 		return size, fp, errors.Annotate(err, "could not write resource to file")
 	}
 
-	size = sizingReader.Size()
+	size = st.Size()
 	fp = checksumWriter.Fingerprint()
 	return size, fp, nil
 }

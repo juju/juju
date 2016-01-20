@@ -33,7 +33,7 @@ github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T0
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	ee18040b46bb1f8c93438383bd51ec77eb8c02ab	2016-01-12T21:04:04Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	7195a14fd6c98aa695c3ef99a72e8644a542f625	2016-01-20T00:18:21Z
+github.com/juju/utils	git	37dc1a81e9d4fbbeeeea29e49f68a529c762b12f	2016-01-20T18:38:20Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/julienschmidt/httprouter	git	109e267447e95ad1bb48b758e40dd7453eb7b039	2015-09-05T17:25:33Z
 github.com/lxc/lxd	git	42b4c228e84cba622f221e04a1fa7164a416a440	2015-10-27T22:33:42Z
