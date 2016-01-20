@@ -379,7 +379,8 @@ local:
 
     # root-dir holds the directory that is used for the database.
     # The default location is $JUJU_HOME/<env-name>.
-    # $JUJU_HOME defaults to ~/.config/juju. Override if needed.
+    # $JUJU_HOME defaults to $XDG_CONFIG_HOME/juju, or ~/.config/juju 
+    # if $XDG_CONFIG_HOME isn't set.
     #
     # root-dir: ~/.config/juju/local
 

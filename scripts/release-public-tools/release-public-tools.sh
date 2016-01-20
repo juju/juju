@@ -23,14 +23,17 @@ check_deps() {
     which lftp || has_deps=0
     which swift || has_deps=0
     which s3cmd || has_deps=0
-    test -f ~/.config/juju/canonistacktoolsrc || has_deps=0
-    test -f ~/.config/juju/hptoolsrc || has_deps=0
-    test -f ~/.config/juju/awstoolsrc || has_deps=0
-    test -f ~/.config/juju/azuretoolsrc || has_deps=0
+
+    test -f $JUJU_HOME/canonistacktoolsrc || has_deps=0
+    test -f $JUJU_HOME/hptoolsrc || has_deps=0
+    test -f $JUJU_HOME/awstoolsrc || has_deps=0
+    test -f $JUJU_HOME/azuretoolsrc || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, python-swiftclient, and s3cmd"
-        echo "Your ~/.config/juju dir must contain rc files to publish:"
+        echo "Your your \$JUJU_HOME dir must contain rc files to publish:"
         echo "  canonistacktoolsrc, hptoolsrc, awstoolsrc, azuretoolsrc"
+	echo "(if \$JUJU_HOME is not set, we will try \$XDG_CONFIG_HOME/juju"
+	echo " or,  ~/.config/juju if \$XDG_CONFIG_HOME is not set)"
         exit 2
     fi
 }
@@ -211,6 +214,14 @@ publish_to_azure() {
     done
 }
 
+# set $JUJU_HOME, if not set, to the proper path.
+if [ -z "$JUJU_HOME" ]; then
+  if [ -z "$XDG_CONFIG_HOME" ]; then
+    JUJU_HOME=~/.config/juju
+  else
+    JUJU_HOME=$XDG_CONFIG_HOME/juju
+  fi
+fi
 
 # These are the archives that are search for matching releases.
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"

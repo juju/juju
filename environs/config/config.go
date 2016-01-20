@@ -359,6 +359,8 @@ const (
 //     ~/.config/juju/<name>-cert.pem
 //     ~/.config/juju/<name>-private-key.pem
 //
+// if $XDG_CONFIG_HOME is defined it will be used instead of ~/.config
+//
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
 // recognised are "agent-version" (string) and "development" (bool).

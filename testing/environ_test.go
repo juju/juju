@@ -41,14 +41,15 @@ func (s *fakeHomeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuHome(c *gc.C) {
-	jujuDir := gitjujutesting.HomePath(".config", "juju")
+	jujuDir := gitjujutesting.JujuHomePath()
 	c.Assert(jujuDir, jc.IsDirectory)
 	envFile := filepath.Join(jujuDir, "environments.yaml")
 	c.Assert(envFile, jc.IsNonEmptyFile)
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
-	expected := filepath.Join(utils.Home(), ".config", "juju")
+	s.PatchEnvironment(osenv.XDGConfigHome, "")
+	expected := gitjujutesting.JujuHomePath()
 	c.Assert(osenv.JujuHome(), gc.Equals, expected)
 }
 

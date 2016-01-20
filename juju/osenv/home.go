@@ -15,7 +15,8 @@ import (
 // jujuHome stores the path to the juju configuration
 // folder, which is only meaningful when running the juju
 // CLI tool, and is typically defined by $JUJU_HOME or
-// $XDG_CONFIG_HOME/juju as default.
+// $XDG_CONFIG_HOME/juju or ~/.config/juju as default if none
+// of the aforementioned variables are defined.
 var (
 	jujuHomeMu sync.Mutex
 	jujuHome   string
