@@ -224,7 +224,7 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
-echo "env is: " $JUJU_ENV
+echo "env is: " $JUJU_MODEL
 echo "home is: " $JUJU_HOME
 exit {{.ExitStatus}}
 `

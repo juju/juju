@@ -58,7 +58,7 @@ class JujuMan(object):
 
 
 ENVIRONMENT = (
-    ('JUJU_ENV', textwrap.dedent("""\
+    ('JUJU_MODEL', textwrap.dedent("""\
         Provides a way for the shell environment to specify the current Juju
         model to use.  If the model is specified explicitly using
         -m MODEL, this takes precedence.

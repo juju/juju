@@ -169,7 +169,7 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot switch when JUJU_ENV is overriding the environment \(set to "ec2"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot switch when JUJU_MODEL is overriding the environment \(set to "ec2"\)`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 

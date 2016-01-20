@@ -64,8 +64,8 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			names.NewMachineTag("42"),
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
-			"JUJU_ENV_UUID=env-uuid-deadbeef",
-			"JUJU_ENV_NAME=some-env-name",
+			"JUJU_MODEL_UUID=env-uuid-deadbeef",
+			"JUJU_MODEL_NAME=some-env-name",
 			"JUJU_UNIT_NAME=this-unit/123",
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",

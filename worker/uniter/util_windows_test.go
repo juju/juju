@@ -30,12 +30,12 @@ If ($(is-leader) -ne "False") {exit -1}
 
 	// Different hook file contents. These are used in util_test
 	goodHook = `
-juju-log.exe %%JUJU_ENV_UUID%% %s %%JUJU_REMOTE_UNIT%%
+juju-log.exe %%JUJU_MODEL_UUID%% %s %%JUJU_REMOTE_UNIT%%
 `[1:]
 
 	badHook = `
 #!/bin/bash --norc
-juju-log.exe %%JUJU_ENV_UUID%% fail-%s %%JUJU_REMOTE_UNIT%%
+juju-log.exe %%JUJU_MODEL_UUID%% fail-%s %%JUJU_REMOTE_UNIT%%
 exit 1
 `[1:]
 
@@ -59,7 +59,7 @@ if EXIST i_have_risen (
 	// Map of action files contents. These are used in util_test
 	actions = map[string]string{
 		"action-log": `
-juju-log.exe %%JUJU_ENV_UUID%% action-log
+juju-log.exe %%JUJU_MODEL_UUID%% action-log
 `[1:],
 		"snapshot": `
 action-set.exe outfile.name="snapshot-01.tar" outfile.size="10.3GB"

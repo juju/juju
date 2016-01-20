@@ -82,7 +82,7 @@ _juju_completion_func_for_cmd() {
 _juju_get_status_filename() {
     local cache_mins=60     # ttl=60 mins
     local cache_dir=$HOME/.cache/juju
-    local juju_status_file=${cache_dir}/juju-status-${JUJU_ENV:-default}
+    local juju_status_file=${cache_dir}/juju-status-${JUJU_MODEL:-default}
     # setup caching dir under ~/.cache/juju
     test -d ${cache_dir} || install -d ${cache_dir} -m 700
     # if can't find a fresh (age < $cache_mins) saved file, with a ~reasonable size ...
@@ -129,7 +129,7 @@ _juju_complete_with_func() {
 
 # Not used here, available to the user for quick cache removal
 _juju_completion_cache_rm() {
-    rm -fv $HOME/.cache/juju/juju-status-${JUJU_ENV:-default}
+    rm -fv $HOME/.cache/juju/juju-status-${JUJU_MODEL:-default}
 }
 
 # main completion function entry point

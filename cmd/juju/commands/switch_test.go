@@ -85,7 +85,7 @@ func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
@@ -94,7 +94,7 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
@@ -152,9 +152,9 @@ func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	_, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_ENV is overriding the environment \(set to "using-env"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the environment \(set to "using-env"\)`)
 }
 
 const expectedEnvironments = `erewhemos
@@ -184,7 +184,7 @@ func (s *SwitchSimpleSuite) TestListEnvironmentsWithConfigstore(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
