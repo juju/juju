@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -664,6 +665,8 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 	}
 }
 
+var newEnvirons = environs.New
+
 // startAPIWorkers is called to start workers which rely on the
 // machine agent's API connection (via the apiworkers manifold). It
 // returns a Runner with a number of workers attached to it.
@@ -801,6 +804,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, errors.Annotate(err, "cannot start machine-local storage provisioner worker")
 		}
 		return w, nil
+
 	})
 
 	// Check if the network management is disabled.
@@ -877,10 +881,18 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return toolsversionchecker.New(apiConn.Environment(), &checkerParams), nil
 		})
 
-		// Start worker that stores missing published image metadata in state.
-		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			return newMetadataUpdater(apiConn.MetadataUpdater()), nil
-		})
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not depend on simple streams do not need this worker.
+		env, err := newEnvirons(envConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting environ")
+		}
+		if _, ok := env.(simplestreams.HasRegion); ok {
+			// Start worker that stores published image metadata in state.
+			runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+				return newMetadataUpdater(apiConn.MetadataUpdater()), nil
+			})
+		}
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
