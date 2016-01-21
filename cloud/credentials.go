@@ -78,7 +78,7 @@ type CredentialSchema map[string]CredentialAttr
 func ValidateCredential(credential Credential, schemas map[AuthType]CredentialSchema) error {
 	schema, ok := schemas[credential.authType]
 	if !ok {
-		return errors.NotSupportedf("%q auth-type", credential.authType)
+		return errors.NotSupportedf("auth-type %q", credential.authType)
 	}
 	return schema.Validate(credential.attributes)
 }
