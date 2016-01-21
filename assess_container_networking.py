@@ -386,6 +386,19 @@ def assess_container_networking(client, machine_type):
     _assess_container_networking(client, types, hosts, containers)
 
 
+def get_client(args):
+    client = EnvJujuClient.by_version(
+        SimpleEnvironment.from_config(args.env),
+        args.juju_bin, args.debug
+    )
+    client.enable_container_address_allocation()
+    update_env(client.env, args.temp_env_name,
+               series=args.series, bootstrap_host=args.bootstrap_host,
+               agent_url=args.agent_url, agent_stream=args.agent_stream,
+               region=args.region)
+    return client
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
