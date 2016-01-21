@@ -2,7 +2,6 @@
 from __future__ import print_function
 import logging
 import re
-import yaml
 from textwrap import dedent
 from argparse import ArgumentParser
 
@@ -110,7 +109,7 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
     client.juju('add-unit', 'mediawiki')
     status = client.wait_for_started()
 
-    spaces = yaml.load(client.get_juju_output('space list'))
+    spaces = client.list_space()
 
     unit_priv_address = {}
     units_found = 0

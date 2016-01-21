@@ -796,6 +796,9 @@ class EnvJujuClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
+    def list_space(self):
+        return yaml.safe_load(self.get_juju_output('space list'))
+
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
