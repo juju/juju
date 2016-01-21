@@ -55,7 +55,7 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.config/juju/environments.yaml
+//     RootDir/home/ubuntu/.local/share/juju/environments.yaml
 //         The dummy environments.yaml file, holding
 //         a default environment named "dummyenv"
 //         which uses the "dummy" environment type.

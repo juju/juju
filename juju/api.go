@@ -105,8 +105,8 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	// This enables people to copy environment files
 	// into their $JUJU_HOME/environments directory and have
 	// them be directly useful with no further configuration changes.
-	// By default $JUJU_HOME is not set and either $XDG_CONFIG_HOME/juju
-	// or ~/.config/juju will be used depending on the first being defined.
+	// By default $JUJU_HOME is not set and either $XDG_DATA_HOME/juju
+	// or ~/.local/share/juju will be used depending on the first being defined.
 	envs, err := environs.ReadEnvirons("")
 	if err == nil {
 		if envName == "" {
