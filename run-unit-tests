@@ -159,9 +159,8 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
 fi
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y make python-software-properties distro-info-data
+sudo apt-get install -y make software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
-    sudo apt-get install -y python3-software-properties || true
     sudo apt-add-repository -y $USE_PPA;
     sudo apt-get update
 fi
