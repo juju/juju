@@ -228,14 +228,13 @@ type EnvMigTargetInfo struct {
 	Password string
 }
 
-func (spec *EnvMigrationSpec) checkAndNormalise() error {
+func (spec *EnvMigrationSpec) Validate() error {
 	if spec.Owner == "" {
 		return errors.NotValidf("empty Owner")
 	}
 	target := &spec.TargetInfo
-	// XXX validate ControllerTag
-	if target.ControllerTag.Id() == "" {
-		return errors.NotValidf("empty ControllerTag")
+	if !names.IsValidEnvironment(target.ControllerTag.Id()) {
+		return errors.NotValidf("ControllerTag")
 	}
 	if target.Addrs == nil {
 		return errors.NotValidf("nil Addrs")
@@ -260,7 +259,7 @@ func (spec *EnvMigrationSpec) checkAndNormalise() error {
 // migration. It will return an error if there is already an
 // environment migration in progress.
 func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error) {
-	if err := spec.checkAndNormalise(); err != nil {
+	if err := spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if st.IsStateServer() {

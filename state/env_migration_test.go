@@ -43,7 +43,7 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 	s.stdSpec = state.EnvMigrationSpec{
 		Owner: "owner",
 		TargetInfo: state.EnvMigTargetInfo{
-			ControllerTag: names.NewEnvironTag("uuid"),
+			ControllerTag: names.NewEnvironTag(s.State.EnvironUUID()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			EntityTag:     names.NewUserTag("user"),
@@ -127,64 +127,77 @@ func (s *EnvMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	c.Check(mig.Id(), gc.Equals, envUUID+":1")
 }
 
-func (s *EnvMigrationSuite) TestCreateWithMissingSpecFields(c *gc.C) {
+func (s *EnvMigrationSuite) TestSpecValidation(c *gc.C) {
 	tests := []struct {
-		fieldName   string
-		tweakSpec   func(*state.EnvMigrationSpec)
-		errorPrefix string
+		label        string
+		tweakSpec    func(*state.EnvMigrationSpec)
+		errorPattern string
 	}{{
-		"Owner",
+		"empty Owner",
 		func(spec *state.EnvMigrationSpec) {
 			spec.Owner = ""
 		},
-		"empty",
+		"empty Owner not valid",
 	}, {
-		"ControllerTag",
+		"empty ControllerTag",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.ControllerTag = names.NewEnvironTag("fooo")
+		},
+		"ControllerTag not valid",
+	}, {
+		"invalid ControllerTag",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.ControllerTag = names.NewEnvironTag("")
 		},
-		"empty",
+		"ControllerTag not valid",
 	}, {
-		"Addrs",
+		"nil Addrs",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.Addrs = nil
 		},
-		"nil",
+		"nil Addrs not valid",
 	}, {
-		"Addrs",
+		"empty Addrs",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.Addrs = []string{}
 		},
-		"empty",
+		"empty Addrs not valid",
 	}, {
 		"CACert",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.CACert = ""
 		},
-		"empty",
+		"empty CACert not valid",
 	}, {
 		"EntityTag",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.EntityTag = names.NewMachineTag("")
 		},
-		"empty",
+		"empty EntityTag not valid",
 	}, {
 		"Password",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.Password = ""
 		},
-		"empty",
+		"empty Password not valid",
 	}}
 	for _, test := range tests {
-		c.Log(test.fieldName)
+		c.Logf("---- %s -----------", test.label)
+
+		// Set up spec.
 		spec := s.stdSpec
 		test.tweakSpec(&spec)
 
-		// Ensure that CreateEnvMigration rejects the missing field.
+		// Check Validate directly.
+		err := spec.Validate()
+		c.Check(errors.IsNotValid(err), jc.IsTrue)
+		c.Check(err, gc.ErrorMatches, test.errorPattern)
+
+		// Ensure that CreateEnvMigration rejects the bad spec too.
 		mig, err := state.CreateEnvMigration(s.State2, spec)
 		c.Check(mig, gc.IsNil)
 		c.Check(errors.IsNotValid(err), jc.IsTrue)
-		c.Check(err, gc.ErrorMatches, fmt.Sprintf("%s %s .+", test.errorPrefix, test.fieldName))
+		c.Check(err, gc.ErrorMatches, test.errorPattern)
 	}
 }
 
@@ -243,6 +256,7 @@ func (s *EnvMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	envUUID := s.State2.EnvironUUID()
 
 	for i := 0; i < 10; i++ {
+		c.Logf("loop %d", i)
 		_, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
 
