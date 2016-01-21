@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -62,8 +61,6 @@ func (s *interfaceSuite) TestList(c *gc.C) {
 	store := s.NewStore(c)
 	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
 	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-
-	s.SetFeatureFlags(feature.JES)
 	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
 	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
 
@@ -76,8 +73,6 @@ func (s *interfaceSuite) TestListSystems(c *gc.C) {
 	store := s.NewStore(c)
 	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
 	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-
-	s.SetFeatureFlags(feature.JES)
 	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
 	s.createInitialisedEnvironment(c, store, "envd", "envd-uuid", "envc-uuid")
 	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")

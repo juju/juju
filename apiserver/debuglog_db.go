@@ -57,6 +57,7 @@ func handleDebugLogDBRequest(
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
+		NoTail:        reqParams.noTail,
 		InitialLines:  int(reqParams.backlog),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,

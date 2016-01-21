@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
-
-	"github.com/juju/juju/feature"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -37,10 +35,6 @@ const writerName = "buffered-logs"
 // InstallBufferedLogWriter creates a new BufferedLogWriter, registers
 // it with Loggo and returns its output channel.
 func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
-	if !feature.IsDbLogEnabled() {
-		return nil, nil
-	}
-
 	writer := NewBufferedLogWriter(maxLen)
 	err := loggo.RegisterWriter(writerName, writer, loggo.TRACE)
 	if err != nil {
@@ -52,10 +46,6 @@ func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
 // UninstallBufferedLogWriter removes the BufferedLogWriter previously
 // installed by InstallBufferedLogWriter and closes it.
 func UninstallBufferedLogWriter() error {
-	if !feature.IsDbLogEnabled() {
-		return nil
-	}
-
 	writer, _, err := loggo.RemoveWriter(writerName)
 	if err != nil {
 		return errors.Annotate(err, "failed to uninstall log buffering")
