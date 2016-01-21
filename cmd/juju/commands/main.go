@@ -232,9 +232,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
 	}
 
-	// Manage clouds
+	// Manage clouds and credentials
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
+	r.Register(cloud.NewListCredentialsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
