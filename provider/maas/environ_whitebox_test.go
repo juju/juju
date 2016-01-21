@@ -630,13 +630,13 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 
 	testServer.AddNodeDetails("node1", lshwXML)
 	// resulting CIDR 192.168.2.1/24
-	suite.getNetwork("LAN", 2, 42)
+	suite.newNetwork("LAN", 2, 42, "192.168.2.1") // primary + gateway
 	testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
 	// resulting CIDR 192.168.3.1/24
-	suite.getNetwork("Virt", 3, 0)
+	suite.newNetwork("Virt", 3, 0, "")
 	testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
 	// resulting CIDR 192.168.1.1/24
-	suite.getNetwork("WLAN", 1, 0)
+	suite.newNetwork("WLAN", 1, 0, "")
 	testServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	if duplicates {
 		testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
@@ -709,19 +709,19 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesNotSup
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.1/24",
+		CIDR:              "192.168.2.2/24",
 		ProviderId:        "LAN",
 		VLANTag:           42,
 		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
 		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
 	}, {
-		CIDR:              "192.168.3.1/24",
+		CIDR:              "192.168.3.2/24",
 		ProviderId:        "Virt",
 		AllocatableIPLow:  nil,
 		AllocatableIPHigh: nil,
 		VLANTag:           0,
 	}, {
-		CIDR:              "192.168.1.1/24",
+		CIDR:              "192.168.1.2/24",
 		ProviderId:        "WLAN",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
@@ -887,19 +887,19 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.1/24",
+		CIDR:              "192.168.2.2/24",
 		ProviderId:        "LAN",
 		VLANTag:           42,
 		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
 		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
 	}, {
-		CIDR:              "192.168.3.1/24",
+		CIDR:              "192.168.3.2/24",
 		ProviderId:        "Virt",
 		AllocatableIPLow:  nil,
 		AllocatableIPHigh: nil,
 		VLANTag:           0,
 	}, {
-		CIDR:              "192.168.1.1/24",
+		CIDR:              "192.168.1.2/24",
 		ProviderId:        "WLAN",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("192.168.1.129"),

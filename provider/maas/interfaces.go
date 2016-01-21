@@ -288,19 +288,31 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 	for i, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "parsing network details")
 		}
 		name, err := fields["name"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get name: %v", err)
+			return nil, errors.Annotatef(err, "cannot get name")
 		}
 		ip, err := fields["ip"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get ip: %v", err)
+			return nil, errors.Annotatef(err, "cannot get ip")
 		}
+
+		defaultGateway := ""
+		defaultGatewayField, ok := fields["default_gateway"]
+		if ok && !defaultGatewayField.IsNil() {
+			// default_gateway is optional, so ignore it when unset or
+			// null.
+			defaultGateway, err = defaultGatewayField.GetString()
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot get default_gateway")
+			}
+		}
+
 		netmask, err := fields["netmask"].GetString()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get netmask: %v", err)
+			return nil, errors.Annotatef(err, "cannot get netmask")
 		}
 		vlanTag := 0
 		vlanTagField, ok := fields["vlan_tag"]
@@ -308,7 +320,7 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 			// vlan_tag is optional, so assume it's 0 when missing or nil.
 			vlanTagFloat, err := vlanTagField.GetFloat64()
 			if err != nil {
-				return nil, fmt.Errorf("cannot get vlan_tag: %v", err)
+				return nil, errors.Annotatef(err, "cannot get vlan_tag")
 			}
 			vlanTag = int(vlanTagFloat)
 		}
@@ -318,11 +330,12 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 		}
 
 		networks[i] = networkDetails{
-			Name:        name,
-			IP:          ip,
-			Mask:        netmask,
-			VLANTag:     vlanTag,
-			Description: description,
+			Name:           name,
+			IP:             ip,
+			Mask:           netmask,
+			DefaultGateway: defaultGateway,
+			VLANTag:        vlanTag,
+			Description:    description,
 		}
 	}
 	return networks, nil
@@ -599,9 +612,15 @@ func (environ *maasEnviron) legacyNetworkInterfaces(instId instance.Id) ([]netwo
 			ifaceInfo.VLANTag = details.VLANTag
 			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
 			mask := net.IPMask(net.ParseIP(details.Mask))
-			cidr := net.IPNet{net.ParseIP(details.IP), mask}
+			cidr := net.IPNet{
+				IP:   net.ParseIP(details.IP),
+				Mask: mask,
+			}
 			ifaceInfo.CIDR = cidr.String()
 			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
+			if details.DefaultGateway != "" {
+				ifaceInfo.GatewayAddress = network.NewAddress(details.DefaultGateway)
+			}
 			result = append(result, ifaceInfo)
 		}
 	}
