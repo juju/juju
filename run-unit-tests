@@ -157,12 +157,13 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
-if [[ "$USE_PPA" != "" ]]; then
-    sudo apt-add-repository -y $USE_PPA;
-fi
 sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y make python-software-properties distro-info-data
+if [[ "$USE_PPA" != "" ]]; then
+    sudo apt-add-repository -y $USE_PPA;
+    sudo apt-get update
+fi
 if [[ "$INSTALL_DEPS" == "" ]]; then
     echo "Installing default deps."
     make install-dependencies
