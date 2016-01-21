@@ -321,8 +321,10 @@ func GetEnvMigration(st *State) (*EnvMigration, error) {
 	migColl, closer := st.getCollection(envMigrationsC)
 	defer closer()
 
+	query := migColl.Find(bson.M{"env-uuid": st.EnvironUUID()})
+	query = query.Sort("-_id").Limit(1)
 	var doc envMigDoc
-	err := migColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).One(&doc)
+	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("migration")
 	} else if err != nil {
