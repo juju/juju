@@ -471,6 +471,43 @@ var allRegionCosts = regionCosts{
 		"c4.4xlarge": 1176,
 		"c4.8xlarge": 2352,
 	},
+	"ap-northeast-2": { // Seoul.
+		"t2.nano":   10,
+		"t2.micro":  20,
+		"t2.small":  40,
+		"t2.medium": 80,
+		"t2.large":  160,
+
+		"m4.large":    165,
+		"m4.xlarge":   331,
+		"m4.2xlarge":  660,
+		"m4.4xlarge":  1321,
+		"m4.10xlarge": 3303,
+
+		"c4.large":   120,
+		"c4.xlarge":  239,
+		"c4.2xlarge": 478,
+		"c4.4xlarge": 955,
+		"c4.8xlarge": 1910,
+
+		"r3.large":   200,
+		"r3.xlarge":  399,
+		"r3.2xlarge": 798,
+		"r3.4xlarge": 1596,
+		"r3.8xlarge": 3192,
+
+		"i2.xlarge":  1001,
+		"i2.2xlarge": 2001,
+		"i2.4xlarge": 4002,
+		"i2.8xlarge": 8004,
+		// XXX: d2 types not included as instance constraints can't
+		// distinguish between fast disk and dense disk, so look
+		// identical to i2 types but cheaper and probably not wanted?
+		//"d2.xlarge":  844,
+		//"d2.2xlarge": 1688,
+		//"d2.4xlarge": 3376,
+		//"d2.8xlarge": 6752,
+	},
 	"ap-southeast-1": { // Singapore.
 		"m1.small":  58,
 		"m1.medium": 117,
@@ -830,11 +867,18 @@ var allRegionCosts = regionCosts{
 		"t2.micro":  15,
 		"t2.small":  30,
 		"t2.medium": 60,
+		"t2.large":  120,
 
-		"m3.medium":  83,
-		"m3.large":   166,
-		"m3.xlarge":  332,
-		"m3.2xlarge": 665,
+		"m3.medium":  79,
+		"m3.large":   158,
+		"m3.xlarge":  315,
+		"m3.2xlarge": 632,
+
+		"m4.large":    143,
+		"m4.xlarge":   285,
+		"m4.2xlarge":  570,
+		"m4.4xlarge":  1140,
+		"m4.10xlarge": 2850,
 
 		"c3.large":   129,
 		"c3.xlarge":  258,
@@ -842,11 +886,17 @@ var allRegionCosts = regionCosts{
 		"c3.4xlarge": 1032,
 		"c3.8xlarge": 2064,
 
-		"r3.large":   210,
-		"r3.xlarge":  421,
-		"r3.2xlarge": 842,
-		"r3.4xlarge": 1684,
-		"r3.8xlarge": 3369,
+		"c4.large":   134,
+		"c4.xlarge":  267,
+		"c4.2xlarge": 534,
+		"c4.4xlarge": 1069,
+		"c4.8xlarge": 2138,
+
+		"r3.large":   200,
+		"r3.xlarge":  420,
+		"r3.2xlarge": 800,
+		"r3.4xlarge": 1600,
+		"r3.8xlarge": 3201,
 
 		"i2.xlarge":  1013,
 		"i2.2xlarge": 2026,
