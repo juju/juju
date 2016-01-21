@@ -93,7 +93,7 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
     for space in sorted(network_config.keys()):
         client.add_space(space)
         for subnet in network_config[space]:
-            client.juju('subnet add', (subnet, space))
+            client.add_subnet(subnet, space)
 
     for name in sorted(charms_to_space.keys()):
         if 'charm' not in charms_to_space[name]:

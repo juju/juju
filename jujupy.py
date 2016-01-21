@@ -802,6 +802,9 @@ class EnvJujuClient:
     def add_space(self, space):
         self.juju('add-space', (space),)
 
+    def add_subnet(self, subnet, space):
+        self.juju('subnet add', (subnet, space))
+
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
