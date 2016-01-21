@@ -887,19 +887,19 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.1/24",
+		CIDR:              "192.168.2.2/24",
 		ProviderId:        "LAN",
 		VLANTag:           42,
 		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
 		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
 	}, {
-		CIDR:              "192.168.3.1/24",
+		CIDR:              "192.168.3.2/24",
 		ProviderId:        "Virt",
 		AllocatableIPLow:  nil,
 		AllocatableIPHigh: nil,
 		VLANTag:           0,
 	}, {
-		CIDR:              "192.168.1.1/24",
+		CIDR:              "192.168.1.2/24",
 		ProviderId:        "WLAN",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
