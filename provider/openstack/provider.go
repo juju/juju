@@ -42,13 +42,18 @@ import (
 var logger = loggo.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
+	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 }
 
 var _ environs.EnvironProvider = (*EnvironProvider)(nil)
 
-var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}, &firewallerFactory{}}
+var providerInstance *EnvironProvider = &EnvironProvider{
+	OpenstackCredentials{},
+	&defaultConfigurator{},
+	&firewallerFactory{},
+}
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 

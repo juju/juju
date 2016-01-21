@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/environs/manual"
 )
 
-type manualProvider struct{}
+type manualProvider struct {
+	environProviderCredentials
+}
 
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)

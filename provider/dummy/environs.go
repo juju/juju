@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -502,6 +503,14 @@ func (p *environProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
+}
+
+func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return nil
+}
+
+func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
+	return nil, errors.NotFoundf("credentials")
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
