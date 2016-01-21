@@ -234,12 +234,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			WriteUninstallFile: config.WriteUninstallFile,
 		}),
+
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			LogSource: config.LogSource,
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
 				APICallerName:     apiCallerName,
 				UpgradeWaiterName: upgradeWaiterName,
 			},

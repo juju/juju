@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
-	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
@@ -483,6 +482,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			StartAPIWorkers:       a.startAPIWorkers,
 			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
 			ShouldWriteProxyFiles: shouldWriteProxyFiles,
+			LogSource:             a.bufferedLogs,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -698,10 +698,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			worker.Stop(runner)
 		}
 	}()
-
-	runner.StartWorker("logsender", func() (worker.Worker, error) {
-		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
-	})
 
 	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
