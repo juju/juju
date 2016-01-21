@@ -470,7 +470,8 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertGetFileResponse(c, resp, contents, "application/javascript")
+	// Bug 1494726 - Centos generates a content-type of "application/x-javascript"
+	s.assertGetFileResponse(c, resp, contents, `application/(x-javascript|javascript)`)
 }
 
 func (s *charmsSuite) charmsURL(c *gc.C, query string) *url.URL {
@@ -516,7 +517,7 @@ func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType st
 	defer resp.Body.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	ctype := resp.Header.Get("Content-Type")
-	c.Assert(ctype, gc.Equals, expContentType)
+	c.Assert(ctype, gc.Matches, expContentType)
 	return body
 }
 
