@@ -100,10 +100,6 @@ Watcher requests are also request/response calls. But they create server-side
 resources which respond to future `Next()` calls. Those retrieve already happened
 changes or wait for the next ones and return them to the caller.
 
-Another handler using WebSockets for delivering a stream of data is the
-debug log handler. It opens the `all-machines.log` and continuously streams
-the data to the client.
-
 ### HTTP Requests
 
 Beside the communication using WebSockets there are several parts of the
