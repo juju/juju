@@ -330,6 +330,9 @@ class FakeJujuClient:
     def status_until(self, timeout):
         yield self.get_status()
 
+    def get_config(self, service):
+        pass
+
     def deployer(self, bundle, name=None):
         pass
 
@@ -1951,6 +1954,55 @@ class TestEnvJujuClient(ClientTest):
             environ = client._shell_environ()
         self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
 
+    def test_get_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output',
+                          side_effect=output) as gjo_mock:
+            results = client.get_config('foo')
+        self.assertEqual(expected, results)
+        gjo_mock.assert_called_once_with('get', 'foo')
+
+    def test_get_service_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output', side_effect=output):
+            results = client.get_service_config('foo')
+        self.assertEqual(expected, results)
+
+    def test_get_service_config_timesout(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
+        with patch('jujupy.until_timeout', return_value=range(0)):
+            with self.assertRaisesRegexp(
+                    Exception, 'Timed out waiting for juju get'):
+                client.get_service_config('foo')
+
 
 class TestEnvJujuClient1X(ClientTest):
 
@@ -3312,6 +3364,55 @@ class TestEnvJujuClient1X(ClientTest):
             environ = client._shell_environ()
         self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
 
+    def test_get_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output',
+                          side_effect=output) as gjo_mock:
+            results = client.get_config('foo')
+        self.assertEqual(expected, results)
+        gjo_mock.assert_called_once_with('get', 'foo')
+
+    def test_get_service_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output', side_effect=output):
+            results = client.get_service_config('foo')
+        self.assertEqual(expected, results)
+
+    def test_get_service_config_timesout(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, '/foo')
+        with patch('jujupy.until_timeout', return_value=range(0)):
+            with self.assertRaisesRegexp(
+                    Exception, 'Timed out waiting for juju get'):
+                client.get_service_config('foo')
+
 
 class TestUniquifyLocal(TestCase):
 
@@ -3774,33 +3875,6 @@ class TestStatus(FakeHomeTestCase):
                 ('chaos-monkey/1', {'agent-state': 'started'}),
                 ('chaos-monkey/2', {'agent-state': 'started'})]
             )
-
-    def test_get_service_config(self):
-        def output(*args, **kwargs):
-            return yaml.safe_dump({
-                'charm': 'foo',
-                'service': 'foo',
-                'settings': {
-                    'dir': {
-                        'default': 'true',
-                        'description': 'bla bla',
-                        'type': 'string',
-                        'value': '/tmp/charm-dir',
-                    }
-                }
-            })
-        expected = yaml.safe_load(output())
-        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
-        with patch.object(client, 'get_juju_output', side_effect=output):
-            results = client.get_service_config('foo')
-        self.assertEqual(expected, results)
-
-    def test_get_service_config_timesout(self):
-        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
-        with patch('jujupy.until_timeout', return_value=range(0)):
-            with self.assertRaisesRegexp(
-                    Exception, 'Timed out waiting for juju get'):
-                client.get_service_config('foo')
 
     def test_get_open_ports(self):
         status = Status({

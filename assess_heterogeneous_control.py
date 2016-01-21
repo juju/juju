@@ -95,7 +95,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
             check_token(initial, token)
             check_series(other)
             other.juju('run', ('--all', 'uname -a'))
-        other.get_juju_output('get', 'dummy-source')
+        other.get_config('dummy-source')
         other.get_juju_output('get-env')
         other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
         status = other.get_status()

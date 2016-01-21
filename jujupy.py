@@ -397,10 +397,13 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed')
 
+    def get_config(self, service):
+        return yaml_loads(self.get_juju_output('get', service))
+
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
             try:
-                return yaml_loads(self.get_juju_output('get', service))
+                return self.get_config(service)
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
