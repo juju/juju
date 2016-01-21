@@ -71,9 +71,9 @@ mean that you will still be able to connect to the api server from the
 computer where you ran api-info.
 
 See Also:
-    juju help list-environments
-    juju help use-environment
-    juju help create-environment
+    juju help list-models
+    juju help use-model
+    juju help create-model
     juju help add-user
     juju help switch
 `

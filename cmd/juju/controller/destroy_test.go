@@ -241,7 +241,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-environments")
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
@@ -381,9 +381,9 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 			},
 		},
 	}
-	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-environments")
+	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, ""+
 		"NAME   ENVIRONMENT UUID  OWNER         BLOCKS\n"+
-		"test1  test1-uuid        cheryl@local  destroy-environment\n"+
-		"test2  test2-uuid        bob@local     destroy-environment,all-changes\n")
+		"test1  test1-uuid        cheryl@local  destroy-model\n"+
+		"test2  test2-uuid        bob@local     destroy-model,all-changes\n")
 }

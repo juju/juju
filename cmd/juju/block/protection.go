@@ -21,10 +21,10 @@ var logger = loggo.GetLogger("juju.cmd.juju.block")
 // supplied to the command.
 // These operations do not necessarily correspond to juju commands
 // but are rather juju command groupings.
-var blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
+var blockArgs = []string{"destroy-model", "remove-object", "all-changes"}
 
 // TypeFromOperation translates given operation string
-// such as destroy-environment, remove-object, etc to
+// such as destroy-model, remove-object, etc to
 // block type string as defined in multiwatcher.
 var TypeFromOperation = func(operation string) string {
 	for key, value := range blockTypes {
@@ -36,14 +36,14 @@ var TypeFromOperation = func(operation string) string {
 }
 
 var blockTypes = map[string]string{
-	string(multiwatcher.BlockDestroy): "destroy-environment",
+	string(multiwatcher.BlockDestroy): "destroy-model",
 	string(multiwatcher.BlockRemove):  "remove-object",
 	string(multiwatcher.BlockChange):  "all-changes",
 }
 
 // OperationFromType translates given block type as
 // defined in multiwatcher into the operation
-// such as destroy-environment.
+// such as destroy-model.
 var OperationFromType = func(blockType string) string {
 	return blockTypes[blockType]
 }
@@ -102,10 +102,10 @@ To unblock removal, run
 
 `
 var destroyMsg = `
-destroy-environment operation has been blocked for the current environment.
+destroy-model operation has been blocked for the current environment.
 To remove the block run
 
-    juju unblock destroy-environment
+    juju unblock destroy-model
 
 `
 var changeMsg = `

@@ -32,7 +32,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitMultipleConfigs(c *gc.
 func (s *ControllerCommandSuite) TestControllerCommandInitNoEnvFile(c *gc.C) {
 	// Since we ignore the environments.yaml file, we don't care if it isn't
 	// there.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	_, err = initTestControllerCommand(c)
 	c.Assert(err, gc.ErrorMatches, "no controller specified")
@@ -45,7 +45,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 	testEnsureControllerName(c, "fubar")
 }
 func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
-	// If there is a current-environment file, use that.
+	// If there is a current-model file, use that.
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")

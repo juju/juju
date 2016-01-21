@@ -169,7 +169,7 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot switch when JUJU_ENV is overriding the environment \(set to "ec2"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot switch when JUJU_MODEL is overriding the environment \(set to "ec2"\)`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
@@ -182,7 +182,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 	defer f.Close()
 
 	// Remove write permissions to the environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Chmod(envPath, 0200)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -282,7 +282,7 @@ func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
 	defer f.Close()
 
 	// Remove the Juju environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 

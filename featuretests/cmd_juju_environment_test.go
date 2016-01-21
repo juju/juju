@@ -40,7 +40,7 @@ func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-environment", username)
+	context := s.run(c, "share-model", username)
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -58,7 +58,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-environment", username)
+	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
 	envuser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +70,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "unshare-environment", username)
+	context = s.run(c, "unshare-model", username)
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -83,7 +83,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-environment", username)
+	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
 	envuser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,12 +108,12 @@ func (s *cmdEnvironmentSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "get-environment", "special")
+	context := s.run(c, "get-model", "special")
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
 func (s *cmdEnvironmentSuite) TestSet(c *gc.C) {
-	s.run(c, "set-environment", "special=known")
+	s.run(c, "set-model", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
@@ -121,7 +121,7 @@ func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "unset-environment", "special")
+	s.run(c, "unset-model", "special")
 	s.assertEnvValueMissing(c, "special")
 }
 

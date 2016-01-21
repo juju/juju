@@ -45,7 +45,7 @@ type UseEnvironmentAPI interface {
 }
 
 var useEnvDoc = `
-use-environment caches the necessary information about the specified
+use-model caches the necessary information about the specified
 environment on the current machine. This allows you to switch between
 environments.
 
@@ -58,11 +58,11 @@ dash.
 If there is just one environment called "test" in the current controller that you
 have access to, then you can just specify the name.
 
-    $ juju use-environment test
+    $ juju use-model test
 
 If however there are multiple enviornments called "test" that are owned
 
-    $ juju use-environment test
+    $ juju use-model test
     Multiple environments matched name "test":
       cb4b94e8-29bb-44ae-820c-adac21194395, owned by bob@local
       ae673c19-73ef-437f-8224-4842a1772bdf, owned by mary@local
@@ -71,22 +71,22 @@ If however there are multiple enviornments called "test" that are owned
 
 You can specify either the environment UUID like this:
 
-    $ juju use-environment cb4b94e8-29bb-44ae-820c-adac21194395
+    $ juju use-model cb4b94e8-29bb-44ae-820c-adac21194395
 
 Or, specify the owner:
 
-    $ juju use-environment mary@local/test
+    $ juju use-model mary@local/test
 
 Since '@local' is the default for users, this can be shortened to:
 
-    $ juju use-environment mary/test
+    $ juju use-model mary/test
 
 
 See Also:
     juju help controllers
-    juju help create-environment
-    juju help environment share
-    juju help environment unshare
+    juju help create-model
+    juju help model share
+    juju help model unshare
     juju help switch
     juju help add-user
 `
@@ -94,10 +94,9 @@ See Also:
 // Info implements Command.Info
 func (c *useEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "use-environment",
+		Name:    "use-model",
 		Purpose: "use an environment that you have access to on the controller",
 		Doc:     useEnvDoc,
-		Aliases: []string{"use-model"},
 	}
 }
 

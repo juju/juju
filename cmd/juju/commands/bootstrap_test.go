@@ -52,6 +52,8 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
+
+	modelFlags []string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -85,6 +87,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 		return s.mockBlockClient, nil
 	})
+
+	s.modelFlags = []string{"-m", "--model"}
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -140,25 +144,28 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
 		{-1, "other error"},        // another error is returned
 	} {
-		resetJujuHome(c, "devenv")
+		for _, modelFlag := range s.modelFlags {
 
-		s.mockBlockClient.num_retries = t.num_retries
-		s.mockBlockClient.retry_count = 0
-		_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			resetJujuHome(c, "devenv")
+
+			s.mockBlockClient.num_retries = t.num_retries
+			s.mockBlockClient.retry_count = 0
+			_, err := coretesting.RunCommand(c, newBootstrapCommand(), modelFlag, "devenv")
+			if t.err == "" {
+				c.Check(err, jc.ErrorIsNil)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.err)
+			}
+			expectedRetries := t.num_retries
+			if t.num_retries <= 0 {
+				expectedRetries = 1
+			}
+			// Only retry maximum of bootstrapReadyPollCount times.
+			if expectedRetries > 5 {
+				expectedRetries = 5
+			}
+			c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 		}
-		expectedRetries := t.num_retries
-		if t.num_retries <= 0 {
-			expectedRetries = 1
-		}
-		// Only retry maximum of bootstrapReadyPollCount times.
-		if expectedRetries > 5 {
-			expectedRetries = 5
-		}
-		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 	}
 }
 
@@ -294,9 +301,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
 	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
-	info:    "bad environment",
+	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
-	args:    []string{"-e", "brokenenv"},
+	args:    []string{"-m", "brokenenv"},
 	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
@@ -416,10 +423,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	const envName = "devenv"
 	s.patchVersionAndSeries(c, envName)
 
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -428,7 +435,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
 	s.patchVersionAndSeries(c, envName)
 
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv")
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
 	currentEnv, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,8 +450,6 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
 }
 
-// In the case where we cannot examine an environment, we want the
-// error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
 	if runtime.GOOS == "windows" {
@@ -455,7 +460,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	s.patchVersionAndSeries(c, envName)
 	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Change permissions on the jenv file to simulate some kind of
@@ -465,12 +470,11 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The second bootstrap should fail b/c of the propogated error
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
 func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
-
 	cleanupRan := false
 
 	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
@@ -487,16 +491,12 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 	)
 
 	ctx := coretesting.Context(c)
-	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-m", "peckham")
 	c.Check(<-errc, gc.Not(gc.IsNil))
 	c.Check(cleanupRan, jc.IsTrue)
 }
 
-// When attempting to bootstrap, check that when prepare errors out,
-// the code cleans up the created jenv file, but *not* any existing
-// environment that may have previously been bootstrapped.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
-
 	destroyedEnvRan := false
 	destroyedInfoRan := false
 
@@ -552,7 +552,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)
 
 	ctx := coretesting.Context(c)
-	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-m", "peckham")
 	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyedEnvRan, jc.IsFalse)
 	c.Check(destroyedInfoRan, jc.IsTrue)
@@ -572,9 +572,9 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", envName)
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-m", envName)
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring models.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
@@ -720,7 +720,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "devenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-m", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
@@ -745,7 +745,6 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-
 	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		return nil, fmt.Errorf("an error")
 	}
@@ -753,7 +752,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
 
-	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv")
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Bootstrapping environment "devenv"
@@ -764,50 +763,54 @@ Building tools to upload (1.7.3.1-raring-%s)
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
-	resetJujuHome(c, "devenv")
-	s.patchVersion(c)
+	for _, modelFlag := range s.modelFlags {
+		resetJujuHome(c, "devenv")
+		s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv")
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
-	var opDestroy *dummy.OpDestroy
-	for opDestroy == nil {
-		select {
-		case op := <-opc:
-			switch op := op.(type) {
-			case dummy.OpDestroy:
-				opDestroy = &op
+		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv")
+		err := <-errc
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+		var opDestroy *dummy.OpDestroy
+		for opDestroy == nil {
+			select {
+			case op := <-opc:
+				switch op := op.(type) {
+				case dummy.OpDestroy:
+					opDestroy = &op
+				}
+			default:
+				c.Error("expected call to env.Destroy")
+				return
 			}
-		default:
-			c.Error("expected call to env.Destroy")
-			return
 		}
+		c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 	}
-	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 }
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
-	resetJujuHome(c, "devenv")
-	s.patchVersion(c)
+	for _, modelFlag := range s.modelFlags {
+		resetJujuHome(c, "devenv")
+		s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv", "--keep-broken")
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
-	done := false
-	for !done {
-		select {
-		case op, ok := <-opc:
-			if !ok {
-				done = true
+		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--keep-broken")
+		err := <-errc
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+		done := false
+		for !done {
+			select {
+			case op, ok := <-opc:
+				if !ok {
+					done = true
+					break
+				}
+				switch op.(type) {
+				case dummy.OpDestroy:
+					c.Error("unexpected call to env.Destroy")
+					break
+				}
+			default:
 				break
 			}
-			switch op.(type) {
-			case dummy.OpDestroy:
-				c.Error("unexpected call to env.Destroy")
-				break
-			}
-		default:
-			break
 		}
 	}
 }

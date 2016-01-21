@@ -128,7 +128,7 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
+		newValidateImageMetadataCommand(), ctx, []string{"-m", "ec2", "-d", s.metadataDir, "--stream", stream},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -152,7 +152,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir},
+		newValidateImageMetadataCommand(), ctx, []string{"-m", "ec2", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()

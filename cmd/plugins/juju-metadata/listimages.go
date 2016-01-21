@@ -28,8 +28,8 @@ More than one filter can be specified. Result will contain metadata that matches
 If no filters are supplied, all stored image metadata will be listed.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= tabular)

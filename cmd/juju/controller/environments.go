@@ -68,10 +68,9 @@ type EnvironmentsSysAPI interface {
 // Info implements Command.Info
 func (c *environmentsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-environments",
+		Name:    "list-models",
 		Purpose: "list all environments the user can access on the current controller",
 		Doc:     envsDoc,
-		Aliases: []string{"list-models"},
 	}
 }
 

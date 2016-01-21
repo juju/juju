@@ -49,7 +49,7 @@ version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
 The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
@@ -121,7 +121,6 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
 	f.StringVar(&c.exactVersion, "juju-version", "", "")
-	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
 	f.StringVar(&c.partVersion, "majorminor-version", "", "")
 	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }

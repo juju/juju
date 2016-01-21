@@ -40,11 +40,11 @@ Some commands offer a --force option that can be used to bypass a block.
 
 Commands that can be unblocked are grouped based on logical operations as follows:
 
-destroy-environment includes command:
-    destroy-environment
+destroy-model includes command:
+    destroy-model
 
 remove-object includes termination commands:
-    destroy-environment
+    destroy-model
     remove-machine
     remove-relation
     remove-service
@@ -58,7 +58,7 @@ all-changes includes all alteration commands
     authorised-keys delete
     authorised-keys import
     deploy
-    destroy-environment
+    destroy-model
     ensure-availability
     expose
     remove-machine
@@ -70,11 +70,11 @@ all-changes includes all alteration commands
     run
     set
     set-constraints
-    set-env
+    set-model
     sync-tools
     unexpose
     unset
-    unset-env
+    unset-model
     upgrade-charm
     upgrade-juju
     add-user
@@ -84,7 +84,7 @@ all-changes includes all alteration commands
 
 Examples:
    To allow the environment to be destroyed:
-   juju unblock destroy-environment
+   juju unblock destroy-model
 
    To allow the machines, services, units and relations to be removed:
    juju unblock remove-object

@@ -99,21 +99,21 @@ logging setup configured for the environment.
 You can configure Juju's logging system using a number of different
 mechanisms:
 
-environments.yaml
+models.yaml
   - all environments support 'logging-config' as a key
 environment variable
   - export JUJU_LOGGING_CONFIG='...'
 setting the logging-config option at bootstrap time
   - juju bootstrap --logging-config='...'
 or setting the logging-config option later
-  - juju set-environment logging-config='...'
+  - juju set-model logging-config='...'
 
 The configuration format taken by all these mechanisms is the same:
 one or more "module.prefix=LEVEL" items separated by semicolons.
 
 Example:
 
-  juju set-environment logging-config "juju=WARNING; unit=INFO"
+  juju set-model logging-config "juju=WARNING; unit=INFO"
 
 Valid logging levels:
   CRITICAL

@@ -33,11 +33,10 @@ can be passed on as command line arguments.
 
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set-environment",
+		Name:    "set-model",
 		Args:    "key=[value] ...",
-		Purpose: "replace environment values",
+		Purpose: "replace model values",
 		Doc:     strings.TrimSpace(setEnvHelpDoc),
-		Aliases: []string{"set-env", "set-model"},
 	}
 }
 

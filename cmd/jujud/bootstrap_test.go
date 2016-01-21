@@ -200,7 +200,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,7 +265,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
@@ -280,7 +280,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
 
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,7 +306,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	bootstrapCons := constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
 	environCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", s.b64yamlEnvcfg,
+		"--model-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
 		"--bootstrap-constraints", bootstrapCons.String(),
 		"--environ-constraints", environCons.String(),
@@ -347,7 +347,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		state.JobHostUnits,
 		state.JobManageNetworking,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,7 +368,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -400,7 +400,7 @@ func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Run(nil)
@@ -460,46 +460,46 @@ var bootstrapArgTests = []struct {
 	expectedConfig     map[string]interface{}
 }{
 	{
-		// no value supplied for env-config
-		err: "--env-config option must be set",
+		// no value supplied for model-config
+		err: "--model-config option must be set",
 	}, {
-		// empty env-config
-		input: []string{"--env-config", ""},
-		err:   "--env-config option must be set",
+		// empty model-config
+		input: []string{"--model-config", ""},
+		err:   "--model-config option must be set",
 	}, {
 		// wrong, should be base64
-		input: []string{"--env-config", "name: banana\n"},
+		input: []string{"--model-config", "name: banana\n"},
 		err:   ".*illegal base64 data at input byte.*",
 	}, {
 		// no value supplied for instance-id
 		input: []string{
-			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 		},
 		err: "--instance-id option must be set",
 	}, {
 		// empty instance-id
 		input: []string{
-			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "",
 		},
 		err: "--instance-id option must be set",
 	}, {
 		input: []string{
-			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 		},
 		expectedInstanceId: "anything",
 		expectedConfig:     map[string]interface{}{"name": "banana"},
 	}, {
 		input: []string{
-			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 			"--hardware", "nonsense",
 		},
 		err: `invalid value "nonsense" for flag --hardware: malformed characteristic "nonsense"`,
 	}, {
 		input: []string{
-			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 			"--hardware", "arch=amd64 cpu-cores=4 root-disk=2T",
 		},
@@ -537,7 +537,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -560,7 +560,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
 
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -571,7 +571,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -602,7 +602,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -762,7 +762,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	dir, m, _ := createImageMetadata(c)
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
 		"--image-metadata", dir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -785,7 +785,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
 		"--image-metadata", dir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -803,7 +803,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
 		"--image-metadata", metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -871,7 +871,7 @@ func (m b64yaml) encode() string {
 }
 
 func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)

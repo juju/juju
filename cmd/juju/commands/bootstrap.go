@@ -234,7 +234,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil && cleanup != nil {
 			if c.KeepBrokenEnvironment {
 				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
-					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
+					"When you are finished diagnosing the problem, remember to run juju destroy-model --force\n" +
 					"to clean up the environment.")
 			} else {
 				handleBootstrapError(ctx, resultErr, cleanup)
@@ -253,7 +253,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// then we're in an unknown state.
 	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); nil != err {
 		if environs.ErrAlreadyBootstrapped == err {
-			logger.Warningf("This juju environment is already bootstrapped. If you want to start a new Juju\nenvironment, first run juju destroy-environment to clean up, or switch to an\nalternative environment.")
+			logger.Warningf("This juju environment is already bootstrapped. If you want to start a new Juju\nenvironment, first run juju destroy-model to clean up, or switch to an\nalternative environment.")
 			return err
 		}
 		return errors.Annotatef(err, "cannot determine if environment is already bootstrapped.")

@@ -136,10 +136,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "error: flag provided but not defined: --cheese\n",
 	}, {
-		summary: "known option, but specified before command",
+		summary: "unknown option specified before command",
 		args:    []string{"--environment", "blah", "bootstrap"},
 		code:    2,
 		out:     "error: flag provided but not defined: --environment\n",
+	}, {
+		summary: "known option, but specified before command",
+		args:    []string{"--model", "blah", "bootstrap"},
+		code:    2,
+		out:     "error: flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},
@@ -163,7 +168,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to unblock\n",
+		out:     "error: must specify one of [destroy-model | remove-object | all-changes] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -211,15 +216,13 @@ var commandNames = []string{
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
-	"create-environment",
-	"create-model", // alias for create-environment
+	"create-model",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
 	"destroy-controller",
-	"destroy-environment",
 	"destroy-machine",
-	"destroy-model", // alias for destroy-environment
+	"destroy-model",
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
@@ -232,17 +235,14 @@ var commandNames = []string{
 	"get",
 	"get-constraints",
 	"get-user-credentials",
-	"get-env", // alias for get-environment
-	"get-environment",
-	"get-model", // alias for get-environment
+	"get-model",
 	"help",
 	"help-tool",
 	"init",
 	"kill-controller",
 	"list-all-blocks",
 	"list-controllers",
-	"list-environments",
-	"list-models", // alias for list-environments
+	"list-models",
 	"list-shares",
 	"list-users",
 	"login",
@@ -260,11 +260,8 @@ var commandNames = []string{
 	"service",
 	"set",
 	"set-constraints",
-	"set-env", // alias for set-environment
-	"set-environment",
-	"set-model", // alias for set-environment
-	"share-environment",
-	"share-model", // alias for share-environment
+	"set-model",
+	"share-model",
 	"show-user",
 	"space",
 	"ssh",
@@ -276,16 +273,12 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
-	"use-environment",
-	"use-model", // alias for use-environment
+	"use-model",
 	"unblock",
 	"unexpose",
 	"unset",
-	"unset-env", // alias for unset-environment
-	"unset-environment",
-	"unset-model", // alias for unset-environment
-	"unshare-environment",
-	"unshare-model", // alias for unshare-environment
+	"unset-model",
+	"unshare-model",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",

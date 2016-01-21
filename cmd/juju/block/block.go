@@ -73,11 +73,11 @@ This command allows to block environment destruction.
 To disable the block, run unblock command - see "juju help unblock". 
 To by-pass the block, run destroy-enviornment with --force option.
 
-"juju block destroy-environment" only blocks destroy-environment command.
+"juju block destroy-model" only blocks destroy-model command.
    
 Examples:
-   To prevent the environment from being destroyed:
-   juju block destroy-environment
+   To prevent the model from being destroyed:
+   juju block destroy-model
 
 `
 
@@ -85,8 +85,8 @@ Examples:
 // Satisfying Command interface.
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy-environment",
-		Purpose: "block an operation that would destroy Juju environment",
+		Name:    "destroy-model",
+		Purpose: "block an operation that would destroy Juju model",
 		Doc:     destroyBlockDoc,
 	}
 }
@@ -114,7 +114,7 @@ To disable the block, run unblock command - see "juju help unblock".
 To by-pass the block, where available, run desired remove command with --force option.
 
 "juju block remove-object" blocks these commands:
-    destroy-environment
+    destroy-model
     remove-machine
     remove-relation
     remove-service
@@ -166,7 +166,7 @@ To by-pass the block, where available, run desired remove command with --force o
     authorised-keys delete
     authorised-keys import
     deploy
-    destroy-environment
+    destroy-model
     ensure-availability
     expose
     remove-machine
@@ -178,11 +178,11 @@ To by-pass the block, where available, run desired remove command with --force o
     run
     set
     set-constraints
-    set-env
+    set-model
     sync-tools
     unexpose
     unset
-    unset-env
+    unset-model
     upgrade-charm
     upgrade-juju
     add-user

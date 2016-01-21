@@ -81,7 +81,7 @@ func environFromNameProductionFunc(
 	if environInfo, err := store.ReadInfo(envName); err == nil {
 		envExisted = true
 		logger.Warningf(
-			"ignoring environments.yaml: using bootstrap config in %s",
+			"ignoring models.yaml: using bootstrap config in %s",
 			environInfo.Location(),
 		)
 	} else if !errors.IsNotFound(err) {

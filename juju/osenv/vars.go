@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	JujuEnvEnvKey           = "JUJU_ENV"
+	JujuEnvEnvKey           = "JUJU_MODEL"
 	JujuHomeEnvKey          = "JUJU_HOME"
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"

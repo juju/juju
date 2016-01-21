@@ -24,7 +24,7 @@ type SwitchSimpleSuite struct {
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
 func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -38,7 +38,7 @@ func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
 		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
 	}
 
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Chmod(envPath, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -53,7 +53,7 @@ func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, newSwitchCommand())
@@ -85,7 +85,7 @@ func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
@@ -93,8 +93,8 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
-	os.Setenv("JUJU_ENV", "using-env")
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-model", "fubar"})
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
@@ -152,9 +152,9 @@ func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	_, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_ENV is overriding the environment \(set to "using-env"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the environment \(set to "using-env"\)`)
 }
 
 const expectedEnvironments = `erewhemos
@@ -184,7 +184,7 @@ func (s *SwitchSimpleSuite) TestListEnvironmentsWithConfigstore(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_ENV", "using-env")
+	os.Setenv("JUJU_MODEL", "using-env")
 	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)

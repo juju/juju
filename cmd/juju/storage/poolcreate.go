@@ -39,8 +39,8 @@ into named resources that can be used during deployment.
 Pools defined at the environment level are easily reused across services.
 
 options:
-    -e, --environment (= "")
-        juju environment to operate in
+    -m, --model (= "")
+        juju model to operate in
     -o, --output (= "")
         specify an output file
     <name>

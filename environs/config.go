@@ -294,7 +294,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 
 func environsPath(path string) string {
 	if path == "" {
-		path = osenv.JujuHomePath("environments.yaml")
+		path = osenv.JujuHomePath("models.yaml")
 	}
 	return path
 }

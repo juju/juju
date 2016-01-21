@@ -31,11 +31,11 @@ var switchDoc = `
 Show or change the default juju environment or controller name.
 
 If no command line parameters are passed, switch will output the current
-environment as defined by the file $JUJU_HOME/current-environment.
+environment as defined by the file $JUJU_HOME/current-model.
 
 If a command line parameter is passed in, that value will is stored in the
 current environment file if it represents a valid environment name as
-specified in the environments.yaml file.
+specified in the models.yaml file.
 `
 
 const controllerSuffix = " (controller)"
@@ -79,8 +79,8 @@ func getConfigstoreOptions() (set.Strings, set.Strings, error) {
 
 func (c *switchCommand) Run(ctx *cmd.Context) error {
 	// Switch is an alternative way of dealing with environments than using
-	// the JUJU_ENV environment setting, and as such, doesn't play too well.
-	// If JUJU_ENV is set we should report that as the current environment,
+	// the JUJU_MODEL environment setting, and as such, doesn't play too well.
+	// If JUJU_MODEL is set we should report that as the current environment,
 	// and not allow switching when it is set.
 
 	// Passing through the empty string reads the default environments.yaml file.
@@ -121,13 +121,13 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	jujuEnv := os.Getenv("JUJU_ENV")
+	jujuEnv := os.Getenv("JUJU_MODEL")
 	if jujuEnv != "" {
 		if c.EnvName == "" {
 			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
 			return nil
 		} else {
-			return errors.Errorf("cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
+			return errors.Errorf("cannot switch when JUJU_MODEL is overriding the environment (set to %q)", jujuEnv)
 		}
 	}
 

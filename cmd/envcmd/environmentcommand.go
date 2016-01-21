@@ -31,9 +31,9 @@ var ErrNoEnvironmentSpecified = errors.New("no environment specified")
 
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
-// JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_HOME/current-environment file.  If neither are
-// available, read environments.yaml and use the default environment therein.
+// JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
+// set, look in the $JUJU_HOME/current-model file.  If neither are
+// available, read models.yaml and use the default environment therein.
 // If no default is specified in the environments file, an empty string is returned.
 // Not having a default environment specified is not an error.
 func GetDefaultEnvironment() (string, error) {
@@ -314,8 +314,8 @@ func (c *EnvCommandBase) ConnectionName() string {
 // EnvironCommand wrapper.
 type WrapEnvOption func(*environCommandWrapper)
 
-// EnvSkipFlags instructs the wrapper to skip --e and
-// --environment flag definition.
+// EnvSkipFlags instructs the wrapper to skip --m and
+// --model flag definition.
 func EnvSkipFlags(w *environCommandWrapper) {
 	w.skipFlags = true
 }
@@ -369,8 +369,8 @@ type environCommandWrapper struct {
 
 func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
-		f.StringVar(&w.envName, "e", "", "juju environment to operate in")
-		f.StringVar(&w.envName, "environment", "", "")
+		f.StringVar(&w.envName, "m", "", "juju model to operate in")
+		f.StringVar(&w.envName, "model", "", "")
 	}
 	w.EnvironCommand.SetFlags(f)
 }

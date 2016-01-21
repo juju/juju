@@ -62,7 +62,7 @@ var imageMetadataDoc = `
 generate-image creates simplestreams image metadata for the specified cloud.
 
 The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
 
 Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
 By default, "amd64" is used for the architecture but this may also be changed.
@@ -162,7 +162,7 @@ image metadata search path. There are 2 options:
 1. Use the --metadata-source parameter when bootstrapping:
    juju bootstrap --metadata-source %s
 
-2. Use image-metadata-url in $JUJU_HOME/environments.yaml
+2. Use image-metadata-url in $JUJU_HOME/models.yaml
 Configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.

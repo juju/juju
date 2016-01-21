@@ -23,7 +23,7 @@ const volumeListCommandDoc = `
 List volumes (disks) in the environment.
 
 options:
--e, --environment (= "")
+-m, --model (= "")
     juju environment to operate in
 -o, --output (= "")
     specify an output file

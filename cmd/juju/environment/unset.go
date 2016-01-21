@@ -34,11 +34,10 @@ Multiple attributes may be removed at once; keys should be space-separated.
 
 func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "unset-environment",
-		Args:    "<environment key> ...",
-		Purpose: "unset environment values",
+		Name:    "unset-model",
+		Args:    "<model key> ...",
+		Purpose: "unset model values",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
-		Aliases: []string{"unset-env", "unset-model"},
 	}
 }
 
