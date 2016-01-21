@@ -1942,7 +1942,7 @@ class TestEnvJujuClient(ClientTest):
                                '1.23-series-arch', None)
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.add_subnet('bar-subnet', 'foo-space')
-        juju_mock.assert_called_once_with('subnet add',
+        juju_mock.assert_called_once_with('add-subnet',
                                           ('bar-subnet', 'foo-space'))
 
     def test__shell_environ_uses_pathsep(self):

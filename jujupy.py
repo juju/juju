@@ -803,7 +803,7 @@ class EnvJujuClient:
         self.juju('add-space', (space),)
 
     def add_subnet(self, subnet, space):
-        self.juju('subnet add', (subnet, space))
+        self.juju('add-subnet', (subnet, space))
 
 
 class EnvJujuClient2A1(EnvJujuClient):
@@ -913,6 +913,9 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def add_space(self, space):
         self.juju('space create', (space),)
+
+    def add_subnet(self, subnet, space):
+        self.juju('subnet add', (subnet, space))
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):

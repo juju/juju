@@ -148,7 +148,7 @@ class JujuMock:
             self._spaces[args] = []
         elif cmd == 'list-space':
             return yaml.dump({'spaces': self._spaces})
-        elif cmd == 'subnet add':
+        elif cmd == 'add-subnet':
             subnet = '10.{}.0.0/16'.format(self._subnet_count)
             self._subnet_count += 1
 
