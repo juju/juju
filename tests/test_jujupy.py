@@ -679,6 +679,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.27.1'
             yield '2.0-alpha1'
             yield '2.0-alpha2'
+            yield '2.0-alpha2-fake-wrapper'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -715,8 +716,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha2')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-alpha1-juju-wrapped')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
@@ -758,11 +762,11 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+        self.assertEqual(('juju', '--show-log', 'bar', '-m', 'foo', 'baz',
                           'qux'), full)
         full = client._full_args('bar', True, ('baz', 'qux'))
         self.assertEqual((
-            'juju', '--show-log', 'bar', '-e', 'foo',
+            'juju', '--show-log', 'bar', '-m', 'foo',
             'baz', 'qux'), full)
         client.env = None
         full = client._full_args('bar', False, ('baz', 'qux'))
@@ -774,14 +778,14 @@ class TestEnvJujuClient(ClientTest):
         client.debug = True
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual((
-            'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+            'juju', '--debug', 'bar', '-m', 'foo', 'baz', 'qux'), full)
 
     def test_full_args_action(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('action bar', False, ('baz', 'qux'))
         self.assertEqual((
-            'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
+            'juju', '--show-log', 'action', 'bar', '-m', 'foo', 'baz', 'qux'),
             full)
 
     def test_bootstrap_hpcloud(self):
@@ -913,7 +917,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
         self.assertEqual('asdf', result)
-        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
+        self.assertEqual((('juju', '--show-log', 'bar', '-m', 'foo'),),
                          mock.call_args[0])
 
     def test_get_juju_output_accepts_varargs(self):
@@ -923,7 +927,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
         self.assertEqual('asdf', result)
-        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+        self.assertEqual((('juju', '--show-log', 'bar', '-m', 'foo', 'baz',
                            '--qux'),), mock.call_args[0])
 
     def test_get_juju_output_stderr(self):
@@ -944,7 +948,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(
             po_mock.call_args[0][0],
             (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
-             '--show-log', 'bar', '-e', 'foo'))
+             '--show-log', 'bar', '-m', 'foo'))
 
     def test__shell_environ_cloudsigma(self):
         client = EnvJujuClient(
@@ -1100,11 +1104,11 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 1)
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-bar'), 1)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-baz'), 2)
         self.assertEqual(cc_mock.call_count, 3)
 
     def test_wait_for_started(self):
@@ -1499,7 +1503,7 @@ class TestEnvJujuClient(ClientTest):
             result = client.get_env_option('tools-metadata-url')
         self.assertEqual(
             mock.call_args[0][0],
-            ('juju', '--show-log', 'get-env', '-e', 'foo',
+            ('juju', '--show-log', 'get-env', '-m', 'foo',
              'tools-metadata-url'))
         self.assertEqual('https://example.org/juju/tools', result)
 
@@ -1512,7 +1516,7 @@ class TestEnvJujuClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
-            ('juju', '--show-log', 'set-env', '-e', 'foo',
+            ('juju', '--show-log', 'set-env', '-m', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
 
     def test_set_testing_tools_metadata_url(self):
@@ -1544,7 +1548,7 @@ class TestEnvJujuClient(ClientTest):
             client.juju('foo', ('bar', 'baz'))
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
-        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux',
                                  'bar', 'baz'))
 
     def test_juju_env(self):
@@ -1563,7 +1567,7 @@ class TestEnvJujuClient(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
-        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux',
                                  'bar', 'baz'))
 
     def test_juju_no_check_env(self):
@@ -1582,7 +1586,7 @@ class TestEnvJujuClient(ClientTest):
             client.juju('foo', ('bar', 'baz'), timeout=58)
         self.assertEqual(cc_mock.call_args[0][0], (
             sys.executable, get_timeout_path(), '58.00', '--', 'juju',
-            '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+            '--show-log', 'foo', '-m', 'qux', 'bar', 'baz'))
 
     def test_juju_juju_home(self):
         env = SimpleEnvironment('qux')
@@ -1611,7 +1615,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_call', side_effect=check_env) as mock:
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
+            ('juju', '--show-log', 'quickstart', '-m', 'qux', 'bar', 'baz'))
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
@@ -1671,7 +1675,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.Popen') as popen_class_mock:
             with client.juju_async('foo', ('bar', 'baz')) as proc:
                 assert_juju_call(self, popen_class_mock, client, (
-                    'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+                    'juju', '--show-log', 'foo', '-m', 'qux', 'bar', 'baz'))
                 self.assertIs(proc, popen_class_mock.return_value)
                 self.assertEqual(proc.wait.call_count, 0)
                 proc.wait.return_value = 0
@@ -1687,7 +1691,7 @@ class TestEnvJujuClient(ClientTest):
                     proc_mock.wait.return_value = 23
         self.assertEqual(err_cxt.exception.returncode, 23)
         self.assertEqual(err_cxt.exception.cmd, (
-            'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+            'juju', '--show-log', 'foo', '-m', 'qux', 'bar', 'baz'))
 
     def test_juju_async_environ(self):
         env = SimpleEnvironment('qux')
@@ -1833,7 +1837,7 @@ class TestEnvJujuClient(ClientTest):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
         mock.assert_called_once_with(
-            'action do', 'foo/0', 'myaction', "param=5"
+            'run-action', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -1854,7 +1858,7 @@ class TestEnvJujuClient(ClientTest):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_once_with(
-            'action fetch', '123', "--wait", "1m"
+            'show-action-output', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):
@@ -1954,6 +1958,7 @@ class TestEnvJujuClient1X(ClientTest):
             yield '1.27.1'
             yield '2.0-alpha1'
             yield '2.0-alpha2'
+            yield '2.0-alpha2-fake-wrapper'
 
         context = patch.object(
             EnvJujuClient1X, 'get_version',
@@ -1990,8 +1995,11 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha2')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-alpha1-juju-wrapped')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:

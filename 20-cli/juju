@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+import os
+import subprocess
+import sys
+
+
+def main():
+    substitutes = {
+        '-m': ['-e'],
+        'run-action': ['action', 'do'],
+        'show-action-output': ['action', 'fetch'],
+    }
+    args = []
+    forbidden_values = set()
+    for val in substitutes.values():
+        for subval in val:
+            assert subval not in sys.argv, '{} not permitted.'.format(subval)
+    for arg in sys.argv[1:]:
+        arg = substitutes.get(arg, [arg])
+        args.extend(arg)
+    if '--version' in args:
+        print '2.0-alpha2-fake-wrapper'
+        return 0
+    return subprocess.call([os.environ['REAL_JUJU']] + args)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

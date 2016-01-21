@@ -226,10 +226,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient26
         elif re.match('^1\.', version):
             client_class = EnvJujuClient1X
-        elif re.match('^2\.0-alpha1', version):
-            client_class = EnvJujuClient2A1
-        else:
+        elif re.match('^2\.0-alpha2-fake-wrapper', version):
             client_class = EnvJujuClient
+        else:
+            client_class = EnvJujuClient2A1
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
@@ -256,7 +256,7 @@ class EnvJujuClient:
         if self.env is None or not include_e:
             e_arg = ()
         else:
-            e_arg = ('-e', self.env.environment)
+            e_arg = ('-m', self.env.environment)
         if timeout is None:
             prefix = ()
         else:
@@ -275,6 +275,8 @@ class EnvJujuClient:
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
         self.env = env
+        if version == '2.0-alpha2-fake-wrapper':
+            version = '2.0-alpha1-juju-wrapped'
         self.version = version
         self.full_path = full_path
         self.debug = debug
@@ -743,6 +745,77 @@ class EnvJujuClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
+        out = self.get_juju_output("show-action-output", id, "--wait", timeout)
+        status = yaml_loads(out)["status"]
+        if status != "completed":
+            name = ""
+            if action is not None:
+                name = " " + action
+            raise Exception(
+                "timed out waiting for action%s to complete during fetch" %
+                name)
+        return out
+
+    def action_do(self, unit, action, *args):
+        """Performs the given action on the given unit.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the id of the queued action.
+        """
+        args = (unit, action) + args
+
+        output = self.get_juju_output("run-action", *args)
+        action_id_pattern = re.compile(
+            'Action queued with id: ([a-f0-9\-]{36})')
+        match = action_id_pattern.search(output)
+        if match is None:
+            raise Exception("Action id not found in output: %s" %
+                            output)
+        return match.group(1)
+
+    def action_do_fetch(self, unit, action, timeout="1m", *args):
+        """Performs given action on given unit and waits for the results.
+
+        Action params should be given as args in the form foo=bar.
+        Returns the yaml output of the action.
+        """
+        id = self.action_do(unit, action, *args)
+        return self.action_fetch(id, action, timeout)
+
+
+class EnvJujuClient2A1(EnvJujuClient):
+    """Drives Juju 2.0-alpha1 clients."""
+
+    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+        # sudo is not needed for devel releases.
+        if self.env is None or not include_e:
+            e_arg = ()
+        else:
+            e_arg = ('-e', self.env.environment)
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
+        logging = '--debug' if self.debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def action_fetch(self, id, action=None, timeout="1m"):
+        """Fetches the results of the action with the given id.
+
+        Will wait for up to 1 minute for the action results.
+        The action name here is just used for an more informational error in
+        cases where it's available.
+        Returns the yaml output of the fetched action.
+        """
         # the command has to be "action fetch" so that the -e <env> args are
         # placed after "fetch", since that's where action requires them to be.
         out = self.get_juju_output("action fetch", id, "--wait", timeout)
@@ -775,21 +848,8 @@ class EnvJujuClient:
                             output)
         return match.group(1)
 
-    def action_do_fetch(self, unit, action, timeout="1m", *args):
-        """Performs given action on given unit and waits for the results.
 
-        Action params should be given as args in the form foo=bar.
-        Returns the yaml output of the action.
-        """
-        id = self.action_do(unit, action, *args)
-        return self.action_fetch(id, action, timeout)
-
-
-class EnvJujuClient2A1(EnvJujuClient):
-    """Drives Juju 2.0-alpha1 clients."""
-
-
-class EnvJujuClient1X(EnvJujuClient):
+class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
     def create_environment(self, controller_client, config_file):
