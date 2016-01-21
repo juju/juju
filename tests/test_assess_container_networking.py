@@ -487,3 +487,31 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, None)
         self.assertEqual(ret, 0)
+
+    def test_final_clean_fails(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
+                "--clean-environment"]
+        client = Mock(spec=["enable_container_address_allocation", "env",
+                            "get_status", "is_jes_enabled", "wait_for",
+                            "wait_for_started"])
+        client.get_status.side_effect = [
+            Status.from_text("""
+                machines:
+                    "0":
+                        agent-state: started
+            """),
+            Exception("Timeout"),
+        ]
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.INFO):
+                    ret = jcnet.main(argv)
+        client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
+        self.assertEqual(
+            "INFO Could not clean existing env: Timeout\n",
+            self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 0)
+        mock_assess.assert_called_once_with(client, None)
+        self.assertEqual(ret, 1)
