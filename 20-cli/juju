@@ -13,6 +13,8 @@ def main():
         'create-backup': ['backups', 'create'],
         'restore-backup': ['backups', 'restore'],
         'enable-ha': ['ensure-availability'],
+        'list-space': ['space', 'list'],
+        'add-space': ['space', 'create'],
     }
     args = []
     for val in substitutes.values():

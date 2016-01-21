@@ -144,7 +144,7 @@ class JujuMock:
                 # If we ran out of values, just return the last one
                 return ssh_output[-1]
 
-        elif cmd == 'space create':
+        elif cmd == 'add-space':
             self._spaces[args] = []
         elif cmd == 'list-space':
             return yaml.dump({'spaces': self._spaces})

@@ -1935,7 +1935,7 @@ class TestEnvJujuClient(ClientTest):
                                '1.23-series-arch', None)
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.add_space('foo-space')
-        juju_mock.assert_called_once_with('space create', ('foo-space'))
+        juju_mock.assert_called_once_with('add-space', ('foo-space'))
 
     def test__shell_environ_uses_pathsep(self):
         client = EnvJujuClient(SimpleEnvironment('foo'), None, 'foo/bar/juju')

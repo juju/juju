@@ -800,7 +800,7 @@ class EnvJujuClient:
         return yaml.safe_load(self.get_juju_output('list-space'))
 
     def add_space(self, space):
-        self.juju('space create', (space),)
+        self.juju('add-space', (space),)
 
 
 class EnvJujuClient2A1(EnvJujuClient):
@@ -907,6 +907,9 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('space list'))
+
+    def add_space(self, space):
+        self.juju('space create', (space),)
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):
