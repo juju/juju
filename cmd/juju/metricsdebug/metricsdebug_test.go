@@ -4,8 +4,10 @@
 package metricsdebug_test
 
 import (
+	"bytes"
 	"fmt"
 	stdtesting "testing"
+	"text/tabwriter"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -96,13 +98,15 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	outputTime := newTime.Format(time.RFC3339)
-	expectedOutput := fmt.Sprintf(`TIME                 METRIC VALUE
-%v pings  5
-%v pings  10.5
-`, outputTime, outputTime)
+	expectedOutput := bytes.Buffer{}
+	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
+	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
+	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	fmt.Fprintf(tw, "%v\tpings\t10.5\n", outputTime)
+	tw.Flush()
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput.String())
 }
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
@@ -116,13 +120,15 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	outputTime := newTime.Format(time.RFC3339)
-	expectedOutput := fmt.Sprintf(`TIME                 METRIC VALUE
-%v pings  5
-%v pings  5
-`, outputTime, outputTime)
+	expectedOutput := bytes.Buffer{}
+	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
+	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
+	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	tw.Flush()
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered", "-n", "2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput.String())
 }
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(c *gc.C) {
@@ -136,14 +142,16 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	outputTime := newTime.Format(time.RFC3339)
-	expectedOutput := fmt.Sprintf(`TIME                 METRIC VALUE
-%v pings  5
-%v pings  5
-%v pings  10.5
-`, outputTime, outputTime, outputTime)
+	expectedOutput := bytes.Buffer{}
+	tw := tabwriter.NewWriter(&expectedOutput, 0, 1, 1, ' ', 0)
+	fmt.Fprintf(tw, "TIME\tMETRIC\tVALUE\n")
+	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	fmt.Fprintf(tw, "%v\tpings\t5\n", outputTime)
+	fmt.Fprintf(tw, "%v\tpings\t10.5\n", outputTime)
+	tw.Flush()
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered", "-n", "42")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOutput.String())
 }
 
 func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
