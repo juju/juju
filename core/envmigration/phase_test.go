@@ -18,26 +18,26 @@ type PhaseSuite struct {
 var _ = gc.Suite(new(PhaseSuite))
 
 func (s *PhaseSuite) TestStringValid(c *gc.C) {
-	c.Assert(migration.PRECHECK.String(), gc.Equals, "PRECHECK")
-	c.Assert(migration.UNKNOWN.String(), gc.Equals, "UNKNOWN")
-	c.Assert(migration.ABORT.String(), gc.Equals, "ABORT")
+	c.Check(migration.PRECHECK.String(), gc.Equals, "PRECHECK")
+	c.Check(migration.UNKNOWN.String(), gc.Equals, "UNKNOWN")
+	c.Check(migration.ABORT.String(), gc.Equals, "ABORT")
 }
 
 func (s *PhaseSuite) TestInvalid(c *gc.C) {
-	c.Assert(migration.Phase(-1).String(), gc.Equals, "UNKNOWN")
-	c.Assert(migration.Phase(9999).String(), gc.Equals, "UNKNOWN")
+	c.Check(migration.Phase(-1).String(), gc.Equals, "UNKNOWN")
+	c.Check(migration.Phase(9999).String(), gc.Equals, "UNKNOWN")
 }
 
 func (s *PhaseSuite) TestParseValid(c *gc.C) {
 	phase, ok := migration.ParsePhase("REAP")
-	c.Assert(phase, gc.Equals, migration.REAP)
-	c.Assert(ok, jc.IsTrue)
+	c.Check(phase, gc.Equals, migration.REAP)
+	c.Check(ok, jc.IsTrue)
 }
 
 func (s *PhaseSuite) TestParseInvalid(c *gc.C) {
 	phase, ok := migration.ParsePhase("foo")
-	c.Assert(phase, gc.Equals, migration.UNKNOWN)
-	c.Assert(ok, jc.IsFalse)
+	c.Check(phase, gc.Equals, migration.UNKNOWN)
+	c.Check(ok, jc.IsFalse)
 }
 
 func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
@@ -59,5 +59,5 @@ func (s *PhaseSuite) TestIsNext(c *gc.C) {
 
 func (s *PhaseSuite) TestForOrphans(c *gc.C) {
 	// XXX also do other consistency checks
-	c.Skip("XXX to do")
+	c.Fatalf("XXX to do")
 }

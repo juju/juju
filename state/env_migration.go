@@ -205,7 +205,7 @@ type EnvMigrationSpec struct {
 // EnvMigTargetInfo holds the details required to connect to a
 // migration's target controller.
 //
-// TODO(mjs) - Note the similarity to api.Info :-/. It would be nice
+// TODO(mjs) - Note the similarity to api.Info. It would be nice
 // to be able to use api.Info here but state can't import api and
 // moving api.Info to live under the core package is too big a project
 // to be done right now.

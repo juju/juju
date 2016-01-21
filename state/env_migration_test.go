@@ -35,7 +35,7 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 
 	s.ConnSuite.SetUpTest(c)
 
-	// Create a hosted environment to migrated.
+	// Create a hosted environment to migrate.
 	s.State2 = s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
