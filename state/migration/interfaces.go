@@ -25,6 +25,7 @@ type Model interface {
 	Machines() []Machine
 
 	AddUser(UserArgs)
+	AddMachine(MachineArgs) Machine
 }
 
 type User interface {
@@ -59,9 +60,14 @@ type Machine interface {
 	Nonce() string
 	PasswordHash() string
 	Placement() string
-	Instance() CloudInstance
 	Series() string
 	ContainerType() string
+	Jobs() []string
+	SupportedContainers() ([]string, bool)
+
+	Instance() CloudInstance
+	SetInstance(CloudInstanceArgs)
+
 	// Life() string -- only transmit alive things?
 	ProviderAddresses() []Address
 	MachineAddresses() []Address
@@ -70,9 +76,6 @@ type Machine interface {
 	PreferredPrivateAddress() Address
 
 	Tools() AgentTools
-	Jobs() []string
-
-	SupportedContainers() ([]string, bool)
 
 	Containers() []Machine
 

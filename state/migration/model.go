@@ -46,6 +46,9 @@ func NewDescription(args ModelArgs) Description {
 			Users_: users{
 				Version: 1,
 			},
+			Machines_: machines{
+				Version: 1,
+			},
 		},
 	}
 }
@@ -130,6 +133,12 @@ func (m *model) Machines() []Machine {
 		result = append(result, machine)
 	}
 	return result
+}
+
+func (m *model) AddMachine(args MachineArgs) Machine {
+	machine := newMachine(args)
+	m.Machines_.Machines_ = append(m.Machines_.Machines_, machine)
+	return machine
 }
 
 func (m *model) setMachines(machineList []*machine) {

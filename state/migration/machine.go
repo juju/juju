@@ -33,27 +33,45 @@ type machine struct {
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
 
-	SupportedContainers_    []string `yaml:"supported-containers,omitempty"`
-	SupportedContainersSet_ bool     `yaml:"supported-containers-set,omitempty"`
+	SupportedContainers_ *[]string `yaml:"supported-containers,omitempty"`
 
 	Containers_ []*machine `yaml:"containers"`
 }
 
-type cloudInstance struct {
-	Version int `yaml:"version"`
+type MachineArgs struct {
+	Id            names.MachineTag
+	Nonce         string
+	PasswordHash  string
+	Placement     string
+	Series        string
+	ContainerType string
+	Jobs          []string
+	// A null value means that we don't yet know which containers
+	// are supported. An empty slice means 'no containers are supported'.
+	SupportedContainers *[]string
+}
 
-	InstanceId_ string `yaml:"instance-id"`
-	Status_     string `yaml:"status"`
-	// For all the optional values, empty values make no sense, and
-	// it would be better to have them not set rather than set with
-	// a nonsense value.
-	Architecture_     string   `yaml:"architecture,omitempty"`
-	Memory_           uint64   `yaml:"memory,omitempty"`
-	RootDisk_         uint64   `yaml:"root-disk,omitempty"`
-	CpuCores_         uint64   `yaml:"cpu-cores,omitempty"`
-	CpuPower_         uint64   `yaml:"cpu-power,omitempty"`
-	Tags_             []string `yaml:"tags,omitempty"`
-	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
+func newMachine(args MachineArgs) *machine {
+	var jobs []string
+	if count := len(args.Jobs); count > 0 {
+		jobs = make([]string, count)
+		copy(jobs, args.Jobs)
+	}
+	m := &machine{
+		Id_:            args.Id.Id(),
+		Nonce_:         args.Nonce,
+		PasswordHash_:  args.PasswordHash,
+		Placement_:     args.Placement,
+		Series_:        args.Series,
+		ContainerType_: args.ContainerType,
+		Jobs_:          jobs,
+	}
+	if args.SupportedContainers != nil {
+		supported := make([]string, len(*args.SupportedContainers))
+		copy(supported, *args.SupportedContainers)
+		m.SupportedContainers_ = &supported
+	}
+	return m
 }
 
 func (m *machine) Id() names.MachineTag {
@@ -74,6 +92,10 @@ func (m *machine) Placement() string {
 
 func (m *machine) Instance() CloudInstance {
 	return m.Instance_
+}
+
+func (m *machine) SetInstance(args CloudInstanceArgs) {
+	m.Instance_ = newCloudInstance(args)
 }
 
 func (m *machine) Series() string {
@@ -117,7 +139,10 @@ func (m *machine) Jobs() []string {
 }
 
 func (m *machine) SupportedContainers() ([]string, bool) {
-	return m.SupportedContainers_, m.SupportedContainersSet_
+	if m.SupportedContainers_ == nil {
+		return nil, false
+	}
+	return *m.SupportedContainers_, true
 }
 
 func (m *machine) Containers() []Machine {
@@ -224,6 +249,52 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 
 }
 
+type CloudInstanceArgs struct {
+	InstanceId       string
+	Status           string
+	Architecture     string
+	Memory           uint64
+	RootDisk         uint64
+	CpuCores         uint64
+	CpuPower         uint64
+	Tags             []string
+	AvailabilityZone string
+}
+
+func newCloudInstance(args CloudInstanceArgs) *cloudInstance {
+	tags := make([]string, len(args.Tags))
+	copy(tags, args.Tags)
+	return &cloudInstance{
+		Version:           1,
+		InstanceId_:       args.InstanceId,
+		Status_:           args.Status,
+		Architecture_:     args.Architecture,
+		Memory_:           args.Memory,
+		RootDisk_:         args.RootDisk,
+		CpuCores_:         args.CpuCores,
+		CpuPower_:         args.CpuPower,
+		Tags_:             tags,
+		AvailabilityZone_: args.AvailabilityZone,
+	}
+}
+
+type cloudInstance struct {
+	Version int `yaml:"version"`
+
+	InstanceId_ string `yaml:"instance-id"`
+	Status_     string `yaml:"status"`
+	// For all the optional values, empty values make no sense, and
+	// it would be better to have them not set rather than set with
+	// a nonsense value.
+	Architecture_     string   `yaml:"architecture,omitempty"`
+	Memory_           uint64   `yaml:"memory,omitempty"`
+	RootDisk_         uint64   `yaml:"root-disk,omitempty"`
+	CpuCores_         uint64   `yaml:"cpu-cores,omitempty"`
+	CpuPower_         uint64   `yaml:"cpu-power,omitempty"`
+	Tags_             []string `yaml:"tags,omitempty"`
+	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
+}
+
 func (c *cloudInstance) InstanceId() string {
 	return c.InstanceId_
 }
@@ -253,7 +324,9 @@ func (c *cloudInstance) CpuPower() uint64 {
 }
 
 func (c *cloudInstance) Tags() []string {
-	return c.Tags_
+	tags := make([]string, len(c.Tags_))
+	copy(tags, c.Tags_)
+	return tags
 }
 
 func (c *cloudInstance) AvailabilityZone() string {

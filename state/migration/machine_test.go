@@ -4,10 +4,12 @@
 package migration
 
 import (
-	"github.com/juju/juju/version"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/version"
 )
 
 type MachineSerializationSuite struct {
@@ -68,6 +70,62 @@ func minimalMachine(id string, containers ...*machine) *machine {
 	}
 }
 
+func (s *MachineSerializationSuite) machineArgs(id string) MachineArgs {
+	return MachineArgs{
+		Id:            names.NewMachineTag(id),
+		Nonce:         "a nonce",
+		PasswordHash:  "some-hash",
+		Placement:     "placement",
+		Series:        "zesty",
+		ContainerType: "magic",
+		Jobs:          []string{"this", "that"},
+	}
+}
+
+func (s *MachineSerializationSuite) TestNewMachine(c *gc.C) {
+	m := newMachine(s.machineArgs("machine-id"))
+	c.Assert(m.Id(), gc.Equals, names.NewMachineTag("machine-id"))
+	c.Assert(m.Nonce(), gc.Equals, "a nonce")
+	c.Assert(m.PasswordHash(), gc.Equals, "some-hash")
+	c.Assert(m.Placement(), gc.Equals, "placement")
+	c.Assert(m.Series(), gc.Equals, "zesty")
+	c.Assert(m.ContainerType(), gc.Equals, "magic")
+	c.Assert(m.Jobs(), jc.DeepEquals, []string{"this", "that"})
+	supportedContainers, ok := m.SupportedContainers()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(supportedContainers, gc.IsNil)
+}
+
+func (s *MachineSerializationSuite) TestNewMachineWithSupportedContainers(c *gc.C) {
+	supported := []string{"lxd", "kvm"}
+	args := s.machineArgs("id")
+	args.SupportedContainers = &supported
+	m := newMachine(args)
+	supportedContainers, ok := m.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(supportedContainers, jc.DeepEquals, supported)
+}
+
+func (s *MachineSerializationSuite) TestNewMachineWithNoSupportedContainers(c *gc.C) {
+	supported := []string{}
+	args := s.machineArgs("id")
+	args.SupportedContainers = &supported
+	m := newMachine(args)
+	supportedContainers, ok := m.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(supportedContainers, gc.HasLen, 0)
+}
+
+func (s *MachineSerializationSuite) TestNewMachineWithNoSupportedContainersNil(c *gc.C) {
+	var supported []string
+	args := s.machineArgs("id")
+	args.SupportedContainers = &supported
+	m := newMachine(args)
+	supportedContainers, ok := m.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(supportedContainers, gc.HasLen, 0)
+}
+
 func (s *MachineSerializationSuite) TestMinimalMatches(c *gc.C) {
 	bytes, err := yaml.Marshal(minimalMachine("0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,6 +170,7 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 }
 
 func (*MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	// TODO: need to fully specify a machine.
 	initial := machines{
 		Version: 1,
 		Machines_: []*machine{
@@ -171,6 +230,44 @@ func minimalCloudInstance() *cloudInstance {
 	}
 }
 
+const gig uint64 = 1024 * 1024 * 1024
+
+func (s *CloudInstanceSerializationSuite) TestNewCloudInstance(c *gc.C) {
+	args := CloudInstanceArgs{
+		InstanceId:       "instance id",
+		Status:           "working",
+		Architecture:     "amd64",
+		Memory:           16 * gig,
+		RootDisk:         200 * gig,
+		CpuCores:         8,
+		CpuPower:         4000,
+		Tags:             []string{"much", "strong"},
+		AvailabilityZone: "everywhere",
+	}
+
+	instance := newCloudInstance(args)
+
+	c.Assert(instance.InstanceId(), gc.Equals, args.InstanceId)
+	c.Assert(instance.Status(), gc.Equals, args.Status)
+	c.Assert(instance.Architecture(), gc.Equals, args.Architecture)
+	c.Assert(instance.Memory(), gc.Equals, args.Memory)
+	c.Assert(instance.RootDisk(), gc.Equals, args.RootDisk)
+	c.Assert(instance.CpuCores(), gc.Equals, args.CpuCores)
+	c.Assert(instance.CpuPower(), gc.Equals, args.CpuPower)
+	c.Assert(instance.AvailabilityZone(), gc.Equals, args.AvailabilityZone)
+
+	// Before we check tags, modify args to make sure that the instance ones
+	// don't change.
+
+	args.Tags[0] = "weird"
+	tags := instance.Tags()
+	c.Assert(tags, jc.DeepEquals, []string{"much", "strong"})
+
+	// Also, changing the tags returned, doesn't modify the instance
+	tags[0] = "weird"
+	c.Assert(instance.Tags(), jc.DeepEquals, []string{"much", "strong"})
+}
+
 func (s *CloudInstanceSerializationSuite) TestMinimalMatches(c *gc.C) {
 	bytes, err := yaml.Marshal(minimalCloudInstance())
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,13 +280,13 @@ func (s *CloudInstanceSerializationSuite) TestMinimalMatches(c *gc.C) {
 
 func (s *CloudInstanceSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	const MaxUint64 = 1<<64 - 1
-	initial := &cloudInstance{
-		Version:     1,
-		InstanceId_: "instance id",
-		Status_:     "some status",
-		RootDisk_:   64,
-		CpuPower_:   MaxUint64,
-	}
+	initial := newCloudInstance(CloudInstanceArgs{
+		InstanceId:   "instance id",
+		Status:       "working",
+		Architecture: "amd64",
+		Memory:       16 * gig,
+		CpuPower:     MaxUint64,
+	})
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 

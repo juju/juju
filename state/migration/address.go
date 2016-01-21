@@ -8,6 +8,25 @@ import (
 	"github.com/juju/schema"
 )
 
+type AddressArgs struct {
+	Value       string
+	Type        string
+	NetworkName string
+	Scope       string
+	Origin      string
+}
+
+func newAddress(args AddressArgs) *address {
+	return &address{
+		Version:      1,
+		Value_:       args.Value,
+		Type_:        args.Type,
+		NetworkName_: args.NetworkName,
+		Scope_:       args.Scope,
+		Origin_:      args.Origin,
+	}
+}
+
 // address represents an IP Address of some form.
 type address struct {
 	Version int `yaml:"version"`
