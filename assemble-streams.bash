@@ -29,7 +29,7 @@ fi
 
 
 usage() {
-    options="[-t TEST_DEBS_DIR] [-k JUJU_CLIENTS_DIR]"
+    options="[-t TEST_DEBS_DIR] [-k JUJU_CLIENTS_DIR] [-m METADATA_JUJU]"
     echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
     echo "  PURPOSE: testing, weekly, devel, proposed, released"
@@ -402,6 +402,15 @@ generate_streams() {
         JUJU_EXEC=$(which juju)
         JUJU_BIN_PATH=""
     fi
+    if [[ -n $METADATA_JUJU ]]; then
+        # Use an good juju to generate streams. Some Jujus do not know about
+        # stream requirements.
+        s3cmd -c $JUJU_DIR/juju-qa.s3cfg get \
+            s3://juju-qa-data/client-archive/ubuntu/$METADATA_JUJU $JUJU_PATH/
+        dpkg-deb -x $JUJU_PATH/$METADATA_JUJU $JUJU_PATH/juju-metadata/
+        JUJU_EXEC=$(find $JUJU_PATH/juju-metadata -name 'juju' | grep bin/juju)
+        JUJU_BIN_PATH=$(dirname $JUJU_EXEC)
+    fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
 
@@ -693,7 +702,8 @@ GET_RELEASED_TOOL="true"
 INIT_VERSION="1.25."
 RESIGN="false"
 KEEP=""
-while getopts "r:s:t:k:u:i:na" o; do
+METADATA_JUJU=""
+while getopts "r:s:t:k:m:u:i:na" o; do
     case "${o}" in
         r)
             REMOVE_RELEASE=${OPTARG}
@@ -713,6 +723,10 @@ while getopts "r:s:t:k:u:i:na" o; do
             KEEP=${OPTARG}
             [[ -d $KEEP ]] || usage
             echo "A local copy of the juju client will be add to $KEEP"
+            ;;
+        m)
+            METADATA_JUJU=${OPTARG}
+            echo "Using Juju from $METADATA_JUJU to call metadata generate."
             ;;
         u)
             UPATCH=${OPTARG}
