@@ -25,7 +25,7 @@ func (s *listSuite) TestList(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws-china[ ]*aws[ ]*cn-north-1.*`)
+	c.Assert(out, gc.Matches, `.*aws-china[ ]*ec2[ ]*cn-north-1.*`)
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
@@ -35,7 +35,7 @@ func (s *listSuite) TestListYAML(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws:[ ]*type: aws[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, gc.Matches, `.*aws:[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
@@ -45,5 +45,5 @@ func (s *listSuite) TestListJSON(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*{"aws":{"Type":"aws","AuthTypes":\["access-key"\].*`)
+	c.Assert(out, gc.Matches, `.*{"aws":{"Type":"ec2","AuthTypes":\["access-key"\].*`)
 }

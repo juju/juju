@@ -29,7 +29,7 @@ func (s *showSuite) TestShow(c *gc.C) {
 	out := testing.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
 defined: public
-type: aws
+type: ec2
 auth-type: [access-key]
 regions:
   cn-north-1:

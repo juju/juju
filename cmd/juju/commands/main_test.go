@@ -243,6 +243,7 @@ var commandNames = []string{
 	"list-all-blocks",
 	"list-clouds",
 	"list-controllers",
+	"list-credentials",
 	"list-models",
 	"list-shares",
 	"list-spaces",
