@@ -52,15 +52,10 @@ def deploy_stack(client, charm_prefix):
     return instance_id
 
 
-def juju_restore(client, backup_file):
-    return client.get_juju_output(
-        'restore', '--constraints', 'mem=2G', backup_file)
-
-
 def restore_present_state_server(client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
-        output = juju_restore(client, backup_file)
+        output = client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now(
             "juju-restore correctly refused to restore "
@@ -101,7 +96,7 @@ def restore_missing_state_server(client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     print_now("Starting restore.")
     try:
-        output = juju_restore(client, backup_file)
+        output = client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
         message = 'Restore failed: \n%s' % e.stderr
@@ -162,7 +157,7 @@ def main(argv):
         try:
             instance_id = deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
-                client.juju('ensure-availability', ('-n', '3'))
+                client.enable_ha()
                 client.wait_for_ha()
             if args.strategy in ('ha-backup', 'backup'):
                 backup_file = client.backup()

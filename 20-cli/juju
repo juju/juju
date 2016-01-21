@@ -10,9 +10,11 @@ def main():
         'run-action': ['action', 'do'],
         'show-action-output': ['action', 'fetch'],
         'remove-service': ['destroy-service'],
+        'create-backup': ['backups', 'create'],
+        'restore-backup': ['backups', 'restore'],
+        'enable-ha': ['ensure-availability'],
     }
     args = []
-    forbidden_values = set()
     for val in substitutes.values():
         for subval in val:
             assert subval not in sys.argv, '{} not permitted.'.format(subval)
