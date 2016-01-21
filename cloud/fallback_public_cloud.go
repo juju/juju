@@ -9,7 +9,7 @@ const fallbackPublicCloudInfo = `
 # DO NOT EDIT, will be overwritten, use “juju update-clouds” to refresh.
 clouds:
   aws:
-    type: aws
+    type: ec2
     auth-types: [ access-key ]
     regions:
       us-east-1:
@@ -31,13 +31,13 @@ clouds:
       sa-east-1:
         endpoint: https://sa-east-1.aws.amazon.com/v1.2/
   aws-china:
-    type: aws
+    type: ec2
     auth-types: [ access-key ]
     regions:
       cn-north-1:
         endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
   aws-gov:
-    type: aws
+    type: ec2
     auth-types: [ access-key ]
     regions:
       us-gov-west-1:
