@@ -799,6 +799,9 @@ class EnvJujuClient:
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))
 
+    def add_space(self, space):
+        self.juju('space create', (space),)
+
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""

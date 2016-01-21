@@ -1930,6 +1930,13 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(result, yaml_dict)
         gjo_mock.assert_called_once_with('list-space')
 
+    def test_add_space(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(client, 'juju', autospec=True) as juju_mock:
+            client.add_space('foo-space')
+        juju_mock.assert_called_once_with('space create', ('foo-space'))
+
     def test__shell_environ_uses_pathsep(self):
         client = EnvJujuClient(SimpleEnvironment('foo'), None, 'foo/bar/juju')
         with patch('os.pathsep', '!'):
@@ -3274,6 +3281,13 @@ class TestEnvJujuClient1X(ClientTest):
             result = client.list_space()
         self.assertEqual(result, yaml_dict)
         gjo_mock.assert_called_once_with('space list')
+
+    def test_add_space(self):
+        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
+                                 '1.23-series-arch', None)
+        with patch.object(client, 'juju', autospec=True) as juju_mock:
+            client.add_space('foo-space')
+        juju_mock.assert_called_once_with('space create', ('foo-space'))
 
     def test__shell_environ_uses_pathsep(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None,

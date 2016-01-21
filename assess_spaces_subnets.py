@@ -91,7 +91,7 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
     :return: None. Raises exception on failure.
     """
     for space in sorted(network_config.keys()):
-        client.juju('space create', space)
+        client.add_space(space)
         for subnet in network_config[space]:
             client.juju('subnet add', (subnet, space))
 
