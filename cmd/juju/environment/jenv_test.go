@@ -148,7 +148,7 @@ func (*jenvSuite) TestWriteError(c *gc.C) {
 	defer f.Close()
 
 	// Create the environments dir without write permissions.
-	envsDir := gitjujutesting.JujuHomePath()
+	envsDir := gitjujutesting.JujuHomePath("environments")
 	err := os.Mkdir(envsDir, 0500)
 	c.Assert(err, jc.ErrorIsNil)
 
