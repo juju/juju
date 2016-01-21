@@ -796,6 +796,15 @@ class EnvJujuClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
+    def list_space(self):
+        return yaml.safe_load(self.get_juju_output('list-space'))
+
+    def add_space(self, space):
+        self.juju('add-space', (space),)
+
+    def add_subnet(self, subnet, space):
+        self.juju('add-subnet', (subnet, space))
+
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
@@ -898,6 +907,15 @@ class EnvJujuClient2A1(EnvJujuClient):
             raise Exception("Action id not found in output: %s" %
                             output)
         return match.group(1)
+
+    def list_space(self):
+        return yaml.safe_load(self.get_juju_output('space list'))
+
+    def add_space(self, space):
+        self.juju('space create', (space),)
+
+    def add_subnet(self, subnet, space):
+        self.juju('subnet add', (subnet, space))
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):

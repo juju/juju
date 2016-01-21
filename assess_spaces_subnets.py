@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 import re
 import sys
 from textwrap import dedent
-import yaml
 
 from utility import (
     add_basic_testing_arguments,
@@ -83,9 +82,9 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
     :return: None. Raises exception on failure.
     """
     for space in sorted(network_config.keys()):
-        client.juju('space create', space)
+        client.add_space(space)
         for subnet in network_config[space]:
-            client.juju('subnet add', (subnet, space))
+            client.add_subnet(subnet, space)
 
     for name in sorted(charms_to_space.keys()):
         if 'charm' not in charms_to_space[name]:
@@ -101,7 +100,7 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
     client.juju('add-unit', 'mediawiki')
     status = client.wait_for_started()
 
-    spaces = yaml.load(client.get_juju_output('space list'))
+    spaces = client.list_space()
 
     unit_priv_address = {}
     units_found = 0
