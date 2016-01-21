@@ -398,7 +398,7 @@ class EnvJujuClient:
             'Timed out waiting for juju status to succeed')
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get', service))
+        return yaml_loads(self.get_juju_output('get-config', service))
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -919,6 +919,9 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def add_subnet(self, subnet, space):
         self.juju('subnet add', (subnet, space))
+
+    def get_config(self, service):
+        return yaml_loads(self.get_juju_output('get', service))
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):

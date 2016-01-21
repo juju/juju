@@ -1974,7 +1974,7 @@ class TestEnvJujuClient(ClientTest):
                           side_effect=output) as gjo_mock:
             results = client.get_config('foo')
         self.assertEqual(expected, results)
-        gjo_mock.assert_called_once_with('get', 'foo')
+        gjo_mock.assert_called_once_with('get-config', 'foo')
 
     def test_get_service_config(self):
         def output(*args, **kwargs):
