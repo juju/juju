@@ -12,6 +12,7 @@ RETRY="false"
 ROBUST="false"
 REVISION_BUILD=${revision_build:-}
 USE_PPA=""
+INSTALL_DEPS=""
 USE_TMPFS="false"
 GOTESTCMD="go test"
 LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
@@ -48,6 +49,10 @@ while [[ "${1-}" != "" ]]; do
                 echo "$USE_PPA is not a ppa."
                 exit 1
             fi
+            ;;
+        --install-deps)
+            shift
+            INSTALL_DEPS=$1
             ;;
         --use-tmpfs)
             USE_TMPFS="true"
@@ -158,7 +163,14 @@ fi
 sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y make python-software-properties distro-info-data
-make install-dependencies
+if [[ "$INSTALL_DEPS" == "" ]]; then
+    echo "Installing default deps."
+    make install-dependencies
+else
+    echo "Installing deps from command line."
+    sudo apt-get install -y $INSTALL_DEPS
+fi
+
 # TODO(gz): Remove bzr whoami?
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
