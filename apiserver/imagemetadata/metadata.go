@@ -208,7 +208,9 @@ func (api *API) retrievePublished() error {
 
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return errors.Errorf("environment cloud specification cannot be determined")
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not rely on simplestreams, don't need to do anything here.
+		return nil
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
