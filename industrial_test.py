@@ -703,7 +703,7 @@ class DeployManyAttempt(SteppedStageAttempt):
             k for k, v in new_status.iter_new_machines(old_status)
             if v.get('agent-state') != 'started']
         for machine in stuck_new_machines:
-            client.juju('destroy-machine', ('--force', machine))
+            client.juju('remove-machine', ('--force', machine))
             client.juju('add-machine', ())
         timeout_start = datetime.now()
         yield results
