@@ -4,8 +4,6 @@
 package status
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -68,7 +66,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	agent := machine.Agent
 	out = machineStatus{
 		AgentState:     agent.Status,
-		AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
+		AgentStateInfo: agent.Info,
 		AgentVersion:   agent.Version,
 		Life:           agent.Life,
 		Err:            agent.Err,
@@ -260,17 +258,4 @@ func findOtherEndpoint(endpoints []params.EndpointStatus, serviceName string) (p
 		}
 	}
 	return params.EndpointStatus{}, false
-}
-
-// adjustInfoIfMachineAgentDown modifies the agent status info string if the
-// agent is down. The original status and info is included in
-// parentheses.
-func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown {
-		if info == "" {
-			return fmt.Sprintf("(%s)", origStatus)
-		}
-		return fmt.Sprintf("(%s: %s)", origStatus, info)
-	}
-	return info
 }
