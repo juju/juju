@@ -797,7 +797,7 @@ class EnvJujuClient:
         return self.action_fetch(id, action, timeout)
 
     def list_space(self):
-        return yaml.safe_load(self.get_juju_output('space list'))
+        return yaml.safe_load(self.get_juju_output('list-space'))
 
 
 class EnvJujuClient2A1(EnvJujuClient):
@@ -901,6 +901,9 @@ class EnvJujuClient2A1(EnvJujuClient):
             raise Exception("Action id not found in output: %s" %
                             output)
         return match.group(1)
+
+    def list_space(self):
+        return yaml.safe_load(self.get_juju_output('space list'))
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):

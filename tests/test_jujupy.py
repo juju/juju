@@ -1928,7 +1928,7 @@ class TestEnvJujuClient(ClientTest):
                           autospec=True) as gjo_mock:
             result = client.list_space()
         self.assertEqual(result, yaml_dict)
-        gjo_mock.assert_called_once_with('space list')
+        gjo_mock.assert_called_once_with('list-space')
 
     def test__shell_environ_uses_pathsep(self):
         client = EnvJujuClient(SimpleEnvironment('foo'), None, 'foo/bar/juju')
