@@ -26,7 +26,7 @@ var _ = gc.Suite(&InitSuite{})
 // The environments.yaml is created by default if it
 // does not already exist.
 func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -35,7 +35,7 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, ".*A boilerplate environment configuration file has been written.*")
-	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	environpath := gitjujutesting.JujuHomePath("environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, jc.ErrorIsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
@@ -45,7 +45,7 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 // The boilerplate is sent to stdout with --show, and the environments.yaml
 // is not created.
 func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -54,7 +54,7 @@ func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, ".*# This is the Juju config file, which you can use.*")
-	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	environpath := gitjujutesting.JujuHomePath("environments.yaml")
 	_, err = ioutil.ReadFile(environpath)
 	c.Assert(err, gc.NotNil)
 }
@@ -78,7 +78,7 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gc.C) {
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, ".*A juju environment configuration already exists.*")
-	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	environpath := gitjujutesting.JujuHomePath("environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, existingEnv)
@@ -95,7 +95,7 @@ func (*InitSuite) TestExistingEnvironmentOverwritten(c *gc.C) {
 	stdOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(stdOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, ".*A boilerplate environment configuration file has been written.*")
-	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	environpath := gitjujutesting.JujuHomePath("environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, jc.ErrorIsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)

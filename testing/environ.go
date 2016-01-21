@@ -143,8 +143,11 @@ func (s *FakeJujuHomeSuite) TearDownSuite(c *gc.C) {
 func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuHome := gitjujutesting.HomePath(".juju")
-	err := os.Mkdir(jujuHome, 0700)
+	xdgHome := gitjujutesting.HomePath(".config")
+	err := os.Mkdir(xdgHome, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	jujuHome := gitjujutesting.JujuHomePath()
+	err = os.Mkdir(jujuHome, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
 	WriteEnvironments(c, SingleEnvConfig, SampleCertName)

@@ -379,9 +379,10 @@ local:
 
     # root-dir holds the directory that is used for the database.
     # The default location is $JUJU_HOME/<env-name>.
-    # $JUJU_HOME defaults to ~/.juju. Override if needed.
+    # $JUJU_HOME defaults to $XDG_CONFIG_HOME/juju, or ~/.config/juju 
+    # if $XDG_CONFIG_HOME isn't set.
     #
-    # root-dir: ~/.juju/local
+    # root-dir: ~/.config/juju/local
 
     # network-bridge holds the name of the LXC network bridge to use.
     # Override if the default LXC network bridge is different.

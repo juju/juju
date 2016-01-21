@@ -55,7 +55,7 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.juju/environments.yaml
+//     RootDir/home/ubuntu/.config/juju/environments.yaml
 //         The dummy environments.yaml file, holding
 //         a default environment named "dummyenv"
 //         which uses the "dummy" environment type.
@@ -217,7 +217,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(home)
-	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
+
+	err = os.Mkdir(filepath.Join(home, ".config"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".config", "juju"))
 	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
