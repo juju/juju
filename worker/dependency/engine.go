@@ -497,6 +497,9 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// The task can't even start with the current state. Nothing more
 			// can be done (until the inputs change, in which case we retry
 			// anyway).
+		case ErrBounce:
+			// The task exited but wanted to restart immediately.
+			engine.requestStart(name, engine.config.BounceDelay)
 		case ErrUninstall:
 			// The task should never run again, and can be removed completely.
 			engine.uninstall(name)

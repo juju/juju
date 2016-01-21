@@ -78,6 +78,7 @@ const (
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
+	CodeLeaseClaimDenied          = "lease claim denied"
 	CodeNotSupported              = "not supported"
 	CodeBadRequest                = "bad request"
 	CodeMethodNotAllowed          = "method not allowed"
@@ -200,6 +201,10 @@ func IsCodeOperationBlocked(err error) bool {
 
 func IsCodeLeadershipClaimDenied(err error) bool {
 	return ErrCode(err) == CodeLeadershipClaimDenied
+}
+
+func IsCodeLeaseClaimDenied(err error) bool {
+	return ErrCode(err) == CodeLeaseClaimDenied
 }
 
 func IsCodeNotSupported(err error) bool {

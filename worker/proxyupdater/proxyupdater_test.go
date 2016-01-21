@@ -113,8 +113,10 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 }
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
-	updater := proxyupdater.New(s.environmentAPI, false)
-	c.Assert(worker.Stop(updater), gc.IsNil)
+	updater, err := proxyupdater.New(s.environmentAPI, false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = worker.Stop(updater)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
@@ -152,7 +154,8 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.New(s.environmentAPI, true)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
@@ -166,7 +169,8 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.New(s.environmentAPI, true)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 
@@ -190,7 +194,8 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 
 	proxySettings, _ := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.New(s.environmentAPI, true)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 	s.waitProxySettings(c, proxySettings)
@@ -208,7 +213,8 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
 	proxySettings, _ := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, false)
+	updater, err := proxyupdater.New(s.environmentAPI, false)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 

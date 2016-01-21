@@ -8,9 +8,9 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 // Machine represents a juju machine as seen by a machiner worker.
