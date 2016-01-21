@@ -36,6 +36,10 @@ const (
 	// OAuth2AuthType is an authentication type using oauth2.
 	OAuth2AuthType AuthType = "oauth2"
 
+	// JSONFileAuthType is an authentication type that takes a path to
+	// a JSON file.
+	JSONFileAuthType AuthType = "jsonfile"
+
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"

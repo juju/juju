@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
@@ -59,6 +60,32 @@ type EnvironProvider interface {
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
+
+	ProviderCredentials
+}
+
+// ProviderCredentials is an interface that an EnvironProvider implements
+// in order to validate and automatically detect credentials for clouds
+// supported by the provider.
+//
+// TODO(axw) replace CredentialSchemas with an updated environschema.
+// The GUI also needs to be able to handle multiple credential types,
+// and dependencies in config attributes.
+type ProviderCredentials interface {
+	// CredentialSchemas returns credential schemas, keyed on
+	// authentication type. These may be used to validate existing
+	// credentials, or to generate new ones (e.g. to create an
+	// interactive form.)
+	CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema
+
+	// DetectCredentials automatically detects one or more credentials
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or reading configuration files in
+	// well-defined locations.
+	//
+	// If the no credentials can be detected, DetectCredentials should
+	// return an error satisfying errors.IsNotFound.
+	DetectCredentials() ([]cloud.Credential, error)
 }
 
 // EnvironConfigUpgrader is an interface that an EnvironProvider may

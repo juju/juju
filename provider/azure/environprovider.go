@@ -48,6 +48,8 @@ func (cfg ProviderConfig) Validate() error {
 }
 
 type azureEnvironProvider struct {
+	environProviderCredentials
+
 	config ProviderConfig
 }
 
@@ -56,7 +58,7 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating environ provider configuration")
 	}
-	return &azureEnvironProvider{config}, nil
+	return &azureEnvironProvider{config: config}, nil
 }
 
 // Open is specified in the EnvironProvider interface.

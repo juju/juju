@@ -21,7 +21,9 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.joyent")
 
-type joyentProvider struct{}
+type joyentProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance

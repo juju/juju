@@ -108,7 +108,7 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
 			Mandatory:   true,
-			Secret:      field.Secret,
+			Secret:      field.Hidden,
 		}
 	}
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
@@ -124,10 +124,10 @@ type CredentialAttr struct {
 	// attribute.
 	Description string
 
-	// Secret controls whether or not the attribute value will be obscured
+	// Hidden controls whether or not the attribute value will be hidden
 	// when being entered interactively. Regardless of this, all credential
 	// attributes are provided only to the Juju controllers.
-	Secret bool
+	Hidden bool
 }
 
 type cloudCredentialChecker struct{}

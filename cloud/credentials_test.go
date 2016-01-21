@@ -331,7 +331,7 @@ func (s *credentialsSuite) TestValidateCredential(c *gc.C) {
 	schema := cloud.CredentialSchema{
 		"key": {
 			Description: "key credential",
-			Secret:      true,
+			Hidden:      true,
 		},
 	}
 	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -348,7 +348,7 @@ func (s *credentialsSuite) TestValidateCredentialInvalid(c *gc.C) {
 	schema := cloud.CredentialSchema{
 		"key": {
 			Description: "key credential",
-			Secret:      true,
+			Hidden:      true,
 		},
 	}
 	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{

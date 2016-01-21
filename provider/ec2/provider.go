@@ -19,7 +19,9 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
 

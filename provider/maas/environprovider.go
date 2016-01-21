@@ -18,7 +18,9 @@ import (
 // Logger for the MAAS provider.
 var logger = loggo.GetLogger("juju.provider.maas")
 
-type maasEnvironProvider struct{}
+type maasEnvironProvider struct {
+	environProviderCredentials
+}
 
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
