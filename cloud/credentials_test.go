@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -318,4 +319,50 @@ credentials:
 func (s *credentialsSuite) testParseCredentialsError(c *gc.C, input []byte, expect string) {
 	_, err := cloud.ParseCredentials(input)
 	c.Assert(err, gc.ErrorMatches, expect)
+}
+
+func (s *credentialsSuite) TestValidateCredential(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"key": "value",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Secret:      true,
+		},
+	}
+	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *credentialsSuite) TestValidateCredentialInvalid(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Secret:      true,
+		},
+	}
+	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	})
+	c.Assert(err, gc.ErrorMatches, "key: expected string, got nothing")
+}
+
+func (s *credentialsSuite) TestValidateCredentialNotSupported(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{},
+	)
+	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{})
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, `auth-type "oauth2" not supported`)
 }
