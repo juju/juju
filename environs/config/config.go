@@ -148,7 +148,7 @@ const (
 	BlockKeyPrefix = "block-"
 
 	// PreventDestroyEnvironmentKey stores the value for this setting
-	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-model"
 
 	// PreventRemoveObjectKey stores the value for this setting
 	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
@@ -445,7 +445,7 @@ func (c *Config) fillInDefaults() error {
 	// been verified yet.
 	name := c.asString("name")
 	if name == "" {
-		return fmt.Errorf("empty name in environment configuration")
+		return fmt.Errorf("empty name in model configuration")
 	}
 	err := maybeReadAttrFromFile(c.defined, "ca-cert", name+"-cert.pem")
 	if err != nil {
@@ -567,7 +567,7 @@ func Validate(cfg, old *Config) error {
 	// Check that mandatory fields are specified.
 	for _, attr := range mandatoryWithoutDefaults {
 		if _, ok := cfg.defined[attr]; !ok {
-			return fmt.Errorf("%s missing from environment configuration", attr)
+			return fmt.Errorf("%s missing from model configuration", attr)
 		}
 	}
 
@@ -578,19 +578,19 @@ func Validate(cfg, old *Config) error {
 			continue
 		}
 		if !allowEmpty(attr) {
-			return fmt.Errorf("empty %s in environment configuration", attr)
+			return fmt.Errorf("empty %s in model configuration", attr)
 		}
 	}
 
 	if strings.ContainsAny(cfg.mustString("name"), "/\\") {
-		return fmt.Errorf("environment name contains unsafe characters")
+		return fmt.Errorf("model name contains unsafe characters")
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
 	if v, ok := cfg.defined["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
-			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+			return fmt.Errorf("invalid agent version in model configuration: %q", v)
 		}
 	}
 
@@ -1491,11 +1491,11 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return "", "", fmt.Errorf("environment configuration has no ca-cert")
+		return "", "", fmt.Errorf("model configuration has no ca-cert")
 	}
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCAKey {
-		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
+		return "", "", fmt.Errorf("model configuration has no ca-private-key")
 	}
 	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
@@ -1617,31 +1617,31 @@ var configSchema = environschema.Fields{
 	},
 	AptFtpProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT FTP proxy for the environment",
+		Description: "The APT FTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	AptHttpProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT HTTP proxy for the environment",
+		Description: "The APT HTTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	AptHttpsProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT HTTPS proxy for the environment",
+		Description: "The APT HTTPS proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"apt-mirror": {
 		// TODO document acceptable format
-		Description: "The APT mirror for the environment",
+		Description: "The APT mirror for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"authorized-keys": {
 		// TODO what to do about authorized-keys-path ?
-		Description: "Any authorized SSH public keys for the environment, as found in a ~/.ssh/authorized_keys file",
+		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1650,12 +1650,12 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	PreventAllChangesKey: {
-		Description: `Whether all changes to the environment will be prevented`,
+		Description: `Whether all changes to the model will be prevented`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	PreventDestroyEnvironmentKey: {
-		Description: `Whether the environment will be prevented from destruction`,
+		Description: `Whether the model will be prevented from destruction`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1711,12 +1711,12 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	"development": {
-		Description: "Whether the environment is in development mode",
+		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	"disable-network-management": {
-		Description: "Whether the provider should control networks (on MAAS environments, set to true for MAAS to control networks",
+		Description: "Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1745,7 +1745,7 @@ for a network port is enabled to one instance if any instance requires
 that port).
 
 'none' requests that no firewalling should be performed
-inside the environment. It's useful for clouds without support for either
+inside the model. It's useful for clouds without support for either
 global or per instance security groups.`,
 		Type: environschema.Tstring,
 		// Note that we need the empty value because it can
@@ -1755,17 +1755,17 @@ global or per instance security groups.`,
 		Group:     environschema.EnvironGroup,
 	},
 	FtpProxyKey: {
-		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
+		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpProxyKey: {
-		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
+		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpsProxyKey: {
-		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
+		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1808,7 +1808,7 @@ global or per instance security groups.`,
 		Type:        environschema.Tbool,
 	},
 	"name": {
-		Description: "The name of the current environment",
+		Description: "The name of the current model",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
@@ -1869,7 +1869,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	StorageDefaultBlockSourceKey: {
-		Description: "The default block storage source for the environment",
+		Description: "The default block storage source for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1886,7 +1886,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	"test-mode": {
-		Description: `Whether the environment is intended for testing.
+		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
@@ -1903,14 +1903,14 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	"type": {
-		Description: "Type of environment, e.g. local, ec2",
+		Description: "Type of model, e.g. local, ec2",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	"uuid": {
-		Description: "The UUID of the environment",
+		Description: "The UUID of the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

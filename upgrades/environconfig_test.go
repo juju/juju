@@ -57,7 +57,7 @@ func (s *upgradeEnvironConfigSuite) SetUpTest(c *gc.C) {
 func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigEnvironConfigError(c *gc.C) {
 	s.stub.SetErrors(errors.New("cannot read environ config"))
 	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
-	c.Assert(err, gc.ErrorMatches, "reading environment config: cannot read environ config")
+	c.Assert(err, gc.ErrorMatches, "reading model config: cannot read environ config")
 	s.stub.CheckCallNames(c, "EnvironConfig")
 }
 

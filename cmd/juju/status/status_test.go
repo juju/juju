@@ -263,7 +263,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "pending",
@@ -284,7 +284,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "pending",
@@ -303,7 +303,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -315,7 +315,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"dns-name":                   "dummyenv-0.dns",
@@ -343,7 +343,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "started",
@@ -366,7 +366,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "started",
@@ -386,7 +386,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "pending",
@@ -403,7 +403,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-state":             "missing",
@@ -431,7 +431,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -447,7 +447,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -470,7 +470,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -505,7 +505,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -584,7 +584,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -675,7 +675,7 @@ var statusTests = []testCase{
 			"scope status on dummy-service/0 unit",
 			[]string{"dummy-service/0"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -711,7 +711,7 @@ var statusTests = []testCase{
 			"scope status on exposed-service service",
 			[]string{"exposed-service"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -752,7 +752,7 @@ var statusTests = []testCase{
 			"scope status on service pattern",
 			[]string{"d*-service"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -788,7 +788,7 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-service/*"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -829,7 +829,7 @@ var statusTests = []testCase{
 			"scope status on combination of service and unit patterns",
 			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -921,7 +921,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1017,7 +1017,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1094,7 +1094,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "pending",
@@ -1145,7 +1145,7 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
@@ -1238,7 +1238,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1396,7 +1396,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1510,7 +1510,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1620,7 +1620,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1729,7 +1729,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -1828,7 +1828,7 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -1879,7 +1879,7 @@ var statusTests = []testCase{
 			"machines with nested containers",
 			[]string{"mysql/1"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"1": M{
 						"agent-state": "started",
@@ -1944,7 +1944,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2001,7 +2001,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2057,7 +2057,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2114,7 +2114,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2203,7 +2203,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"environment": "dummyenv",
+				"model": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2301,10 +2301,10 @@ var statusTests = []testCase{
 		"upgrade available",
 		setToolsUpgradeAvailable{},
 		expect{
-			"upgrade availability should be shown in environment-status",
+			"upgrade availability should be shown in model-status",
 			M{
-				"environment": "dummyenv",
-				"environment-status": M{
+				"model": "dummyenv",
+				"model-status": M{
 					"upgrade-available": nextVersion().String(),
 				},
 				"machines": M{},
@@ -2946,7 +2946,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	expected := expect{
 		"sane output with an older client that doesn't return Agent or Relations fields",
 		M{
-			"environment": "dummyenv",
+			"model": "dummyenv",
 			"machines": M{
 				"0": M{
 					"agent-state":                "down",
@@ -3218,7 +3218,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	const expected = `
-[Environment]     
+[Model]           
 UPGRADE-AVAILABLE 
 %s
 
@@ -3686,7 +3686,7 @@ var statusTimeTest = test(
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"environment": "dummyenv",
+			"model": "dummyenv",
 			"machines": M{
 				"0": machine0,
 				"1": machine1,

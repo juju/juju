@@ -150,10 +150,10 @@ There are four main suites:
 The last three have the BaseSuite functionality included through
 composition.  The BaseSuite isolates a user's home directory from accidental
 modification (by setting $HOME to "") and errors if there is an attempt to do
-outgoing http access. It also clears the relevant $JUJU_* environment variables.
+outgoing http access. It also clears the relevant $JUJU_* model variables.
 The BaseSuite is also composed of the core LoggingSuite, and also LoggingSuite
 from  github.com/juju/testing, which brings in the CleanupSuite from the same.
-The CleanupSuite has the functionality around patching environment variables
+The CleanupSuite has the functionality around patching model variables
 and normal variables for the duration of a test. It also provides a clean-up
 stack that gets called when the test teardown happens.
 
@@ -161,7 +161,7 @@ All test suites should embedd BaseSuite. Those that need the extra functionality
 can instead embedd one of the fake home suites:
 
 * FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
-* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake environment.
+* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake model.
 
 The JujuConnSuite does this and more. It also sets up a state server and api
 server.  This is one problem with the JujuConnSuite, it almost always does a
@@ -209,7 +209,7 @@ network access in it, it is a good idea to use the BaseSuite as a base:
    the logging output
 
 
-Patching variables and the environment
+Patching variables and the model
 --------------------------------------
 
 Inside a test, and assuming that the Suite has a CleanupSuite somewhere
@@ -220,7 +220,7 @@ in the composition tree, there are a few very helpful functions.
 var foo int
 
 func (s *someTest) TestFubar(c *gc.C) {
-	// The TEST_OMG environment value will have "new value" for the duration
+	// The TEST_OMG model value will have "new value" for the duration
 	// of the test.
 	s.PatchEnvironment("TEST_OMG", "new value")
 
@@ -308,4 +308,4 @@ Good tests
 
 Good tests should be:
   * small and obviously correct
-  * isolated from any system or environment values that may impact the test
+  * isolated from any system or model values that may impact the test

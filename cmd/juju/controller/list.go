@@ -31,7 +31,7 @@ List all the Juju controllers logged in to on the current machine.
 
 A controller refers to a Juju Controller that runs and manages the Juju API
 server and the underlying database used by Juju. A controller may host
-multiple environments.
+multiple models.
 
 See Also:
     juju help controllers

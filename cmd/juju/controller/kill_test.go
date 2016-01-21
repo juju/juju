@@ -50,18 +50,18 @@ func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
-	_, err := s.runKillCommand(c, "environment", "whoops")
+	_, err := s.runKillCommand(c, "model", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 	_, err := s.runKillCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: environment "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo" not found`)
 }
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
 	_, err := s.runKillCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju environment destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
 }
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
@@ -253,7 +253,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 		8,
 	}
 	out := controller.FmtCtrStatus(data)
-	c.Assert(out, gc.Equals, "Waiting on 3 environments, 20 machines, 8 services")
+	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 services")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {

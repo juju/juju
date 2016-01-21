@@ -13,7 +13,7 @@ import (
 
 var authKeysDoc = `
 "juju authorized-keys" is used to manage the ssh keys allowed to log on to
-nodes in the Juju environment.
+nodes in the Juju model.
 
 `
 

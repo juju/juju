@@ -203,12 +203,12 @@ func (api *API) retrievePublished() error {
 
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return errors.Annotatef(err, "getting environment image metadata sources")
+		return errors.Annotatef(err, "getting environ image metadata sources")
 	}
 
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return errors.Errorf("environment cloud specification cannot be determined")
+		return errors.Errorf("environ cloud specification cannot be determined")
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.

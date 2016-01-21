@@ -22,7 +22,7 @@ If only names are specified, only mentioned pools will be listed.
 If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
-Valid pool types are pool types that are registered for Juju environment.
+Valid pool types are pool types that are registered for Juju model.
 
 options:
 -m, --model (= "")

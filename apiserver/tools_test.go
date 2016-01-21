@@ -253,7 +253,7 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.toolsURL(c, "")
 	url.Path = "/environment/dead-beef-123456/tools"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
@@ -450,7 +450,7 @@ func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 		Series: series.HostSeries(),
 	}
 	resp := s.downloadRequest(c, current, "dead-beef-123456")
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 type toolsWithMacaroonsSuite struct {

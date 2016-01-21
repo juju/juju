@@ -34,7 +34,7 @@ func upgradeEnvironConfig(
 ) error {
 	cfg, err := reader.EnvironConfig()
 	if err != nil {
-		return errors.Annotate(err, "reading environment config")
+		return errors.Annotate(err, "reading model config")
 	}
 	provider, err := registry.Provider(cfg.Type())
 	if err != nil {

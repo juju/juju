@@ -404,9 +404,9 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("password"))
 	}
 	if uuid := configParams.Environment.Id(); uuid == "" {
-		return nil, errors.Trace(requiredError("environment"))
+		return nil, errors.Trace(requiredError("model"))
 	} else if !names.IsValidEnvironment(uuid) {
-		return nil, errors.Errorf("%q is not a valid environment uuid", uuid)
+		return nil, errors.Errorf("%q is not a valid model uuid", uuid)
 	}
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))

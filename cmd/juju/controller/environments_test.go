@@ -122,10 +122,10 @@ func (s *EnvironmentsSuite) TestEnvironmentsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       ENVIRONMENT UUID  OWNER             LAST CONNECTION\n"+
-		"test-env1  test-env1-UUID    user-admin@local  2015-03-20\n"+
-		"test-env2  test-env2-UUID    user-admin@local  2015-03-01\n"+
-		"test-env3  test-env3-UUID    user-admin@local  never connected\n"+
+		"NAME       MODEL UUID      OWNER             LAST CONNECTION\n"+
+		"test-env1  test-env1-UUID  user-admin@local  2015-03-20\n"+
+		"test-env2  test-env2-UUID  user-admin@local  2015-03-01\n"+
+		"test-env3  test-env3-UUID  user-admin@local  never connected\n"+
 		"\n")
 }
 
@@ -137,5 +137,5 @@ func (s *EnvironmentsSuite) TestUnrecognizedArg(c *gc.C) {
 func (s *EnvironmentsSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := testing.RunCommand(c, s.newCommand())
-	c.Assert(err, gc.ErrorMatches, "cannot list environments: permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")
 }

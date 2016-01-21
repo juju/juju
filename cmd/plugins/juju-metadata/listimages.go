@@ -20,7 +20,7 @@ func newListImagesCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List information about image metadata stored in Juju environment.
+List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
 More than one filter can be specified. Result will contain metadata that matches all filters in combination.

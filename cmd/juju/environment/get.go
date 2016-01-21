@@ -30,7 +30,7 @@ const getEnvHelpDoc = `
 If no extra args passed on the command line, all configuration keys and values
 for the environment are output using the selected formatter.
 
-A single environment value can be output by adding the environment key name to
+A single model value can be output by adding the model key name to
 the end of the command line.
 
 Example:
@@ -84,7 +84,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 		if value, found := attrs[c.key]; found {
 			return c.out.Write(ctx, value)
 		}
-		return fmt.Errorf("key %q not found in %q environment.", c.key, attrs["name"])
+		return fmt.Errorf("key %q not found in %q model.", c.key, attrs["name"])
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)

@@ -292,7 +292,7 @@ func (s *serviceSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
+		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for models of type "dummy"`)
 }
 
 func (s *serviceSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) {

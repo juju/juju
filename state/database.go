@@ -98,7 +98,7 @@ type collectionSchema map[string]collectionInfo
 // suppplied environment UUID.
 func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Database, error) {
 	if !names.IsValidEnvironment(environUUID) {
-		return nil, errors.New("invalid environment UUID")
+		return nil, errors.New("invalid model UUID")
 	}
 	for name, info := range schema {
 		rawCollection := db.C(name)

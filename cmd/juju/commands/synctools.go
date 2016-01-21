@@ -49,14 +49,14 @@ var _ cmd.Command = (*syncToolsCommand)(nil)
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from the official tool store into a local environment",
+		Purpose: "copy tools from the official tool store into a local model",
 		Doc: `
 This copies the Juju tools tarball from the official tools store (located
-at https://streams.canonical.com/juju) into your environment.
+at https://streams.canonical.com/juju) into your model.
 This is generally done when you want Juju to be able to run without having to
 access the Internet. Alternatively you can specify a local directory as source.
 
-Sometimes this is because the environment does not have public access,
+Sometimes this is because the model does not have public access,
 and sometimes you just want to avoid having to access data outside of
 the local cloud.
 `,

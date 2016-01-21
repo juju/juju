@@ -18,7 +18,7 @@ func newAddImageMetadataCommand() cmd.Command {
 }
 
 const addImageCommandDoc = `
-Add image metadata to Juju environment.
+Add image metadata to Juju model.
 
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
@@ -79,7 +79,7 @@ func (c *addImageMetadataCommand) Init(args []string) (err error) {
 func (c *addImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-image",
-		Purpose: "adds image metadata to environment",
+		Purpose: "adds image metadata to model",
 		Doc:     addImageCommandDoc,
 	}
 }

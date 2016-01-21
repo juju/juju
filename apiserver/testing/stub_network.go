@@ -526,7 +526,7 @@ func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	case StubZonedNetworkingEnvironName:
 		return ZonedNetworkingEnvironInstance, nil
 	}
-	panic("unexpected environment name: " + cfg.Name())
+	panic("unexpected model name: " + cfg.Name())
 }
 
 // GoString implements fmt.GoStringer.

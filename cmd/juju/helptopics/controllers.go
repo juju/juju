@@ -5,24 +5,24 @@ package helptopics
 
 const JujuControllers = `
 
-A Juju Controller, also sometimes called the controller environment, describes
-the environment that runs and manages the Juju API servers and the underlying
+A Juju Controller, also sometimes called the controller model, describes
+the model that runs and manages the Juju API servers and the underlying
 database.
 
-The controller environment is what is created when the bootstrap command is
-called.  This controller environment is a normal Juju environment that just
+The controller model is what is created when the bootstrap command is
+called.  This controller model is a normal Juju model that just
 happens to have machines that manage Juju.
 
 In order to keep a clean separation of concerns, it is considered best
-practice to create additional environments for real workload deployment.
+practice to create additional models for real workload deployment.
 
-Services can still be deployed to the controller environment, but it is
+Services can still be deployed to the controller model, but it is
 generally expected that these services are more for management and monitoring
 purposes, like landscape and nagios.
 
 When creating a Juju controller that is going to be used by more than one
 person, it is good practice to create users for each individual that will be
-accessing the environments.
+accessing the models.
 
 Users are managed within the Juju controller using the 'juju user' command.
 This allows the creation, listing, and disabling of users. When a juju
@@ -55,7 +55,7 @@ the --keep-password flag.
     cached connection details as controller "staging"
     -> staging (controller)
 
-Bob can then list all the environments within that controller that he has
+Bob can then list all the models within that controller that he has
 access to:
 
     $ juju list-model
@@ -64,25 +64,25 @@ access to:
 The list could well be empty. Bob can create an model to use:
 
     $ juju create-model test
-    created environment "test"
+    created model "test"
     staging (controller) -> test
 
-When the environment has been created, it becomes the current environment. A
-new environment has no machines, and no services.
+When the model has been created, it becomes the current model. A
+new model has no machines, and no services.
 
     $ juju status
-    environment: test
+    model: test
     machines: {}
     services: {}
 
-Bob wants to collaborate with Mary on this environment. A user for Mary needs
-to exist in the controller before Bob is able to share the environment with her.
+Bob wants to collaborate with Mary on this model. A user for Mary needs
+to exist in the controller before Bob is able to share the model with her.
 
     $ juju share-model mary
-    ERROR could not share environment: user "mary" does not exist locally: user "mary" not found
+    ERROR could not share model: user "mary" does not exist locally: user "mary" not found
 
 Bob gets the controller administrator to add a user for Mary, and then shares the
-environment with Mary.
+model with Mary.
 
     $ juju share-model mary
     $ juju list-shares
@@ -91,19 +91,19 @@ environment with Mary.
     mary@local  57 seconds ago  never connected
 
 When Mary has used her credentials to connect to the juju controller, she can see
-Bob's environment.
+Bob's model.
 
     $ juju list-models
     NAME  OWNER      LAST CONNECTION
     test  bob@local  never connected
 
-Mary can use this environment.
+Mary can use this model.
 
     $ juju use-model test
     mary-server (controller) -> bob-test
 
-The local name for the environment is by default 'owner-name', so since this
-environment is owned by 'bob@local' and called test, for mary the environment
+The local name for the model is by default 'owner-name', so since this
+model is owned by 'bob@local' and called test, for mary the model
 is called 'bob-test'.
 
 `

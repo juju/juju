@@ -279,7 +279,7 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		logger.Errorf(`aborted wait for other state servers: %v`, err)
 		// If master, trigger a rollback to the previous agent version.
 		if w.isMaster {
-			logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
 			if rollbackErr := w.st.SetEnvironAgentVersion(w.fromVersion); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)

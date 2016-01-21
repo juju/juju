@@ -55,7 +55,7 @@ type unknownEnvironmentError struct {
 }
 
 func (e *unknownEnvironmentError) Error() string {
-	return fmt.Sprintf("unknown environment: %q", e.uuid)
+	return fmt.Sprintf("unknown model: %q", e.uuid)
 }
 
 func UnknownEnvironmentError(uuid string) error {

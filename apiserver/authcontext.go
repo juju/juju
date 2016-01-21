@@ -93,7 +93,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, error) {
 	envCfg, err := st.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get environment config")
+		return nil, errors.Annotate(err, "cannot get model config")
 	}
 	idURL := envCfg.IdentityURL()
 	if idURL == "" {
@@ -111,7 +111,7 @@ func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, er
 	}
 	svc, err := bakery.NewService(
 		bakery.NewServiceParams{
-			Location: "juju environment " + st.EnvironUUID(),
+			Location: "juju model " + st.EnvironUUID(),
 			Locator: bakery.PublicKeyLocatorMap{
 				idURL: idPK,
 			},

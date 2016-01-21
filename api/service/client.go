@@ -49,7 +49,7 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 func (c *Client) EnvironmentUUID() string {
 	tag, err := c.RawAPICaller().EnvironTag()
 	if err != nil {
-		logger.Warningf("environ tag not an environ: %v", err)
+		logger.Warningf("model tag not an model: %v", err)
 		return ""
 	}
 	return tag.Id()

@@ -30,7 +30,7 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 
 	// The info isn't written until you call Write
 	_, err := store.ReadInfo("someenv")
-	c.Assert(err, gc.ErrorMatches, `environment "someenv" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "someenv" not found`)
 
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +194,7 @@ func (s *interfaceSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = info.Destroy()
-	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
+	c.Assert(err, gc.ErrorMatches, "model info has already been removed")
 }
 
 func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
@@ -228,5 +228,5 @@ func (s *interfaceSuite) TestSetBootstrapConfigPanicsWhenNotCreated(c *gc.C) {
 
 	info, err = store.ReadInfo("someenv")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(func() { info.SetBootstrapConfig(nil) }, gc.PanicMatches, "bootstrap config set on environment info that has not just been created")
+	c.Assert(func() { info.SetBootstrapConfig(nil) }, gc.PanicMatches, "bootstrap config set on model info that has not just been created")
 }

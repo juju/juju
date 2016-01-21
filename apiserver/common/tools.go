@@ -109,7 +109,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return nothing, errors.New("agent version not set in environment config")
+		return nothing, errors.New("agent version not set in model config")
 	}
 	return agentVersion, nil
 }

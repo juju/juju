@@ -42,7 +42,7 @@ func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 // If envName is empty, it returns the path
 // to the info files' containing directory.
 func storePath(dir string, envName string) string {
-	path := filepath.Join(dir, "environments")
+	path := filepath.Join(dir, "models")
 	if envName != "" {
 		path = filepath.Join(path, envName+".jenv")
 	}
@@ -116,7 +116,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Hostnames: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
-	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "environments", "someenv.jenv")))
+	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "models", "someenv.jenv")))
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",
@@ -169,7 +169,7 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 
 	info := store.CreateInfo("someenv")
 	err = info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
@@ -191,7 +191,7 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = info.Destroy()
-	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
+	c.Assert(err, gc.ErrorMatches, "model info has already been removed")
 }
 
 func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
@@ -242,7 +242,7 @@ func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
 	// Using . between environments and env.lock so we don't have to care
 	// about forward vs. backwards slash separator.
 	messages := []jc.SimpleMessage{
-		{loggo.WARNING, `breaking configstore lock, lock dir: .*environments.env\.lock`},
+		{loggo.WARNING, `breaking configstore lock, lock dir: .*models.env\.lock`},
 		{loggo.WARNING, `lock holder message: pid: \d+, operation: blocking-op`},
 	}
 

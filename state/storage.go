@@ -919,7 +919,7 @@ func validateStoragePool(
 	envType := conf.Type()
 	if !registry.IsProviderSupported(envType, providerType) {
 		return errors.Errorf(
-			"pool %q uses storage provider %q which is not supported for environments of type %q",
+			"pool %q uses storage provider %q which is not supported for models of type %q",
 			poolName,
 			providerType,
 			envType,

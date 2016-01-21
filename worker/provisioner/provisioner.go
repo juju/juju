@@ -154,7 +154,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 
 	envCfg, err := p.st.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve the environment config.")
+		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
 	secureServerConnection := false
@@ -233,11 +233,11 @@ func (p *environProvisioner) loop() error {
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
+				logger.Errorf("cannot load model configuration: %v", err)
 				return err
 			}
 			if err := p.setConfig(environConfig); err != nil {
-				logger.Errorf("loaded invalid environment configuration: %v", err)
+				logger.Errorf("loaded invalid model configuration: %v", err)
 			}
 			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
 		}
@@ -326,7 +326,7 @@ func (p *containerProvisioner) loop() error {
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
+				logger.Errorf("cannot load model configuration: %v", err)
 				return err
 			}
 			p.configObserver.notify(environConfig)

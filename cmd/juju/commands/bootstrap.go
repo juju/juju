@@ -41,13 +41,13 @@ var provisionalProviders = map[string]string{
 
 const bootstrapDoc = `
 bootstrap starts a new environment of the current type (it will return an error
-if the environment has already been bootstrapped).  Bootstrapping an environment
-will provision a new machine in the environment and run the juju state server on
+if the model has already been bootstrapped).  Bootstrapping an environment
+will provision a new machine in the model and run the juju state server on
 that machine.
 
 If constraints are specified in the bootstrap command, they will apply to the
 machine provisioned for the juju state server.  They will also be set as default
-constraints on the environment for all future machines, exactly as if the
+constraints on the model for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
@@ -60,7 +60,7 @@ about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
 completed, you can run other juju commands against your environment. You can change
 the default timeout and retry delays used during the bootstrap by changing the
-following settings in your environments.yaml (all values represent number of seconds):
+following settings in your models.yaml (all values represent number of seconds):
 
     # How long to wait for a connection to the state server.
     bootstrap-timeout: 600 # default: 10 minutes
@@ -127,7 +127,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the model if bootstrap fails")
 	f.BoolVar(&c.NoAutoUpgrade, "no-auto-upgrade", false, "do not upgrade to newer tools on first bootstrap")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
 }
@@ -214,7 +214,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	envName := getEnvName(c)
 	if envName == "" {
-		return errors.Errorf("the name of the environment must be specified")
+		return errors.Errorf("the name of the model must be specified")
 	}
 	if err := checkProviderType(envName); errors.IsNotFound(err) {
 		// This error will get handled later.
@@ -233,9 +233,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil && cleanup != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
+				logger.Warningf("bootstrap failed but --keep-broken was specified so model is not being destroyed.\n" +
 					"When you are finished diagnosing the problem, remember to run juju destroy-model --force\n" +
-					"to clean up the environment.")
+					"to clean up the model.")
 			} else {
 				handleBootstrapError(ctx, resultErr, cleanup)
 			}
@@ -244,7 +244,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Handle any errors from environFromName(...).
 	if err != nil {
-		return errors.Annotatef(err, "there was an issue examining the environment")
+		return errors.Annotatef(err, "there was an issue examining the model")
 	}
 
 	// Check to see if this environment is already bootstrapped. If it
@@ -253,10 +253,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// then we're in an unknown state.
 	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); nil != err {
 		if environs.ErrAlreadyBootstrapped == err {
-			logger.Warningf("This juju environment is already bootstrapped. If you want to start a new Juju\nenvironment, first run juju destroy-model to clean up, or switch to an\nalternative environment.")
+			logger.Warningf("This juju model is already bootstrapped. If you want to start a new Juju\nmodel, first run juju destroy-model to clean up, or switch to an\nalternative model.")
 			return err
 		}
-		return errors.Annotatef(err, "cannot determine if environment is already bootstrapped.")
+		return errors.Annotatef(err, "cannot determine if model is already bootstrapped.")
 	}
 
 	// Block interruption during bootstrap. Providers may also
@@ -309,7 +309,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		MetadataDir:          metadataDir,
 	})
 	if err != nil {
-		return errors.Annotate(err, "failed to bootstrap environment")
+		return errors.Annotate(err, "failed to bootstrap model")
 	}
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {
@@ -404,7 +404,7 @@ func checkProviderType(envName string) error {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	flag, ok := provisionalProviders[envType]
 	if ok && !featureflag.Enabled(flag) {
-		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell model`
 		return errors.Errorf(msg, envType, flag)
 	}
 

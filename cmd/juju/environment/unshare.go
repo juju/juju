@@ -15,7 +15,7 @@ import (
 )
 
 const unshareEnvHelpDoc = `
-Deny a user access to an environment that was previously shared with them.
+Deny a user access to an model that was previously shared with them.
 
 Examples:
  juju unshare-model joe

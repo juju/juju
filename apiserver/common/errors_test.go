@@ -261,7 +261,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 
 func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
 	err := common.UnknownEnvironmentError("dead-beef")
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef"`)
+	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
 }
 
 func (s *errorsSuite) TestDestroyErr(c *gc.C) {

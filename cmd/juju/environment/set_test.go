@@ -63,7 +63,7 @@ func (s *SetSuite) TestSettingKnownValue(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)
 	// Command succeeds, but warning logged.
-	expected := `key "unknown" is not defined in the current environment configuration: possible misspelling`
+	expected := `key "unknown" is not defined in the current model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
 }
 

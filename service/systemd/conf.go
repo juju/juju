@@ -195,7 +195,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 	for k, v := range conf.Env {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
-			Name:    "Environment",
+			Name:    "Model",
 			Value:   fmt.Sprintf(`"%s=%s"`, k, v),
 		})
 	}
@@ -284,7 +284,7 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 			switch {
 			case uo.Name == "ExecStart":
 				conf.ExecStart = uo.Value
-			case uo.Name == "Environment":
+			case uo.Name == "Model":
 				if conf.Env == nil {
 					conf.Env = make(map[string]string)
 				}
@@ -294,7 +294,7 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 				}
 				parts := strings.SplitN(value, "=", 2)
 				if len(parts) != 2 {
-					return conf, errors.NotValidf("service environment value %q", uo.Value)
+					return conf, errors.NotValidf("service model value %q", uo.Value)
 				}
 				conf.Env[parts[0]] = parts[1]
 			case strings.HasPrefix(uo.Name, "Limit"):

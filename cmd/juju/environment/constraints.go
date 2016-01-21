@@ -13,41 +13,41 @@ import (
 )
 
 const getConstraintsDoc = `
-Shows a list of constraints that have been set on the environment
-using juju environment set-constraints.  You can also view constraints
+Shows a list of constraints that have been set on the model
+using juju model set-constraints.  You can also view constraints
 set for a specific service by using juju service get-constraints <service>.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
 
 See Also:
    juju help constraints
-   juju help environment set-constraints
+   juju help model set-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
 `
 
 const setConstraintsDoc = `
-Sets machine constraints on the environment, which are used as the default
-constraints for all new machines provisioned in the environment (unless
+Sets machine constraints on the model, which are used as the default
+constraints for all new machines provisioned in the model (unless
 overridden).  You can also set constraints on a specific service by using
 juju service set-constraints.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
 
 Example:
 
-   juju environment set-constraints mem=8G                         (all new machines in the environment must have at least 8GB of RAM)
+   juju model set-constraints mem=8G                         (all new machines in the model must have at least 8GB of RAM)
 
 See Also:
    juju help constraints
-   juju help environment get-constraints
+   juju help model get-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
@@ -67,7 +67,7 @@ type envGetConstraintsCommand struct {
 func (c *envGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
-		Purpose: "view constraints on the environment",
+		Purpose: "view constraints on the model",
 		Doc:     getConstraintsDoc,
 	}
 }
@@ -91,7 +91,7 @@ func (c *envSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
 		Args:    "[key=[value] ...]",
-		Purpose: "set constraints on the environment",
+		Purpose: "set constraints on the model",
 		Doc:     setConstraintsDoc,
 	}
 }

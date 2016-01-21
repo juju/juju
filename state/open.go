@@ -34,9 +34,9 @@ func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	}
 	if _, err := st.Environment(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("error closing state for unreadable environment %s: %v", tag.Id(), err)
+			logger.Errorf("error closing state for unreadable model %s: %v", tag.Id(), err)
 		}
-		return nil, errors.Annotatef(err, "cannot read environment %s", tag.Id())
+		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
 	}
 
 	// State should only be Opened on behalf of a state server environ; all
@@ -68,7 +68,7 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	// we depend on the assumption that this is the only circumstance in which
 	// the the UUID might not be known.
 	if tag.Id() == "" {
-		logger.Warningf("creating state without environment tag; inferring bootstrap environment")
+		logger.Warningf("creating state without model tag; inferring bootstrap model")
 		ssInfo, err := readRawStateServerInfo(session)
 		if err != nil {
 			session.Close()
@@ -106,7 +106,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid, ok := cfg.UUID()
 	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
+		return nil, errors.Errorf("model uuid was not supplied")
 	}
 	envTag := names.NewEnvironTag(uuid)
 	st, err := open(envTag, info, opts, policy)
@@ -132,7 +132,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
-	logger.Infof("initializing state server environment %s", uuid)
+	logger.Infof("initializing state server model %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -103,7 +103,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy model: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -323,7 +323,7 @@ func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerI
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
-	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)

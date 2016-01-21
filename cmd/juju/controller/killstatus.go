@@ -51,7 +51,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 		return ctrData{}, nil, errors.Trace(err)
 	}
 	if len(envs) == 0 {
-		return ctrData{}, nil, errors.New("no environments found")
+		return ctrData{}, nil, errors.New("no models found")
 	}
 
 	status, err := api.EnvironmentStatus(names.NewEnvironTag(ctrUUID))
@@ -128,7 +128,7 @@ func s(n int) string {
 
 func fmtCtrStatus(data ctrData) string {
 	envNo := data.HostedEnvCount
-	out := fmt.Sprintf("Waiting on %d environment%s", envNo, s(envNo))
+	out := fmt.Sprintf("Waiting on %d model%s", envNo, s(envNo))
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

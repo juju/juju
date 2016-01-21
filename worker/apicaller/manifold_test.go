@@ -140,7 +140,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetBadAPIState(c *g
 	s.SetErrors(errors.New("no tag for you"))
 
 	err := mutator(nil)
-	c.Check(err, gc.ErrorMatches, "no environment uuid set on api: no tag for you")
+	c.Check(err, gc.ErrorMatches, "no model uuid set on api: no tag for you")
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "EnvironTag",
 	}})

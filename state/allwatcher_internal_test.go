@@ -955,7 +955,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 		c.Logf("Test %d: %s", i, test.about)
 		func() {
 			checkIsolationForEnv := func(st *State, w, otherW *testWatcher) {
-				c.Logf("Making changes to environment %s", st.EnvironUUID())
+				c.Logf("Making changes to model %s", st.EnvironUUID())
 
 				if test.setUpState != nil {
 					test.setUpState(st)
@@ -1089,7 +1089,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "no environment in state -> do nothing",
+				about: "no model in state -> do nothing",
 				change: watcher.Change{
 					C:  "environments",
 					Id: "non-existing-uuid",
@@ -1097,7 +1097,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "environment is removed if it's not in backing",
+				about: "model is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.EnvironmentInfo{
 					EnvUUID: "some-uuid",
 				}},
@@ -1110,7 +1110,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 			env, err := st.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
-				about: "environment is added if it's in backing but not in Store",
+				about: "model is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "environments",
 					Id: st.EnvironUUID(),
@@ -1128,7 +1128,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 			env, err := st.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
-				about: "environment is updated if it's in backing and in Store",
+				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.EnvironmentInfo{
 						EnvUUID:    env.UUID(),

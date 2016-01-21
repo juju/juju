@@ -198,7 +198,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 
 	// This should kill the manager
 	err := waitOrFatal(c, m.Wait)
-	c.Assert(err, gc.ErrorMatches, "error loading environment .*: unable to GetEnvironment")
+	c.Assert(err, gc.ErrorMatches, "error loading model .*: unable to GetEnvironment")
 
 	// And that should kill all the runners
 	c.Assert(runners[0].killed, jc.IsTrue)

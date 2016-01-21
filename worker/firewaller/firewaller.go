@@ -75,7 +75,7 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to start ports watcher")
 	}
-	logger.Debugf("started watching opened port ranges for the environment")
+	logger.Debugf("started watching opened port ranges for the model")
 
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
@@ -123,7 +123,7 @@ func (fw *Firewaller) loop() error {
 				return err
 			}
 			if err := fw.environ.SetConfig(config); err != nil {
-				logger.Errorf("loaded invalid environment configuration: %v", err)
+				logger.Errorf("loaded invalid model configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
@@ -551,7 +551,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.PortRange) er
 			return err
 		}
 		network.SortPortRanges(toOpen)
-		logger.Infof("opened port ranges %v in environment", toOpen)
+		logger.Infof("opened port ranges %v in model", toOpen)
 	}
 	if len(toClose) > 0 {
 		if err := fw.environ.ClosePorts(toClose); err != nil {
@@ -559,7 +559,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.PortRange) er
 			return err
 		}
 		network.SortPortRanges(toClose)
-		logger.Infof("closed port ranges %v in environment", toClose)
+		logger.Infof("closed port ranges %v in model", toClose)
 	}
 	return nil
 }

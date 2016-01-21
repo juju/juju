@@ -34,9 +34,9 @@ type destroyCommand struct {
 	api       DestroyEnvironmentAPI
 }
 
-var destroyDoc = `Destroys the specified environment`
+var destroyDoc = `Destroys the specified model`
 var destroyEnvMsg = `
-WARNING! This command will destroy the %q environment.
+WARNING! This command will destroy the %q model.
 This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
@@ -68,7 +68,7 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *destroyCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no environment specified")
+		return errors.New("no model specified")
 	case 1:
 		c.envName = args[0]
 		c.SetEnvName(c.envName)
@@ -89,12 +89,12 @@ func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
-		return errors.Annotate(err, "cannot open environment info storage")
+		return errors.Annotate(err, "cannot open model info storage")
 	}
 
 	cfgInfo, err := store.ReadInfo(c.envName)
 	if err != nil {
-		return errors.Annotate(err, "cannot read environment info")
+		return errors.Annotate(err, "cannot read model info")
 	}
 
 	// Verify that we're not destroying a controller
@@ -107,7 +107,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName)
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
-			return errors.Annotate(err, "environment destruction")
+			return errors.Annotate(err, "model destruction")
 		}
 	}
 
@@ -121,7 +121,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Attempt to destroy the environment.
 	err = api.DestroyEnvironment()
 	if err != nil {
-		return c.handleError(errors.Annotate(err, "cannot destroy environment"))
+		return c.handleError(errors.Annotate(err, "cannot destroy model"))
 	}
 
 	return environs.DestroyInfo(c.envName, store)
@@ -134,6 +134,6 @@ func (c *destroyCommand) handleError(err error) error {
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
-	logger.Errorf(`failed to destroy environment %q`, c.envName)
+	logger.Errorf(`failed to destroy model %q`, c.envName)
 	return err
 }

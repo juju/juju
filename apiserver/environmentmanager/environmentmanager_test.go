@@ -296,7 +296,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 			errMatch: `creating config from values failed: agent-version: expected string, got int\(42\)`,
 		}, {
 			value:    "not a number",
-			errMatch: `creating config from values failed: invalid agent version in environment configuration: "not a number"`,
+			errMatch: `creating config from values failed: invalid agent version in model configuration: "not a number"`,
 		}, {
 			value:    bigger.String(),
 			errMatch: "agent-version cannot be greater than the server: .*",

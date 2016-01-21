@@ -87,17 +87,17 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		envName     string
 		envUUID     string
 	}{{
-		errorString: "no environment supplied",
+		errorString: "no model supplied",
 	}, {
 		args:        []string{""},
-		errorString: "no environment supplied",
+		errorString: "no model supplied",
 	}, {
-		args:    []string{"env-name"},
-		envName: "env-name",
+		args:    []string{"model-name"},
+		envName: "model-name",
 	}, {
-		args:      []string{"env-name", "--name", "foo"},
+		args:      []string{"model-name", "--name", "foo"},
 		localName: "foo",
-		envName:   "env-name",
+		envName:   "model-name",
 	}, {
 		args:    []string{"user/foobar"},
 		envName: "foobar",
@@ -138,12 +138,12 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 func (s *UseEnvironmentSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := s.run(c, "ignored-but-needed")
-	c.Assert(err, gc.ErrorMatches, "cannot list environments: permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")
 }
 
 func (s *UseEnvironmentSuite) TestNameNotFound(c *gc.C) {
 	_, err := s.run(c, "missing")
-	c.Assert(err, gc.ErrorMatches, "matching environment not found")
+	c.Assert(err, gc.ErrorMatches, "matching model not found")
 }
 
 func (s *UseEnvironmentSuite) TestUUID(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *UseEnvironmentSuite) TestUUIDCorrectOwner(c *gc.C) {
 func (s *UseEnvironmentSuite) TestUUIDWrongOwner(c *gc.C) {
 	ctx, err := s.run(c, "charles/"+env3UUID)
 	c.Assert(err, gc.IsNil)
-	expected := "Specified environment owned by bob@local, not charles@local"
+	expected := "Specified model owned by bob@local, not charles@local"
 	c.Assert(testing.Stderr(ctx), jc.Contains, expected)
 
 	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
@@ -178,15 +178,15 @@ func (s *UseEnvironmentSuite) TestUniqueName(c *gc.C) {
 
 func (s *UseEnvironmentSuite) TestMultipleNameMatches(c *gc.C) {
 	ctx, err := s.run(c, "test")
-	c.Assert(err, gc.ErrorMatches, "multiple environments matched")
+	c.Assert(err, gc.ErrorMatches, "multiple models matched")
 
 	message := strings.TrimSpace(testing.Stderr(ctx))
 	lines := strings.Split(message, "\n")
 	c.Assert(lines, gc.HasLen, 4)
-	c.Assert(lines[0], gc.Equals, `Multiple environments matched name "test":`)
+	c.Assert(lines[0], gc.Equals, `Multiple models matched name "test":`)
 	c.Assert(lines[1], gc.Equals, "  "+env1UUID+", owned by tester@local")
 	c.Assert(lines[2], gc.Equals, "  "+env2UUID+", owned by bob@local")
-	c.Assert(lines[3], gc.Equals, `Please specify either the environment UUID or the owner to disambiguate.`)
+	c.Assert(lines[3], gc.Equals, `Please specify either the model UUID or the owner to disambiguate.`)
 }
 
 func (s *UseEnvironmentSuite) TestUserOwnerOfEnvironment(c *gc.C) {
@@ -212,14 +212,14 @@ func (s *UseEnvironmentSuite) TestRemoteUsersEnvironmentName(c *gc.C) {
 
 func (s *UseEnvironmentSuite) TestDisambiguateWrongOwner(c *gc.C) {
 	_, err := s.run(c, "wrong/test")
-	c.Assert(err, gc.ErrorMatches, "matching environment not found")
+	c.Assert(err, gc.ErrorMatches, "matching model not found")
 }
 
 func (s *UseEnvironmentSuite) TestUseEnvAlreadyExisting(c *gc.C) {
 	s.makeLocalEnvironment(c, "unique", "", "")
 	ctx, err := s.run(c, "unique")
-	c.Assert(err, gc.ErrorMatches, "existing environment")
-	expected := `You have an existing environment called "unique", use --name to specify a different local name.`
+	c.Assert(err, gc.ErrorMatches, "existing model")
+	expected := `You have an existing model called "unique", use --name to specify a different local name.`
 	c.Assert(testing.Stderr(ctx), jc.Contains, expected)
 }
 
@@ -232,7 +232,7 @@ func (s *UseEnvironmentSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 	lines := strings.Split(message, "\n")
 	c.Assert(lines, gc.HasLen, 2)
 
-	expected := `You already have environment details for "unique" cached locally.`
+	expected := `You already have model details for "unique" cached locally.`
 	c.Assert(lines[0], gc.Equals, expected)
 	c.Assert(lines[1], gc.Equals, `fake (controller) -> unique`)
 

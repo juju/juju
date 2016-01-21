@@ -504,7 +504,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 
 	for envUUID, count := range pruneCounts {
 		if count > 0 {
-			logger.Debugf("pruned %d logs for environment %s", count, envUUID)
+			logger.Debugf("pruned %d logs for model %s", count, envUUID)
 		}
 	}
 	return nil

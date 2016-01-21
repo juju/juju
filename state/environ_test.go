@@ -62,7 +62,7 @@ func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
 	owner := names.NewUserTag("non-existent@local")
 
 	_, _, err := s.State.NewEnvironment(cfg, owner)
-	c.Assert(err, gc.ErrorMatches, `cannot create environment: user "non-existent" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
 }
 
 func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
@@ -83,7 +83,7 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 		"uuid": newUUID.String(),
 	})
 	_, _, err = s.State.NewEnvironment(cfg2, owner)
-	errMsg := fmt.Sprintf("environment %q for %s already exists", cfg2.Name(), owner.Canonical())
+	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Canonical())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
@@ -263,7 +263,7 @@ func (s *EnvironSuite) TestDestroyControllerEnvironmentFails(c *gc.C) {
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
 func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironments(c *gc.C) {
@@ -339,7 +339,7 @@ func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(
 	assertEnv(controllerEnv, s.State, state.Dying, 0, 0)
 
 	err = s.State.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, `one or more hosted environments are not yet dead`)
+	c.Assert(err, gc.ErrorMatches, `one or more hosted models are not yet dead`)
 
 	assertCleanupCount(c, otherSt, 3)
 	assertAllMachinesDeadAndRemove(c, otherSt)
@@ -365,7 +365,7 @@ func (s *EnvironSuite) TestDestroyControllerEnvironmentRace(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
 func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
@@ -425,7 +425,7 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 
 	// calling ProcessDyingEnviron on a live environ should fail.
 	err := st.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	// add some machines and services
 	env, err := st.Environment()
@@ -461,7 +461,7 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 	defer state.SetAfterHooks(c, st, func() {
 		assertEnv(state.Dying, 1, 1)
 		err := st.ProcessDyingEnviron()
-		c.Assert(err, gc.ErrorMatches, `environment not empty, found 1 machine\(s\)`)
+		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
 		assertEnv(state.Dying, 1, 1)
 	}).Check()
 
@@ -477,7 +477,7 @@ func (s *EnvironSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc
 	c.Assert(controllerEnv.DestroyIncludingHosted(), jc.ErrorIsNil)
 
 	err = s.State.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, `one or more hosted environments are not yet dead`)
+	c.Assert(err, gc.ErrorMatches, `one or more hosted models are not yet dead`)
 
 	c.Assert(controllerEnv.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerEnv.Life(), gc.Equals, state.Dying)
@@ -508,7 +508,7 @@ func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
 	// check that the Users method errors
 	users, err := env.Users()
 	c.Assert(users, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot lookup environment users outside the current environment")
+	c.Assert(err, gc.ErrorMatches, "cannot lookup model users outside the current model")
 }
 
 func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {

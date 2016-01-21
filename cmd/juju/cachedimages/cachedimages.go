@@ -12,7 +12,7 @@ import (
 
 const cachedimagesCommandDoc = `
 "juju cached-images" is used to manage the cached os images in
-the Juju environment.
+the Juju model.
 `
 
 const cachedImagesCommandPurpose = "manage cached os images"

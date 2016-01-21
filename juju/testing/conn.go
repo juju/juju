@@ -365,7 +365,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	}
 	environUUID, ok := config.UUID()
 	if !ok {
-		return nil, fmt.Errorf("cannot connect without environment UUID")
+		return nil, fmt.Errorf("cannot connect without model UUID")
 	}
 	environTag := names.NewEnvironTag(environUUID)
 

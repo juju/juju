@@ -90,7 +90,7 @@ func (cache CacheFile) readInfo(envName string) (*environInfo, error) {
 	if envData, ok := cache.Environment[envName]; ok {
 		srvData, ok = cache.ServerData[envData.ServerUUID]
 		if !ok {
-			return nil, errors.Errorf("missing server data for environment %q", envName)
+			return nil, errors.Errorf("missing server data for model %q", envName)
 		}
 		info.user = envData.User
 		info.environmentUUID = envData.EnvironmentUUID
@@ -98,11 +98,11 @@ func (cache CacheFile) readInfo(envName string) (*environInfo, error) {
 	} else {
 		srvUser, ok := cache.Server[envName]
 		if !ok {
-			return nil, errors.NotFoundf("environment %q", envName)
+			return nil, errors.NotFoundf("model %q", envName)
 		}
 		srvData, ok = cache.ServerData[srvUser.ServerUUID]
 		if !ok {
-			return nil, errors.Errorf("missing server data for environment %q", envName)
+			return nil, errors.Errorf("missing server data for model %q", envName)
 		}
 		info.user = srvUser.User
 		info.serverUUID = srvUser.ServerUUID
@@ -177,7 +177,7 @@ func (cache *CacheFile) removeInfo(info *environInfo) error {
 	}
 	envUser, envFound := cache.Environment[info.name]
 	if !envFound {
-		return errors.New("environment info has already been removed")
+		return errors.New("model info has already been removed")
 	}
 	serverUUID := envUser.ServerUUID
 

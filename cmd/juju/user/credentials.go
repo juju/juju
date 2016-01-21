@@ -16,7 +16,7 @@ import (
 
 const userCredentialsDoc = `
 Writes out the current user and credentials to a file that can be used
-with 'juju controller login' to allow the user to access the same environments
+with 'juju controller login' to allow the user to access the same models
 as the same user from another machine.
 
 Examples:

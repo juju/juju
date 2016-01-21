@@ -95,7 +95,7 @@ func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	_, err = s.State.AddEnvironmentUser(state.EnvUserSpec{
 		User:      names.NewUserTag("boB@ubuntuone"),
 		CreatedBy: env.Owner()})
-	c.Assert(err, gc.ErrorMatches, `environment user "boB@ubuntuone" already exists`)
+	c.Assert(err, gc.ErrorMatches, `model user "boB@ubuntuone" already exists`)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
 

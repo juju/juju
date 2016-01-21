@@ -52,7 +52,7 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 	caller, err := r.root.FindMethod("Client", 0, "Status")
 
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no environment, "Client" not supported`)
+	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }

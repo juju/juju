@@ -404,7 +404,7 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 
 	// updateStorageAccountKey detects the change, and refuses to write its
 	// outdated information into env.
-	c.Check(err, gc.ErrorMatches, "environment was reconfigured")
+	c.Check(err, gc.ErrorMatches, "model was reconfigured")
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 

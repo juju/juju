@@ -78,7 +78,7 @@ func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 	s.envUUID = "dead-beef-123456"
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
 	response := s.downloadRequest(c, url)
-	s.assertErrorResponse(c, response, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, response, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 type CountingRoundTripper struct {

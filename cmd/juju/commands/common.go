@@ -38,9 +38,9 @@ func destroyPreparedEnvironProductionFunc(
 	store configstore.Storage,
 	action string,
 ) {
-	ctx.Infof("%s failed, destroying environment", action)
+	ctx.Infof("%s failed, destroying model", action)
 	if err := environs.Destroy(env, store); err != nil {
-		logger.Errorf("the environment could not be destroyed: %v", err)
+		logger.Errorf("the model could not be destroyed: %v", err)
 	}
 }
 
@@ -52,9 +52,9 @@ func destroyEnvInfoProductionFunc(
 	store configstore.Storage,
 	action string,
 ) {
-	ctx.Infof("%s failed, cleaning up the environment.", action)
+	ctx.Infof("%s failed, cleaning up the model.", action)
 	if err := environs.DestroyInfo(cfgName, store); err != nil {
-		logger.Errorf("the environment jenv file could not be cleaned up: %v", err)
+		logger.Errorf("the model jenv file could not be cleaned up: %v", err)
 	}
 }
 
@@ -95,10 +95,10 @@ func environFromNameProductionFunc(
 		// only in the case where the environment didn't already
 		// exist.
 		if env == nil {
-			logger.Debugf("Destroying environment info.")
+			logger.Debugf("Destroying model info.")
 			destroyEnvInfo(ctx, envName, store, action)
 		} else if !envExisted && ensureNotBootstrapped(env) != environs.ErrAlreadyBootstrapped {
-			logger.Debugf("Destroying environment.")
+			logger.Debugf("Destroying model.")
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
@@ -148,7 +148,7 @@ func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL,
 		if url.Series == "" {
 			possibleURL := *url
 			possibleURL.Series = config.LatestLtsSeries()
-			logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+			logger.Errorf("The series is not specified in the model (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 			return nil, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
 		}
 	}

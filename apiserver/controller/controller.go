@@ -159,7 +159,7 @@ func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoLi
 	for uuid, blocks := range envBlocks {
 		envInfo, err := s.state.GetEnvironment(names.NewEnvironTag(uuid))
 		if err != nil {
-			logger.Debugf("Unable to get name for environment: %s", uuid)
+			logger.Debugf("Unable to get name for model: %s", uuid)
 			continue
 		}
 		results.Environments = append(results.Environments, params.EnvironmentBlockInfo{

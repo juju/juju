@@ -76,7 +76,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBl
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 	})
-	c.Assert(err, gc.ErrorMatches, "found blocks in controller environments")
+	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{})
-	c.Assert(err, gc.ErrorMatches, "found blocks in controller environments")
+	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
 	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
-	c.Assert(err, gc.ErrorMatches, "found blocks in controller environments")
+	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Alive)

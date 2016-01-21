@@ -86,7 +86,7 @@ func (e *azureStorageProvider) VolumeSource(environConfig *config.Config, cfg *s
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &azureVolumeSource{
 		env:     env,

@@ -25,7 +25,7 @@ type listBlocksCommand struct {
 	apierr error
 }
 
-var listBlocksDoc = `List all blocks for environments within the specified controller`
+var listBlocksDoc = `List all blocks for models within the specified controller`
 
 // listBlocksAPI defines the methods on the controller API endpoint
 // that the list-blocks command calls.
@@ -69,7 +69,7 @@ func (c *listBlocksCommand) Run(ctx *cmd.Context) error {
 
 	envs, err := api.ListBlockedEnvironments()
 	if err != nil {
-		logger.Errorf("Unable to list blocked environments: %s", err)
+		logger.Errorf("Unable to list blocked models: %s", err)
 		return err
 	}
 	return c.out.Write(ctx, envs)

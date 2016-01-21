@@ -340,7 +340,7 @@ func (a *API) validateNameCriteria(names []string) error {
 func (a *API) validateProviderCriteria(providers []string) error {
 	envName, err := a.storage.EnvName()
 	if err != nil {
-		return errors.Annotate(err, "getting environment name")
+		return errors.Annotate(err, "getting model name")
 	}
 	for _, p := range providers {
 		if !registry.IsProviderSupported(envName, storage.ProviderType(p)) {

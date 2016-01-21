@@ -113,7 +113,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitControllerFile(c *gc.C) 
 	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = initTestCommand(c)
-	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using controller "fubar"`)
+	c.Assert(err, gc.ErrorMatches, `not operating on an model, using controller "fubar"`)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
@@ -236,7 +236,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `environment "no-such-env" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "no-such-env" not found`)
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
@@ -308,24 +308,24 @@ func (s *EnvironmentVersionSuite) SetUpTest(*gc.C) {
 func (s *EnvironmentVersionSuite) TestApiCallFails(c *gc.C) {
 	s.fake.err = errors.New("boom")
 	_, err := envcmd.GetEnvironmentVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "unable to retrieve environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "unable to retrieve model config: boom")
 }
 
 func (s *EnvironmentVersionSuite) TestNoVersion(c *gc.C) {
 	_, err := envcmd.GetEnvironmentVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "version not found in environment config")
+	c.Assert(err, gc.ErrorMatches, "version not found in model config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersionType(c *gc.C) {
 	s.fake.agentVersion = 99
 	_, err := envcmd.GetEnvironmentVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "invalid environment version type in config")
+	c.Assert(err, gc.ErrorMatches, "invalid model version type in config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersion(c *gc.C) {
 	s.fake.agentVersion = "a.b.c"
 	_, err := envcmd.GetEnvironmentVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "unable to parse environment version: .+")
+	c.Assert(err, gc.ErrorMatches, "unable to parse model version: .+")
 }
 
 func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
@@ -428,10 +428,10 @@ func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClientErr(c *gc.C) {
 func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithEnvGetError(c *gc.C) {
 	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
 	s.writeStore(c, false)
-	s.client.err = errors.New("problem getting environment attributes")
+	s.client.err = errors.New("problem getting model attributes")
 
 	_, err := cmd.Config(s.store, nil)
-	c.Assert(err, gc.ErrorMatches, "problem getting environment attributes")
+	c.Assert(err, gc.ErrorMatches, "problem getting model attributes")
 	c.Check(s.client.getCalled, jc.IsTrue)
 	c.Check(s.client.closeCalled, jc.IsTrue)
 }
@@ -511,7 +511,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -522,5 +522,5 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)
 }

@@ -448,20 +448,20 @@ var configTests = []configTest{
 			"set-numa-control-policy": false,
 		},
 	}, {
-		about:       "block-destroy-environment on",
+		about:       "block-destroy-model on",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"block-destroy-environment": true,
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-destroy-model": true,
 		},
 	}, {
-		about:       "block-destroy-environment off",
+		about:       "block-destroy-model off",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"block-destroy-environment": false,
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-destroy-model": false,
 		},
 	}, {
 		about:       "block-remove-object on",
@@ -530,7 +530,7 @@ var configTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
 		},
-		err: `invalid agent version in environment configuration: "2"`,
+		err: `invalid agent version in model configuration: "2"`,
 	}, {
 		about:       "Missing type",
 		useDefaults: config.UseDefaults,
@@ -545,7 +545,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"type": "",
 		},
-		err: "empty type in environment configuration",
+		err: "empty type in model configuration",
 	}, {
 		about:       "Missing name",
 		useDefaults: config.UseDefaults,
@@ -560,7 +560,7 @@ var configTests = []configTest{
 			"name": "foo/bar",
 			"type": "my-type",
 		},
-		err: "environment name contains unsafe characters",
+		err: "model name contains unsafe characters",
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
@@ -568,7 +568,7 @@ var configTests = []configTest{
 			"name": "foo\\bar",
 			"type": "my-type",
 		},
-		err: "environment name contains unsafe characters",
+		err: "model name contains unsafe characters",
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,
@@ -576,7 +576,7 @@ var configTests = []configTest{
 			"type": "my-type",
 			"name": "",
 		},
-		err: "empty name in environment configuration",
+		err: "empty name in model configuration",
 	}, {
 		about:       "Default firewall mode",
 		useDefaults: config.UseDefaults,
@@ -860,7 +860,7 @@ var configTests = []configTest{
 		about:       "No defaults: missing authorized-keys",
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig.Delete("authorized-keys"),
-		err:         `authorized-keys missing from environment configuration`,
+		err:         `authorized-keys missing from model configuration`,
 	}, {
 		about:       "Config settings from juju 1.13.3 actual installation",
 		useDefaults: config.NoDefaults,
@@ -932,7 +932,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: `empty uuid in environment configuration`,
+		err: `empty uuid in model configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -1916,14 +1916,14 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			"name": "test-no-certs",
 			"type": "dummy",
 		},
-		errMatch: "environment configuration has no ca-cert",
+		errMatch: "model configuration has no ca-cert",
 	}, {
 		configValues: map[string]interface{}{
 			"name":    "test-no-certs",
 			"type":    "dummy",
 			"ca-cert": testing.CACert,
 		},
-		errMatch: "environment configuration has no ca-private-key",
+		errMatch: "model configuration has no ca-private-key",
 	}, {
 		configValues: map[string]interface{}{
 			"name":           "test-no-certs",

@@ -88,7 +88,7 @@ func (*filesSuite) TestErrorWritingCurrentEnvironment(c *gc.C) {
 	// Can't write a file over a directory.
 	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
 	err := envcmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
+	c.Assert(err, gc.ErrorMatches, "unable to write to the model file: .*")
 }
 
 func (*filesSuite) TestErrorWritingCurrentController(c *gc.C) {

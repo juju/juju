@@ -325,8 +325,8 @@ type fakeCommon struct {
 
 func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
 	fc.addCall("SupportedArchitectures", FakeCallArgs{
-		"env":  env,
-		"cons": cons,
+		"switch": env,
+		"cons":   cons,
 	})
 	return fc.Arches, fc.err()
 }
@@ -334,7 +334,7 @@ func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imageme
 func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
-		"env":    env,
+		"switch": env,
 		"params": params,
 	})
 
@@ -348,15 +348,15 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 
 func (fc *fakeCommon) Destroy(env environs.Environ) error {
 	fc.addCall("Destroy", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fc.err()
 }
 
 func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
-		"env":   env,
-		"group": group,
+		"switch": env,
+		"group":  group,
 	})
 	return fc.AZInstances, fc.err()
 }
@@ -372,33 +372,33 @@ type fakeEnviron struct {
 
 func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fe.Insts, fe.err()
 }
 
 func (fe *fakeEnviron) BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
-		"env":  env,
-		"args": args,
+		"switch": env,
+		"args":   args,
 	})
 	return fe.Spec, fe.err()
 }
 
 func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	fe.addCall("GetHardwareCharacteristics", FakeCallArgs{
-		"env":  env,
-		"spec": spec,
-		"inst": inst,
+		"switch": env,
+		"spec":   spec,
+		"inst":   inst,
 	})
 	return fe.Hwc
 }
 
 func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
-		"env":  env,
-		"args": args,
-		"spec": spec,
+		"switch": env,
+		"args":   args,
+		"spec":   spec,
 	})
 	return fe.Inst, fe.err()
 }
@@ -409,7 +409,7 @@ func (fe *fakeEnviron) FindInstanceSpec(
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (*instances.InstanceSpec, error) {
 	fe.addCall("FindInstanceSpec", FakeCallArgs{
-		"env":           env,
+		"switch":        env,
 		"ic":            ic,
 		"imageMetadata": imageMetadata,
 	})

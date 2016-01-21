@@ -56,7 +56,7 @@ func (s *cacheFileInterfaceSuite) TestServerUUIDWrite(c *gc.C) {
 	info := s.writeEnv(c, "testing", envUUID, envUUID, "tester", "secret")
 
 	// Now make sure the cache file exists and the jenv doesn't
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	filename := configstore.CacheFilename(envDir)
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filename))
 
@@ -78,7 +78,7 @@ func (s *cacheFileInterfaceSuite) TestServerEnvNameExists(c *gc.C) {
 		ServerUUID:  envUUID,
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestWriteServerOnly(c *gc.C) {
@@ -117,7 +117,7 @@ func (s *cacheFileInterfaceSuite) TestWriteDupEnvAfterServer(c *gc.C) {
 		ServerUUID:  "fake-uuid",
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestServerUUIDRead(c *gc.C) {
@@ -173,7 +173,7 @@ func (s *cacheFileInterfaceSuite) TestServerDetailsShared(c *gc.C) {
 func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
 	envUUID := testing.EnvironmentTag.Id()
 	info := s.writeEnv(c, "testing", envUUID, "", "tester", "secret")
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	jenvFilename := configstore.JENVFilename(envDir, "testing")
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", jenvFilename))
 
@@ -205,7 +205,7 @@ func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
 }
 
 func (s *cacheFileInterfaceSuite) readCacheFile(c *gc.C) configstore.CacheFile {
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	filename := configstore.CacheFilename(envDir)
 	cache, err := configstore.ReadCacheFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +215,7 @@ func (s *cacheFileInterfaceSuite) readCacheFile(c *gc.C) configstore.CacheFile {
 func (s *cacheFileInterfaceSuite) TestExistingJENVBlocksNew(c *gc.C) {
 	envUUID := testing.EnvironmentTag.Id()
 	info := s.writeEnv(c, "testing", envUUID, "", "tester", "secret")
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	jenvFilename := configstore.JENVFilename(envDir, "testing")
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", jenvFilename))
 
@@ -227,7 +227,7 @@ func (s *cacheFileInterfaceSuite) TestExistingJENVBlocksNew(c *gc.C) {
 		ServerUUID:  envUUID,
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestList(c *gc.C) {
@@ -242,7 +242,7 @@ func (s *cacheFileInterfaceSuite) TestList(c *gc.C) {
 	c.Assert(environments, jc.SameContents, []string{"jenv-1", "jenv-2", "cache-1", "cache-2"})
 
 	// Confirm that the sources are from where we'd expect.
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	c.Assert(configstore.JENVFilename(envDir, "jenv-1"), jc.IsNonEmptyFile)
 	c.Assert(configstore.JENVFilename(envDir, "jenv-2"), jc.IsNonEmptyFile)
 	cache := s.readCacheFile(c)
@@ -271,7 +271,7 @@ func (s *cacheFileInterfaceSuite) TestDestroyTwice(c *gc.C) {
 	err := info.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = info.Destroy()
-	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
+	c.Assert(err, gc.ErrorMatches, "model info has already been removed")
 }
 
 func (s *cacheFileInterfaceSuite) TestDestroyKeepsSharedData(c *gc.C) {

@@ -121,7 +121,7 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	delete(envCfg.attrs, "management-certificate-path")
 
 	if envCfg.location() == "" {
-		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
+		return nil, fmt.Errorf("model has no location; you need to set one.  E.g. 'West US'")
 	}
 	return cfg.Apply(envCfg.attrs)
 }

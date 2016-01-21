@@ -84,7 +84,7 @@ func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
 		isMachineZero = isMachineZero || (p.Scope == instance.MachineScope && p.Directive == "0")
 	}
 	if conf.Type() == provider.Local && isMachineZero {
-		return errors.New("machine 0 is the state server for a local environment and cannot host units")
+		return errors.New("machine 0 is the state server for a local model and cannot host units")
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ type addUnitCommand struct {
 }
 
 const addUnitDoc = `
-Adding units to an existing service is a way to scale out an environment by
+Adding units to an existing service is a way to scale out a model by
 deploying more instances of a service.  Add-unit must be called on services that
 have already been deployed via juju deploy.
 

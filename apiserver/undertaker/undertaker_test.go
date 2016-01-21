@@ -96,7 +96,7 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
 	err = env.Destroy()
@@ -115,7 +115,7 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
@@ -128,7 +128,7 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {

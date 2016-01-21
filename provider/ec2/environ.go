@@ -1263,7 +1263,7 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
@@ -1275,7 +1275,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
@@ -1287,7 +1287,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())

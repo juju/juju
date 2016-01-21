@@ -167,7 +167,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	expected = "fail"
 	annts[key] = expected
 	err = s.State.SetAnnotations(env, annts)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*environment not found.*")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*model not found.*")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 

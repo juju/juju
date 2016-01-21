@@ -104,7 +104,7 @@ func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 	err := s.usermanager.DisableUser(s.AdminUserTag(c).Name())
-	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable state server environment owner")
+	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable state server model owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {

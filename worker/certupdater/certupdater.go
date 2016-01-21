@@ -133,11 +133,11 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 	// Grab the env config and update a copy with ca cert private key.
 	envConfig, err := c.configGetter.EnvironConfig()
 	if err != nil {
-		return errors.Annotate(err, "cannot read environment config")
+		return errors.Annotate(err, "cannot read model config")
 	}
 	envConfig, err = envConfig.Apply(map[string]interface{}{"ca-private-key": caPrivateKey})
 	if err != nil {
-		return errors.Annotate(err, "cannot add CA private key to environment config")
+		return errors.Annotate(err, "cannot add CA private key to model config")
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"

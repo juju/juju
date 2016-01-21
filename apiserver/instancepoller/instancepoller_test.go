@@ -164,7 +164,7 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesFailure(c *gc.C) {
 	s.st.SetErrors(errors.Errorf("boom"))
 
 	result, err := s.api.WatchEnvironMachines()
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial environment machines: boom")
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered

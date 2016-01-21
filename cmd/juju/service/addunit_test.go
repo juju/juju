@@ -181,9 +181,9 @@ func (s *AddUnitSuite) TestNonLocalCanHostUnits(c *gc.C) {
 func (s *AddUnitSuite) TestLocalCannotHostUnits(c *gc.C) {
 	s.fake.envType = "local"
 	err := s.runAddUnit(c, "some-service-name", "--to", "0")
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local model and cannot host units")
 	err = s.runAddUnit(c, "some-service-name", "--to", "1,#:0")
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local model and cannot host units")
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {

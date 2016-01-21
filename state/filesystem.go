@@ -180,7 +180,7 @@ func (f *filesystem) validate() error {
 		switch tag.(type) {
 		case names.EnvironTag:
 			// TODO(axw) support binding to environment
-			return errors.NotSupportedf("binding to environment")
+			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.StorageTag:
 		default:

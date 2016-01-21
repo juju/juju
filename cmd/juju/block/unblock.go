@@ -30,8 +30,8 @@ type unblockCommand struct {
 var (
 	unblockDoc = `
 
-Juju allows to safeguard deployed environments from unintentional damage by preventing
-execution of operations that could alter environment.
+Juju allows to safeguard deployed models from unintentional damage by preventing
+execution of operations that could alter model.
 
 This is done by blocking certain commands from successful execution. Blocked commands
 must be manually unblocked to proceed.
@@ -83,13 +83,13 @@ all-changes includes all alteration commands
     enable-user
 
 Examples:
-   To allow the environment to be destroyed:
+   To allow the model to be destroyed:
    juju unblock destroy-model
 
    To allow the machines, services, units and relations to be removed:
    juju unblock remove-object
 
-   To allow changes to the environment:
+   To allow changes to the model:
    juju unblock all-changes
 
 See Also:
@@ -128,7 +128,7 @@ func (c *unblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
 		Args:    blockArgsFmt,
-		Purpose: "unblock an operation that would alter a running environment",
+		Purpose: "unblock an operation that would alter a running model",
 		Doc:     unblockDoc,
 	}
 }

@@ -35,7 +35,7 @@ func stateStepsFor126() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "upgrade environment config",
+			description: "upgrade model config",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				// TODO(axw) updateEnvironConfig should be

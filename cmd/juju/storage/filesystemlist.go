@@ -22,7 +22,7 @@ func newFilesystemListCommand() cmd.Command {
 }
 
 const filesystemListCommandDoc = `
-List filesystems in the environment.
+List filesystems in the model.
 
 options:
 -m, --model (= "")

@@ -39,16 +39,16 @@ type environmentsCommand struct {
 }
 
 var envsDoc = `
-List all the environments the user can access on the current controller.
+List all the models the user can access on the current controller.
 
-The environments listed here are either environments you have created
-yourself, or environments which have been shared with you.
+The models listed here are either models you have created
+yourself, or models which have been shared with you.
 
 See Also:
     juju help controllers
-    juju help environment users
-    juju help environment share
-    juju help environment unshare
+    juju help model users
+    juju help model share
+    juju help model unshare
 `
 
 // EnvironmentsEnvAPI defines the methods on the environment manager API that
@@ -69,7 +69,7 @@ type EnvironmentsSysAPI interface {
 func (c *environmentsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
-		Purpose: "list all environments the user can access on the current controller",
+		Purpose: "list all models the user can access on the current controller",
 		Doc:     envsDoc,
 	}
 }
@@ -97,9 +97,9 @@ func (c *environmentsCommand) getConnectionCredentials() (configstore.APICredent
 
 // SetFlags implements Command.SetFlags.
 func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "", "the user to list environments for (administrative users only)")
-	f.BoolVar(&c.all, "all", false, "show all environments  (administrative users only)")
-	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for environments")
+	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
+	f.BoolVar(&c.all, "all", false, "show all models  (administrative users only)")
+	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for models")
 	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -134,7 +134,7 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 		envs, err = c.getUserEnvironments()
 	}
 	if err != nil {
-		return errors.Annotate(err, "cannot list environments")
+		return errors.Annotate(err, "cannot list models")
 	}
 
 	output := make([]UserEnvironment, len(envs))
@@ -187,7 +187,7 @@ func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	fmt.Fprintf(tw, "NAME")
 	if c.listUUID {
-		fmt.Fprintf(tw, "\tENVIRONMENT UUID")
+		fmt.Fprintf(tw, "\tMODEL UUID")
 	}
 	fmt.Fprintf(tw, "\tOWNER\tLAST CONNECTION\n")
 	for _, env := range envs {

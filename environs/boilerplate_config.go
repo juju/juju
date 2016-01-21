@@ -15,23 +15,23 @@ import (
 
 var configHeader = `
 # This is the Juju config file, which you can use to specify multiple
-# environments in which to deploy. By default Juju ships with AWS
+# models in which to deploy. By default Juju ships with AWS
 # (default), HP Cloud, OpenStack, Azure, MaaS, Local and Manual
 # providers. See https://juju.ubuntu.com/docs for more information
 
-# An environment configuration must always specify at least the
+# A model configuration must always specify at least the
 # following information:
-# - name (to identify the environment)
+# - name (to identify the model)
 # - type (to specify the provider)
-# In the following example the name is "myenv" and type is "ec2".
-# myenv:
+# In the following example the name is "mymodel" and type is "ec2".
+# mymodel:
 #    type: ec2
 
 # Values in <brackets> below need to be filled in by the user.
 # Optional attributes are shown commented out, with
 # a sample value or a value in <brackets>.
 
-# There are several settings supported by all environments, all of which
+# There are several settings supported by all models, all of which
 # are optional and have specified default values. For more info, see the
 # Juju documentation.
 

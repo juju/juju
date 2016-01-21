@@ -304,7 +304,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-m", "brokenenv"},
-	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
+	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -330,13 +330,13 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
+	err:      `failed to bootstrap model: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
+	err:      `failed to bootstrap model: model "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -384,7 +384,7 @@ func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, newBootstrapCommand())
 
-	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
+	c.Check(err, gc.ErrorMatches, "the name of the model must be specified")
 }
 
 const provisionalEnvs = `
@@ -427,7 +427,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
@@ -465,13 +465,13 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := testing.HomePath(".juju", "environments", "cache.yaml")
+	jenvFile := testing.HomePath(".juju", "models", "cache.yaml")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The second bootstrap should fail b/c of the propogated error
 	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName)
-	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
+	c.Assert(err, gc.ErrorMatches, "there was an issue examining the model: .*")
 }
 
 func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
@@ -584,7 +584,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "--metadata-source", c.MkDir())
-	c.Check(err, gc.ErrorMatches, `failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*`)
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
@@ -733,7 +733,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand())
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -741,7 +741,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, newBootstrapCommand())
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
@@ -755,11 +755,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv")
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-Bootstrapping environment "devenv"
+Bootstrapping model "devenv"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
 `[1:], arch.HostArch()))
-	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -769,7 +769,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 
 		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv")
 		err := <-errc
-		c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
 		var opDestroy *dummy.OpDestroy
 		for opDestroy == nil {
 			select {
@@ -794,7 +794,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 
 		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--keep-broken")
 		err := <-errc
-		c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
 		done := false
 		for !done {
 			select {
@@ -829,7 +829,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C, envName string) environs.Environ {
-	jenvDir := testing.HomePath(".juju", "environments")
+	jenvDir := testing.HomePath(".juju", "models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 	coretesting.WriteEnvironments(c, envConfig)

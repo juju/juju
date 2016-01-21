@@ -104,9 +104,9 @@ func (env *azureEnviron) Bootstrap(
 
 	result, err := common.Bootstrap(ctx, env, args)
 	if err != nil {
-		logger.Errorf("bootstrap failed, destroying environment: %v", err)
+		logger.Errorf("bootstrap failed, destroying model: %v", err)
 		if err := env.Destroy(); err != nil {
-			logger.Errorf("failed to destroy environment: %v", err)
+			logger.Errorf("failed to destroy model: %v", err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1046,7 +1046,7 @@ func (env *azureEnviron) allInstances(
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
-	logger.Debugf("destroying environment %q", env.envName)
+	logger.Debugf("destroying model %q", env.envName)
 	logger.Debugf("- deleting resource group")
 	if err := env.deleteResourceGroup(); err != nil {
 		return errors.Trace(err)

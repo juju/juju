@@ -106,32 +106,32 @@ var tests = []struct {
 		tools:       v180all,
 	},
 	{
-		description: "copy newest from the dummy environment",
+		description: "copy newest from the dummy model",
 		ctx:         &sync.SyncContext{},
 		tools:       v180all,
 	},
 	{
-		description: "copy matching dev from the dummy environment",
+		description: "copy matching dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		version:     version.MustParse("1.9.3"),
 		tools:       v190all,
 	},
 	{
-		description: "copy matching major, minor from the dummy environment",
+		description: "copy matching major, minor from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       2,
 		tools:       []version.Binary{v320p64},
 	},
 	{
-		description: "copy matching major, minor dev from the dummy environment",
+		description: "copy matching major, minor dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       1,
 		tools:       []version.Binary{v310p64},
 	},
 	{
-		description: "copy all from the dummy environment",
+		description: "copy all from the dummy model",
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},

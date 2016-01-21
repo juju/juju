@@ -26,7 +26,7 @@ type Client struct {
 func NewClient(caller base.APICallCloser) *Client {
 	environTag, err := caller.EnvironTag()
 	if err != nil {
-		logger.Errorf("ignoring invalid environment tag: %v", err)
+		logger.Errorf("ignoring invalid model tag: %v", err)
 	}
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
 	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}

@@ -108,7 +108,7 @@ func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
 	context := s.run(c, "create-model", "new-env", "authorized-keys=fake-key", "state-server=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-created environment "new-env"
+created model "new-env"
 dummyenv (controller) -> new-env
 `[1:])
 

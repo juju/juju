@@ -136,7 +136,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `error: .*environment has no access-key or secret-key`)
+	c.Check(strippedOut, gc.Matches, `error: .*model has no access-key or secret-key`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {

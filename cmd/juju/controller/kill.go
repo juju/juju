@@ -21,12 +21,12 @@ import (
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller environment and all
-hosted environments and their resources.
+this command will attempt to destroy the controller model and all
+hosted models and their resources.
 
-If the API server is unreachable, the machines of the controller environment
+If the API server is unreachable, the machines of the controller model
 will be destroyed through the cloud provisioner.  If there are additional
-machines, including machines within hosted environments, these machines will
+machines, including machines within hosted models, these machines will
 not be destroyed and will never be reconnected to the Juju controller being
 destroyed. 
 `
@@ -98,7 +98,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.EnvName())
 	}
 
 	if !c.assumeYes {
@@ -159,7 +159,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
 	return environs.Destroy(controllerEnviron, store)
 }

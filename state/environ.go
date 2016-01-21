@@ -126,22 +126,22 @@ func (st *State) AllEnvironments() ([]*Environment, error) {
 func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Environment, _ *State, err error) {
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
-			return nil, nil, errors.Annotate(err, "cannot create environment")
+			return nil, nil, errors.Annotate(err, "cannot create model")
 		}
 	}
 
 	ssEnv, err := st.ControllerEnvironment()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load state server environment")
+		return nil, nil, errors.Annotate(err, "could not load state server model")
 	}
 
 	uuid, ok := cfg.UUID()
 	if !ok {
-		return nil, nil, errors.Errorf("environment uuid was not supplied")
+		return nil, nil, errors.Errorf("model uuid was not supplied")
 	}
 	newState, err := st.ForEnviron(names.NewEnvironTag(uuid))
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not create state for new environment")
+		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
 	defer func() {
 		if err != nil {
@@ -151,7 +151,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 
 	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to create new environment")
+		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
 	err = newState.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -169,9 +169,9 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if envCount > 0 {
-			err = errors.AlreadyExistsf("environment %q for %s", cfg.Name(), owner.Canonical())
+			err = errors.AlreadyExistsf("model %q for %s", cfg.Name(), owner.Canonical())
 		} else {
-			err = errors.New("environment already exists")
+			err = errors.New("model already exists")
 		}
 	}
 	if err != nil {
@@ -311,7 +311,7 @@ func (e *Environment) Refresh() error {
 func (e *Environment) refresh(query *mgo.Query) error {
 	err := query.One(&e.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("environment")
+		return errors.NotFoundf("model")
 	}
 	return err
 }
@@ -319,7 +319,7 @@ func (e *Environment) refresh(query *mgo.Query) error {
 // Users returns a slice of all users for this environment.
 func (e *Environment) Users() ([]*EnvironmentUser, error) {
 	if e.st.EnvironUUID() != e.UUID() {
-		return nil, errors.New("cannot lookup environment users outside the current environment")
+		return nil, errors.New("cannot lookup model users outside the current model")
 	}
 	coll, closer := e.st.getCollection(envUsersC)
 	defer closer()
@@ -355,7 +355,7 @@ func (e *Environment) DestroyIncludingHosted() error {
 }
 
 func (e *Environment) destroy(destroyHostedEnvirons bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
+	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 
@@ -393,12 +393,12 @@ func (e *Environment) destroy(destroyHostedEnvirons bool) (err error) {
 
 // errEnvironNotAlive is a signal emitted from destroyOps to indicate
 // that environment destruction is already underway.
-var errEnvironNotAlive = errors.New("environment is no longer alive")
+var errEnvironNotAlive = errors.New("model is no longer alive")
 
 type hasHostedEnvironsError int
 
 func (e hasHostedEnvironsError) Error() string {
-	return fmt.Sprintf("hosting %d other environments", e)
+	return fmt.Sprintf("hosting %d other models", e)
 }
 
 func IsHasHostedEnvironsError(err error) bool {
@@ -620,9 +620,9 @@ var isEnvAliveDoc = bson.D{
 func checkEnvLife(st *State) error {
 	env, err := st.Environment()
 	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-		return errors.New("environment is no longer alive")
+		return errors.New("model is no longer alive")
 	} else if err != nil {
-		return errors.Annotate(err, "unable to read environment")
+		return errors.Annotate(err, "unable to read model")
 	}
 	return nil
 }

@@ -1268,7 +1268,7 @@ func (env *azureEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
-	logger.Debugf("destroying environment %q", env.Config().Name())
+	logger.Debugf("destroying model %q", env.Config().Name())
 
 	// Stop all instances.
 	if err := env.destroyAllServices(); err != nil {
@@ -1281,10 +1281,10 @@ func (env *azureEnviron) Destroy() error {
 	// VMs), so we only treat this as a warning. There is no cost
 	// associated with a vnet or affinity group.
 	if err := env.deleteVirtualNetwork(); err != nil {
-		logger.Warningf("cannot delete the environment's virtual network: %v", err)
+		logger.Warningf("cannot delete the model's virtual network: %v", err)
 	}
 	if err := env.deleteAffinityGroup(); err != nil {
-		logger.Warningf("cannot delete the environment's affinity group: %v", err)
+		logger.Warningf("cannot delete the model's affinity group: %v", err)
 	}
 
 	// Delete storage.
@@ -1369,7 +1369,7 @@ func (env *azureEnviron) updateStorageAccountKey(snapshot *azureEnviron) (string
 		// anyway.  Otherwise, it might be worth returning the key
 		// just in case it still works, and proceed without updating
 		// env.storageAccountKey.
-		return "", fmt.Errorf("environment was reconfigured")
+		return "", fmt.Errorf("model was reconfigured")
 	}
 
 	// Write back changes.

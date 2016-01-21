@@ -39,7 +39,7 @@ func (m *mockClient) mockCall(call string) {
 func (m *mockClient) ProcessDyingEnviron() error {
 	defer m.mockCall("ProcessDyingEnviron")
 	if m.mockEnviron.HasMachinesAndServices {
-		return errors.Errorf("found documents for environment with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
+		return errors.Errorf("found documents for model with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
 	}
 	m.mockEnviron.Life = state.Dead
 	t := time.Now()

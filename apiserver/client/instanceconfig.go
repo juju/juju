@@ -43,7 +43,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	// Find the appropriate tools information.
 	agentVersion, ok := environConfig.AgentVersion()
 	if !ok {
-		return nil, errors.New("no agent version set in environment configuration")
+		return nil, errors.New("no agent version set in model configuration")
 	}
 	environment, err := st.Environment()
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 // absense of any explicit username being defined in the config store.
 var DefaultAdminUsername = "admin"
 
-var ErrEnvironInfoAlreadyExists = errors.New("environment info already exists")
+var ErrEnvironInfoAlreadyExists = errors.New("model info already exists")
 
 // APIEndpoint holds information about an API endpoint.
 type APIEndpoint struct {

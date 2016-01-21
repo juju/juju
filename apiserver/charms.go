@@ -448,7 +448,7 @@ func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArc
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
 		defer cleanupFile(tempCharmArchive)
-		return errors.Annotate(err, "cannot get charm from environment storage")
+		return errors.Annotate(err, "cannot get charm from model storage")
 	}
 	defer reader.Close()
 

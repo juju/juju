@@ -45,7 +45,7 @@ func (s *UnsetSuite) TestUnsettingKnownValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.keys, jc.DeepEquals, []string{"unknown"})
 	// Command succeeds, but warning logged.
-	expected := `key "unknown" is not defined in the current environment configuration: possible misspelling`
+	expected := `key "unknown" is not defined in the current model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
 }
 

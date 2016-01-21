@@ -61,7 +61,7 @@ type imageMetadataCommand struct {
 var imageMetadataDoc = `
 generate-image creates simplestreams image metadata for the specified cloud.
 
-The cloud specification comes from the current Juju environment, as specified in
+The cloud specification comes from the current Juju model, as specified in
 the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
 
 Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
@@ -95,7 +95,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
 		if environ, err = c.prepare(context, store); err == nil {
-			logger.Infof("creating image metadata for environment %q", environ.Config().Name())
+			logger.Infof("creating image metadata for model %q", environ.Config().Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
 				var cloudSpec simplestreams.CloudSpec
@@ -104,7 +104,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 						return err
 					}
 				} else {
-					return errors.Errorf("environment %q cannot provide region and endpoint", environ.Config().Name())
+					return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
 				}
 				// If only one of region or endpoint is provided, that is a problem.
 				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
@@ -125,11 +125,11 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 				c.privateStorage = v.(string)
 			}
 		} else {
-			logger.Warningf("environment could not be opened: %v", err)
+			logger.Warningf("model could not be opened: %v", err)
 		}
 	}
 	if environ == nil {
-		logger.Infof("no environment found, creating image metadata using user supplied data")
+		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
 		c.Series = config.LatestLtsSeries()

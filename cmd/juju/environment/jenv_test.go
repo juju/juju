@@ -37,7 +37,7 @@ var jenvInitErrorsTests = []struct {
 }, {
 	about: "invalid env name",
 	args:  []string{"path/to/jenv", "invalid/name"},
-	err:   `invalid environment name "invalid/name"`,
+	err:   `invalid model name "invalid/name"`,
 }, {
 	about: "too many args",
 	args:  []string{"path/to/jenv", "env-name", "unexpected"},
@@ -148,7 +148,7 @@ func (*jenvSuite) TestWriteError(c *gc.C) {
 	defer f.Close()
 
 	// Create the environments dir without write permissions.
-	envsDir := gitjujutesting.HomePath(".juju", "environments")
+	envsDir := gitjujutesting.HomePath(".juju", "models")
 	err := os.Mkdir(envsDir, 0500)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,7 +169,7 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot switch when JUJU_MODEL is overriding the environment \(set to "ec2"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new model "testing": cannot switch when JUJU_MODEL is overriding the model \(set to "ec2"\)`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
@@ -188,7 +188,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot get the default environment: .*: permission denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new model "testing": cannot get the default model: .*: permission denied`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
@@ -210,7 +210,7 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": unable to write to the environment file: .*: permission denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new model "testing": unable to write to the model file: .*: permission denied`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
@@ -239,7 +239,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	// error.
 	jenvCmd = &environment.JenvCommand{}
 	ctx, err = testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `an environment named "testing" already exists: you can provide a second parameter to rename the environment`)
+	c.Assert(err, gc.ErrorMatches, `an model named "testing" already exists: you can provide a second parameter to rename the model`)
 
 	// Overriding the environment name solves the problem.
 	jenvCmd = &environment.JenvCommand{}
@@ -330,7 +330,7 @@ func makeValidJenvContents() []byte {
 // assertJenvContents checks that the jenv file corresponding to the given
 // envName is correctly present in the Juju Home and has the given contents.
 func assertJenvContents(c *gc.C, contents []byte, envName string) {
-	path := gitjujutesting.HomePath(".juju", "environments", envName+".jenv")
+	path := gitjujutesting.HomePath(".juju", "models", envName+".jenv")
 	// Ensure the jenv file has been created.
 	c.Assert(path, jc.IsNonEmptyFile)
 

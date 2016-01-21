@@ -17,9 +17,9 @@ changes to the world.
 Whenever a hook-worthy event takes place, the unit agent tries to run the hook
 with the appropriate name. If the hook doesn't exist, the agent continues
 without complaint; if it does, it is invoked without arguments in a specific
-environment, and its output is written to the unit agent's log. If it returns
+model, and its output is written to the unit agent's log. If it returns
 a non-zero exit code, the agent enters an error state and awaits resolution;
-otherwise it continues to process environment changes as before.
+otherwise it continues to process model changes as before.
 
 In general, a unit will run hooks in a clear sequence, about which a number of
 useful guarantees are made. All such guarantees come with the caveat that there
@@ -84,17 +84,17 @@ time (well, it'd block until no other hook were running, but still). Probably
 isn't even that hard but it's still rolling around my brain, might either click
 soon or be overridden by higher priorities and be left for ages. I'm less sure,
 but have a suspicion, that `juju ssh <unit>` should also default to a juju-run
-environment: primarily because, without this, in the context of forced upgrades,
+model: primarily because, without this, in the context of forced upgrades,
 the system cannot offer *any* guarantees about what it might suddenly do to the
 charm directory while the user's doing things with it. The alternative is to
 allow unguarded ssh, but tell people that they have to use something like
 `juju-run --interactive` before they modify the charm dir; this feels somewhat
 user-hostile, though.]
 
-Execution environment
+Execution model
 ---------------------
 
-Every hook is run in the deployed charm directory, in an environment with the
+Every hook is run in the deployed charm directory, in a model with the
 following characteristics:
 
   * $PATH is prefixed by a directory containing command line tools through
@@ -196,7 +196,7 @@ Relation hooks
 --------------
 
 For each charm relation, any or all of the 4 relation hooks can be implemented.
-Relation hooks operate in an environment slightly different to that of unit
+Relation hooks operate in a model slightly different to that of unit
 hooks, in the following ways:
 
   * JUJU_RELATION is set to the name of the charm relation. This is of limited
@@ -213,7 +213,7 @@ hooks, in the following ways:
     relation. The default can of course be overridden as usual.
 
 Furthermore, all relation hooks except relation-broken are notifications about
-some specific unit of a related service, and operate in an environment with the
+some specific unit of a related service, and operate in a model with the
 following additional properties:
 
   * JUJU_REMOTE_UNIT is set to the name of the current related unit.

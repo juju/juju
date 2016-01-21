@@ -27,7 +27,7 @@ type setCommand struct {
 }
 
 const setEnvHelpDoc = `
-Updates the environment of a running Juju instance.  Multiple key/value pairs
+Updates the model of a running Juju instance.  Multiple key/value pairs
 can be passed on as command line arguments.
 `
 
@@ -91,7 +91,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %q is not defined in the current environment configuration: possible misspelling", key)
+			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
 		}
 
 	}

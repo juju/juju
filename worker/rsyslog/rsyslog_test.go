@@ -91,7 +91,7 @@ func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 	c.Assert(subject.Organization, gc.DeepEquals, []string{"juju"})
 
 	issuer := cert.Issuer
-	c.Assert(issuer.CommonName, gc.Equals, "juju-generated CA for environment \"rsyslog\"")
+	c.Assert(issuer.CommonName, gc.Equals, "juju-generated CA for model \"rsyslog\"")
 	c.Assert(issuer.Organization, gc.DeepEquals, []string{"juju"})
 }
 

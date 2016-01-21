@@ -41,7 +41,7 @@ Restores a backup that was previously created with "juju backup" and
 "juju backups create".
 
 This command creates a new state server and arranges for it to replace
-the previous state server for an environment.  It does *not* restore
+the previous state server for a model.  It does *not* restore
 an existing server to a previous state, but instead creates a new server
 with equivalent state.  As part of restore, all known instances are
 configured to treat the new state server as their master.
@@ -67,7 +67,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
-		"constraints", "set environment constraints")
+		"constraints", "set model constraints")
 
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
@@ -161,7 +161,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "cannot determine state server instances")
 	}
 	if len(instanceIds) == 0 {
-		return errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
+		return errors.Errorf("no instances found; perhaps the model was not bootstrapped")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {

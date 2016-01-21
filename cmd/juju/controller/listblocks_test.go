@@ -77,16 +77,16 @@ func (s *ListBlocksSuite) TestListBlocksError(c *gc.C) {
 	s.api.err = errors.New("unexpected api error")
 	s.runListBlocksCommand(c)
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "Unable to list blocked environments: unexpected api error")
+	c.Check(testLog, jc.Contains, "Unable to list blocked models: unexpected api error")
 }
 
 func (s *ListBlocksSuite) TestListBlocksTabular(c *gc.C) {
 	ctx, err := s.runListBlocksCommand(c)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(ctx), gc.Equals, ""+
-		"NAME   ENVIRONMENT UUID  OWNER         BLOCKS\n"+
-		"test1  test1-uuid        cheryl@local  destroy-model\n"+
-		"test2  test2-uuid        bob@local     destroy-model,all-changes\n"+
+		"NAME   MODEL UUID  OWNER         BLOCKS\n"+
+		"test1  test1-uuid  cheryl@local  destroy-model\n"+
+		"test2  test2-uuid  bob@local     destroy-model,all-changes\n"+
 		"\n")
 }
 

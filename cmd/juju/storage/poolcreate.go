@@ -36,7 +36,7 @@ where storage can be requested (e.g. EBS in amazon).
 Creating pools there maps provider specific settings
 into named resources that can be used during deployment.
 
-Pools defined at the environment level are easily reused across services.
+Pools defined at the model level are easily reused across services.
 
 options:
     -m, --model (= "")

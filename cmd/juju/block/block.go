@@ -68,10 +68,10 @@ type destroyCommand struct {
 
 var destroyBlockDoc = `
 
-This command allows to block environment destruction. 
+This command allows to block model destruction.
 
 To disable the block, run unblock command - see "juju help unblock". 
-To by-pass the block, run destroy-enviornment with --force option.
+To by-pass the block, run destroy-model with --force option.
 
 "juju block destroy-model" only blocks destroy-model command.
    
@@ -108,7 +108,7 @@ type removeCommand struct {
 var removeBlockDoc = `
 
 This command allows to block all operations that would remove an object 
-from Juju environment.
+from Juju model.
 
 To disable the block, run unblock command - see "juju help unblock". 
 To by-pass the block, where available, run desired remove command with --force option.
@@ -153,7 +153,7 @@ type changeCommand struct {
 var changeBlockDoc = `
 
 This command allows to block all operations that would alter
-Juju environment.
+Juju model.
 
 To disable the block, run unblock command - see "juju help unblock". 
 To by-pass the block, where available, run desired remove command with --force option.
@@ -191,7 +191,7 @@ To by-pass the block, where available, run desired remove command with --force o
     enable-user
    
 Examples:
-   To prevent changes to the environment:
+   To prevent changes to the model:
    juju block all-changes
 
 `
@@ -201,7 +201,7 @@ Examples:
 func (c *changeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "all-changes",
-		Purpose: "block operations that could change Juju environment",
+		Purpose: "block operations that could change Juju model",
 		Doc:     changeBlockDoc,
 	}
 }

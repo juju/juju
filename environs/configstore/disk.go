@@ -96,7 +96,7 @@ func NewDisk(dir string) (Storage, error) {
 		return nil, err
 	}
 	d := &diskStore{
-		dir: filepath.Join(dir, "environments"),
+		dir: filepath.Join(dir, "models"),
 	}
 	if err := d.mkEnvironmentsDir(); err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	if info.source != sourceCreated {
-		panic("bootstrap config set on environment info that has not just been created")
+		panic("bootstrap config set on model info that has not just been created")
 	}
 	info.bootstrapConfig = attrs
 }
@@ -361,7 +361,7 @@ func (info *environInfo) Destroy() error {
 	defer info.mu.Unlock()
 	lock, err := acquireEnvironmentLock(info.environmentDir, "destroying")
 	if err != nil {
-		return errors.Annotatef(err, "cannot destroy environment info")
+		return errors.Annotatef(err, "cannot destroy model info")
 	}
 	defer unlockEnvironmentLock(lock)
 
@@ -369,7 +369,7 @@ func (info *environInfo) Destroy() error {
 		if info.source == sourceJenv {
 			err := os.Remove(info.path)
 			if os.IsNotExist(err) {
-				return errors.New("environment info has already been removed")
+				return errors.New("model info has already been removed")
 			}
 			return err
 		}
@@ -387,7 +387,7 @@ func (info *environInfo) Destroy() error {
 			}
 			return nil
 		}
-		return errors.Errorf("unknown source %q for environment info", info.source)
+		return errors.Errorf("unknown source %q for model info", info.source)
 	}
 	return nil
 }
@@ -403,7 +403,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("environment %q", envName)
+			return nil, errors.NotFoundf("model %q", envName)
 		}
 		return nil, err
 	}
@@ -458,7 +458,7 @@ func (info *environInfo) writeJENVFile() error {
 
 	data, err := goyaml.Marshal(infoData)
 	if err != nil {
-		return errors.Annotate(err, "cannot marshal environment info")
+		return errors.Annotate(err, "cannot marshal model info")
 	}
 	// We now use a fslock to sync reads and writes across the environment,
 	// so we don't need to use a temporary file any more.

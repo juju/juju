@@ -81,7 +81,7 @@ func stateServersChanges(change state.StateServersChanges) params.StateServersCh
 // Exported so it can be called by the legacy client API in the client package.
 func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (params.StateServersChanges, error) {
 	if !st.IsStateServer() {
-		return params.StateServersChanges{}, errors.New("unsupported with hosted environments")
+		return params.StateServersChanges{}, errors.New("unsupported with hosted models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
@@ -92,7 +92,7 @@ func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (pa
 	if spec.EnvironTag != "" {
 		tag, err := names.ParseEnvironTag(spec.EnvironTag)
 		if err != nil {
-			return params.StateServersChanges{}, errors.Errorf("invalid environment tag: %v", err)
+			return params.StateServersChanges{}, errors.Errorf("invalid model tag: %v", err)
 		}
 		if _, err := st.FindEntity(tag); err != nil {
 			return params.StateServersChanges{}, err

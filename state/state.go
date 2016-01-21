@@ -267,7 +267,7 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	}
 
 	if len(found) != 0 {
-		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
+		errMessage := fmt.Sprintf("found documents for model with uuid %s:", st.EnvironUUID())
 		sort.Strings(foundOrdered)
 		for _, name := range foundOrdered {
 			number := found[name]
@@ -358,7 +358,7 @@ type versionInconsistentError struct {
 
 func (e *versionInconsistentError) Error() string {
 	sort.Strings(e.agents)
-	return fmt.Sprintf("some agents have not upgraded to the current environment version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
+	return fmt.Sprintf("some agents have not upgraded to the current model version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
 }
 
 // newVersionInconsistentError returns a new instance of
@@ -435,7 +435,7 @@ func IsUpgradeInProgressError(err error) bool {
 // cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
-		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
 			version.Current,
 		)
@@ -448,7 +448,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
-			return nil, errors.Errorf("no agent version set in the environment")
+			return nil, errors.Errorf("no agent version set in the model")
 		}
 		currentVersion, ok := agentVersion.(string)
 		if !ok {
@@ -569,7 +569,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
-			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -707,18 +707,18 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		// the current one.
 		if id != env.UUID() {
 			if utils.IsValidUUIDString(id) {
-				return nil, errors.NotFoundf("environment %q", id)
+				return nil, errors.NotFoundf("model %q", id)
 			}
 			// TODO(axw) 2013-12-04 #1257587
 			// We should not accept environment tags that do not match the
 			// environment's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
-			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, env.UUID())
 			conf, err := st.EnvironConfig()
 			if err != nil {
 				logger.Warningf("EnvironConfig failed: %v", err)
 			} else if id != conf.Name() {
-				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
 			}
 		}
 		return env, nil
@@ -1133,7 +1133,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, errors.Errorf("environment is no longer alive")
+		return nil, errors.Errorf("model is no longer alive")
 	}
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
@@ -1460,7 +1460,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	case instance.MachineScope:
 		return &placementData{machineId: placement.Directive}, nil
 	default:
-		return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+		return nil, errors.Errorf("invalid model UUID %q", placement.Scope)
 	}
 }
 
@@ -2207,7 +2207,7 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 	}
 
 	if doc.EnvUUID == "" {
-		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+		logger.Warningf("state servers info has no model UUID so retrieving it from model")
 
 		// This only happens when migrating from 1.20 to 1.21 before
 		// upgrade steps have been run. Without this hack environTag
@@ -2219,13 +2219,13 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 		query := environments.Find(nil)
 		count, err := query.Count()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment document count")
+			return nil, errors.Annotate(err, "cannot get model document count")
 		}
 		if count != 1 {
-			return nil, errors.New("expected just one environment to get UUID from")
+			return nil, errors.New("expected just one model to get UUID from")
 		}
 		if err := query.One(&envDoc); err != nil {
-			return nil, errors.Annotate(err, "cannot load environment document")
+			return nil, errors.Annotate(err, "cannot load model document")
 		}
 		doc.EnvUUID = envDoc.UUID
 	}

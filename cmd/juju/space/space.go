@@ -89,7 +89,7 @@ Initially, there is one space (named "default") which always exists
 and "contains" all subnets not associated with another space. However,
 since the spaces are defined on the cloud substrate (e.g. using tags
 in EC2), there could be pre-existing spaces that get discovered after
-bootstrapping a new environment using shared credentials (multiple
+bootstrapping a new model using shared credentials (multiple
 users or roles, same substrate). `
 
 // NewSuperCommand creates the "space" supercommand and registers the

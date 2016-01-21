@@ -28,8 +28,8 @@ const (
 	cleanupAttachmentsForDyingStorage     cleanupKind = "storageAttachments"
 	cleanupAttachmentsForDyingVolume      cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem  cleanupKind = "filesystemAttachments"
-	cleanupEnvironmentsForDyingController cleanupKind = "environments"
-	cleanupMachinesForDyingEnvironment    cleanupKind = "environmentMachines"
+	cleanupEnvironmentsForDyingController cleanupKind = "models"
+	cleanupMachinesForDyingEnvironment    cleanupKind = "modelMachines"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be

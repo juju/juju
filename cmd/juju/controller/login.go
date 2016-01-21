@@ -48,7 +48,7 @@ type loginCommand struct {
 
 var loginDoc = `
 login connects to a juju controller and caches the information that juju
-needs to connect to the api server in the $(JUJU_HOME)/environments directory.
+needs to connect to the api server in the $(JUJU_HOME)/models directory.
 
 In order to login to a controller, you need to have a user already created for you
 in that controller. The way that this occurs is for an existing user on the controller

@@ -245,11 +245,11 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {

@@ -308,7 +308,7 @@ mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --environ-constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --service-constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -328,7 +328,7 @@ curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --environ-constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --service-constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
@@ -429,7 +429,7 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --environ-constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --service-constraints 'mem=2048M' --debug
 `,
 	},
 
@@ -631,7 +631,7 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	}
 	expected := "jujud bootstrap-state --data-dir '.*' --model-config '.*'" +
 		" --instance-id '.*' --bootstrap-constraints 'mem=4096M'" +
-		" --environ-constraints 'mem=2048M' --show-log"
+		" --service-constraints 'mem=2048M' --show-log"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
@@ -799,7 +799,7 @@ var verifyTests = []struct {
 	{"invalid machine id", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"missing environment configuration", func(cfg *instancecfg.InstanceConfig) {
+	{"missing model configuration", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Config = nil
 	}},
 	{"missing state info", func(cfg *instancecfg.InstanceConfig) {
@@ -808,7 +808,7 @@ var verifyTests = []struct {
 	{"missing API info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = nil
 	}},
-	{"missing environment tag", func(cfg *instancecfg.InstanceConfig) {
+	{"missing model tag", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    names.NewMachineTag("99"),

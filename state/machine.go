@@ -451,7 +451,7 @@ func (m *Machine) ForceDestroy() error {
 	return nil
 }
 
-var managerMachineError = errors.New("machine is required by the environment")
+var managerMachineError = errors.New("machine is required by the model")
 
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
@@ -640,7 +640,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			// (NOTE: When we enable multiple JobManageEnviron machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
-			return nil, fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
 		}
 		if m.doc.HasVote {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)

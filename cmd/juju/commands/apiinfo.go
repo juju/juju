@@ -34,7 +34,7 @@ type apiInfoCommand struct {
 }
 
 const apiInfoDoc = `
-Print the field values used to connect to the environment's API servers"
+Print the field values used to connect to the model's API servers"
 
 The exact fields to output can be specified on the command line.  The
 available fields are:
@@ -75,7 +75,7 @@ func (c *apiInfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-info",
 		Args:    "[field ...]",
-		Purpose: "print the field values used to connect to the environment's API servers",
+		Purpose: "print the field values used to connect to the model's API servers",
 		Doc:     apiInfoDoc,
 	}
 }

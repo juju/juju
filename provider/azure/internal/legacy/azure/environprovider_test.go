@@ -42,7 +42,7 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	// environs.Environ interface object with a nil value and a nil
 	// type.
 	c.Check(env, gc.Equals, nil)
-	c.Check(err, gc.ErrorMatches, ".*environment has no location; you need to set one.*")
+	c.Check(err, gc.ErrorMatches, ".*model has no location; you need to set one.*")
 }
 
 func (*environProviderSuite) TestPrepareSetsAvailabilitySets(c *gc.C) {

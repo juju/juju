@@ -62,7 +62,7 @@ const (
 	jujuMetaInstanceStateServer = "state-server"
 	jujuMetaInstanceServer      = "server"
 
-	jujuMetaEnvironment = "juju-environment"
+	jujuMetaEnvironment = "juju-model"
 	jujuMetaCoudInit    = "cloudinit-user-data"
 	jujuMetaBase64      = "base64_fields"
 )

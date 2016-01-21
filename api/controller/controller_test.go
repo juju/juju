@@ -78,7 +78,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, "controller environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(err, gc.ErrorMatches, "controller model cannot be destroyed before all other models are destroyed")
 }
 
 func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {

@@ -74,7 +74,7 @@ func envVersionUpdate(env *state.Environment, ver version.Number) error {
 func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVersionUpdater) error {
 	env, err := st.Environment()
 	if err != nil {
-		return errors.Annotate(err, "cannot get environment")
+		return errors.Annotate(err, "cannot get model")
 	}
 	cfg, err := envConfig(env)
 	if err != nil {

@@ -216,7 +216,7 @@ func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
-	expect := fmt.Sprintf("machine is required by the environment")
+	expect := fmt.Sprintf("machine is required by the model")
 	c.Assert(err, gc.ErrorMatches, expect)
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)

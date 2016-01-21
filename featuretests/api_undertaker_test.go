@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	c.Assert(undertakerClient, gc.NotNil)
 
 	err := undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,14 +69,14 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
 	err = undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, `environment not empty, found 1 machine\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
 }
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
-	c.Assert(undertakerClient.RemoveEnviron(), gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(undertakerClient.RemoveEnviron(), gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	defer otherSt.Close()
 
 	err := undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	env, err := otherSt.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,7 +143,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	// Aborts on alive environ.
 	err := undertakerClient.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
 	env, err := otherSt.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	// Aborts on dying environ.
 	err = undertakerClient.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
 	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
 

@@ -20,7 +20,7 @@ import (
 
 var backupsDoc = `
 "juju backups" is used to manage backups of the state of a juju controller.
-Backups are only supported on juju controllers, not hosted environments.  For
+Backups are only supported on juju controllers, not hosted models.  For
 more information on juju controllers, see:
 
     juju help juju-controllers
@@ -107,7 +107,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
-	fmt.Fprintf(ctx.Stdout, "environment ID:  %q\n", result.Environment)
+	fmt.Fprintf(ctx.Stdout, "model ID:        %q\n", result.Environment)
 	fmt.Fprintf(ctx.Stdout, "machine ID:      %q\n", result.Machine)
 	fmt.Fprintf(ctx.Stdout, "created on host: %q\n", result.Hostname)
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)

@@ -27,7 +27,7 @@ type removeCommand struct {
 }
 
 const destroyMachineDoc = `
-Machines that are responsible for the environment cannot be removed. Machines
+Machines that are responsible for the model cannot be removed. Machines
 running units or containers can only be removed with the --force flag; doing
 so will also remove all those units and containers without giving them any
 opportunity to shut down cleanly.
@@ -44,7 +44,7 @@ func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove",
 		Args:    "<machine> ...",
-		Purpose: "remove machines from the environment",
+		Purpose: "remove machines from the model",
 		Doc:     destroyMachineDoc,
 	}
 }

@@ -333,7 +333,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		return errors.New("missing API info")
 	}
 	if cfg.APIInfo.EnvironTag.Id() == "" {
-		return errors.New("missing environment tag")
+		return errors.New("missing model tag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
@@ -343,7 +343,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.Bootstrap {
 		if cfg.Config == nil {
-			return errors.New("missing environment configuration")
+			return errors.New("missing model configuration")
 		}
 		if cfg.MongoInfo.Tag != nil {
 			return errors.New("entity tag must be nil when starting a state server")
@@ -493,7 +493,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	enableOSUpgrade bool,
 ) error {
 	if authorizedKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+		return fmt.Errorf("model configuration has no authorized-keys")
 	}
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -557,16 +557,16 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return errors.New("environment configuration has no ca-cert")
+		return errors.New("model configuration has no ca-cert")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
-		return errors.New("environment configuration has no admin-secret")
+		return errors.New("model configuration has no admin-secret")
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	envUUID, uuidSet := cfg.UUID()
 	if !uuidSet {
-		return errors.New("config missing environment uuid")
+		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
 		Password:   passwordHash,
@@ -585,7 +585,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
 	if !hasCAPrivateKey {
-		return errors.New("environment configuration has no ca-private-key")
+		return errors.New("model configuration has no ca-private-key")
 	}
 	srvInfo := params.StateServingInfo{
 		StatePort:    cfg.StatePort(),
@@ -628,7 +628,7 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
+		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
 }

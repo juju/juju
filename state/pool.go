@@ -44,7 +44,7 @@ func (p *StatePool) Get(envUUID string) (*State, error) {
 
 	st, err := p.systemState.ForEnviron(names.NewEnvironTag(envUUID))
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create state for environment %v", envUUID)
+		return nil, errors.Annotatef(err, "failed to create state for model %v", envUUID)
 	}
 	p.pool[envUUID] = st
 	return st, nil

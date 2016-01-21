@@ -80,30 +80,30 @@ func (s *createSuite) TestInit(c *gc.C) {
 		values map[string]string
 	}{
 		{
-			err: "environment name is required",
+			err: "model name is required",
 		}, {
-			args: []string{"new-env"},
-			name: "new-env",
+			args: []string{"new-model"},
+			name: "new-model",
 		}, {
-			args:  []string{"new-env", "--owner", "foo"},
-			name:  "new-env",
+			args:  []string{"new-model", "--owner", "foo"},
+			name:  "new-model",
 			owner: "foo",
 		}, {
-			args: []string{"new-env", "--owner", "not=valid"},
+			args: []string{"new-model", "--owner", "not=valid"},
 			err:  `"not=valid" is not a valid user`,
 		}, {
-			args:   []string{"new-env", "key=value", "key2=value2"},
-			name:   "new-env",
+			args:   []string{"new-model", "key=value", "key2=value2"},
+			name:   "new-model",
 			values: map[string]string{"key": "value", "key2": "value2"},
 		}, {
-			args: []string{"new-env", "key=value", "key=value2"},
+			args: []string{"new-model", "key=value", "key=value2"},
 			err:  `key "key" specified more than once`,
 		}, {
-			args: []string{"new-env", "another"},
+			args: []string{"new-model", "another"},
 			err:  `expected "key=value", got "another"`,
 		}, {
-			args: []string{"new-env", "--config", "some-file"},
-			name: "new-env",
+			args: []string{"new-model", "--config", "some-file"},
+			name: "new-model",
 			path: "some-file",
 		},
 	} {
@@ -136,7 +136,7 @@ func (s *createSuite) TestCreateExistingName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "test")
-	c.Assert(err, gc.ErrorMatches, `environment "test" already exists`)
+	c.Assert(err, gc.ErrorMatches, `model "test" already exists`)
 }
 
 func (s *createSuite) TestComandLineConfigPassedThrough(c *gc.C) {
@@ -363,7 +363,7 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
 	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `environment "test" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
@@ -398,7 +398,7 @@ func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `environment "test" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
 }
 
 // fakeCreateClient is used to mock out the behavior of the real

@@ -212,7 +212,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apiMachine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {

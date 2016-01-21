@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	storageDataSourceId          = "environment storage"
+	storageDataSourceId          = "model storage"
 	storageDataSourceDescription = storageDataSourceId
 	metadataBasePath             = "imagemetadata"
 )
@@ -60,7 +60,7 @@ func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string,
 // URL is defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) URL(file string) (string, error) {
 	path := path.Join(metadataBasePath, file)
-	return fmt.Sprintf("environment-storage://%s", path), nil
+	return fmt.Sprintf("model-storage://%s", path), nil
 }
 
 // PublicSigningKey is defined in simplestreams.DataSource.

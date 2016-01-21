@@ -26,7 +26,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"maas-agent-name": {
-		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple environments per MAAS user.",
+		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple models per MAAS user.",
 		Type:        environschema.Tstring,
 	},
 }

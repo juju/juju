@@ -128,7 +128,7 @@ func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, e
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return version.Number{}, nil, errors.New("agent version not set in environment config")
+		return version.Number{}, nil, errors.New("agent version not set in model config")
 	}
 	return agentVersion, cfg, nil
 }

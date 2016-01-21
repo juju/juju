@@ -196,7 +196,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 func (c *Client) newToolsVersionAvailable() (string, error) {
 	env, err := c.api.stateAccessor.Environment()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot get environment")
+		return "", errors.Annotate(err, "cannot get model")
 	}
 
 	latestVersion := env.LatestToolsVersion()

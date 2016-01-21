@@ -99,7 +99,7 @@ func checkEnvironmentRemovedFromStore(c *gc.C, name string, store configstore.St
 
 func (s *DestroySuite) TestDestroyNoEnvironmentNameError(c *gc.C) {
 	_, err := s.runDestroyCommand(c)
-	c.Assert(err, gc.ErrorMatches, "no environment specified")
+	c.Assert(err, gc.ErrorMatches, "no model specified")
 }
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
@@ -108,20 +108,20 @@ func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "environment", "whoops")
+	_, err := s.runDestroyCommand(c, "model", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *DestroySuite) TestDestroyUnknownEnvironment(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read environment info: environment "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read model info: model "foo" not found`)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	s.api.err = errors.New("connection refused")
 	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot destroy environment: connection refused")
-	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy environment \"test2\"")
+	c.Assert(err, gc.ErrorMatches, "cannot destroy model: connection refused")
+	c.Check(c.GetTestLog(), jc.Contains, "failed to destroy model \"test2\"")
 	checkEnvironmentExistsInStore(c, "test2", s.store)
 }
 
@@ -141,7 +141,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	s.api.err = errors.New("permission denied")
 	_, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot destroy environment: permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot destroy model: permission denied")
 	checkEnvironmentExistsInStore(c, "test2", s.store)
 }
 
@@ -169,7 +169,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc := cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction: aborted")
+		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
@@ -182,7 +182,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc = cmdtesting.RunCommand(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "environment destruction: aborted")
+		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}

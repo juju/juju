@@ -37,7 +37,7 @@ func (c *removeServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-service",
 		Args:    "<service>",
-		Purpose: "remove a service from the environment",
+		Purpose: "remove a service from the model",
 		Doc:     removeServiceDoc,
 		Aliases: []string{"destroy-service"},
 	}

@@ -20,11 +20,11 @@ type VolumeListAPI interface {
 }
 
 const volumeListCommandDoc = `
-List volumes (disks) in the environment.
+List volumes (disks) in the model.
 
 options:
 -m, --model (= "")
-    juju environment to operate in
+    juju model to operate in
 -o, --output (= "")
     specify an output file
 [machine]

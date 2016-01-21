@@ -240,7 +240,7 @@ hpcloud:
 }
 
 func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 	e := new(Environ)
 
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
@@ -756,7 +756,7 @@ var authenticateClient = func(e *Environ) error {
 
 Please ensure the credentials are correct. A common mistake is
 to specify the wrong tenant. Use the OpenStack "project" name
-for tenant-name in your environment configuration.`)
+for tenant-name in your model configuration.`)
 	}
 	return nil
 }
@@ -783,7 +783,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*Environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack model")
 	}
 	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
 }
@@ -793,7 +793,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*Environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack model")
 	}
 	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
@@ -1238,7 +1238,7 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	cfg := e.Config()
 	eUUID, ok := cfg.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	for _, server := range servers {
 		envUUID, ok := server.Metadata[tags.JujuEnv]

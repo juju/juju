@@ -53,7 +53,7 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 
 	client := apiState.Client()
 	_, err = client.GetEnvironmentConstraints()
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no environment, "Client" not supported`)
+	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
 }
 
 func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) {

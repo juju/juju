@@ -400,7 +400,7 @@ type BootstrapToolsTest struct {
 	Err           string
 }
 
-var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
+var noToolsMessage = "Juju cannot bootstrap because no tools are available for your model.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{

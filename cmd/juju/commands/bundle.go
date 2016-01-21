@@ -69,7 +69,7 @@ func deployBundle(
 	// Initialize the unit status.
 	status, err := client.Status(nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot get environment status")
+		return errors.Annotate(err, "cannot get model status")
 	}
 	unitStatus := make(map[string]string, numChanges)
 	for _, serviceData := range status.Services {
@@ -81,7 +81,7 @@ func deployBundle(
 	// Instantiate a watcher used to follow the deployment progress.
 	watcher, err := watchAll(client)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch environment")
+		return errors.Annotate(err, "cannot watch model")
 	}
 	defer watcher.Stop()
 
@@ -580,7 +580,7 @@ func (h *bundleHandler) updateUnitStatus() error {
 	select {
 	case <-ch:
 		if err != nil {
-			return errors.Annotate(err, "cannot update environment status")
+			return errors.Annotate(err, "cannot update model status")
 		}
 		for _, d := range delta {
 			switch entityInfo := d.Entity.(type) {

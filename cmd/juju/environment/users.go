@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 )
 
-const userCommandDoc = `List all users with access to the current environment`
+const userCommandDoc = `List all users with access to the current model`
 
 func NewUsersCommand() cmd.Command {
 	return envcmd.Wrap(&usersCommand{})
@@ -56,7 +56,7 @@ func (c *usersCommand) getAPI() (UsersAPI, error) {
 func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-shares",
-		Purpose: "shows all users with access to the current environment",
+		Purpose: "shows all users with access to the current model",
 		Doc:     userCommandDoc,
 	}
 }

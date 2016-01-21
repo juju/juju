@@ -23,12 +23,12 @@ import (
 	localProvider "github.com/juju/juju/provider/local"
 )
 
-// NewCreateEnvironmentCommand returns a command to create an environment.
+// NewCreateEnvironmentCommand returns a command to create an model.
 func NewCreateEnvironmentCommand() cmd.Command {
 	return envcmd.WrapController(&createEnvironmentCommand{})
 }
 
-// createEnvironmentCommand calls the API to create a new environment.
+// createEnvironmentCommand calls the API to create a new model.
 type createEnvironmentCommand struct {
 	envcmd.ControllerCommandBase
 	api CreateEnvironmentAPI
@@ -41,10 +41,10 @@ type createEnvironmentCommand struct {
 }
 
 const createEnvHelpDoc = `
-This command will create another environment within the current Juju
-Controller. The provider has to match, and the environment config must
+This command will create another model within the current Juju
+Controller. The provider has to match, and the model config must
 specify all the required configuration values for the provider. In the cases
-of ‘ec2’ and ‘openstack’, the same environment variables are checked for the
+of ‘ec2’ and ‘openstack’, the same model variables are checked for the
 access and secret keys.
 
 If configuration values are passed by both extra command line arguments and
@@ -52,9 +52,9 @@ the --config option, the command line args take priority.
 
 Examples:
 
-    juju create-model new-env
+    juju create-model new-model
 
-    juju create-model new-env --config=aws-creds.yaml
+    juju create-model new-model --config=aws-creds.yaml
 
 See Also:
     juju help model share
@@ -64,19 +64,19 @@ func (c *createEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-model",
 		Args:    "<name> [key=[value] ...]",
-		Purpose: "create an model within the Juju Environment Server",
+		Purpose: "create an model within the Juju Model Server",
 		Doc:     strings.TrimSpace(createEnvHelpDoc),
 	}
 }
 
 func (c *createEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Owner, "owner", "", "the owner of the new environment if not the current user")
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing environment config values")
+	f.StringVar(&c.Owner, "owner", "", "the owner of the new model if not the current user")
+	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing model config values")
 }
 
 func (c *createEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("environment name is required")
+		return errors.New("model name is required")
 	}
 	c.Name, args = args[0], args[1:]
 
@@ -151,7 +151,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 		endpoint.EnvironUUID = ""
 		if err := info.Write(); err != nil {
 			if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
-				newErr := errors.AlreadyExistsf("environment %q", c.Name)
+				newErr := errors.AlreadyExistsf("model %q", c.Name)
 				return errors.Wrap(err, newErr)
 			}
 			return errors.Trace(err)
@@ -161,7 +161,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 				logger.Debugf("error found, remove cache entry")
 				e := info.Destroy()
 				if e != nil {
-					logger.Errorf("could not remove environment file: %v", e)
+					logger.Errorf("could not remove model file: %v", e)
 				}
 			}
 		}()
@@ -192,10 +192,10 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err := info.Write(); err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("created environment %q", c.Name)
+		ctx.Infof("created model %q", c.Name)
 		return envcmd.SetCurrentEnvironment(ctx, c.Name)
 	} else {
-		ctx.Infof("created environment %q for %q", c.Name, c.Owner)
+		ctx.Infof("created model %q for %q", c.Name, c.Owner)
 	}
 
 	return nil
