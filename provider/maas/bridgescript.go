@@ -213,7 +213,12 @@ class NetworkInterfaceParser(object):
 
 def IfaceStanza(name, family, method, options):
     # Convenience function to create a new "iface" stanza.
-    return Stanza("iface {} {} {}".format(name, family, method), options)
+    # Maintain original options order, but remove any duplicates.
+    unique_options = []
+    for o in options:
+        if o not in unique_options:
+            unique_options.append(o)
+    return Stanza("iface {} {} {}".format(name, family, method), unique_options)
 
 
 def AutoStanza(name):

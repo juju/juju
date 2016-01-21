@@ -852,7 +852,6 @@ iface eth1.2670 inet manual
     vlan-raw-device eth1
     mtu 1500
     vlan_id 2670
-    dns-nameservers 10.245.168.2
     dns-search dellstack
 
 auto br-eth1.2670
@@ -860,7 +859,6 @@ iface br-eth1.2670 inet static
     dns-nameservers 10.245.168.2
     address 10.245.187.2/24
     mtu 1500
-    dns-nameservers 10.245.168.2
     dns-search dellstack
     bridge_ports eth1.2670`
 
