@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	migration "github.com/juju/juju/core/envmigration"
+	"github.com/juju/juju/network"
 )
 
 // This file contains functionality for managing the state documents
@@ -232,26 +233,37 @@ func (spec *EnvMigrationSpec) Validate() error {
 	if spec.Owner == "" {
 		return errors.NotValidf("empty Owner")
 	}
+
 	target := &spec.TargetInfo
 	if !names.IsValidEnvironment(target.ControllerTag.Id()) {
 		return errors.NotValidf("ControllerTag")
 	}
+
 	if target.Addrs == nil {
 		return errors.NotValidf("nil Addrs")
 	}
 	if len(target.Addrs) < 1 {
 		return errors.NotValidf("empty Addrs")
 	}
+	for _, addr := range target.Addrs {
+		_, err := network.ParseHostPort(addr)
+		if err != nil {
+			return errors.NotValidf("%q in Addrs", addr)
+		}
+	}
+
 	if target.CACert == "" {
 		return errors.NotValidf("empty CACert")
 	}
-	// XXX need to validate that Addrs include ports and are sensible
+
 	if target.EntityTag.Id() == "" {
 		return errors.NotValidf("empty EntityTag")
 	}
+
 	if target.Password == "" {
 		return errors.NotValidf("empty Password")
 	}
+
 	return nil
 }
 

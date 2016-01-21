@@ -163,6 +163,12 @@ func (s *EnvMigrationSuite) TestSpecValidation(c *gc.C) {
 		},
 		"empty Addrs not valid",
 	}, {
+		"invalid Addrs",
+		func(spec *state.EnvMigrationSpec) {
+			spec.TargetInfo.Addrs = []string{"1.2.3.4:555", "abc"}
+		},
+		`"abc" in Addrs not valid`,
+	}, {
 		"CACert",
 		func(spec *state.EnvMigrationSpec) {
 			spec.TargetInfo.CACert = ""
