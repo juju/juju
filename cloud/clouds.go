@@ -37,7 +37,7 @@ const (
 	OAuth2AuthType AuthType = "oauth2"
 
 	// EmptyAuthType is the authentication type used for providers
-	// that require no credentials, e.g. "local", "lxd", and "manual".
+	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"
 )
 

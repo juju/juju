@@ -21,7 +21,8 @@ import (
 
 type listCredentialsCommand struct {
 	cmd.CommandBase
-	out cmd.Output
+	out       cmd.Output
+	cloudName string
 }
 
 var listCredentialsDoc = `
@@ -45,7 +46,8 @@ func NewListCredentialsCommand() cmd.Command {
 func (c *listCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-credentials",
-		Purpose: "list credentials available to bootstrap Juju",
+		Args:    "[<cloudname>]",
+		Purpose: "list credentials available to create a Juju model",
 		Doc:     listCredentialsDoc,
 	}
 }
@@ -56,6 +58,15 @@ func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatCredentialsTabular,
 	})
+}
+
+func (c *listCredentialsCommand) Init(args []string) error {
+	cloudName, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.cloudName = cloudName
+	return nil
 }
 
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
@@ -71,6 +82,13 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		credentials = &jujucloud.Credentials{}
 	} else {
 		return err
+	}
+	if c.cloudName != "" {
+		for cloudName := range credentials.Credentials {
+			if cloudName != c.cloudName {
+				delete(credentials.Credentials, cloudName)
+			}
+		}
 	}
 	return c.out.Write(ctxt, credentials)
 }
@@ -103,42 +121,25 @@ func formatCredentialsTabular(value interface{}) ([]byte, error) {
 		text := strings.Join(values, "\t")
 		fmt.Fprintln(tw, text)
 	}
-	p("CLOUD\tNAME\tTYPE\tATTRS")
+	p("CLOUD\tCREDENTIALS")
 	for _, cloudName := range cloudNames {
-		credentials := credentials.Credentials[cloudName]
+		var haveDefault bool
 		var credentialNames []string
-		for name := range credentials.AuthCredentials {
-			credentialNames = append(credentialNames, name)
-		}
-		sort.Strings(credentialNames)
-
-		for _, credentialName := range credentialNames {
-			credential := credentials.AuthCredentials[credentialName]
+		credentials := credentials.Credentials[cloudName]
+		for credentialName := range credentials.AuthCredentials {
 			if credentialName == credentials.DefaultCredential {
-				credentialName += "*"
-			}
-
-			attrs := credential.Attributes()
-			var attrNames []string
-			for attrName := range attrs {
-				attrNames = append(attrNames, attrName)
-			}
-			sort.Strings(attrNames)
-
-			var kv []string
-			for _, attrName := range attrNames {
-				kv = append(kv, attrName+" = "+attrs[attrName])
-			}
-
-			var kv0 string
-			if len(kv) > 0 {
-				kv0 = kv[0]
-			}
-			p(cloudName, credentialName, string(credential.AuthType()), kv0)
-			for _, kv := range kv[1:] {
-				p("", "", "", kv)
+				credentialNames = append([]string{credentialName + "*"}, credentialNames...)
+				haveDefault = true
+			} else {
+				credentialNames = append(credentialNames, credentialName)
 			}
 		}
+		if haveDefault {
+			sort.Strings(credentialNames[1:])
+		} else {
+			sort.Strings(credentialNames)
+		}
+		p(cloudName, strings.Join(credentialNames, ", "))
 	}
 	tw.Flush()
 
