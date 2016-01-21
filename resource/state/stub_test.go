@@ -77,6 +77,15 @@ func (s *stubPersistence) SetResource(id, serviceID string, res resource.Resourc
 	return nil
 }
 
+func (s *stubPersistence) SetUnitResource(serviceID, unitID string, res resource.Resource) error {
+	s.stub.AddCall("SetUnitResource", serviceID, unitID, res)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 type stubStorage struct {
 	stub *testing.Stub
 
@@ -111,6 +120,15 @@ func (s *stubStorage) Remove(path string) error {
 	}
 
 	return nil
+}
+
+func (s *stubStorage) Get(path string) (_ io.ReadCloser, resSize int64, _ error) {
+	s.stub.AddCall("Get", path)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	return nil, 0, nil
 }
 
 type stubReader struct {

@@ -265,6 +265,31 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
+func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
+	res := newUploadResource(c, "spam", "spamspamspam")
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	err := st.SetUnitResource("a-service", "some-unit", res)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "SetUnitResource")
+	s.stub.CheckCall(c, 0, "SetUnitResource", "a-service", "some-unit", res)
+}
+
+func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
+	res := newUploadResource(c, "spam", "spamspamspam")
+	res.Timestamp = time.Time{}
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	err := st.SetUnitResource("a-service", "some-unit", res)
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
+	s.stub.CheckNoCalls(c)
+}
+
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 	var resources []resource.Resource
 	for _, name := range names {

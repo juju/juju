@@ -328,18 +328,18 @@ func (r resources) registerHookContextFacade() {
 // resourcesUnitDatastore is a shim to elide serviceName from
 // ListResources.
 type resourcesUnitDataStore struct {
-	resources   corestate.Resources
-	serviceName string
+	resources corestate.Resources
+	unit      *corestate.Unit
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) ListResources() ([]resource.Resource, error) {
-	return ds.resources.ListResources(ds.serviceName)
+	return ds.resources.ListResources(ds.unit.ServiceName())
 }
 
 // OpenResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return ds.resources.OpenResource(ds.serviceName, name)
+	return ds.resources.OpenResource(ds.unit.UnitTag(), ds.unit.ServiceName(), name)
 }
 
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
@@ -347,7 +347,7 @@ func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Uni
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit.ServiceName()}), nil
+	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
 }
 
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
