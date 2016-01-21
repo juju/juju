@@ -9,28 +9,24 @@ import logging
 import re
 import os
 import subprocess
+import sys
 import tempfile
 from textwrap import dedent
 import time
 
 from deploy_stack import (
-    update_env,
-    dump_env_logs,
+    BootstrapManager,
     get_random_string,
-)
-from jujuconfig import (
-    get_juju_home,
+    update_env,
 )
 from jujupy import (
-    parse_new_state_server_from_error,
-    temp_bootstrap_env,
     SimpleEnvironment,
     EnvJujuClient,
 )
 from utility import (
-    wait_for_port,
-    print_now,
     add_basic_testing_arguments,
+    configure_logging,
+    wait_for_port,
 )
 
 
@@ -38,6 +34,9 @@ KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
 
 __metaclass__ = type
+
+
+log = logging.getLogger("assess_container_networking")
 
 
 def parse_args(argv=None):
@@ -69,7 +68,11 @@ def parse_args(argv=None):
 
         At termination, clean out services and machines from the environment
         rather than destroying it."""))
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    # Passing --clean-environment implies --keep-env
+    if args.clean_environment:
+        args.keep_env = True
+    return args
 
 
 def ssh(client, machine, cmd):
@@ -107,9 +110,14 @@ def clean_environment(client, services_only=False):
     # A short timeout is used for get_status here because if we don't get a
     # response from  get_status quickly then the environment almost
     # certainly doesn't exist or needs recreating.
-    status = client.get_status(5)
+    try:
+        status = client.get_status(5)
+    except Exception as e:
+        # TODO(gz): get_status should return a more specific error type.
+        log.info("Could not clean existing env: %s", e)
+        return False
 
-    for service in status.status['services']:
+    for service in status.status.get('services', {}):
         client.juju('remove-service', service)
 
     if not services_only:
@@ -214,6 +222,7 @@ def assess_network_traffic(client, targets):
     :param targets: machine IDs of machines to test
     :return: None;
     """
+    log.info('Waiting for the bootstrap machine agent to start.')
     status = client.wait_for_started().status
     source = targets[0]
     dests = targets[1:]
@@ -336,15 +345,15 @@ def _assess_container_networking(client, types, hosts, containers):
         _assessment_iteration(client, test_containers)
 
 
-def assess_container_networking(client, args):
+def assess_container_networking(client, machine_type):
     """Runs _assess_address_allocation, reboots hosts, repeat.
     :param client: Juju client
-    :param args: Parsed command line arguments
+    :param machine_type: Container types to test
     :return: None
     """
     # Only test the containers we were asked to test
-    if args.machine_type:
-        types = [args.machine_type]
+    if machine_type:
+        types = [machine_type]
     else:
         types = [KVM_MACHINE, LXC_MACHINE]
 
@@ -390,56 +399,30 @@ def get_client(args):
     return client
 
 
-def main():
-    args = parse_args()
-    client = get_client(args)
-    juju_home = get_juju_home()
-    bootstrap_host = None
-    success = True
-    try:
-        if args.clean_environment:
-            try:
-                if not clean_environment(client):
-                    with temp_bootstrap_env(juju_home, client):
-                        client.bootstrap(args.upload_tools)
-            except Exception as e:
-                logging.exception(e)
-                client.destroy_environment()
-                client = get_client(args)
-                with temp_bootstrap_env(juju_home, client):
-                    client.bootstrap(args.upload_tools)
-        else:
-            client.destroy_environment()
-            client = get_client(args)
-            with temp_bootstrap_env(juju_home, client):
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    client = bs_manager.client
+    client.enable_container_address_allocation()
+    # TODO(gz): Having to manipulate client env state here to get the temp env
+    #           is ugly, would ideally be captured in an explicit scope.
+    update_env(client.env, bs_manager.temp_env_name, series=bs_manager.series,
+               agent_url=bs_manager.agent_url,
+               agent_stream=bs_manager.agent_stream, region=bs_manager.region)
+    with bs_manager.top_context() as machines:
+        bootstrap_required = True
+        if args.clean_environment and clean_environment(client):
+            bootstrap_required = False
+        if bootstrap_required:
+            with bs_manager.bootstrap_context(machines):
                 client.bootstrap(args.upload_tools)
+        with bs_manager.runtime_context(machines):
+            assess_container_networking(client, args.machine_type)
+        if args.clean_environment and not clean_environment(client):
+            return 1
+    return 0
 
-        logging.info('Waiting for the bootstrap machine agent to start.')
-        status = client.wait_for_started()
-        mid, data = list(status.iter_machines())[0]
-        bootstrap_host = data['dns-name']
-
-        assess_container_networking(client, args)
-
-    except Exception as e:
-        success = False
-        logging.exception(e)
-        try:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
-        except Exception as e:
-            print_now('exception while dumping logs:\n')
-            logging.exception(e)
-    finally:
-        if bootstrap_host is not None:
-            dump_env_logs(client, bootstrap_host, args.logs)
-
-        if args.clean_environment:
-            clean_environment(client)
-        else:
-            client.destroy_environment()
-        if not success:
-            exit(1)
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
