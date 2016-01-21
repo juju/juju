@@ -123,7 +123,7 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 
 func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	valid := localConfig(c, map[string]interface{}{
-		"root-dir": "~/.config/juju/foo",
+		"root-dir": "~/.local/share/juju/foo",
 	})
 	expectedRootDir := filepath.Join(gitjujutesting.JujuHomePath(), "foo")
 	unknownAttrs := valid.UnknownAttrs()

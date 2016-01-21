@@ -48,7 +48,7 @@ func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuHome(c *gc.C) {
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
-	s.PatchEnvironment(osenv.XDGConfigHome, "")
+	s.PatchEnvironment(osenv.XDGDataHome, "")
 	expected := gitjujutesting.JujuHomePath()
 	c.Assert(osenv.JujuHome(), gc.Equals, expected)
 }

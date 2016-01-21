@@ -50,9 +50,9 @@ const (
 	// Default is 1.
 	JujuCLIVersion = "JUJU_CLI_VERSION"
 
-	// XDGConfigHome is a path where config for the running user
+	// XDGDataHome is a path where data for the running user
 	// should be stored according to the xdg standard.
-	XDGConfigHome = "XDG_CONFIG_HOME"
+	XDGDataHome = "XDG_DATA_HOME"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

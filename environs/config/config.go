@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.config")
+var logger = loggo.GetLogger("juju.environs.local/share")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.
@@ -356,10 +356,10 @@ const (
 //     ~/.ssh/id_dsa.pub
 //     ~/.ssh/id_rsa.pub
 //     ~/.ssh/identity.pub
-//     ~/.config/juju/<name>-cert.pem
-//     ~/.config/juju/<name>-private-key.pem
+//     ~/.local/share/juju/<name>-cert.pem
+//     ~/.local/share/juju/<name>-private-key.pem
 //
-// if $XDG_CONFIG_HOME is defined it will be used instead of ~/.config
+// if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys

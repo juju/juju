@@ -33,7 +33,7 @@ type baseProviderSuite struct {
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
-	s.PatchEnvironment(osenv.XDGConfigHome, "")
+	s.PatchEnvironment(osenv.XDGDataHome, "")
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
