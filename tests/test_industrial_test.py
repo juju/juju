@@ -1405,8 +1405,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3'})
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'ensure-availability', '-m', 'steve', '-n',
-            '3'))
+            'juju', '--show-log', 'enable-ha', '-m', 'steve', '-n', '3'))
         status = {
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
@@ -1675,7 +1674,8 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         environ.update(get_euca_env(client.env.config))
 
         def check_output(*args, **kwargs):
-            if args == (['juju', 'backup'],):
+            if args == (('juju', '--show-log', 'create-backup', '-m',
+                         'baz',),):
                 return 'juju-backup-24.tgz'
             self.assertEqual([], args)
         initial_status = {
@@ -1694,7 +1694,8 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                         self.assertEqual(
                             iterator.next(),
                             {'test_id': 'back-up-restore'})
-        assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'create-backup', '-m', 'baz'), 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))

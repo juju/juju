@@ -314,6 +314,9 @@ class FakeJujuClient:
             service_name = charm_name.split(':')[-1]
         self._backing_state.deploy(charm_name, service_name)
 
+    def remove_service(self, service):
+        self._backing_state.destroy_service(service)
+
     def wait_for_started(self, timeout=1200, start=None):
         pass
 
@@ -1071,6 +1074,13 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
+    def test_remove_service(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('remove-service', ('mondogb',))
+
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
@@ -1622,13 +1632,13 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, '/foobar/baz')
 
         def check_env(*args, **kwargs):
-            self.assertEqual(os.environ['JUJU_ENV'], 'qux')
             return 'foojuju-backup-24.tgzz'
         with patch('subprocess.check_output',
                    side_effect=check_env) as co_mock:
             backup_file = client.backup()
         self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
-        assert_juju_call(self, co_mock, client, ['juju', 'backup'])
+        assert_juju_call(self, co_mock, client, ('juju', '--show-log',
+                         'create-backup', '-m', 'qux'))
 
     def test_juju_backup_with_tar_gz(self):
         env = SimpleEnvironment('qux')
@@ -1660,7 +1670,6 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
         environ = client._shell_environ()
-        environ['JUJU_ENV'] = client.env.environment
 
         def side_effect(*args, **kwargs):
             self.assertEqual(environ, os.environ)
@@ -1668,6 +1677,32 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_output', side_effect=side_effect):
             client.backup()
             self.assertNotEqual(environ, os.environ)
+
+    def test_restore_backup(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch.object(client, 'get_juju_output') as gjo_mock:
+            result = client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with('restore-backup', '-b',
+                                         '--constraints', 'mem=2G',
+                                         '--file', 'quxx')
+        self.assertIs(gjo_mock.return_value, result)
+
+    def test_restore_backup_async(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch.object(client, 'juju_async') as gjo_mock:
+            result = client.restore_backup_async('quxx')
+        gjo_mock.assert_called_once_with('restore-backup', (
+            '-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+        self.assertIs(gjo_mock.return_value, result)
+
+    def test_enable_ha(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch.object(client, 'juju', autospec=True) as eha_mock:
+            client.enable_ha()
+        eha_mock.assert_called_once_with('enable-ha', ('-n', '3'))
 
     def test_juju_async(self):
         env = SimpleEnvironment('qux')
@@ -2373,6 +2408,13 @@ class TestEnvJujuClient1X(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
+    def test_remove_service(self):
+        env = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('destroy-service', ('mondogb',))
+
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
@@ -2970,6 +3012,31 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.check_output', side_effect=side_effect):
             client.backup()
             self.assertNotEqual(environ, os.environ)
+
+    def test_restore_backup(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient1X(env, None, '/foobar/baz')
+        with patch.object(client, 'get_juju_output') as gjo_mock:
+            result = client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with('restore', '--constraints',
+                                         'mem=2G', 'quxx')
+        self.assertIs(gjo_mock.return_value, result)
+
+    def test_restore_backup_async(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient1X(env, None, '/foobar/baz')
+        with patch.object(client, 'juju_async') as gjo_mock:
+            result = client.restore_backup_async('quxx')
+        gjo_mock.assert_called_once_with(
+            'restore', ('--constraints', 'mem=2G', 'quxx'))
+        self.assertIs(gjo_mock.return_value, result)
+
+    def test_enable_ha(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient1X(env, None, '/foobar/baz')
+        with patch.object(client, 'juju', autospec=True) as eha_mock:
+            client.enable_ha()
+        eha_mock.assert_called_once_with('ensure-availability', ('-n', '3'))
 
     def test_juju_async(self):
         env = SimpleEnvironment('qux')

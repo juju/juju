@@ -474,6 +474,9 @@ class EnvJujuClient:
             args.extend([service])
         return self.juju('deploy', tuple(args))
 
+    def remove_service(self, service):
+        self.juju('remove-service', (service,))
+
     def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
         args = (
@@ -716,13 +719,13 @@ class EnvJujuClient:
 
     def backup(self):
         environ = self._shell_environ()
-        # juju-backup does not support the -e flag.
-        environ['JUJU_ENV'] = self.env.environment
         try:
             # Mutate os.environ instead of supplying env parameter so Windows
             # can search env['PATH']
             with scoped_environ(environ):
-                output = subprocess.check_output(['juju', 'backup'])
+                args = self._full_args(
+                    'create-backup', False, (), include_e=True)
+                output = subprocess.check_output(args)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
@@ -736,6 +739,17 @@ class EnvJujuClient:
         backup_file_path = os.path.abspath(backup_file_name)
         log.info("State-Server backup at %s", backup_file_path)
         return backup_file_path
+
+    def restore_backup(self, backup_file):
+        return self.get_juju_output('restore-backup', '-b', '--constraints',
+                                    'mem=2G', '--file', backup_file)
+
+    def restore_backup_async(self, backup_file):
+        return self.juju_async('restore-backup', ('-b', '--constraints',
+                               'mem=2G', '--file', backup_file))
+
+    def enable_ha(self):
+        self.juju('enable-ha', ('-n', '3'))
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
@@ -807,6 +821,43 @@ class EnvJujuClient2A1(EnvJujuClient):
         # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def remove_service(self, service):
+        self.juju('destroy-service', (service,))
+
+    def backup(self):
+        environ = self._shell_environ()
+        # juju-backup does not support the -e flag.
+        environ['JUJU_ENV'] = self.env.environment
+        try:
+            # Mutate os.environ instead of supplying env parameter so Windows
+            # can search env['PATH']
+            with scoped_environ(environ):
+                output = subprocess.check_output(['juju', 'backup'])
+        except subprocess.CalledProcessError as e:
+            log.info(e.output)
+            raise
+        log.info(output)
+        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
+        match = backup_file_pattern.search(output)
+        if match is None:
+            raise Exception("The backup file was not found in output: %s" %
+                            output)
+        backup_file_name = match.group(1)
+        backup_file_path = os.path.abspath(backup_file_name)
+        log.info("State-Server backup at %s", backup_file_path)
+        return backup_file_path
+
+    def restore_backup(self, backup_file):
+        return self.get_juju_output('restore', '--constraints', 'mem=2G',
+                                    backup_file)
+
+    def restore_backup_async(self, backup_file):
+        return self.juju_async('restore', ('--constraints', 'mem=2G',
+                                           backup_file))
+
+    def enable_ha(self):
+        self.juju('ensure-availability', ('-n', '3'))
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.

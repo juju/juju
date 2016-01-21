@@ -113,7 +113,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         status = other.get_status()
         if 'sink2' not in status.status['services']:
             raise AssertionError('Sink2 missing')
-        other.juju('destroy-service', ('sink2',))
+        other.remove_service('sink2')
         for ignored in until_timeout(30):
             status = other.get_status()
             if 'sink2' not in status.status['services']:

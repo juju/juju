@@ -612,7 +612,7 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        client.juju('ensure-availability', ('-n', '3'))
+        client.enable_ha()
         yield results
         client.wait_for_ha()
         results['result'] = True
