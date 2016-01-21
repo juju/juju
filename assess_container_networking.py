@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from argparse import ArgumentParser
-import collections
 import contextlib
 from copy import (
     copy,
@@ -384,10 +383,17 @@ def assess_container_networking(client, machine_type):
     _assess_container_networking(client, types, hosts, containers)
 
 
+class _CleanedContext:
+
+    def __init__(self, client):
+        self.client = client
+        self.return_code = None
+
+
 @contextlib.contextmanager
 def cleaned_bootstrap_context(bs_manager, args):
-    ctx = collections.namedtuple("CleanedBootstrapContext", ["return_code"])(0)
-    client = bs_manager.client
+    ctx = _CleanedContext(bs_manager.client)
+    client = ctx.client
     # TODO(gz): Having to manipulate client env state here to get the temp env
     #           is ugly, would ideally be captured in an explicit scope.
     update_env(client.env, bs_manager.temp_env_name, series=bs_manager.series,
@@ -402,6 +408,7 @@ def cleaned_bootstrap_context(bs_manager, args):
                 client.bootstrap(args.upload_tools)
         with bs_manager.runtime_context(machines):
             yield ctx
+        ctx.return_code = 0
         if args.clean_environment and not clean_environment(client):
             ctx.return_code = 1
 
