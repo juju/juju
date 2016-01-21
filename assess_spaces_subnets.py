@@ -1,30 +1,21 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import logging
-import re
-import yaml
-from textwrap import dedent
 from argparse import ArgumentParser
+import re
+import sys
+from textwrap import dedent
+import yaml
 
-from jujuconfig import (
-    get_juju_home,
-)
-from jujupy import (
-    parse_new_state_server_from_error,
-    temp_bootstrap_env,
-)
 from utility import (
-    print_now,
     add_basic_testing_arguments,
+    configure_logging,
 )
 from deploy_stack import (
-    get_machine_dns_name,
-    dump_env_logs
+    BootstrapManager,
 )
 from assess_container_networking import (
-    clean_environment,
+    cleaned_bootstrap_context,
     ssh,
-    get_client,
 )
 
 __metaclass__ = type
@@ -163,53 +154,15 @@ def ipv4_in_cidr(ipv4, cidr):
     return (ipv4 & mask) == subnet
 
 
-def main():
-    args = parse_args()
-    client = get_client(args)
-    juju_home = get_juju_home()
-    bootstrap_host = None
-    try:
-        if args.clean_environment:
-            try:
-                if not clean_environment(client):
-                    with temp_bootstrap_env(juju_home, client):
-                        client.bootstrap(args.upload_tools)
-            except Exception as e:
-                logging.exception(e)
-                client.destroy_environment()
-                client = get_client(args)
-                with temp_bootstrap_env(juju_home, client):
-                    client.bootstrap(args.upload_tools)
-        else:
-            client.destroy_environment()
-            client = get_client(args)
-            with temp_bootstrap_env(juju_home, client):
-                client.bootstrap(args.upload_tools)
-
-        logging.info('Waiting for the bootstrap machine agent to start.')
-        client.wait_for_started()
-        bootstrap_host = get_machine_dns_name(client, 0)
-
-        assess_spaces_subnets(client)
-
-    except Exception as e:
-        logging.exception(e)
-        try:
-            if bootstrap_host is None:
-                bootstrap_host = parse_new_state_server_from_error(e)
-        except Exception as e:
-            print_now('exception while dumping logs:\n')
-            logging.exception(e)
-        exit(1)
-    finally:
-        if bootstrap_host is not None:
-            dump_env_logs(client, bootstrap_host, args.logs)
-        if not args.keep_env:
-            if args.clean_environment:
-                clean_environment(client)
-            else:
-                client.destroy_environment()
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    bs_manager.client.enable_container_address_allocation()
+    with cleaned_bootstrap_context(bs_manager, args) as ctx:
+        assess_spaces_subnets(bs_manager.client)
+    return ctx.return_code
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

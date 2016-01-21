@@ -1,11 +1,10 @@
-from argparse import Namespace
 from copy import deepcopy
 from contextlib import contextmanager
+import logging
 
 from mock import (
     patch,
     Mock,
-    MagicMock,
 )
 
 from jujupy import (
@@ -16,6 +15,7 @@ from jujupy import (
 
 import assess_container_networking as jcnet
 from tests import (
+    FakeHomeTestCase,
     parse_error,
     TestCase,
 )
@@ -389,18 +389,129 @@ class TestContainerNetworking(TestCase):
             ValueError, "Default route not found",
             jcnet.assess_internet_connection, self.client, targets)
 
-    def test_get_client(self):
-        args = Namespace(
-            env="e", juju_bin="jb", debug=False,
-            agent_stream="http://tools.testing/agents", temp_env_name="te",
-            series="s", bootstrap_host="bh", agent_url="au", region="r")
 
-        upenv = MagicMock()
-        with patch.object(EnvJujuClient, "by_version"), \
-            patch.object(SimpleEnvironment, "from_config"), \
-                patch("assess_container_networking.update_env", upenv):
+class TestMain(FakeHomeTestCase):
 
-                jcnet.get_client(args)
-                self.assertEqual(upenv.call_args[0][1], args.temp_env_name)
-                for key, value in upenv.call_args[1].iteritems():
-                    self.assertEqual(vars(args)[key], value)
+    @contextmanager
+    def patch_main(self, argv, client, log_level, debug=False):
+        env = SimpleEnvironment(argv[0], {"type": "ec2"})
+        client.env = env
+        with patch("assess_container_networking.configure_logging",
+                   autospec=True) as mock_cl:
+            with patch("jujupy.SimpleEnvironment.from_config",
+                       return_value=env) as mock_e:
+                with patch("jujupy.EnvJujuClient.by_version",
+                           return_value=client) as mock_c:
+                    yield
+        mock_cl.assert_called_once_with(log_level)
+        mock_e.assert_called_once_with(argv[0])
+        mock_c.assert_called_once_with(env, argv[1], debug=debug)
+
+    @contextmanager
+    def patch_bootstrap_manager(self, runs=True):
+        with patch("deploy_stack.BootstrapManager.top_context",
+                   autospec=True) as mock_tc:
+            with patch("deploy_stack.BootstrapManager.bootstrap_context",
+                       autospec=True) as mock_bc:
+                with patch("deploy_stack.BootstrapManager.runtime_context",
+                           autospec=True) as mock_rc:
+                    yield mock_bc
+        self.assertEqual(mock_tc.call_count, 1)
+        if runs:
+            self.assertEqual(mock_rc.call_count, 1)
+
+    def test_bootstrap_required(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        client = Mock(spec=["bootstrap", "enable_container_address_allocation",
+                            "is_jes_enabled"])
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.DEBUG):
+                    ret = jcnet.main(argv)
+        client.enable_container_address_allocation.assert_called_once_with()
+        client.bootstrap.assert_called_once_with(False)
+        self.assertEqual("", self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 1)
+        mock_assess.assert_called_once_with(client, None)
+        self.assertEqual(ret, 0)
+
+    def test_clean_existing_env(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
+                "--clean-environment"]
+        client = Mock(spec=["enable_container_address_allocation", "env",
+                            "get_status", "is_jes_enabled", "wait_for",
+                            "wait_for_started"])
+        client.get_status.return_value = Status.from_text("""
+            machines:
+                "0":
+                    agent-state: started
+        """)
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.INFO):
+                    ret = jcnet.main(argv)
+        client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
+        self.assertEqual("", self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 0)
+        mock_assess.assert_called_once_with(client, None)
+        self.assertEqual(ret, 0)
+
+    def test_clean_missing_env(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
+                "--clean-environment"]
+        client = Mock(spec=["bootstrap", "enable_container_address_allocation",
+                            "env", "get_status", "is_jes_enabled", "wait_for",
+                            "wait_for_started"])
+        client.get_status.side_effect = [
+            Exception("Timeout"),
+            Status.from_text("""
+                machines:
+                    "0":
+                        agent-state: started
+            """),
+        ]
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.INFO):
+                    ret = jcnet.main(argv)
+        client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
+        client.bootstrap.assert_called_once_with(False)
+        self.assertEqual(
+            "INFO Could not clean existing env: Timeout\n",
+            self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 1)
+        mock_assess.assert_called_once_with(client, None)
+        self.assertEqual(ret, 0)
+
+    def test_final_clean_fails(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
+                "--clean-environment"]
+        client = Mock(spec=["enable_container_address_allocation", "env",
+                            "get_status", "is_jes_enabled", "wait_for",
+                            "wait_for_started"])
+        client.get_status.side_effect = [
+            Status.from_text("""
+                machines:
+                    "0":
+                        agent-state: started
+            """),
+            Exception("Timeout"),
+        ]
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.INFO):
+                    ret = jcnet.main(argv)
+        client.enable_container_address_allocation.assert_called_once_with()
+        self.assertEqual(client.env.environment, "an-env-mod")
+        self.assertEqual(
+            "INFO Could not clean existing env: Timeout\n",
+            self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 0)
+        mock_assess.assert_called_once_with(client, None)
+        self.assertEqual(ret, 1)
