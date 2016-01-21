@@ -86,10 +86,21 @@ func ValidateCredential(credential Credential, schemas map[AuthType]CredentialSc
 // Validate validates the given credential attributes against the credential
 // schema.
 func (s CredentialSchema) Validate(attrs map[string]string) error {
+	checker, err := s.schemaChecker()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	m := make(map[string]interface{})
 	for k, v := range attrs {
 		m[k] = v
 	}
+	if _, err := checker.Coerce(m, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 	fields := make(environschema.Fields)
 	for name, field := range s {
 		fields[name] = environschema.Attr{
@@ -97,18 +108,14 @@ func (s CredentialSchema) Validate(attrs map[string]string) error {
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
 			Mandatory:   true,
-			Secret:      true,
+			Secret:      field.Secret,
 		}
 	}
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	checker := schema.FieldMap(schemaFields, schemaDefaults)
-	if _, err := checker.Coerce(m, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return schema.FieldMap(schemaFields, schemaDefaults), nil
 }
 
 // CredentialAttr describes the properties of a credential attribute.

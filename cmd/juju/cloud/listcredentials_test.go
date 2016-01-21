@@ -85,16 +85,18 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 func (s *listCredentialsSuite) TestListCredentialsTabular(c *gc.C) {
 	out := s.listCredentials(c)
 	c.Assert(out, gc.Equals, `
-CLOUD  NAME   TYPE        ATTRS
-aws    bob    access-key  access-key = key
-                          secret-key = secret
-aws    down*  oauth2      client-email = email
-                          client-id = id
-                          private-key = key
-azure  azhja  userpass    application-id = app-id
-                          application-password = app-secret
-                          subscription-id = subscription-id
-                          tenant-id = tenant-id
+CLOUD  CREDENTIALS
+aws    down*, bob
+azure  azhja
+
+`[1:])
+}
+
+func (s *listCredentialsSuite) TestListCredentialsTabularFiltered(c *gc.C) {
+	out := s.listCredentials(c, "aws")
+	c.Assert(out, gc.Equals, `
+CLOUD  CREDENTIALS
+aws    down*, bob
 
 `[1:])
 }
@@ -125,6 +127,20 @@ credentials:
 `[1:])
 }
 
+func (s *listCredentialsSuite) TestListCredentialsYAMLFiltered(c *gc.C) {
+	out := s.listCredentials(c, "--format", "yaml", "azure")
+	c.Assert(out, gc.Equals, `
+credentials:
+  azure:
+    azhja:
+      auth-type: userpass
+      application-id: app-id
+      application-password: app-secret
+      subscription-id: subscription-id
+      tenant-id: tenant-id
+`[1:])
+}
+
 func (s *listCredentialsSuite) TestListCredentialsJSON(c *gc.C) {
 	// TODO(axw) test once json marshalling works properly
 	c.Skip("not implemented: credentials don't marshal to JSON yet")
@@ -136,7 +152,7 @@ func (s *listCredentialsSuite) TestListCredentialsFileMissing(c *gc.C) {
 
 	out := s.listCredentials(c)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Equals, "CLOUD  NAME  TYPE  ATTRS")
+	c.Assert(out, gc.Equals, "CLOUD  CREDENTIALS")
 
 	out = s.listCredentials(c, "--format", "yaml")
 	out = strings.Replace(out, "\n", "", -1)
