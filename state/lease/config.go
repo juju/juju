@@ -46,8 +46,8 @@ type ClientConfig struct {
 	Clock clock.Clock
 }
 
-// Validate returns an error if the supplied config is not valid.
-func (config ClientConfig) Validate() error {
+// validate returns an error if the supplied config is not valid.
+func (config ClientConfig) validate() error {
 	if err := lease.ValidateString(config.Id); err != nil {
 		return errors.Annotatef(err, "invalid id")
 	}
