@@ -1,9 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envmigration
+package modelmigration
 
-// Phase values specify environment migration phases.
+// Phase values specify model migration phases.
 type Phase int
 
 // Enumerate all possible migration phases.
@@ -37,7 +37,7 @@ var phaseNames = []string{
 	"ABORT",
 }
 
-// String returns the name of an environment migration phase constant.
+// String returns the name of an model migration phase constant.
 func (p Phase) String() string {
 	i := int(p)
 	if i >= 0 && i < len(phaseNames) {
@@ -47,7 +47,7 @@ func (p Phase) String() string {
 }
 
 // CanTransitionTo returns true if the given phase is a valid next
-// environment migration phase.
+// model migration phase.
 func (p Phase) CanTransitionTo(targetPhase Phase) bool {
 	nextPhases, exists := validTransitions[p]
 	if !exists {
@@ -99,7 +99,7 @@ func init() {
 	}
 }
 
-// ParsePhase converts a string environment migration phase name
+// ParsePhase converts a string model migration phase name
 // to its constant value.
 func ParsePhase(target string) (Phase, bool) {
 	for p, name := range phaseNames {

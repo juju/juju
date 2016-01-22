@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	migration "github.com/juju/juju/core/envmigration"
+	migration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	migration "github.com/juju/juju/core/envmigration"
+	migration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/network"
 )
 
