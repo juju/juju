@@ -694,6 +694,13 @@ class TestDeployJob(FakeHomeTestCase):
     @skipIf(sys.platform in ('win32', 'darwin'),
             'Not supported on Windown and OS X')
     def test_background_chaos_used(self):
+        args = Namespace(
+            env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
+            charm_prefix=None, bootstrap_host=None, machine=None,
+            series='trusty', debug=False, agent_url=None, agent_stream=None,
+            keep_env=False, upload_tools=False, with_chaos=1, jes=False,
+            region=None, verbose=False, upgrade=False,
+        )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
@@ -701,9 +708,8 @@ class TestDeployJob(FakeHomeTestCase):
                            autospec=True):
                     with patch('subprocess.Popen', autospec=True,
                                return_value=FakePopen('', '', 0)):
-                        _deploy_job('foo', None, None, '', None, None, None,
-                                    'log', None, None, None, None, None, None,
-                                    1, False, False, None)
+                        _deploy_job(args, 'local:trusty/', 'trusty')
+        self.assertEqual(bc_mock.call_count, 1)
         self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
@@ -711,6 +717,13 @@ class TestDeployJob(FakeHomeTestCase):
     @skipIf(sys.platform in ('win32', 'darwin'),
             'Not supported on Windown and OS X')
     def test_background_chaos_not_used(self):
+        args = Namespace(
+            env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
+            charm_prefix=None, bootstrap_host=None, machine=None,
+            series='trusty', debug=False, agent_url=None, agent_stream=None,
+            keep_env=False, upload_tools=False, with_chaos=0, jes=False,
+            region=None, verbose=False, upgrade=False,
+        )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
                        autospec=True) as bc_mock:
@@ -718,24 +731,27 @@ class TestDeployJob(FakeHomeTestCase):
                            autospec=True):
                     with patch('subprocess.Popen', autospec=True,
                                return_value=FakePopen('', '', 0)):
-                        _deploy_job('foo', None, None, '', None, None, None,
-                                    None, None, None, None, None, None, None,
-                                    0, False, False, None)
+                        _deploy_job(args, 'local:trusty/', 'trusty')
         self.assertEqual(bc_mock.call_count, 0)
 
     def test_region(self):
+        args = Namespace(
+            env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
+            charm_prefix=None, bootstrap_host=None, machine=None,
+            series='trusty', debug=False, agent_url=None, agent_stream=None,
+            keep_env=False, upload_tools=False, with_chaos=0, jes=False,
+            region='region-foo', verbose=False, upgrade=False,
+        )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
                        autospec=True):
                 with patch('subprocess.Popen', autospec=True,
                            return_value=FakePopen('', '', 0)):
-                    _deploy_job('foo', None, None, '', None, None, None, None,
-                                None, None, None, None, None, None, 0, False,
-                                False, 'region-foo')
-                    permanent = client.is_jes_enabled()
+                    _deploy_job(args, 'local:trusty/', 'trusty')
+                    jes = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
-            'foo', client, client, None, None, None, None, None, 'region-foo',
-            None, None, permanent, permanent)
+            'foo', client, client, None, None, 'trusty', None, None,
+            'region-foo', 'log', False, permanent=jes, jes_enabled=jes)
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
@@ -743,14 +759,12 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,
-            pre_destroy=None, region=None, verbose=None)
+            region=None, verbose=None)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
                 deploy_job()
-        call_args = ds_mock.call_args[0]
-        self.assertEqual(call_args[3], 'local:windows/')
-        self.assertEqual(call_args[6], 'trusty')
+        ds_mock.assert_called_once_with(args, 'local:windows/', 'trusty')
 
     def test_deploy_job_changes_series_with_centos(self):
         args = Namespace(
@@ -758,14 +772,12 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,
-            pre_destroy=None, region=None, verbose=None)
+            region=None, verbose=None)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
                 deploy_job()
-        call_args = ds_mock.call_args[0]
-        self.assertEqual(call_args[3], 'local:centos/')
-        self.assertEqual(call_args[6], 'trusty')
+        ds_mock.assert_called_once_with(args, 'local:centos/', 'trusty')
 
 
 class TestTestUpgrade(FakeHomeTestCase):
@@ -1427,7 +1439,6 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             upload_tools=False,
             with_chaos=0,
             jes=False,
-            pre_destroy=False,
             region=None,
         ))
 
