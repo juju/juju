@@ -172,27 +172,6 @@ func (rd *resourceDirectory) writeInfo(res resource.Resource, create func(string
 	return nil
 }
 
-func (rd *resourceDirectory) openResource(relPath []string, open func(string) (io.ReadCloser, error)) (io.ReadCloser, error) {
-	if len(relPath) == 0 {
-		res, err := rd.readInfo(open)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		relPath = []string{res.Path}
-	}
-	filename := rd.resolve(relPath...)
-
-	reader, err := open(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("resource file %q", filename)
-		}
-		return nil, errors.Trace(err)
-	}
-
-	return reader, nil
-}
-
 func (rd resourceDirectory) writeResource(relPath []string, content resourceContent, create func(string) (io.WriteCloser, error)) error {
 	if len(relPath) == 0 {
 		// TODO(ericsnow) Use rd.readInfo().Path, like openResource() does?
