@@ -211,9 +211,52 @@ class NetworkInterfaceParser(object):
             yield s
 
 
+def uniq_append(dst, src):
+    for x in src:
+        if x not in dst:
+            dst.append(x)
+    return dst
+
+
 def IfaceStanza(name, family, method, options):
-    # Convenience function to create a new "iface" stanza.
-    return Stanza("iface {} {} {}".format(name, family, method), options)
+    """Convenience function to create a new "iface" stanza.
+
+Maintains original options order but removes duplicates with the
+exception of 'dns-*' options which are normlised as required by
+resolvconf(8) and all the dns-* options are moved to the end.
+
+    """
+
+    dns_search = []
+    dns_nameserver = []
+    dns_sortlist = []
+    unique_options = []
+
+    for o in options:
+        words = o.split()
+        ident = words[0]
+        if ident == "dns-nameservers":
+            dns_nameserver = uniq_append(dns_nameserver, words[1:])
+        elif ident == "dns-search":
+            dns_search = uniq_append(dns_search, words[1:])
+        elif ident == "dns-sortlist":
+            dns_sortlist = uniq_append(dns_sortlist, words[1:])
+        elif o not in unique_options:
+            unique_options.append(o)
+
+    if dns_nameserver:
+        option = "dns-nameservers " + " ".join(dns_nameserver)
+        unique_options.append(option)
+
+    if dns_search:
+        option = "dns-search " + " ".join(dns_search)
+        unique_options.append(option)
+
+    if dns_sortlist:
+        option = "dns-sortlist " + " ".join(dns_sortlist)
+        unique_options.append(option)
+
+    return Stanza("iface {} {} {}".format(name, family, method), unique_options)
 
 
 def AutoStanza(name):
@@ -315,7 +358,8 @@ def main(args):
 
 # This script re-renders an interfaces(5) file to add a bridge to all
 # active interfaces; active interfaces are those that are declared as
-# either 'static' or 'dhcp'.
+# either 'static' or 'dhcp'. It also considers whether the iface is a
+# VLAN or a bond.
 
 if __name__ == '__main__':
     main(arg_parser().parse_args())
