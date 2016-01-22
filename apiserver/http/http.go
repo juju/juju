@@ -15,6 +15,13 @@ const (
 
 	// CTypeJSON is the HTTP content-type value used for JSON content.
 	CTypeJSON = "application/json"
+
 	// CTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
 	CTypeRaw = "application/octet-stream"
+
+	// CTypeJS is the HTTP content-type value used for javascript.
+	CTypeJS = "application/javascript"
+
+	// CTypeXJS is the outdated HTTP content-type value used for javascript.
+	CTypeXJS = "application/x-javascript"
 )
