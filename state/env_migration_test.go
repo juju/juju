@@ -345,17 +345,46 @@ func (s *EnvMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	err = mig.SetPhase(migration.DONE)
 	c.Assert(err, jc.ErrorIsNil)
 	assertPhase(c, mig, migration.DONE)
-	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
-	c.Assert(mig.EndTime(), gc.Equals, s.clock.Now())
-	assertEnvMigNotActive(c, s.State2)
+	s.assertMigrationCleanedUp(c, mig)
 }
 
 func (s *EnvMigrationSuite) TestABORTCleanup(c *gc.C) {
-	c.Fatal("XXX to do")
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.clock.Advance(time.Millisecond)
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+
+	s.assertMigrationCleanedUp(c, mig)
 }
 
 func (s *EnvMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
-	c.Fatal("XXX to do")
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Advance the migration to REAPFAILED.
+	phases := []migration.Phase{
+		migration.READONLY,
+		migration.PRECHECK,
+		migration.IMPORT,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.REAPFAILED,
+	}
+	for _, phase := range phases {
+		s.clock.Advance(time.Millisecond)
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+
+	s.assertMigrationCleanedUp(c, mig)
+}
+
+func (s *EnvMigrationSuite) assertMigrationCleanedUp(c *gc.C, mig *state.EnvMigration) {
+	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
+	c.Assert(mig.EndTime(), gc.Equals, s.clock.Now())
+	assertEnvMigNotActive(c, s.State2)
 }
 
 func (s *EnvMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
