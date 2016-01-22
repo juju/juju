@@ -119,13 +119,6 @@ func newResourceDirectory(spec resourceDirectorySpec) *resourceDirectory {
 	return rd
 }
 
-func (rd resourceDirectory) move(dataDir string) *resourceDirectory {
-	return &resourceDirectory{
-		resourceDirectorySpec: newResourceDirectorySpec(dataDir, rd.name),
-		res: rd.res,
-	}
-}
-
 func (rd *resourceDirectory) readInfo(open func(string) (io.ReadCloser, error)) (resource.Resource, error) {
 	if rd.res != nil {
 		return *rd.res, nil
