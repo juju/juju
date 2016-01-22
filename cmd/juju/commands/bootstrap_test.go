@@ -304,7 +304,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-m", "brokenenv", "--auto-upgrade"},
-	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
+	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -423,7 +423,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-m", envName, "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
