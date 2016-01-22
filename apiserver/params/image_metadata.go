@@ -82,3 +82,8 @@ type MetadataSaveParams struct {
 type CloudImageMetadataList struct {
 	Metadata []CloudImageMetadata `json:"metadata,omitempty"`
 }
+
+// MetadataImageIds holds image ids and can be used to identify related image metadata.
+type MetadataImageIds struct {
+	Ids []string `json:"image_ids"`
+}

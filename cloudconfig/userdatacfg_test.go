@@ -1191,7 +1191,8 @@ func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 
 	expected := `
-for n in $(seq 5); do
+n=1
+while true; do
 
     printf "Attempt $n to download tools from %s...\n" 'a'
     download 'a' && echo "Tools downloaded successfully." && break
@@ -1202,10 +1203,9 @@ for n in $(seq 5); do
     printf "Attempt $n to download tools from %s...\n" 'c'
     download 'c' && echo "Tools downloaded successfully." && break
 
-    if [ $n -lt 5 ]; then
-        echo "Download failed..... wait 15s"
-    fi
+    echo "Download failed, retrying in 15s"
     sleep 15
+    n=$((n+1))
 done`
 	c.Assert(command, gc.Equals, expected)
 }

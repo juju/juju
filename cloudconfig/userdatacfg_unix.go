@@ -37,10 +37,6 @@ const (
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
-	// toolsDownloadAttempts is the number of attempts to make for
-	// each tools URL when downloading tools.
-	toolsDownloadAttempts = 5
-
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
 	toolsDownloadWaitTime = 15
@@ -48,15 +44,15 @@ const (
 	// toolsDownloadTemplate is a bash template that generates a
 	// bash command to cycle through a list of URLs to download tools.
 	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
-for n in $(seq {{.ToolsDownloadAttempts}}); do
+n=1
+while true; do
 {{range .URLs}}
     printf "Attempt $n to download tools from %s...\n" {{shquote .}}
     {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
 {{end}}
-    if [ $n -lt {{.ToolsDownloadAttempts}} ]; then
-        echo "Download failed..... wait {{.ToolsDownloadWaitTime}}s"
-    fi
+    echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
+    n=$((n+1))
 done`
 )
 
@@ -373,7 +369,6 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"ToolsDownloadCommand":  curlCommand,
-		"ToolsDownloadAttempts": toolsDownloadAttempts,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,
 	})

@@ -114,6 +114,17 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 	return params.ErrorResults{Results: all}, nil
 }
 
+// Delete deletes cloud image metadata for given image ids.
+// It supports bulk calls.
+func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
+	all := make([]params.ErrorResult, len(images.Ids))
+	for i, imageId := range images.Ids {
+		err := api.metadata.DeleteMetadata(imageId)
+		all[i] = params.ErrorResult{common.ServerError(err)}
+	}
+	return params.ErrorResults{Results: all}, nil
+}
+
 func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetadata {
 	result := params.CloudImageMetadata{
 		ImageId:         p.ImageId,
@@ -211,7 +222,9 @@ func (api *API) retrievePublished() error {
 
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return errors.Errorf("cloud specification cannot be determined")
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not rely on simplestreams, don't need to do anything here.
+		return nil
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.

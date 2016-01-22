@@ -4,6 +4,8 @@
 package imagemetadata_test
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
@@ -248,4 +250,108 @@ var versionFromSeries = func(s string) string {
 	// For testing purposes only, there will not be an error :D
 	v, _ := series.SeriesVersion(s)
 	return v
+}
+
+func (s *imagemetadataSuite) TestDelete(c *gc.C) {
+	imageId := "tst12345"
+	called := false
+
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Delete")
+
+			c.Assert(a, gc.FitsTypeOf, params.MetadataImageIds{})
+			c.Assert(a.(params.MetadataImageIds).Ids, gc.DeepEquals, []string{imageId})
+
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}}
+			return nil
+		})
+
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.Delete(imageId)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
+	imageId := "tst12345"
+	called := false
+
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Delete")
+
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}, {}}
+			return nil
+		})
+
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.Delete(imageId)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
+	called := false
+	msg := "save failure"
+
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Delete")
+
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{&params.Error{Message: msg}},
+			}
+			return nil
+		})
+
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.Delete("tst12345")
+	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
+	called := false
+	msg := "facade failure"
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Delete")
+			return errors.New(msg)
+		})
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.Delete("tst12345")
+	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(called, jc.IsTrue)
 }

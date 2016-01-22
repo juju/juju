@@ -26,8 +26,6 @@ type debugLogCommand struct {
 	params api.DebugLogParams
 }
 
-var DefaultLogLocation = "/var/log/juju/all-machines.log"
-
 // defaultLineCount is the default number of lines to
 // display, from the end of the consolidated log.
 const defaultLineCount = 10

@@ -17,7 +17,7 @@ import (
 )
 
 type addImageSuite struct {
-	BaseClouImageMetadataSuite
+	BaseCloudImageMetadataSuite
 
 	data []params.CloudImageMetadata
 
@@ -29,7 +29,7 @@ var _ = gc.Suite(&addImageSuite{})
 var emptyMetadata = []params.CloudImageMetadata{}
 
 func (s *addImageSuite) SetUpTest(c *gc.C) {
-	s.BaseClouImageMetadataSuite.SetUpTest(c)
+	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.data = emptyMetadata
 

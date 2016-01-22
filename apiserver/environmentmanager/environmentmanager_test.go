@@ -141,36 +141,36 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 		{
 			provider: "azure",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"type", "ca-cert", "state-port", "api-port",
 				"subscription-id", "tenant-id", "application-id", "application-password", "location",
 				"controller-resource-group", "storage-account-type"},
 		}, {
 			provider: "dummy",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
+				"type", "ca-cert", "state-port", "api-port"},
 		}, {
 			provider: "joyent",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
+				"type", "ca-cert", "state-port", "api-port"},
 		}, {
 			provider: "local",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"type", "ca-cert", "state-port", "api-port",
 				"container", "network-bridge", "root-dir", "proxy-ssh"},
 		}, {
 			provider: "maas",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"type", "ca-cert", "state-port", "api-port",
 				"maas-server"},
 		}, {
 			provider: "openstack",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"type", "ca-cert", "state-port", "api-port",
 				"region", "auth-url", "auth-mode"},
 		}, {
 			provider: "ec2",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
+				"type", "ca-cert", "state-port", "api-port",
 				"region"},
 		},
 	} {
@@ -199,11 +199,10 @@ func (s *envManagerSuite) TestConfigSkeleton(c *gc.C) {
 	apiPort := s.Environ.Config().APIPort()
 
 	c.Assert(skeleton.Config, jc.DeepEquals, params.EnvironConfig{
-		"type":        "dummy",
-		"ca-cert":     coretesting.CACert,
-		"state-port":  1234,
-		"api-port":    apiPort,
-		"syslog-port": 2345,
+		"type":       "dummy",
+		"ca-cert":    coretesting.CACert,
+		"state-port": 1234,
+		"api-port":   apiPort,
 	})
 }
 
@@ -245,18 +244,6 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 			key:      "api-port",
 			value:    123,
 			errMatch: `specified api-port "123" does not match apiserver ".*"`,
-		}, {
-			key:      "syslog-port",
-			value:    1234,
-			errMatch: `specified syslog-port "1234" does not match apiserver "2345"`,
-		}, {
-			key:      "rsyslog-ca-cert",
-			value:    "some-cert",
-			errMatch: `specified rsyslog-ca-cert "some-cert" does not match apiserver ".*"`,
-		}, {
-			key:      "rsyslog-ca-key",
-			value:    "some-key",
-			errMatch: `specified rsyslog-ca-key "some-key" does not match apiserver ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)
