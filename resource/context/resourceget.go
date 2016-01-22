@@ -28,14 +28,43 @@ type ResourceGetCmd struct {
 	resourceName string
 }
 
+// TODO(ericsnow) Also provide an indicator of whether or not
+// the resource has changed (in addition to the file path)?
+
 // Info implements cmd.Command.
 func (c ResourceGetCmd) Info() *cmd.Info {
 	return &cmd.Info{
-		Name: ResourceGetCmdName,
-		Args: "<resource name>",
-		// TODO(katco): Implement
-		Purpose: "",
+		Name:    ResourceGetCmdName,
+		Args:    "<resource name>",
+		Purpose: "get the path to the locally cached resource file",
 		Doc: `
+"resource-get" is used while a hook is running to get the local path
+to the file for the identified resource. This file is an fs-local copy,
+unique to the unit for which the hook is running. It is downloaded from
+the controller, if necessary.
+
+If "resource-get" for a resource has not been run before (for the unit)
+then the resource is downloaded from the controller at the revision
+associated with the unit's service. That file is stored in the unit's
+local cache. If "resource-get" *has* been run before then each
+subsequent run syncs the resource with the controller. This ensures
+that the revision of the unit-local copy of the resource matches the
+revision of the resource associated with the unit's service.
+
+Either way, the path provided by "resource-get" references the
+up-to-date file for the resource. Note that the resource may get
+updated on the controller for the service at any time, meaning the
+cached copy *may* be out of date at any time after you call
+"resource-get". Consequently, the command should be run at every
+point where it is critical that the resource be up to date.
+
+The "update-status" hook is particularly suited to keeping a resource
+up to date. This hook runs on a regular interval (e.g. 5 min). Thus,
+in the hook the charm may call "resource-get", forcing an update if
+the resource has changed.
+
+Note that "resource-get" only provides an FS path to the resource file.
+It does not provide any information about the resource (e.g. revision).
 `,
 	}
 }
