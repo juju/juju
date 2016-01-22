@@ -96,7 +96,7 @@ class TestAssessDeployer(tests.TestCase):
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             assess_deployer(args, client_mock)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
-        client_mock.juju.assert_called_once_with('status', ())
+        client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
         self.assertEqual(
             client_mock.wait_for_workloads.call_args_list, [call()] * 2)
@@ -113,7 +113,7 @@ class TestAssessDeployer(tests.TestCase):
             with patch('run_deployer.check_health', autospec=True) as ch_mock:
                 assess_deployer(args, client_mock)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
-        client_mock.juju.assert_called_once_with('status', ())
+        client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
         self.assertEqual(
             client_mock.wait_for_workloads.call_args_list, [call()] * 2)

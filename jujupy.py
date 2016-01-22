@@ -153,6 +153,8 @@ class WorkloadsNotReady(StatusNotMet):
 
 class EnvJujuClient:
 
+    _show_status = 'show-status'
+
     @classmethod
     def get_version(cls, juju_path=None):
         if juju_path is None:
@@ -384,14 +386,19 @@ class EnvJujuClient:
                 raise e
         return sub_output
 
+    def show_status(self):
+        """Print the status to output."""
+        self.juju(self._show_status, ())
+
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
             try:
                 if raw:
-                    return self.get_juju_output('status', *args)
-                return Status.from_text(self.get_juju_output('status'))
+                    return self.get_juju_output(self._show_status, *args)
+                return Status.from_text(
+                    self.get_juju_output(self._show_status))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -811,6 +818,8 @@ class EnvJujuClient:
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
+
+    _show_status = 'status'
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.

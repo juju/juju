@@ -738,7 +738,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
             return
-        client.juju('status', ())
+        client.show_status()
         if with_chaos > 0:
             manager = background_chaos(temp_env_name, client, log_dir,
                                        with_chaos)
@@ -753,7 +753,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         if not skip_juju_run:
             assess_juju_run(client)
         if upgrade:
-            client.juju('status', ())
+            client.show_status()
             assess_upgrade(client, juju_path)
             assess_juju_relations(client)
             if not skip_juju_run:
@@ -763,7 +763,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        client.juju('status', ())
+        client.show_status()
     except Exception as e:
         logging.exception(e)
 

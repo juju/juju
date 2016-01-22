@@ -323,6 +323,9 @@ class FakeJujuClient:
     def wait_for_deploy_started(self):
         pass
 
+    def show_status(self):
+        pass
+
     def get_status(self):
         status_dict = self._backing_state.get_status_dict()
         return Status(status_dict, yaml.safe_dump(status_dict))
@@ -975,7 +978,7 @@ class TestEnvJujuClient(ClientTest):
             client.get_juju_output('cmd', 'baz')
 
     def test_get_status(self):
-        output_text = yield dedent("""\
+        output_text = dedent("""\
                 - a
                 - b
                 - c
@@ -983,8 +986,9 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'get_juju_output',
-                          return_value=output_text):
+                          return_value=output_text) as gjo_mock:
             result = client.get_status()
+        gjo_mock.assert_called_once_with('show-status')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2384,7 +2388,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.get_juju_output('cmd', 'baz')
 
     def test_get_status(self):
-        output_text = yield dedent("""\
+        output_text = dedent("""\
                 - a
                 - b
                 - c
@@ -2392,8 +2396,9 @@ class TestEnvJujuClient1X(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
-                          return_value=output_text):
+                          return_value=output_text) as gjo_mock:
             result = client.get_status()
+        gjo_mock.assert_called_once_with('status')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
