@@ -33,21 +33,61 @@ type EnvMigration struct {
 // envMigDoc tracks the state of a migration attempt for an
 // environment.
 type envMigDoc struct {
-	// XXX docs
-	Id               string   `bson:"_id"`
-	EnvUUID          string   `bson:"env-uuid"`
-	StartTime        int64    `bson:"start-time"`
-	SuccessTime      int64    `bson:"success-time"`
-	EndTime          int64    `bson:"end-time"`
-	Phase            string   `bson:"phase"`
-	PhaseChangedTime int64    `bson:"phase-changed-time"`
-	StatusMessage    string   `bson:"status-message"`
-	Owner            string   `bson:"owner"`
-	TargetController string   `bson:"target-controller"`
-	TargetAddrs      []string `bson:"target-addrs"`
-	TargetCACert     string   `bson:"target-cacert"`
-	TargetEntityTag  string   `bson:"target-entity"`
-	TargetPassword   string   `bson:"target-password"`
+	// Id holds migration document key. It has the format
+	// "uuid:sequence".
+	Id string `bson:"_id"`
+
+	// The UUID of the environment being migrated.
+	EnvUUID string `bson:"env-uuid"`
+
+	// StartTime holds the time the migration started (stored as per
+	// UnixNano).
+	StartTime int64 `bson:"start-time"`
+
+	// StartTime holds the time the migration reached the SUCCESS phase (stored as per
+	// UnixNano).
+	SuccessTime int64 `bson:"success-time"`
+
+	// StartTime holds the time the migration reached a terminal (end)
+	// phase (stored as per UnixNano).
+	EndTime int64 `bson:"end-time"`
+
+	// Phase holds the current migration phase. This should be one of
+	// the string representations of the core/migrations.Phase
+	// constants.
+	Phase string `bson:"phase"`
+
+	// StartTime holds the time that Phase last changed (stored as per
+	// UnixNano).
+	PhaseChangedTime int64 `bson:"phase-changed-time"`
+
+	// StatusMessage holds a human readable message about the
+	// migration's progress.
+	StatusMessage string `bson:"status-message"`
+
+	// Owner holds the username of the user that initiated the
+	// migration.
+	Owner string `bson:"owner"`
+
+	// TargetController holds the UUID of the target controller
+	// environment.
+	TargetController string `bson:"target-controller"`
+
+	// TargetAddrs holds the host:port values for the target API
+	// server.
+	TargetAddrs []string `bson:"target-addrs"`
+
+	// TargetCACert holds the certificate to validate the target API
+	// server's TLS certificate.
+	TargetCACert string `bson:"target-cacert"`
+
+	// TargetEntityTag holds a string representation of the tag to
+	// authenticate to the target controller with.
+	TargetEntityTag string `bson:"target-entity"`
+
+	// TargetPassword holds the password to use with TargetEntityTag
+	// when authenticating.
+	TargetPassword string `bson:"target-password"`
 }
 
 // Id returns a unique identifier for the environment migration.
