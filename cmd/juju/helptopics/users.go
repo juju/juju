@@ -15,21 +15,25 @@ environment is created. This user is considered the administrator for the Juju
 System. This user is the only user able to create other users until Juju has
 full fine grained role based permissions.
 
-All user managment functionality is managed though the 'juju user' collection
-of commands.
-
 The primary user commands are used by the admin users to create users and
 disable or reenable login access.
 
-The change-password command can be used by any user to change their own
+The change-user-password command can be used by any user to change their own
 password, or, for admins, the command can change another user's password and
 generate a new credentials file for them.
 
-The credentials command gives any user the ability to export the credentials
+The get-user-credentials command gives any user the ability to export the credentials
 they are using to access an environment to a file that they can use elsewhere
 to login to the same Juju System.
 
 See Also:
-    juju help system
-    juju help user
+    juju help controllers
+    juju help add-user
+    juju help change-user-password
+    juju help get-user-credentials
+    juju help list-users
+    juju help show-user
+    juju help disable-user
+    juju help enable-user
+
 `

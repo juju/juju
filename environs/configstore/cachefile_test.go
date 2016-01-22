@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -25,7 +24,6 @@ type cacheFileInterfaceSuite struct {
 
 func (s *cacheFileInterfaceSuite) SetUpTest(c *gc.C) {
 	s.interfaceSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)

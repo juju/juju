@@ -173,11 +173,6 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
 	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
-	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
-	// we now provide a symlink to the written file in the local log dir.
-	// Also, we leave the old all-machines.log file in
-	// /var/log/juju-{{namespace}} until we start the environment again. So
-	// potentially remove it at the start of the cloud-init.
 	localLogDir := filepath.Join(icfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return errors.Trace(err)
@@ -190,7 +185,6 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", icfg.LogDir),
-		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
@@ -476,7 +470,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
+			juju, "kill-controller", "-y", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout

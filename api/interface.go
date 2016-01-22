@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -173,7 +172,7 @@ type Connection interface {
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
-	Reboot() (*reboot.State, error)
+	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
 	Environment() *environment.Facade
 	Logger() *apilogger.State
@@ -183,7 +182,6 @@ type Connection interface {
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }

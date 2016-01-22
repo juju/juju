@@ -19,7 +19,7 @@ import (
 // server machines.
 func (st *State) stateServerAddresses() ([]string, error) {
 	ssState := st
-	env, err := st.StateServerEnvironment()
+	env, err := st.ControllerEnvironment()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
