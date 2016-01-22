@@ -25,7 +25,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.subnets")
 
 func init() {
-	common.RegisterStandardFacade("Subnets", 1, NewAPI)
+	common.RegisterStandardFacade("Subnets", 2, NewAPI)
 }
 
 // API defines the methods the Subnets API facade implements.

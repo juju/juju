@@ -16,7 +16,7 @@ import (
 var logger = loggo.GetLogger("juju.api.logger")
 
 func init() {
-	common.RegisterStandardFacade("Logger", 0, NewLoggerAPI)
+	common.RegisterStandardFacade("Logger", 1, NewLoggerAPI)
 }
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the

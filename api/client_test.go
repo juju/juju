@@ -469,21 +469,6 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestConnectStreamRootPath(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-
-	// If the server is old, we connect to /path.
-	info := s.APIInfo(c)
-	info.EnvironTag = names.NewEnvironTag("")
-	apistate, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
-	reader, err := apistate.ConnectStream("/path", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, "/path")
-}
-
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 	// If the server supports it, we should log at "/environment/UUID/log"

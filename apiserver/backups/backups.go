@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Backups", 0, NewAPI)
+	common.RegisterStandardFacade("Backups", 1, NewAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.backups")

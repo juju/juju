@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MeterStatus", 1, NewMeterStatusAPI)
+	common.RegisterStandardFacade("MeterStatus", 2, NewMeterStatusAPI)
 }
 
 // MeterStatus defines the methods exported by the meter status API facade.

@@ -78,7 +78,7 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 
 func (s *clientSuite) TestClientEnsureAvailabilityVersion(c *gc.C) {
 	client := highavailability.NewClient(s.APIState)
-	c.Assert(client.BestAPIVersion(), gc.Equals, 1)
+	c.Assert(client.BestAPIVersion(), gc.Equals, 2)
 }
 
 type clientLegacySuite struct {
@@ -88,7 +88,7 @@ type clientLegacySuite struct {
 var _ = gc.Suite(&clientLegacySuite{})
 
 func (s *clientLegacySuite) SetUpTest(c *gc.C) {
-	common.Facades.Discard("HighAvailability", 1)
+	common.Facades.Discard("HighAvailability", 2)
 	s.JujuConnSuite.SetUpTest(c)
 }
 

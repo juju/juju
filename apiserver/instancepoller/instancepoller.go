@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("InstancePoller", 1, NewInstancePollerAPI)
+	common.RegisterStandardFacade("InstancePoller", 2, NewInstancePollerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.instancepoller")

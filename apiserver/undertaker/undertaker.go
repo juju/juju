@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
+	common.RegisterStandardFacade("Undertaker", 2, NewUndertakerAPI)
 }
 
 // UndertakerAPI implements the API used by the machine undertaker worker.

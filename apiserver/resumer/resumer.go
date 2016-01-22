@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Resumer", 1, NewResumerAPI)
+	common.RegisterStandardFacade("Resumer", 2, NewResumerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.resumer")

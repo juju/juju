@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("UnitAssigner", 1, New)
+	common.RegisterStandardFacade("UnitAssigner", 2, New)
 }
 
 // assignerState defines the state methods this facade needs, so they can be mocked
