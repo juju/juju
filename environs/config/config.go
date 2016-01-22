@@ -78,7 +78,7 @@ const (
 	DefaultNumaControlPolicy = false
 
 	// DefaultPreventDestroyEnvironment should not be used by default.
-	// Only prevent destroy-environment from running
+	// Only prevent destroy-model from running
 	// if user specifically requests it. Otherwise, let it run.
 	DefaultPreventDestroyEnvironment = false
 
@@ -827,7 +827,7 @@ func (c *Config) NumaCtlPreference() bool {
 	return DefaultNumaControlPolicy
 }
 
-// PreventDestroyEnvironment returns if destroy-environment
+// PreventDestroyEnvironment returns if destroy-model
 // should be blocked from proceeding, thus preventing the operation.
 func (c *Config) PreventDestroyEnvironment() bool {
 	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {

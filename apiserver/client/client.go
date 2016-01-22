@@ -790,7 +790,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 }
 
 // EnvironmentGet implements the server-side part of the
-// get-environment CLI command.
+// get-model CLI command.
 func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 	result := params.EnvironmentConfigResults{}
 	// Get the existing environment config from the state.
@@ -803,7 +803,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 }
 
 // EnvironmentSet implements the server-side part of the
-// set-environment CLI command.
+// set-model CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -827,7 +827,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 }
 
 // EnvironmentUnset implements the server-side part of the
-// set-environment CLI command.
+// set-model CLI command.
 func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
