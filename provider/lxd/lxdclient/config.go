@@ -6,7 +6,6 @@
 package lxdclient
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -59,7 +58,6 @@ func (cfg Config) WithDefaults() (Config, error) {
 		// TODO(ericsnow) Switch to filepath as soon as LXD does,
 		dirname := path.Dir(ConfigPath("DUMMY"))
 		cfg.Dirname = path.Clean(dirname)
-		fmt.Println("cleaned config %s %s", dirname, cfg.Dirname)
 	}
 
 	var err error
