@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package context
+package cmd
 
 import (
 	"fmt"
@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 )
 
-// ResourceGetCmdName is the name of the resource-get command.
-const ResourceGetCmdName = "resource-get"
+// GetCmdName is the name of the resource-get command.
+const GetCmdName = "resource-get"
 
-// NewResourceGetCmd creates a new ResourceGetCmd for the given hook context.
-func NewResourceGetCmd(c HookContext) (*ResourceGetCmd, error) {
-	return &ResourceGetCmd{
+// NewGetCmd creates a new GetCmd for the given hook context.
+func NewGetCmd(c HookContext) (*GetCmd, error) {
+	return &GetCmd{
 		hookContext: c,
 	}, nil
 }
 
-// ResourceGetCmd provides the functionality of the resource-get command.
-type ResourceGetCmd struct {
+// GetCmd provides the functionality of the resource-get command.
+type GetCmd struct {
 	cmd.CommandBase
 
 	hookContext  HookContext
@@ -32,9 +32,9 @@ type ResourceGetCmd struct {
 // the resource has changed (in addition to the file path)?
 
 // Info implements cmd.Command.
-func (c ResourceGetCmd) Info() *cmd.Info {
+func (c GetCmd) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    ResourceGetCmdName,
+		Name:    GetCmdName,
 		Args:    "<resource name>",
 		Purpose: "get the path to the locally cached resource file",
 		Doc: `
@@ -70,7 +70,7 @@ It does not provide any information about the resource (e.g. revision).
 }
 
 // Init implements cmd.Command.
-func (c *ResourceGetCmd) Init(args []string) error {
+func (c *GetCmd) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("missing required resource name")
 	} else if err := cmd.CheckEmpty(args[1:]); err != nil {
@@ -81,8 +81,8 @@ func (c *ResourceGetCmd) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c ResourceGetCmd) Run(ctx *cmd.Context) error {
-	filePath, err := c.hookContext.DownloadResource(c.resourceName)
+func (c GetCmd) Run(ctx *cmd.Context) error {
+	filePath, err := c.hookContext.Download(c.resourceName)
 	if err != nil {
 		return errors.Annotate(err, "could not download resource")
 	}

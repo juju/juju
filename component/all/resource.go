@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
+	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/persistence"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
@@ -298,7 +299,7 @@ func (c resources) registerHookContextCommands() {
 	}
 
 	jujuc.RegisterCommand(
-		context.ResourceGetCmdName,
+		contextcmd.GetCmdName,
 		func(ctx jujuc.Context) (jujucmd.Command, error) {
 			compCtx, err := ctx.Component(resource.ComponentName)
 			if err != nil {
@@ -309,7 +310,7 @@ func (c resources) registerHookContextCommands() {
 			if !ok {
 				return nil, errors.Trace(err)
 			}
-			cmd, err := context.NewResourceGetCmd(typedCtx)
+			cmd, err := contextcmd.NewGetCmd(typedCtx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

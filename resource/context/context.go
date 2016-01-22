@@ -22,13 +22,6 @@ type APIClient interface {
 	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 
-// HookContext exposes the functionality exposed by the resources context.
-type HookContext interface {
-	// DownloadResource downloads the named resource and returns
-	// the path to which it was downloaded.
-	DownloadResource(name string) (filePath string, _ error)
-}
-
 // Content is the resources portion of a uniter hook context.
 type Context struct {
 	contextDeps
@@ -52,12 +45,12 @@ func (c *Context) Flush() error {
 	return nil
 }
 
-// DownloadResource downloads the named resource and returns the path
+// Download downloads the named resource and returns the path
 // to which it was downloaded. If the resource does not exist or has
 // not been uploaded yet then errors.NotFound is returned.
 //
 // Note that the downloaded file is checked for correctness.
-func (c *Context) DownloadResource(name string) (string, error) {
+func (c *Context) Download(name string) (string, error) {
 	// TODO(katco): Potential race-condition: two commands running at
 	// once.
 	// TODO(katco): Check to see if we have latest version
