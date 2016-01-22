@@ -89,7 +89,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "service-constraints", "initial service constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
