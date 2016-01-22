@@ -60,7 +60,6 @@ var sampleConfig = testing.Attrs{
 	"development":               false,
 	"state-port":                1234,
 	"api-port":                  4321,
-	"syslog-port":               2345,
 	"default-series":            config.LatestLtsSeries(),
 }
 
@@ -757,23 +756,6 @@ var configTests = []configTest{
 		},
 		err: `api-port: expected number, got string\("illegal"\)`,
 	}, {
-		about:       "Explicit syslog port",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":        "my-type",
-			"name":        "my-name",
-			"syslog-port": 3456,
-		},
-	}, {
-		about:       "Invalid syslog port",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":        "my-type",
-			"name":        "my-name",
-			"syslog-port": "illegal",
-		},
-		err: `syslog-port: expected number, got string\("illegal"\)`,
-	}, {
 		about:       "Explicit bootstrap timeout",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1236,9 +1218,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if apiPort, ok := test.attrs["api-port"]; ok {
 		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
-	if syslogPort, ok := test.attrs["syslog-port"]; ok {
-		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
-	}
 	if expected, ok := test.attrs["uuid"]; ok {
 		got, exists := cfg.UUID()
 		c.Assert(exists, gc.Equals, ok)
@@ -1453,7 +1432,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"syslog-port":               2345,
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
@@ -1568,10 +1546,6 @@ var validationTests = []validationTest{{
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
-}, {
-	about: "Cannot change the rsyslog port",
-	new:   testing.Attrs{"syslog-port": 8181},
-	err:   `cannot change syslog-port from 6514 to 8181`,
 }, {
 	about: "Cannot change lxc-clone",
 	old:   testing.Attrs{"lxc-clone": false},

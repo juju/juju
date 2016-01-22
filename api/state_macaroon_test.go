@@ -107,8 +107,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	// Ensure that the discharger won't discharge and try
 	// logging in again. We should succeed in getting past
 	// authorization because we have the cookies (but
-	// the actual debug-log endpoint will return an error
-	// because there's no all-machines.log file).
+	// the actual debug-log endpoint will return an error).
 	dischargeError = true
 	logArgs := url.Values{"noTail": []string{"true"}}
 	conn, err := client.ConnectStream("/log", logArgs)

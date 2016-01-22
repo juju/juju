@@ -104,7 +104,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
-		return "", "", fmt.Errorf("canot create certificate: %v", err)
+		return "", "", fmt.Errorf("cannot create certificate: %v", err)
 	}
 	certPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",

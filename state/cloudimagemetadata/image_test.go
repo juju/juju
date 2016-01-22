@@ -68,12 +68,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
-	// No metadata is stored yet.
-	// So when looking for all and none is found, err.
-	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataFilter{})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
-	c.Assert(found, gc.HasLen, 0)
+	s.assertNoMetadata(c)
 
 	// insert something...
 	attrs := cloudimagemetadata.MetadataAttributes{
@@ -404,6 +399,73 @@ func (s *cloudImageMetadataSuite) TestSupportedArchitecturesUnmatchedStreamsAndR
 		cloudimagemetadata.MetadataFilter{Stream: stream, Region: region})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniqueArches, gc.DeepEquals, []string{})
+}
+
+func (s *cloudImageMetadataSuite) TestDeleteMetadata(c *gc.C) {
+	imageId := "ok-to-delete"
+	s.addTestImageMetadata(c, imageId)
+	s.assertDeleteMetadata(c, imageId)
+	s.assertNoMetadata(c)
+
+	// calling delete on it again should be a no-op
+	s.assertDeleteMetadata(c, imageId)
+	// make sure log has "nothing to delete" message
+	c.Assert(c.GetTestLog(), jc.Contains, "no metadata for image ID ok-to-delete to delete")
+}
+
+func (s *cloudImageMetadataSuite) TestDeleteDiffMetadataConcurrently(c *gc.C) {
+	imageId := "ok-to-delete"
+	s.addTestImageMetadata(c, imageId)
+
+	diffImageId := "ok-to-delete-too"
+	s.addTestImageMetadata(c, diffImageId)
+
+	s.assertConcurrentDelete(c, imageId, diffImageId)
+}
+
+func (s *cloudImageMetadataSuite) TestDeleteSameMetadataConcurrently(c *gc.C) {
+	imageId := "ok-to-delete"
+	s.addTestImageMetadata(c, imageId)
+
+	s.assertConcurrentDelete(c, imageId, imageId)
+}
+
+func (s *cloudImageMetadataSuite) assertConcurrentDelete(c *gc.C, imageId0, imageId1 string) {
+	deleteMetadata := func() {
+		s.assertDeleteMetadata(c, imageId0)
+	}
+	defer txntesting.SetBeforeHooks(c, s.access.runner, deleteMetadata).Check()
+	s.assertDeleteMetadata(c, imageId1)
+	s.assertNoMetadata(c)
+}
+
+func (s *cloudImageMetadataSuite) addTestImageMetadata(c *gc.C, imageId string) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test"}
+
+	added := cloudimagemetadata.Metadata{attrs, 0, imageId}
+	s.assertRecordMetadata(c, added)
+	s.assertMetadataRecorded(c, attrs, added)
+}
+
+func (s *cloudImageMetadataSuite) assertDeleteMetadata(c *gc.C, imageId string) {
+	err := s.storage.DeleteMetadata(imageId)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *cloudImageMetadataSuite) assertNoMetadata(c *gc.C) {
+	// No metadata should be in store.
+	// So when looking for all and none is found, err.
+	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataFilter{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
+	c.Assert(found, gc.HasLen, 0)
 }
 
 type TestMongo struct {

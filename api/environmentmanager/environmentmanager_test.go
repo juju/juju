@@ -46,11 +46,10 @@ func (s *environmentmanagerSuite) TestConfigSkeleton(c *gc.C) {
 
 	// Numbers coming over the api are floats, not ints.
 	c.Assert(result, jc.DeepEquals, params.EnvironConfig{
-		"type":        "dummy",
-		"ca-cert":     coretesting.CACert,
-		"state-port":  float64(1234),
-		"api-port":    float64(apiPort),
-		"syslog-port": float64(2345),
+		"type":       "dummy",
+		"ca-cert":    coretesting.CACert,
+		"state-port": float64(1234),
+		"api-port":   float64(apiPort),
 	})
 
 }
