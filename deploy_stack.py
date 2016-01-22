@@ -344,8 +344,6 @@ def deploy_job_parse_args(argv=None):
                         help='Deploy and run Chaos Monkey in the background.')
     parser.add_argument('--jes', action='store_true',
                         help='Use JES to control environments.')
-    parser.add_argument('--pre-destroy', action='store_true',
-                        help='Destroy any environment in the way first.')
     return parser.parse_args(argv)
 
 
@@ -360,12 +358,7 @@ def deploy_job():
     if series.startswith("win") or series.startswith("centos"):
         logging.info('Setting default series to trusty for win and centos.')
         series = 'trusty'
-    return _deploy_job(args.temp_env_name, args.env, args.upgrade,
-                       charm_prefix, args.bootstrap_host, args.machine,
-                       series, args.logs, args.debug, args.juju_bin,
-                       args.agent_url, args.agent_stream,
-                       args.keep_env, args.upload_tools, args.with_chaos,
-                       args.jes, args.pre_destroy, args.region)
+    return _deploy_job(args, charm_prefix, series)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -707,41 +700,31 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
         yield
 
 
-def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
-                machines, series, log_dir, debug, juju_path, agent_url,
-                agent_stream, keep_env, upload_tools, with_chaos, use_jes,
-                pre_destroy, region):
-    start_juju_path = None if upgrade else juju_path
+def _deploy_job(args, charm_prefix, series):
+    start_juju_path = None if args.upgrade else args.juju_bin
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    if pre_destroy:
-        client = EnvJujuClient.by_version(
-            SimpleEnvironment(temp_env_name, {}), juju_path, debug)
-        if use_jes:
-            client.enable_jes()
-        if client.is_jes_enabled():
-            client.env.juju_home = jes_home_path(client.env.juju_home,
-                                                 temp_env_name)
-        client.destroy_environment()
+    # GZ 2016-01-22: When upgrading, could make sure to tear down with the
+    # newer client instead, this will be required for major version upgrades?
     client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(base_env), start_juju_path, debug)
-    if use_jes:
+        SimpleEnvironment.from_config(args.env), start_juju_path, args.debug)
+    if args.jes and not client.is_jes_enabled():
         client.enable_jes()
-    permanent = client.is_jes_enabled()
+    jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
-        temp_env_name, client, client, bootstrap_host, machines, series,
-        agent_url, agent_stream, region, log_dir, keep_env, permanent,
-        permanent)
-    with bs_manager.booted_context(upload_tools):
+        args.temp_env_name, client, client, args.bootstrap_host, args.machine,
+        series, args.agent_url, args.agent_stream, args.region, args.logs,
+        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled)
+    with bs_manager.booted_context(args.upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
             return
         client.show_status()
-        if with_chaos > 0:
-            manager = background_chaos(temp_env_name, client, log_dir,
-                                       with_chaos)
+        if args.with_chaos > 0:
+            manager = background_chaos(args.temp_env_name, client,
+                                       args.logs, args.with_chaos)
         else:
             # Create a no-op context manager, to avoid duplicate calls of
             # deploy_dummy_stack(), as was the case prior to this revision.
@@ -752,9 +735,9 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
         if not skip_juju_run:
             assess_juju_run(client)
-        if upgrade:
+        if args.upgrade:
             client.show_status()
-            assess_upgrade(client, juju_path)
+            assess_upgrade(client, args.juju_path)
             assess_juju_relations(client)
             if not skip_juju_run:
                 assess_juju_run(client)
