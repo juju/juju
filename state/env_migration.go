@@ -34,20 +34,20 @@ type EnvMigration struct {
 // environment.
 type envMigDoc struct {
 	// XXX docs
-	Id               string    `bson:"_id"`
-	EnvUUID          string    `bson:"env-uuid"`
-	StartTime        time.Time `bson:"start-time"`
-	SuccessTime      time.Time `bson:"success-time"`
-	EndTime          time.Time `bson:"end-time"`
-	Phase            string    `bson:"phase"`
-	PhaseChangedTime time.Time `bson:"phase-changed-time"`
-	StatusMessage    string    `bson:"status-message"`
-	Owner            string    `bson:"owner"`
-	TargetController string    `bson:"target-controller"`
-	TargetAddrs      []string  `bson:"target-addrs"`
-	TargetCACert     string    `bson:"target-cacert"`
-	TargetEntityTag  string    `bson:"target-entity"`
-	TargetPassword   string    `bson:"target-password"`
+	Id               string   `bson:"_id"`
+	EnvUUID          string   `bson:"env-uuid"`
+	StartTime        int64    `bson:"start-time"`
+	SuccessTime      int64    `bson:"success-time"`
+	EndTime          int64    `bson:"end-time"`
+	Phase            string   `bson:"phase"`
+	PhaseChangedTime int64    `bson:"phase-changed-time"`
+	StatusMessage    string   `bson:"status-message"`
+	Owner            string   `bson:"owner"`
+	TargetController string   `bson:"target-controller"`
+	TargetAddrs      []string `bson:"target-addrs"`
+	TargetCACert     string   `bson:"target-cacert"`
+	TargetEntityTag  string   `bson:"target-entity"`
+	TargetPassword   string   `bson:"target-password"`
 }
 
 // Id returns a unique identifier for the environment migration.
@@ -63,19 +63,22 @@ func (mig *EnvMigration) EnvUUID() string {
 
 // StartTime returns the time when the migration was started.
 func (mig *EnvMigration) StartTime() time.Time {
-	return mig.doc.StartTime
+	return *unixNanoToTime0(mig.doc.StartTime)
 }
 
 // SuccessTime returns the time when the migration reached
 // SUCCESS.
 func (mig *EnvMigration) SuccessTime() time.Time {
-	return mig.doc.SuccessTime
+	if mig.doc.SuccessTime == 0 {
+		return time.Time{}
+	}
+	return *unixNanoToTime0(mig.doc.SuccessTime)
 }
 
 // EndTime returns the time when the migration reached DONE or
 // REAPFAILED.
 func (mig *EnvMigration) EndTime() time.Time {
-	return mig.doc.EndTime
+	return *unixNanoToTime0(mig.doc.EndTime)
 }
 
 // Phase returns the migration's phase.
@@ -90,7 +93,7 @@ func (mig *EnvMigration) Phase() (migration.Phase, error) {
 // PhaseChangedTime returns the time when the migration's phase last
 // changed.
 func (mig *EnvMigration) PhaseChangedTime() time.Time {
-	return mig.doc.PhaseChangedTime
+	return *unixNanoToTime0(mig.doc.PhaseChangedTime)
 }
 
 // StatusMessage returns human readable text about the current
@@ -124,7 +127,7 @@ func (mig *EnvMigration) TargetInfo() (*EnvMigTargetInfo, error) {
 // if the new phase does not follow the current phase or if the
 // migration is no longer active.
 func (mig *EnvMigration) SetPhase(nextPhase migration.Phase) error {
-	now := GetClock().Now()
+	now := GetClock().Now().UnixNano()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -278,7 +281,7 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 		return nil, errors.New("controllers can't be migrated")
 	}
 
-	now := GetClock().Now()
+	now := GetClock().Now().UnixNano()
 	envUUID := st.EnvironUUID()
 	var doc envMigDoc
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -356,4 +359,11 @@ func IsEnvMigrationActive(st *State, envUUID string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return n > 0, nil
+}
+
+func unixNanoToTime0(i int64) *time.Time {
+	if i == 0 {
+		return new(time.Time)
+	}
+	return unixNanoToTime(i)
 }
