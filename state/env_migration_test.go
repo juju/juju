@@ -216,10 +216,6 @@ func (s *EnvMigrationSuite) TestCreateWithControllerEnv(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "controllers can't be migrated")
 }
 
-func (s *EnvMigrationSuite) TestCreateFailsForAlreadyMigratedEnvs(c *gc.C) {
-	c.Fatal("XXX todo")
-}
-
 func (s *EnvMigrationSuite) TestCreateMigrationInProgress(c *gc.C) {
 	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
 	c.Assert(mig, gc.Not(gc.IsNil))
