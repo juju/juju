@@ -118,7 +118,9 @@ class TestTestControlHeterogeneous(TestCase):
         bs_manager = FakeBootstrapManager(client)
         # Prevent teardown
         bs_manager.tear_down_client = MagicMock()
-        test_control_heterogeneous(bs_manager, client, True)
+        bs_manager.tear_down_client.destroy_environment.return_value = 0
+        with patch.object(client, 'destroy_environment', return_value=0):
+            test_control_heterogeneous(bs_manager, client, True)
         self.assertEqual(client._backing_state.exposed,
                          {'sink2', 'dummy-sink'})
         self.assertEqual(client._backing_state.machines, {'0', '1', '2'})

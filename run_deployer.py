@@ -96,7 +96,7 @@ def assess_deployer(args, client):
         environ = client._shell_environ()
         check_health(args.health_cmd, args.temp_env_name, environ)
     if args.upgrade:
-        client.juju('status', ())
+        client.show_status()
         if args.upgrade_condition:
             for condition in args.upgrade_condition:
                 apply_condition(client, condition)

@@ -1638,7 +1638,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                              deploy_iter.next())
         for x in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
-                'juju', '--show-log', 'destroy-machine', '-m', 'steve',
+                'juju', '--show-log', 'remove-machine', '-m', 'steve',
                 '--force', str((x + 1))), x * 2)
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-m', 'steve'), x * 2 + 1)

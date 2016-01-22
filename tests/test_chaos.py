@@ -107,7 +107,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 }
             })
             output = {
-                ('status',): status,
+                ('show-status',): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -151,7 +151,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 }
             })
             output = {
-                ('status',): status,
+                ('show-status',): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -204,7 +204,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
             })
             output = {
                 ('status',): status,
-                ('get', 'chaos-monkey'): charm_config,
+                ('get-config', 'chaos-monkey'): charm_config,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
@@ -270,7 +270,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('status',): status,
+                ('show-status',): status,
                 ('get', 'jenkins'): charm_config,
                 ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
@@ -311,7 +311,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('status',): status,
+                ('show-status',): status,
                 ('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120',
                  'monkey-id=123412341234123412341234123412341234'
@@ -327,7 +327,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
-                call('status'),
+                call('show-status'),
                 call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
                 call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
@@ -343,7 +343,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             monkey_runner.unleash_once()
         self.assertEqual(
             [
-                call('status'),
+                call('show-status'),
                 call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',
@@ -382,7 +382,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('status',): status,
+                ('show-status',): status,
                 ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action fail',

@@ -16,6 +16,8 @@ def main():
         'list-space': ['space', 'list'],
         'add-space': ['space', 'create'],
         'add-subnet': ['subnet', 'add'],
+        'get-config': ['get'],
+        'show-status': ['status'],
     }
     args = []
     for val in substitutes.values():

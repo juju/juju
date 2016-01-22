@@ -75,9 +75,8 @@ def run_context(bs_manager, other, upload_tools):
                 raise AssertionError('Juju home out of sync')
             yield
         # Test clean shutdown of an environment.
-        juju_with_fallback(other, bs_manager.tear_down_client,
-                           'destroy-environment',
-                           (other.env.environment, '-y'), include_e=False)
+        callback_with_fallback(other, bs_manager.tear_down_client,
+                               nice_tear_down)
     except:
         bs_manager.tear_down()
         raise
@@ -95,7 +94,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
             check_token(initial, token)
             check_series(other)
             other.juju('run', ('--all', 'uname -a'))
-        other.get_juju_output('get', 'dummy-source')
+        other.get_config('dummy-source')
         other.get_juju_output('get-env')
         other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
         status = other.get_status()
@@ -157,14 +156,28 @@ def juju_with_fallback(other, released, command, args, include_e=True):
     juju for commands that we expect to fail (due to unsupported agent version
     format).
     """
+    def call_juju(client):
+        client.juju(command, args, include_e=include_e)
+    return callback_with_fallback(other, released, call_juju)
+
+
+def callback_with_fallback(other, released, callback):
     for client in [other, released]:
         try:
-            client.juju(command, args, include_e=include_e)
+            callback(client)
         except CalledProcessError:
             if not client.version.startswith('1.18.'):
                 raise
         else:
             break
+
+
+def nice_tear_down(client):
+    if client.is_jes_enabled():
+        client.kill_controller()
+    else:
+        if client.destroy_environment(force=False) != 0:
+            raise CalledProcessError(1, 'juju destroy-environment')
 
 
 def has_agent(client, agent_id):
