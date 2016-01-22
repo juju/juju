@@ -141,7 +141,7 @@ func (mig *EnvMigration) SetPhase(nextPhase migration.Phase) error {
 			// Already at that phase. Nothing to do.
 			return nil, jujutxn.ErrNoOperations
 		}
-		if !phase.IsNext(nextPhase) {
+		if !phase.CanTransitionTo(nextPhase) {
 			return nil, errors.Errorf("illegal change: %s -> %s", mig.doc.Phase, nextPhase)
 		}
 

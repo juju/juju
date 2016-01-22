@@ -17,6 +17,12 @@ type PhaseSuite struct {
 
 var _ = gc.Suite(new(PhaseSuite))
 
+func (s *PhaseSuite) TestUNKNOWN(c *gc.C) {
+	// 0 should be UNKNOWN to guard against uninitialised struct
+	// fields.
+	c.Check(migration.Phase(0), gc.Equals, migration.UNKNOWN)
+}
+
 func (s *PhaseSuite) TestStringValid(c *gc.C) {
 	c.Check(migration.PRECHECK.String(), gc.Equals, "PRECHECK")
 	c.Check(migration.UNKNOWN.String(), gc.Equals, "UNKNOWN")
@@ -48,16 +54,11 @@ func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
 	c.Check(migration.DONE.IsTerminal(), jc.IsTrue)
 }
 
-func (s *PhaseSuite) TestIsNext(c *gc.C) {
-	c.Check(migration.QUIESCE.IsNext(migration.SUCCESS), jc.IsFalse)
-	c.Check(migration.QUIESCE.IsNext(migration.ABORT), jc.IsTrue)
-	c.Check(migration.QUIESCE.IsNext(migration.READONLY), jc.IsTrue)
-	c.Check(migration.QUIESCE.IsNext(migration.Phase(-1)), jc.IsFalse)
+func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.READONLY), jc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), jc.IsFalse)
 
-	c.Check(migration.ABORT.IsNext(migration.QUIESCE), jc.IsFalse)
-}
-
-func (s *PhaseSuite) TestForOrphans(c *gc.C) {
-	// XXX also do other consistency checks
-	c.Fatalf("XXX to do")
+	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), jc.IsFalse)
 }

@@ -46,9 +46,9 @@ func (p Phase) String() string {
 	return "UNKNOWN"
 }
 
-// IsNext returns true if the gven phase is a valid next environment
-// migration phase.
-func (p Phase) IsNext(targetPhase Phase) bool {
+// CanTransitionTo returns true if the given phase is a valid next
+// environment migration phase.
+func (p Phase) CanTransitionTo(targetPhase Phase) bool {
 	nextPhases, exists := validTransitions[p]
 	if !exists {
 		return false
