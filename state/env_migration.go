@@ -65,9 +65,9 @@ type envMigDoc struct {
 	// migration's progress.
 	StatusMessage string `bson:"status-message"`
 
-	// Owner holds the username of the user that initiated the
-	// migration.
-	Owner string `bson:"owner"`
+	// InitiatedBy holds the username of the user that triggered the
+	// migration. It should be in "user@domain" format.
+	InitiatedBy string `bson:"initiatedBy"`
 
 	// TargetController holds the UUID of the target controller
 	// environment.
@@ -142,9 +142,9 @@ func (mig *EnvMigration) StatusMessage() string {
 	return mig.doc.StatusMessage
 }
 
-// Owner returns user the initiated the migration.
-func (mig *EnvMigration) Owner() string {
-	return mig.doc.Owner
+// InitiatedBy returns username the initiated the migration.
+func (mig *EnvMigration) InitiatedBy() string {
+	return mig.doc.InitiatedBy
 }
 
 // TargetInfo returns the details required to connect to the
@@ -241,8 +241,8 @@ func (mig *EnvMigration) Refresh() error {
 // EnvMigrationSpec holds the information required to create an
 // EnvMigration instance.
 type EnvMigrationSpec struct {
-	Owner      string
-	TargetInfo EnvMigTargetInfo
+	InitiatedBy string
+	TargetInfo  EnvMigTargetInfo
 }
 
 // EnvMigTargetInfo holds the details required to connect to a
@@ -273,8 +273,8 @@ type EnvMigTargetInfo struct {
 }
 
 func (spec *EnvMigrationSpec) Validate() error {
-	if spec.Owner == "" {
-		return errors.NotValidf("empty Owner")
+	if spec.InitiatedBy == "" {
+		return errors.NotValidf("empty InitiatedBy")
 	}
 
 	target := &spec.TargetInfo
@@ -314,11 +314,11 @@ func (spec *EnvMigrationSpec) Validate() error {
 // migration. It will return an error if there is already an
 // environment migration in progress.
 func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error) {
-	if err := spec.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if st.IsStateServer() {
 		return nil, errors.New("controllers can't be migrated")
+	}
+	if err := spec.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	now := GetClock().Now().UnixNano()
@@ -339,7 +339,7 @@ func CreateEnvMigration(st *State, spec EnvMigrationSpec) (*EnvMigration, error)
 		doc = envMigDoc{
 			Id:               fmt.Sprintf("%s:%d", envUUID, seq),
 			EnvUUID:          envUUID,
-			Owner:            spec.Owner,
+			InitiatedBy:      spec.InitiatedBy,
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,

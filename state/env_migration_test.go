@@ -41,7 +41,7 @@ func (s *EnvMigrationSuite) SetUpTest(c *gc.C) {
 
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.EnvMigrationSpec{
-		Owner: "owner",
+		InitiatedBy: "admin",
 		TargetInfo: state.EnvMigTargetInfo{
 			ControllerTag: names.NewEnvironTag(s.State.EnvironUUID()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
@@ -64,7 +64,7 @@ func (s *EnvMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "")
-	c.Check(mig.Owner(), gc.Equals, "owner")
+	c.Check(mig.InitiatedBy(), gc.Equals, "admin")
 
 	info, err := mig.TargetInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,11 +133,11 @@ func (s *EnvMigrationSuite) TestSpecValidation(c *gc.C) {
 		tweakSpec    func(*state.EnvMigrationSpec)
 		errorPattern string
 	}{{
-		"empty Owner",
+		"empty InitiatedBy",
 		func(spec *state.EnvMigrationSpec) {
-			spec.Owner = ""
+			spec.InitiatedBy = ""
 		},
-		"empty Owner not valid",
+		"empty InitiatedBy not valid",
 	}, {
 		"empty ControllerTag",
 		func(spec *state.EnvMigrationSpec) {
@@ -414,6 +414,10 @@ func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	err = mig.SetPhase(migration.READONLY)
 	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: PRECHECK -> READONLY")
 	assertPhase(c, mig, migration.PRECHECK)
+}
+
+func (s *EnvMigrationSuite) TestStatusMessage(c *gc.C) {
+	c.Fatal("XXX do me")
 }
 
 func assertPhase(c *gc.C, mig *state.EnvMigration, phase migration.Phase) {
