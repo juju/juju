@@ -148,23 +148,24 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 
 			resetJujuHome(c, "devenv")
 
-		s.mockBlockClient.num_retries = t.num_retries
-		s.mockBlockClient.retry_count = 0
-		_, err := coretesting.RunCommand(c, newBootstrapCommand(), modelFlag, "devenv", "--auto-upgrade")
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			s.mockBlockClient.num_retries = t.num_retries
+			s.mockBlockClient.retry_count = 0
+			_, err := coretesting.RunCommand(c, newBootstrapCommand(), modelFlag, "devenv", "--auto-upgrade")
+			if t.err == "" {
+				c.Check(err, jc.ErrorIsNil)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.err)
+			}
+			expectedRetries := t.num_retries
+			if t.num_retries <= 0 {
+				expectedRetries = 1
+			}
+			// Only retry maximum of bootstrapReadyPollCount times.
+			if expectedRetries > 5 {
+				expectedRetries = 5
+			}
+			c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 		}
-		expectedRetries := t.num_retries
-		if t.num_retries <= 0 {
-			expectedRetries = 1
-		}
-		// Only retry maximum of bootstrapReadyPollCount times.
-		if expectedRetries > 5 {
-			expectedRetries = 5
-		}
-		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 	}
 }
 
@@ -753,23 +754,24 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		resetJujuHome(c, "devenv")
 		s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv", "--auto-upgrade")
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
-	var opDestroy *dummy.OpDestroy
-	for opDestroy == nil {
-		select {
-		case op := <-opc:
-			switch op := op.(type) {
-			case dummy.OpDestroy:
-				opDestroy = &op
+		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--auto-upgrade")
+		err := <-errc
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+		var opDestroy *dummy.OpDestroy
+		for opDestroy == nil {
+			select {
+			case op := <-opc:
+				switch op := op.(type) {
+				case dummy.OpDestroy:
+					opDestroy = &op
+				}
+			default:
+				c.Error("expected call to env.Destroy")
+				return
 			}
-		default:
-			c.Error("expected call to env.Destroy")
-			return
 		}
+		c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 	}
-	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 }
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
@@ -777,24 +779,25 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 		resetJujuHome(c, "devenv")
 		s.patchVersion(c)
 
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv", "--keep-broken", "--auto-upgrade")
-	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
-	done := false
-	for !done {
-		select {
-		case op, ok := <-opc:
-			if !ok {
-				done = true
+		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--keep-broken", "--auto-upgrade")
+		err := <-errc
+		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+		done := false
+		for !done {
+			select {
+			case op, ok := <-opc:
+				if !ok {
+					done = true
+					break
+				}
+				switch op.(type) {
+				case dummy.OpDestroy:
+					c.Error("unexpected call to env.Destroy")
+					break
+				}
+			default:
 				break
 			}
-			switch op.(type) {
-			case dummy.OpDestroy:
-				c.Error("unexpected call to env.Destroy")
-				break
-			}
-		default:
-			break
 		}
 	}
 }
