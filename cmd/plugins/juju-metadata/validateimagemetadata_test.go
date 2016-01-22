@@ -96,10 +96,11 @@ environments:
     azure:
         type: azure
         default-series: raring
-        location: US West
-        management-subscription-id: foo
-        storage-account-name: bar
-        management-certificate-path: /home/me/azure.pem
+        location: West US
+        subscription-id: foo
+        application-id: bar
+        application-password: baz
+        tenant-id: qux
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
