@@ -91,14 +91,16 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
-		// This collection is used to track the progress of and synchronise
-		// model migrations.
+		// This collection is holds the parameters for model migrations.
 		modelMigrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid"},
 			}},
 		},
+
+		// This collection tracks the progress of model migrations.
+		modelMigrationStatusC: {global: true},
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensures that only
@@ -373,6 +375,7 @@ const (
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	modelMigrationsC         = "modelmigrations"
+	modelMigrationStatusC    = "modelmigrations.status"
 	activeModelMigrationsC   = "modelmigrations.active"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"

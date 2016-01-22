@@ -23,44 +23,20 @@ import (
 // ModelMigration represents the state of an migration attempt for a
 // model.
 type ModelMigration struct {
-	st  *State
-	doc modelMigrationDoc
+	st        *State
+	doc       modelMigDoc
+	statusDoc modelMigStatusDoc
 }
 
-// modelMigrationDoc tracks the state of a migration attempt for a
-// model.
-type modelMigrationDoc struct {
+// modelMigDoc holds parameters of a migration attempt for a
+// model. These are written into modelMigrationsC.
+type modelMigDoc struct {
 	// Id holds migration document key. It has the format
 	// "uuid:sequence".
 	Id string `bson:"_id"`
 
 	// The UUID of the model being migrated.
 	ModelUUID string `bson:"model-uuid"`
-
-	// StartTime holds the time the migration started (stored as per
-	// UnixNano).
-	StartTime int64 `bson:"start-time"`
-
-	// StartTime holds the time the migration reached the SUCCESS phase (stored as per
-	// UnixNano).
-	SuccessTime int64 `bson:"success-time"`
-
-	// StartTime holds the time the migration reached a terminal (end)
-	// phase (stored as per UnixNano).
-	EndTime int64 `bson:"end-time"`
-
-	// Phase holds the current migration phase. This should be one of
-	// the string representations of the core/migrations.Phase
-	// constants.
-	Phase string `bson:"phase"`
-
-	// StartTime holds the time that Phase last changed (stored as per
-	// UnixNano).
-	PhaseChangedTime int64 `bson:"phase-changed-time"`
-
-	// StatusMessage holds a human readable message about the
-	// migration's progress.
-	StatusMessage string `bson:"status-message"`
 
 	// InitiatedBy holds the username of the user that triggered the
 	// migration. It should be in "user@domain" format.
@@ -86,6 +62,44 @@ type modelMigrationDoc struct {
 	TargetPassword string `bson:"target-password"`
 }
 
+// modelMigStatusDoc tracks the progress of a migration attempt for a
+// model. These are written into modelMigrationStatusC.
+//
+// There is exactly one document in modelMigrationStatusC for each
+// document in modelMigrationsC. Separating them allows for watching
+// for new model migrations without being woken up for each model
+// migration status change.
+type modelMigStatusDoc struct {
+	// These are the same as the ids as modelMigrationsC.
+	// "uuid:sequence".
+	Id string `bson:"_id"`
+
+	// StartTime holds the time the migration started (stored as per
+	// UnixNano).
+	StartTime int64 `bson:"start-time"`
+
+	// StartTime holds the time the migration reached the SUCCESS phase (stored as per
+	// UnixNano).
+	SuccessTime int64 `bson:"success-time"`
+
+	// StartTime holds the time the migration reached a terminal (end)
+	// phase (stored as per UnixNano).
+	EndTime int64 `bson:"end-time"`
+
+	// Phase holds the current migration phase. This should be one of
+	// the string representations of the core/migrations.Phase
+	// constants.
+	Phase string `bson:"phase"`
+
+	// StartTime holds the time that Phase last changed (stored as per
+	// UnixNano).
+	PhaseChangedTime int64 `bson:"phase-changed-time"`
+
+	// StatusMessage holds a human readable message about the
+	// migration's progress.
+	StatusMessage string `bson:"status-message"`
+}
+
 // Id returns a unique identifier for the model migration.
 func (mig *ModelMigration) Id() string {
 	return mig.doc.Id
@@ -98,29 +112,26 @@ func (mig *ModelMigration) ModelUUID() string {
 
 // StartTime returns the time when the migration was started.
 func (mig *ModelMigration) StartTime() time.Time {
-	return *unixNanoToTime0(mig.doc.StartTime)
+	return *unixNanoToTime0(mig.statusDoc.StartTime)
 }
 
 // SuccessTime returns the time when the migration reached
 // SUCCESS.
 func (mig *ModelMigration) SuccessTime() time.Time {
-	if mig.doc.SuccessTime == 0 {
-		return time.Time{}
-	}
-	return *unixNanoToTime0(mig.doc.SuccessTime)
+	return *unixNanoToTime0(mig.statusDoc.SuccessTime)
 }
 
 // EndTime returns the time when the migration reached DONE or
 // REAPFAILED.
 func (mig *ModelMigration) EndTime() time.Time {
-	return *unixNanoToTime0(mig.doc.EndTime)
+	return *unixNanoToTime0(mig.statusDoc.EndTime)
 }
 
 // Phase returns the migration's phase.
 func (mig *ModelMigration) Phase() (migration.Phase, error) {
-	phase, ok := migration.ParsePhase(mig.doc.Phase)
+	phase, ok := migration.ParsePhase(mig.statusDoc.Phase)
 	if !ok {
-		return phase, errors.Errorf("invalid phase in DB: %v", mig.doc.Phase)
+		return phase, errors.Errorf("invalid phase in DB: %v", mig.statusDoc.Phase)
 	}
 	return phase, nil
 }
@@ -128,13 +139,13 @@ func (mig *ModelMigration) Phase() (migration.Phase, error) {
 // PhaseChangedTime returns the time when the migration's phase last
 // changed.
 func (mig *ModelMigration) PhaseChangedTime() time.Time {
-	return *unixNanoToTime0(mig.doc.PhaseChangedTime)
+	return *unixNanoToTime0(mig.statusDoc.PhaseChangedTime)
 }
 
 // StatusMessage returns human readable text about the current
 // progress of the migration.
 func (mig *ModelMigration) StatusMessage() string {
-	return mig.doc.StatusMessage
+	return mig.statusDoc.StatusMessage
 }
 
 // InitiatedBy returns username the initiated the migration.
@@ -176,7 +187,7 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 		return errors.Errorf("illegal phase change: %s -> %s", phase, nextPhase)
 	}
 
-	nextDoc := mig.doc
+	nextDoc := mig.statusDoc
 	var ops []txn.Op
 	nextDoc.Phase = nextPhase.String()
 	nextDoc.PhaseChangedTime = now
@@ -200,11 +211,11 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 	}
 
 	ops = append(ops, txn.Op{
-		C:      modelMigrationsC,
-		Id:     mig.doc.Id,
+		C:      modelMigrationStatusC,
+		Id:     mig.statusDoc.Id,
 		Update: bson.M{"$set": update},
 		// Ensure phase hasn't changed underneath us
-		Assert: bson.M{"phase": mig.doc.Phase},
+		Assert: bson.M{"phase": mig.statusDoc.Phase},
 	})
 
 	if err := mig.st.runTransaction(ops); err == txn.ErrAborted {
@@ -213,7 +224,7 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 		return errors.Annotate(err, "failed to update phase")
 	}
 
-	mig.doc = nextDoc
+	mig.statusDoc = nextDoc
 	return nil
 }
 
@@ -221,15 +232,15 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 // progress of the migration.
 func (mig *ModelMigration) SetStatusMessage(text string) error {
 	ops := []txn.Op{{
-		C:      modelMigrationsC,
-		Id:     mig.doc.Id,
+		C:      modelMigrationStatusC,
+		Id:     mig.statusDoc.Id,
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
 	}}
 	if err := mig.st.runTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
-	mig.doc.StatusMessage = text
+	mig.statusDoc.StatusMessage = text
 	return nil
 }
 
@@ -238,8 +249,7 @@ func (mig *ModelMigration) SetStatusMessage(text string) error {
 func (mig *ModelMigration) Refresh() error {
 	migColl, closer := mig.st.getCollection(modelMigrationsC)
 	defer closer()
-
-	var doc modelMigrationDoc
+	var doc modelMigDoc
 	err := migColl.FindId(mig.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("migration")
@@ -247,7 +257,18 @@ func (mig *ModelMigration) Refresh() error {
 		return errors.Annotate(err, "migration lookup failed")
 	}
 
+	statusColl, closer := mig.st.getCollection(modelMigrationStatusC)
+	defer closer()
+	var statusDoc modelMigStatusDoc
+	err = statusColl.FindId(mig.doc.Id).One(&statusDoc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("migration status")
+	} else if err != nil {
+		return errors.Annotate(err, "migration status lookup failed")
+	}
+
 	mig.doc = doc
+	mig.statusDoc = statusDoc
 	return nil
 }
 
@@ -336,7 +357,8 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 
 	now := GetClock().Now().UnixNano()
 	modelUUID := st.EnvironUUID()
-	var doc modelMigrationDoc
+	var doc modelMigDoc
+	var statusDoc modelMigStatusDoc
 	buildTxn := func(int) ([]txn.Op, error) {
 		if isActive, err := IsModelMigrationActive(st, modelUUID); err != nil {
 			return nil, errors.Trace(err)
@@ -349,24 +371,33 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 			return nil, errors.Trace(err)
 		}
 
-		doc = modelMigrationDoc{
-			Id:               fmt.Sprintf("%s:%d", modelUUID, seq),
+		id := fmt.Sprintf("%s:%d", modelUUID, seq)
+		doc = modelMigDoc{
+			Id:               id,
 			ModelUUID:        modelUUID,
 			InitiatedBy:      spec.InitiatedBy,
-			StartTime:        now,
-			Phase:            migration.QUIESCE.String(),
-			PhaseChangedTime: now,
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
 			TargetEntityTag:  spec.TargetInfo.EntityTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
 		}
+		statusDoc = modelMigStatusDoc{
+			Id:               id,
+			StartTime:        now,
+			Phase:            migration.QUIESCE.String(),
+			PhaseChangedTime: now,
+		}
 		return []txn.Op{{
 			C:      modelMigrationsC,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
 			Insert: &doc,
+		}, {
+			C:      modelMigrationStatusC,
+			Id:     statusDoc.Id,
+			Assert: txn.DocMissing,
+			Insert: &statusDoc,
 		}, {
 			C:      activeModelMigrationsC,
 			Id:     modelUUID,
@@ -379,8 +410,9 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 	}
 
 	return &ModelMigration{
-		doc: doc,
-		st:  st,
+		doc:       doc,
+		statusDoc: statusDoc,
+		st:        st,
 	}, nil
 }
 
@@ -392,7 +424,7 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 
 	query := migColl.Find(bson.M{"model-uuid": st.EnvironUUID()})
 	query = query.Sort("-_id").Limit(1)
-	var doc modelMigrationDoc
+	var doc modelMigDoc
 	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("migration")
@@ -400,7 +432,19 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration lookup failed")
 	}
 
-	return &ModelMigration{st: st, doc: doc}, nil
+	statusColl, closer := st.getCollection(modelMigrationStatusC)
+	defer closer()
+	var statusDoc modelMigStatusDoc
+	err = statusColl.FindId(doc.Id).One(&statusDoc)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to find status document")
+	}
+
+	return &ModelMigration{
+		doc:       doc,
+		statusDoc: statusDoc,
+		st:        st,
+	}, nil
 }
 
 // IsModelMigrationActive return true if a migration is in progress for
