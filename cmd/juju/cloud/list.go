@@ -52,12 +52,36 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+const localPrefix = "local:"
+
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicClouds())
+	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctxt, publicClouds.Clouds)
+	personalClouds, err := jujucloud.PersonalCloudMetadata()
+	if err != nil {
+		return err
+	}
+	for name, cloud := range personalClouds {
+		// Add to result with "local:" prefix.
+		clouds[localPrefix+name] = cloud
+	}
+	return c.out.Write(ctxt, clouds)
+}
+
+// Public clouds sorted first, then personal ie has a prefix of "local:".
+type cloudSourceOrder []string
+
+func (a cloudSourceOrder) Len() int      { return len(a) }
+func (a cloudSourceOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a cloudSourceOrder) Less(i, j int) bool {
+	isLeftLocal := strings.HasPrefix(a[i], localPrefix)
+	isRightLocal := strings.HasPrefix(a[j], localPrefix)
+	if isLeftLocal == isRightLocal {
+		return a[i] < a[j]
+	}
+	return isRightLocal
 }
 
 // formatCloudsTabular returns a tabular summary of cloud information.
@@ -67,12 +91,12 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 		return nil, errors.Errorf("expected value of type %T, got %T", clouds, value)
 	}
 
-	// For tabular we'll sort alphabetically.
+	// For tabular we'll sort alphabetically, user clouds last.
 	var cloudNames []string
 	for name, _ := range clouds {
 		cloudNames = append(cloudNames, name)
 	}
-	sort.Strings(cloudNames)
+	sort.Sort(cloudSourceOrder(cloudNames))
 
 	var out bytes.Buffer
 	const (
