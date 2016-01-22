@@ -73,3 +73,24 @@ func (c *Client) UpdateFromPublishedImages() error {
 	return errors.Trace(
 		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
 }
+
+// Delete removes image metadata for given image id from stored metadata.
+func (c *Client) Delete(imageId string) error {
+	in := params.MetadataImageIds{[]string{imageId}}
+	out := params.ErrorResults{}
+	err := c.facade.FacadeCall("Delete", in, &out)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	result := out.Results
+	if len(result) != 1 {
+		return errors.Errorf("expected to find one result for image id %q but found %d", imageId, len(result))
+	}
+
+	theOne := result[0]
+	if theOne.Error != nil {
+		return errors.Trace(theOne.Error)
+	}
+	return nil
+}
