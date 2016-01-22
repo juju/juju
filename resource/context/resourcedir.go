@@ -13,10 +13,8 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/resource"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	goyaml "gopkg.in/yaml.v2"
 )
 
 type resourceDirectorySpec struct {
@@ -108,8 +106,6 @@ func newTempResourceDir(name string, deps tempDirDeps) (resourceDirectorySpec, e
 
 type resourceDirectory struct {
 	resourceDirectorySpec
-
-	res *resource.Resource
 }
 
 func newResourceDirectory(spec resourceDirectorySpec) *resourceDirectory {
@@ -117,59 +113,6 @@ func newResourceDirectory(spec resourceDirectorySpec) *resourceDirectory {
 		resourceDirectorySpec: spec,
 	}
 	return rd
-}
-
-func (rd *resourceDirectory) readInfo(open func(string) (io.ReadCloser, error)) (resource.Resource, error) {
-	if rd.res != nil {
-		return *rd.res, nil
-	}
-	var res resource.Resource
-
-	file, err := open(rd.infoPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return res, errors.NotFoundf(".info.yaml for %q", rd.name)
-		}
-		return res, errors.Trace(err)
-	}
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return res, errors.Trace(err)
-	}
-
-	if err := goyaml.Unmarshal(data, &res); err != nil {
-		return res, errors.Trace(err)
-	}
-
-	rd.res = &res
-	return res, nil
-}
-
-func (rd *resourceDirectory) writeInfo(res resource.Resource, create func(string) (io.WriteCloser, error)) error {
-	data, err := goyaml.Marshal(res)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	file, err := create(rd.infoPath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			// TODO(ericsnow) Create the directory?
-			return errors.NotFoundf("resource directory for %q", rd.name)
-		}
-		return errors.Trace(err)
-	}
-	defer file.Close()
-
-	if _, err := file.Write(data); err != nil {
-		// TODO(ericsnow) Ensure the file is deleted?
-		return errors.Trace(err)
-	}
-
-	rd.res = &res
-	return nil
 }
 
 func (rd resourceDirectory) writeResource(relPath []string, content resourceContent, create func(string) (io.WriteCloser, error)) error {

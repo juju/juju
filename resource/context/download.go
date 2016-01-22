@@ -56,10 +56,6 @@ func (dl downloader) download() (*resourceDirectory, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := target.writeInfo(dl.remote.Resource, dl.createFile); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	content := dl.remote.content()
 	relPath := []string{dl.path()}
 	if err := target.writeResource(relPath, content, dl.createFile); err != nil {
