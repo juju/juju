@@ -110,10 +110,9 @@ type EnvironmentCreateArgs struct {
 // Environment holds the result of an API call returning a name and UUID
 // for an environment and the tag of the server in which it is running.
 type Environment struct {
-	Name       string
-	UUID       string
-	OwnerTag   string
-	ServerUUID string
+	Name     string
+	UUID     string
+	OwnerTag string
 }
 
 // UserEnvironment holds information about an environment and the last

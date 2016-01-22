@@ -131,7 +131,7 @@ func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
 	s.assertNoTypedBlock(c, t)
 }
 
-func (s *blockSuite) TestAllBlocksForSystem(c *gc.C) {
+func (s *blockSuite) TestAllBlocksForController(c *gc.C) {
 	_, st2 := s.createTestEnv(c)
 	defer st2.Close()
 
@@ -140,12 +140,12 @@ func (s *blockSuite) TestAllBlocksForSystem(c *gc.C) {
 	err = s.State.SwitchBlockOn(state.ChangeBlock, "block test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 2)
 }
 
-func (s *blockSuite) TestRemoveAllBlocksForSystem(c *gc.C) {
+func (s *blockSuite) TestRemoveAllBlocksForController(c *gc.C) {
 	_, st2 := s.createTestEnv(c)
 	defer st2.Close()
 
@@ -154,22 +154,22 @@ func (s *blockSuite) TestRemoveAllBlocksForSystem(c *gc.C) {
 	err = s.State.SwitchBlockOn(state.ChangeBlock, "block test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.RemoveAllBlocksForSystem()
+	err = s.State.RemoveAllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 0)
 }
 
-func (s *blockSuite) TestRemoveAllBlocksForSystemNoBlocks(c *gc.C) {
+func (s *blockSuite) TestRemoveAllBlocksForControllerNoBlocks(c *gc.C) {
 	_, st2 := s.createTestEnv(c)
 	defer st2.Close()
 
-	err := st2.RemoveAllBlocksForSystem()
+	err := st2.RemoveAllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := st2.AllBlocksForSystem()
+	blocks, err := st2.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 0)
 }

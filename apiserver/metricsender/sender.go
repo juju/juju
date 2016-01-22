@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/metricsender/wireformat"
 )
@@ -32,7 +33,7 @@ func (s *HttpSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Respon
 		return nil, errors.Trace(err)
 	}
 	r := bytes.NewBuffer(b)
-	t := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: metricsCertsPool}}
+	t := utils.NewHttpTLSTransport(&tls.Config{RootCAs: metricsCertsPool})
 	client := &http.Client{Transport: t}
 	resp, err := client.Post(metricsHost, "application/json", r)
 	if err != nil {

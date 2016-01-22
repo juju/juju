@@ -27,12 +27,12 @@ var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 // right thing (reboot or shutdown)
 type Reboot struct {
 	tomb        tomb.Tomb
-	st          *reboot.State
+	st          reboot.State
 	tag         names.MachineTag
 	machineLock *fslock.Lock
 }
 
-func NewReboot(st *reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
+func NewReboot(st reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())

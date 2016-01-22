@@ -165,13 +165,17 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+
 	// Storage
+	eUUID, ok := s.Env.Config().UUID()
+	c.Check(ok, jc.IsTrue)
 	s.BaseDisk = &google.Disk{
-		Id:     1234567,
-		Name:   "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Zone:   "home-zone",
-		Status: google.StatusReady,
-		Size:   1024,
+		Id:          1234567,
+		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: eUUID,
 	}
 }
 

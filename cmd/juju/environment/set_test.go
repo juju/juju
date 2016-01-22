@@ -20,7 +20,7 @@ type SetSuite struct {
 var _ = gc.Suite(&SetSuite{})
 
 func (s *SetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewSetCommand(s.fake)
+	command := environment.NewSetCommandForTest(s.fake)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -43,7 +43,7 @@ func (s *SetSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		setCmd := environment.NewSetCommand(s.fake)
+		setCmd := environment.NewSetCommandForTest(s.fake)
 		err := testing.InitCommand(setCmd, test.args)
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}

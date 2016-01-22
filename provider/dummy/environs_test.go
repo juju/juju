@@ -70,6 +70,7 @@ func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
+	s.BaseSuite.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *liveSuite) TearDownTest(c *gc.C) {
@@ -101,6 +102,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
+	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {

@@ -47,11 +47,11 @@ func (c *JujuCommandBase) closeContext() {
 
 // NewAPIRoot returns a new connection to the API server for the given
 // environment or system.
-func (c *JujuCommandBase) NewAPIRoot(envOrSystemName string) (api.Connection, error) {
+func (c *JujuCommandBase) NewAPIRoot(envOrControllerName string) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(envOrSystemName)
+	return c.apiContext.newAPIRoot(envOrControllerName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded

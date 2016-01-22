@@ -185,10 +185,10 @@ To by-pass the block, where available, run desired remove command with --force o
     unset-env
     upgrade-charm
     upgrade-juju
-    user add
-    user change-password
-    user disable
-    user enable
+    add-user
+    change-user-password
+    disable-user
+    enable-user
    
 Examples:
    To prevent changes to the environment:

@@ -26,23 +26,23 @@ or as an admin, change the password for another user.
 
 Examples:
   # You will be prompted to enter a password.
-  juju user change-password
+  juju change-user-password
 
   # Change the password to a random strong password.
-  juju user change-password --generate
+  juju change-user-password --generate
 
   # Change the password for bob, this always uses a random password
-  juju user change-password bob
+  juju change-user-password bob
 
 `
 
-func newChangePasswordCommand() cmd.Command {
-	return envcmd.WrapSystem(&changePasswordCommand{})
+func NewChangePasswordCommand() cmd.Command {
+	return envcmd.WrapController(&changePasswordCommand{})
 }
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
-	UserCommandBase
+	envcmd.ControllerCommandBase
 	api      ChangePasswordAPI
 	writer   EnvironInfoCredsWriter
 	Generate bool
@@ -53,7 +53,7 @@ type changePasswordCommand struct {
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "change-password",
+		Name:    "change-user-password",
 		Args:    "[username]",
 		Purpose: "changes the password for a user",
 		Doc:     userChangePasswordDoc,
