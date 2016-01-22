@@ -231,6 +231,7 @@ var commandNames = []string{
 	"help-tool",
 	"init",
 	"list-clouds",
+	"list-credentials",
 	"machine",
 	"publish",
 	"remove-machine",  // alias for destroy-machine

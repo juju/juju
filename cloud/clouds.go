@@ -25,16 +25,20 @@ type AuthType string
 
 const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
-	AccessKeyAuthType = AuthType("access-key")
+	AccessKeyAuthType AuthType = "access-key"
 
 	// UserPassAuthType is an authentication type using a username and password.
-	UserPassAuthType = AuthType("userpass")
+	UserPassAuthType AuthType = "userpass"
 
-	// OAuthAuth1Type is an authentication type using oauth1.
-	OAuthAuth1Type = AuthType("oauth1")
+	// OAuth1AuthType is an authentication type using oauth1.
+	OAuth1AuthType AuthType = "oauth1"
 
-	// OAuthAuth2Type is an authentication type using oauth2.
-	OAuthAuth2Type = AuthType("oauth2")
+	// OAuth2AuthType is an authentication type using oauth2.
+	OAuth2AuthType AuthType = "oauth2"
+
+	// EmptyAuthType is the authentication type used for providers
+	// that require no credentials, e.g. "lxd", and "manual".
+	EmptyAuthType AuthType = "empty"
 )
 
 // Clouds is a struct containing cloud definitions.
