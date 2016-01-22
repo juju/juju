@@ -85,14 +85,14 @@ class LogicalInterface(object):
         return self.name
 
     # Returns an ordered set of stanzas to bridge this interface.
-    def bridge(self, prefix, add_auto_stanza, active_interfaces):
+    def bridge(self, prefix, add_auto_stanza):
         # Note: the testing order here is significant.
         if not self.is_active:
             return self._bridge_inactive(add_auto_stanza)
         elif self.is_alias:
             return self._bridge_alias(add_auto_stanza)
         elif self.is_vlan:
-            return self._bridge_vlan(prefix, add_auto_stanza, active_interfaces)
+            return self._bridge_vlan(prefix, add_auto_stanza)
         elif self.is_bonded:
             return self._bridge_bond(prefix, add_auto_stanza)
         else:
@@ -107,17 +107,8 @@ class LogicalInterface(object):
         s3 = IfaceStanza(bridge_name, self.family, self.method, options)
         return [s1, s2, s3]
 
-    def _bridge_vlan(self, prefix, add_auto_stanza, active_interfaces):
+    def _bridge_vlan(self, prefix, add_auto_stanza):
         stanzas = []
-        device = None
-        for o in self.options:
-            if o.startswith('vlan-raw-device'):
-                device = o.split()[1]
-                break
-        # Should vlans of inactive raw devices be bridged? If so
-        # remove the next two lines.
-        if device not in active_interfaces:
-            return self._bridge_inactive(add_auto_stanza)
         s1 = IfaceStanza(self.name, self.family, "manual", self.options)
         stanzas.append(s1)
         bridge_name = prefix + self.name
@@ -215,12 +206,6 @@ class NetworkInterfaceParser(object):
     def physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
 
-    def logical_interfaces(self):
-        return {x.iface.name: x.iface for x in [y for y in self._stanzas if y.is_logical_interface]}
-
-    def active_interfaces(self):
-        return [x.name for x in self.logical_interfaces().values() if x.is_active]
-
     def __iter__(self):  # class iter
         for s in self._stanzas:
             yield s
@@ -290,12 +275,11 @@ def main(args):
     stanzas = []
     config_parser = NetworkInterfaceParser(args.filename)
     physical_interfaces = config_parser.physical_interfaces()
-    active_interfaces = config_parser.active_interfaces()
 
     for s in config_parser.stanzas():
         if s.is_logical_interface:
             add_auto_stanza = s.iface.name in physical_interfaces
-            bridged_stanzas = s.iface.bridge(args.bridge_prefix, add_auto_stanza, active_interfaces)
+            bridged_stanzas = s.iface.bridge(args.bridge_prefix, add_auto_stanza)
             stanzas.extend(bridged_stanzas)
         elif not s.is_physical_interface:
             stanzas.append(s)
