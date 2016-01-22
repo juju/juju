@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
@@ -30,30 +29,22 @@ type HookContext interface {
 	DownloadResource(name string) (filePath string, _ error)
 }
 
+// Content is the resources portion of a uniter hook context.
+type Context struct {
+	contextDeps
+
+	apiClient APIClient
+	dataDir   string
+}
+
 // NewContextAPI returns a new Content for the given API client and data dir.
 func NewContextAPI(apiClient APIClient, dataDir string) *Context {
 	return &Context{
+		contextDeps: newContextDeps(),
+
 		apiClient: apiClient,
 		dataDir:   dataDir,
-
-		tempDir:          func() (string, error) { return ioutil.TempDir("", "juju-resource-") },
-		mkdirAll:         func(path string) error { return os.MkdirAll(path, 0755) },
-		removeDir:        os.RemoveAll,
-		replaceDirectory: replaceDirectory,
-		createFile:       func(path string) (io.WriteCloser, error) { return os.Create(path) },
 	}
-}
-
-// Content is the resources portion of a uniter hook context.
-type Context struct {
-	apiClient APIClient
-	dataDir   string
-
-	tempDir          func() (string, error)
-	mkdirAll         func(string) error
-	removeDir        func(string) error
-	replaceDirectory func(string, string) error
-	createFile       func(string) (io.WriteCloser, error)
 }
 
 // Flush implements jujuc.Context.
@@ -137,6 +128,24 @@ func (c *Context) replaceResourceDir(oldResDir *resourceDirectory) (*resourceDir
 	}
 
 	return newResDir, nil
+}
+
+type contextDeps struct {
+	tempDir          func() (string, error)
+	mkdirAll         func(string) error
+	removeDir        func(string) error
+	replaceDirectory func(string, string) error
+	createFile       func(string) (io.WriteCloser, error)
+}
+
+func newContextDeps() contextDeps {
+	return contextDeps{
+		tempDir:          func() (string, error) { return ioutil.TempDir("", "juju-resource-") },
+		mkdirAll:         func(path string) error { return os.MkdirAll(path, 0755) },
+		removeDir:        os.RemoveAll,
+		replaceDirectory: replaceDirectory,
+		createFile:       func(path string) (io.WriteCloser, error) { return os.Create(path) },
+	}
 }
 
 // replaceDirectory replaces the target directory with the source. This
