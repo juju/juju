@@ -92,18 +92,18 @@ func allCollections() collectionSchema {
 		modelsC: {global: true},
 
 		// This collection is used to track the progress of and synchronise
-		// environment migrations.
-		envMigrationsC: {
+		// model migrations.
+		modelMigrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid"},
+				Key: []string{"model-uuid"},
 			}},
 		},
 
-		// This collection records the environment migrations which
+		// This collection records the model migrations which
 		// are currently in progress. It is used to ensures that only
-		// one active migration document exists per environment.
-		activeEnvMigrationsC: {global: true},
+		// one model migration document exists per environment.
+		activeModelMigrationsC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -372,8 +372,8 @@ const (
 	cloudimagemetadataC      = "cloudimagemetadata"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
-	envMigrationsC           = "envmigrations"
-	activeEnvMigrationsC     = "envmigrations.active"
+	modelMigrationsC         = "modelmigrations"
+	activeModelMigrationsC   = "modelmigrations.active"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	instanceDataC            = "instanceData"
