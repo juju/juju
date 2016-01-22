@@ -741,7 +741,7 @@ func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsR
 		}
 		urlPath := "/"
 		if envUUID != "" {
-			urlPath = path.Join(urlPath, "model", envUUID)
+			urlPath = path.Join(urlPath, "environment", envUUID)
 		}
 		urlPath = path.Join(urlPath, "charms")
 		archiveURLs := make([]string, len(apiHostPorts))
