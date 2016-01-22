@@ -314,7 +314,7 @@ Many tests use a standalone instance of mongod as part of their setup. The
 Some tests (particularly those under ./store/...) assume a MongoDB instance
 that supports Javascript for map-reduce functions. These functions are not
 supported by juju-mongodb and the associated tests will fail unless disabled
-with an model variable:
+with an environment variable:
 
 ```shell
 $ JUJU_NOTEST_MONGOJS=1 go test github.com/juju/juju/...

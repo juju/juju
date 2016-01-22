@@ -89,7 +89,7 @@ should run concurrently and are going to change in the near future.
 The following workers require only a single instance to be running
 at any one moment:
 
- * The model provisioner
+ * The environment provisioner
  * The firewaller
  * The charm revision updater
  * The state cleaner

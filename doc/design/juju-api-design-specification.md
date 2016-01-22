@@ -23,13 +23,13 @@ describes the API design for developers maintaining and extending the API.
 
 ### Scope
 
-Juju's working model is based on the description of a wanted model in a
+Juju's working model is based on the description of a wanted environment in a
 DBMS. Different workers observe the changes of this description and perform the 
 needed actions so that the reality is matching. Goal of the API is to provide a 
 secure, scalable, and high-available way to perform the needed changes or queries 
 with different clients like the Juju CLI, which is written in Go, or the Juju 
 GUI, which is written in JavaScript. Additionally the API provides multiple versions 
-of its functionality for a predictable behavior in models with a mixed set of
+of its functionality for a predictable behavior in environments with a mixed set of
 clients.
 
 ### Overview
@@ -71,7 +71,7 @@ This document provides a detailed specification of
 - As an Agent, I want to be able to communicate with the API server to be able to perform 
   my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
   It is expected that we won’t always be able to stay in perfect synchronization, 
-  especially in an model with heterogeneous architectures and platforms.
+  especially in an environment with heterogeneous architectures and platforms.
 - As a developer, I want to be able to make a change to an existing named API in such 
   a fashion that new clients are able to make use of the new functionality, but older 
   clients can still use the API in a compatible fashion.

@@ -40,15 +40,18 @@ var provisionalProviders = map[string]string{
 }
 
 const bootstrapDoc = `
-bootstrap starts a new environment of the current type (it will return an error
-if the model has already been bootstrapped).  Bootstrapping an environment
-will provision a new machine in the model and run the juju state server on
+bootstrap starts a new model of the current type (it will return an error
+if the model has already been bootstrapped).  Bootstrapping a model
+will provision a new machine in the model and run the juju controller on
 that machine.
 
-If constraints are specified in the bootstrap command, they will apply to the
-machine provisioned for the juju state server.  They will also be set as default
-constraints on the model for all future machines, exactly as if the
-constraints were set with juju set-constraints.
+If boostrap-constraints are specified in the bootstrap command, 
+they will apply to the machine provisioned for the juju controller, 
+and any future controllers provisioned for HA.
+
+If constraints are specified, they will be set as the default constraints 
+on the model for all future workload machines, 
+exactly as if the constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
 algorithm by using the "--to" flag. The value associated with "--to" is a
@@ -58,15 +61,15 @@ For more information on placement directives, see "juju help placement".
 Bootstrap initialises the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
-completed, you can run other juju commands against your environment. You can change
+completed, you can run other juju commands against your model. You can change
 the default timeout and retry delays used during the bootstrap by changing the
 following settings in your models.yaml (all values represent number of seconds):
 
-    # How long to wait for a connection to the state server.
+    # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
-    # How long to wait between connection attempts to a state server address.
+    # How long to wait between connection attempts to a controller address.
     bootstrap-retry-delay: 5 # default: 5 seconds
-    # How often to refresh state server addresses from the API server.
+    # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
 Private clouds may need to specify their own custom image metadata, and
@@ -118,7 +121,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "specify the series of the bootstrap machine")
 	if featureflag.Enabled(feature.ImageMetadata) {
@@ -322,7 +325,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait
-	// for the state server's machine agent to be ready to accept commands
+	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return c.waitForAgentInitialisation(ctx)
 }
@@ -342,8 +345,8 @@ func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 	return apiblock.NewClient(root), nil
 }
 
-// waitForAgentInitialisation polls the bootstrapped state server with a read-only
-// command which will fail until the state server is fully initialised.
+// waitForAgentInitialisation polls the bootstrapped controller with a read-only
+// command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
 	attempts := utils.AttemptStrategy{

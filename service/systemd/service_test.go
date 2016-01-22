@@ -122,7 +122,7 @@ func (s *initSystemSuite) newConfStrEnv(name, env string) string {
 	result := s.newConfStr(name)
 	result = strings.Replace(
 		result, replace,
-		fmt.Sprintf("%sModel=%s\n", replace, env),
+		fmt.Sprintf("%sEnvironment=%s\n", replace, env),
 		1,
 	)
 	return result

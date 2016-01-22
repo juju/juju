@@ -17,7 +17,7 @@ already a login-v1 that introduced new return values and a reauth request
 field. We will build on that behaviour to add a login-v2. If and only if the
 version 2 login is used the facades that are available at the apiserver will
 be restricted.  Logging in using version 1 or the original will continue to
-act as if you are logging into the state server model - the original one
+act as if you are logging into the controller model - the original one
 and only model that would exist before the Juju Model Server work.
 
 This work then needs to look at the API connection workflow from both ends,
@@ -42,7 +42,7 @@ extracts the envuuid from the path, and calls the (*Server).serveConn method.
 
 serveConn validates the model UUID and gets an appropiate *state.State
 for the model specified.  An empty model UUID is treated as the
-state server model here.  One thing that will need to change is passing
+controller model here.  One thing that will need to change is passing
 through whether or not we were given an model UUID, as this is the last
 place that cares, but we will need to know later when the appropriate login
 method is called. The various admin API instances are created here and passed

@@ -69,7 +69,7 @@ commands are used to manipulate and inspect the model.
   * juju upgrade-juju
   * juju destroy-model
 
-An `model provider` mediates between juju and the substrate on which an
+An `environment provider` mediates between juju and the substrate on which an
 model runs. Each provider allows juju to run against a different backend:
 
   * ec2 (Amazon EC2 and S3)
@@ -348,8 +348,8 @@ Constraints
 [TODO: constraints are not yet implemented in go; a substantial amount of work
 needs to be done]
 
-Some model providers offer the ability to provision machines with varying
-characteristics. A model provider defines a vocabulary of `constraints`
+Some environment providers offer the ability to provision machines with varying
+characteristics. A environment provider defines a vocabulary of `constraints`
 to control the computing resources that are available from the provider; by
 specifying global model constraints and overriding them where necessary
 at the service level, a user can ensure that her workloads are only run on
