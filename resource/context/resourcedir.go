@@ -3,8 +3,10 @@
 
 package context
 
+// TODO(ericsnow) Move this file elsewhere?
+//  (e.g. top-level resource pkg, charm/resource)
+
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
@@ -196,25 +198,5 @@ func (rd resourceDirectory) writeResource(relPath []string, content resourceCont
 		}
 	}
 
-	return nil
-}
-
-// resourceContent holds a reader for the content of a resource along
-// with details about that content.
-type resourceContent struct {
-	data        io.Reader
-	size        int64
-	fingerprint charmresource.Fingerprint
-}
-
-// verify ensures that the actual resource content details match
-// the expected ones.
-func (c resourceContent) verify(size int64, fp charmresource.Fingerprint) error {
-	if size != c.size {
-		return errors.Errorf("resource size does not match expected (%d != %d)", size, c.size)
-	}
-	if !bytes.Equal(fp.Bytes(), c.fingerprint.Bytes()) {
-		return errors.Errorf("resource fingerprint does not match expected (%q != %q)", fp, c.fingerprint)
-	}
 	return nil
 }
