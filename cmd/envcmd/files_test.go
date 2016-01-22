@@ -125,30 +125,30 @@ func (*filesSuite) TestCurrentCommenctionNameController(c *gc.C) {
 
 func (s *filesSuite) TestSetCurrentEnvironment(c *gc.C) {
 	ctx := testing.Context(c)
-	err := envcmd.SetCurrentEnvironment(ctx, "new-env")
+	err := envcmd.SetCurrentEnvironment(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-env")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-env\n")
+	s.assertCurrentEnvironment(c, "new-model")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-model\n")
 }
 
 func (s *filesSuite) TestSetCurrentEnvironmentExistingEnv(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentEnvironment(ctx, "new-env")
+	err = envcmd.SetCurrentEnvironment(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-env")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-env\n")
+	s.assertCurrentEnvironment(c, "new-model")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-model\n")
 }
 
 func (s *filesSuite) TestSetCurrentEnvironmentExistingController(c *gc.C) {
 	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentEnvironment(ctx, "new-env")
+	err = envcmd.SetCurrentEnvironment(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-env")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (controller) -> new-env\n")
+	s.assertCurrentEnvironment(c, "new-model")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (controller) -> new-model\n")
 }
 
 func (s *filesSuite) TestSetCurrentController(c *gc.C) {

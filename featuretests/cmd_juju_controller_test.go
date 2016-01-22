@@ -64,12 +64,12 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 
 func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
-	s.createEnv(c, "new-env", false)
+	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME      OWNER              LAST CONNECTION\n"+
-		"dummyenv  dummy-admin@local  just now\n"+
-		"new-env   dummy-admin@local  never connected\n"+
+		"NAME       OWNER              LAST CONNECTION\n"+
+		"dummyenv   dummy-admin@local  just now\n"+
+		"new-model  dummy-admin@local  never connected\n"+
 		"\n")
 }
 
@@ -105,16 +105,16 @@ func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'state-server'.
-	context := s.run(c, "create-model", "new-env", "authorized-keys=fake-key", "state-server=false")
+	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "state-server=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-created model "new-env"
-dummyenv (controller) -> new-env
+created model "new-model"
+dummyenv (controller) -> new-model
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-env", nil)
+	api, err := juju.NewAPIFromName("new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
