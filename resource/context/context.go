@@ -9,8 +9,12 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/resource"
 )
+
+var logger = loggo.GetLogger("juju.resource.context")
 
 // HookContextFacade is the name of the API facade for resources in the uniter.
 const HookContextFacade = resource.ComponentName + "-hook-context"
