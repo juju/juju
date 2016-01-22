@@ -232,11 +232,11 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, "-m", "no-such-env")
+	cmd, err := initTestCommand(c, "-m", "no-such-model")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `model "no-such-env" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "no-such-model" not found`)
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {

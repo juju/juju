@@ -100,11 +100,11 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	dir := c.MkDir()
 	err := os.Mkdir(storePath(dir, ""), 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(storePath(dir, "someenv"), []byte(sampleInfo), 0666)
+	err = ioutil.WriteFile(storePath(dir, "somemodel"), []byte(sampleInfo), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := store.ReadInfo("someenv")
+	info, err := store.ReadInfo("somemodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{
@@ -116,7 +116,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Hostnames: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
-	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "models", "someenv.jenv")))
+	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "models", "somemodel.jenv")))
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",
@@ -127,7 +127,7 @@ func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := store.ReadInfo("someenv")
+	info, err := store.ReadInfo("somemodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.IsNil)
 }
@@ -137,7 +137,7 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := store.CreateInfo("someenv")
+	info := store.CreateInfo("somemodel")
 
 	// Make the directory non-writable
 	err = os.Chmod(storePath(dir, ""), 0555)
@@ -163,11 +163,11 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Replace the file by an directory which can't be renamed over.
-	path := storePath(dir, "someenv")
+	path := storePath(dir, "somemodel")
 	err = os.Mkdir(path, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := store.CreateInfo("someenv")
+	info := store.CreateInfo("somemodel")
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
@@ -177,17 +177,17 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := store.CreateInfo("someenv")
+	info := store.CreateInfo("somemodel")
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = os.Stat(storePath(dir, "someenv"))
+	_, err = os.Stat(storePath(dir, "somemodel"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = info.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = os.Stat(storePath(dir, "someenv"))
+	_, err = os.Stat(storePath(dir, "somemodel"))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = info.Destroy()
@@ -198,7 +198,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo("someenv")
+	info := store.CreateInfo("somemodel")
 	endpoint := configstore.APIEndpoint{
 		Addresses:   []string{"this", "is", "never", "validated", "here"},
 		Hostnames:   []string{"neither", "is", "this"},
@@ -208,7 +208,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newInfo, err := store.ReadInfo("someenv")
+	newInfo, err := store.ReadInfo("somemodel")
 	c.Assert(err, jc.ErrorIsNil)
 	// Now change the number of addresses to be shorter.
 	endpoint.Addresses = []string{"just one"}
@@ -218,7 +218,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should be able to read in in fine.
-	yaInfo, err := store.ReadInfo("someenv")
+	yaInfo, err := store.ReadInfo("somemodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
 	c.Assert(yaInfo.APIEndpoint().Hostnames, gc.DeepEquals, []string{"just this"})
@@ -236,7 +236,7 @@ func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
 	_, err = configstore.AcquireEnvironmentLock(envDir, "blocking-op")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = store.ReadInfo("someenv")
+	_, err = store.ReadInfo("somemodel")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// Using . between environments and env.lock so we don't have to care
