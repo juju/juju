@@ -75,7 +75,7 @@ func (doc *storageMetaDoc) validate() error {
 	}
 	// We don't check doc.Finished because it doesn't have to be set.
 	if doc.Environment == "" {
-		return errors.New("missing Environment")
+		return errors.New("missing Model")
 	}
 	if doc.Machine == "" {
 		return errors.New("missing Machine")

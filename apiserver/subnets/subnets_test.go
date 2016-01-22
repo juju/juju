@@ -214,7 +214,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches,
-		`cannot update known zones: getting environment config: config not found`,
+		`cannot update known zones: getting model config: config not found`,
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -236,7 +236,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches,
-		`cannot update known zones: opening environment: config not valid`,
+		`cannot update known zones: opening model: config not valid`,
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
@@ -484,8 +484,8 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{"either SubnetTag or SubnetProviderId is required", nil},
 		{"either SubnetTag or SubnetProviderId is required", nil},
 		{"SubnetTag and SubnetProviderId cannot be both set", nil},
-		{"getting environment config: config not found", params.IsCodeNotFound},
-		{"opening environment: provider not found", params.IsCodeNotFound},
+		{"getting model config: config not found", params.IsCodeNotFound},
+		{"opening model: provider not found", params.IsCodeNotFound},
 		{"cannot get provider subnets: subnets not found", params.IsCodeNotFound},
 		{`subnet with CIDR "" and ProviderId "missing" not found`, params.IsCodeNotFound},
 		{`subnet with CIDR "" and ProviderId "void" not found`, params.IsCodeNotFound},
@@ -774,7 +774,7 @@ func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) 
 	s.CheckAddSubnetsFails(
 		c, apiservertesting.StubEnvironName,
 		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
-		"environment networking features not supported",
+		"model networking features not supported",
 		params.IsCodeNotSupported,
 	)
 }

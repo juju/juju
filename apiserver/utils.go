@@ -63,15 +63,15 @@ func validateEnvironUUID(args validateArgs) (string, error) {
 		if args.strict {
 			return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 		}
-		logger.Debugf("validate env uuid: empty envUUID")
+		logger.Debugf("validate model uuid: empty envUUID")
 		return ssState.EnvironUUID(), nil
 	}
 	if args.envUUID == ssState.EnvironUUID() {
-		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
+		logger.Debugf("validate model uuid: state server model - %s", args.envUUID)
 		return args.envUUID, nil
 	}
 	if args.stateServerEnvOnly {
-		return "", errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
+		return "", errors.Unauthorizedf("requested model %q is not the state server model", args.envUUID)
 	}
 	if !names.IsValidEnvironment(args.envUUID) {
 		return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
@@ -80,6 +80,6 @@ func validateEnvironUUID(args validateArgs) (string, error) {
 	if _, err := ssState.GetEnvironment(envTag); err != nil {
 		return "", errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
 	}
-	logger.Debugf("validate env uuid: %s", args.envUUID)
+	logger.Debugf("validate model uuid: %s", args.envUUID)
 	return args.envUUID, nil
 }

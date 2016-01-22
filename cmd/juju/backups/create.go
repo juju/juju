@@ -33,14 +33,14 @@ The --download option may be used without the --filename option.  In
 that case, the backup archive will be stored in the current working
 directory with a name matching juju-backup-<date>-<time>.tar.gz.
 
-WARNING: Remotely stored backups will be lost when the environment is
+WARNING: Remotely stored backups will be lost when the model is
 destroyed.  Furthermore, the remotely backup is not guaranteed to be
 available.
 
 Therefore, you should use the --download or --filename options, or use
 "juju backups download", to get a local copy of the backup archive.
-This local copy can then be used to restore an environment even if that
-environment was already destroyed or is otherwise unavailable.
+This local copy can then be used to restore an model even if that
+model was already destroyed or is otherwise unavailable.
 `
 
 func newCreateCommand() cmd.Command {

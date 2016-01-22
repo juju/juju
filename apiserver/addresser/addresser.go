@@ -53,11 +53,11 @@ func NewAddresserAPI(
 func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
 	config, err := api.st.EnvironConfig()
 	if err != nil {
-		return nil, false, errors.Annotate(err, "getting environment config")
+		return nil, false, errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return nil, false, errors.Annotate(err, "validating environment config")
+		return nil, false, errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {

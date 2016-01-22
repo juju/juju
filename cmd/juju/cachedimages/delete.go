@@ -12,7 +12,7 @@ import (
 )
 
 const deleteCommandDoc = `
-Delete cached os images in the Juju environment.
+Delete cached os images in the Juju model.
 
 Images are identified by:
   Kind         eg "lxc"

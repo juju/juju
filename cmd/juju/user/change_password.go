@@ -63,7 +63,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user environment file")
+	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user model file")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
@@ -151,10 +151,10 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		logger.Errorf("updating the cached credentials failed, reverting to original password")
 		setErr := c.api.SetPassword(creds.User, oldPassword)
 		if setErr != nil {
-			logger.Errorf("failed to set password back, you will need to edit your environments file by hand to specify the password: %q", password)
+			logger.Errorf("failed to set password back, you will need to edit your models file by hand to specify the password: %q", password)
 			return errors.Annotate(setErr, "failed to set password back")
 		}
-		return errors.Annotate(err, "failed to write new password to environments file")
+		return errors.Annotate(err, "failed to write new password to models file")
 	}
 	ctx.Infof("Your password has been updated.")
 	return nil

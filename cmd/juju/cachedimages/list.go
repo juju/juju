@@ -15,7 +15,7 @@ import (
 )
 
 const listCommandDoc = `
-List cached os images in the Juju environment.
+List cached os images in the Juju model.
 
 Images can be filtered on:
   Kind         eg "lxc"

@@ -51,7 +51,7 @@ type upgradeJujuCommand struct {
 }
 
 var upgradeJujuDoc = `
-The upgrade-juju command upgrades a running environment by setting a version
+The upgrade-juju command upgrades a running model by setting a version
 number for all juju agents to run. By default, it chooses the most recent
 supported version compatible with the command-line tools version.
 
@@ -73,7 +73,7 @@ juju tool, unless specified otherwise by the --version flag.
 
 When run without arguments. upgrade-juju will try to upgrade to the
 following versions, in order of preference, depending on the current
-value of the environment's agent-version setting:
+value of the model's agent-version setting:
 
  - The highest patch.build version of the *next* stable major.minor version.
  - The highest patch.build version of the *current* major.minor version.
@@ -85,14 +85,14 @@ you manage yourself; see the documentation for "sync-tools".
 The upgrade-juju command will abort if an upgrade is already in
 progress. It will also abort if a previous upgrade was partially
 completed - this can happen if one of the state servers in a high
-availability environment failed to upgrade. If a failed upgrade has
+availability model failed to upgrade. If a failed upgrade has
 been resolved, the --reset-previous-upgrade flag can be used to reset
-the environment's upgrade tracking state, allowing further upgrades.`
+the model's upgrade tracking state, allowing further upgrades.`
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
-		Purpose: "upgrade the tools in a juju environment",
+		Purpose: "upgrade the tools in a juju model",
 		Doc:     upgradeJujuDoc,
 	}
 }
@@ -209,7 +209,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
-		return fmt.Errorf("incomplete environment configuration")
+		return fmt.Errorf("incomplete model configuration")
 	}
 
 	if c.UploadTools && c.Version == version.Zero {
@@ -223,7 +223,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	case !canUpgradeRunningVersion(agentVersion):
 		// This version of upgrade-juju cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
-		return fmt.Errorf("cannot upgrade a %s environment with a %s client",
+		return fmt.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, version.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
 		// The specified version would downgrade the environment.

@@ -33,7 +33,7 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 		return errors.Trace(common.DestroyEnvironmentIncludingHosted(s.state, systemTag))
 	}
 	if err = common.DestroyEnvironment(s.state, systemTag); state.IsHasHostedEnvironsError(err) {
-		err = errors.New("controller environment cannot be destroyed before all other environments are destroyed")
+		err = errors.New("controller model cannot be destroyed before all other models are destroyed")
 	}
 	return errors.Trace(err)
 }
@@ -47,7 +47,7 @@ func (s *ControllerAPI) ensureNotBlocked(args params.DestroyControllerArgs) erro
 	}
 
 	if len(blocks) > 0 {
-		return common.OperationBlockedError("found blocks in controller environments")
+		return common.OperationBlockedError("found blocks in controller models")
 	}
 	return nil
 }

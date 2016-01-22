@@ -58,7 +58,7 @@ Commands run for services or units are executed in a 'hook context' for
 the unit.
 
 --all is provided as a simple way to run the command on all the machines
-in the environment.  If you specify --all you cannot provide additional
+in the model.  If you specify --all you cannot provide additional
 targets.
 
 `

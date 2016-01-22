@@ -43,13 +43,13 @@ func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
 	_, err = testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, gc.ErrorMatches, "couldn't read the environment: open .*: permission denied")
+	c.Assert(err, gc.ErrorMatches, "couldn't read the model: open .*: permission denied")
 }
 
 func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 	_, err := testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
+	c.Assert(err, gc.ErrorMatches, "no currently specified model")
 }
 
 func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
@@ -57,7 +57,7 @@ func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
+	c.Assert(err, gc.ErrorMatches, "no currently specified model")
 }
 
 func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
@@ -85,19 +85,19 @@ func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_MODEL", "using-env")
+	os.Setenv("JUJU_MODEL", "using-model")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "using-model\n")
 }
 
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-model", "fubar"})
-	os.Setenv("JUJU_MODEL", "using-env")
+	os.Setenv("JUJU_MODEL", "using-model")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "using-model\n")
 }
 
 func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
@@ -147,14 +147,14 @@ erewhemos
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, newSwitchCommand(), "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment or controller`)
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined model or controller`)
 }
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_MODEL", "using-env")
+	os.Setenv("JUJU_MODEL", "using-model")
 	_, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the environment \(set to "using-env"\)`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
 }
 
 const expectedEnvironments = `erewhemos
@@ -184,7 +184,7 @@ func (s *SwitchSimpleSuite) TestListEnvironmentsWithConfigstore(c *gc.C) {
 
 func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_MODEL", "using-env")
+	os.Setenv("JUJU_MODEL", "using-model")
 	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)

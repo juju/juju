@@ -39,7 +39,7 @@ func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
 			statePool: s.pool,
 			strict:    true,
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown environment: ""`)
+	c.Assert(err, gc.ErrorMatches, `unknown model: ""`)
 }
 
 func (s *utilsSuite) TestValidateStateServer(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *utilsSuite) TestValidateBadEnvUUID(c *gc.C) {
 			statePool: s.pool,
 			envUUID:   "bad",
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown environment: "bad"`)
+	c.Assert(err, gc.ErrorMatches, `unknown model: "bad"`)
 }
 
 func (s *utilsSuite) TestValidateOtherEnvironment(c *gc.C) {
@@ -95,5 +95,5 @@ func (s *utilsSuite) TestValidateOtherEnvironmentStateServerOnly(c *gc.C) {
 			envUUID:            envState.EnvironUUID(),
 			stateServerEnvOnly: true,
 		})
-	c.Assert(err, gc.ErrorMatches, `requested environment ".*" is not the state server environment`)
+	c.Assert(err, gc.ErrorMatches, `requested model ".*" is not the state server model`)
 }

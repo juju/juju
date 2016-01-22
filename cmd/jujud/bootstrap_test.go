@@ -309,7 +309,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 		"--model-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
 		"--bootstrap-constraints", bootstrapCons.String(),
-		"--environ-constraints", environCons.String(),
+		"--constraints", environCons.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)

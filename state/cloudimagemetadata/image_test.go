@@ -28,7 +28,7 @@ type cloudImageMetadataSuite struct {
 var _ = gc.Suite(&cloudImageMetadataSuite{})
 
 const (
-	envName        = "test-env"
+	envName        = "test-model"
 	collectionName = "test-collection"
 )
 

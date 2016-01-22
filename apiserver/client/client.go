@@ -539,7 +539,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
 		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
-			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
+			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
 	}
@@ -667,7 +667,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		userTagString := arg.UserTag
 		user, err := names.ParseUserTag(userTagString)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share environment"))
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share model"))
 			continue
 		}
 		switch arg.Action {
@@ -675,13 +675,13 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 			_, err := c.api.stateAccessor.AddEnvironmentUser(
 				state.EnvUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
-				err = errors.Annotate(err, "could not share environment")
+				err = errors.Annotate(err, "could not share model")
 				result.Results[i].Error = common.ServerError(err)
 			}
 		case params.RemoveEnvUser:
 			err := c.api.stateAccessor.RemoveEnvironmentUser(user)
 			if err != nil {
-				err = errors.Annotate(err, "could not unshare environment")
+				err = errors.Annotate(err, "could not unshare model")
 				result.Results[i].Error = common.ServerError(err)
 			}
 		default:
@@ -790,7 +790,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 }
 
 // EnvironmentGet implements the server-side part of the
-// get-environment CLI command.
+// get-model CLI command.
 func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 	result := params.EnvironmentConfigResults{}
 	// Get the existing environment config from the state.
@@ -803,7 +803,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 }
 
 // EnvironmentSet implements the server-side part of the
-// set-environment CLI command.
+// set-model CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -827,7 +827,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 }
 
 // EnvironmentUnset implements the server-side part of the
-// set-environment CLI command.
+// set-model CLI command.
 func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)

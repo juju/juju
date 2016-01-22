@@ -48,7 +48,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			EnvironManager: true,
 		},
 	} {
-		st := newMockState(names.NewUserTag("dummy-admin"), "dummyenv", true)
+		st := newMockState(names.NewUserTag("dummy-admin"), "dummymodel", true)
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 
 func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	st, api := s.setupStateAndAPI(c, true, "dummyenv")
+	st, api := s.setupStateAndAPI(c, true, "dummymodel")
 	for _, test := range []struct {
 		st       *mockState
 		api      *undertaker.UndertakerAPI
@@ -68,7 +68,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		envName  string
 	}{
 		{otherSt, hostedAPI, false, "hostedenv"},
-		{st, api, true, "dummyenv"},
+		{st, api, true, "dummymodel"},
 	} {
 		env, err := test.st.Environment()
 		c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +96,7 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
 	err = env.Destroy()
@@ -115,7 +115,7 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
@@ -128,7 +128,7 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {

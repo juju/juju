@@ -34,7 +34,7 @@ const defaultLineCount = 10
 
 const debuglogDoc = `
 Stream the consolidated debug log file. This file contains the log messages
-from all nodes in the environment.
+from all nodes in the model.
 `
 
 func (c *debugLogCommand) Info() *cmd.Info {

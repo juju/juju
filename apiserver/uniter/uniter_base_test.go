@@ -2181,7 +2181,7 @@ func (s *uniterBaseSuite) testGetMeterStatusBadTag(c *gc.C, facade getMeterStatu
 		"unit-nosuchunit",
 		"thisisnotatag",
 		"machine-0",
-		"environment-blah",
+		"model-blah",
 	}
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
 	for i, tag := range tags {

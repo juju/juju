@@ -53,7 +53,7 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-
 			if err == nil {
 				return environ, nil
 			}
-			logger.Errorf("loaded invalid environment configuration: %v", err)
+			logger.Errorf("loaded invalid model configuration: %v", err)
 			loadedInvalid()
 		}
 	}
@@ -88,11 +88,11 @@ func NewEnvironObserver(st EnvironConfigObserver) (*EnvironObserver, error) {
 	}
 	environ, err := environs.New(config)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot create an environment")
+		return nil, errors.Annotate(err, "cannot create a model")
 	}
 	environWatcher, err := st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot watch environment config")
+		return nil, errors.Annotate(err, "cannot watch model config")
 	}
 	obs := &EnvironObserver{
 		st:             st,
@@ -119,12 +119,12 @@ func (obs *EnvironObserver) loop() error {
 		}
 		config, err := obs.st.EnvironConfig()
 		if err != nil {
-			logger.Warningf("error reading environment config: %v", err)
+			logger.Warningf("error reading model config: %v", err)
 			continue
 		}
 		environ, err := environs.New(config)
 		if err != nil {
-			logger.Warningf("error creating an environment: %v", err)
+			logger.Warningf("error creating a model: %v", err)
 			continue
 		}
 		obs.mu.Lock()

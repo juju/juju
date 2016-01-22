@@ -1108,7 +1108,7 @@ func (b *allEnvWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 	envs, err := b.st.AllEnvironments()
 	if err != nil {
-		return errors.Annotate(err, "error loading environments")
+		return errors.Annotate(err, "error loading models")
 	}
 	for _, env := range envs {
 		st, err := b.st.ForEnviron(env.EnvironTag())
@@ -1119,7 +1119,7 @@ func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 
 		err = loadAllWatcherEntities(st, b.collectionByName, all)
 		if err != nil {
-			return errors.Annotatef(err, "error loading entities for environment %v", env.UUID())
+			return errors.Annotatef(err, "error loading entities for model %v", env.UUID())
 		}
 	}
 	return nil

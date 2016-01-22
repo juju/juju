@@ -196,7 +196,7 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 	output := strings.Split(coretesting.Stderr(ctx), "\n")
-	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
+	c.Check(output[0], gc.Matches, `Added charm ".*" to the model.`)
 	c.Check(output[1], gc.Matches, `Deploying charm .*`)
 	c.Check(output[2], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }
@@ -445,7 +445,7 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
-	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
+	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local model and cannot host units")
 }
 
 func (s *DeploySuite) TestCharmSeries(c *gc.C) {
@@ -555,7 +555,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 
 func (s *DeployLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local model and cannot host units")
 }
 
 // setupConfigFile creates a configuration file for testing set
@@ -587,14 +587,14 @@ var deployAuthorizationTests = []struct {
 	uploadURL: "cs:~bob/trusty/wordpress1-10",
 	deployURL: "cs:~bob/trusty/wordpress1",
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress1-10" to the environment.
+Added charm "cs:~bob/trusty/wordpress1-10" to the model.
 Deploying charm "cs:~bob/trusty/wordpress1-10" with the charm series "trusty".`,
 }, {
 	about:     "public charm, fully resolved, success",
 	uploadURL: "cs:~bob/trusty/wordpress2-10",
 	deployURL: "cs:~bob/trusty/wordpress2-10",
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress2-10" to the environment.
+Added charm "cs:~bob/trusty/wordpress2-10" to the model.
 Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, success",
@@ -602,7 +602,7 @@ Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 	deployURL:    "cs:~bob/trusty/wordpress3",
 	readPermUser: clientUserName,
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress3-10" to the environment.
+Added charm "cs:~bob/trusty/wordpress3-10" to the model.
 Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
@@ -610,7 +610,7 @@ Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 	deployURL:    "cs:~bob/trusty/wordpress4-10",
 	readPermUser: clientUserName,
 	expectOutput: `
-Added charm "cs:~bob/trusty/wordpress4-10" to the environment.
+Added charm "cs:~bob/trusty/wordpress4-10" to the model.
 Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 }, {
 	about:        "non-public charm, access denied",
@@ -696,7 +696,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	output, err := runDeployCommand(c, "trusty/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-Added charm "cs:trusty/terms1-1" to the environment.
+Added charm "cs:trusty/terms1-1" to the model.
 Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))

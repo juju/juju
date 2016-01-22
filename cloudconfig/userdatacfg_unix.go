@@ -329,7 +329,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 		environCons := w.icfg.EnvironConstraints.String()
 		if environCons != "" {
-			environCons = " --environ-constraints " + shquote(environCons)
+			environCons = " --constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {

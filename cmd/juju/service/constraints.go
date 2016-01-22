@@ -18,11 +18,11 @@ import (
 const getConstraintsDoc = `
 Shows the list of constraints that have been set on the specified service
 using juju service set-constraints.  You can also view constraints
-set for an environment by using juju environment get-constraints.
+set for a model by using juju model get-constraints.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
 
 See Also:
@@ -36,12 +36,12 @@ See Also:
 const setConstraintsDoc = `
 Sets machine constraints on specific service, which are used as the
 default constraints for all new machines provisioned by that service.
-You can also set constraints on an environment by using
-juju environment set-constraints.
+You can also set constraints on a model by using
+juju model set-constraints.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
 
 Example:

@@ -218,7 +218,7 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &ebsVolumeSource{
 		ec2:     ec2,

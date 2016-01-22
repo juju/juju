@@ -99,7 +99,7 @@ func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
 		logger.Debugf(
-			"updated the list of known zones from the environment: %s", zonesAsString(zones),
+			"updated the list of known zones from the model: %s", zonesAsString(zones),
 		)
 	} else {
 		logger.Debugf("using cached list of known zones: %s", zonesAsString(zones))
@@ -139,12 +139,12 @@ func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
 func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 	envConfig, err := api.backing.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment config")
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
 		return zonedEnv, nil
@@ -159,17 +159,17 @@ func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 func (api *subnetsAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
 	envConfig, err := api.backing.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment config")
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		return netEnv, nil
 	}
-	return nil, errors.NotSupportedf("environment networking features") // " not supported"
+	return nil, errors.NotSupportedf("model networking features") // " not supported"
 }
 
 // updateZones attempts to retrieve all availability zones from the

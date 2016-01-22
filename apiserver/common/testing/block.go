@@ -58,7 +58,7 @@ func (s BlockHelper) Close() {
 	s.ApiState.Close()
 }
 
-// BlockDestroyEnvironment blocks destroy-environment.
+// BlockDestroyEnvironment blocks destroy-model.
 func (s BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }

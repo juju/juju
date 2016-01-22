@@ -377,7 +377,7 @@ func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("environment is already shared with %s", users[i].Canonical())
+			logger.Warningf("model is already shared with %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}
@@ -422,7 +422,7 @@ func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeNotFound {
-			logger.Warningf("environment was not previously shared with user %s", users[i].Canonical())
+			logger.Warningf("model was not previously shared with user %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}

@@ -38,7 +38,7 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker
 		envInfo := result.Result
 
 		if envInfo.Life == params.Alive {
-			return errors.Errorf("undertaker worker should not be started for an alive environment: %q", envInfo.GlobalName)
+			return errors.Errorf("undertaker worker should not be started for an alive model: %q", envInfo.GlobalName)
 		}
 
 		if envInfo.Life == params.Dying {
@@ -128,7 +128,7 @@ func processDeadEnv(client apiundertaker.UndertakerClient, clock uc.Clock, tod t
 	select {
 	case <-clock.After(wait):
 		err := client.RemoveEnviron()
-		return errors.Annotate(err, "could not remove all docs for dead environment")
+		return errors.Annotate(err, "could not remove all docs for dead model")
 	case <-stopCh:
 		return tomb.ErrDying
 	}

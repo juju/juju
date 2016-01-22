@@ -78,7 +78,7 @@ func (env *localEnviron) machineAgentServiceName() string {
 
 func ensureNotRoot() error {
 	if checkIfRoot() {
-		return fmt.Errorf("bootstrapping a local environment must not be done as root")
+		return fmt.Errorf("bootstrapping a local model must not be done as root")
 	}
 	return nil
 }
@@ -475,7 +475,7 @@ func (env *localEnviron) Destroy() error {
 			return err
 		}
 		args := []string{
-			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			"switch", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
 			juju, "kill-controller", "-y", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)

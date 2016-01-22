@@ -95,21 +95,21 @@ func ProcessBlockedError(err error, block Block) error {
 
 var removeMsg = `
 All operations that remove (or delete or terminate) machines, services, units or
-relations have been blocked for the current environment.
+relations have been blocked for the current model.
 To unblock removal, run
 
     juju unblock remove-object
 
 `
 var destroyMsg = `
-destroy-model operation has been blocked for the current environment.
+destroy-model operation has been blocked for the current model.
 To remove the block run
 
     juju unblock destroy-model
 
 `
 var changeMsg = `
-All operations that change environment have been blocked for the current environment.
+All operations that change model have been blocked for the current model.
 To unblock changes, run
 
     juju unblock all-changes

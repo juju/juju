@@ -237,7 +237,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	logger.Infof("environment provisioning")
+	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
 		c.Placement.Scope = client.EnvironmentUUID()
 	}

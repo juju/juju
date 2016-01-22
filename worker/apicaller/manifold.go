@@ -50,14 +50,14 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
 				environTag, err := conn.EnvironTag()
 				if err != nil {
-					return errors.Annotate(err, "no environment uuid set on api")
+					return errors.Annotate(err, "no model uuid set on api")
 				}
 				return setter.Migrate(agent.MigrateParams{
 					Environment: environTag,
 				})
 			})
 			if err != nil {
-				logger.Warningf("unable to save environment uuid: %v", err)
+				logger.Warningf("unable to save model uuid: %v", err)
 				// Not really fatal, just annoying.
 			}
 		}

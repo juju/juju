@@ -95,7 +95,7 @@ func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
 	s.st.stub.SetErrors(errors.New("ouch"))
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(result.Error, gc.ErrorMatches, "getting model config: ouch")
 	c.Assert(result.Result, jc.IsFalse)
 }
 
@@ -104,7 +104,7 @@ func (s *AddresserSuite) TestCanDeallocateAddressesEnvironmentNewFailure(c *gc.C
 	s.st.setConfig(c, config)
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(result.Error, gc.ErrorMatches, `validating model config: no registered provider for "nonex"`)
 	c.Assert(result.Result, jc.IsFalse)
 }
 
@@ -198,7 +198,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
 	// First action is getting the environment configuration,
 	// so the injected error is returned here.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(apiErr.Error, gc.ErrorMatches, "getting model config: ouch")
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
@@ -216,7 +216,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
 
 	// Validation of configuration fails due to illegal provider.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating model config: no registered provider for "nonex"`)
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()

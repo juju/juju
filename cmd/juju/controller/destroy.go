@@ -104,7 +104,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.EnvName())
 	}
 
 	if !c.assumeYes {
@@ -140,7 +140,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q", c.EnvName())
 	if c.destroyEnvs {
-		ctx.Infof("Waiting for hosted environment resources to be reclaimed.")
+		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
 		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
 		for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
@@ -150,7 +150,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 	}
 	return environs.Destroy(controllerEnviron, store)
 }
@@ -193,7 +193,7 @@ To remove all blocks in the controller, please run:
 			}
 
 			if err != nil {
-				logger.Errorf("Unable to list blocked environments: %s", err)
+				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
 			}
 			ctx.Infof(string(bytes))
@@ -211,7 +211,7 @@ If the controller is unusable, then you may run
     juju controller kill
 
 to forcibly destroy the controller. Upon doing so, review
-your environment provider console for any resources that need
+your model provider console for any resources that need
 to be cleaned up.
 `
 
@@ -231,7 +231,7 @@ func formatTabularBlockedEnvironments(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tENVIRONMENT UUID\tOWNER\tBLOCKS\n")
+	fmt.Fprintf(tw, "NAME\tMODEL UUID\tOWNER\tBLOCKS\n")
 	for _, env := range envs {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", env.Name, env.UUID, env.OwnerTag, blocksToStr(env.Blocks))
 	}

@@ -40,7 +40,7 @@ var userCurrent = user.Current
 
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)
 	if err != nil {

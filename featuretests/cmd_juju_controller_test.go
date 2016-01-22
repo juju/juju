@@ -59,17 +59,17 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	c.Assert(testing.Stdout(context), gc.Equals, "dummyenv\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "dummymodel\n")
 }
 
 func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
-	s.createEnv(c, "new-env", false)
+	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME      OWNER              LAST CONNECTION\n"+
-		"dummyenv  dummy-admin@local  just now\n"+
-		"new-env   dummy-admin@local  never connected\n"+
+		"NAME        OWNER              LAST CONNECTION\n"+
+		"dummymodel  dummy-admin@local  just now\n"+
+		"new-model   dummy-admin@local  never connected\n"+
 		"\n")
 }
 
@@ -101,20 +101,20 @@ func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
+	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'state-server'.
-	context := s.run(c, "create-model", "new-env", "authorized-keys=fake-key", "state-server=false")
+	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "state-server=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-created environment "new-env"
-dummyenv (controller) -> new-env
+created model "new-model"
+dummymodel (controller) -> new-model
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-env", nil)
+	api, err := juju.NewAPIFromName("new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -155,17 +155,17 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		}
 	}()
 
-	s.run(c, "destroy-controller", "dummyenv", "-y", "--destroy-all-models", "--debug")
+	s.run(c, "destroy-controller", "dummymodel", "-y", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
+	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -184,20 +184,20 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.Close()
 
-	s.run(c, "kill-controller", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummymodel", "-y")
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
+	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"dummyenv","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+	expected := fmt.Sprintf(`[{"name":"dummymodel","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
 		s.State.EnvironUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
@@ -226,16 +226,16 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	undertaker.NewUndertaker(client, mClock)
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "kill-controller", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummymodel", "-y")
 
 	// Ensure that Destroy was called on the hosted environment ...
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
 	// ... and that the configstore was removed.
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

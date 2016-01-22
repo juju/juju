@@ -136,11 +136,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "error: flag provided but not defined: --cheese\n",
 	}, {
-		summary: "unknown option specified before command",
-		args:    []string{"--environment", "blah", "bootstrap"},
-		code:    2,
-		out:     "error: flag provided but not defined: --environment\n",
-	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
@@ -186,9 +181,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	}
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "env"}, // global flags before
-		{"env", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "env", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "switch"}, // global flags before
+		{"switch", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "switch", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -229,7 +224,6 @@ var commandNames = []string{
 	"disable-user",
 	"enable-user",
 	"ensure-availability",
-	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
 	"get",

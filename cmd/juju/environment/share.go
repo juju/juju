@@ -15,7 +15,7 @@ import (
 )
 
 const shareEnvHelpDoc = `
-Share the current environment with another user.
+Share the current model with another user.
 
 Examples:
  juju share-model joe

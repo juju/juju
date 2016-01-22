@@ -73,7 +73,7 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 			c.Logf("test %d should %s: juju actions defined %s", i,
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewDefinedCommand()
-			args := append([]string{modelFlag, "dummyenv"}, t.args...)
+			args := append([]string{modelFlag, "dummymodel"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
@@ -129,7 +129,7 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				args := append([]string{modelFlag, "dummyenv"}, t.withArgs...)
+				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
 				s.wrappedCommand, s.command = action.NewDefinedCommand()
 				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
 

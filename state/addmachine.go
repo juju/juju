@@ -162,7 +162,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, errors.New("environment is no longer alive")
+		return nil, errors.New("model is no longer alive")
 	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
@@ -189,7 +189,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	ops = append(ops, ssOps...)
 	ops = append(ops, env.assertAliveOp())
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errors.New("environment is no longer alive"))
+		return nil, onAbort(err, errors.New("model is no longer alive"))
 	}
 	return ms, nil
 }
@@ -199,13 +199,13 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	if err != nil {
 		return nil, err
 	} else if env.Life() != Alive {
-		return nil, errors.New("environment is no longer alive")
+		return nil, errors.New("model is no longer alive")
 	}
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
 		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, errors.New("environment is no longer alive")
+			return nil, errors.New("model is no longer alive")
 		} else if enverr != nil {
 			err = enverr
 		}

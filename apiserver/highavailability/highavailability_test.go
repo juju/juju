@@ -349,7 +349,7 @@ func (s *clientSuite) TestEnsureAvailabilityHostedEnvErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ensureAvailabilityResult, err := ensureAvailability(c, haServer, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with hosted environments")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with hosted models")
 
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)

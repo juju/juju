@@ -361,7 +361,7 @@ func (u *User) Disable() error {
 		return errors.Trace(err)
 	}
 	if u.doc.Name == environment.Owner().Name() {
-		return errors.Unauthorizedf("cannot disable state server environment owner")
+		return errors.Unauthorizedf("cannot disable state server model owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }

@@ -45,7 +45,7 @@ func (e *EnvironMachinesWatcher) WatchEnvironMachines() (params.StringsWatchResu
 		result.Changes = changes
 	} else {
 		err := watcher.EnsureErr(watch)
-		return result, fmt.Errorf("cannot obtain initial environment machines: %v", err)
+		return result, fmt.Errorf("cannot obtain initial model machines: %v", err)
 	}
 	return result, nil
 }

@@ -219,7 +219,7 @@ func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 
 	result, err := s.client.ShareEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not share environment: user "foobar" does not exist locally: user "foobar" not found`
+	expectedErr := `could not share model: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -256,7 +256,7 @@ func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 
 	result, err := s.client.ShareEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare environment: env user "bob@local" does not exist: transaction aborted`)
+	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare model: env user "bob@local" does not exist: transaction aborted`)
 
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
@@ -324,9 +324,9 @@ func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
 
 	result, err := s.client.ShareEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.OneError(), gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
 	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
 
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
@@ -377,7 +377,7 @@ func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
 	},
 	} {
 		var expectedErr string
-		errPart := `could not share environment: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
+		errPart := `could not share model: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
 
 		if testParam.validTag {
 
@@ -410,7 +410,7 @@ func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
 	_, err := s.client.ShareEnvironment(args)
 	result, err := s.client.ShareEnvironment(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not share environment: "" is not a valid tag`
+	expectedErr := `could not share model: "" is not a valid tag`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -2357,8 +2357,8 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
 	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
 	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("dummyenv:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("dummyenv:valid")
+	apiParams[2].Placement = instance.MustParsePlacement("dummymodel:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("dummymodel:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
@@ -2797,7 +2797,7 @@ func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
 
 func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1, m2 *state.Machine) {
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the model; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -2805,7 +2805,7 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 	err = u.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the model`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
@@ -2859,7 +2859,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine is required by the model`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)

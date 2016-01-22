@@ -27,7 +27,7 @@ func EnvironProvider() environs.EnvironProvider {
 
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening environment %q.", cfg.Name())
+	logger.Debugf("opening model %q.", cfg.Name())
 	// We can't return NewEnviron(cfg) directly here because otherwise,
 	// when err is not nil, we end up with a non-nil returned environ and
 	// this breaks the loop in cmd/jujud/upgrade.go:run() (see

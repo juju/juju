@@ -259,6 +259,6 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 	if err != nil {
 		return nil, err
 	}
-	ctx.Infof("Added charm %q to the environment.", addedURL)
+	ctx.Infof("Added charm %q to the model.", addedURL)
 	return addedURL, nil
 }

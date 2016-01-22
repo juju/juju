@@ -281,7 +281,7 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	// Generate the UUID for the server.
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to generate environment uuid")
+		return nil, errors.Annotate(err, "failed to generate model uuid")
 	}
 	attrs["uuid"] = uuid.String()
 
@@ -321,7 +321,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	// have tools for that version, also die.
 	env, st, err := em.state.NewEnvironment(newConfig, ownerTag)
 	if err != nil {
-		return result, errors.Annotate(err, "failed to create new environment")
+		return result, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
 

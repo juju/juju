@@ -17,10 +17,10 @@ import (
 )
 
 const useraddCommandDoc = `
-Add users to an existing environment.
+Add users to an existing model.
 
-The user information is stored within an existing environment, and will be
-lost when the environent is destroyed.  A server file will be written out in
+The user information is stored within an existing model, and will be
+lost when the model is destroyed.  A server file will be written out in
 the current directory.  You can control the name and location of this file
 using the --output option.
 
@@ -64,7 +64,7 @@ func (c *addCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
+	f.StringVar(&c.OutPath, "o", "", "specify the model file for new user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 

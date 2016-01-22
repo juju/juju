@@ -27,7 +27,7 @@ var logger = loggo.GetLogger("juju.cmd.envcmd")
 // ErrNoEnvironmentSpecified is returned by commands that operate on
 // an environment if there is no current environment, no environment
 // has been explicitly specified, and there is no default environment.
-var ErrNoEnvironmentSpecified = errors.New("no environment specified")
+var ErrNoEnvironmentSpecified = errors.New("no model specified")
 
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
@@ -48,7 +48,7 @@ func GetDefaultEnvironment() (string, error) {
 	if currentController, err := ReadCurrentController(); err != nil {
 		return "", errors.Trace(err)
 	} else if currentController != "" {
-		return "", errors.Errorf("not operating on an environment, using controller %q", currentController)
+		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
 	}
 	envs, err := environs.ReadEnvirons("")
 	if environs.IsNoEnv(err) {
@@ -435,19 +435,19 @@ func GetEnvironmentVersion(client EnvironmentGetter) (version.Number, error) {
 	noVersion := version.Number{}
 	attrs, err := client.EnvironmentGet()
 	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to retrieve environment config")
+		return noVersion, errors.Annotate(err, "unable to retrieve model config")
 	}
 	vi, found := attrs["agent-version"]
 	if !found {
-		return noVersion, errors.New("version not found in environment config")
+		return noVersion, errors.New("version not found in model config")
 	}
 	vs, ok := vi.(string)
 	if !ok {
-		return noVersion, errors.New("invalid environment version type in config")
+		return noVersion, errors.New("invalid model version type in config")
 	}
 	v, err := version.Parse(vs)
 	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to parse environment version")
+		return noVersion, errors.Annotate(err, "unable to parse model version")
 	}
 	return v, nil
 }

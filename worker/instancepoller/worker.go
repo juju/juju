@@ -49,7 +49,7 @@ func (u *updaterWorker) loop() (err error) {
 		return err
 	}
 	u.aggregator = newAggregator(u.observer.Environ())
-	logger.Infof("instance poller received inital environment configuration")
+	logger.Infof("instance poller received inital model configuration")
 	defer func() {
 		obsErr := worker.Stop(u.observer)
 		if err == nil {

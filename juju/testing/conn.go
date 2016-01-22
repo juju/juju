@@ -57,7 +57,7 @@ import (
 // the following:
 //     RootDir/home/ubuntu/.juju/environments.yaml
 //         The dummy environments.yaml file, holding
-//         a default environment named "dummyenv"
+//         a default environment named "dummymodel"
 //         which uses the "dummy" environment type.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
@@ -229,10 +229,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// the tests specifically need them (in cmd/juju for example)
 	s.writeSampleConfig(c, osenv.JujuHomePath("models.yaml"))
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummymodel-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummymodel-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
@@ -240,10 +240,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummymodel", envcmd.BootstrapContext(ctx), s.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -287,7 +287,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	info, err := s.ConfigStore.ReadInfo("dummyenv")
+	info, err := s.ConfigStore.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
@@ -365,7 +365,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	}
 	environUUID, ok := config.UUID()
 	if !ok {
-		return nil, fmt.Errorf("cannot connect without environment UUID")
+		return nil, fmt.Errorf("cannot connect without model UUID")
 	}
 	environTag := names.NewEnvironTag(environUUID)
 
@@ -511,7 +511,7 @@ func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
 	}
 	whole := map[string]interface{}{
 		"environments": map[string]interface{}{
-			"dummyenv": attrs,
+			"dummymodel": attrs,
 		},
 	}
 	data, err := goyaml.Marshal(whole)

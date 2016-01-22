@@ -43,7 +43,7 @@ func newRestoreCommand() cmd.Command {
 const restoreDoc = `
 Restore restores a backup created with juju backup
 by creating a new juju bootstrap instance and arranging
-it so that the existing instances in the environment
+it so that the existing instances in the model
 talk to it.
 
 It verifies that the existing bootstrap instance is
@@ -69,7 +69,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }

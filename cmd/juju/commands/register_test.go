@@ -44,7 +44,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +57,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "environment uuid",
+			EnvironmentUUID: "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ServiceName:     "service name",
 			PlanURL:         "someplan",
@@ -78,7 +78,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +93,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "environment uuid",
+			EnvironmentUUID: "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ServiceName:     "service name",
 			PlanURL:         "thisplan",
@@ -115,7 +115,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `local:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
@@ -135,7 +135,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
@@ -151,7 +151,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/unmetered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		EnvUUID:     "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)
@@ -181,7 +181,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "environment uuid",
+			EnvironmentUUID: "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ServiceName:     "service name",
 			PlanURL:         "someplan",

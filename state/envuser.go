@@ -153,7 +153,7 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	username := strings.ToLower(user.Canonical())
 	err := envUsers.FindId(username).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("environment user %q", user.Canonical())
+		return nil, errors.NotFoundf("model user %q", user.Canonical())
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
@@ -194,7 +194,7 @@ func (st *State) AddEnvironmentUser(spec EnvUserSpec) (*EnvironmentUser, error) 
 	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("environment user %q", spec.User.Canonical())
+		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

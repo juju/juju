@@ -202,18 +202,18 @@ func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "environment", "whoops")
+	_, err := s.runDestroyCommand(c, "model", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: environment "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo" not found`)
 }
 
 func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju environment destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
 }
 
 func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C) {
@@ -357,7 +357,7 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
 	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
-	c.Check(testLog, jc.Contains, "Unable to list blocked environments: unexpected api error")
+	c.Check(testLog, jc.Contains, "Unable to list blocked models: unexpected api error")
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
@@ -383,7 +383,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, ""+
-		"NAME   ENVIRONMENT UUID  OWNER         BLOCKS\n"+
-		"test1  test1-uuid        cheryl@local  destroy-model\n"+
-		"test2  test2-uuid        bob@local     destroy-model,all-changes\n")
+		"NAME   MODEL UUID  OWNER         BLOCKS\n"+
+		"test1  test1-uuid  cheryl@local  destroy-model\n"+
+		"test2  test2-uuid  bob@local     destroy-model,all-changes\n")
 }

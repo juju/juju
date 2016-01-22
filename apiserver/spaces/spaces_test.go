@@ -260,7 +260,7 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "getting environment config: backing boom")
+	c.Assert(err, gc.ErrorMatches, "getting model config: backing boom")
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
@@ -311,7 +311,7 @@ func (s *SpacesSuite) TestCreateSpacesEnvironConfigError(c *gc.C) {
 
 	spaces := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(spaces)
-	c.Assert(err, gc.ErrorMatches, "getting environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "getting model config: boom")
 }
 
 func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
@@ -322,7 +322,7 @@ func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 
 	spaces := params.CreateSpacesParams{}
 	_, err := s.facade.CreateSpaces(spaces)
-	c.Assert(err, gc.ErrorMatches, "validating environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "validating model config: boom")
 }
 
 func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {

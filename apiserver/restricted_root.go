@@ -43,7 +43,7 @@ func (r *restrictedRoot) FindMethod(rootName string, version int, methodName str
 		return nil, err
 	}
 	if !restrictedRootNames.Contains(rootName) {
-		return nil, errors.NotSupportedf("logged in to server, no environment, %q", rootName)
+		return nil, errors.NotSupportedf("logged in to server, no model, %q", rootName)
 	}
 	return caller, nil
 }

@@ -110,7 +110,7 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 
 	obs, err := worker.NewEnvironObserver(s.st)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot create an environment: no registered provider for "unknown"`,
+		`cannot create a model: no registered provider for "unknown"`,
 	)
 	c.Assert(obs, gc.IsNil)
 	s.st.CheckCallNames(c, "EnvironConfig")
@@ -143,11 +143,11 @@ loop:
 	for {
 		select {
 		case msg := <-logc:
-			if strings.Contains(msg, "error creating an environment") {
+			if strings.Contains(msg, "error creating a model") {
 				break loop
 			}
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting to see broken environment")
+			c.Fatalf("timed out waiting to see broken model")
 		}
 	}
 	// Check that the returned environ is still the same.

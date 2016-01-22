@@ -26,7 +26,7 @@ type initCommand struct {
 func (c *initCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "init",
-		Purpose: "generate boilerplate configuration for juju environments",
+		Purpose: "generate boilerplate configuration for juju models",
 		Aliases: []string{"generate-config"},
 	}
 }
@@ -36,7 +36,7 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Show, "show", false, "print the generated configuration data to stdout instead of writing it to a file")
 }
 
-var errJujuEnvExists = fmt.Errorf(`A juju environment configuration already exists.
+var errJujuEnvExists = fmt.Errorf(`A juju model configuration already exists.
 
 Use -f to overwrite the existing models.yaml.
 `)
@@ -59,9 +59,9 @@ func (c *initCommand) Run(context *cmd.Context) error {
 	}
 	filename, err := environs.WriteEnvirons("", config)
 	if err != nil {
-		return fmt.Errorf("A boilerplate environment configuration file could not be created: %s", err.Error())
+		return fmt.Errorf("A boilerplate model configuration file could not be created: %s", err.Error())
 	}
-	fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
-	fmt.Fprint(out, "Edit the file to configure your juju environment and run bootstrap.\n")
+	fmt.Fprintf(out, "A boilerplate model configuration file has been written to %s.\n", filename)
+	fmt.Fprint(out, "Edit the file to configure your juju model and run bootstrap.\n")
 	return nil
 }

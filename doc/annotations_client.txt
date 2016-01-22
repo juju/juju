@@ -4,7 +4,7 @@ New annotations client is available from 1.22 effectively deprecating
 annotations in old client.
 
 This client provides functionality to annotate charms in addition
-to environment, machine, service and unit previously done
+to model, machine, service and unit previously done
 through our old client.
 
 New annotations client also supports bulk calls.

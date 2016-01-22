@@ -41,20 +41,20 @@ var validateImagesMetadataDoc = `
 validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
-The cloud specification comes from the current Juju environment, as specified in
+The cloud specification comes from the current Juju model, as specified in
 the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
 
   juju metadata validate-images -s raring
 
- - validate using the current environment settings but with series raring and
+ - validate using the current model settings but with series raring and
  using metadata from local directory (the directory is expected to have an
  "images" subdirectory containing the metadata, and corresponds to the parameter
  passed to the image metadata generatation command).
@@ -79,7 +79,7 @@ RETVAL=$?
 func (c *validateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-images",
-		Purpose: "validate image metadata and ensure image(s) exist for an environment",
+		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
 	}
 }

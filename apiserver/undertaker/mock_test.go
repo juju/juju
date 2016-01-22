@@ -55,7 +55,7 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 
 func (m *mockState) EnsureEnvironmentRemoved() error {
 	if !m.removed {
-		return errors.New("found documents for environment")
+		return errors.New("found documents for model")
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func (m *mockState) RemoveAllEnvironDocs() error {
 
 func (m *mockState) ProcessDyingEnviron() error {
 	if m.env.life != state.Dying {
-		return errors.New("environment is not dying")
+		return errors.New("model is not dying")
 	}
 	m.env.life = state.Dead
 	return nil

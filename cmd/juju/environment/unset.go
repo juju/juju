@@ -24,7 +24,7 @@ type unsetCommand struct {
 }
 
 const unsetEnvHelpDoc = `
-Reset one or more the environment configuration attributes to its default
+Reset one or more the model configuration attributes to its default
 value in a running Juju instance.  Attributes without defaults are removed,
 and attempting to remove a required attribute with no default will result
 in an error.
@@ -79,7 +79,7 @@ func (c *unsetCommand) Run(ctx *cmd.Context) error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %q is not defined in the current environment configuration: possible misspelling", key)
+			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
 		}
 
 	}

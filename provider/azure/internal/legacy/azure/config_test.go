@@ -192,7 +192,7 @@ func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*environment has no location.*")
+	c.Check(err, gc.ErrorMatches, ".*model has no location.*")
 }
 
 func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *gc.C) {

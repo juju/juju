@@ -320,7 +320,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 		},
 	})
 	st, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
-	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "noconfig" not found`)
 	c.Assert(st, gc.IsNil)
 }
 
@@ -521,7 +521,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
 	// We expect to  get the isNotFound error as it is more important than the
 	// infoConnectError "an error"
-	c.Assert(err, gc.ErrorMatches, "environment \"noconfig\" not found")
+	c.Assert(err, gc.ErrorMatches, "model \"noconfig\" not found")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -757,18 +757,6 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
 	c.Check(err, jc.ErrorIsNil)
 	st.Close()
-
-	// Sanity check that connecting to the envName2
-	// but with no info fails.
-	// Currently this panics with an "environment not prepared" error.
-	// Disable for now until an upcoming branch fixes it.
-	//	err = info2.Destroy()
-	//	c.Assert(err, jc.ErrorIsNil)
-	//	st, err = juju.NewAPIFromStore(envName2, store)
-	//	if err == nil {
-	//		st.Close()
-	//	}
-	//	c.Assert(err, gc.ErrorMatches, "fooobie")
 }
 
 func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {

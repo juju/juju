@@ -81,7 +81,7 @@ For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
   
-The current series for charms is determined first by the default-series environment
+The current series for charms is determined first by the default-series model
 setting, followed by the preferred series for the charm in the charm store.
 
 In these cases, a versioned charm URL will be expanded as expected (for example,
@@ -100,7 +100,7 @@ is not supported by the charm, this results in an error, unless --force is used.
 
 Deploying using a local repository is supported but deprecated.
 In this case, when the default-series is not specified in the
-environment, one must specify the series. For example:
+model, one must specify the series. For example:
   local:precise/mysql
 
 Local bundles can be specified either with a local:bundle/<name> URL, which is
@@ -361,7 +361,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		return errors.Annotatef(err, "storing charm for URL %q", charmOrBundleURL)
 	}
-	ctx.Infof("Added charm %q to the environment.", curl)
+	ctx.Infof("Added charm %q to the model.", curl)
 	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
 	return c.deployCharm(curl, series, ctx, client, &deployer)
 }

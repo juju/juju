@@ -106,11 +106,11 @@ func WriteCurrentEnvironment(envName string) error {
 	path := getCurrentEnvironmentFilePath()
 	err = ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
 	if err != nil {
-		return errors.Errorf("unable to write to the environment file: %q, %s", path, err)
+		return errors.Errorf("unable to write to the model file: %q, %s", path, err)
 	}
 	// If there is a current controller file, remove it.
 	if err := os.Remove(getCurrentControllerFilePath()); err != nil && !os.IsNotExist(err) {
-		logger.Debugf("removing the current environment file due to %s", err)
+		logger.Debugf("removing the current model file due to %s", err)
 		// Best attempt to remove the file we just wrote.
 		os.Remove(path)
 		return err

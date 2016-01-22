@@ -268,7 +268,7 @@ func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "series=quantal")
 	url.Path = "/environment/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
@@ -449,7 +449,7 @@ func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/environment/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {

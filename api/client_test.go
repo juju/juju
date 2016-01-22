@@ -259,7 +259,7 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 
 	err := client.ShareEnvironment(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	logMsg := fmt.Sprintf("WARNING juju.api environment is already shared with %s", user.UserName())
+	logMsg := fmt.Sprintf("WARNING juju.api model is already shared with %s", user.UserName())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
@@ -377,7 +377,7 @@ func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 
 	err := client.UnshareEnvironment(user)
 	c.Assert(err, jc.ErrorIsNil)
-	logMsg := fmt.Sprintf("WARNING juju.api environment was not previously shared with user %s", user.Canonical())
+	logMsg := fmt.Sprintf("WARNING juju.api model was not previously shared with user %s", user.Canonical())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
@@ -519,7 +519,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in a bad environment UUID should fail with a known error
 	info.EnvironTag = names.NewEnvironTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
+	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
 }

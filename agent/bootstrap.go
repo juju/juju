@@ -106,7 +106,7 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 	if !isLocalEnv(envCfg) {
 		machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
 	} else {
-		logger.Debugf("local environment - not filtering addresses from %v", machineCfg.Addresses)
+		logger.Debugf("local model - not filtering addresses from %v", machineCfg.Addresses)
 	}
 
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {

@@ -54,7 +54,7 @@ default: unknown
 environments:
     only:
         type: unknown
-`, `default environment .* does not exist`,
+`, `default model .* does not exist`,
 	},
 }
 
@@ -75,18 +75,18 @@ var invalidEnvTests = []struct {
 environments:
     only:
         foo: bar
-`, "", `environment "only" has no type`,
+`, "", `model "only" has no type`,
 	}, {`
 environments:
     only:
         foo: bar
-`, "only", `environment "only" has no type`,
+`, "only", `model "only" has no type`,
 	}, {`
 environments:
     only:
         foo: bar
         type: crazy
-`, "only", `environment "only" has an unknown provider type "crazy"`,
+`, "only", `model "only" has an unknown provider type "crazy"`,
 	},
 }
 
@@ -188,7 +188,7 @@ environments:
         type: crazy
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
-		c.Assert(err, gc.ErrorMatches, `environment "invalid" has an unknown provider type "crazy"`)
+		c.Assert(err, gc.ErrorMatches, `model "invalid" has an unknown provider type "crazy"`)
 		c.Assert(cfg, gc.IsNil)
 		cfg, err = envs.Config("valid")
 		c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +203,7 @@ environments:
         state-server: false
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
-		c.Assert(err, gc.ErrorMatches, `no default environment found`)
+		c.Assert(err, gc.ErrorMatches, `no default model found`)
 		c.Assert(cfg, gc.IsNil)
 	}},
 }
@@ -508,7 +508,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
-	expected := `Provider type "null" has been renamed to "manual".Please update your environment configuration.`
+	expected := `Provider type "null" has been renamed to "manual".Please update your model configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -538,7 +538,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedBlockWarning(c *gc.C) {
 		attrs := testing.Attrs{tst: true}
 		s.checkDeprecationWarning(c, attrs, ".*is deprecated and will be ignored since.*")
 	}
-	assertBlockWarning("block-destroy-environment")
+	assertBlockWarning("block-destroy-model")
 	assertBlockWarning("block-remove-object")
 	assertBlockWarning("block-all-changes")
 }

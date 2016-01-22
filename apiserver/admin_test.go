@@ -814,7 +814,7 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser, "dummy-secret", "")
-	expectedError := fmt.Sprintf("unknown environment: %q", uuid)
+	expectedError := fmt.Sprintf("unknown model: %q", uuid)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -829,7 +829,7 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser, "dummy-secret", "")
-	c.Assert(err, gc.ErrorMatches, `unknown environment: "rubbish"`)
+	c.Assert(err, gc.ErrorMatches, `unknown model: "rubbish"`)
 }
 
 func (s *loginSuite) TestOtherEnvironment(c *gc.C) {

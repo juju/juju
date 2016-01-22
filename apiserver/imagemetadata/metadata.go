@@ -196,6 +196,9 @@ func (api *API) UpdateFromPublishedImages() error {
 
 func (api *API) retrievePublished() error {
 	envCfg, err := api.metadata.EnvironConfig()
+	if err != nil {
+		return errors.Annotatef(err, "getting environ config")
+	}
 	env, err := environs.New(envCfg)
 	if err != nil {
 		return errors.Annotatef(err, "getting environ")
@@ -203,18 +206,18 @@ func (api *API) retrievePublished() error {
 
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return errors.Annotatef(err, "getting environment image metadata sources")
+		return errors.Annotatef(err, "getting cloud specific image metadata sources")
 	}
 
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return errors.Errorf("environment cloud specification cannot be determined")
+		return errors.Errorf("cloud specification cannot be determined")
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
 		cloud, err := inst.Region()
 		if err != nil {
-			return errors.Annotatef(err, "getting provider region information (cloud spec)")
+			return errors.Annotatef(err, "getting cloud specific region information")
 		}
 		cons.CloudSpec = cloud
 	}

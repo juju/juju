@@ -152,7 +152,7 @@ func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	expect := fmt.Sprintf("cannot read environment %s: environment not found", uuid)
+	expect := fmt.Sprintf("cannot read model %s: model not found", uuid)
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
@@ -170,7 +170,7 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", s.State.EnvironUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -602,7 +602,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 			}
 
 			checkIsolationForEnv := func(w1, w2 TestWatcherC) {
-				c.Logf("Making changes to environment %s", w1.State.EnvironUUID())
+				c.Logf("Making changes to model %s", w1.State.EnvironUUID())
 				// switch on type of watcher here
 				if test.setUpState != nil {
 
@@ -1237,7 +1237,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the environment is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
@@ -1252,7 +1252,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1898,7 +1898,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -1913,7 +1913,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1937,7 +1937,7 @@ func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "user-notAuser", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": model user "notAuser@local" not found`)
 }
 
 func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
@@ -2281,7 +2281,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`setting environment constraints: unsupported constraints: cpu-power`},
+		`setting model constraints: unsupported constraints: cpu-power`},
 	})
 	econs, err := s.State.EnvironConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2980,7 +2980,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 				done <- cfg
 			}
 		case <-time.After(5 * time.Second):
-			c.Fatalf("no environment configuration observed")
+			c.Fatalf("no model configuration observed")
 		}
 	}()
 
@@ -3005,7 +3005,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	case got := <-done:
 		c.Assert(got.AllAttrs(), gc.DeepEquals, fixed)
 	case <-time.After(5 * time.Second):
-		c.Fatalf("no environment configuration observed")
+		c.Fatalf("no model configuration observed")
 	}
 }
 
@@ -3199,7 +3199,7 @@ var findEntityTests = []findEntityTest{{
 	err: `relation "svc1:rel1 svc2:rel2" not found`,
 }, {
 	tag: names.NewEnvironTag("9f484882-2f18-4fd2-967d-db9663db7bea"),
-	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
+	err: `model "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
 	tag: names.NewMachineTag("0"),
 }, {
@@ -3610,7 +3610,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 	// Verify machine0 and machine1 are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr := fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1", stringVersion)
+	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 
@@ -3637,7 +3637,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 
@@ -3651,7 +3651,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 	// Verify only the units are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 }
@@ -3750,7 +3750,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
-	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
 		version.Current,
 	)
@@ -3827,7 +3827,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetEnvironAgentVersion(nextVersion)
-	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current environment version.+")
+	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 
 type waiter interface {

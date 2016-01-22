@@ -11,7 +11,7 @@ expected to change much faster than the general interactions between components.
 
 ## The View From Space
 
-A Juju environment is a distributed system comprising:
+A Juju model is a distributed system comprising:
 
   * A data store (mongodb) which describes the desired state of the world, in terms
     of running workloads or *services*, and the *relations* between them; and of the
@@ -131,8 +131,8 @@ Machine agents additionally do the following:
     (`worker/provisioner`)
 
 *Almost* all machine agents have JobHostUnits -- the sole exception is the state
-server in a local environment, which runs directly on the user's machine (not
-in a container); we don't want to pollute their day-to-day working environment
+server in a local model, which runs directly on the user's machine (not
+in a container); we don't want to pollute their day-to-day working model
 by deploying charms there (especially because the local provider is explicitly
 a development tool, and charms deployed there are disproportionately likely to
 be flawed or incomplete). Those that do run the `worker/deployer` code which
@@ -254,7 +254,7 @@ across the board).
 ## The Providers
 
 Each provider represents a different possible kind of substrate on which a juju
-environment can run, and (as far as possible) abstracts away the differences
+model can run, and (as far as possible) abstracts away the differences
 between them, by making them all conform to the Environ interface. The most
 important thing to understand about the various providers is that they're all
 implemented without reference to broader juju concepts; they are squeezed into

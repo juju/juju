@@ -111,7 +111,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 			envName = envs.Default
 		}
 		if envName == "" {
-			return nil, fmt.Errorf("no default environment found")
+			return nil, fmt.Errorf("no default model found")
 		}
 	} else if !environs.IsNoEnv(err) {
 		return nil, err
@@ -331,11 +331,11 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 	if envs != nil {
 		cfg, err := envs.Config(envName)
 		if err != nil && !errors.IsNotFound(err) {
-			logger.Warningf("failed to get config for environment %q: %v", envName, err)
+			logger.Warningf("failed to get config for model %q: %v", envName, err)
 		}
 		return cfg, err
 	}
-	return nil, errors.NotFoundf("environment %q", envName)
+	return nil, errors.NotFoundf("model %q", envName)
 }
 
 func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {
@@ -364,7 +364,7 @@ func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.
 	} else {
 		// For backwards-compatibility, we have to allow connections
 		// with an empty UUID. Login will work for the same reasons.
-		logger.Warningf("ignoring invalid cached API endpoint environment UUID %v", apiInfo.EnvironTag.Id())
+		logger.Warningf("ignoring invalid cached API endpoint model UUID %v", apiInfo.EnvironTag.Id())
 	}
 	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
 	if err != nil {

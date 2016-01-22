@@ -28,7 +28,7 @@ Returns the address(es) of the current API server formatted as host:port.
 
 Without arguments apt-endpoints returns the last endpoint used to successfully
 connect to the API server. If a cached endpoints information is available from
-the current environment's .jenv file, it is returned without trying to connect
+the current model's .jenv file, it is returned without trying to connect
 to the API server. When no cache is available or --refresh is given, api-endpoints
 connects to the API server, retrieves all known endpoints and updates the .jenv
 file before returning the first one. Example:

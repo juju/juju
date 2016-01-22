@@ -75,7 +75,7 @@ func (u *UndertakerAPI) RemoveEnviron() error {
 		// TODO(waigani) Return a human friendly error for now. The proper fix
 		// is to run a buildTxn within state.RemoveAllEnvironDocs, so we
 		// can return better errors than "transaction aborted".
-		return errors.New("an error occurred, unable to remove environment")
+		return errors.New("an error occurred, unable to remove model")
 	}
 	return nil
 }

@@ -1095,16 +1095,16 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to get environment config")
+		return nil, errors.Annotate(err, "failed to get model config")
 	}
 	environ, err := environs.New(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct an environment from config")
+		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}
 	netEnviron, supported := environs.SupportsNetworking(environ)
 	if !supported {
 		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("environment %q networking", cfg.Name())
+		return nil, errors.NotSupportedf("model %q networking", cfg.Name())
 	}
 	return netEnviron, nil
 }
@@ -1586,12 +1586,12 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get environment config")
+		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}
 
 	env, err := environs.New(cfg)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get environment")
+		return nil, nil, nil, errors.Annotate(err, "could not get model")
 	}
 
 	if inst, ok := env.(simplestreams.HasRegion); ok {

@@ -59,16 +59,16 @@ var agentConfigTests = []struct {
 	},
 	checkErr: "password not found in configuration",
 }, {
-	about: "missing environment tag",
+	about: "missing model tag",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current,
 		Password:          "sekrit",
 	},
-	checkErr: "environment not found in configuration",
+	checkErr: "model not found in configuration",
 }, {
-	about: "invalid environment tag",
+	about: "invalid model tag",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
@@ -76,7 +76,7 @@ var agentConfigTests = []struct {
 		Password:          "sekrit",
 		Environment:       names.NewEnvironTag("uuid"),
 	},
-	checkErr: `"uuid" is not a valid environment uuid`,
+	checkErr: `"uuid" is not a valid model uuid`,
 }, {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{

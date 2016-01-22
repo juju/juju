@@ -751,7 +751,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	envConfig, err := st.Environment().EnvironConfig()
 	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
+		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
 	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
@@ -1396,7 +1396,7 @@ var getFirewallMode = _getFirewallMode
 func _getFirewallMode(apiSt api.Connection) (string, error) {
 	envConfig, err := apiSt.Environment().EnvironConfig()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot read environment config")
+		return "", errors.Annotate(err, "cannot read model config")
 	}
 	return envConfig.FirewallMode(), nil
 }

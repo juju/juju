@@ -19,7 +19,7 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.fake = &fakeEnvAPI{
 		values: map[string]interface{}{
-			"name":    "test-env",
+			"name":    "test-model",
 			"special": "special value",
 			"running": true,
 		},

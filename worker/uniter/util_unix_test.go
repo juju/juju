@@ -111,7 +111,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"run commands: environment",
+			"run commands: model",
 			quickStart{},
 			runCommands{echoUnitNameToFile("run.output")},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
@@ -127,7 +127,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				"private.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
-			"run commands: jujuc environment",
+			"run commands: jujuc model",
 			quickStartRelation{},
 			relationRunCommands{
 				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),

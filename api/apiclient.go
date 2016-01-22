@@ -333,7 +333,7 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 		// that the server has returned a valid environment tag.
 		envTag, err := st.EnvironTag()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment tag, perhaps connected to system not environment")
+			return nil, errors.Annotate(err, "cannot get model tag, perhaps connected to system not model")
 		}
 		path = apiPath(envTag, path)
 	}
@@ -436,7 +436,7 @@ func apiPath(envTag names.EnvironTag, path string) string {
 		panic(fmt.Sprintf("apiPath called with non-slash-prefixed path %q", path))
 	}
 	if envTag.Id() == "" {
-		panic("apiPath called with empty environment tag")
+		panic("apiPath called with empty model tag")
 	}
 	if envUUID := envTag.Id(); envUUID != "" {
 		return "/environment/" + envUUID + path

@@ -73,18 +73,18 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 	var envDocs []bson.M
 	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
 	if err != nil {
-		return errors.Annotate(err, "failed to read environments")
+		return errors.Annotate(err, "failed to read models")
 	}
 
 	for _, envDoc := range envDocs {
 		envUUID := envDoc["_id"].(string)
 		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
 		if err != nil {
-			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+			return errors.Annotatef(err, "failed to open model %q", envUUID)
 		}
 		defer envSt.Close()
 		if err := runner(envSt); err != nil {
-			return errors.Annotatef(err, "environment UUID %q", envUUID)
+			return errors.Annotatef(err, "model UUID %q", envUUID)
 		}
 	}
 	return nil

@@ -127,7 +127,7 @@ func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.EnvironTag = names.NewEnvironTag("bad-tag")
 	_, err := api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
+	c.Check(err, gc.ErrorMatches, `unknown model: "bad-tag"`)
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 
 	// Now set it to the right tag, and we should succeed.

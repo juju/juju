@@ -48,35 +48,35 @@ specified cloud. If version is specified, tools matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
-The cloud specification comes from the current Juju environment, as specified in
+The cloud specification comes from the current Juju model, as specified in
 the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
 case cloud attributes like provider type, region etc are optional.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
   
   juju metadata validate-tools -s raring
 
- - validate using the current environment settings but with Juju version 1.11.4
+ - validate using the current model settings but with Juju version 1.11.4
   
   juju metadata validate-tools -j 1.11.4
 
- - validate using the current environment settings but with Juju major version 2
+ - validate using the current model settings but with Juju major version 2
   
   juju metadata validate-tools -m 2
 
- - validate using the current environment settings but with Juju major.minor version 2.1
+ - validate using the current model settings but with Juju major.minor version 2.1
  
   juju metadata validate-tools -m 2.1
 
- - validate using the current environment settings and list all tools found for any series
+ - validate using the current model settings and list all tools found for any series
  
   juju metadata validate-tools --series=
 

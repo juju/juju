@@ -24,7 +24,7 @@ type removeUnitCommand struct {
 }
 
 const removeUnitDoc = `
-Remove service units from the environment.
+Remove service units from the model.
 
 If this is the only unit running, the machine on which
 the unit is hosted will also be destroyed, if possible.
@@ -37,7 +37,7 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...]",
-		Purpose: "remove service units from the environment",
+		Purpose: "remove service units from the model",
 		Doc:     removeUnitDoc,
 		Aliases: []string{"destroy-unit"},
 	}

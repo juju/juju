@@ -55,7 +55,7 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,

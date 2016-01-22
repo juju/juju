@@ -162,7 +162,7 @@ func StartInstanceWithParams(
 	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, errors.New("missing agent version in environment config")
+		return nil, errors.New("missing agent version in model config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,

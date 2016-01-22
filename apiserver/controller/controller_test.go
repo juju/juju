@@ -94,7 +94,7 @@ func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 	response, err := s.controller.AllEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
-	expected := []string{"dummyenv", "no-access", "owned", "user"}
+	expected := []string{"dummymodel", "no-access", "owned", "user"}
 	var obtained []string
 	for _, env := range response.UserEnvironments {
 		obtained = append(obtained, env.Name)
@@ -120,7 +120,7 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 
 	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
 		params.EnvironmentBlockInfo{
-			Name:     "dummyenv",
+			Name:     "dummymodel",
 			UUID:     s.State.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
@@ -150,7 +150,7 @@ func (s *controllerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
 func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
 	env, err := s.controller.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
 func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := controller.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {

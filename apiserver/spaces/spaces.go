@@ -174,11 +174,11 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 func (api *spacesAPI) supportsSpaces() error {
 	config, err := api.backing.EnvironConfig()
 	if err != nil {
-		return errors.Annotate(err, "getting environment config")
+		return errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return errors.Annotate(err, "validating environment config")
+		return errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
@@ -186,7 +186,7 @@ func (api *spacesAPI) supportsSpaces() error {
 	}
 	ok, err = netEnv.SupportsSpaces()
 	if err != nil {
-		logger.Warningf("environment does not support spaces: %v", err)
+		logger.Warningf("model does not support spaces: %v", err)
 	}
 	return err
 }

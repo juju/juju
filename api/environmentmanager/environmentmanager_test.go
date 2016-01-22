@@ -72,13 +72,13 @@ func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
 	newEnv, err := envManager.CreateEnvironment(owner, nil, map[string]interface{}{
-		"name":            "new-env",
+		"name":            "new-model",
 		"authorized-keys": "ssh-key",
 		// dummy needs state-server
 		"state-server": false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newEnv.Name, gc.Equals, "new-env")
+	c.Assert(newEnv.Name, gc.Equals, "new-model")
 	c.Assert(newEnv.OwnerTag, gc.Equals, user.Tag().String())
 	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
 }

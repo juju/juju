@@ -21,7 +21,7 @@ func newListCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List blocks for Juju environment.
+List blocks for Juju model.
 This command shows if each block type is enabled. 
 For enabled blocks, block message is shown if it was specified.
 `

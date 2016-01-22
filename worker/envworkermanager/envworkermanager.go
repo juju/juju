@@ -108,7 +108,7 @@ func (m *envWorkerManager) envHasChanged(uuid string) error {
 	if errors.IsNotFound(err) {
 		return m.envNotFound(envTag)
 	} else if err != nil {
-		return errors.Annotatef(err, "error loading environment %s", envTag.Id())
+		return errors.Annotatef(err, "error loading model %s", envTag.Id())
 	}
 
 	switch env.Life() {
@@ -127,12 +127,12 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 	return m.runner.StartWorker(envTag.Id(), func() (worker.Worker, error) {
 		st, err := m.st.ForEnviron(envTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
+			return nil, errors.Annotatef(err, "failed to open state for model %s", envTag.Id())
 		}
 		closeState := func() {
 			err := st.Close()
 			if err != nil {
-				logger.Errorf("error closing state for env %s: %v", envTag.Id(), err)
+				logger.Errorf("error closing state for model %s: %v", envTag.Id(), err)
 			}
 		}
 
@@ -173,12 +173,12 @@ func (m *envWorkerManager) envIsDying(envTag names.EnvironTag) error {
 	return m.runner.StartWorker(id, func() (worker.Worker, error) {
 		st, err := m.st.ForEnviron(envTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
+			return nil, errors.Annotatef(err, "failed to open state for model %s", envTag.Id())
 		}
 		closeState := func() {
 			err := st.Close()
 			if err != nil {
-				logger.Errorf("error closing state for env %s: %v", envTag.Id(), err)
+				logger.Errorf("error closing state for model %s: %v", envTag.Id(), err)
 			}
 		}
 

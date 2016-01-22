@@ -46,30 +46,30 @@ type UseEnvironmentAPI interface {
 
 var useEnvDoc = `
 use-model caches the necessary information about the specified
-environment on the current machine. This allows you to switch between
-environments.
+model on the current machine. This allows you to switch between
+models.
 
-By default, the local names for the environment are based on the name that the
-owner of the environment gave it when they created it.  If you are the owner
-of the environment, then the local name is just the name of the environment.
+By default, the local names for the model are based on the name that the
+owner of the model gave it when they created it.  If you are the owner
+of the model, then the local name is just the name of the model.
 If you are not the owner, the name is prefixed by the name of the owner and a
 dash.
 
-If there is just one environment called "test" in the current controller that you
+If there is just one model called "test" in the current controller that you
 have access to, then you can just specify the name.
 
     $ juju use-model test
 
-If however there are multiple enviornments called "test" that are owned
+If however there are multiple models called "test" that are owned
 
     $ juju use-model test
-    Multiple environments matched name "test":
+    Multiple models matched name "test":
       cb4b94e8-29bb-44ae-820c-adac21194395, owned by bob@local
       ae673c19-73ef-437f-8224-4842a1772bdf, owned by mary@local
-    Please specify either the environment UUID or the owner to disambiguate.
-    ERROR multiple environments matched
+    Please specify either the model UUID or the owner to disambiguate.
+    ERROR multiple models matched
 
-You can specify either the environment UUID like this:
+You can specify either the model UUID like this:
 
     $ juju use-model cb4b94e8-29bb-44ae-820c-adac21194395
 
@@ -95,7 +95,7 @@ See Also:
 func (c *useEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "use-model",
-		Purpose: "use an environment that you have access to on the controller",
+		Purpose: "use an model that you have access to on the controller",
 		Doc:     useEnvDoc,
 	}
 }
@@ -123,13 +123,13 @@ func (c *useEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint
 
 // SetFlags implements Command.SetFlags.
 func (c *useEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.LocalName, "name", "", "the local name for this environment")
+	f.StringVar(&c.LocalName, "name", "", "the local name for this model")
 }
 
 // SetFlags implements Command.Init.
 func (c *useEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
-		return errors.New("no environment supplied")
+		return errors.New("no model supplied")
 	}
 
 	name, args := args[0], args[1:]
@@ -211,16 +211,16 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		// not just matching tags.
 		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
 		if endpoint.EnvironUUID == env.UUID && existingUsername == username {
-			ctx.Infof("You already have environment details for %q cached locally.", c.LocalName)
+			ctx.Infof("You already have model details for %q cached locally.", c.LocalName)
 			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 		}
-		ctx.Infof("You have an existing environment called %q, use --name to specify a different local name.", c.LocalName)
-		return errors.New("existing environment")
+		ctx.Infof("You have an existing model called %q, use --name to specify a different local name.", c.LocalName)
+		return errors.New("existing model")
 	}
 
 	info := store.CreateInfo(c.LocalName)
 	if err := c.updateCachedInfo(info, env.UUID, creds, endpoint); err != nil {
-		return errors.Annotatef(err, "failed to cache environment details")
+		return errors.Annotatef(err, "failed to cache model details")
 	}
 
 	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
@@ -242,7 +242,7 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 
 	envs, err := client.ListEnvironments(creds.User)
 	if err != nil {
-		return empty, errors.Annotate(err, "cannot list environments")
+		return empty, errors.Annotate(err, "cannot list models")
 	}
 
 	var owner string
@@ -257,12 +257,12 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 		for _, env := range envs {
 			if env.UUID == c.EnvUUID {
 				if owner != "" && env.Owner != owner {
-					ctx.Infof("Specified environment owned by %s, not %s", env.Owner, owner)
+					ctx.Infof("Specified model owned by %s, not %s", env.Owner, owner)
 				}
 				return env, nil
 			}
 		}
-		return empty, errors.NotFoundf("matching environment")
+		return empty, errors.NotFoundf("matching model")
 	}
 
 	var matches []base.UserEnvironment
@@ -279,7 +279,7 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 	// If there is only one match, that's the one.
 	switch len(matches) {
 	case 0:
-		return empty, errors.NotFoundf("matching environment")
+		return empty, errors.NotFoundf("matching model")
 	case 1:
 		return matches[0], nil
 	}
@@ -288,11 +288,11 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 	// were so they can make an informed decision. We are also going to assume
 	// here that the resulting environment list has only one matching name for
 	// each user. There are tests creating environments that enforce this.
-	ctx.Infof("Multiple environments matched name %q:", c.EnvName)
+	ctx.Infof("Multiple models matched name %q:", c.EnvName)
 	for _, env := range matches {
 		ctx.Infof("  %s, owned by %s", env.UUID, env.Owner)
 	}
-	ctx.Infof("Please specify either the environment UUID or the owner to disambiguate.")
+	ctx.Infof("Please specify either the model UUID or the owner to disambiguate.")
 
-	return empty, errors.New("multiple environments matched")
+	return empty, errors.New("multiple models matched")
 }

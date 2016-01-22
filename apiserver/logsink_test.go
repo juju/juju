@@ -60,7 +60,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 	reader := s.openWebsocketCustomPath(c, "/environment/does-not-exist/logsink")
-	assertJSONError(c, reader, `unknown environment: "does-not-exist"`)
+	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	s.assertWebsocketClosed(c, reader)
 }
 

@@ -89,7 +89,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "environ-constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -223,7 +223,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	envCfg, err = env.Config().Apply(newConfigAttrs)
 	if err != nil {
-		return errors.Annotate(err, "failed to update environment config")
+		return errors.Annotate(err, "failed to update model config")
 	}
 	var st *state.State
 	var m *state.Machine
@@ -430,7 +430,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 		}
 		defer f.Close()
 		relpath = filepath.ToSlash(relpath)
-		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		logger.Debugf("storing %q in model storage (%d bytes)", relpath, info.Size())
 		return stor.Put(relpath, f, info.Size())
 	})
 }
