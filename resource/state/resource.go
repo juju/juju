@@ -7,7 +7,6 @@ import (
 	"io"
 	"path"
 
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/resource"

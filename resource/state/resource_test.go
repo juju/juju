@@ -375,7 +375,7 @@ func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 
 func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetUnitResource("a-service", "some-unit", res)
@@ -388,7 +388,7 @@ func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	res.Timestamp = time.Time{}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetUnitResource("a-service", "some-unit", res)
@@ -396,6 +396,95 @@ func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
 	s.stub.CheckNoCalls(c)
+}
+
+func (s *ResourceSuite) TestResourceReaderEOF(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&bytes.Buffer{}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+	c.Assert(err, gc.Equals, io.EOF)
+
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+}
+
+func (s *ResourceSuite) TestOpenResourceReturnsResourceReader(c *gc.C) {
+	data := "spamspamspam"
+	res := newUploadResource(c, "spam", data)
+	file := &stubReader{stub: s.stub}
+	s.persist.ReturnListResources = []resource.Resource{res}
+	s.storage.storageReturns = []*bytes.Buffer{bytes.NewBufferString(data)}
+	st := NewState(s.raw)
+
+	err := st.SetResource("a-service", res, file)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.ResetCalls()
+
+	c.Log(st.ListResources("a-service"))
+
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, r, err := st.OpenResource(unit, "service-a-service", "spam")
+	c.Assert(errors.Cause(err), jc.ErrorIsNil)
+	_, ok := r.(resourceReader)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *ResourceSuite) TestResourceReaderSetUnitErr(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&bytes.Buffer{}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+
+	s.stub.SetErrors(errors.Errorf("oops!"))
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+
+	// ensure that we return the EOF from bytes.buffer and not the error from SetUnitResource.
+	c.Assert(err, gc.Equals, io.EOF)
+
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+}
+
+func (s *ResourceSuite) TestResourceReaderErr(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&noWrapStubReader{stub: s.stub}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+	expected := errors.Errorf("some-err")
+	s.stub.SetErrors(expected)
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+	c.Assert(err, gc.Equals, expected)
+
+	s.stub.CheckCall(c, 0, "Read", p)
 }
 
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {
