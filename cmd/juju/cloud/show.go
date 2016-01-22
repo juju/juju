@@ -57,11 +57,11 @@ func (c *showCloudCommand) Info() *cmd.Info {
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
-	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicClouds())
+	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return err
 	}
-	cloud, ok := publicClouds.Clouds[c.CloudName]
+	cloud, ok := publicClouds[c.CloudName]
 	if !ok {
 		return errors.NotFoundf("cloud %q", c.CloudName)
 	}

@@ -5,11 +5,12 @@ package cloud_test
 
 import (
 	"io/ioutil"
+	"path/filepath"
 
-	"github.com/juju/juju/cloud"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"path/filepath"
+
+	"github.com/juju/juju/cloud"
 )
 
 type cloudSuite struct{}
@@ -62,7 +63,7 @@ func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsTrue)
 	var cloudNames []string
-	for name, _ := range clouds.Clouds {
+	for name, _ := range clouds {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents,
@@ -83,12 +84,10 @@ clouds:
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata(cloudyamlfile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsFalse)
-	c.Assert(clouds, jc.DeepEquals, &cloud.Clouds{
-		Clouds: map[string]cloud.Cloud{
-			"aws-me": cloud.Cloud{
-				Type:      "aws",
-				AuthTypes: []cloud.AuthType{"userpass"},
-			},
+	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
+		"aws-me": cloud.Cloud{
+			Type:      "aws",
+			AuthTypes: []cloud.AuthType{"userpass"},
 		},
 	})
 }

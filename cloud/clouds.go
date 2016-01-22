@@ -65,15 +65,15 @@ type Region struct {
 	Endpoint string `yaml:"endpoint,omitempty"`
 }
 
-// JujuPublicClouds is the location where public cloud information is
+// JujuPublicCloudsPath is the location where public cloud information is
 // expected to be found. Requires JUJU_HOME to be set.
-func JujuPublicClouds() string {
+func JujuPublicCloudsPath() string {
 	return osenv.JujuHomePath("public-clouds.yaml")
 }
 
 // PublicCloudMetadata looks in searchPath for cloud metadata files and if none
 // are found, returns the fallback public cloud metadata.
-func PublicCloudMetadata(searchPath ...string) (clouds *Clouds, fallbackUsed bool, err error) {
+func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbackUsed bool, err error) {
 	for _, file := range searchPath {
 		data, err := ioutil.ReadFile(file)
 		if err != nil && os.IsNotExist(err) {
@@ -82,14 +82,14 @@ func PublicCloudMetadata(searchPath ...string) (clouds *Clouds, fallbackUsed boo
 		if err != nil {
 			return nil, false, errors.Trace(err)
 		}
-		clouds, err = ParseCloudMetadata(data)
+		clouds, err := ParseCloudMetadata(data)
 		if err != nil {
 			return nil, false, errors.Trace(err)
 		}
-		return clouds, false, err
+		return clouds.Clouds, false, err
 	}
-	clouds, err = ParseCloudMetadata([]byte(fallbackPublicCloudInfo))
-	return clouds, true, err
+	clouds, err := ParseCloudMetadata([]byte(fallbackPublicCloudInfo))
+	return clouds.Clouds, true, err
 }
 
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.
