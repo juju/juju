@@ -22,6 +22,8 @@ import (
 type resourceDirectorySpec struct {
 	name    string
 	dirname string
+
+	cleanup func() error
 }
 
 func newResourceDirectorySpec(dataDir, name string) resourceDirectorySpec {
@@ -40,6 +42,13 @@ func (rds resourceDirectorySpec) resolve(path ...string) string {
 
 func (rds resourceDirectorySpec) infoPath() string {
 	return rds.resolve(".info.yaml")
+}
+
+func (rds resourceDirectorySpec) CleanUp() error {
+	if rds.cleanup != nil {
+		return rds.cleanup()
+	}
+	return nil
 }
 
 func (rds resourceDirectorySpec) exists(stat func(string) (os.FileInfo, error)) (bool, error) {
