@@ -82,7 +82,7 @@ func (s *envManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.Enviro
 		OwnerTag: owner.String(),
 		Account:  make(map[string]interface{}),
 		Config: map[string]interface{}{
-			"name":            "test-env",
+			"name":            "test-model",
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config
 			"state-server": false,
@@ -102,7 +102,7 @@ func (s *envManagerSuite) TestUserCanCreateEnvironment(c *gc.C) {
 	env, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.OwnerTag, gc.Equals, owner.String())
-	c.Assert(env.Name, gc.Equals, "test-env")
+	c.Assert(env.Name, gc.Equals, "test-model")
 }
 
 func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
 	env, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.OwnerTag, gc.Equals, owner.String())
-	c.Assert(env.Name, gc.Equals, "test-env")
+	c.Assert(env.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
 	newState, err := s.State.ForEnviron(names.NewEnvironTag(env.UUID))

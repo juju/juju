@@ -271,7 +271,7 @@ func (s *EnvUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag
 
 func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
-	env := s.newEnvWithOwner(c, "test-env", owner)
+	env := s.newEnvWithOwner(c, "test-model", owner)
 
 	environments, err := s.State.EnvironmentsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,7 +298,7 @@ func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) 
 
 func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
-	env := s.newEnvWithUser(c, "test-env", userTag)
+	env := s.newEnvWithUser(c, "test-model", userTag)
 
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)

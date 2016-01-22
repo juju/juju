@@ -41,7 +41,7 @@ func (s *GetSuite) TestSingleValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, "test-env")
+	c.Assert(output, gc.Equals, "test-model")
 }
 
 func (s *GetSuite) TestSingleValueJSON(c *gc.C) {
@@ -49,7 +49,7 @@ func (s *GetSuite) TestSingleValueJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, `"test-env"`)
+	c.Assert(output, gc.Equals, `"test-model"`)
 }
 
 func (s *GetSuite) TestAllValues(c *gc.C) {
@@ -58,7 +58,7 @@ func (s *GetSuite) TestAllValues(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"name: test-env\n" +
+		"name: test-model\n" +
 		"running: true\n" +
 		"special: special value"
 	c.Assert(output, gc.Equals, expected)
@@ -69,6 +69,6 @@ func (s *GetSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"name":"test-env","running":true,"special":"special value"}`
+	expected := `{"name":"test-model","running":true,"special":"special value"}`
 	c.Assert(output, gc.Equals, expected)
 }

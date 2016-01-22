@@ -358,7 +358,7 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 
 func (s *EnvConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.envName = "test-env"
+	s.envName = "test-model"
 	s.client = &fakeEnvGetter{results: createBootstrapInfo(c, s.envName)}
 
 	var err error

@@ -221,7 +221,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	}
 
 	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs,
+		"test-model-name", relid, remote, relctxs, apiAddrs,
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
