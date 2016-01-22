@@ -84,7 +84,7 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 		defer restore()
 
 		s.subcommand = action.NewStatusCommand()
-		args := append([]string{modelFlag, "dummyenv"}, tc.args...)
+		args := append([]string{modelFlag, "dummymodel"}, tc.args...)
 		ctx, err := testing.RunCommand(c, s.subcommand, args...)
 		if tc.expectError == "" {
 			c.Assert(err, jc.ErrorIsNil)

@@ -59,7 +59,7 @@ func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"dummy-admin@local/dummyenv",
+		"dummy-admin@local/dummymodel",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -70,7 +70,7 @@ func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	env, err := sysManager.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["name"], gc.Equals, "dummyenv")
+	c.Assert(env["name"], gc.Equals, "dummymodel")
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.EnvironmentBlockInfo{
 		params.EnvironmentBlockInfo{
-			Name:     "dummyenv",
+			Name:     "dummymodel",
 			UUID:     s.State.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{

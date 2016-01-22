@@ -153,7 +153,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
-	EnvironmentName: "dummyenv",
+	EnvironmentName: "dummymodel",
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
