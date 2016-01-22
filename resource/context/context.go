@@ -5,7 +5,6 @@ package context
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -56,92 +55,70 @@ func (c *Context) Flush() error {
 // Note that the downloaded file is checked for correctness.
 func (c *Context) Download(name string) (string, error) {
 	// TODO(katco): Potential race-condition: two commands running at
-	// once.
+	// once. Solve via collision using os.Mkdir() with a uniform
+	// temp dir name (e.g. "<datadir>/.<res name>.download")?
+
+	resDirSpec := newResourceDirectorySpec(c.dataDir, name)
+
+	dl, err := c.newDownloader(resDirSpec)
+	defer closeAndLog(dl, "downloader") // This ensures that the tempdir is cleaned up.
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	path := resDirSpec.resolve(dl.path())
+
+	tempDir, err := dl.download()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if tempDir != nil { // ...otherwise we're up to date already!
+		oldDir := tempDir.resolve()
+		newDir := resDirSpec.resolve()
+		if err := c.replaceDirectory(newDir, oldDir); err != nil {
+			return "", errors.Annotate(err, "could not replace existing resource directory")
+		}
+	}
+
+	return path, nil
+}
+
+func (c *Context) newDownloader(spec resourceDirectorySpec) (downloader, error) {
+	dl := downloader{
+		downloaderDeps: c.downloaderDeps,
+	}
+
+	tempDirSpec, err := newTempResourceDir(spec.name, c.tempDirDeps)
+	if err != nil {
+		return dl, errors.Trace(err)
+	}
+	dl.dirSpec = tempDirSpec
+
+	remote, err := openResource(spec.name, c.apiClient)
+	if err != nil {
+		return dl, errors.Trace(err)
+	}
+	dl.remote = remote
+
 	// TODO(katco): Check to see if we have latest version
+	// (and set dl.isUpToDate)
 
-	//resDir := c.resDir(name)
-	//current := c.read
-
-	tempDir, err := c.tempDir()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer c.removeDir(tempDir)
-
-	spec := newResourceDirectorySpec(tempDir, name)
-	resDir, err := spec.open(c.mkdirAll)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	info, err := c.downloadResource(name, resDir)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	resDir, err = c.replaceResourceDir(resDir)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	resourcePath := resDir.resolve(info.Path)
-	return resourcePath, nil
-}
-
-// downloadResource downloads the named resource to the provided path.
-func (c *Context) downloadResource(name string, resDir *resourceDirectory) (resource.Resource, error) {
-	info, resourceReader, err := c.apiClient.GetResource(name)
-	if err != nil {
-		return resource.Resource{}, errors.Trace(err)
-	}
-	defer resourceReader.Close()
-
-	if err := resDir.writeInfo(info, c.createFile); err != nil {
-		return resource.Resource{}, errors.Trace(err)
-	}
-
-	content := resourceContent{
-		data:        resourceReader,
-		size:        info.Size,
-		fingerprint: info.Fingerprint,
-	}
-	relPath := []string{info.Path}
-	if err := resDir.writeResource(relPath, content, c.createFile); err != nil {
-		return resource.Resource{}, errors.Trace(err)
-	}
-
-	return info, nil
-}
-
-// replaceResourceDir replaces the original resource dir
-// with the temporary resource dir.
-func (c *Context) replaceResourceDir(oldResDir *resourceDirectory) (*resourceDirectory, error) {
-	oldDir := oldResDir.resolve()
-	newResDir := oldResDir.move(c.dataDir)
-	newDir := newResDir.resolve()
-
-	if err := c.replaceDirectory(newDir, oldDir); err != nil {
-		return nil, errors.Annotate(err, "could not replace existing resource directory")
-	}
-
-	return newResDir, nil
+	return dl, nil
 }
 
 type contextDeps struct {
-	tempDir          func() (string, error)
-	mkdirAll         func(string) error
-	removeDir        func(string) error
+	downloaderDeps downloaderDeps
+	tempDirDeps    tempDirDeps
+
 	replaceDirectory func(string, string) error
-	createFile       func(string) (io.WriteCloser, error)
 }
 
 func newContextDeps() contextDeps {
 	return contextDeps{
-		tempDir:          func() (string, error) { return ioutil.TempDir("", "juju-resource-") },
-		mkdirAll:         func(path string) error { return os.MkdirAll(path, 0755) },
-		removeDir:        os.RemoveAll,
+		downloaderDeps: newDownloaderDeps(),
+		tempDirDeps:    newTempDirDeps(),
+
 		replaceDirectory: replaceDirectory,
-		createFile:       func(path string) (io.WriteCloser, error) { return os.Create(path) },
 	}
 }
 
@@ -149,6 +126,7 @@ func newContextDeps() contextDeps {
 // involves removing the target if it exists and then moving the source
 // into place.
 func replaceDirectory(targetDir, sourceDir string) error {
+	// TODO(ericsnow) Move it out of the way and remove it after the rename.
 	if err := os.RemoveAll(targetDir); err != nil {
 		return errors.Trace(err)
 	}
@@ -156,4 +134,10 @@ func replaceDirectory(targetDir, sourceDir string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func closeAndLog(closer io.Closer, label string) {
+	if err := closer.Close(); err != nil {
+		logger.Errorf("while closing %s: %v", label, err)
+	}
 }
