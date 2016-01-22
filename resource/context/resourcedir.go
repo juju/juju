@@ -36,6 +36,35 @@ func newResourceDirectorySpec(dataDir, name string) resourceDirectorySpec {
 	return rds
 }
 
+type tempDirDeps struct {
+	newTempDir func() (string, error)
+	removeDir  func(string) error
+}
+
+func newTempDirDeps() tempDirDeps {
+	return tempDirDeps{
+		newTempDir: func() (string, error) { return ioutil.TempDir("", "juju-resource-") },
+		removeDir:  os.RemoveAll,
+	}
+}
+
+//newTempDir func() (string, error), removeDir func(string) error) (resourceDirectorySpec, error) {
+func newTempResourceDir(name string, deps tempDirDeps) (resourceDirectorySpec, error) {
+	var spec resourceDirectorySpec
+
+	tempDir, err := deps.newTempDir()
+	if err != nil {
+		return spec, errors.Trace(err)
+	}
+
+	spec = newResourceDirectorySpec(tempDir, name)
+	spec.cleanup = func() error {
+		return deps.removeDir(tempDir)
+	}
+
+	return spec, nil
+}
+
 func (rds resourceDirectorySpec) resolve(path ...string) string {
 	return filepath.Join(append([]string{rds.dirname}, path...)...)
 }
