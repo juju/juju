@@ -7,11 +7,14 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.state.migration")
 
 type description struct {
 	// Version conceptually encapsulates an understanding of which fields

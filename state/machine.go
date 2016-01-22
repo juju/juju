@@ -49,14 +49,21 @@ const (
 	JobManageStateDeprecated
 )
 
-var jobNames = map[MachineJob]multiwatcher.MachineJob{
-	JobHostUnits:        multiwatcher.JobHostUnits,
-	JobManageEnviron:    multiwatcher.JobManageEnviron,
-	JobManageNetworking: multiwatcher.JobManageNetworking,
+var (
+	jobNames = map[MachineJob]multiwatcher.MachineJob{
+		JobHostUnits:        multiwatcher.JobHostUnits,
+		JobManageEnviron:    multiwatcher.JobManageEnviron,
+		JobManageNetworking: multiwatcher.JobManageNetworking,
 
-	// Deprecated in 1.18.
-	JobManageStateDeprecated: multiwatcher.JobManageStateDeprecated,
-}
+		// Deprecated in 1.18.
+		JobManageStateDeprecated: multiwatcher.JobManageStateDeprecated,
+	}
+	jobMigrationValue = map[MachineJob]string{
+		JobHostUnits:        "host-units",
+		JobManageEnviron:    "api-server",
+		JobManageNetworking: "manage-networking",
+	}
+)
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
@@ -82,6 +89,13 @@ func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
 		jujuJobs[i] = machineJob.ToParams()
 	}
 	return jujuJobs
+}
+
+func (job MachineJob) MigrationValue() string {
+	if value, ok := jobMigrationValue[job]; ok {
+		return value
+	}
+	return "unknown"
 }
 
 func (job MachineJob) String() string {

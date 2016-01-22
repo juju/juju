@@ -71,18 +71,25 @@ type Machine interface {
 	// Life() string -- only transmit alive things?
 	ProviderAddresses() []Address
 	MachineAddresses() []Address
+	SetAddresses(machine []AddressArgs, provider []AddressArgs)
 
 	PreferredPublicAddress() Address
 	PreferredPrivateAddress() Address
+	SetPreferredAddresses(public AddressArgs, private AddressArgs)
 
 	Tools() AgentTools
+	SetTools(AgentToolsArgs)
 
 	Containers() []Machine
+	AddContainer(MachineArgs) Machine
 
 	// TODO:
 	// Status, status history
 	// Storage
 	// Units
+
+	// THINKING: Validate() error to make sure the machine has
+	// enough stuff set, like tools, and addresses etc.
 }
 
 // CloudInstance holds information particular to a machine

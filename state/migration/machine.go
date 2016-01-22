@@ -21,14 +21,14 @@ type machine struct {
 	Nonce_             string         `yaml:"nonce"`
 	PasswordHash_      string         `yaml:"password-hash"`
 	Placement_         string         `yaml:"placement,omitempty"`
-	Instance_          *cloudInstance `yaml:"instance"`
+	Instance_          *cloudInstance `yaml:"instance,omitempty"`
 	Series_            string         `yaml:"series"`
 	ContainerType_     string         `yaml:"container-type,omitempty"`
-	ProviderAddresses_ []*address     `yaml:"provider-addresses"`
-	MachineAddresses_  []*address     `yaml:"machine-addresses"`
+	ProviderAddresses_ []*address     `yaml:"provider-addresses,omitempty"`
+	MachineAddresses_  []*address     `yaml:"machine-addresses,omitempty"`
 
-	PreferredPublicAddress_  *address `yaml:"preferred-public-address"`
-	PreferredPrivateAddress_ *address `yaml:"preferred-private-address"`
+	PreferredPublicAddress_  *address `yaml:"preferred-public-address,omitempty"`
+	PreferredPrivateAddress_ *address `yaml:"preferred-private-address,omitempty"`
 
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
@@ -122,6 +122,21 @@ func (m *machine) MachineAddresses() []Address {
 	return result
 }
 
+func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
+	m.MachineAddresses_ = nil
+	m.ProviderAddresses_ = nil
+	for _, args := range margs {
+		if args.Value != "" {
+			m.MachineAddresses_ = append(m.MachineAddresses_, newAddress(args))
+		}
+	}
+	for _, args := range pargs {
+		if args.Value != "" {
+			m.ProviderAddresses_ = append(m.ProviderAddresses_, newAddress(args))
+		}
+	}
+}
+
 func (m *machine) PreferredPublicAddress() Address {
 	return m.PreferredPublicAddress_
 }
@@ -130,8 +145,21 @@ func (m *machine) PreferredPrivateAddress() Address {
 	return m.PreferredPrivateAddress_
 }
 
+func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs) {
+	if public.Value != "" {
+		m.PreferredPublicAddress_ = newAddress(public)
+	}
+	if private.Value != "" {
+		m.PreferredPrivateAddress_ = newAddress(private)
+	}
+}
+
 func (m *machine) Tools() AgentTools {
 	return m.Tools_
+}
+
+func (m *machine) SetTools(args AgentToolsArgs) {
+	m.Tools_ = newAgentTools(args)
 }
 
 func (m *machine) Jobs() []string {
@@ -151,6 +179,12 @@ func (m *machine) Containers() []Machine {
 		result = append(result, container)
 	}
 	return result
+}
+
+func (m *machine) AddContainer(args MachineArgs) Machine {
+	container := newMachine(args)
+	m.Containers_ = append(m.Containers_, container)
+	return container
 }
 
 func importMachines(source map[string]interface{}) ([]*machine, error) {
@@ -196,19 +230,25 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	result := &machine{}
 
 	fields := schema.Fields{
-		"id":             schema.String(),
-		"nonce":          schema.String(),
-		"password-hash":  schema.String(),
-		"placement":      schema.String(),
-		"instance":       schema.StringMap(schema.Any()),
-		"series":         schema.String(),
-		"container-type": schema.String(),
-		"tools":          schema.StringMap(schema.Any()),
-		"containers":     schema.List(schema.StringMap(schema.Any())),
+		"id":                   schema.String(),
+		"nonce":                schema.String(),
+		"password-hash":        schema.String(),
+		"placement":            schema.String(),
+		"instance":             schema.StringMap(schema.Any()),
+		"series":               schema.String(),
+		"container-type":       schema.String(),
+		"jobs":                 schema.List(schema.String()),
+		"supported-containers": schema.List(schema.String()),
+		"tools":                schema.StringMap(schema.Any()),
+		"containers":           schema.List(schema.StringMap(schema.Any())),
 	}
 	defaults := schema.Defaults{
 		"placement":      "",
 		"container-type": "",
+		// Even though we are expecting instance data for every machine,
+		// it isn't strictly necessary, so we allow it to not exist here.
+		"instance":             schema.Omit,
+		"supported-containers": schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -225,12 +265,27 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	result.Placement_ = valid["placement"].(string)
 	result.Series_ = valid["series"].(string)
 	result.ContainerType_ = valid["container-type"].(string)
-
-	instance, err := importCloudInstance(valid["instance"].(map[string]interface{}))
-	if err != nil {
-		return nil, errors.Trace(err)
+	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
+		for _, job := range jobs {
+			result.Jobs_ = append(result.Jobs_, job.(string))
+		}
 	}
-	result.Instance_ = instance
+	if supported, ok := valid["supported-containers"]; ok {
+		supportedList := supported.([]interface{})
+		s := make([]string, len(supportedList))
+		for i, containerType := range supportedList {
+			s[i] = containerType.(string)
+		}
+		result.SupportedContainers_ = &s
+	}
+
+	if instanceMap, ok := valid["instance"]; ok {
+		instance, err := importCloudInstance(instanceMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Instance_ = instance
+	}
 
 	tools, err := importAgentTools(valid["tools"].(map[string]interface{}))
 	if err != nil {
@@ -407,6 +462,23 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		Tags_:             tags,
 		AvailabilityZone_: valid["availability-zone"].(string),
 	}, nil
+}
+
+type AgentToolsArgs struct {
+	Version version.Binary
+	URL     string
+	SHA256  string
+	Size    int64
+}
+
+func newAgentTools(args AgentToolsArgs) *agentTools {
+	return &agentTools{
+		Version_:      1,
+		ToolsVersion_: args.Version,
+		URL_:          args.URL,
+		SHA256_:       args.SHA256,
+		Size_:         args.Size,
+	}
 }
 
 // Keeping the agentTools with the machine code, because we hope

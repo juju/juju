@@ -169,31 +169,33 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	c.Assert(machines, jc.DeepEquals, expected)
 }
 
-func (*MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
+func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	// TODO: need to fully specify a machine.
+	args := s.machineArgs("0")
+	supported := []string{"kvm", "lxd"}
+	args.SupportedContainers = &supported
+	m := newMachine(args)
+	m.SetTools(minimalAgentToolsArgs())
+
 	initial := machines{
-		Version: 1,
-		Machines_: []*machine{
-			minimalMachine("0"),
-			minimalMachine("1",
-				minimalMachine("1/lxc/0"),
-				minimalMachine("1/lxc/1"),
-			),
-			minimalMachine("2",
-				minimalMachine("2/kvm/0",
-					minimalMachine("2/kvm/0/lxc/0"),
-					minimalMachine("2/kvm/0/lxc/1"),
-				),
-			),
-		},
+		Version:   1,
+		Machines_: []*machine{m},
 	}
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Logf("-- bytes --\n%s\n", bytes)
+
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("-- map --")
+	machineMap := source["machines"].([]interface{})[0].(map[interface{}]interface{})
+	for key, value := range machineMap {
+		c.Logf("%s: %v", key, value)
+	}
 
 	machines, err := importMachines(source)
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,6 +314,21 @@ func (s *AgentToolsSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *AgentToolsSerializationSuite) TestNewAgentTools(c *gc.C) {
+	args := AgentToolsArgs{
+		Version: version.MustParseBinary("3.4.5-trusty-amd64"),
+		URL:     "some-url",
+		SHA256:  "long-hash",
+		Size:    123456789,
+	}
+	instance := newAgentTools(args)
+
+	c.Assert(instance.Version(), gc.Equals, args.Version)
+	c.Assert(instance.URL(), gc.Equals, args.URL)
+	c.Assert(instance.SHA256(), gc.Equals, args.SHA256)
+	c.Assert(instance.Size(), gc.Equals, args.Size)
+}
+
 func minimalAgentToolsMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"version":       1,
@@ -322,14 +339,17 @@ func minimalAgentToolsMap() map[interface{}]interface{} {
 	}
 }
 
-func minimalAgentTools() *agentTools {
-	return &agentTools{
-		Version_:      1,
-		ToolsVersion_: version.MustParseBinary("3.4.5-trusty-amd64"),
-		URL_:          "some-url",
-		SHA256_:       "long-hash",
-		Size_:         123456789,
+func minimalAgentToolsArgs() AgentToolsArgs {
+	return AgentToolsArgs{
+		Version: version.MustParseBinary("3.4.5-trusty-amd64"),
+		URL:     "some-url",
+		SHA256:  "long-hash",
+		Size:    123456789,
 	}
+}
+
+func minimalAgentTools() *agentTools {
+	return newAgentTools(minimalAgentToolsArgs())
 }
 
 func (s *AgentToolsSerializationSuite) TestMinimalMatches(c *gc.C) {
@@ -343,13 +363,12 @@ func (s *AgentToolsSerializationSuite) TestMinimalMatches(c *gc.C) {
 }
 
 func (s *AgentToolsSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := &agentTools{
-		Version_:      1,
-		ToolsVersion_: version.MustParseBinary("2.0.4-trusty-amd64"),
-		URL_:          "some-url",
-		SHA256_:       "long-hash",
-		Size_:         123456789,
-	}
+	initial := newAgentTools(AgentToolsArgs{
+		Version: version.MustParseBinary("2.0.4-trusty-amd64"),
+		URL:     "some-url",
+		SHA256:  "long-hash",
+		Size:    123456789,
+	})
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
