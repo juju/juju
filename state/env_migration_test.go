@@ -446,7 +446,22 @@ func (s *EnvMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 }
 
 func (s *EnvMigrationSuite) TestStatusMessage(c *gc.C) {
-	c.Fatal("XXX do me")
+	mig, err := state.CreateEnvMigration(s.State2, s.stdSpec)
+	c.Assert(mig, gc.Not(gc.IsNil))
+
+	mig2, err := state.GetEnvMigration(s.State2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mig.StatusMessage(), gc.Equals, "")
+	c.Check(mig2.StatusMessage(), gc.Equals, "")
+
+	err = mig.SetStatusMessage("foo bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mig.StatusMessage(), gc.Equals, "foo bar")
+
+	c.Assert(mig2.Refresh(), jc.ErrorIsNil)
+	c.Check(mig2.StatusMessage(), gc.Equals, "foo bar")
 }
 
 func assertPhase(c *gc.C, mig *state.EnvMigration, phase migration.Phase) {

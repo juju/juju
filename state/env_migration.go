@@ -220,6 +220,22 @@ func (mig *EnvMigration) SetPhase(nextPhase migration.Phase) error {
 	return errors.Trace(mig.Refresh())
 }
 
+// SetStatusMessage sets some human readable text about the current
+// progress of the migration.
+func (mig *EnvMigration) SetStatusMessage(text string) error {
+	ops := []txn.Op{{
+		C:      envMigrationsC,
+		Id:     mig.doc.Id,
+		Update: bson.M{"$set": bson.M{"status-message": text}},
+		Assert: txn.DocExists,
+	}}
+	if err := mig.st.runTransaction(ops); err != nil {
+		return errors.Annotate(err, "failed to set migration status")
+	}
+	mig.doc.StatusMessage = text
+	return nil
+}
+
 // Refresh updates the contents of the EnvMigration from the underlying
 // state.
 func (mig *EnvMigration) Refresh() error {
