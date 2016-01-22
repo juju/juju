@@ -1,13 +1,17 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package state
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +19,6 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
-	"github.com/juju/juju/resource/state"
 )
 
 var _ = gc.Suite(&ResourceSuite{})
@@ -43,7 +46,7 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = expected
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	resources, err := st.ListResources("a-service")
@@ -55,7 +58,7 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	resources, err := st.ListResources("a-service")
@@ -68,7 +71,7 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = expected
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
@@ -84,7 +87,7 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetResource("a-service", res, file)
@@ -100,7 +103,7 @@ func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	res.Timestamp = time.Time{}
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetResource("a-service", res, file)
@@ -113,7 +116,7 @@ func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
@@ -131,7 +134,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
@@ -151,7 +154,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	extraErr := errors.New("<just not your day>")
@@ -172,7 +175,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
@@ -194,7 +197,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	extraErr1 := errors.New("<just not your day>")
@@ -217,7 +220,7 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
 	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
 	s.storage.ReturnGet = opened.Content()
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	info, reader, err := st.OpenResource("a-service", "spam")
@@ -229,7 +232,7 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	_, _, err := st.OpenResource("a-service", "spam")
@@ -241,7 +244,7 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam")
 	s.persist.ReturnListResources = []resource.Resource{res}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	_, _, err := st.OpenResource("a-service", "spam")
@@ -256,7 +259,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	content := opened.Content()
 	content.Size += 1
 	s.storage.ReturnGet = content
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	_, _, err := st.OpenResource("a-service", "spam")
@@ -267,7 +270,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 
 func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetUnitResource("a-service", "some-unit", res)
@@ -280,7 +283,7 @@ func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	res.Timestamp = time.Time{}
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	err := st.SetUnitResource("a-service", "some-unit", res)
@@ -288,6 +291,95 @@ func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
 	s.stub.CheckNoCalls(c)
+}
+
+func (s *ResourceSuite) TestResourceReaderEOF(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&bytes.Buffer{}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+	c.Assert(err, gc.Equals, io.EOF)
+
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+}
+
+func (s *ResourceSuite) TestOpenResourceReturnsResourceReader(c *gc.C) {
+	data := "spamspamspam"
+	res := newUploadResource(c, "spam", data)
+	file := &stubReader{stub: s.stub}
+	s.persist.ReturnListResources = []resource.Resource{res}
+	s.storage.storageReturns = []*bytes.Buffer{bytes.NewBufferString(data)}
+	st := NewState(s.raw)
+
+	err := st.SetResource("a-service", res, file)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.ResetCalls()
+
+	c.Log(st.ListResources("a-service"))
+
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, r, err := st.OpenResource(unit, "service-a-service", "spam")
+	c.Assert(errors.Cause(err), jc.ErrorIsNil)
+	_, ok := r.(resourceReader)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *ResourceSuite) TestResourceReaderSetUnitErr(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&bytes.Buffer{}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+
+	s.stub.SetErrors(errors.Errorf("oops!"))
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+
+	// ensure that we return the EOF from bytes.buffer and not the error from SetUnitResource.
+	c.Assert(err, gc.Equals, io.EOF)
+
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+}
+
+func (s *ResourceSuite) TestResourceReaderErr(c *gc.C) {
+	unit, err := names.ParseUnitTag("unit-foo-0")
+	c.Assert(err, jc.ErrorIsNil)
+	r := resourceReader{
+		reader:  ioutil.NopCloser(&noWrapStubReader{stub: s.stub}),
+		persist: &stubPersistence{stub: s.stub},
+		unit:    unit,
+		service: "some-service",
+		res:     newUploadResource(c, "res", "res"),
+	}
+	expected := errors.Errorf("some-err")
+	s.stub.SetErrors(expected)
+	// have to try to read non-zero data, or bytes.buffer will happily return
+	// nil.
+	p := make([]byte, 5)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 0)
+	c.Assert(err, gc.Equals, expected)
+
+	s.stub.CheckCall(c, 0, "Read", p)
 }
 
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {

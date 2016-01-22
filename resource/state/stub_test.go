@@ -1,9 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package state
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 
@@ -11,24 +12,23 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/state"
 )
 
 type stubRawState struct {
 	stub *testing.Stub
 
-	ReturnPersistence state.Persistence
-	ReturnStorage     state.Storage
+	ReturnPersistence Persistence
+	ReturnStorage     Storage
 }
 
-func (s *stubRawState) Persistence() state.Persistence {
+func (s *stubRawState) Persistence() Persistence {
 	s.stub.AddCall("Persistence")
 	s.stub.NextErr()
 
 	return s.ReturnPersistence
 }
 
-func (s *stubRawState) Storage() state.Storage {
+func (s *stubRawState) Storage() Storage {
 	s.stub.AddCall("Storage")
 	s.stub.NextErr()
 
@@ -87,9 +87,9 @@ func (s *stubPersistence) SetUnitResource(serviceID, unitID string, res resource
 }
 
 type stubStorage struct {
-	stub *testing.Stub
-
-	ReturnGet resource.Content
+	stub           *testing.Stub
+	ReturnGet      resource.Content
+	storageReturns []*bytes.Buffer
 }
 
 func (s *stubStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
@@ -127,8 +127,12 @@ func (s *stubStorage) Get(path string) (_ io.ReadCloser, resSize int64, _ error)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-
-	return nil, 0, nil
+	if len(s.storageReturns) == 0 {
+		return nil, 0, nil
+	}
+	buf := s.storageReturns[0]
+	s.storageReturns = s.storageReturns[1:]
+	return ioutil.NopCloser(buf), int64(buf.Len()), nil
 }
 
 type stubReader struct {
@@ -141,6 +145,21 @@ func (s *stubReader) Read(buf []byte) (int, error) {
 	s.stub.AddCall("Read", buf)
 	if err := s.stub.NextErr(); err != nil {
 		return 0, errors.Trace(err)
+	}
+
+	return s.ReturnRead, nil
+}
+
+type noWrapStubReader struct {
+	stub *testing.Stub
+
+	ReturnRead int
+}
+
+func (s *noWrapStubReader) Read(buf []byte) (int, error) {
+	s.stub.AddCall("Read", buf)
+	if err := s.stub.NextErr(); err != nil {
+		return 0, err
 	}
 
 	return s.ReturnRead, nil
