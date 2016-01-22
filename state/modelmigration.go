@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -165,55 +164,57 @@ func (mig *ModelMigration) TargetInfo() (*ModelMigTargetInfo, error) {
 func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 	now := GetClock().Now().UnixNano()
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := mig.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		phase, err := mig.Phase()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if nextPhase == phase {
-			// Already at that phase. Nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-		if !phase.CanTransitionTo(nextPhase) {
-			return nil, errors.Errorf("illegal change: %s -> %s", mig.doc.Phase, nextPhase)
-		}
-
-		var ops []txn.Op
-		update := bson.M{
-			"phase":              nextPhase.String(),
-			"phase-changed-time": now,
-		}
-		if nextPhase == migration.SUCCESS {
-			update["success-time"] = now
-		}
-		if nextPhase.IsTerminal() {
-			update["end-time"] = now
-			ops = append(ops, txn.Op{
-				C:      activeModelMigrationsC,
-				Id:     mig.doc.ModelUUID,
-				Assert: txn.DocExists,
-				Remove: true,
-			})
-		}
-		ops = append(ops, txn.Op{
-			C:      modelMigrationsC,
-			Id:     mig.doc.Id,
-			Update: bson.M{"$set": update},
-			// Ensure phase hasn't changed underneath us
-			Assert: bson.M{"phase": mig.doc.Phase},
-		})
-		return ops, nil
+	phase, err := mig.Phase()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if err := mig.st.run(buildTxn); err != nil {
+
+	if nextPhase == phase {
+		return nil // Already at that phase. Nothing to do.
+	}
+	if !phase.CanTransitionTo(nextPhase) {
+		return errors.Errorf("illegal phase change: %s -> %s", phase, nextPhase)
+	}
+
+	nextDoc := mig.doc
+	var ops []txn.Op
+	nextDoc.Phase = nextPhase.String()
+	nextDoc.PhaseChangedTime = now
+	update := bson.M{
+		"phase":              nextDoc.Phase,
+		"phase-changed-time": now,
+	}
+	if nextPhase == migration.SUCCESS {
+		nextDoc.SuccessTime = now
+		update["success-time"] = now
+	}
+	if nextPhase.IsTerminal() {
+		nextDoc.EndTime = now
+		update["end-time"] = now
+		ops = append(ops, txn.Op{
+			C:      activeModelMigrationsC,
+			Id:     mig.doc.ModelUUID,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+
+	ops = append(ops, txn.Op{
+		C:      modelMigrationsC,
+		Id:     mig.doc.Id,
+		Update: bson.M{"$set": update},
+		// Ensure phase hasn't changed underneath us
+		Assert: bson.M{"phase": mig.doc.Phase},
+	})
+
+	if err := mig.st.runTransaction(ops); err == txn.ErrAborted {
+		return errors.New("phase already changed")
+	} else if err != nil {
 		return errors.Annotate(err, "failed to update phase")
 	}
-	return errors.Trace(mig.Refresh())
+
+	mig.doc = nextDoc
+	return nil
 }
 
 // SetStatusMessage sets some human readable text about the current

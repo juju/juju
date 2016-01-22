@@ -388,41 +388,7 @@ func (s *ModelMigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mig.SetPhase(migration.SUCCESS)
-	c.Check(err, gc.ErrorMatches, "failed to update phase: illegal change: QUIESCE -> SUCCESS")
-}
-
-func (s *ModelMigrationSuite) TestPhaseChangeWithStaleInstance1(c *gc.C) {
-	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make mig stale by changing the phase with another instance.
-	mig2, err := state.GetModelMigration(s.State2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mig2.SetPhase(migration.READONLY)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Setting to READONLY when the phase is already READONLY should be ok.
-	err = mig.SetPhase(migration.READONLY)
-	c.Assert(err, jc.ErrorIsNil)
-	assertPhase(c, mig, migration.READONLY)
-}
-
-func (s *ModelMigrationSuite) TestPhaseChangeWithStaleInstance2(c *gc.C) {
-	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make mig stale by changing the phase with another instance. The
-	// phase is changed to a terminal phase so that any future phase
-	// change (via any ModelMigration instance) should fail.
-	mig2, err := state.GetModelMigration(s.State2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mig2.SetPhase(migration.ABORT)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Setting to READONLY when the phase is already READONLY should be ok.
-	err = mig.SetPhase(migration.READONLY)
-	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: ABORT -> READONLY")
-	assertPhase(c, mig, migration.ABORT)
+	c.Check(err, gc.ErrorMatches, "illegal phase change: QUIESCE -> SUCCESS")
 }
 
 func (s *ModelMigrationSuite) TestPhaseChangeRace(c *gc.C) {
@@ -433,12 +399,17 @@ func (s *ModelMigrationSuite) TestPhaseChangeRace(c *gc.C) {
 		mig, err := state.GetModelMigration(s.State2)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
-		c.Assert(mig.SetPhase(migration.PRECHECK), jc.ErrorIsNil)
 	}).Check()
 
 	err = mig.SetPhase(migration.READONLY)
-	c.Assert(err, gc.ErrorMatches, "failed to update phase: illegal change: PRECHECK -> READONLY")
-	assertPhase(c, mig, migration.PRECHECK)
+	c.Assert(err, gc.ErrorMatches, "phase already changed")
+	assertPhase(c, mig, migration.QUIESCE)
+
+	// After a refresh it the phase change should be ok.
+	c.Assert(mig.Refresh(), jc.ErrorIsNil)
+	err = mig.SetPhase(migration.READONLY)
+	c.Assert(err, jc.ErrorIsNil)
+	assertPhase(c, mig, migration.READONLY)
 }
 
 func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
