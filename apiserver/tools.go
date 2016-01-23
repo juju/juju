@@ -223,7 +223,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
-	uuid := query.Get(":envuuid")
+	uuid := query.Get(":modeluuid")
 	if uuid == "" {
 		env, err := st.Environment()
 		if err != nil {
@@ -231,7 +231,7 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 		}
 		uuid = env.UUID()
 	}
-	return fmt.Sprintf("https://%s/environment/%s", r.Host, uuid), nil
+	return fmt.Sprintf("https://%s/model/%s", r.Host, uuid), nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.

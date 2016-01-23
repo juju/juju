@@ -730,7 +730,7 @@ func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsR
 	if err != nil {
 		return params.StringsResults{}, err
 	}
-	envUUID := u.st.EnvironUUID()
+	modelUUID := u.st.EnvironUUID()
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.URLs)),
 	}
@@ -740,8 +740,8 @@ func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsR
 			continue
 		}
 		urlPath := "/"
-		if envUUID != "" {
-			urlPath = path.Join(urlPath, "environment", envUUID)
+		if modelUUID != "" {
+			urlPath = path.Join(urlPath, "model", modelUUID)
 		}
 		urlPath = path.Join(urlPath, "charms")
 		archiveURLs := make([]string, len(apiHostPorts))

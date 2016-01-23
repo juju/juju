@@ -83,7 +83,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		isUser = true
 	}
 
-	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
+	serverOnlyLogin := loginVersion > 1 && a.root.modelUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
 	if err != nil {

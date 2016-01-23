@@ -48,7 +48,7 @@ type TestingStateParams struct {
 func NewTestingState(params TestingStateParams) Connection {
 	st := &state{
 		addr:              params.Address,
-		environTag:        params.EnvironTag,
+		modelTag:          params.EnvironTag,
 		hostPorts:         params.APIHostPorts,
 		facadeVersions:    params.FacadeVersions,
 		serverScheme:      params.ServerScheme,

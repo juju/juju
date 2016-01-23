@@ -291,8 +291,8 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	conn, err := dialWebsocket(c, addr, "/")
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	// '/environment/ENVIRONUUID/api' should be fine
-	conn, err = dialWebsocket(c, addr, "/environment/dead-beef-123456/api")
+	// '/model/MODELUUID/api' should be fine
+	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api")
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
