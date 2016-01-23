@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environmentmanager
+package modelmanager
 
 import (
 	"github.com/juju/errors"
@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.api.environmentmanager")
+var logger = loggo.GetLogger("juju.api.modelmanager")
 
 // Client provides methods that the Juju client command uses to interact
-// with environments stored in the Juju Server.
+// with models stored in the Juju Server.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
@@ -24,18 +24,18 @@ type Client struct {
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "EnvironmentManager")
+	frontend, backend := base.NewClientFacade(st, "ModelManager")
 	logger.Debugf("%#v", frontend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the
-// API caller to construct a valid environment specific config.  The provider
+// API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
 // both of these to be empty.
 func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, error) {
 	var result params.EnvironConfigResult
-	args := params.EnvironmentSkeletonConfigArgs{
+	args := params.ModelSkeletonConfigArgs{
 		Provider: provider,
 		Region:   region,
 	}
@@ -46,51 +46,51 @@ func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, 
 	return result.Config, nil
 }
 
-// CreateEnvironment creates a new environment using the account and
-// environment config specified in the args.
-func (c *Client) CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error) {
-	var result params.Environment
+// CreateModel creates a new model using the account and
+// model config specified in the args.
+func (c *Client) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
+	var result params.Model
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
-	createArgs := params.EnvironmentCreateArgs{
+	createArgs := params.ModelCreateArgs{
 		OwnerTag: names.NewUserTag(owner).String(),
 		Account:  account,
 		Config:   config,
 	}
-	err := c.facade.FacadeCall("CreateEnvironment", createArgs, &result)
+	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	logger.Infof("created environment %s (%s)", result.Name, result.UUID)
+	logger.Infof("created model %s (%s)", result.Name, result.UUID)
 	return result, nil
 }
 
-// ListEnvironments returns the environments that the specified user
+// ListModels returns the models that the specified user
 // has access to in the current server.  Only that state server owner
-// can list environments for any user (at this stage).  Other users
-// can only ask about their own environments.
-func (c *Client) ListEnvironments(user string) ([]base.UserEnvironment, error) {
-	var environments params.UserEnvironmentList
+// can list models for any user (at this stage).  Other users
+// can only ask about their own models.
+func (c *Client) ListModels(user string) ([]base.UserModel, error) {
+	var models params.UserModelList
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
 	entity := params.Entity{names.NewUserTag(user).String()}
-	err := c.facade.FacadeCall("ListEnvironments", entity, &environments)
+	err := c.facade.FacadeCall("ListModels", entity, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]base.UserEnvironment, len(environments.UserEnvironments))
-	for i, env := range environments.UserEnvironments {
-		owner, err := names.ParseUserTag(env.OwnerTag)
+	result := make([]base.UserModel, len(models.UserModels))
+	for i, model := range models.UserModels {
+		owner, err := names.ParseUserTag(model.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
 		}
-		result[i] = base.UserEnvironment{
-			Name:           env.Name,
-			UUID:           env.UUID,
+		result[i] = base.UserModel{
+			Name:           model.Name,
+			UUID:           model.UUID,
 			Owner:          owner.Canonical(),
-			LastConnection: env.LastConnection,
+			LastConnection: model.LastConnection,
 		}
 	}
 	return result, nil

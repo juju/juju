@@ -312,7 +312,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
-	var result params.EnvironmentResult
+	var result params.ModelResult
 	err := st.facade.FacadeCall("CurrentEnvironment", nil, &result)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the 1.16 API.

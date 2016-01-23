@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment
+package model
 
 import (
 	"github.com/juju/errors"
@@ -95,8 +95,8 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 	return update(env, ver)
 }
 
-// EnvironTools holds the required tools for an environ facade.
-type EnvironTools struct {
+// ModelTools holds the required tools for a model facade.
+type ModelTools struct {
 	st         EnvironGetter
 	authorizer common.Authorizer
 	// tools lookup
@@ -106,8 +106,8 @@ type EnvironTools struct {
 
 // NewEnvironTools returns a new environ tools pointer with the passed attributes
 // and some defaults that are only for changed during tests.
-func NewEnvironTools(st EnvironGetter, authorizer common.Authorizer) *EnvironTools {
-	return &EnvironTools{
+func NewEnvironTools(st EnvironGetter, authorizer common.Authorizer) *ModelTools {
+	return &ModelTools{
 		st:               st,
 		authorizer:       authorizer,
 		findTools:        findTools,
@@ -117,7 +117,7 @@ func NewEnvironTools(st EnvironGetter, authorizer common.Authorizer) *EnvironToo
 
 // UpdateToolsAvailable invokes a lookup and further update in environ
 // for new patches of the current tool versions.
-func (e *EnvironTools) UpdateToolsAvailable() error {
+func (e *ModelTools) UpdateToolsAvailable() error {
 	if !e.authorizer.AuthEnvironManager() {
 		return common.ErrPerm
 	}

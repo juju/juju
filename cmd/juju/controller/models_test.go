@@ -18,43 +18,43 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type EnvironmentsSuite struct {
+type ModelsSuite struct {
 	testing.FakeJujuHomeSuite
-	api   *fakeEnvMgrAPIClient
+	api   *fakeModelMgrAPIClient
 	creds *configstore.APICredentials
 }
 
-var _ = gc.Suite(&EnvironmentsSuite{})
+var _ = gc.Suite(&ModelsSuite{})
 
-type fakeEnvMgrAPIClient struct {
-	err  error
-	user string
-	envs []base.UserEnvironment
-	all  bool
+type fakeModelMgrAPIClient struct {
+	err    error
+	user   string
+	models []base.UserModel
+	all    bool
 }
 
-func (f *fakeEnvMgrAPIClient) Close() error {
+func (f *fakeModelMgrAPIClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]base.UserEnvironment, error) {
+func (f *fakeModelMgrAPIClient) ListModels(user string) ([]base.UserModel, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
 	f.user = user
-	return f.envs, nil
+	return f.models, nil
 }
 
-func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserEnvironment, error) {
+func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 	f.all = true
-	return f.envs, nil
+	return f.models, nil
 }
 
-func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
+func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	err := envcmd.WriteCurrentController("fake")
@@ -63,7 +63,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	envs := []base.UserEnvironment{
+	models := []base.UserModel{
 		{
 			Name:           "test-model1",
 			Owner:          "user-admin@local",
@@ -80,15 +80,15 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 			UUID:  "test-model3-UUID",
 		},
 	}
-	s.api = &fakeEnvMgrAPIClient{envs: envs}
+	s.api = &fakeModelMgrAPIClient{models: models}
 	s.creds = &configstore.APICredentials{User: "admin@local", Password: "password"}
 }
 
-func (s *EnvironmentsSuite) newCommand() cmd.Command {
+func (s *ModelsSuite) newCommand() cmd.Command {
 	return controller.NewEnvironmentsCommandForTest(s.api, s.api, s.creds)
 }
 
-func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {
+func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 	context, err := testing.RunCommand(c, s.newCommand(), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, user)
@@ -100,12 +100,12 @@ func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 		"\n")
 }
 
-func (s *EnvironmentsSuite) TestEnvironments(c *gc.C) {
+func (s *ModelsSuite) TestEnvironments(c *gc.C) {
 	s.checkSuccess(c, "admin@local")
 	s.checkSuccess(c, "bob", "--user", "bob")
 }
 
-func (s *EnvironmentsSuite) TestAllEnvironments(c *gc.C) {
+func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
@@ -117,7 +117,7 @@ func (s *EnvironmentsSuite) TestAllEnvironments(c *gc.C) {
 		"\n")
 }
 
-func (s *EnvironmentsSuite) TestEnvironmentsUUID(c *gc.C) {
+func (s *ModelsSuite) TestEnvironmentsUUID(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
@@ -129,12 +129,12 @@ func (s *EnvironmentsSuite) TestEnvironmentsUUID(c *gc.C) {
 		"\n")
 }
 
-func (s *EnvironmentsSuite) TestUnrecognizedArg(c *gc.C) {
+func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
 	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
-func (s *EnvironmentsSuite) TestEnvironmentsError(c *gc.C) {
+func (s *ModelsSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")

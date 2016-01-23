@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environmentmanager_test
+package modelmanager_test
 
 import (
 	"github.com/juju/loggo"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/environmentmanager"
+	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
@@ -28,15 +28,15 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type envManagerBaseSuite struct {
+type modelManagerBaseSuite struct {
 	jujutesting.JujuConnSuite
 
-	envmanager *environmentmanager.EnvironmentManagerAPI
-	resources  *common.Resources
-	authoriser apiservertesting.FakeAuthorizer
+	modelmanager *modelmanager.ModelManagerAPI
+	resources    *common.Resources
+	authoriser   apiservertesting.FakeAuthorizer
 }
 
-func (s *envManagerBaseSuite) SetUpTest(c *gc.C) {
+func (s *modelManagerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -45,40 +45,40 @@ func (s *envManagerBaseSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	loggo.GetLogger("juju.apiserver.environmentmanager").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
-func (s *envManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *modelManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	envmanager, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, s.authoriser)
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	s.envmanager = envmanager
+	s.modelmanager = modelmanager
 }
 
-type envManagerSuite struct {
-	envManagerBaseSuite
+type modelManagerSuite struct {
+	modelManagerBaseSuite
 }
 
-var _ = gc.Suite(&envManagerSuite{})
+var _ = gc.Suite(&modelManagerSuite{})
 
-func (s *envManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
+func (s *modelManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
-	endPoint, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := modelmanager.NewModelManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
-func (s *envManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
+func (s *modelManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	endPoint, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := modelmanager.NewModelManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *envManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.EnvironmentCreateArgs {
-	return params.EnvironmentCreateArgs{
+func (s *modelManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.ModelCreateArgs {
+	return params.ModelCreateArgs{
 		OwnerTag: owner.String(),
 		Account:  make(map[string]interface{}),
 		Config: map[string]interface{}{
@@ -90,49 +90,49 @@ func (s *envManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.Enviro
 	}
 }
 
-func (s *envManagerSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver interface{}) params.EnvironmentCreateArgs {
+func (s *modelManagerSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver interface{}) params.ModelCreateArgs {
 	params := s.createArgs(c, owner)
 	params.Config["agent-version"] = ver
 	return params
 }
 
-func (s *envManagerSuite) TestUserCanCreateEnvironment(c *gc.C) {
+func (s *modelManagerSuite) TestUserCanCreateModel(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	s.setAPIUser(c, owner)
-	env, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
+	model, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.OwnerTag, gc.Equals, owner.String())
-	c.Assert(env.Name, gc.Equals, "test-model")
+	c.Assert(model.OwnerTag, gc.Equals, owner.String())
+	c.Assert(model.Name, gc.Equals, "test-model")
 }
 
-func (s *envManagerSuite) TestAdminCanCreateEnvironmentForSomeoneElse(c *gc.C) {
+func (s *modelManagerSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	owner := names.NewUserTag("external@remote")
-	env, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
+	model, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.OwnerTag, gc.Equals, owner.String())
-	c.Assert(env.Name, gc.Equals, "test-model")
+	c.Assert(model.OwnerTag, gc.Equals, owner.String())
+	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, err := s.State.ForEnviron(names.NewEnvironTag(env.UUID))
+	newState, err := s.State.ForEnviron(names.NewEnvironTag(model.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Close()
 
-	newEnv, err := newState.Environment()
+	newModel, err := newState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newEnv.Owner(), gc.Equals, owner)
+	c.Assert(newModel.Owner(), gc.Equals, owner)
 	_, err = newState.EnvironmentUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *gc.C) {
+func (s *modelManagerSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	owner := names.NewUserTag("external@remote")
-	_, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
+	_, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
+func (s *modelManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	for i, test := range []struct {
 		provider string
@@ -175,23 +175,23 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 		},
 	} {
 		c.Logf("%d: %s provider", i, test.provider)
-		fields, err := environmentmanager.RestrictedProviderFields(s.envmanager, test.provider)
+		fields, err := modelmanager.RestrictedProviderFields(s.modelmanager, test.provider)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(fields, jc.SameContents, test.expected)
 	}
 }
 
-func (s *envManagerSuite) TestConfigSkeleton(c *gc.C) {
+func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 
-	_, err := s.envmanager.ConfigSkeleton(
-		params.EnvironmentSkeletonConfigArgs{Provider: "ec2"})
+	_, err := s.modelmanager.ConfigSkeleton(
+		params.ModelSkeletonConfigArgs{Provider: "ec2"})
 	c.Check(err, gc.ErrorMatches, `provider value "ec2" not valid`)
-	_, err = s.envmanager.ConfigSkeleton(
-		params.EnvironmentSkeletonConfigArgs{Region: "the sun"})
+	_, err = s.modelmanager.ConfigSkeleton(
+		params.ModelSkeletonConfigArgs{Region: "the sun"})
 	c.Check(err, gc.ErrorMatches, `region value "the sun" not valid`)
 
-	skeleton, err := s.envmanager.ConfigSkeleton(params.EnvironmentSkeletonConfigArgs{})
+	skeleton, err := s.modelmanager.ConfigSkeleton(params.ModelSkeletonConfigArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The apiPort changes every test run as the dummy provider
@@ -206,16 +206,16 @@ func (s *envManagerSuite) TestConfigSkeleton(c *gc.C) {
 	})
 }
 
-func (s *envManagerSuite) TestCreateEnvironmentValidatesConfig(c *gc.C) {
+func (s *modelManagerSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgs(c, admin)
 	delete(args.Config, "state-server")
-	_, err := s.envmanager.CreateEnvironment(args)
+	_, err := s.modelmanager.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got nothing")
 }
 
-func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
+func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	s.setAPIUser(c, owner)
 	for i, test := range []struct {
@@ -249,21 +249,21 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 		c.Logf("%d: %s", i, test.key)
 		args := s.createArgs(c, owner)
 		args.Config[test.key] = test.value
-		_, err := s.envmanager.CreateEnvironment(args)
+		_, err := s.modelmanager.CreateModel(args)
 		c.Assert(err, gc.ErrorMatches, test.errMatch)
 
 	}
 }
 
-func (s *envManagerSuite) TestCreateEnvironmentSameAgentVersion(c *gc.C) {
+func (s *modelManagerSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgsForVersion(c, admin, version.Current.String())
-	_, err := s.envmanager.CreateEnvironment(args)
+	_, err := s.modelmanager.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
+func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
@@ -294,60 +294,60 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		args := s.createArgsForVersion(c, admin, test.value)
-		_, err := s.envmanager.CreateEnvironment(args)
+		_, err := s.modelmanager.CreateModel(args)
 		c.Check(err, gc.ErrorMatches, test.errMatch)
 	}
 }
 
-func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
+func (s *modelManagerSuite) TestListModelsForSelf(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *envManagerSuite) TestListEnvironmentsForSelfLocalUser(c *gc.C) {
+func (s *modelManagerSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	// When the user's credentials cache stores the simple name, but the
 	// api server converts it to a fully qualified name.
 	user := names.NewUserTag("local-user")
 	s.setAPIUser(c, names.NewUserTag("local-user@local"))
-	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
+func (s *modelManagerSuite) checkModelMatches(c *gc.C, env params.Model, expected *state.Environment) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
-func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
+func (s *modelManagerSuite) TestListModelsAdminSelf(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserEnvironments, gc.HasLen, 1)
+	c.Assert(result.UserModels, gc.HasLen, 1)
 	expected, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEnvironmentMatches(c, result.UserEnvironments[0].Environment, expected)
+	s.checkModelMatches(c, result.UserModels[0].Model, expected)
 }
 
-func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
+func (s *modelManagerSuite) TestListModelsAdminListsOther(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("external@remote")
-	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserEnvironments, gc.HasLen, 0)
+	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
+func (s *modelManagerSuite) TestListModelsDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
+	_, err := s.modelmanager.ListModels(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

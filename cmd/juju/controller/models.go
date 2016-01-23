@@ -33,8 +33,8 @@ type environmentsCommand struct {
 	user      string
 	listUUID  bool
 	exactTime bool
-	envAPI    EnvironmentsEnvAPI
-	sysAPI    EnvironmentsSysAPI
+	modelAPI  ModelManagerAPI
+	sysAPI    ModelsSysAPI
 	userCreds *configstore.APICredentials
 }
 
@@ -51,18 +51,18 @@ See Also:
     juju help model unshare
 `
 
-// EnvironmentsEnvAPI defines the methods on the environment manager API that
+// ModelManagerAPI defines the methods on the model manager API that
 // the environments command calls.
-type EnvironmentsEnvAPI interface {
+type ModelManagerAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]base.UserEnvironment, error)
+	ListModels(user string) ([]base.UserModel, error)
 }
 
-// EnvironmentsSysAPI defines the methods on the controller manager API that the
+// ModelsSysAPI defines the methods on the controller manager API that the
 // environments command calls.
-type EnvironmentsSysAPI interface {
+type ModelsSysAPI interface {
 	Close() error
-	AllEnvironments() ([]base.UserEnvironment, error)
+	AllModels() ([]base.UserModel, error)
 }
 
 // Info implements Command.Info
@@ -74,14 +74,14 @@ func (c *environmentsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *environmentsCommand) getEnvAPI() (EnvironmentsEnvAPI, error) {
-	if c.envAPI != nil {
-		return c.envAPI, nil
+func (c *environmentsCommand) getEnvAPI() (ModelManagerAPI, error) {
+	if c.modelAPI != nil {
+		return c.modelAPI, nil
 	}
-	return c.NewEnvironmentManagerAPIClient()
+	return c.NewModelManagerAPIClient()
 }
 
-func (c *environmentsCommand) getSysAPI() (EnvironmentsSysAPI, error) {
+func (c *environmentsCommand) getSysAPI() (ModelsSysAPI, error) {
 	if c.sysAPI != nil {
 		return c.sysAPI, nil
 	}
@@ -109,7 +109,7 @@ func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Local structure that controls the output structure.
-type UserEnvironment struct {
+type UserModel struct {
 	Name           string `json:"name"`
 	UUID           string `json:"env-uuid" yaml:"env-uuid"`
 	Owner          string `json:"owner"`
@@ -126,21 +126,21 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 		c.user = creds.User
 	}
 
-	var envs []base.UserEnvironment
+	var envs []base.UserModel
 	var err error
 	if c.all {
-		envs, err = c.getAllEnvironments()
+		envs, err = c.getAllModels()
 	} else {
-		envs, err = c.getUserEnvironments()
+		envs, err = c.getUserModels()
 	}
 	if err != nil {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	output := make([]UserEnvironment, len(envs))
+	output := make([]UserModel, len(envs))
 	now := time.Now()
 	for i, env := range envs {
-		output[i] = UserEnvironment{
+		output[i] = UserModel{
 			Name:           env.Name,
 			UUID:           env.UUID,
 			Owner:          env.Owner,
@@ -151,27 +151,27 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, output)
 }
 
-func (c *environmentsCommand) getAllEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getAllModels() ([]base.UserModel, error) {
 	client, err := c.getSysAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer client.Close()
-	return client.AllEnvironments()
+	return client.AllModels()
 }
 
-func (c *environmentsCommand) getUserEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getUserModels() ([]base.UserModel, error) {
 	client, err := c.getEnvAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer client.Close()
-	return client.ListEnvironments(c.user)
+	return client.ListModels(c.user)
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]UserEnvironment)
+	envs, ok := value.([]UserModel)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}

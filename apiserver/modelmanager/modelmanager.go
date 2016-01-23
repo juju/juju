@@ -1,9 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The environmentmanager package defines an API end point for functions
-// dealing with envionments.  Creating, listing and sharing environments.
-package environmentmanager
+// Package modelmanager defines an API end point for functions
+// dealing with models.  Creating, listing and sharing models.
+package modelmanager
 
 import (
 	"time"
@@ -21,43 +21,43 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
+var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
 func init() {
-	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
+	common.RegisterStandardFacade("ModelManager", 1, NewModelManagerAPI)
 }
 
-// EnvironmentManager defines the methods on the environmentmanager API end
+// ModelManager defines the methods on the modelmanager API end
 // point.
-type EnvironmentManager interface {
-	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
-	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
-	ListEnvironments(user params.Entity) (params.UserEnvironmentList, error)
+type ModelManager interface {
+	ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.EnvironConfigResult, error)
+	CreateModel(args params.ModelCreateArgs) (params.Model, error)
+	ListModels(user params.Entity) (params.UserModelList, error)
 }
 
-// EnvironmentManagerAPI implements the environment manager interface and is
+// ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
-type EnvironmentManagerAPI struct {
+type ModelManagerAPI struct {
 	state       stateInterface
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 }
 
-var _ EnvironmentManager = (*EnvironmentManagerAPI)(nil)
+var _ ModelManager = (*ModelManagerAPI)(nil)
 
-// NewEnvironmentManagerAPI creates a new api server endpoint for managing
-// environments.
-func NewEnvironmentManagerAPI(
+// NewModelManagerAPI creates a new api server endpoint for managing
+// models.
+func NewModelManagerAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*EnvironmentManagerAPI, error) {
+) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
 	urlGetter := common.NewToolsURLGetter(st.EnvironUUID(), st)
-	return &EnvironmentManagerAPI{
+	return &ModelManagerAPI{
 		state:       getState(st),
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
@@ -66,7 +66,7 @@ func NewEnvironmentManagerAPI(
 
 // authCheck checks if the user is acting on their own behalf, or if they
 // are an administrator acting on behalf of another user.
-func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
+func (em *ModelManagerAPI) authCheck(user names.UserTag) error {
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := em.authorizer.GetAuthTag().(names.UserTag)
@@ -102,10 +102,10 @@ var configValuesFromStateServer = []string{
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the
-// API caller to construct a valid environment specific config.  The provider
+// API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
 // both of these to be empty.
-func (em *EnvironmentManagerAPI) ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error) {
+func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.EnvironConfigResult, error) {
 	var result params.EnvironConfigResult
 	if args.Provider != "" {
 		return result, errors.NotValidf("provider value %q", args.Provider)
@@ -128,7 +128,7 @@ func (em *EnvironmentManagerAPI) ConfigSkeleton(args params.EnvironmentSkeletonC
 	return result, nil
 }
 
-func (em *EnvironmentManagerAPI) restrictedProviderFields(providerType string) ([]string, error) {
+func (em *ModelManagerAPI) restrictedProviderFields(providerType string) ([]string, error) {
 	provider, err := environs.Provider(providerType)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -140,7 +140,7 @@ func (em *EnvironmentManagerAPI) restrictedProviderFields(providerType string) (
 	return fields, nil
 }
 
-func (em *EnvironmentManagerAPI) configSkeleton(source ConfigSource) (map[string]interface{}, error) {
+func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]interface{}, error) {
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -161,7 +161,7 @@ func (em *EnvironmentManagerAPI) configSkeleton(source ConfigSource) (map[string
 	return result, nil
 }
 
-func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error {
+func (em *ModelManagerAPI) checkVersion(cfg map[string]interface{}) error {
 	// If there is no agent-version specified, use the current version.
 	// otherwise we need to check for tools
 	value, found := cfg["agent-version"]
@@ -196,7 +196,7 @@ func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error 
 	return nil
 }
 
-func (em *EnvironmentManagerAPI) validConfig(attrs map[string]interface{}) (*config.Config, error) {
+func (em *ModelManagerAPI) validConfig(attrs map[string]interface{}) (*config.Config, error) {
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
@@ -216,9 +216,9 @@ func (em *EnvironmentManagerAPI) validConfig(attrs map[string]interface{}) (*con
 	return cfg, nil
 }
 
-func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCreateArgs, source ConfigSource) (*config.Config, error) {
+func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source ConfigSource) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
-	// the account values and the environment config together in the
+	// the account values and the model config together in the
 	// *config.Config instance.
 	joint := make(map[string]interface{})
 	for key, value := range args.Config {
@@ -285,11 +285,11 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	return em.validConfig(attrs)
 }
 
-// CreateEnvironment creates a new environment using the account and
-// environment config specified in the args.
-func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error) {
-	result := params.Environment{}
-	// Get the state server environment first. We need it both for the state
+// CreateModel creates a new model using the account and
+// model config specified in the args.
+func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model, error) {
+	result := params.Model{}
+	// Get the state server model first. We need it both for the state
 	// server owner and the ability to get the config.
 	stateServerEnv, err := em.state.ControllerEnvironment()
 	if err != nil {
@@ -301,40 +301,40 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 		return result, errors.Trace(err)
 	}
 
-	// Any user is able to create themselves an environment (until real fine
+	// Any user is able to create themselves an model (until real fine
 	// grain permissions are available), and admins (the creator of the state
-	// server environment) are able to create environments for other people.
+	// server model) are able to create models for other people.
 	err = em.authCheck(ownerTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := em.newEnvironmentConfig(args, stateServerEnv)
+	newConfig, err := em.newModelConfig(args, stateServerEnv)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	env, st, err := em.state.NewEnvironment(newConfig, ownerTag)
+	model, st, err := em.state.NewEnvironment(newConfig, ownerTag)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
 
-	result.Name = env.Name()
-	result.UUID = env.UUID()
-	result.OwnerTag = env.Owner().String()
+	result.Name = model.Name()
+	result.UUID = model.UUID()
+	result.OwnerTag = model.Owner().String()
 
 	return result, nil
 }
 
-// ListEnvironments returns the environments that the specified user
+// ListModels returns the models that the specified user
 // has access to in the current server.  Only that state server owner
-// can list environments for any user (at this stage).  Other users
-// can only ask about their own environments.
-func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.UserEnvironmentList, error) {
-	result := params.UserEnvironmentList{}
+// can list models for any user (at this stage).  Other users
+// can only ask about their own models.
+func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
+	result := params.UserModelList{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
@@ -346,14 +346,14 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 		return result, errors.Trace(err)
 	}
 
-	environments, err := em.state.EnvironmentsForUser(userTag)
+	models, err := em.state.EnvironmentsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, env := range environments {
+	for _, model := range models {
 		var lastConn *time.Time
-		userLastConn, err := env.LastConnection()
+		userLastConn, err := model.LastConnection()
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -361,15 +361,15 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 		} else {
 			lastConn = &userLastConn
 		}
-		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
-			Environment: params.Environment{
-				Name:     env.Name(),
-				UUID:     env.UUID(),
-				OwnerTag: env.Owner().String(),
+		result.UserModels = append(result.UserModels, params.UserModel{
+			Model: params.Model{
+				Name:     model.Name(),
+				UUID:     model.UUID(),
+				OwnerTag: model.Owner().String(),
 			},
 			LastConnection: lastConn,
 		})
-		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
+		logger.Debugf("list models: %s, %s, %s", model.Name(), model.UUID(), model.Owner())
 	}
 
 	return result, nil

@@ -367,7 +367,7 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
-	s.fake.env = params.Environment{
+	s.fake.env = params.Model{
 		Name:     "test",
 		UUID:     "fake-env-uuid",
 		OwnerTag: "ignored-for-now",
@@ -389,7 +389,7 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
-	s.fake.env = params.Environment{
+	s.fake.env = params.Model{
 		Name:     "test",
 		UUID:     "fake-env-uuid",
 		OwnerTag: "ignored-for-now",
@@ -402,13 +402,13 @@ func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 }
 
 // fakeCreateClient is used to mock out the behavior of the real
-// CreateEnvironment command.
+//  CreateModel command.
 type fakeCreateClient struct {
 	owner   string
 	account map[string]interface{}
 	config  map[string]interface{}
 	err     error
-	env     params.Environment
+	env     params.Model
 }
 
 var _ controller.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
@@ -423,8 +423,8 @@ func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.Environ
 		"state-server": false,
 	}, nil
 }
-func (f *fakeCreateClient) CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error) {
-	var env params.Environment
+func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
+	var env params.Model
 	if f.err != nil {
 		return env, f.err
 	}

@@ -74,7 +74,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBl
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
@@ -90,7 +90,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironments
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
@@ -104,7 +104,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironments
 
 func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

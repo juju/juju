@@ -68,13 +68,13 @@ func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
+func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Environment) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
-func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
@@ -91,21 +91,21 @@ func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
-	response, err := s.controller.AllEnvironments()
+	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
 	expected := []string{"dummymodel", "no-access", "owned", "user"}
 	var obtained []string
-	for _, env := range response.UserEnvironments {
+	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
 		stateEnv, err := s.State.GetEnvironment(names.NewEnvironTag(env.UUID))
 		c.Assert(err, jc.ErrorIsNil)
-		s.checkEnvironmentMatches(c, env.Environment, stateEnv)
+		s.checkEnvironmentMatches(c, env.Model, stateEnv)
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
+func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "test"})
 	defer st.Close()
@@ -115,11 +115,11 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	list, err := s.controller.ListBlockedEnvironments()
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
+	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "dummymodel",
 			UUID:     s.State.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
@@ -128,7 +128,7 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 				"BlockChange",
 			},
 		},
-		params.EnvironmentBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "test",
 			UUID:     st.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
@@ -141,10 +141,10 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 
 }
 
-func (s *controllerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
-	list, err := s.controller.ListBlockedEnvironments()
+func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.Environments, gc.HasLen, 0)
+	c.Assert(list.Models, gc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
@@ -220,7 +220,7 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
 	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name:    "dummytoo",
@@ -251,16 +251,16 @@ func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
 	}
-	results, err := s.controller.EnvironmentStatus(req)
+	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.EnvironmentStatus{{
-		EnvironTag:         controllerEnvTag,
+	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ServiceCount:       1,
 		OwnerTag:           "user-dummy-admin@local",
 		Life:               params.Alive,
 	}, {
-		EnvironTag:         hostedEnvTag,
+		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ServiceCount:       1,
 		OwnerTag:           otherEnvOwner.UserTag().String(),

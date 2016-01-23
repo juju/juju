@@ -41,9 +41,9 @@ func NewCreateEnvironmentCommandForTest(api CreateEnvironmentAPI, parser func(in
 
 // NewEnvironmentsCommandForTest returns a EnvironmentsCommand with the API
 // and userCreds provided as specified.
-func NewEnvironmentsCommandForTest(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
+func NewEnvironmentsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
 	return envcmd.WrapController(&environmentsCommand{
-		envAPI:    envAPI,
+		modelAPI:  modelAPI,
 		sysAPI:    sysAPI,
 		userCreds: userCreds,
 	})
@@ -64,7 +64,7 @@ type UseEnvironmentCommand struct {
 
 // NewUseEnvironmentCommandForTest returns a UseEnvironmentCommand with the
 // API and userCreds provided as specified.
-func NewUseEnvironmentCommandForTest(api UseEnvironmentAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseEnvironmentCommand) {
+func NewUseEnvironmentCommandForTest(api UseModelAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseEnvironmentCommand) {
 	c := &useEnvironmentCommand{
 		api:       api,
 		userCreds: userCreds,

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment_test
+package model_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/environment"
+	"github.com/juju/juju/apiserver/model"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
-type environmentSuite struct {
+type modelSuite struct {
 	testing.JujuConnSuite
 	*commontesting.EnvironWatcherTest
 
@@ -23,12 +23,12 @@ type environmentSuite struct {
 	resources  *common.Resources
 
 	machine0 *state.Machine
-	api      *environment.EnvironmentAPI
+	api      *model.ModelAPI
 }
 
-var _ = gc.Suite(&environmentSuite{})
+var _ = gc.Suite(&modelSuite{})
 
-func (s *environmentSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
@@ -41,7 +41,7 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.api, err = environment.NewEnvironmentAPI(
+	s.api, err = model.NewModelAPI(
 		s.State,
 		s.resources,
 		s.authorizer,

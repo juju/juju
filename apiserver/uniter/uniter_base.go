@@ -960,8 +960,8 @@ func (u *uniterBaseAPI) CurrentEnvironUUID() (params.StringResult, error) {
 }
 
 // CurrentEnvironment returns the name and UUID for the current juju environment.
-func (u *uniterBaseAPI) CurrentEnvironment() (params.EnvironmentResult, error) {
-	result := params.EnvironmentResult{}
+func (u *uniterBaseAPI) CurrentEnvironment() (params.ModelResult, error) {
+	result := params.ModelResult{}
 	env, err := u.st.Environment()
 	if err == nil {
 		result.Name = env.Name()

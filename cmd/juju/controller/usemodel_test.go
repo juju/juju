@@ -27,22 +27,22 @@ const (
 	env4UUID   = "1e45141b-85cb-4a0a-96ef-0aa6bbeac45a"
 )
 
-type UseEnvironmentSuite struct {
+type UseModelSuite struct {
 	testing.FakeJujuHomeSuite
-	api      *fakeEnvMgrAPIClient
+	api      *fakeModelMgrAPIClient
 	creds    configstore.APICredentials
 	endpoint configstore.APIEndpoint
 }
 
-var _ = gc.Suite(&UseEnvironmentSuite{})
+var _ = gc.Suite(&UseModelSuite{})
 
-func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
+func (s *UseModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envs := []base.UserEnvironment{{
+	models := []base.UserModel{{
 		Name:  "unique",
 		Owner: "tester@local",
 		UUID:  "some-uuid",
@@ -63,7 +63,7 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 		Owner: "bob@remote",
 		UUID:  env4UUID,
 	}}
-	s.api = &fakeEnvMgrAPIClient{envs: envs}
+	s.api = &fakeModelMgrAPIClient{models: models}
 	s.creds = configstore.APICredentials{User: "tester", Password: "password"}
 	s.endpoint = configstore.APIEndpoint{
 		Addresses:  []string{"127.0.0.1:12345"},
@@ -73,61 +73,61 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UseEnvironmentSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *UseModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	wrappedCommand, _ := controller.NewUseEnvironmentCommandForTest(s.api, &s.creds, &s.endpoint)
 	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
-func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
+func (s *UseModelSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
 		args        []string
 		errorString string
 		localName   string
 		owner       string
-		envName     string
-		envUUID     string
+		modelName   string
+		modelUUID   string
 	}{{
 		errorString: "no model supplied",
 	}, {
 		args:        []string{""},
 		errorString: "no model supplied",
 	}, {
-		args:    []string{"model-name"},
-		envName: "model-name",
+		args:      []string{"model-name"},
+		modelName: "model-name",
 	}, {
 		args:      []string{"model-name", "--name", "foo"},
 		localName: "foo",
-		envName:   "model-name",
+		modelName: "model-name",
 	}, {
-		args:    []string{"user/foobar"},
-		envName: "foobar",
-		owner:   "user",
+		args:      []string{"user/foobar"},
+		modelName: "foobar",
+		owner:     "user",
 	}, {
-		args:    []string{"user@local/foobar"},
-		envName: "foobar",
-		owner:   "user@local",
+		args:      []string{"user@local/foobar"},
+		modelName: "foobar",
+		owner:     "user@local",
 	}, {
-		args:    []string{"user@remote/foobar"},
-		envName: "foobar",
-		owner:   "user@remote",
+		args:      []string{"user@remote/foobar"},
+		modelName: "foobar",
+		owner:     "user@remote",
 	}, {
 		args:        []string{"+user+name/foobar"},
 		errorString: `"\+user\+name" is not a valid user`,
 	}, {
-		args:    []string{env1UUID},
-		envUUID: env1UUID,
+		args:      []string{env1UUID},
+		modelUUID: env1UUID,
 	}, {
-		args:    []string{"user/" + env1UUID},
-		owner:   "user",
-		envUUID: env1UUID,
+		args:      []string{"user/" + env1UUID},
+		owner:     "user",
+		modelUUID: env1UUID,
 	}} {
 		c.Logf("test %d", i)
 		wrappedCommand, command := controller.NewUseEnvironmentCommandForTest(nil, nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)
-			c.Check(command.EnvName, gc.Equals, test.envName)
-			c.Check(command.EnvUUID, gc.Equals, test.envUUID)
+			c.Check(command.EnvName, gc.Equals, test.modelName)
+			c.Check(command.EnvUUID, gc.Equals, test.modelUUID)
 			c.Check(command.Owner, gc.Equals, test.owner)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
@@ -135,32 +135,32 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *UseEnvironmentSuite) TestEnvironmentsError(c *gc.C) {
+func (s *UseModelSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := s.run(c, "ignored-but-needed")
 	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")
 }
 
-func (s *UseEnvironmentSuite) TestNameNotFound(c *gc.C) {
+func (s *UseModelSuite) TestNameNotFound(c *gc.C) {
 	_, err := s.run(c, "missing")
 	c.Assert(err, gc.ErrorMatches, "matching model not found")
 }
 
-func (s *UseEnvironmentSuite) TestUUID(c *gc.C) {
+func (s *UseModelSuite) TestUUID(c *gc.C) {
 	_, err := s.run(c, env3UUID)
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
 }
 
-func (s *UseEnvironmentSuite) TestUUIDCorrectOwner(c *gc.C) {
+func (s *UseModelSuite) TestUUIDCorrectOwner(c *gc.C) {
 	_, err := s.run(c, "bob/"+env3UUID)
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
 }
 
-func (s *UseEnvironmentSuite) TestUUIDWrongOwner(c *gc.C) {
+func (s *UseModelSuite) TestUUIDWrongOwner(c *gc.C) {
 	ctx, err := s.run(c, "charles/"+env3UUID)
 	c.Assert(err, gc.IsNil)
 	expected := "Specified model owned by bob@local, not charles@local"
@@ -169,14 +169,14 @@ func (s *UseEnvironmentSuite) TestUUIDWrongOwner(c *gc.C) {
 	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
 }
 
-func (s *UseEnvironmentSuite) TestUniqueName(c *gc.C) {
+func (s *UseModelSuite) TestUniqueName(c *gc.C) {
 	_, err := s.run(c, "unique")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "unique", "some-uuid")
 }
 
-func (s *UseEnvironmentSuite) TestMultipleNameMatches(c *gc.C) {
+func (s *UseModelSuite) TestMultipleNameMatches(c *gc.C) {
 	ctx, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "multiple models matched")
 
@@ -189,33 +189,33 @@ func (s *UseEnvironmentSuite) TestMultipleNameMatches(c *gc.C) {
 	c.Assert(lines[3], gc.Equals, `Please specify either the model UUID or the owner to disambiguate.`)
 }
 
-func (s *UseEnvironmentSuite) TestUserOwnerOfEnvironment(c *gc.C) {
+func (s *UseModelSuite) TestUserOwnerOfEnvironment(c *gc.C) {
 	_, err := s.run(c, "tester/test")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "test", env1UUID)
 }
 
-func (s *UseEnvironmentSuite) TestOtherUsersEnvironment(c *gc.C) {
+func (s *UseModelSuite) TestOtherUsersEnvironment(c *gc.C) {
 	_, err := s.run(c, "bob/test")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "bob-test", env2UUID)
 }
 
-func (s *UseEnvironmentSuite) TestRemoteUsersEnvironmentName(c *gc.C) {
+func (s *UseModelSuite) TestRemoteUsersEnvironmentName(c *gc.C) {
 	_, err := s.run(c, "bob@remote/other")
 	c.Assert(err, gc.IsNil)
 
 	s.assertCurrentEnvironment(c, "bob-other", env4UUID)
 }
 
-func (s *UseEnvironmentSuite) TestDisambiguateWrongOwner(c *gc.C) {
+func (s *UseModelSuite) TestDisambiguateWrongOwner(c *gc.C) {
 	_, err := s.run(c, "wrong/test")
 	c.Assert(err, gc.ErrorMatches, "matching model not found")
 }
 
-func (s *UseEnvironmentSuite) TestUseEnvAlreadyExisting(c *gc.C) {
+func (s *UseModelSuite) TestUseEnvAlreadyExisting(c *gc.C) {
 	s.makeLocalEnvironment(c, "unique", "", "")
 	ctx, err := s.run(c, "unique")
 	c.Assert(err, gc.ErrorMatches, "existing model")
@@ -223,7 +223,7 @@ func (s *UseEnvironmentSuite) TestUseEnvAlreadyExisting(c *gc.C) {
 	c.Assert(testing.Stderr(ctx), jc.Contains, expected)
 }
 
-func (s *UseEnvironmentSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
+func (s *UseModelSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 	s.makeLocalEnvironment(c, "unique", "some-uuid", "tester")
 	ctx, err := s.run(c, "unique")
 	c.Assert(err, gc.IsNil)
@@ -241,7 +241,7 @@ func (s *UseEnvironmentSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 	c.Assert(current, gc.Equals, "unique")
 }
 
-func (s *UseEnvironmentSuite) assertCurrentEnvironment(c *gc.C, name, uuid string) {
+func (s *UseModelSuite) assertCurrentEnvironment(c *gc.C, name, uuid string) {
 	current, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.Equals, name)
@@ -261,7 +261,7 @@ func (s *UseEnvironmentSuite) assertCurrentEnvironment(c *gc.C, name, uuid strin
 	c.Assert(info.APICredentials(), jc.DeepEquals, s.creds)
 }
 
-func (s *UseEnvironmentSuite) makeLocalEnvironment(c *gc.C, name, uuid, owner string) {
+func (s *UseModelSuite) makeLocalEnvironment(c *gc.C, name, uuid, owner string) {
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
 

@@ -38,10 +38,10 @@ type fakeDestroyAPI struct {
 	err        error
 	env        map[string]interface{}
 	destroyAll bool
-	blocks     []params.EnvironmentBlockInfo
+	blocks     []params.ModelBlockInfo
 	blocksErr  error
-	envStatus  map[string]base.EnvironmentStatus
-	allEnvs    []base.UserEnvironment
+	envStatus  map[string]base.ModelStatus
+	allEnvs    []base.UserModel
 }
 
 func (f *fakeDestroyAPI) Close() error { return nil }
@@ -58,19 +58,19 @@ func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
 	return f.err
 }
 
-func (f *fakeDestroyAPI) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
+func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 	return f.blocks, f.blocksErr
 }
 
-func (f *fakeDestroyAPI) EnvironmentStatus(tags ...names.EnvironTag) ([]base.EnvironmentStatus, error) {
-	status := make([]base.EnvironmentStatus, len(tags))
+func (f *fakeDestroyAPI) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
+	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
 		status[i] = f.envStatus[tag.Id()]
 	}
 	return status, f.err
 }
 
-func (f *fakeDestroyAPI) AllEnvironments() ([]base.UserEnvironment, error) {
+func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 	return f.allEnvs, f.err
 }
 
@@ -113,7 +113,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		envStatus: map[string]base.EnvironmentStatus{},
+		envStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
 
@@ -157,13 +157,13 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 		err := info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 
-		s.api.allEnvs = append(s.api.allEnvs, base.UserEnvironment{
+		s.api.allEnvs = append(s.api.allEnvs, base.UserModel{
 			Name:  env.name,
 			UUID:  uuid,
 			Owner: owner.Canonical(),
 		})
 
-		s.api.envStatus[env.envUUID] = base.EnvironmentStatus{
+		s.api.envStatus[env.envUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
 			HostedMachineCount: 0,
@@ -362,8 +362,8 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
-	s.api.blocks = []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
+	s.api.blocks = []params.ModelBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "test1",
 			UUID:     "test1-uuid",
 			OwnerTag: "cheryl@local",
@@ -371,7 +371,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 				"BlockDestroy",
 			},
 		},
-		params.EnvironmentBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "test2",
 			UUID:     "test2-uuid",
 			OwnerTag: "bob@local",

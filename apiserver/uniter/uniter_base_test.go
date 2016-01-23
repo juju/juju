@@ -1252,7 +1252,7 @@ func (s *uniterBaseSuite) testCurrentEnvironUUID(
 func (s *uniterBaseSuite) testCurrentEnvironment(
 	c *gc.C,
 	facade interface {
-		CurrentEnvironment() (params.EnvironmentResult, error)
+		CurrentEnvironment() (params.ModelResult, error)
 	},
 ) {
 	env, err := s.State.Environment()
@@ -1260,7 +1260,7 @@ func (s *uniterBaseSuite) testCurrentEnvironment(
 
 	result, err := facade.CurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.EnvironmentResult{
+	expected := params.ModelResult{
 		Name: env.Name(),
 		UUID: env.UUID(),
 	}

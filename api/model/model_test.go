@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment_test
+package model_test
 
 import (
 	gc "gopkg.in/check.v1"
@@ -10,21 +10,21 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
-type environmentSuite struct {
+type modelSuite struct {
 	jujutesting.JujuConnSuite
 	*apitesting.EnvironWatcherTests
 }
 
-var _ = gc.Suite(&environmentSuite{})
+var _ = gc.Suite(&modelSuite{})
 
-func (s *environmentSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	stateAPI, _ := s.OpenAPIAsNewMachine(c)
 
-	environmentAPI := stateAPI.Environment()
-	c.Assert(environmentAPI, gc.NotNil)
+	modelAPI := stateAPI.Model()
+	c.Assert(modelAPI, gc.NotNil)
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(
-		environmentAPI, s.BackingState, apitesting.NoSecrets)
+		modelAPI, s.BackingState, apitesting.NoSecrets)
 }

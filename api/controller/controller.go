@@ -30,21 +30,21 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AllEnvironments allows controller administrators to get the list of all the
+// AllModels allows controller administrators to get the list of all the
 // environments in the controller.
-func (c *Client) AllEnvironments() ([]base.UserEnvironment, error) {
-	var environments params.UserEnvironmentList
-	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
+func (c *Client) AllModels() ([]base.UserModel, error) {
+	var environments params.UserModelList
+	err := c.facade.FacadeCall("AllModels", nil, &environments)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]base.UserEnvironment, len(environments.UserEnvironments))
-	for i, env := range environments.UserEnvironments {
+	result := make([]base.UserModel, len(environments.UserModels))
+	for i, env := range environments.UserModels {
 		owner, err := names.ParseUserTag(env.OwnerTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
 		}
-		result[i] = base.UserEnvironment{
+		result[i] = base.UserModel{
 			Name:           env.Name,
 			UUID:           env.UUID,
 			Owner:          owner.Canonical(),
@@ -68,17 +68,17 @@ func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 // in state.
 func (c *Client) DestroyController(destroyEnvs bool) error {
 	args := params.DestroyControllerArgs{
-		DestroyEnvironments: destroyEnvs,
+		DestroyModels: destroyEnvs,
 	}
 	return c.facade.FacadeCall("DestroyController", args, nil)
 }
 
-// ListBlockedEnvironments returns a list of all environments within the controller
+// ListBlockedModels returns a list of all environments within the controller
 // which have at least one block in place.
-func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
-	result := params.EnvironmentBlockInfoList{}
-	err := c.facade.FacadeCall("ListBlockedEnvironments", nil, &result)
-	return result.Environments, err
+func (c *Client) ListBlockedModels() ([]params.ModelBlockInfo, error) {
+	result := params.ModelBlockInfoList{}
+	err := c.facade.FacadeCall("ListBlockedModels", nil, &result)
+	return result.Models, err
 }
 
 // RemoveBlocks removes all the blocks in the controller.
@@ -87,7 +87,7 @@ func (c *Client) RemoveBlocks() error {
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)
 }
 
-// WatchAllEnv returns an AllEnvWatcher, from which you can request
+// WatchAllEnvs returns an AllEnvWatcher, from which you can request
 // the Next collection of Deltas (for all environments).
 func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	info := new(api.WatchAll)
@@ -97,9 +97,9 @@ func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
-// EnvironmentStatus returns a status summary for each environment tag passed in.
-func (c *Client) EnvironmentStatus(tags ...names.EnvironTag) ([]base.EnvironmentStatus, error) {
-	result := params.EnvironmentStatusResults{}
+// ModelStatus returns a status summary for each environment tag passed in.
+func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
+	result := params.ModelStatusResults{}
 	envs := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		envs[i] = params.Entity{Tag: tag.String()}
@@ -107,22 +107,22 @@ func (c *Client) EnvironmentStatus(tags ...names.EnvironTag) ([]base.Environment
 	req := params.Entities{
 		Entities: envs,
 	}
-	if err := c.facade.FacadeCall("EnvironmentStatus", req, &result); err != nil {
+	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
 		return nil, err
 	}
 
-	results := make([]base.EnvironmentStatus, len(result.Results))
+	results := make([]base.ModelStatus, len(result.Results))
 	for i, r := range result.Results {
-		env, err := names.ParseEnvironTag(r.EnvironTag)
+		env, err := names.ParseEnvironTag(r.ModelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.EnvironTag, i)
+			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.ModelTag, i)
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
 		}
 
-		results[i] = base.EnvironmentStatus{
+		results[i] = base.ModelStatus{
 			UUID:               env.Id(),
 			Life:               r.Life,
 			Owner:              owner.Canonical(),

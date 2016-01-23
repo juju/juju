@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environmentmanager_test
+package modelmanager_test
 
 import (
 	"github.com/juju/names"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -18,26 +18,26 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type environmentmanagerSuite struct {
+type modelmanagerSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&environmentmanagerSuite{})
+var _ = gc.Suite(&modelmanagerSuite{})
 
-func (s *environmentmanagerSuite) SetUpTest(c *gc.C) {
+func (s *modelmanagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *environmentmanagerSuite) OpenAPI(c *gc.C) *environmentmanager.Client {
+func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
-	return environmentmanager.NewClient(conn)
+	return modelmanager.NewClient(conn)
 }
 
-func (s *environmentmanagerSuite) TestConfigSkeleton(c *gc.C) {
-	envManager := s.OpenAPI(c)
-	result, err := envManager.ConfigSkeleton("", "")
+func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
+	modelManager := s.OpenAPI(c)
+	result, err := modelManager.ConfigSkeleton("", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The apiPort changes every test run as the dummy provider
@@ -54,23 +54,23 @@ func (s *environmentmanagerSuite) TestConfigSkeleton(c *gc.C) {
 
 }
 
-func (s *environmentmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {
-	envManager := s.OpenAPI(c)
-	_, err := envManager.CreateEnvironment("not a user", nil, nil)
+func (s *modelmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {
+	modelManager := s.OpenAPI(c)
+	_, err := modelManager.CreateModel("not a user", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
-func (s *environmentmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {
-	envManager := s.OpenAPI(c)
-	_, err := envManager.CreateEnvironment("owner", nil, nil)
+func (s *modelmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {
+	modelManager := s.OpenAPI(c)
+	_, err := modelManager.CreateModel("owner", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `creating config from values failed: name: expected string, got nothing`)
 }
 
-func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
-	envManager := s.OpenAPI(c)
+func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
+	modelManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newEnv, err := envManager.CreateEnvironment(owner, nil, map[string]interface{}{
+	newEnv, err := modelManager.CreateModel(owner, nil, map[string]interface{}{
 		"name":            "new-model",
 		"authorized-keys": "ssh-key",
 		// dummy needs state-server
@@ -82,26 +82,26 @@ func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
 	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
 }
 
-func (s *environmentmanagerSuite) TestListEnvironmentsBadUser(c *gc.C) {
-	envManager := s.OpenAPI(c)
-	_, err := envManager.ListEnvironments("not a user")
+func (s *modelmanagerSuite) TestListEnvironmentsBadUser(c *gc.C) {
+	modelManager := s.OpenAPI(c)
+	_, err := modelManager.ListModels("not a user")
 	c.Assert(err, gc.ErrorMatches, `invalid user name "not a user"`)
 }
 
-func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
+func (s *modelmanagerSuite) TestListEnvironments(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "first", Owner: owner}).Close()
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "second", Owner: owner}).Close()
 
-	envManager := s.OpenAPI(c)
-	envs, err := envManager.ListEnvironments("user@remote")
+	modelManager := s.OpenAPI(c)
+	models, err := modelManager.ListModels("user@remote")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envs, gc.HasLen, 2)
+	c.Assert(models, gc.HasLen, 2)
 
-	envNames := []string{envs[0].Name, envs[1].Name}
+	envNames := []string{models[0].Name, models[1].Name}
 	c.Assert(envNames, jc.DeepEquals, []string{"first", "second"})
-	ownerNames := []string{envs[0].Owner, envs[1].Owner}
+	ownerNames := []string{models[0].Owner, models[1].Owner}
 	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
 }
