@@ -8,10 +8,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -82,14 +82,14 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 	defer session.Close()
 	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
+	if err := managedStorage.PutForModel(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store image")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := managedStorage.RemoveForEnvironment(s.envUUID, path)
+		err := managedStorage.RemoveForModel(s.envUUID, path)
 		if err != nil {
 			logger.Errorf("failed to remove image blob: %v", err)
 		}
@@ -151,7 +151,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
+		err := managedStorage.RemoveForModel(s.envUUID, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old image blob: %v", err)
 		} else {
@@ -189,7 +189,7 @@ func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
 	defer session.Close()
 	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
+	if err := managedStorage.RemoveForModel(s.envUUID, path); err != nil {
 		return errors.Annotate(err, "cannot remove image blob")
 	}
 	// Remove the metadata.
@@ -297,7 +297,7 @@ func (s *imageStorage) listImageMetadataDocs(envUUID, kind, series, arch string)
 }
 
 func (s *imageStorage) imageBlob(managedStorage blobstore.ManagedStorage, path string) (io.ReadCloser, error) {
-	r, _, err := managedStorage.GetForEnvironment(s.envUUID, path)
+	r, _, err := managedStorage.GetForModel(s.envUUID, path)
 	return r, err
 }
 

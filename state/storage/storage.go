@@ -6,7 +6,7 @@ package storage
 import (
 	"io"
 
-	"github.com/juju/blobstore"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 )
 
@@ -55,7 +55,7 @@ func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
 
 func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
 	session, ms := s.blobstore()
-	r, length, err = ms.GetForEnvironment(s.envUUID, path)
+	r, length, err = ms.GetForModel(s.envUUID, path)
 	if err != nil {
 		session.Close()
 		return nil, -1, err
@@ -66,13 +66,13 @@ func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error
 func (s stateStorage) Put(path string, r io.Reader, length int64) error {
 	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.PutForEnvironment(s.envUUID, path, r, length)
+	return ms.PutForModel(s.envUUID, path, r, length)
 }
 
 func (s stateStorage) Remove(path string) error {
 	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.RemoveForEnvironment(s.envUUID, path)
+	return ms.RemoveForModel(s.envUUID, path)
 }
 
 type stateStorageReadCloser struct {
