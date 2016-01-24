@@ -22,9 +22,9 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
-	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -305,13 +305,111 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
-func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
-	mux.Get(pattern, handler)
-	mux.Post(pattern, handler)
-	mux.Head(pattern, handler)
-	mux.Put(pattern, handler)
-	mux.Del(pattern, handler)
-	mux.Options(pattern, handler)
+func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
+	ctxt := httpContext{
+		srv:                srv,
+		strictValidation:   spec.StrictValidation,
+		stateServerEnvOnly: spec.StateServerEnvOnly,
+	}
+
+	var args apihttp.NewHandlerArgs
+	switch spec.AuthKind {
+	case names.UserTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedUser
+	case "":
+		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	default:
+		logger.Warningf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	}
+	return args
+}
+
+func (srv *Server) httpEndpoints() []apihttp.Endpoint {
+	// for pat based handlers, they are matched in-order of being
+	// registered, first match wins. So more specific ones have to be
+	// registered first.
+
+	endpoints := common.ResolveHTTPEndpoints(srv.newHandlerArgs)
+
+	// TODO(ericsnow) Add the rest to the registry.
+
+	add := func(pat string, handler http.Handler) {
+		// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"} {
+			endpoints = append(endpoints, apihttp.Endpoint{
+				Pattern: "/environment/:envuuid" + pat,
+				Method:  method,
+				Handler: handler,
+			})
+		}
+	}
+
+	httpCtxt := httpContext{
+		srv: srv,
+	}
+	srvDying := srv.tomb.Dying()
+
+	if feature.IsDbLogEnabled() {
+		add("/logsink",
+			newLogSinkHandler(httpCtxt, srv.logDir),
+		)
+		add("/log",
+			newDebugLogDBHandler(httpCtxt, srvDying),
+		)
+	} else {
+		add("/log",
+			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir),
+		)
+	}
+	add("/charms",
+		&charmsHandler{
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+		},
+	)
+	add("/tools",
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/tools/:version",
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.stateServerEnvOnly = true
+	add("/backups",
+		&backupHandler{
+			ctxt: strictCtxt,
+		},
+	)
+	add("/api",
+		http.HandlerFunc(srv.apiHandler),
+	)
+
+	add("/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+			state:   srv.state,
+		},
+	)
+
+	return endpoints
 }
 
 func (srv *Server) run(lis net.Listener) {
@@ -334,90 +432,11 @@ func (srv *Server) run(lis net.Listener) {
 		srv.wg.Done()
 	}()
 
-	// for pat based handlers, they are matched in-order of being
-	// registered, first match wins. So more specific ones have to be
-	// registered first.
 	mux := pat.New()
 
-	srvDying := srv.tomb.Dying()
-	httpCtxt := httpContext{
-		srv: srv,
+	for _, ep := range srv.httpEndpoints() {
+		registerEndpoint(ep, mux)
 	}
-
-	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
-		newResourceHandler(httpCtxt),
-	)
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpCtxt, srv.logDir))
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
-	handleAll(mux, "/environment/:envuuid/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir},
-	)
-	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
-	// where we only want to support specific request methods. However, our
-	// tests currently assert that errors come back as application/json and
-	// pat only does "text/plain" responses.
-	handleAll(mux, "/environment/:envuuid/tools",
-		&toolsUploadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/environment/:envuuid/tools/:version",
-		&toolsDownloadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	strictCtxt := httpCtxt
-	strictCtxt.strictValidation = true
-	strictCtxt.stateServerEnvOnly = true
-	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{
-			ctxt: strictCtxt,
-		},
-	)
-	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
-
-	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-			state:   srv.state,
-		},
-	)
-	// For backwards compatibility we register all the old paths
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
-
-	handleAll(mux, "/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-		},
-	)
-	handleAll(mux, "/tools",
-		&toolsUploadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/tools/:version",
-		&toolsDownloadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {
 		// The error from http.Serve is not interesting.
@@ -426,6 +445,23 @@ func (srv *Server) run(lis net.Listener) {
 
 	<-srv.tomb.Dying()
 	lis.Close()
+}
+
+func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
+	switch ep.Method {
+	case "GET":
+		mux.Get(ep.Pattern, ep.Handler)
+	case "POST":
+		mux.Post(ep.Pattern, ep.Handler)
+	case "HEAD":
+		mux.Head(ep.Pattern, ep.Handler)
+	case "PUT":
+		mux.Put(ep.Pattern, ep.Handler)
+	case "DEL":
+		mux.Del(ep.Pattern, ep.Handler)
+	case "OPTIONS":
+		mux.Options(ep.Pattern, ep.Handler)
+	}
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {

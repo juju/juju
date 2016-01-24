@@ -8,11 +8,13 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/state"
 )
 
@@ -307,4 +309,56 @@ func (f *FacadeRegistry) Discard(name string, version int) {
 			delete(f.facades, name)
 		}
 	}
+}
+
+// RegisterEnvHTTPHandler adds the handler spec to the global registry.
+// The pattern is modified to match the standard URL path for
+// environment-based API endpoints.
+func RegisterEnvHTTPHandler(pattern string, spec apihttp.HandlerSpec) error {
+	return httpEndpoints.register(pattern, "/environment/:envuuid", spec)
+}
+
+// ResolveHTTPEndpoints returns all the HTTP endpoints
+// in the global registry.
+func ResolveHTTPEndpoints(newArgs func(apihttp.HandlerConstraints) apihttp.NewHandlerArgs) []apihttp.Endpoint {
+	return httpEndpoints.resolve(newArgs)
+}
+
+// httpEndpoints is the global registry of HTTP handlers. It is consumed
+// in apiserver/apiserver.go.
+var httpEndpoints = httpEndpointRegistry{
+	endpoints: apihttp.NewEndpoints(),
+	methods:   []string{"GET", "POST", "PUT", "DEL", "HEAD", "OPTIONS"},
+}
+
+// httpEndpointRegistry is an ordered registry of HTTP endpoint specs.
+// The order in which handlers are registered is preserved.
+type httpEndpointRegistry struct {
+	endpoints apihttp.Endpoints
+	methods   []string
+}
+
+// register adds the provided handler spec to the registry
+// for the given URL path pattern.
+func (reg *httpEndpointRegistry) register(pattern, prefix string, hSpec apihttp.HandlerSpec) error {
+	pattern = apihttp.NormalizePath(pattern)
+	if prefix != "" && !strings.HasPrefix(pattern, prefix) {
+		pattern = prefix + pattern
+	}
+
+	spec, err := apihttp.NewEndpointSpec(pattern, hSpec)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := reg.endpoints.Add(spec); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// resolve returns the list of registered handler specs in the order
+// in which they were registered.
+func (reg *httpEndpointRegistry) resolve(newArgs func(apihttp.HandlerConstraints) apihttp.NewHandlerArgs) []apihttp.Endpoint {
+	return reg.endpoints.ResolveForMethods(reg.methods, newArgs)
 }

@@ -5,19 +5,23 @@ package all
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	"github.com/juju/juju/api"
+	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	commonhttp "github.com/juju/juju/apiserver/common/http"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
@@ -57,6 +61,17 @@ func (r resources) registerPublicFacade() {
 		server.Version,
 		r.newPublicFacade,
 	)
+
+	common.RegisterEnvHTTPHandler(
+		api.HTTPEndpointPattern,
+		commonhttp.HandlerSpec{
+			Constraints: commonhttp.HandlerConstraints{
+				AuthKind:         names.UserTagKind,
+				StrictValidation: true,
+			},
+			NewHandler: r.newHTTPHandler,
+		},
+	)
 }
 
 // newPublicFacade is passed into common.RegisterStandardFacade
@@ -73,6 +88,23 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 	}
 
 	return server.NewFacade(rst), nil
+}
+
+func (resources) newHTTPHandler(args commonhttp.NewHandlerArgs) http.Handler {
+	return server.NewLegacyHTTPHandler(
+		func(req *http.Request) (server.DataStore, names.Tag, error) {
+			st, entity, err := args.Connect(req)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+
+			rst, err := st.Resources()
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			return rst, entity.Tag(), nil
+		},
+	)
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
@@ -210,11 +242,7 @@ func (charmstoreClient) Close() error {
 	return nil
 }
 
-type apicommand interface {
-	NewAPIRoot() (api.Connection, error)
-}
-
-func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
+func (resources) newClient(newAPICaller func() (coreapi.Connection, error)) (*client.Client, error) {
 	apiCaller, err := newAPICaller()
 	if err != nil {
 		return nil, errors.Trace(err)

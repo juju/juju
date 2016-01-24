@@ -3,6 +3,12 @@
 
 package common
 
+import (
+	"github.com/juju/testing"
+
+	"github.com/juju/juju/apiserver/common/apihttp"
+)
+
 var (
 	MachineJobFromParams = machineJobFromParams
 	ValidateNewFacade    = validateNewFacade
@@ -28,4 +34,13 @@ type Versions versions
 
 func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
 	return descriptionFromVersions(name, versions(vers))
+}
+
+func SanitizeHTTPEndpointsRegistry(patch Patcher) {
+	emptyEndpoints := apihttp.NewEndpoints()
+	testing.PatchValue(&httpEndpoints.endpoints, emptyEndpoints)
+}
+
+func ExposeHTTPEndpointsRegistry() []apihttp.EndpointSpec {
+	return httpEndpoints.endpoints.Specs()
 }
