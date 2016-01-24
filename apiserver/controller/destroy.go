@@ -29,10 +29,10 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 	// environments but set the controller to dying to prevent new
 	// environments sneaking in. If we are not destroying hosted environments,
 	// this will fail if any hosted environments are found.
-	if args.DestroyEnvironments {
+	if args.DestroyModels {
 		return errors.Trace(common.DestroyEnvironmentIncludingHosted(s.state, systemTag))
 	}
-	if err = common.DestroyEnvironment(s.state, systemTag); state.IsHasHostedEnvironsError(err) {
+	if err = common.DestroyModel(s.state, systemTag); state.IsHasHostedEnvironsError(err) {
 		err = errors.New("controller model cannot be destroyed before all other models are destroyed")
 	}
 	return errors.Trace(err)

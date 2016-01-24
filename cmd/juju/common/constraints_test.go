@@ -40,7 +40,7 @@ func (f *fakeConstraintsClient) Close() error {
 	return nil
 }
 
-func (f *fakeConstraintsClient) GetEnvironmentConstraints() (constraints.Value, error) {
+func (f *fakeConstraintsClient) GetModelConstraints() (constraints.Value, error) {
 	return f.envCons, nil
 }
 
@@ -57,7 +57,7 @@ func (f *fakeConstraintsClient) GetServiceConstraints(name string) (constraints.
 	return cons, nil
 }
 
-func (f *fakeConstraintsClient) SetEnvironmentConstraints(cons constraints.Value) error {
+func (f *fakeConstraintsClient) SetModelConstraints(cons constraints.Value) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -125,7 +125,7 @@ func (s *ConstraintsCommandsSuite) SetUpTest(c *gc.C) {
 func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	// Set constraints.
 	s.assertSet(c, "mem=4G", "cpu-power=250")
-	cons, err := s.fake.GetEnvironmentConstraints()
+	cons, err := s.fake.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
@@ -134,7 +134,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 
 	// Clear constraints.
 	s.assertSet(c)
-	cons, err = s.fake.GetEnvironmentConstraints()
+	cons, err = s.fake.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
@@ -201,7 +201,7 @@ func (s *ConstraintsCommandsSuite) TestGetEnvironEmpty(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64)}
-	s.fake.SetEnvironmentConstraints(cons)
+	s.fake.SetModelConstraints(cons)
 	s.assertGet(c, "cpu-cores=64\n")
 }
 
@@ -218,7 +218,7 @@ func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestGetFormats(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64), CpuPower: uint64p(0)}
-	s.fake.SetEnvironmentConstraints(cons)
+	s.fake.SetModelConstraints(cons)
 	s.assertGet(c, "cpu-cores=64 cpu-power=\n", "--format", "constraints")
 	s.assertGet(c, "cpu-cores: 64\ncpu-power: 0\n", "--format", "yaml")
 	s.assertGet(c, `{"cpu-cores":64,"cpu-power":0}`+"\n", "--format", "json")

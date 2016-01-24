@@ -68,7 +68,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 		// When macaroon authentication is enabled, we must use
 		// an external user.
 		s.userTag = names.NewUserTag("bob@authhttpsuite")
-		s.AddEnvUser(c, s.userTag.Id())
+		s.AddModelUser(c, s.userTag.Id())
 	} else {
 		// Make a user in the state.
 		s.password = "password"

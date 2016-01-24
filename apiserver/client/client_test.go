@@ -133,40 +133,40 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	remoteUser1 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
 	remoteUser2 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
 
-	results, err := s.client.EnvUserInfo()
+	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	var expected params.EnvUserInfoResults
+	var expected params.ModelUserInfoResults
 	for _, r := range []struct {
 		user *state.EnvironmentUser
-		info *params.EnvUserInfo
+		info *params.ModelUserInfo
 	}{
 		{
 			owner,
-			&params.EnvUserInfo{
+			&params.ModelUserInfo{
 				UserName:    owner.UserName(),
 				DisplayName: owner.DisplayName(),
 			},
 		}, {
 			localUser1,
-			&params.EnvUserInfo{
+			&params.ModelUserInfo{
 				UserName:    "ralphdoe@local",
 				DisplayName: "Ralph Doe",
 			},
 		}, {
 			localUser2,
-			&params.EnvUserInfo{
+			&params.ModelUserInfo{
 				UserName:    "samsmith@local",
 				DisplayName: "Sam Smith",
 			},
 		}, {
 			remoteUser1,
-			&params.EnvUserInfo{
+			&params.ModelUserInfo{
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
 			},
 		}, {
 			remoteUser2,
-			&params.EnvUserInfo{
+			&params.ModelUserInfo{
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
 			},
@@ -175,7 +175,7 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 		r.info.CreatedBy = owner.UserName()
 		r.info.DateCreated = r.user.DateCreated()
 		r.info.LastConnection = lastConnPointer(c, r.user)
-		expected.Results = append(expected.Results, params.EnvUserInfoResult{Result: r.info})
+		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 
 	sort.Sort(ByUserName(expected.Results))
@@ -194,9 +194,9 @@ func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
 	return &lastConn
 }
 
-// ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
+// ByUserName implements sort.Interface for []params.ModelUserInfoResult based on
 // the UserName field.
-type ByUserName []params.EnvUserInfoResult
+type ByUserName []params.ModelUserInfoResult
 
 func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
@@ -211,13 +211,13 @@ func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *s
 }
 
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: names.NewLocalUserTag("foobar").String(),
-			Action:  params.AddEnvUser,
+			Action:  params.AddModelUser,
 		}}}
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not share model: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -230,13 +230,13 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	_, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: user.UserTag().String(),
-			Action:  params.RemoveEnvUser,
+			Action:  params.RemoveModelUser,
 		}}}
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -248,13 +248,13 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 
 func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 	user := names.NewUserTag("bob")
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: user.String(),
-			Action:  params.RemoveEnvUser,
+			Action:  params.RemoveModelUser,
 		}}}
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare model: env user "bob@local" does not exist: transaction aborted`)
 
@@ -267,13 +267,13 @@ func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 
 func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: user.Tag().String(),
-			Action:  params.AddEnvUser,
+			Action:  params.AddModelUser,
 		}}}
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -290,13 +290,13 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 
 func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	user := names.NewUserTag("foobar@ubuntuone")
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: user.String(),
-			Action:  params.AddEnvUser,
+			Action:  params.AddModelUser,
 		}}}
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -313,16 +313,16 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 
 func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: user.Tag().String(),
-			Action:  params.AddEnvUser,
+			Action:  params.AddModelUser,
 		}}}
 
-	_, err := s.client.ShareEnvironment(args)
+	_, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -389,14 +389,14 @@ func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
 			expectedErr = errPart + `tag`
 		}
 
-		args := params.ModifyEnvironUsers{
-			Changes: []params.ModifyEnvironUser{{
+		args := params.ModifyModelUsers{
+			Changes: []params.ModifyModelUser{{
 				UserTag: testParam.tag,
-				Action:  params.AddEnvUser,
+				Action:  params.AddModelUser,
 			}}}
 
-		_, err := s.client.ShareEnvironment(args)
-		result, err := s.client.ShareEnvironment(args)
+		_, err := s.client.ShareModel(args)
+		result, err := s.client.ShareModel(args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 		c.Assert(result.Results, gc.HasLen, 1)
@@ -405,10 +405,10 @@ func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
 }
 
 func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
-	args := params.ModifyEnvironUsers{Changes: []params.ModifyEnvironUser{{}}}
+	args := params.ModifyModelUsers{Changes: []params.ModifyModelUser{{}}}
 
-	_, err := s.client.ShareEnvironment(args)
-	result, err := s.client.ShareEnvironment(args)
+	_, err := s.client.ShareModel(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not share model: "" is not a valid tag`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -417,15 +417,15 @@ func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
 }
 
 func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
-	var dance params.EnvironAction = "dance"
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
+	var dance params.ModelAction = "dance"
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
 			UserTag: "user-user@local",
 			Action:  dance,
 		}}}
 
-	_, err := s.client.ShareEnvironment(args)
-	result, err := s.client.ShareEnvironment(args)
+	_, err := s.client.ShareModel(args)
+	result, err := s.client.ShareModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -434,10 +434,10 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 }
 
 func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
-	args := params.SetEnvironAgentVersion{
+	args := params.SetControllerAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetEnvironAgentVersion(args)
+	err := s.client.SetControllerAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -463,10 +463,10 @@ func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr 
 	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
 		return env, nil
 	})
-	args := params.SetEnvironAgentVersion{
+	args := params.SetControllerAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetEnvironAgentVersion(args)
+	err := s.client.SetControllerAgentVersion(args)
 	c.Assert(env.allInstancesCalled, jc.IsTrue)
 	if expectErr != "" {
 		c.Assert(err, gc.ErrorMatches, expectErr)
@@ -486,10 +486,10 @@ func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
-	args := params.SetEnvironAgentVersion{
+	args := params.SetControllerAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetEnvironAgentVersion(args)
+	err := s.client.SetControllerAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,10 +499,10 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
-	args := params.SetEnvironAgentVersion{
+	args := params.SetControllerAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetEnvironAgentVersion(args)
+	err := s.client.SetControllerAgentVersion(args)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1071,7 +1071,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 
 func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	conf, _ := s.State.EnvironConfig()
-	info, err := s.APIState.Client().EnvironmentInfo()
+	info, err := s.APIState.Client().ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1824,7 +1824,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:                 s.State.EnvironUUID(),
+			ModelUUID:               s.State.EnvironUUID(),
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
@@ -1919,7 +1919,7 @@ func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -1932,7 +1932,7 @@ func (s *clientSuite) assertSetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
 	obtained, err := s.State.EnvironConstraints()
@@ -1944,7 +1944,7 @@ func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, msg string
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	err = s.APIState.Client().SetModelConstraints(cons)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1971,7 +1971,7 @@ func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
-	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
+	obtained, err := s.APIState.Client().GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
@@ -2077,7 +2077,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 func (s *serverSuite) TestClientEnvironmentGet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.client.EnvironmentGet()
+	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, gc.DeepEquals, envConfig.AllAttrs())
 }
@@ -2103,12 +2103,12 @@ func (s *serverSuite) TestClientEnvironmentSet(c *gc.C) {
 	_, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
 
-	params := params.EnvironmentSet{
+	params := params.ModelSet{
 		Config: map[string]interface{}{
 			"some-key":  "value",
 			"other-key": "other value"},
 	}
-	err = s.client.EnvironmentSet(params)
+	err = s.client.ModelSet(params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValue(c, "some-key", "value")
 	s.assertEnvValue(c, "other-key", "other value")
@@ -2117,15 +2117,15 @@ func (s *serverSuite) TestClientEnvironmentSet(c *gc.C) {
 func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
 	// The various immutable config values are tested in
 	// environs/config/config_test.go, so just choosing one here.
-	params := params.EnvironmentSet{
+	params := params.ModelSet{
 		Config: map[string]interface{}{"state-port": "1"},
 	}
-	err := s.client.EnvironmentSet(params)
+	err := s.client.ModelSet(params)
 	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
 }
 
 func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
-	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
+	err := s.client.ModelSet(params.ModelSet{args})
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -2141,28 +2141,28 @@ func (s *serverSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
 	url := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(url, gc.Equals, "")
 
-	args := params.EnvironmentSet{
+	args := params.ModelSet{
 		Config: map[string]interface{}{"tools-metadata-url": "value"},
 	}
-	err = s.client.EnvironmentSet(args)
+	err = s.client.ModelSet(args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValue(c, "agent-metadata-url", "value")
 	s.assertEnvValue(c, "tools-metadata-url", "value")
 }
 
 func (s *serverSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
-	args := params.EnvironmentSet{
+	args := params.ModelSet{
 		map[string]interface{}{"agent-version": "9.9.9"},
 	}
-	err := s.client.EnvironmentSet(args)
+	err := s.client.ModelSet(args)
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
 
 	// It's okay to pass env back with the same agent-version.
-	result, err := s.client.EnvironmentGet()
+	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["agent-version"], gc.NotNil)
 	args.Config["agent-version"] = result.Config["agent-version"]
-	err = s.client.EnvironmentSet(args)
+	err = s.client.ModelSet(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2170,8 +2170,8 @@ func (s *serverSuite) TestClientEnvironmentUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.EnvironmentUnset{[]string{"abc"}}
-	err = s.client.EnvironmentUnset(args)
+	args := params.ModelUnset{[]string{"abc"}}
+	err = s.client.ModelUnset(args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValueMissing(c, "abc")
 }
@@ -2181,15 +2181,15 @@ func (s *serverSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.BlockAllChanges(c, "TestBlockClientEnvironmentUnset")
 
-	args := params.EnvironmentUnset{[]string{"abc"}}
-	err = s.client.EnvironmentUnset(args)
+	args := params.ModelUnset{[]string{"abc"}}
+	err = s.client.ModelUnset(args)
 	s.AssertBlocked(c, err, "TestBlockClientEnvironmentUnset")
 }
 
 func (s *serverSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
-	args := params.EnvironmentUnset{[]string{"not_there"}}
-	err := s.client.EnvironmentUnset(args)
+	args := params.ModelUnset{[]string{"not_there"}}
+	err := s.client.ModelUnset(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2200,8 +2200,8 @@ func (s *serverSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	// "type" may not be removed, and this will cause an error.
 	// If any one attribute's removal causes an error, there
 	// should be no change.
-	args := params.EnvironmentUnset{[]string{"abc", "type"}}
-	err = s.client.EnvironmentUnset(args)
+	args := params.ModelUnset{[]string{"abc", "type"}}
+	err = s.client.ModelUnset(args)
 	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
 	s.assertEnvValue(c, "abc", 123)
 }
@@ -3061,10 +3061,10 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 }
 
 func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	// The full tests for DestroyEnvironment are in environmentmanager.
+	// The full tests for DestroyModel are in environmentmanager.
 	// Here we just test that things are hooked up such that we can destroy
 	// the environment through the client endpoint to support older juju clients.
-	err := s.APIState.Client().DestroyEnvironment()
+	err := s.APIState.Client().DestroyModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := s.State.Environment()

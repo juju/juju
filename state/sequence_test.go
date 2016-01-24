@@ -79,6 +79,6 @@ func (s *sequenceSuite) checkDoc(c *gc.C, envUUID, name string, value int) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc["_id"], gc.Equals, docID)
 	c.Check(doc["name"], gc.Equals, name)
-	c.Check(doc["env-uuid"], gc.Equals, envUUID)
+	c.Check(doc["model-uuid"], gc.Equals, envUUID)
 	c.Check(doc["counter"], gc.Equals, value)
 }

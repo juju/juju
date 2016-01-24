@@ -229,7 +229,7 @@ func (s *imageSuite) downloadRequest(c *gc.C, url *url.URL) *http.Response {
 func (s *imageSuite) storeFakeImage(c *gc.C, st *state.State, kind, series, arch string) {
 	storage := st.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		EnvUUID:   st.EnvironUUID(),
+		ModelUUID: st.EnvironUUID(),
 		Kind:      kind,
 		Series:    series,
 		Arch:      arch,

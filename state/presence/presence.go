@@ -54,7 +54,7 @@ func docIDStr(envUUID string, localID string) string {
 // {
 //   "_id":   <environ UUID>:<time slot>,
 //   "slot": <slot>,
-//   "env-uuid": <environ UUID>,
+//   "model-uuid": <environ UUID>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
@@ -337,10 +337,10 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	DocID   string `bson:"_id,omitempty"`
-	Seq     int64  `bson:"seq,omitempty"`
-	EnvUUID string `bson:"env-uuid,omitempty"`
-	Key     string `bson:"key,omitempty"`
+	DocID     string `bson:"_id,omitempty"`
+	Seq       int64  `bson:"seq,omitempty"`
+	ModelUUID string `bson:"model-uuid,omitempty"`
+	Key       string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
@@ -356,7 +356,7 @@ func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	defer session.Close()
 	beingsC := w.beings.With(session)
 
-	err := beingsC.Find(bson.D{{"env-uuid", w.envUUID}}).All(&beings)
+	err := beingsC.Find(bson.D{{"model-uuid", w.envUUID}}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
@@ -657,10 +657,10 @@ func (p *Pinger) prepare() error {
 	beings := beingsC(base)
 	return errors.Trace(beings.Insert(
 		beingInfo{
-			DocID:   docIDInt64(p.envUUID, p.beingSeq),
-			Seq:     p.beingSeq,
-			EnvUUID: p.envUUID,
-			Key:     p.beingKey,
+			DocID:     docIDInt64(p.envUUID, p.beingSeq),
+			Seq:       p.beingSeq,
+			ModelUUID: p.envUUID,
+			Key:       p.beingKey,
 		},
 	))
 }

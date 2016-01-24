@@ -45,7 +45,7 @@ Continue [y/N]? `[1:]
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyEnvironmentAPI interface {
 	Close() error
-	DestroyEnvironment() error
+	DestroyModel() error
 }
 
 // Info implements Command.Info.
@@ -119,7 +119,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Attempt to destroy the environment.
-	err = api.DestroyEnvironment()
+	err = api.DestroyModel()
 	if err != nil {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"))
 	}

@@ -32,9 +32,9 @@ const (
 
 // rebootDoc will hold the reboot flag for a machine.
 type rebootDoc struct {
-	DocID   string `bson:"_id"`
-	Id      string `bson:"machineid"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	Id        string `bson:"machineid"`
+	ModelUUID string `bson:"model-uuid"`
 }
 
 func (m *Machine) setFlag() error {

@@ -144,7 +144,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Id:     environGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{
-				EnvUUID: st.EnvironUUID(),
+				ModelUUID: st.EnvironUUID(),
 			},
 		},
 		txn.Op{

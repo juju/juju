@@ -174,7 +174,7 @@ func (c *EnvCommandBase) Config(store configstore.Storage, client EnvironmentGet
 		defer client.Close()
 	}
 
-	bootstrapCfg, err := client.EnvironmentGet()
+	bootstrapCfg, err := client.ModelGet()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -425,7 +425,7 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 }
 
 type EnvironmentGetter interface {
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -433,7 +433,7 @@ type EnvironmentGetter interface {
 // value from an API client.
 func GetEnvironmentVersion(client EnvironmentGetter) (version.Number, error) {
 	noVersion := version.Number{}
-	attrs, err := client.EnvironmentGet()
+	attrs, err := client.ModelGet()
 	if err != nil {
 		return noVersion, errors.Annotate(err, "unable to retrieve model config")
 	}

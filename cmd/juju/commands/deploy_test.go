@@ -543,7 +543,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 
 	// override provider type
 	s.PatchValue(&service.GetClientConfig, func(client service.ServiceAddUnitAPI) (*config.Config, error) {
-		attrs, err := client.EnvironmentGet()
+		attrs, err := client.ModelGet()
 		if err != nil {
 			return nil, err
 		}
@@ -958,10 +958,10 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	envuuid, _ := s.Environ.Config().UUID()
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: envuuid,
-			CharmURL:        "local:quantal/metered-1",
-			ServiceName:     "metered",
-			PlanURL:         "someplan",
+			ModelUUID:   envuuid,
+			CharmURL:    "local:quantal/metered-1",
+			ServiceName: "metered",
+			PlanURL:     "someplan",
 		}},
 	}})
 }
@@ -1001,10 +1001,10 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: envuuid,
-			CharmURL:        "local:quantal/metered-1",
-			ServiceName:     "metered",
-			PlanURL:         "thisplan",
+			ModelUUID:   envuuid,
+			CharmURL:    "local:quantal/metered-1",
+			ServiceName: "metered",
+			PlanURL:     "thisplan",
 		}},
 	}})
 }

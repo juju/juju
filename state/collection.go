@@ -51,13 +51,13 @@ func (c *envStateCollection) Writeable() mongo.WriteCollection {
 // Count returns the number of documents in the collection that belong
 // to the environment that the envStateCollection is filtering on.
 func (c *envStateCollection) Count() (int, error) {
-	return c.WriteCollection.Find(bson.D{{"env-uuid", c.envUUID}}).Count()
+	return c.WriteCollection.Find(bson.D{{"model-uuid", c.envUUID}}).Count()
 }
 
 // Find performs a query on the collection. The query must be given as
 // either nil or a bson.D.
 //
-// An "env-uuid" condition will always be added to the query to ensure
+// An "model-uuid" condition will always be added to the query to ensure
 // that only data for the environment being filtered on is returned.
 //
 // If a simple "_id" field selector is included in the query
@@ -82,8 +82,8 @@ func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 
 // Insert adds one or more documents to a collection. If the document
 // id is a string the environment UUID prefix will be automatically
-// added to it. The env-uuid field will also be automatically added if
-// it is missing. An error will be returned if an env-uuid field is
+// added to it. The model-uuid field will also be automatically added if
+// it is missing. An error will be returned if an model-uuid field is
 // provided but is the wrong value.
 func (c *envStateCollection) Insert(docs ...interface{}) error {
 	var mungedDocs []interface{}
@@ -100,7 +100,7 @@ func (c *envStateCollection) Insert(docs ...interface{}) error {
 // Update finds a single document matching the provided query document and
 // modifies it according to the update document.
 //
-// An "env-uuid" condition will always be added to the query to ensure
+// An "model-uuid" condition will always be added to the query to ensure
 // that only data for the environment being filtered on is returned.
 //
 // If a simple "_id" field selector is included in the query

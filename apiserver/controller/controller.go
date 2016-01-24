@@ -28,11 +28,11 @@ func init() {
 type Controller interface {
 	AllEnvironments() (params.UserEnvironmentList, error)
 	DestroyController(args params.DestroyControllerArgs) error
-	EnvironmentConfig() (params.EnvironmentConfigResults, error)
-	ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error)
+	EnvironmentConfig() (params.ModelConfigResults, error)
+	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllEnvs() (params.AllWatcherId, error)
-	EnvironmentStatus(req params.Entities) (params.EnvironmentStatusResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ControllerAPI implements the environment manager interface and is
@@ -98,7 +98,7 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 			return result, errors.Trace(err)
 		}
 		visibleEnvironments.Add(env.UUID())
-		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
+		result.UserEnvironments = append(result.UserEnvironments, params.UserModel{
 			Environment: params.Environment{
 				Name:     env.Name(),
 				UUID:     env.UUID(),
@@ -115,7 +115,7 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 
 	for _, env := range allEnvs {
 		if !visibleEnvironments.Contains(env.UUID()) {
-			result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
+			result.UserEnvironments = append(result.UserEnvironments, params.UserModel{
 				Environment: params.Environment{
 					Name:     env.Name(),
 					UUID:     env.UUID(),
@@ -132,12 +132,12 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 	return result, nil
 }
 
-// ListBlockedEnvironments returns a list of all environments on the controller
+// ListBlockedModels returns a list of all environments on the controller
 // which have a block in place.  The resulting slice is sorted by environment
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
-func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error) {
-	results := params.EnvironmentBlockInfoList{}
+func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
+	results := params.ModelBlockInfoList{}
 
 	blocks, err := s.state.AllBlocksForController()
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoLi
 
 	envBlocks := make(map[string][]string)
 	for _, block := range blocks {
-		uuid := block.EnvUUID()
+		uuid := block.ModelUUID()
 		types, ok := envBlocks[uuid]
 		if !ok {
 			types = []string{block.Type().String()}
@@ -162,7 +162,7 @@ func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoLi
 			logger.Debugf("Unable to get name for model: %s", uuid)
 			continue
 		}
-		results.Environments = append(results.Environments, params.EnvironmentBlockInfo{
+		results.Models = append(results.Models, params.ModelBlockInfo{
 			UUID:     envInfo.UUID(),
 			Name:     envInfo.Name(),
 			OwnerTag: envInfo.Owner().String(),
@@ -171,16 +171,16 @@ func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoLi
 	}
 
 	// Sort the resulting sequence by environment name, then owner.
-	sort.Sort(orderedBlockInfo(results.Environments))
+	sort.Sort(orderedBlockInfo(results.Models))
 
 	return results, nil
 }
 
 // EnvironmentConfig returns the environment config for the controller
 // environment.  For information on the current environment, use
-// client.EnvironmentGet
-func (s *ControllerAPI) EnvironmentConfig() (params.EnvironmentConfigResults, error) {
-	result := params.EnvironmentConfigResults{}
+// client.ModelGet
+func (s *ControllerAPI) EnvironmentConfig() (params.ModelConfigResults, error) {
+	result := params.ModelConfigResults{}
 
 	stateServerEnv, err := s.state.ControllerEnvironment()
 	if err != nil {
@@ -214,7 +214,7 @@ func (c *ControllerAPI) WatchAllEnvs() (params.AllWatcherId, error) {
 	}, nil
 }
 
-type orderedBlockInfo []params.EnvironmentBlockInfo
+type orderedBlockInfo []params.ModelBlockInfo
 
 func (o orderedBlockInfo) Len() int {
 	return len(o)
@@ -241,11 +241,11 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 	return false
 }
 
-// EnvironmentStatus returns a summary of the environment.
-func (c *ControllerAPI) EnvironmentStatus(req params.Entities) (params.EnvironmentStatusResults, error) {
+// ModelStatus returns a summary of the environment.
+func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
 	envs := req.Entities
-	results := params.EnvironmentStatusResults{}
-	status := make([]params.EnvironmentStatus, len(envs))
+	results := params.ModelStatusResults{}
+	status := make([]params.ModelStatus, len(envs))
 	for i, env := range envs {
 		envStatus, err := c.environStatus(env.Tag)
 		if err != nil {
@@ -257,8 +257,8 @@ func (c *ControllerAPI) EnvironmentStatus(req params.Entities) (params.Environme
 	return results, nil
 }
 
-func (c *ControllerAPI) environStatus(tag string) (params.EnvironmentStatus, error) {
-	var status params.EnvironmentStatus
+func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
+	var status params.ModelStatus
 	envTag, err := names.ParseEnvironTag(tag)
 	if err != nil {
 		return status, errors.Trace(err)
@@ -294,8 +294,8 @@ func (c *ControllerAPI) environStatus(tag string) (params.EnvironmentStatus, err
 		return status, errors.Trace(err)
 	}
 
-	return params.EnvironmentStatus{
-		EnvironTag:         tag,
+	return params.ModelStatus{
+		ModelTag:           tag,
 		OwnerTag:           env.Owner().String(),
 		Life:               params.Life(env.Life().String()),
 		HostedMachineCount: len(hostedMachines),
@@ -307,7 +307,7 @@ func (o orderedBlockInfo) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
 }
 
-type orderedUserEnvironments []params.UserEnvironment
+type orderedUserEnvironments []params.UserModel
 
 func (o orderedUserEnvironments) Len() int {
 	return len(o)

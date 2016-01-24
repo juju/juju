@@ -29,7 +29,7 @@ func (m mockBlock) Type() state.BlockType { return m.t }
 
 func (m mockBlock) Message() string { return m.m }
 
-func (m mockBlock) EnvUUID() string { return "" }
+func (m mockBlock) ModelUUID() string { return "" }
 
 type blockCheckerSuite struct {
 	testing.FakeJujuHomeSuite

@@ -142,7 +142,7 @@ func (p PortRange) String() string {
 // portsDoc represents the state of ports opened on machines for networks
 type portsDoc struct {
 	DocID       string      `bson:"_id"`
-	EnvUUID     string      `bson:"env-uuid"`
+	ModelUUID   string      `bson:"model-uuid"`
 	MachineID   string      `bson:"machine-id"`
 	NetworkName string      `bson:"network-name"`
 	Ports       []PortRange `bson:"ports"`
@@ -537,7 +537,7 @@ func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) 
 			DocID:       st.docID(key),
 			MachineID:   machineId,
 			NetworkName: networkName,
-			EnvUUID:     st.EnvironUUID(),
+			ModelUUID:   st.EnvironUUID(),
 		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {

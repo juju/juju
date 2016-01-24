@@ -55,14 +55,14 @@ See Also:
 // the environments command calls.
 type EnvironmentsEnvAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]base.UserEnvironment, error)
+	ListEnvironments(user string) ([]base.UserModel, error)
 }
 
 // EnvironmentsSysAPI defines the methods on the controller manager API that the
 // environments command calls.
 type EnvironmentsSysAPI interface {
 	Close() error
-	AllEnvironments() ([]base.UserEnvironment, error)
+	AllEnvironments() ([]base.UserModel, error)
 }
 
 // Info implements Command.Info
@@ -109,9 +109,9 @@ func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Local structure that controls the output structure.
-type UserEnvironment struct {
+type UserModel struct {
 	Name           string `json:"name"`
-	UUID           string `json:"env-uuid" yaml:"env-uuid"`
+	UUID           string `json:"model-uuid" yaml:"model-uuid"`
 	Owner          string `json:"owner"`
 	LastConnection string `json:"last-connection" yaml:"last-connection"`
 }
@@ -126,7 +126,7 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 		c.user = creds.User
 	}
 
-	var envs []base.UserEnvironment
+	var envs []base.UserModel
 	var err error
 	if c.all {
 		envs, err = c.getAllEnvironments()
@@ -137,10 +137,10 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	output := make([]UserEnvironment, len(envs))
+	output := make([]UserModel, len(envs))
 	now := time.Now()
 	for i, env := range envs {
-		output[i] = UserEnvironment{
+		output[i] = UserModel{
 			Name:           env.Name,
 			UUID:           env.UUID,
 			Owner:          env.Owner,
@@ -151,7 +151,7 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, output)
 }
 
-func (c *environmentsCommand) getAllEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getAllEnvironments() ([]base.UserModel, error) {
 	client, err := c.getSysAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -160,7 +160,7 @@ func (c *environmentsCommand) getAllEnvironments() ([]base.UserEnvironment, erro
 	return client.AllEnvironments()
 }
 
-func (c *environmentsCommand) getUserEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getUserEnvironments() ([]base.UserModel, error) {
 	client, err := c.getEnvAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -171,7 +171,7 @@ func (c *environmentsCommand) getUserEnvironments() ([]base.UserEnvironment, err
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]UserEnvironment)
+	envs, ok := value.([]UserModel)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}

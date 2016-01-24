@@ -194,7 +194,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
 		info := deltas[0].Entity.(*multiwatcher.MachineInfo)
-		c.Assert(info.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		c.Assert(info.ModelUUID, gc.Equals, s.State.EnvironUUID())
 		c.Assert(info.Id, gc.Equals, m.Id())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
@@ -234,11 +234,11 @@ func (s *StateSuite) TestWatchAllEnvs(c *gc.C) {
 		case deltas := <-deltasC:
 			for _, delta := range deltas {
 				switch e := delta.Entity.(type) {
-				case *multiwatcher.EnvironmentInfo:
-					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+				case *multiwatcher.ModelInfo:
+					c.Assert(e.ModelUUID, gc.Equals, s.State.EnvironUUID())
 					envSeen = true
 				case *multiwatcher.MachineInfo:
-					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+					c.Assert(e.ModelUUID, gc.Equals, s.State.EnvironUUID())
 					c.Assert(e.Id, gc.Equals, m.Id())
 					machineSeen = true
 				}
@@ -2818,15 +2818,15 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 			defer closer()
 
 			err := coll.Insert(bson.M{
-				"_id":      state.DocID(st, "arbitraryid"),
-				"env-uuid": st.EnvironUUID(),
+				"_id":        state.DocID(st, "arbitraryid"),
+				"model-uuid": st.EnvironUUID(),
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			ops = append(ops, mgotxn.Op{
 				C:      collName,
 				Id:     state.DocID(st, "arbitraryid"),
-				Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+				Insert: bson.M{"model-uuid": st.EnvironUUID()}})
 		}
 	}
 	err := state.RunTransaction(st, ops)
@@ -2836,7 +2836,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	for _, collName := range state.MultiEnvCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
-		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		n, err := coll.Find(bson.D{{"model-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
@@ -2866,7 +2866,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	for _, collName := range state.MultiEnvCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
-		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		n, err := coll.Find(bson.D{{"model-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
 	}
@@ -3609,7 +3609,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
-	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3636,7 +3636,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
-	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3650,7 +3650,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	}
 
 	// Verify only the units are reported as error.
-	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3705,7 +3705,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
-	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6")
 }
@@ -3721,7 +3721,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	}).Check()
 
 	// Change the agent-version and verify.
-	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6")
 }
@@ -3739,17 +3739,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	lower := version.MustParseBinary("1.24.6-trusty-amd64")
 
 	// Set other environ version to < server environ version
-	err := otherSt.SetEnvironAgentVersion(lower.Number)
+	err := otherSt.SetControllerAgentVersion(lower.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetEnvironAgentVersion(version.Current)
+	err = otherSt.SetControllerAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, version.Current.String())
 
 	// Set other environ version to > server environ version
-	err = otherSt.SetEnvironAgentVersion(higher.Number)
+	err = otherSt.SetControllerAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
 		version.Current,
@@ -3768,7 +3768,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
-	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetControllerAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion)
@@ -3795,7 +3795,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetEnvironAgentVersion(nextVersion)
+	err = s.State.SetControllerAgentVersion(nextVersion)
 	c.Assert(errors.Cause(err), gc.Equals, state.UpgradeInProgressError)
 	c.Assert(err, gc.ErrorMatches,
 		"an upgrade is already in progress or the last upgrade did not complete")
@@ -3804,7 +3804,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
 func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	// Ensure that the correct error is reported if an upgrade is
 	// progress but that isn't the reason for the
-	// SetEnvironAgentVersion call failing.
+	// SetControllerAgentVersion call failing.
 
 	// Get the agent-version set in the environment.
 	envConfig, err := s.State.EnvironConfig()
@@ -3826,7 +3826,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetEnvironAgentVersion(nextVersion)
+	err = s.State.SetControllerAgentVersion(nextVersion)
 	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 
@@ -3872,7 +3872,7 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 func (s *StateSuite) TestStateServerInfoWithPreMigrationDoc(c *gc.C) {
 	err := s.stateServers.Update(
 		nil,
-		bson.D{{"$unset", bson.D{{"env-uuid", 1}}}},
+		bson.D{{"$unset", bson.D{{"model-uuid", 1}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

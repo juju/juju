@@ -21,8 +21,8 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
-	// EnvUUID returns the environment UUID associated with this block.
-	EnvUUID() string
+	// ModelUUID returns the environment UUID associated with this block.
+	ModelUUID() string
 
 	// Tag returns tag for the entity that is being blocked
 	Tag() (names.Tag, error)
@@ -94,11 +94,11 @@ type block struct {
 
 // blockDoc records information about an environment block.
 type blockDoc struct {
-	DocID   string    `bson:"_id"`
-	EnvUUID string    `bson:"env-uuid"`
-	Tag     string    `bson:"tag"`
-	Type    BlockType `bson:"type"`
-	Message string    `bson:"message,omitempty"`
+	DocID     string    `bson:"_id"`
+	ModelUUID string    `bson:"model-uuid"`
+	Tag       string    `bson:"tag"`
+	Type      BlockType `bson:"type"`
+	Message   string    `bson:"message,omitempty"`
 }
 
 // Id is part of the state.Block interface.
@@ -106,9 +106,9 @@ func (b *block) Id() string {
 	return b.doc.DocID
 }
 
-// EnvUUID is part of the state.Block interface.
-func (b *block) EnvUUID() string {
-	return b.doc.EnvUUID
+// ModelUUID is part of the state.Block interface.
+func (b *block) ModelUUID() string {
+	return b.doc.ModelUUID
 }
 
 // Message is part of the state.Block interface.
@@ -257,11 +257,11 @@ func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, er
 		return nil, errors.Annotatef(err, "getting new block id")
 	}
 	newDoc := blockDoc{
-		DocID:   st.docID(id),
-		EnvUUID: st.EnvironUUID(),
-		Tag:     st.EnvironTag().String(),
-		Type:    t,
-		Message: msg,
+		DocID:     st.docID(id),
+		ModelUUID: st.EnvironUUID(),
+		Tag:       st.EnvironTag().String(),
+		Type:      t,
+		Message:   msg,
 	}
 	insertOp := txn.Op{
 		C:      blocksC,

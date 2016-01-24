@@ -36,7 +36,7 @@ type Client struct {
 	st     *state
 }
 
-// Status returns the status of the juju environment.
+// Status returns the status of the juju model.
 func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	var result params.FullStatus
 	p := params.StatusParams{Patterns: patterns}
@@ -297,10 +297,10 @@ func (c *Client) GetServiceConstraints(service string) (constraints.Value, error
 	return results.Constraints, err
 }
 
-// GetEnvironmentConstraints returns the constraints for the environment.
-func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
+// GetModelConstraints returns the constraints for the model.
+func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetEnvironmentConstraints", nil, results)
+	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
 	return results.Constraints, err
 }
 
@@ -313,12 +313,12 @@ func (c *Client) SetServiceConstraints(service string, constraints constraints.V
 	return c.facade.FacadeCall("SetServiceConstraints", params, nil)
 }
 
-// SetEnvironmentConstraints specifies the constraints for the environment.
-func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+// SetModelConstraints specifies the constraints for the model.
+func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	params := params.SetConstraints{
 		Constraints: constraints,
 	}
-	return c.facade.FacadeCall("SetEnvironmentConstraints", params, nil)
+	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -340,37 +340,37 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
-// EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
-	var info params.EnvironmentInfo
-	err := c.facade.FacadeCall("EnvironmentInfo", nil, &info)
+// ModelInfo returns details about the Juju model.
+func (c *Client) ModelInfo() (params.ModelInfo, error) {
+	var info params.ModelInfo
+	err := c.facade.FacadeCall("ModelInfo", nil, &info)
 	return info, err
 }
 
-// EnvironmentUUID returns the environment UUID from the client connection.
-func (c *Client) EnvironmentUUID() string {
+// ModelUUID returns the environment UUID from the client connection.
+func (c *Client) ModelUUID() string {
 	tag, err := c.st.EnvironTag()
 	if err != nil {
-		logger.Warningf("environ tag not an environ: %v", err)
+		logger.Warningf("model tag not an model: %v", err)
 		return ""
 	}
 	return tag.Id()
 }
 
-// ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users ...names.UserTag) error {
-	var args params.ModifyEnvironUsers
+// ShareModel allows the given users access to the model.
+func (c *Client) ShareModel(users ...names.UserTag) error {
+	var args params.ModifyModelUsers
 	for _, user := range users {
 		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+			args.Changes = append(args.Changes, params.ModifyModelUser{
 				UserTag: user.String(),
-				Action:  params.AddEnvUser,
+				Action:  params.AddModelUser,
 			})
 		}
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	err := c.facade.FacadeCall("ShareModel", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -384,15 +384,15 @@ func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 	return result.Combine()
 }
 
-// EnvironmentUserInfo returns information on all users in the environment.
-func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
-	var results params.EnvUserInfoResults
-	err := c.facade.FacadeCall("EnvUserInfo", nil, &results)
+// ModelUserInfo returns information on all users in the model.
+func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
+	var results params.ModelUserInfoResults
+	err := c.facade.FacadeCall("ModelUserInfo", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info := []params.EnvUserInfo{}
+	info := []params.ModelUserInfo{}
 	for i, result := range results.Results {
 		if result.Result == nil {
 			return nil, errors.Errorf("unexpected nil result at position %d", i)
@@ -402,20 +402,20 @@ func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
 	return info, nil
 }
 
-// UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
-	var args params.ModifyEnvironUsers
+// UnshareModel removes access to the model for the given users.
+func (c *Client) UnshareModel(users ...names.UserTag) error {
+	var args params.ModifyModelUsers
 	for _, user := range users {
 		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+			args.Changes = append(args.Changes, params.ModifyModelUser{
 				UserTag: user.String(),
-				Action:  params.RemoveEnvUser,
+				Action:  params.RemoveModelUser,
 			})
 		}
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	err := c.facade.FacadeCall("ShareModel", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -472,30 +472,30 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
-// EnvironmentGet returns all environment settings.
-func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
-	result := params.EnvironmentConfigResults{}
-	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
+// ModelGet returns all model settings.
+func (c *Client) ModelGet() (map[string]interface{}, error) {
+	result := params.ModelConfigResults{}
+	err := c.facade.FacadeCall("ModelGet", nil, &result)
 	return result.Config, err
 }
 
-// EnvironmentSet sets the given key-value pairs in the environment.
-func (c *Client) EnvironmentSet(config map[string]interface{}) error {
-	args := params.EnvironmentSet{Config: config}
-	return c.facade.FacadeCall("EnvironmentSet", args, nil)
+// ModelSet sets the given key-value pairs in the model.
+func (c *Client) ModelSet(config map[string]interface{}) error {
+	args := params.ModelSet{Config: config}
+	return c.facade.FacadeCall("ModelSet", args, nil)
 }
 
-// EnvironmentUnset sets the given key-value pairs in the environment.
-func (c *Client) EnvironmentUnset(keys ...string) error {
-	args := params.EnvironmentUnset{Keys: keys}
-	return c.facade.FacadeCall("EnvironmentUnset", args, nil)
+// ModelUnset sets the given key-value pairs in the model.
+func (c *Client) ModelUnset(keys ...string) error {
+	args := params.ModelUnset{Keys: keys}
+	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
-// SetEnvironAgentVersion sets the environment agent-version setting
+// SetControllerAgentVersion sets the agent-version setting
 // to the given value.
-func (c *Client) SetEnvironAgentVersion(version version.Number) error {
-	args := params.SetEnvironAgentVersion{Version: version}
-	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
+func (c *Client) SetControllerAgentVersion(version version.Number) error {
+	args := params.SetControllerAgentVersion{Version: version}
+	return c.facade.FacadeCall("SetControllerAgentVersion", args, nil)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -533,12 +533,12 @@ func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 	return results.Results, err
 }
 
-// DestroyEnvironment puts the environment into a "dying" state,
-// and removes all non-manager machine instances. DestroyEnvironment
+// DestroyModel puts the model into a "dying" state,
+// and removes all non-manager machine instances. DestroyModel
 // will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroyEnvironment() error {
-	return c.facade.FacadeCall("DestroyEnvironment", nil, nil)
+func (c *Client) DestroyModel() error {
+	return c.facade.FacadeCall("DestroyModel", nil, nil)
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
@@ -597,7 +597,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
+// the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
 //

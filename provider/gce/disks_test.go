@@ -204,7 +204,7 @@ func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentEnvUUID(c *gc.C) {
 		Zone:        "home-zone",
 		Status:      google.StatusReady,
 		Size:        1024,
-		Description: "a-different-env-uuid",
+		Description: "a-different-model-uuid",
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
 	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}

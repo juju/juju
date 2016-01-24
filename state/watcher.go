@@ -2029,7 +2029,7 @@ func inCollectionOp(key string, ids ...string) bson.D {
 }
 
 // localIdInCollectionOp is a special form of inCollectionOp that just
-// converts id's to their env-uuid prefixed form.
+// converts id's to their model-uuid prefixed form.
 func localIdInCollectionOp(st *State, localIds ...string) bson.D {
 	ids := make([]string, len(localIds))
 	for i, id := range localIds {

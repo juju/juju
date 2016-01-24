@@ -361,7 +361,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 		} else {
 			lastConn = &userLastConn
 		}
-		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
+		result.UserEnvironments = append(result.UserEnvironments, params.UserModel{
 			Environment: params.Environment{
 				Name:     env.Name(),
 				UUID:     env.UUID(),

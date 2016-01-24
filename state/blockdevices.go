@@ -26,7 +26,7 @@ type BlockDevice interface {
 // blockDevicesDoc records information about a machine's block devices.
 type blockDevicesDoc struct {
 	DocID        string            `bson:"_id"`
-	EnvUUID      string            `bson:"env-uuid"`
+	ModelUUID    string            `bson:"model-uuid"`
 	Machine      string            `bson:"machineid"`
 	BlockDevices []BlockDeviceInfo `bson:"blockdevices"`
 }

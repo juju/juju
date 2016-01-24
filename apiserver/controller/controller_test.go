@@ -115,11 +115,11 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	list, err := s.controller.ListBlockedEnvironments()
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
+	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "dummymodel",
 			UUID:     s.State.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
@@ -128,7 +128,7 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 				"BlockChange",
 			},
 		},
-		params.EnvironmentBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "test",
 			UUID:     st.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
@@ -142,9 +142,9 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
-	list, err := s.controller.ListBlockedEnvironments()
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.Environments, gc.HasLen, 0)
+	c.Assert(list.Models, gc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
@@ -213,8 +213,8 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 		// Expect to see the initial environment be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
-		c.Assert(envInfo.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.EnvironUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
@@ -251,16 +251,16 @@ func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
 	}
-	results, err := s.controller.EnvironmentStatus(req)
+	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.EnvironmentStatus{{
-		EnvironTag:         controllerEnvTag,
+	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ServiceCount:       1,
 		OwnerTag:           "user-dummy-admin@local",
 		Life:               params.Alive,
 	}, {
-		EnvironTag:         hostedEnvTag,
+		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ServiceCount:       1,
 		OwnerTag:           otherEnvOwner.UserTag().String(),

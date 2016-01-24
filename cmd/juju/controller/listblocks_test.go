@@ -26,12 +26,12 @@ var _ = gc.Suite(&ListBlocksSuite{})
 // fakeListBlocksAPI mocks out the controller API
 type fakeListBlocksAPI struct {
 	err    error
-	blocks []params.EnvironmentBlockInfo
+	blocks []params.ModelBlockInfo
 }
 
 func (f *fakeListBlocksAPI) Close() error { return nil }
 
-func (f *fakeListBlocksAPI) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
+func (f *fakeListBlocksAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 	return f.blocks, f.err
 }
 
@@ -39,8 +39,8 @@ func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.apierror = nil
 	s.api = &fakeListBlocksAPI{
-		blocks: []params.EnvironmentBlockInfo{
-			params.EnvironmentBlockInfo{
+		blocks: []params.ModelBlockInfo{
+			params.ModelBlockInfo{
 				Name:     "test1",
 				UUID:     "test1-uuid",
 				OwnerTag: "cheryl@local",
@@ -48,7 +48,7 @@ func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
 					"BlockDestroy",
 				},
 			},
-			params.EnvironmentBlockInfo{
+			params.ModelBlockInfo{
 				Name:     "test2",
 				UUID:     "test2-uuid",
 				OwnerTag: "bob@local",
@@ -94,9 +94,9 @@ func (s *ListBlocksSuite) TestListBlocksJSON(c *gc.C) {
 	ctx, err := s.runListBlocksCommand(c, "--format", "json")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(ctx), gc.Equals, "["+
-		`{"name":"test1","env-uuid":"test1-uuid","owner-tag":"cheryl@local",`+
+		`{"name":"test1","model-uuid":"test1-uuid","owner-tag":"cheryl@local",`+
 		`"blocks":["BlockDestroy"]},`+
-		`{"name":"test2","env-uuid":"test2-uuid","owner-tag":"bob@local",`+
+		`{"name":"test2","model-uuid":"test2-uuid","owner-tag":"bob@local",`+
 		`"blocks":["BlockDestroy","BlockChange"]}`+
 		"]\n")
 }

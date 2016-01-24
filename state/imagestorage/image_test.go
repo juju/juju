@@ -91,7 +91,7 @@ func checkAllMetadata(c *gc.C, fromDb []*imagestorage.Metadata, metadata ...*ima
 func (s *ImageSuite) testAddImage(c *gc.C, content string) {
 	var r io.Reader = bytes.NewReader([]byte(content))
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",
@@ -131,7 +131,7 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 	checkMetadata(c, metadata, &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",
@@ -154,7 +154,7 @@ func (s *ImageSuite) TestAddImageRemovesExisting(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",
@@ -185,7 +185,7 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	storage := imagestorage.NewStorage(s.session, "my-uuid")
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",
@@ -216,12 +216,12 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
 	storage := imagestorage.NewStorage(s.session, "my-uuid")
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID: "my-uuid",
-		Kind:    "lxc",
-		Series:  "trusty",
-		Arch:    "amd64",
-		Size:    6,
-		SHA256:  "hash",
+		ModelUUID: "my-uuid",
+		Kind:      "lxc",
+		Series:    "trusty",
+		Arch:      "amd64",
+		Size:      6,
+		SHA256:    "hash",
 	}
 	err := storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.ErrorMatches, "cannot store image metadata: Run fails")
@@ -238,12 +238,12 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID: "my-uuid",
-		Kind:    "lxc",
-		Series:  "trusty",
-		Arch:    "amd64",
-		Size:    6,
-		SHA256:  "hash",
+		ModelUUID: "my-uuid",
+		Kind:      "lxc",
+		Series:    "trusty",
+		Arch:      "amd64",
+		Size:      6,
+		SHA256:    "hash",
 	}
 	err := storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.ErrorMatches, "cannot store image metadata: Run fails")
@@ -259,7 +259,7 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
 
 func (s *ImageSuite) TestAddImageSame(c *gc.C) {
 	metadata := &imagestorage.Metadata{
-		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path",
+		ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path",
 	}
 	for i := 0; i < 2; i++ {
 		err := s.storage.AddImage(strings.NewReader("0"), metadata)
@@ -288,10 +288,10 @@ func (s *ImageSuite) TestJustMetadataFails(c *gc.C) {
 
 func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	metadata0 := &imagestorage.Metadata{
-		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path",
+		ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path",
 	}
 	metadata1 := &imagestorage.Metadata{
-		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1", SourceURL: "http://path",
+		ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1", SourceURL: "http://path",
 	}
 
 	addMetadata := func() {
@@ -317,10 +317,10 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 
 func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 	metadata := []*imagestorage.Metadata{
-		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path"},
-		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1", SourceURL: "http://path"},
-		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "2", SourceURL: "http://path"},
-		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "3", SourceURL: "http://path"},
+		{ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0", SourceURL: "http://path"},
+		{ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1", SourceURL: "http://path"},
+		{ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "2", SourceURL: "http://path"},
+		{ModelUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "3", SourceURL: "http://path"},
 	}
 
 	i := 1
@@ -357,11 +357,11 @@ func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 	rc.Close()
 
 	metadata := &imagestorage.Metadata{
-		EnvUUID: "my-uuid",
-		Kind:    "lxc",
-		Series:  "trusty",
-		Arch:    "amd64",
-		SHA256:  "sha256",
+		ModelUUID: "my-uuid",
+		Kind:      "lxc",
+		Series:    "trusty",
+		Arch:      "amd64",
+		SHA256:    "sha256",
 	}
 	err = s.storage.DeleteImage(metadata)
 	c.Assert(err, gc.IsNil)
@@ -375,11 +375,11 @@ func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 
 func (s *ImageSuite) TestDeleteNotExistentImage(c *gc.C) {
 	metadata := &imagestorage.Metadata{
-		EnvUUID: "my-uuid",
-		Kind:    "lxc",
-		Series:  "trusty",
-		Arch:    "amd64",
-		SHA256:  "sha256",
+		ModelUUID: "my-uuid",
+		Kind:      "lxc",
+		Series:    "trusty",
+		Arch:      "amd64",
+		SHA256:    "sha256",
 	}
 	err := s.storage.DeleteImage(metadata)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -388,7 +388,7 @@ func (s *ImageSuite) TestDeleteNotExistentImage(c *gc.C) {
 func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int64, checksum, path, sourceURL string) {
 	doc := struct {
 		Id        string    `bson:"_id"`
-		EnvUUID   string    `bson:"envuuid"`
+		ModelUUID string    `bson:"envuuid"`
 		Kind      string    `bson:"kind"`
 		Series    string    `bson:"series"`
 		Arch      string    `bson:"arch"`
@@ -399,7 +399,7 @@ func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int
 		SourceURL string    `bson:"sourceurl"`
 	}{
 		Id:        fmt.Sprintf("my-uuid-%s-%s-%s", kind, series, arch),
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      kind,
 		Series:    series,
 		Arch:      arch,
@@ -427,7 +427,7 @@ func (s *ImageSuite) assertImage(c *gc.C, expected *imagestorage.Metadata, conte
 func (s *ImageSuite) createListImageMetadata(c *gc.C) []*imagestorage.Metadata {
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "images/lxc-trusty-amd64:sha256", "http://lxc-trusty-amd64")
 	metadataLxc := &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",
@@ -437,7 +437,7 @@ func (s *ImageSuite) createListImageMetadata(c *gc.C) []*imagestorage.Metadata {
 	}
 	s.addMetadataDoc(c, "kvm", "precise", "amd64", 4, "hash(abcd)", "images/kvm-precise-amd64:sha256", "http://kvm-precise-amd64")
 	metadataKvm := &imagestorage.Metadata{
-		EnvUUID:   "my-uuid",
+		ModelUUID: "my-uuid",
 		Kind:      "kvm",
 		Series:    "precise",
 		Arch:      "amd64",

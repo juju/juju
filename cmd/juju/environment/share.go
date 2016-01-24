@@ -77,7 +77,7 @@ func (c *shareCommand) getAPI() (ShareEnvironmentAPI, error) {
 // ShareEnvironmentAPI defines the API functions used by the environment share command.
 type ShareEnvironmentAPI interface {
 	Close() error
-	ShareEnvironment(...names.UserTag) error
+	ShareModel(...names.UserTag) error
 }
 
 func (c *shareCommand) Run(ctx *cmd.Context) error {
@@ -87,5 +87,5 @@ func (c *shareCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.ShareEnvironment(c.Users...), block.BlockChange)
+	return block.ProcessBlockedError(client.ShareModel(c.Users...), block.BlockChange)
 }

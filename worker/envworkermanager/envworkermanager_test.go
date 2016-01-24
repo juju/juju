@@ -278,7 +278,7 @@ func (s *suite) TestNothingHappensWhenUnknownEnvReported(c *gc.C) {
 	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
 
-	st.sendEnvChange("unknown-env-uuid")
+	st.sendEnvChange("unknown-model-uuid")
 	s.checkNoRunnersStart(c)
 
 	// Existing environment still works.

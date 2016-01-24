@@ -22,7 +22,7 @@ type attributes map[string]interface{}
 
 type setCommand struct {
 	envcmd.EnvCommandBase
-	api    SetEnvironmentAPI
+	api    SetModelAPI
 	values attributes
 }
 
@@ -61,13 +61,13 @@ func (c *setCommand) Init(args []string) (err error) {
 	return nil
 }
 
-type SetEnvironmentAPI interface {
+type SetModelAPI interface {
 	Close() error
-	EnvironmentGet() (map[string]interface{}, error)
-	EnvironmentSet(config map[string]interface{}) error
+	ModelGet() (map[string]interface{}, error)
+	ModelSet(config map[string]interface{}) error
 }
 
-func (c *setCommand) getAPI() (SetEnvironmentAPI, error) {
+func (c *setCommand) getAPI() (SetModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -82,7 +82,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	// extra call to the API to retrieve env config
-	envAttrs, err := client.EnvironmentGet()
+	envAttrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -95,5 +95,5 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(client.EnvironmentSet(c.values), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelSet(c.values), block.BlockChange)
 }

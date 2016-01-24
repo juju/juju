@@ -29,7 +29,7 @@ var _ = gc.Suite(&EnvironmentsSuite{})
 type fakeEnvMgrAPIClient struct {
 	err  error
 	user string
-	envs []base.UserEnvironment
+	envs []base.UserModel
 	all  bool
 }
 
@@ -37,7 +37,7 @@ func (f *fakeEnvMgrAPIClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]base.UserEnvironment, error) {
+func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]base.UserModel, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -46,7 +46,7 @@ func (f *fakeEnvMgrAPIClient) ListEnvironments(user string) ([]base.UserEnvironm
 	return f.envs, nil
 }
 
-func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserEnvironment, error) {
+func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserModel, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -63,7 +63,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	envs := []base.UserEnvironment{
+	envs := []base.UserModel{
 		{
 			Name:           "test-model1",
 			Owner:          "user-admin@local",

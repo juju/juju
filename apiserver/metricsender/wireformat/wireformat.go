@@ -15,7 +15,7 @@ import (
 // the metric collector
 type MetricBatch struct {
 	UUID        string    `json:"uuid"`
-	EnvUUID     string    `json:"env-uuid"`
+	ModelUUID   string    `json:"model-uuid"`
 	UnitName    string    `json:"unit-name"`
 	CharmUrl    string    `json:"charm-url"`
 	Created     time.Time `json:"created"`
@@ -43,7 +43,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 	}
 	return &MetricBatch{
 		UUID:        mb.UUID(),
-		EnvUUID:     mb.EnvUUID(),
+		ModelUUID:   mb.ModelUUID(),
 		UnitName:    mb.Unit(),
 		CharmUrl:    mb.CharmURL(),
 		Created:     mb.Created().UTC(),

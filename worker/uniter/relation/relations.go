@@ -294,7 +294,7 @@ func nextRelationHook(
 		}
 		// NOTE(axw) we use != and not > to cater due to the
 		// use of the relation settings document's txn-revno
-		// as the version. When env-uuid migration occurs, the
+		// as the version. When model-uuid migration occurs, the
 		// document is recreated, resetting txn-revno.
 		if remoteChangeVersion != localChangeVersion {
 			return hook.Info{

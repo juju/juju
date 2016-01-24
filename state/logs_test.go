@@ -44,8 +44,8 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	}
 	c.Assert(keys, jc.SameContents, []string{
 		"_id", // default index
-		"e-t", // env-uuid and timestamp
-		"e-n", // env-uuid and entity
+		"e-t", // model-uuid and timestamp
+		"e-n", // model-uuid and entity
 	})
 }
 
@@ -251,12 +251,12 @@ func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
 	good := logTemplate{Message: "good"}
 	writeLogs := func() {
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid0",
-			Message: "bad",
+			ModelUUID: "someuuid0",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid1",
-			Message: "bad",
+			ModelUUID: "someuuid1",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, good)
 	}
@@ -529,12 +529,12 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 }
 
 type logTemplate struct {
-	EnvUUID  string
-	Entity   names.Tag
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
+	ModelUUID string
+	Entity    names.Tag
+	Module    string
+	Location  string
+	Level     loggo.Level
+	Message   string
 }
 
 // writeLogs creates count log messages at the current time using
@@ -574,8 +574,8 @@ func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
-	if lt.EnvUUID == "" {
-		lt.EnvUUID = s.State.EnvironUUID()
+	if lt.ModelUUID == "" {
+		lt.ModelUUID = s.State.EnvironUUID()
 	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
@@ -597,7 +597,7 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface{} {
 	s.normaliseLogTemplate(&lt)
 	return state.MakeLogDoc(
-		lt.EnvUUID,
+		lt.ModelUUID,
 		lt.Entity,
 		t,
 		lt.Module,

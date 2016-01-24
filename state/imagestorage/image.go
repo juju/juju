@@ -97,7 +97,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 	newDoc := imageMetadataDoc{
 		Id:        docId(metadata),
-		EnvUUID:   s.envUUID,
+		ModelUUID: s.envUUID,
 		Kind:      metadata.Kind,
 		Series:    metadata.Series,
 		Arch:      metadata.Arch,
@@ -125,7 +125,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 			op.Assert = txn.DocMissing
 			op.Insert = &newDoc
 		} else {
-			oldDoc, err := s.imageMetadataDoc(metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
+			oldDoc, err := s.imageMetadataDoc(metadata.ModelUUID, metadata.Kind, metadata.Series, metadata.Arch)
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +170,7 @@ func (s *imageStorage) ListImages(filter ImageFilter) ([]*Metadata, error) {
 	result := make([]*Metadata, len(metadataDocs))
 	for i, metadataDoc := range metadataDocs {
 		result[i] = &Metadata{
-			EnvUUID:   s.envUUID,
+			ModelUUID: s.envUUID,
 			Kind:      metadataDoc.Kind,
 			Series:    metadataDoc.Series,
 			Arch:      metadataDoc.Arch,
@@ -235,7 +235,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		return nil, nil, err
 	}
 	metadata := &Metadata{
-		EnvUUID:   s.envUUID,
+		ModelUUID: s.envUUID,
 		Kind:      metadataDoc.Kind,
 		Series:    metadataDoc.Series,
 		Arch:      metadataDoc.Arch,
@@ -253,7 +253,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 
 type imageMetadataDoc struct {
 	Id        string    `bson:"_id"`
-	EnvUUID   string    `bson:"envuuid"`
+	ModelUUID string    `bson:"envuuid"`
 	Kind      string    `bson:"kind"`
 	Series    string    `bson:"series"`
 	Arch      string    `bson:"arch"`
@@ -308,5 +308,5 @@ func imagePath(kind, series, arch, checksum string) string {
 
 // docId returns an id for the mongo image metadata document.
 func docId(metadata *Metadata) string {
-	return fmt.Sprintf("%s-%s-%s-%s", metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
+	return fmt.Sprintf("%s-%s-%s-%s", metadata.ModelUUID, metadata.Kind, metadata.Series, metadata.Arch)
 }

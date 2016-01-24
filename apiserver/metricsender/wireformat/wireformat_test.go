@@ -37,7 +37,7 @@ func (s *WireFormatSuite) TestToWire(c *gc.C) {
 	}
 	expected := &wireformat.MetricBatch{
 		UUID:        metric.UUID(),
-		EnvUUID:     metric.EnvUUID(),
+		ModelUUID:   metric.ModelUUID(),
 		UnitName:    metric.Unit(),
 		CharmUrl:    metric.CharmURL(),
 		Created:     metric.Created().UTC(),
@@ -51,7 +51,7 @@ func (s *WireFormatSuite) TestAck(c *gc.C) {
 	resp := wireformat.EnvironmentResponses{}
 	c.Assert(resp, gc.HasLen, 0)
 
-	envUUID := "env-uuid"
+	envUUID := "model-uuid"
 	envUUID2 := "env-uuid2"
 	batchUUID := "batch-uuid"
 	batchUUID2 := "batch-uuid2"
@@ -69,7 +69,7 @@ func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
 	resp := wireformat.EnvironmentResponses{}
 	c.Assert(resp, gc.HasLen, 0)
 
-	envUUID := "env-uuid"
+	envUUID := "model-uuid"
 	envUUID2 := "env-uuid2"
 	unitName := "some-unit/0"
 	unitName2 := "some-unit/1"

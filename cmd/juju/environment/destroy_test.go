@@ -36,7 +36,7 @@ type fakeDestroyAPI struct {
 
 func (f *fakeDestroyAPI) Close() error { return nil }
 
-func (f *fakeDestroyAPI) DestroyEnvironment() error {
+func (f *fakeDestroyAPI) DestroyModel() error {
 	return f.err
 }
 

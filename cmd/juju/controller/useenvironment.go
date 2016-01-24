@@ -34,14 +34,14 @@ type useEnvironmentCommand struct {
 	LocalName string
 	Owner     string
 	EnvName   string
-	EnvUUID   string
+	ModelUUID string
 }
 
 // UseEnvironmentAPI defines the methods on the environment manager API that
 // the use environment command calls.
 type UseEnvironmentAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]base.UserEnvironment, error)
+	ListEnvironments(user string) ([]base.UserModel, error)
 }
 
 var useEnvDoc = `
@@ -155,7 +155,7 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 	// instead of a name. For now, we only accept a properly formatted UUID,
 	// which means one with dashes in the right place.
 	if names.IsValidEnvironment(c.EnvName) {
-		c.EnvUUID, c.EnvName = c.EnvName, ""
+		c.ModelUUID, c.EnvName = c.EnvName, ""
 	}
 
 	return cmd.CheckEmpty(args)
@@ -236,9 +236,9 @@ func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, e
 	return errors.Trace(info.Write())
 }
 
-func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserEnvironment, error) {
+func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserModel, error) {
 
-	var empty base.UserEnvironment
+	var empty base.UserModel
 
 	envs, err := client.ListEnvironments(creds.User)
 	if err != nil {
@@ -253,9 +253,9 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 
 	// If we have a UUID, we warn if the owner is different, but accept it.
 	// We also trust that the environment UUIDs are unique
-	if c.EnvUUID != "" {
+	if c.ModelUUID != "" {
 		for _, env := range envs {
-			if env.UUID == c.EnvUUID {
+			if env.UUID == c.ModelUUID {
 				if owner != "" && env.Owner != owner {
 					ctx.Infof("Specified model owned by %s, not %s", env.Owner, owner)
 				}
@@ -265,7 +265,7 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 		return empty, errors.NotFoundf("matching model")
 	}
 
-	var matches []base.UserEnvironment
+	var matches []base.UserModel
 	for _, env := range envs {
 		match := env.Name == c.EnvName
 		if match && owner != "" {

@@ -21,11 +21,11 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID    string `bson:"_id"`
-	EnvUUID  string `bson:"env-uuid"`
-	Life     Life   `bson:"life"`
-	Name     string `bson:"name"`
-	IsPublic bool   `bson:"is-public"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
+	Life      Life   `bson:"life"`
+	Name      string `bson:"name"`
+	IsPublic  bool   `bson:"is-public"`
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
@@ -78,11 +78,11 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
-		DocID:    spaceID,
-		EnvUUID:  st.EnvironUUID(),
-		Life:     Alive,
-		Name:     name,
-		IsPublic: isPublic,
+		DocID:     spaceID,
+		ModelUUID: st.EnvironUUID(),
+		Life:      Alive,
+		Name:      name,
+		IsPublic:  isPublic,
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 

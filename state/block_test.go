@@ -183,7 +183,7 @@ func (s *blockSuite) TestEnvUUID(c *gc.C) {
 	blocks, err := st.AllBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 1)
-	c.Assert(blocks[0].EnvUUID(), gc.Equals, st.EnvironUUID())
+	c.Assert(blocks[0].ModelUUID(), gc.Equals, st.EnvironUUID())
 }
 
 func (s *blockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {

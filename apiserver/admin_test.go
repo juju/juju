@@ -587,7 +587,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
+		err := st.APICall("Client", 0, "", "DestroyModel", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -615,7 +615,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
+		err = st.APICall("Client", 0, "", "DestroyModel", nil, nil)
 		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -927,11 +927,11 @@ func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expecte
 	// Look at what the api Client thinks it has.
 	client := st.Client()
 
-	// EnvironmentUUID looks at the env tag on the api state connection.
-	c.Assert(client.EnvironmentUUID(), gc.Equals, expected.Id())
+	// ModelUUID looks at the env tag on the api state connection.
+	c.Assert(client.ModelUUID(), gc.Equals, expected.Id())
 
-	// EnvironmentInfo calls a remote method that looks up the environment.
-	info, err := client.EnvironmentInfo()
+	// ModelInfo calls a remote method that looks up the environment.
+	info, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.UUID, gc.Equals, expected.Id())
 }
@@ -999,7 +999,7 @@ func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
-	s.AddEnvUser(c, "test@somewhere")
+	s.AddModelUser(c, "test@somewhere")
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}

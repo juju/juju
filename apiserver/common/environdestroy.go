@@ -16,7 +16,7 @@ var sendMetrics = func(st *state.State) error {
 	return errors.Trace(err)
 }
 
-// DestroyEnvironment sets the environment to dying. Cleanup jobs then destroy
+// DestroyModel sets the environment to dying. Cleanup jobs then destroy
 // all services and non-manager, non-manual machine instances in the specified
 // environment. This function assumes that all necessary authentication checks
 // have been done. If the environment is a controller hosting other
@@ -25,12 +25,12 @@ func DestroyEnvironmentIncludingHosted(st *state.State, environTag names.Environ
 	return destroyEnvironment(st, environTag, true)
 }
 
-// DestroyEnvironment sets the environment to dying. Cleanup jobs then destroy
+// DestroyModel sets the environment to dying. Cleanup jobs then destroy
 // all services and non-manager, non-manual machine instances in the specified
 // environment. This function assumes that all necessary authentication checks
 // have been done. An error will be returned if this environment is a
 // controller hosting other environments.
-func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
+func DestroyModel(st *state.State, environTag names.EnvironTag) error {
 	return destroyEnvironment(st, environTag, false)
 }
 

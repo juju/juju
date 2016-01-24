@@ -191,7 +191,7 @@ func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
 	envInfo, ok := cache.Environment["testing"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(envInfo.User, gc.Equals, "tester")
-	c.Assert(envInfo.EnvironmentUUID, gc.Equals, envUUID)
+	c.Assert(envInfo.ModelUUID, gc.Equals, envUUID)
 	c.Assert(envInfo.ServerUUID, gc.Equals, envUUID)
 	// Server entry also written.
 	srvInfo, ok := cache.Server["testing"]

@@ -258,11 +258,11 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
-		{"juju-env-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 		{"Name", "juju-sample-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
-		{"juju-env-uuid", "something-else"},
+		{"juju-model-uuid", "something-else"},
 		{"Name", "juju-sample-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
@@ -381,7 +381,7 @@ func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
 	s.assertCreateVolumes(c, vs, "")
 
 	// Only one volume created by assertCreateVolumes has
-	// the env-uuid tag with the expected value.
+	// the model-uuid tag with the expected value.
 	volIds, err := vs.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volIds, jc.SameContents, []string{"vol-0"})

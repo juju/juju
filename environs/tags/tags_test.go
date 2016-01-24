@@ -20,10 +20,10 @@ var _ = gc.Suite(&tagsSuite{})
 
 func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
 	testResourceTags(c, testing.EnvironmentTag, nil, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
+		"juju-model-uuid": testing.EnvironmentTag.Id(),
 	})
 	testResourceTags(c, names.NewEnvironTag(""), nil, map[string]string{
-		"juju-env-uuid": "",
+		"juju-model-uuid": "",
 	})
 }
 
@@ -51,10 +51,10 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
 			}, true
 		}),
 	}, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
-		"froman":        "egg",
-		"over":          "easy",
-		"extra":         "play",
+		"juju-model-uuid": testing.EnvironmentTag.Id(),
+		"froman":          "egg",
+		"over":            "easy",
+		"extra":           "play",
 	})
 }
 

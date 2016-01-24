@@ -37,7 +37,7 @@ func (f *fakeServiceAddUnitAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAddUnitAPI) EnvironmentUUID() string {
+func (f *fakeServiceAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
@@ -70,7 +70,7 @@ func (f *fakeServiceAddUnitAPI) AddServiceUnitsWithPlacement(service string, num
 	return nil, nil
 }
 
-func (f *fakeServiceAddUnitAPI) EnvironmentGet() (map[string]interface{}, error) {
+func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
 		"name": "dummy",

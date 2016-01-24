@@ -42,7 +42,7 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envs := []base.UserEnvironment{{
+	envs := []base.UserModel{{
 		Name:  "unique",
 		Owner: "tester@local",
 		UUID:  "some-uuid",
@@ -127,7 +127,7 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)
 			c.Check(command.EnvName, gc.Equals, test.envName)
-			c.Check(command.EnvUUID, gc.Equals, test.envUUID)
+			c.Check(command.ModelUUID, gc.Equals, test.envUUID)
 			c.Check(command.Owner, gc.Equals, test.owner)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)

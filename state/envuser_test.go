@@ -365,7 +365,7 @@ func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }
 
 // userUUIDOrder is used to sort the UserEnvironments into a stable order
-type userUUIDOrder []*state.UserEnvironment
+type userUUIDOrder []*state.UserModel
 
 func (a userUUIDOrder) Len() int           { return len(a) }
 func (a userUUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }

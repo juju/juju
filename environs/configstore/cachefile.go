@@ -44,9 +44,9 @@ type ServerData struct {
 // EnvironmentData represents a single environment running in a Juju
 // Environment Server.
 type EnvironmentData struct {
-	User            string `yaml:"user"`
-	EnvironmentUUID string `yaml:"env-uuid"`
-	ServerUUID      string `yaml:"server-uuid"`
+	User       string `yaml:"user"`
+	ModelUUID  string `yaml:"model-uuid"`
+	ServerUUID string `yaml:"server-uuid"`
 }
 
 // All synchronisation locking is expected to be done outside the
@@ -93,7 +93,7 @@ func (cache CacheFile) readInfo(envName string) (*environInfo, error) {
 			return nil, errors.Errorf("missing server data for model %q", envName)
 		}
 		info.user = envData.User
-		info.environmentUUID = envData.EnvironmentUUID
+		info.environmentUUID = envData.ModelUUID
 		info.serverUUID = envData.ServerUUID
 	} else {
 		srvUser, ok := cache.Server[envName]
@@ -148,9 +148,9 @@ func (cache *CacheFile) updateInfo(info *environInfo) error {
 	// Only add environment entries if the environmentUUID was specified
 	if info.environmentUUID != "" {
 		cache.Environment[info.name] = EnvironmentData{
-			User:            info.user,
-			EnvironmentUUID: info.environmentUUID,
-			ServerUUID:      info.serverUUID,
+			User:       info.user,
+			ModelUUID:  info.environmentUUID,
+			ServerUUID: info.serverUUID,
 		}
 	}
 

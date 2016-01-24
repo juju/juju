@@ -98,7 +98,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 
 	// the secrets will not be updated, as they already exist
-	attrs, err := st.Client().EnvironmentGet()
+	attrs, err := st.Client().ModelGet()
 	c.Assert(attrs["secret"], gc.Equals, "pork")
 
 	c.Assert(st.Close(), gc.IsNil)
@@ -760,7 +760,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 }
 
 func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
-	envInfo, err := client.EnvironmentInfo()
+	envInfo, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envInfo.Name, gc.Equals, expectName)
 }

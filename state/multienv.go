@@ -72,20 +72,20 @@ func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bso
 				}
 				bDoc[i].Value = munged
 			}
-		case "env-uuid":
+		case "model-uuid":
 			if envUUIDFlags&noEnvUUIDInInput > 0 {
-				return nil, errors.New("env-uuid is added automatically and should not be provided")
+				return nil, errors.New("model-uuid is added automatically and should not be provided")
 			}
 			envUUIDSeen = true
 			if elem.Value == "" {
 				bDoc[i].Value = envUUID
 			} else if elem.Value != envUUID {
-				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, envUUID, elem.Value)
+				return nil, errors.Errorf(`bad "model-uuid" value: expected %s, got %s`, envUUID, elem.Value)
 			}
 		}
 	}
 	if envUUIDFlags&envUUIDRequired > 0 && !envUUIDSeen {
-		bDoc = append(bDoc, bson.DocElem{"env-uuid", envUUID})
+		bDoc = append(bDoc, bson.DocElem{"model-uuid", envUUID})
 	}
 	return bDoc, nil
 }

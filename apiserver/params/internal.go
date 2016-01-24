@@ -115,9 +115,9 @@ type Environment struct {
 	OwnerTag string
 }
 
-// UserEnvironment holds information about an environment and the last
+// UserModel holds information about an environment and the last
 // time the environment was accessed for a particular user.
-type UserEnvironment struct {
+type UserModel struct {
 	Environment
 	LastConnection *time.Time
 }
@@ -125,7 +125,7 @@ type UserEnvironment struct {
 // UserEnvironmentList holds information about a list of environments
 // for a particular user.
 type UserEnvironmentList struct {
-	UserEnvironments []UserEnvironment
+	UserEnvironments []UserModel
 }
 
 // ResolvedModeResult holds a resolved mode or an error.

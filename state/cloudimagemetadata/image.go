@@ -161,8 +161,8 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
+	// ModelUUID is the environment identifier.
+	ModelUUID string `bson:"model-uuid"`
 
 	// Id contains unique key for cloud image metadata.
 	// This is an amalgamation of all deterministic metadata attributes to ensure
@@ -232,7 +232,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	r := imagesMetadataDoc{
-		EnvUUID:         s.envuuid,
+		ModelUUID:       s.envuuid,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,

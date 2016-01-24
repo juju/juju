@@ -74,7 +74,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBl
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
@@ -90,7 +90,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironments
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
@@ -104,7 +104,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironments
 
 func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
-		DestroyEnvironments: true,
+		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -128,7 +128,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -140,7 +140,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
@@ -154,7 +154,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")

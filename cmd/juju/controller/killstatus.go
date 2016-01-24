@@ -54,7 +54,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 		return ctrData{}, nil, errors.New("no models found")
 	}
 
-	status, err := api.EnvironmentStatus(names.NewEnvironTag(ctrUUID))
+	status, err := api.ModelStatus(names.NewEnvironTag(ctrUUID))
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
@@ -75,7 +75,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 		}
 	}
 
-	hostedStatus, err := api.EnvironmentStatus(hostedTags...)
+	hostedStatus, err := api.ModelStatus(hostedTags...)
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}

@@ -5,25 +5,25 @@ package params
 
 // DestroyControllerArgs holds the arguments for destroying a controller.
 type DestroyControllerArgs struct {
-	// DestroyEnvironments specifies whether or not the hosted environments
+	// DestroyModels specifies whether or not the hosted models
 	// should be destroyed as well. If this is not specified, and there are
-	// other hosted environments, the destruction of the controller will fail.
-	DestroyEnvironments bool `json:"destroy-environments"`
+	// other hosted models, the destruction of the controller will fail.
+	DestroyModels bool `json:"destroy-models"`
 }
 
-// EnvironmentBlockInfo holds information about an environment and its
+// ModelBlockInfo holds information about a model and its
 // current blocks.
-type EnvironmentBlockInfo struct {
+type ModelBlockInfo struct {
 	Name     string   `json:"name"`
-	UUID     string   `json:"env-uuid"`
+	UUID     string   `json:"model-uuid"`
 	OwnerTag string   `json:"owner-tag"`
 	Blocks   []string `json:"blocks"`
 }
 
-// EnvironmentBlockInfoList holds information about the blocked environments
+// ModelBlockInfoList holds information about the blocked environments
 // for a controller.
-type EnvironmentBlockInfoList struct {
-	Environments []EnvironmentBlockInfo `json:"environments,omitempty"`
+type ModelBlockInfoList struct {
+	Models []ModelBlockInfo `json:"models,omitempty"`
 }
 
 // RemoveBlocksArgs holds the arguments for the RemoveBlocks command. It is a
@@ -33,16 +33,16 @@ type RemoveBlocksArgs struct {
 	All bool `json:"all"`
 }
 
-// EnvironmentStatus holds information about the status of a juju environment.
-type EnvironmentStatus struct {
-	EnvironTag         string `json:"environ-tag"`
+// ModelStatus holds information about the status of a juju environment.
+type ModelStatus struct {
+	ModelTag           string `json:"model-tag"`
 	Life               Life   `json:"life"`
 	HostedMachineCount int    `json:"hosted-machine-count"`
 	ServiceCount       int    `json:"service-count"`
 	OwnerTag           string `json:"owner-tag"`
 }
 
-// EnvironmentStatusResult holds status information about a group of environments.
-type EnvironmentStatusResults struct {
-	Results []EnvironmentStatus `json:"environments"`
+// ModelStatusResults holds status information about a group of environments.
+type ModelStatusResults struct {
+	Results []ModelStatus `json:"models"`
 }

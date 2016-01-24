@@ -45,8 +45,8 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 	return errors.Trace(results.OneError())
 }
 
-// EnvironmentUUID returns the environment UUID from the client connection.
-func (c *Client) EnvironmentUUID() string {
+// ModelUUID returns the environment UUID from the client connection.
+func (c *Client) ModelUUID() string {
 	tag, err := c.RawAPICaller().EnvironTag()
 	if err != nil {
 		logger.Warningf("model tag not an model: %v", err)

@@ -42,7 +42,7 @@ type UserInfo struct {
 // users command calls.
 type UsersAPI interface {
 	Close() error
-	EnvironmentUserInfo() ([]params.EnvUserInfo, error)
+	ModelUserInfo() ([]params.ModelUserInfo, error)
 }
 
 func (c *usersCommand) getAPI() (UsersAPI, error) {
@@ -78,7 +78,7 @@ func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
-	result, err := client.EnvironmentUserInfo()
+	result, err := client.ModelUserInfo()
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func (c *usersCommand) apiUsersToUserInfoSlice(users []params.EnvUserInfo) []UserInfo {
+func (c *usersCommand) apiUsersToUserInfoSlice(users []params.ModelUserInfo) []UserInfo {
 	var output []UserInfo
 	for _, info := range users {
 		outInfo := UserInfo{Username: info.UserName}

@@ -197,7 +197,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"dummymodel","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+	expected := fmt.Sprintf(`[{"name":"dummymodel","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
 		s.State.EnvironUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)

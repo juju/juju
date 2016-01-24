@@ -174,7 +174,7 @@ func (c *killCommand) killControllerViaClient(ctx *cmd.Context, info configstore
 	}
 
 	if api != nil {
-		err = api.DestroyEnvironment()
+		err = api.DestroyModel()
 		if err != nil {
 			ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		}

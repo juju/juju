@@ -108,8 +108,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 type backingEnvironment environmentDoc
 
 func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id string) error {
-	store.Update(&multiwatcher.EnvironmentInfo{
-		EnvUUID:    e.UUID,
+	store.Update(&multiwatcher.ModelInfo{
+		ModelUUID:  e.UUID,
 		Name:       e.Name,
 		Life:       multiwatcher.Life(e.Life.String()),
 		Owner:      e.Owner,
@@ -120,9 +120,9 @@ func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id str
 
 func (e *backingEnvironment) removed(store *multiwatcherStore, envUUID, _ string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "environment",
-		EnvUUID: envUUID,
-		Id:      envUUID,
+		Kind:      "environment",
+		ModelUUID: envUUID,
+		Id:        envUUID,
 	})
 	return nil
 }
@@ -135,7 +135,7 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.MachineInfo{
-		EnvUUID:                  st.EnvironUUID(),
+		ModelUUID:                st.EnvironUUID(),
 		Id:                       m.Id,
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
@@ -184,9 +184,9 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 
 func (m *backingMachine) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "machine",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "machine",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
@@ -254,7 +254,7 @@ func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *Status
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.UnitInfo{
-		EnvUUID:     st.EnvironUUID(),
+		ModelUUID:   st.EnvironUUID(),
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
@@ -360,9 +360,9 @@ func getUnitAddresses(st *State, unitName string) (string, string, error) {
 
 func (u *backingUnit) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "unit",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "unit",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
@@ -382,7 +382,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		return errors.Trace(err)
 	}
 	info := &multiwatcher.ServiceInfo{
-		EnvUUID:     st.EnvironUUID(),
+		ModelUUID:   st.EnvironUUID(),
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
@@ -463,9 +463,9 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 
 func (svc *backingService) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "service",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "service",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
@@ -491,16 +491,16 @@ func (a *backingAction) mongoId() string {
 
 func (a *backingAction) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "action",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "action",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.ActionInfo{
-		EnvUUID:    st.EnvironUUID(),
+		ModelUUID:  st.EnvironUUID(),
 		Id:         id,
 		Receiver:   a.Receiver,
 		Name:       a.Name,
@@ -527,7 +527,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 		}
 	}
 	info := &multiwatcher.RelationInfo{
-		EnvUUID:   st.EnvironUUID(),
+		ModelUUID: st.EnvironUUID(),
 		Key:       r.Key,
 		Id:        r.Id,
 		Endpoints: eps,
@@ -538,9 +538,9 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 
 func (r *backingRelation) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "relation",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "relation",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
@@ -553,7 +553,7 @@ type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.AnnotationInfo{
-		EnvUUID:     st.EnvironUUID(),
+		ModelUUID:   st.EnvironUUID(),
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
 	}
@@ -567,9 +567,9 @@ func (a *backingAnnotation) removed(store *multiwatcherStore, envUUID, id string
 		return errors.Errorf("could not parse global key: %q", id)
 	}
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "annotation",
-		EnvUUID: envUUID,
-		Id:      tag,
+		Kind:      "annotation",
+		ModelUUID: envUUID,
+		Id:        tag,
 	})
 	return nil
 }
@@ -582,11 +582,11 @@ type backingBlock blockDoc
 
 func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.BlockInfo{
-		EnvUUID: st.EnvironUUID(),
-		Id:      id,
-		Tag:     a.Tag,
-		Type:    a.Type.ToParams(),
-		Message: a.Message,
+		ModelUUID: st.EnvironUUID(),
+		Id:        id,
+		Tag:       a.Tag,
+		Type:      a.Type.ToParams(),
+		Message:   a.Message,
 	}
 	store.Update(info)
 	return nil
@@ -594,9 +594,9 @@ func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) e
 
 func (a *backingBlock) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:    "block",
-		EnvUUID: envUUID,
-		Id:      id,
+		Kind:      "block",
+		ModelUUID: envUUID,
+		Id:        id,
 	})
 	return nil
 }
@@ -829,8 +829,8 @@ func backingEntityIdForSettingsKey(envUUID, key string) (eid multiwatcher.Entity
 		return multiwatcher.EntityId{}, "", false
 	}
 	eid = (&multiwatcher.ServiceInfo{
-		EnvUUID: envUUID,
-		Name:    key[0:i],
+		ModelUUID: envUUID,
+		Name:      key[0:i],
 	}).EntityId()
 	extra = key[i+1:]
 	ok = true
@@ -951,19 +951,19 @@ func backingEntityIdForGlobalKey(envUUID, key string) (multiwatcher.EntityId, bo
 	switch key[0] {
 	case 'm':
 		return (&multiwatcher.MachineInfo{
-			EnvUUID: envUUID,
-			Id:      id,
+			ModelUUID: envUUID,
+			Id:        id,
 		}).EntityId(), true
 	case 'u':
 		id = strings.TrimSuffix(id, "#charm")
 		return (&multiwatcher.UnitInfo{
-			EnvUUID: envUUID,
-			Name:    id,
+			ModelUUID: envUUID,
+			Name:      id,
 		}).EntityId(), true
 	case 's':
 		return (&multiwatcher.ServiceInfo{
-			EnvUUID: envUUID,
-			Name:    id,
+			ModelUUID: envUUID,
+			Name:      id,
 		}).EntityId(), true
 	default:
 		return multiwatcher.EntityId{}, false

@@ -118,8 +118,8 @@ func (s *storageInstance) CharmURL() *charm.URL {
 
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 
 	Id              string      `bson:"id"`
 	Kind            StorageKind `bson:"storagekind"`
@@ -149,8 +149,8 @@ func (s *storageAttachment) Life() Life {
 // storageAttachmentDoc describes a unit's attachment to a charm storage
 // instance.
 type storageAttachmentDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 
 	Unit            string `bson:"unitid"`
 	StorageInstance string `bson:"storageid"`
@@ -740,7 +740,7 @@ func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
 // storageConstraintsDoc contains storage constraints for an entity.
 type storageConstraintsDoc struct {
 	DocID       string                        `bson:"_id"`
-	EnvUUID     string                        `bson:"env-uuid"`
+	ModelUUID   string                        `bson:"model-uuid"`
 	Constraints map[string]StorageConstraints `bson:"constraints"`
 }
 

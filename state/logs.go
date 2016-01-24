@@ -53,14 +53,14 @@ func InitDbLogs(session *mgo.Session) error {
 // space. These documents will be inserted 1000's of times and each
 // document includes the field names.
 type logDoc struct {
-	Id       bson.ObjectId `bson:"_id"`
-	Time     time.Time     `bson:"t"`
-	EnvUUID  string        `bson:"e"`
-	Entity   string        `bson:"n"` // e.g. "machine-0"
-	Module   string        `bson:"m"` // e.g. "juju.worker.firewaller"
-	Location string        `bson:"l"` // "filename:lineno"
-	Level    loggo.Level   `bson:"v"`
-	Message  string        `bson:"x"`
+	Id        bson.ObjectId `bson:"_id"`
+	Time      time.Time     `bson:"t"`
+	ModelUUID string        `bson:"e"`
+	Entity    string        `bson:"n"` // e.g. "machine-0"
+	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
+	Location  string        `bson:"l"` // "filename:lineno"
+	Level     loggo.Level   `bson:"v"`
+	Message   string        `bson:"x"`
 }
 
 type DbLogger struct {
@@ -83,14 +83,14 @@ func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
 	return logger.logsColl.Insert(&logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  logger.envUUID,
-		Entity:   logger.entity,
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t,
+		ModelUUID: logger.envUUID,
+		Entity:    logger.entity,
+		Module:    module,
+		Location:  location,
+		Level:     level,
+		Message:   msg,
 	})
 }
 

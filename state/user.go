@@ -170,8 +170,8 @@ type userDoc struct {
 }
 
 type userLastLoginDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 	// LastLogin is updated by the apiserver whenever the user
 	// connects over the API. This update is not done using mgo.txn
 	// so this value could well change underneath a normal transaction
@@ -281,7 +281,7 @@ func (u *User) UpdateLastLogin() (err error) {
 
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
-		EnvUUID:   u.st.EnvironUUID(),
+		ModelUUID: u.st.EnvironUUID(),
 		LastLogin: nowToTheSecond(),
 	}
 

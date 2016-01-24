@@ -21,14 +21,14 @@ type UsersCommandSuite struct {
 var _ = gc.Suite(&UsersCommandSuite{})
 
 type fakeEnvUsersClient struct {
-	users []params.EnvUserInfo
+	users []params.ModelUserInfo
 }
 
 func (f *fakeEnvUsersClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvUsersClient) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
+func (f *fakeEnvUsersClient) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	return f.users, nil
 }
 
@@ -36,7 +36,7 @@ func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
-	userlist := []params.EnvUserInfo{
+	userlist := []params.ModelUserInfo{
 		{
 			UserName:       "admin@local",
 			DisplayName:    "admin",

@@ -429,11 +429,11 @@ func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == UpgradeInProgressError
 }
 
-// SetEnvironAgentVersion changes the agent version for the environment to the
+// SetControllerAgentVersion changes the agent version for the environment to the
 // given version, only if the environment is in a stable state (all agents are
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
+func (st *State) SetControllerAgentVersion(newVersion version.Number) (err error) {
 	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
@@ -965,7 +965,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
-				EnvUUID:       st.EnvironTag().Id(),
+				ModelUUID:     st.EnvironTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 			}
@@ -1080,7 +1080,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.EnvironUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1228,7 +1228,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
-		EnvUUID:       env.UUID(),
+		ModelUUID:     env.UUID(),
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
@@ -1240,7 +1240,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	svc := newService(st, svcDoc)
 
 	statusDoc := statusDoc{
-		EnvUUID: st.EnvironUUID(),
+		ModelUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
@@ -1270,8 +1270,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
-				RefCount: 1,
-				EnvUUID:  st.EnvironUUID()},
+				RefCount:  1,
+				ModelUUID: st.EnvironUUID()},
 		}, {
 			C:      servicesC,
 			Id:     serviceID,
@@ -1545,7 +1545,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
-		EnvUUID:           st.EnvironUUID(),
+		ModelUUID:         st.EnvironUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
@@ -1996,7 +1996,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.EnvironUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -2161,7 +2161,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 
 type stateServersDoc struct {
 	Id               string `bson:"_id"`
-	EnvUUID          string `bson:"env-uuid"`
+	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
 }
@@ -2206,7 +2206,7 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}
 
-	if doc.EnvUUID == "" {
+	if doc.ModelUUID == "" {
 		logger.Warningf("state servers info has no model UUID so retrieving it from model")
 
 		// This only happens when migrating from 1.20 to 1.21 before
@@ -2227,11 +2227,11 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 		if err := query.One(&envDoc); err != nil {
 			return nil, errors.Annotate(err, "cannot load model document")
 		}
-		doc.EnvUUID = envDoc.UUID
+		doc.ModelUUID = envDoc.UUID
 	}
 
 	return &StateServerInfo{
-		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
+		EnvironmentTag:   names.NewEnvironTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil

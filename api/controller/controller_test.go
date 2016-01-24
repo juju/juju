@@ -87,10 +87,10 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)
-	results, err := sysManager.ListBlockedEnvironments()
+	results, err := sysManager.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
+	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "dummymodel",
 			UUID:     s.State.EnvironUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
@@ -137,12 +137,12 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
+		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 
 		env, err := s.State.Environment()
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Assert(envInfo.EnvUUID, gc.Equals, env.UUID())
+		c.Assert(envInfo.ModelUUID, gc.Equals, env.UUID())
 		c.Assert(envInfo.Name, gc.Equals, env.Name())
 		c.Assert(envInfo.Life, gc.Equals, multiwatcher.Life("alive"))
 		c.Assert(envInfo.Owner, gc.Equals, env.Owner().Id())
@@ -155,9 +155,9 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
 	controller := s.OpenAPI(c)
 	envTag := s.State.EnvironTag()
-	results, err := controller.EnvironmentStatus(envTag)
+	results, err := controller.ModelStatus(envTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.EnvironmentStatus{{
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
 		UUID:               envTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,

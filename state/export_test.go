@@ -314,7 +314,7 @@ func StrictLocalID(st *State, id string) (string, error) {
 }
 
 func GetUnitEnvUUID(unit *Unit) string {
-	return unit.doc.EnvUUID
+	return unit.doc.ModelUUID
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
@@ -344,7 +344,7 @@ func Sequence(st *State, name string) (int, error) {
 }
 
 // This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// watching after the client calls DestroyModel and the environ doc is removed.
 // It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
@@ -430,14 +430,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  envUUID,
-		Entity:   entity.String(),
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t,
+		ModelUUID: envUUID,
+		Entity:    entity.String(),
+		Module:    module,
+		Location:  location,
+		Level:     level,
+		Message:   msg,
 	}
 }
 

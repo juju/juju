@@ -369,7 +369,7 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	s.fake.env = params.Environment{
 		Name:     "test",
-		UUID:     "fake-env-uuid",
+		UUID:     "fake-model-uuid",
 		OwnerTag: "ignored-for-now",
 	}
 	_, err := s.run(c, "test")
@@ -385,13 +385,13 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, expected.Hostnames)
 	c.Assert(endpoint.ServerUUID, gc.Equals, expected.ServerUUID)
 	c.Assert(endpoint.CACert, gc.Equals, expected.CACert)
-	c.Assert(endpoint.EnvironUUID, gc.Equals, "fake-env-uuid")
+	c.Assert(endpoint.EnvironUUID, gc.Equals, "fake-model-uuid")
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	s.fake.env = params.Environment{
 		Name:     "test",
-		UUID:     "fake-env-uuid",
+		UUID:     "fake-model-uuid",
 		OwnerTag: "ignored-for-now",
 	}
 	_, err := s.run(c, "test", "--owner", "zeus")

@@ -38,26 +38,26 @@ func (f *fakeEnvAPI) Close() error {
 	return nil
 }
 
-func (f *fakeEnvAPI) EnvironmentGet() (map[string]interface{}, error) {
+func (f *fakeEnvAPI) ModelGet() (map[string]interface{}, error) {
 	return f.values, nil
 }
 
-func (f *fakeEnvAPI) EnvironmentSet(config map[string]interface{}) error {
+func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
 	f.values = config
 	return f.err
 }
 
-func (f *fakeEnvAPI) EnvironmentUnset(keys ...string) error {
+func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
 	f.keys = keys
 	return f.err
 }
 
-func (f *fakeEnvAPI) ShareEnvironment(users ...names.UserTag) error {
+func (f *fakeEnvAPI) ShareModel(users ...names.UserTag) error {
 	f.addUsers = users
 	return f.err
 }
 
-func (f *fakeEnvAPI) UnshareEnvironment(users ...names.UserTag) error {
+func (f *fakeEnvAPI) UnshareModel(users ...names.UserTag) error {
 	f.removeUsers = users
 	return f.err
 }
