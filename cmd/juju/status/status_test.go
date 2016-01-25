@@ -2928,14 +2928,13 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps)
 
-	const expectedV2 = `
+	const expected = `
 - mysql/0: dummyenv-2.dns (agent:idle, workload:active)
   - logging/1: dummyenv-2.dns (agent:idle, workload:error)
 - wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
   - logging/0: dummyenv-1.dns (agent:idle, workload:active)
 `
-	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
-	assertOneLineStatus(c, expectedV2)
+	assertOneLineStatus(c, expected)
 }
 
 func assertOneLineStatus(c *gc.C, expected string) {
@@ -3047,11 +3046,6 @@ ID         STATE   DNS            INS-ID     SERIES  AZ
 	nextVersionStr := nextVersion().String()
 	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
 	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
-}
-
-func (s *StatusSuite) TestStatusV2(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
-	s.testStatusWithFormatTabular(c, true)
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
@@ -3549,7 +3543,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := newStatusFormatter(status, 0, true)
+	formatter := newStatusFormatter(status, true)
 	formatted := formatter.format()
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{

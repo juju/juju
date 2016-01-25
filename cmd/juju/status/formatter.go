@@ -10,18 +10,16 @@ import (
 )
 
 type statusFormatter struct {
-	status        *params.FullStatus
-	relations     map[int]params.RelationStatus
-	isoTime       bool
-	compatVersion int
+	status    *params.FullStatus
+	relations map[int]params.RelationStatus
+	isoTime   bool
 }
 
-func newStatusFormatter(status *params.FullStatus, compatVersion int, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
-		status:        status,
-		relations:     make(map[int]params.RelationStatus),
-		compatVersion: compatVersion,
-		isoTime:       isoTime,
+		status:    status,
+		relations: make(map[int]params.RelationStatus),
+		isoTime:   isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation

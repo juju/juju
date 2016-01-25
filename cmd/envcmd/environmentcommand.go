@@ -6,7 +6,6 @@ package envcmd
 import (
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -28,8 +27,6 @@ var logger = loggo.GetLogger("juju.cmd.envcmd")
 // an environment if there is no current environment, no environment
 // has been explicitly specified, and there is no default environment.
 var ErrNoEnvironmentSpecified = errors.New("no environment specified")
-
-const DefaultCompatVersion = 2
 
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
@@ -88,10 +85,6 @@ type EnvCommandBase struct {
 	// to specify an environment in multiple ways, and not always referencing
 	// a file on disk based on the EnvName or the environemnts.yaml file.
 	envName string
-
-	// compatVersion defines the minimum CLI version
-	// that this command should be compatible with.
-	compatVerson *int
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
@@ -282,26 +275,6 @@ func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
 	return ConnectionInfoForName(c.envName)
-}
-
-// CompatVersion returns the minimum CLI version
-// that this command should be compatible with.
-func (c *EnvCommandBase) CompatVersion() int {
-	if c.compatVerson != nil {
-		return *c.compatVerson
-	}
-	compatVerson := DefaultCompatVersion
-	val := os.Getenv(osenv.JujuCLIVersion)
-	if val != "" {
-		vers, err := strconv.Atoi(val)
-		if err != nil {
-			logger.Warningf("invalid %s value: %v", osenv.JujuCLIVersion, val)
-		} else {
-			compatVerson = vers
-		}
-	}
-	c.compatVerson = &compatVerson
-	return *c.compatVerson
 }
 
 // ConnectionName returns the name of the connection if there is one.
