@@ -44,97 +44,129 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix string) {
+func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
 	// To simplify most cases, trim trailing new lines.
 	initialConfig = strings.TrimSuffix(initialConfig, "\n")
 	expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
 	err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
 	c.Check(err, jc.ErrorIsNil)
 	// Run the script and verify the modified config.
-	output, retcode := s.runScript(c, s.testConfigPath, bridgePrefix)
+	output, retcode := s.runScript(c, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
 	c.Check(retcode, gc.Equals, 0)
 	c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	_, code := s.runScript(c, "", "")
+	_, code := s.runScript(c, "", "", "", "")
 	c.Check(code, gc.Equals, 1)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
-	s.assertScript(c, networkDHCPInitial, networkDHCPExpected, "test-br-")
+	s.assertScript(c, networkDHCPInitial, networkDHCPExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptStatic(c *gc.C) {
-	s.assertScript(c, networkStaticInitial, networkStaticExpected, "test-br-")
+	s.assertScript(c, networkStaticInitial, networkStaticExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDualNIC(c *gc.C) {
-	s.assertScript(c, networkDualNICInitial, networkDualNICExpected, "test-br-")
+	s.assertScript(c, networkDualNICInitial, networkDualNICExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithAlias(c *gc.C) {
-	s.assertScript(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-")
+	s.assertScript(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithAlias(c *gc.C) {
-	s.assertScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-")
+	s.assertScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleStaticWithAliases(c *gc.C) {
-	s.assertScript(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-")
+	s.assertScript(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithBond(c *gc.C) {
-	s.assertScript(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-")
+	s.assertScript(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleAliases(c *gc.C) {
-	s.assertScript(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-")
+	s.assertScript(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptSmorgasboard(c *gc.C) {
-	s.assertScript(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-")
+	s.assertScript(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
-	s.assertScript(c, networkVLANInitial, networkVLANExpected, "vlan-br-")
+	s.assertScript(c, networkVLANInitial, networkVLANExpected, "vlan-br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithMultipleNameservers(c *gc.C) {
-	s.assertScript(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected, "br-")
+	s.assertScript(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithLoopbackOnly(c *gc.C) {
-	s.assertScript(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected, "br-")
+	s.assertScript(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptBondWithVLANs(c *gc.C) {
-	s.assertScript(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected, "br-")
+	s.assertScript(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptVLANWithInactive(c *gc.C) {
-	s.assertScript(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected, "br-")
+	s.assertScript(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptVLANWithActiveDHCPDevice(c *gc.C) {
-	s.assertScript(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected, "br-")
+	s.assertScript(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleDNSValues(c *gc.C) {
-	s.assertScript(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected, "br-")
+	s.assertScript(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected, "br-", "", "")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptEmptyDNSValues(c *gc.C) {
-	s.assertScript(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected, "br-")
+	s.assertScript(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected, "br-", "", "")
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, bridgePrefix string) (output string, exitCode int) {
-	script := fmt.Sprintf("%q --bridge-prefix=%q %q\n",
-		s.testPythonScript,
-		bridgePrefix,
-		configFile)
+func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs(c *gc.C) {
+	s.assertScript(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected, "br-", "", "")
+}
 
+func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
+	output, code := s.runScript(c, "# no content", "", "juju-br0", "")
+	c.Check(code, gc.Equals, 1)
+	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
+	output, code := s.runScript(c, "# no content", "", "", "eth0")
+	c.Check(code, gc.Equals, 1)
+	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
+	s.assertScript(c, networkStaticInitial, networkStaticInitial, "", "juju-br0", "eth1234567890")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface(c *gc.C) {
+	s.assertScript(c, networkLP1532167Initial, networkLP1532167Expected, "", "juju-br0", "bond0")
+}
+
+func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
+	if bridgePrefix != "" {
+		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
+	}
+
+	if bridgeName != "" {
+		bridgeName = fmt.Sprintf("--bridge-name=%q", bridgeName)
+	}
+
+	if interfaceToBridge != "" {
+		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
+	}
+
+	script := fmt.Sprintf("%q %s %s %s %q\n", s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
 	stdout := string(result.Stdout)
@@ -1214,3 +1246,230 @@ iface br-eth1 inet static
     address 10.245.168.12/21
     mtu 1500
     bridge_ports eth1`
+
+const networkLP1532167Initial = `auto eth0
+iface eth0 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth1
+iface eth1 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth2
+iface eth2 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond1
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth3
+iface eth3 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond1
+    mtu 1500
+    bond-mode 802.3ad
+
+auto bond0
+iface bond0 inet static
+    gateway 10.38.160.1
+    address 10.38.160.24/24
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    mtu 1500
+    bond-mode 802.3ad
+    hwaddress 44:a8:42:41:ab:37
+    bond-slaves none
+
+auto bond1
+iface bond1 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    mtu 1500
+    bond-mode 802.3ad
+    hwaddress 00:0e:1e:b7:b5:50
+    bond-slaves none
+
+auto bond0.1016
+iface bond0.1016 inet static
+    address 172.16.0.21/16
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 1016
+
+auto bond0.161
+iface bond0.161 inet static
+    address 10.38.161.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 161
+
+auto bond0.162
+iface bond0.162 inet static
+    address 10.38.162.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 162
+
+auto bond0.163
+iface bond0.163 inet static
+    address 10.38.163.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 163
+
+auto bond1.1017
+iface bond1.1017 inet static
+    address 172.17.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1017
+
+auto bond1.1018
+iface bond1.1018 inet static
+    address 172.18.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1018
+
+auto bond1.1019
+iface bond1.1019 inet static
+    address 172.19.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1019
+
+dns-nameservers 10.38.160.10
+dns-search maas`
+
+const networkLP1532167Expected = `auto eth0
+iface eth0 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth1
+iface eth1 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond0
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth2
+iface eth2 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond1
+    mtu 1500
+    bond-mode 802.3ad
+
+auto eth3
+iface eth3 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    bond-master bond1
+    mtu 1500
+    bond-mode 802.3ad
+
+auto bond0
+iface bond0 inet manual
+    gateway 10.38.160.1
+    address 10.38.160.24/24
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    mtu 1500
+    bond-mode 802.3ad
+    hwaddress 44:a8:42:41:ab:37
+    bond-slaves none
+
+auto juju-br0
+iface juju-br0 inet static
+    gateway 10.38.160.1
+    address 10.38.160.24/24
+    mtu 1500
+    hwaddress 44:a8:42:41:ab:37
+    bridge_ports bond0
+
+auto bond1
+iface bond1 inet manual
+    bond-lacp_rate fast
+    bond-xmit_hash_policy layer2+3
+    bond-miimon 100
+    mtu 1500
+    bond-mode 802.3ad
+    hwaddress 00:0e:1e:b7:b5:50
+    bond-slaves none
+
+auto bond0.1016
+iface bond0.1016 inet static
+    address 172.16.0.21/16
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 1016
+
+auto bond0.161
+iface bond0.161 inet static
+    address 10.38.161.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 161
+
+auto bond0.162
+iface bond0.162 inet static
+    address 10.38.162.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 162
+
+auto bond0.163
+iface bond0.163 inet static
+    address 10.38.163.21/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 163
+
+auto bond1.1017
+iface bond1.1017 inet static
+    address 172.17.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1017
+
+auto bond1.1018
+iface bond1.1018 inet static
+    address 172.18.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1018
+
+auto bond1.1019
+iface bond1.1019 inet static
+    address 172.19.0.21/16
+    vlan-raw-device bond1
+    mtu 1500
+    vlan_id 1019
+    dns-nameservers 10.38.160.10
+    dns-search maas`
