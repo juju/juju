@@ -359,42 +359,6 @@ func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
 	c.Assert(ports, gc.HasLen, 0)
 }
 
-func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	ports, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
-
-	err = s.apiUnit.OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.apiUnit.OpenPort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
-		{Protocol: "tcp", FromPort: 4321, ToPort: 4321},
-	})
-
-	err = s.apiUnit.ClosePort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
-	})
-
-	err = s.apiUnit.ClosePort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
-}
-
 func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 	// No charm URL set yet.
 	curl, ok := s.wordpressUnit.CharmURL()

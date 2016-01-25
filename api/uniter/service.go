@@ -117,10 +117,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 
 // OwnerTag returns the service's owner user tag.
 func (s *Service) OwnerTag() (names.UserTag, error) {
-	if s.st.BestAPIVersion() > 0 {
-		return s.serviceOwnerTag()
-	}
-	return s.ownerTag()
+	return s.serviceOwnerTag()
 }
 
 func (s *Service) serviceOwnerTag() (names.UserTag, error) {
@@ -137,22 +134,6 @@ func (s *Service) serviceOwnerTag() (names.UserTag, error) {
 		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
-	if result.Error != nil {
-		return invalidTag, result.Error
-	}
-	return names.ParseUserTag(result.Result)
-}
-
-func (s *Service) ownerTag() (names.UserTag, error) {
-	var invalidTag names.UserTag
-	var result params.StringResult
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag.String()}},
-	}
-	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
-	if err != nil {
-		return invalidTag, err
-	}
 	if result.Error != nil {
 		return invalidTag, result.Error
 	}

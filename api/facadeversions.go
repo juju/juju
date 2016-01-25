@@ -42,7 +42,7 @@ var facadeVersions = map[string]int{
 	"MachineManager":               2,
 	"Machiner":                     1,
 	"MetricsManager":               1,
-	"MeterStatus":                  2,
+	"MeterStatus":                  1,
 	"MetricsAdder":                 2,
 	"Networker":                    1,
 	"NotifyWatcher":                1,
@@ -59,11 +59,11 @@ var facadeVersions = map[string]int{
 	"StorageProvisioner":           2,
 	"StringsWatcher":               1,
 	"Upgrader":                     1,
-	"UnitAssigner":                 2,
+	"UnitAssigner":                 1,
 	"Uniter":                       3,
 	"UserManager":                  1,
 	"VolumeAttachmentsWatcher":     2,
-	"Undertaker":                   2,
+	"Undertaker":                   1,
 }
 
 // bestVersion tries to find the newest version in the version list that we can

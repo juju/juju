@@ -1,8 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package uniter implements the API interface used by the uniter
-// worker. This file contains the API facade version 2.
+// Package uniter implements the API interface used by the uniter worker.
 
 package uniter
 
@@ -55,7 +54,7 @@ type UniterAPIV3 struct {
 	StorageAPI
 }
 
-// NewUniterAPIV3 creates a new instance of the Uniter API, version 2.
+// NewUniterAPIV3 creates a new instance of the Uniter API, version 3.
 func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -139,28 +138,6 @@ func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer com
 		accessMachine: accessMachine,
 		unit:          unit,
 		StorageAPI:    *storageAPI,
-	}, nil
-}
-
-// GetOwnerTag returns the user tag of the owner of the first given
-// service tag in args.
-//
-// NOTE: This is obsolete and is replaced by ServiceOwner in APIV1,
-// which should be used instead. This method is not propely handling
-// multiple tags and does not check for permissions. See also
-// http://pad.lv/1270795.
-func (u *UniterAPIV3) GetOwnerTag(args params.Entities) (params.StringResult, error) {
-	var nothing params.StringResult
-	tag, err := names.ParseServiceTag(args.Entities[0].Tag)
-	if err != nil {
-		return nothing, common.ErrPerm
-	}
-	service, err := u.getService(tag)
-	if err != nil {
-		return nothing, err
-	}
-	return params.StringResult{
-		Result: service.GetOwnerTag(),
 	}, nil
 }
 
@@ -704,46 +681,6 @@ func (u *UniterAPIV3) ClosePorts(args params.EntitiesPortRanges) (params.ErrorRe
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// OpenPort sets the policy of the port with protocol an number to be
-// opened, for all given units.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use OpenPorts instead.
-func (u *UniterAPIV3) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
-	rangesArgs := params.EntitiesPortRanges{
-		Entities: make([]params.EntityPortRange, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		rangesArgs.Entities[i] = params.EntityPortRange{
-			Tag:      entity.Tag,
-			Protocol: entity.Protocol,
-			FromPort: entity.Port,
-			ToPort:   entity.Port,
-		}
-	}
-	return u.OpenPorts(rangesArgs)
-}
-
-// ClosePort sets the policy of the port with protocol and number to
-// be closed, for all given units.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use ClosePorts instead.
-func (u *UniterAPIV3) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
-	rangesArgs := params.EntitiesPortRanges{
-		Entities: make([]params.EntityPortRange, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		rangesArgs.Entities[i] = params.EntityPortRange{
-			Tag:      entity.Tag,
-			Protocol: entity.Protocol,
-			FromPort: entity.Port,
-			ToPort:   entity.Port,
-		}
-	}
-	return u.ClosePorts(rangesArgs)
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes

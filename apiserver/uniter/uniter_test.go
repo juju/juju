@@ -125,18 +125,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.uniter = uniterAPIV2
 }
 
-func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
-	tag := s.mysql.Tag().String()
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: tag},
-	}}
-	result, err := s.uniter.GetOwnerTag(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResult{
-		Result: s.AdminUserTag(c).String(),
-	})
-}
-
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
@@ -803,65 +791,6 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
 	}}
 	result, err := s.uniter.ClosePorts(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the wordpressUnit's port is closed.
-	openedPorts, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.HasLen, 0)
-}
-
-func (s *uniterSuite) TestOpenPort(c *gc.C) {
-	openedPorts, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.HasLen, 0)
-
-	args := params.EntitiesPorts{Entities: []params.EntityPort{
-		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
-		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
-		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
-	}}
-	result, err := s.uniter.OpenPort(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the wordpressUnit's port is opened.
-	openedPorts, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
-	})
-}
-
-func (s *uniterSuite) TestClosePort(c *gc.C) {
-	// Open port udp:4321 in advance on wordpressUnit.
-	err := s.wordpressUnit.OpenPort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-	openedPorts, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
-	})
-
-	args := params.EntitiesPorts{Entities: []params.EntityPort{
-		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
-		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
-		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
-	}}
-	result, err := s.uniter.ClosePort(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
