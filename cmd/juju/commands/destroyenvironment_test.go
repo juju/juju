@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
@@ -37,10 +36,6 @@ func (s *destroyEnvSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&destroyEnvSuite{})
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
-	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// check environment is mandatory
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand())
 	c.Check(<-errc, gc.Equals, NoEnvironmentError)
@@ -51,20 +46,13 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 
 	// Verify that the environment information has been removed.
-	_, err = s.ConfigStore.ReadInfo("dummyenv")
+	_, err := s.ConfigStore.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-// startEnvironment prepare the environment so we can destroy it.
-func (s *destroyEnvSuite) startEnvironment(c *gc.C, desiredEnvName string) {
-	_, err := environs.PrepareFromName(desiredEnvName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked, force bool) {
 	//Setup environment
 	envName := "dummyenv"
-	s.startEnvironment(c, envName)
 	if blocked {
 		s.BlockDestroyEnvironment(c, "checkDestroyEnvironment")
 	}
@@ -108,10 +96,6 @@ func (s *destroyEnvSuite) TestForceDestroyUnlockedEnvironment(c *gc.C) {
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
-	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// check that either environment or the flag is mandatory
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand())
 	c.Check(<-errc, gc.Equals, NoEnvironmentError)
@@ -129,7 +113,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 
 	// Verify that the environment information has been removed.
-	_, err = s.ConfigStore.ReadInfo("dummyenv")
+	_, err := s.ConfigStore.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -259,10 +243,6 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	err = newinfo.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Prepare the environment so we can destroy it.
-	_, err = environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// destroy with broken environment
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newDestroyEnvironmentCommand(), "dummyenv", "--yes")
 	op, ok := (<-opc).(dummy.OpDestroy)
@@ -293,11 +273,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
-	// Prepare the environment so we can destroy it.
-	env, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertEnvironNotDestroyed(c, env, s.ConfigStore)
+	assertEnvironNotDestroyed(c, s.Environ, s.ConfigStore)
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
@@ -305,7 +281,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")
-	assertEnvironNotDestroyed(c, env, s.ConfigStore)
+	assertEnvironNotDestroyed(c, s.Environ, s.ConfigStore)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -313,7 +289,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	opc, errc = cmdtesting.RunCommand(ctx, newDestroyEnvironmentCommand(), "dummyenv")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
-	assertEnvironNotDestroyed(c, env, s.ConfigStore)
+	assertEnvironNotDestroyed(c, s.Environ, s.ConfigStore)
 
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
@@ -322,15 +298,11 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 	c.Check(stdout.String(), gc.Equals, "")
-	assertEnvironDestroyed(c, env, s.ConfigStore)
+	assertEnvironDestroyed(c, s.Environ, s.ConfigStore)
 
 	// Any of casing of "y" and "yes" will confirm.
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
-		// Prepare the environment so we can destroy it.
 		s.Reset(c)
-		env, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-		c.Assert(err, jc.ErrorIsNil)
-
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
@@ -338,7 +310,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		c.Check(<-errc, gc.IsNil)
 		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
 		c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")
-		assertEnvironDestroyed(c, env, s.ConfigStore)
+		assertEnvironDestroyed(c, s.Environ, s.ConfigStore)
 	}
 }
 
@@ -355,6 +327,6 @@ func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 
-	_, err = environs.NewFromName(env.Config().Name(), store)
+	_, err = store.ReadInfo(env.Config().Name())
 	c.Assert(err, jc.ErrorIsNil)
 }

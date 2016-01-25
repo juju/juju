@@ -103,10 +103,11 @@ func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
 	// Ensure that internal configuration is not specified, and then set
 	// what we can now. We only need to do this during bootstrap. Validate
 	// will check for changes later.
+	cfg := args.Config
 	unknownAttrs := cfg.UnknownAttrs()
 	for _, key := range internalConfigAttributes {
 		if _, ok := unknownAttrs[key]; ok {

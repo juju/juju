@@ -46,7 +46,8 @@ func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config
 	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
 }
 
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {

@@ -59,7 +59,9 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := configstore.NewMem()
 	ctx := envtesting.BootstrapContext(c)
-	_, err := environs.PrepareFromName("erewhemos", ctx, store)
+	cfg, _, err := environs.ConfigForName("erewhemos", store)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = environs.Prepare(cfg, ctx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := store.ReadInfo("erewhemos")
@@ -72,56 +74,15 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"type": "wondercloud",
-	})
-	env, err := environs.NewFromAttrs(attrs)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"type": "wondercloud",
+		},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
 	c.Assert(env, gc.IsNil)
-}
-
-func (*OpenSuite) TestNewFromName(c *gc.C) {
-	store := configstore.NewMem()
-	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.PrepareFromName("erewhemos", ctx, store)
-	c.Assert(err, jc.ErrorIsNil)
-
-	e, err = environs.NewFromName("erewhemos", store)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
-}
-
-func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
-	store := configstore.NewMem()
-	cfg, _, err := environs.ConfigForName("erewhemos", store)
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo("erewhemos")
-
-	// The configuration from environments.yaml is invalid
-	// because it doesn't contain the state-id attribute which
-	// the dummy environment adds at Prepare time.
-	info.SetBootstrapConfig(cfg.AllAttrs())
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	e, err := environs.NewFromName("erewhemos", store)
-	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
-	c.Assert(e, gc.IsNil)
-}
-
-func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
-	store := configstore.NewMem()
-
-	e, err := environs.NewFromName("erewhemos", store)
-	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
-	c.Assert(e, gc.IsNil)
-}
-
-func (*OpenSuite) TestPrepareFromName(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
 }
 
 func (*OpenSuite) TestConfigForName(c *gc.C) {
@@ -226,10 +187,9 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 
-	// Check we can call Prepare again.
+	// Check we cannot call Prepare again.
 	env, err = environs.Prepare(cfg, ctx, store)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
+	c.Assert(err, gc.Equals, environs.ErrAlreadyBootstrapped)
 }
 
 func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
@@ -324,15 +284,4 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (*OpenSuite) TestNewFromAttrs(c *gc.C) {
-	e, err := environs.NewFromAttrs(dummy.SampleConfig().Merge(
-		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
-		},
-	))
-	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
-	c.Assert(e, gc.IsNil)
 }

@@ -305,7 +305,9 @@ func prepareForBootstrap(
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := provider.PrepareForBootstrap(ctx, cfg)
+	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
