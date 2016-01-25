@@ -95,7 +95,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
 	_, _, err = api.ConnectWebsocket(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/model/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
 
@@ -159,7 +159,7 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 }
 
 func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, envUUID, tail string) {
-	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/environment/"+envUUID+tail+"$")
+	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/model/"+envUUID+tail+"$")
 }
 
 func assertConnAddrForRoot(c *gc.C, conn *websocket.Conn, addr string) {

@@ -55,7 +55,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	kind := r.URL.Query().Get(":kind")
 	series := r.URL.Query().Get(":series")
 	arch := r.URL.Query().Get(":arch")
-	envuuid := r.URL.Query().Get(":envuuid")
+	envuuid := r.URL.Query().Get(":modeluuid")
 
 	// Get the image details from storage.
 	metadata, imageReader, err := h.loadImage(st, envuuid, kind, series, arch)
