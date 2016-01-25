@@ -10,6 +10,7 @@ import (
 
 type environProviderCredentials struct{}
 
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.OAuth2AuthType: {
@@ -35,6 +36,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	}
 }
 
+// DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
