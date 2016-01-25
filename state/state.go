@@ -211,8 +211,9 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 	}
 	logger.Infof("starting leadership manager")
 	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: leaseClient,
-		Clock:  clock,
+		Client:   leaseClient,
+		Clock:    clock,
+		MaxSleep: time.Minute,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create leadership manager")
