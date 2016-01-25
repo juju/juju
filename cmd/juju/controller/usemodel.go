@@ -226,12 +226,12 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 }
 
-func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, envUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
+func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, modelUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
 	info.SetAPICredentials(creds)
-	// Specify the environment UUID. The server UUID will be the same as the
+	// Specify the model UUID. The server UUID will be the same as the
 	// endpoint that we have just connected to, as will be the CACert, addresses
 	// and hostnames.
-	endpoint.EnvironUUID = envUUID
+	endpoint.EnvironUUID = modelUUID
 	info.SetAPIEndpoint(endpoint)
 	return errors.Trace(info.Write())
 }
@@ -252,7 +252,7 @@ func (c *useEnvironmentCommand) findMatchingModel(ctx *cmd.Context, client UseMo
 	}
 
 	// If we have a UUID, we warn if the owner is different, but accept it.
-	// We also trust that the environment UUIDs are unique
+	// We also trust that the model UUIDs are unique
 	if c.ModelUUID != "" {
 		for _, env := range envs {
 			if env.UUID == c.ModelUUID {

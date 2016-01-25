@@ -15,8 +15,8 @@ import (
 
 // ensureEnvUUID returns an environment UUID prefixed document ID. The
 // prefix is only added if it isn't already there.
-func ensureEnvUUID(envUUID, id string) string {
-	prefix := envUUID + ":"
+func ensureEnvUUID(modelUUID, id string) string {
+	prefix := modelUUID + ":"
 	if strings.HasPrefix(id, prefix) {
 		return id
 	}
@@ -25,9 +25,9 @@ func ensureEnvUUID(envUUID, id string) string {
 
 // ensureEnvUUIDIfString will call ensureEnvUUID, but only if the id
 // is a string. The id will be left untouched otherwise.
-func ensureEnvUUIDIfString(envUUID string, id interface{}) interface{} {
+func ensureEnvUUIDIfString(modelUUID string, id interface{}) interface{} {
 	if id, ok := id.(string); ok {
-		return ensureEnvUUID(envUUID, id)
+		return ensureEnvUUID(modelUUID, id)
 	}
 	return id
 }
@@ -49,7 +49,7 @@ const noEnvUUIDInInput = 2
 // mungeDocForMultiEnv takes the value of an txn.Op Insert or $set
 // Update and modifies it to be multi-environment safe, returning the
 // modified document.
-func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bson.D, error) {
+func mungeDocForMultiEnv(doc interface{}, modelUUID string, envUUIDFlags int) (bson.D, error) {
 	var bDoc bson.D
 	var err error
 	if doc != nil {
@@ -64,9 +64,9 @@ func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bso
 		switch elem.Name {
 		case "_id":
 			if id, ok := elem.Value.(string); ok {
-				bDoc[i].Value = ensureEnvUUID(envUUID, id)
+				bDoc[i].Value = ensureEnvUUID(modelUUID, id)
 			} else if subquery, ok := elem.Value.(bson.D); ok {
-				munged, err := mungeIDSubQueryForMultiEnv(subquery, envUUID)
+				munged, err := mungeIDSubQueryForMultiEnv(subquery, modelUUID)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -78,19 +78,19 @@ func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bso
 			}
 			envUUIDSeen = true
 			if elem.Value == "" {
-				bDoc[i].Value = envUUID
-			} else if elem.Value != envUUID {
-				return nil, errors.Errorf(`bad "model-uuid" value: expected %s, got %s`, envUUID, elem.Value)
+				bDoc[i].Value = modelUUID
+			} else if elem.Value != modelUUID {
+				return nil, errors.Errorf(`bad "model-uuid" value: expected %s, got %s`, modelUUID, elem.Value)
 			}
 		}
 	}
 	if envUUIDFlags&envUUIDRequired > 0 && !envUUIDSeen {
-		bDoc = append(bDoc, bson.DocElem{"model-uuid", envUUID})
+		bDoc = append(bDoc, bson.DocElem{"model-uuid", modelUUID})
 	}
 	return bDoc, nil
 }
 
-func mungeIDSubQueryForMultiEnv(doc interface{}, envUUID string) (bson.D, error) {
+func mungeIDSubQueryForMultiEnv(doc interface{}, modelUUID string) (bson.D, error) {
 	var bDoc bson.D
 	var err error
 	if doc != nil {
@@ -125,7 +125,7 @@ func mungeIDSubQueryForMultiEnv(doc interface{}, envUUID string) (bson.D, error)
 
 			var fullIDs []string
 			for _, id := range ids {
-				fullID := ensureEnvUUID(envUUID, id)
+				fullID := ensureEnvUUID(modelUUID, id)
 				fullIDs = append(fullIDs, fullID)
 			}
 			bDoc[i].Value = fullIDs

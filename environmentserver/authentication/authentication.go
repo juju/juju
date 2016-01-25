@@ -51,7 +51,7 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	envUUID, err := st.EnvironUUID()
+	modelUUID, err := st.EnvironUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,7 +64,7 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	apiInfo := &api.Info{
 		Addrs:      apiAddresses,
 		CACert:     caCert,
-		EnvironTag: names.NewEnvironTag(envUUID),
+		EnvironTag: names.NewEnvironTag(modelUUID),
 	}
 	return &simpleAuth{stateInfo, apiInfo}, nil
 }

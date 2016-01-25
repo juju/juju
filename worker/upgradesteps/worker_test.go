@@ -268,7 +268,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	// This test checks when a state server is upgrading and one of
 	// the other state servers doesn't signal it is ready in time.
 
-	err := s.State.SetControllerAgentVersion(version.Current)
+	err := s.State.SetModelAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The master state server in this scenario is functionally tested

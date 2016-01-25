@@ -51,7 +51,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	count := uint64(1)
-	s.BlockDestroyEnvironment(c, "TestAddUnitStorageIgnoresBlocks")
+	s.BlockDestroyModel(c, "TestAddUnitStorageIgnoresBlocks")
 	s.BlockRemoveObject(c, "TestAddUnitStorageIgnoresBlocks")
 	s.BlockAllChanges(c, "TestAddUnitStorageIgnoresBlocks")
 	s.assertUnitStorageAdded(c,

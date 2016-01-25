@@ -41,7 +41,7 @@ type toolsCommonSuite struct {
 
 func (s *toolsCommonSuite) toolsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/model/%s/tools", s.envUUID)
+	uri.Path = fmt.Sprintf("/model/%s/tools", s.modelUUID)
 	uri.RawQuery = query
 	return uri
 }

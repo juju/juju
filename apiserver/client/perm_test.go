@@ -145,7 +145,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientEnvironmentSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetControllerAgentVersion",
+		about: "Client.SetModelAgentVersion",
 		op:    opClientSetEnvironAgentVersion,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -423,7 +423,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetControllerAgentVersion(version.Current)
+	err = st.Client().SetModelAgentVersion(version.Current)
 	if err != nil {
 		return func() {}, err
 	}
@@ -432,7 +432,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetControllerAgentVersion(version.MustParse(versionString))
+			st.Client().SetModelAgentVersion(version.MustParse(versionString))
 		}
 	}, nil
 }

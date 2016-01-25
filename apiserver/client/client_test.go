@@ -434,10 +434,10 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 }
 
 func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
-	args := params.SetControllerAgentVersion{
+	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetControllerAgentVersion(args)
+	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -463,10 +463,10 @@ func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr 
 	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
 		return env, nil
 	})
-	args := params.SetControllerAgentVersion{
+	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetControllerAgentVersion(args)
+	err := s.client.SetModelAgentVersion(args)
 	c.Assert(env.allInstancesCalled, jc.IsTrue)
 	if expectErr != "" {
 		c.Assert(err, gc.ErrorMatches, expectErr)
@@ -486,10 +486,10 @@ func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
-	args := params.SetControllerAgentVersion{
+	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetControllerAgentVersion(args)
+	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,15 +499,15 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
-	args := params.SetControllerAgentVersion{
+	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
-	err := s.client.SetControllerAgentVersion(args)
+	err := s.client.SetModelAgentVersion(args)
 	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroySetEnvironAgentVersion")
+	s.BlockDestroyModel(c, "TestBlockDestroySetEnvironAgentVersion")
 	s.assertSetEnvironAgentVersion(c)
 }
 
@@ -582,7 +582,7 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 
 func (s *serverSuite) TestBlockDestroyAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyAbortCurrentUpgrade")
+	s.BlockDestroyModel(c, "TestBlockDestroyAbortCurrentUpgrade")
 	s.assertAbortCurrentUpgrade(c)
 }
 
@@ -711,7 +711,7 @@ func (s *serverSuite) assertServiceSet(c *gc.C, dummy *state.Service) {
 
 func (s *serverSuite) TestBlockDestroyServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSet")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceSet")
 	s.assertServiceSet(c, dummy)
 }
 
@@ -793,7 +793,7 @@ func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, ms
 
 func (s *serverSuite) TestBlockDestroyServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServerUnset")
+	s.BlockDestroyModel(c, "TestBlockDestroyServerUnset")
 	s.assertServerUnset(c, dummy)
 }
 
@@ -957,7 +957,7 @@ func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
 
 func (s *clientSuite) TestBlockDestroyAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddServiceUnits")
+	s.BlockDestroyModel(c, "TestBlockDestroyAddServiceUnits")
 	s.assertAddServiceUnits(c)
 }
 
@@ -1272,7 +1272,7 @@ func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
 
 func (s *clientSuite) TestBlockDestroyServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceExpose")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceExpose")
 	s.assertServiceExpose(c)
 }
 
@@ -1362,7 +1362,7 @@ func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, 
 
 func (s *clientSuite) TestBlockDestroyServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUnexpose")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceUnexpose")
 	s.assertServiceUnexpose(c, svc)
 }
 
@@ -1559,7 +1559,7 @@ func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) 
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyUnitResolved")
+	s.BlockDestroyModel(c, "TestBlockDestroyUnitResolved")
 	s.assertResolved(c, u)
 }
 
@@ -1670,7 +1670,7 @@ func (s *clientSuite) TestSuccessfullyAddRelation(c *gc.C) {
 }
 
 func (s *clientSuite) TestBlockDestroyAddRelation(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddRelation")
+	s.BlockDestroyModel(c, "TestBlockDestroyAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"})
 }
 func (s *clientSuite) TestBlockRemoveAddRelation(c *gc.C) {
@@ -1884,7 +1884,7 @@ func (s *clientSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, se
 
 func (s *clientSuite) TestBlockDestroySetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroySetServiceConstraints")
+	s.BlockDestroyModel(c, "TestBlockDestroySetServiceConstraints")
 	s.assertSetServiceConstraints(c, svc, cons)
 }
 
@@ -1949,7 +1949,7 @@ func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, msg string
 }
 
 func (s *clientSuite) TestBlockDestroyClientSetEnvironmentConstraints(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientSetEnvironmentConstraints")
+	s.BlockDestroyModel(c, "TestBlockDestroyClientSetEnvironmentConstraints")
 	s.assertSetEnvironmentConstraints(c)
 }
 
@@ -2276,7 +2276,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 }
 
 func (s *clientSuite) TestBlockDestroyClientAddMachinesDefaultSeries(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientAddMachinesDefaultSeries")
+	s.BlockDestroyModel(c, "TestBlockDestroyClientAddMachinesDefaultSeries")
 	s.assertAddMachines(c)
 }
 
@@ -2727,7 +2727,7 @@ func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Mac
 
 func (s *clientSuite) TestBlockDestroyRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyRetryProvisioning")
+	s.BlockDestroyModel(c, "TestBlockDestroyRetryProvisioning")
 	s.assertRetryProvisioning(c, m)
 }
 
@@ -2843,14 +2843,14 @@ func (s *clientSuite) TestBlockChangesDestroyMachines(c *gc.C) {
 
 func (s *clientSuite) TestBlockDestoryDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestoryDestroyMachines")
+	s.BlockDestroyModel(c, "TestBlockDestoryDestroyMachines")
 	s.assertDestroyMachineSuccess(c, u, m0, m1, m2)
 }
 
 func (s *clientSuite) TestAnyBlockForceDestroyMachines(c *gc.C) {
 	// force bypasses all blocks
 	s.BlockAllChanges(c, "TestAnyBlockForceDestroyMachines")
-	s.BlockDestroyEnvironment(c, "TestAnyBlockForceDestroyMachines")
+	s.BlockDestroyModel(c, "TestAnyBlockForceDestroyMachines")
 	s.BlockRemoveObject(c, "TestAnyBlockForceDestroyMachines")
 	s.assertForceDestroyMachines(c)
 }
@@ -2931,7 +2931,7 @@ func (s *clientSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 
 func (s *clientSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyPrincipalUnits")
+	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dying)
@@ -3026,7 +3026,7 @@ func (s *clientSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroySubordinateUnits")
+	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
@@ -3055,7 +3055,7 @@ func (s *clientSuite) TestBlockChangeDestroyRelation(c *gc.C) {
 }
 
 func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
+	s.BlockDestroyModel(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
 }

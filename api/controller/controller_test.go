@@ -103,7 +103,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	sysManager := s.OpenAPI(c)
@@ -137,16 +137,16 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 
 		env, err := s.State.Environment()
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Assert(envInfo.ModelUUID, gc.Equals, env.UUID())
-		c.Assert(envInfo.Name, gc.Equals, env.Name())
-		c.Assert(envInfo.Life, gc.Equals, multiwatcher.Life("alive"))
-		c.Assert(envInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(envInfo.ServerUUID, gc.Equals, env.ControllerUUID())
+		c.Assert(modelInfo.ModelUUID, gc.Equals, env.UUID())
+		c.Assert(modelInfo.Name, gc.Equals, env.Name())
+		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
+		c.Assert(modelInfo.Owner, gc.Equals, env.Owner().Id())
+		c.Assert(modelInfo.ServerUUID, gc.Equals, env.ControllerUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

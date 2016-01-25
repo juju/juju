@@ -902,7 +902,7 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetControllerAgentVersion(v version.Number) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number) error {
 	a.setVersionCalledWith = v
 	return a.setVersionErr
 }

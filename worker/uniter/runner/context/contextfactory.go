@@ -68,7 +68,7 @@ type contextFactory struct {
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
-	envUUID    string
+	modelUUID  string
 	envName    string
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
@@ -112,7 +112,7 @@ func NewContextFactory(
 		state:            state,
 		tracker:          tracker,
 		paths:            paths,
-		envUUID:          environment.UUID(),
+		modelUUID:        environment.UUID(),
 		envName:          environment.Name(),
 		machineTag:       machineTag,
 		getRelationInfos: getRelationInfos,
@@ -140,7 +140,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		unit:               f.unit,
 		state:              f.state,
 		LeadershipContext:  leadershipContext,
-		uuid:               f.envUUID,
+		uuid:               f.modelUUID,
 		envName:            f.envName,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,

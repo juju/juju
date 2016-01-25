@@ -58,7 +58,7 @@ used.
 The Login methods on the adminV0 and adminV1 instances call into the doLogin
 method.  It is here where we want to wrap the authedApi with something that
 limits the rootName objects that can be called.  In order to do this, we need
-to pass the envUUID from the path (remember this is either a valid uuid or the
+to pass the modelUUID from the path (remember this is either a valid uuid or the
 empty string), and the version of the login command used.
 
 In order to get the envuuid from the path into the Login method, we need to
@@ -75,7 +75,7 @@ The login process for both v0 and v1 logins are handled in the method
 attribute of the apiHandler is initially given the anonymous root here:
 
 ```go
-func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
 	// ...
 		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
 	// ...
@@ -94,7 +94,7 @@ the end of the method.
 
 In order to supply a restricted api at the root, the doLogin method will need
 to take a version number.  Just before we replace the method finder for the
-RPC connection, we check the version number and the envUUID of the api
+RPC connection, we check the version number and the modelUUID of the api
 handler, and wrap the authedApi in a restricted root method finder implemented
 in a similar manner to the upgradingRoot method finder.
 

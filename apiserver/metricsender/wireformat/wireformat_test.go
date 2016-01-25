@@ -51,17 +51,17 @@ func (s *WireFormatSuite) TestAck(c *gc.C) {
 	resp := wireformat.EnvironmentResponses{}
 	c.Assert(resp, gc.HasLen, 0)
 
-	envUUID := "model-uuid"
+	modelUUID := "model-uuid"
 	envUUID2 := "env-uuid2"
 	batchUUID := "batch-uuid"
 	batchUUID2 := "batch-uuid2"
 
-	resp.Ack(envUUID, batchUUID)
-	resp.Ack(envUUID, batchUUID2)
+	resp.Ack(modelUUID, batchUUID)
+	resp.Ack(modelUUID, batchUUID2)
 	resp.Ack(envUUID2, batchUUID)
 	c.Assert(resp, gc.HasLen, 2)
 
-	c.Assert(resp[envUUID].AcknowledgedBatches, jc.SameContents, []string{batchUUID, batchUUID2})
+	c.Assert(resp[modelUUID].AcknowledgedBatches, jc.SameContents, []string{batchUUID, batchUUID2})
 	c.Assert(resp[envUUID2].AcknowledgedBatches, jc.SameContents, []string{batchUUID})
 }
 
@@ -69,30 +69,30 @@ func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
 	resp := wireformat.EnvironmentResponses{}
 	c.Assert(resp, gc.HasLen, 0)
 
-	envUUID := "model-uuid"
+	modelUUID := "model-uuid"
 	envUUID2 := "env-uuid2"
 	unitName := "some-unit/0"
 	unitName2 := "some-unit/1"
 
-	resp.SetStatus(envUUID, unitName, "GREEN", "")
+	resp.SetStatus(modelUUID, unitName, "GREEN", "")
 	c.Assert(resp, gc.HasLen, 1)
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Info, gc.Equals, "")
 
-	resp.SetStatus(envUUID, unitName2, "RED", "Unit unresponsive.")
+	resp.SetStatus(modelUUID, unitName2, "RED", "Unit unresponsive.")
 	c.Assert(resp, gc.HasLen, 1)
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "")
-	c.Assert(resp[envUUID].UnitStatuses[unitName2].Status, gc.Equals, "RED")
-	c.Assert(resp[envUUID].UnitStatuses[unitName2].Info, gc.Equals, "Unit unresponsive.")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Info, gc.Equals, "")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName2].Status, gc.Equals, "RED")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName2].Info, gc.Equals, "Unit unresponsive.")
 
 	resp.SetStatus(envUUID2, unitName, "UNKNOWN", "")
 	c.Assert(resp, gc.HasLen, 2)
 	c.Assert(resp[envUUID2].UnitStatuses[unitName].Status, gc.Equals, "UNKNOWN")
 	c.Assert(resp[envUUID2].UnitStatuses[unitName].Info, gc.Equals, "")
 
-	resp.SetStatus(envUUID, unitName, "RED", "Invalid data received.")
+	resp.SetStatus(modelUUID, unitName, "RED", "Invalid data received.")
 	c.Assert(resp, gc.HasLen, 2)
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "RED")
-	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "Invalid data received.")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Status, gc.Equals, "RED")
+	c.Assert(resp[modelUUID].UnitStatuses[unitName].Info, gc.Equals, "Invalid data received.")
 }

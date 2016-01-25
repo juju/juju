@@ -49,7 +49,7 @@ type actionNotificationDoc struct {
 	// composite _id.
 	DocId string `bson:"_id"`
 
-	// ModelUUID is the environment identifier.
+	// ModelUUID is the model identifier.
 	ModelUUID string `bson:"model-uuid"`
 
 	// Receiver is the Name of the Unit or any other ActionReceiver for
@@ -65,7 +65,7 @@ type actionDoc struct {
 	// DocId is the key for this document; it is a UUID.
 	DocId string `bson:"_id"`
 
-	// ModelUUID is the environment identifier.
+	// ModelUUID is the model identifier.
 	ModelUUID string `bson:"model-uuid"`
 
 	// Receiver is the Name of the Unit or any other ActionReceiver for

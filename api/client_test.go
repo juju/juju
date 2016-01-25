@@ -512,7 +512,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
-	// SetControllerAgentVersion call when an upgrade is in progress.
+	// SetModelAgentVersion call when an upgrade is in progress.
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -526,7 +526,7 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().SetControllerAgentVersion(nextVersion)
+	err = s.APIState.Client().SetModelAgentVersion(nextVersion)
 
 	// Expect an error with a error code that indicates this specific
 	// situation. The client needs to be able to reliably identify

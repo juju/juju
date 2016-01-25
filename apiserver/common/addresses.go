@@ -83,7 +83,7 @@ func (a *APIAddresser) CACert() params.BytesResult {
 	}
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// EnvironUUID returns the model UUID to connect to the environment
 // that the current connection is for.
 func (a *APIAddresser) EnvironUUID() params.StringResult {
 	return params.StringResult{Result: a.getter.EnvironUUID()}

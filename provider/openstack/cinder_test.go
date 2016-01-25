@@ -216,12 +216,12 @@ func (s *cinderVolumeSourceSuite) TestListVolumes(c *gc.C) {
 			}, {
 				ID: "volume-2",
 				Metadata: map[string]string{
-					tags.JujuEnv: "something-else",
+					tags.JujuModel: "something-else",
 				},
 			}, {
 				ID: "volume-3",
 				Metadata: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.EnvironmentTag.Id(),
 				},
 			}}, nil
 		},

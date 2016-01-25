@@ -339,9 +339,9 @@ func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockRemove, msg)
 }
 
-// BlockDestroyEnvironment switches destroy block on.
+// BlockDestroyModel switches destroy block on.
 // This prevents juju environment destruction.
-func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }
 

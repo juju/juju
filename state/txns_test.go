@@ -27,7 +27,7 @@ var _ = gc.Suite(&MultiEnvRunnerSuite{})
 // in Run()
 const (
 	testTxnAttempt = 42
-	envUUID        = "uuid"
+	modelUUID      = "uuid"
 )
 
 func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
@@ -35,7 +35,7 @@ func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 	s.testRunner = &recordingRunner{}
 	s.multiEnvRunner = &multiEnvRunner{
 		rawRunner: s.testRunner,
-		envUUID:   envUUID,
+		modelUUID: modelUUID,
 		schema: collectionSchema{
 			machinesC:          {},
 			networkInterfacesC: {},
@@ -331,7 +331,7 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
-		Update: bson.M{"$set": &machineDoc{ModelUUID: envUUID}},
+		Update: bson.M{"$set": &machineDoc{ModelUUID: modelUUID}},
 	}}
 	err := s.multiEnvRunner.RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
@@ -349,13 +349,13 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
 	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
 		C:      environmentsC,
-		Id:     envUUID,
+		Id:     modelUUID,
 		Insert: bson.M{},
 	}})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
 		C:      environmentsC,
-		Id:     envUUID,
+		Id:     modelUUID,
 		Insert: bson.M{},
 	}})
 }

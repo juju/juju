@@ -16,25 +16,25 @@ var sendMetrics = func(st *state.State) error {
 	return errors.Trace(err)
 }
 
-// DestroyModel sets the environment to dying. Cleanup jobs then destroy
+// DestroyModelIncludingHosted sets the model to dying. Cleanup jobs then destroy
 // all services and non-manager, non-manual machine instances in the specified
-// environment. This function assumes that all necessary authentication checks
-// have been done. If the environment is a controller hosting other
-// environments, they will also be destroyed.
-func DestroyEnvironmentIncludingHosted(st *state.State, environTag names.EnvironTag) error {
-	return destroyEnvironment(st, environTag, true)
+// model. This function assumes that all necessary authentication checks
+// have been done. If the model is a controller hosting other
+// models, they will also be destroyed.
+func DestroyModelIncludingHosted(st *state.State, environTag names.EnvironTag) error {
+	return destroyModel(st, environTag, true)
 }
 
 // DestroyModel sets the environment to dying. Cleanup jobs then destroy
 // all services and non-manager, non-manual machine instances in the specified
-// environment. This function assumes that all necessary authentication checks
-// have been done. An error will be returned if this environment is a
-// controller hosting other environments.
+// model. This function assumes that all necessary authentication checks
+// have been done. An error will be returned if this model is a
+// controller hosting other model.
 func DestroyModel(st *state.State, environTag names.EnvironTag) error {
-	return destroyEnvironment(st, environTag, false)
+	return destroyModel(st, environTag, false)
 }
 
-func destroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHostedEnvirons bool) error {
+func destroyModel(st *state.State, environTag names.EnvironTag, destroyHostedModels bool) error {
 	var err error
 	if environTag != st.EnvironTag() {
 		if st, err = st.ForEnviron(environTag); err != nil {
@@ -43,7 +43,7 @@ func destroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHos
 		defer st.Close()
 	}
 
-	if destroyHostedEnvirons {
+	if destroyHostedModels {
 		envs, err := st.AllEnvironments()
 		if err != nil {
 			return errors.Trace(err)
@@ -71,7 +71,7 @@ func destroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHos
 		return errors.Trace(err)
 	}
 
-	if destroyHostedEnvirons {
+	if destroyHostedModels {
 		if err := env.DestroyIncludingHosted(); err != nil {
 			return err
 		}

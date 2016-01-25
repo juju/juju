@@ -174,7 +174,7 @@ type upgradeJujuAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
 	AbortCurrentUpgrade() error
-	SetControllerAgentVersion(version version.Number) error
+	SetModelAgentVersion(version version.Number) error
 	Close() error
 }
 
@@ -304,7 +304,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		if err := client.SetControllerAgentVersion(context.chosen); err != nil {
+		if err := client.SetModelAgentVersion(context.chosen); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+

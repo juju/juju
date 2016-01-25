@@ -21,7 +21,7 @@ import (
 var logger = loggo.GetLogger("juju.state.toolstorage")
 
 type toolsStorage struct {
-	envUUID            string
+	modelUUID          string
 	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
@@ -33,13 +33,13 @@ var _ Storage = (*toolsStorage)(nil)
 // in the provided ManagedStorage, and tools metadata in the provided
 // collection using the provided transaction runner.
 func NewStorage(
-	envUUID string,
+	modelUUID string,
 	managedStorage blobstore.ManagedStorage,
 	metadataCollection *mgo.Collection,
 	runner jujutxn.Runner,
 ) Storage {
 	return &toolsStorage{
-		envUUID:            envUUID,
+		modelUUID:          modelUUID,
 		managedStorage:     managedStorage,
 		metadataCollection: metadataCollection,
 		txnRunner:          runner,
@@ -49,14 +49,14 @@ func NewStorage(
 func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
-	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
+	if err := s.managedStorage.PutForEnvironment(s.modelUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store tools tarball")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
+		err := s.managedStorage.RemoveForEnvironment(s.modelUUID, path)
 		if err != nil {
 			logger.Errorf("failed to remove tools blob: %v", err)
 		}
@@ -112,7 +112,7 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := s.managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
+		err := s.managedStorage.RemoveForEnvironment(s.modelUUID, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old tools blob: %v", err)
 		} else {
@@ -187,7 +187,7 @@ func (s *toolsStorage) toolsMetadata(v version.Binary) (toolsMetadataDoc, error)
 }
 
 func (s *toolsStorage) toolsTarball(path string) (io.ReadCloser, error) {
-	r, _, err := s.managedStorage.GetForEnvironment(s.envUUID, path)
+	r, _, err := s.managedStorage.GetForEnvironment(s.modelUUID, path)
 	return r, err
 }
 

@@ -21,7 +21,7 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
-	// ModelUUID returns the environment UUID associated with this block.
+	// ModelUUID returns the model UUID associated with this block.
 	ModelUUID() string
 
 	// Tag returns tag for the entity that is being blocked

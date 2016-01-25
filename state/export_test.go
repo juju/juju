@@ -356,10 +356,10 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDead(st *State, envUUID string) error {
+func SetEnvLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
-		Id:     envUUID,
+		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
@@ -421,7 +421,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	envUUID string,
+	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -432,7 +432,7 @@ func MakeLogDoc(
 	return &logDoc{
 		Id:        bson.NewObjectId(),
 		Time:      t,
-		ModelUUID: envUUID,
+		ModelUUID: modelUUID,
 		Entity:    entity.String(),
 		Module:    module,
 		Location:  location,

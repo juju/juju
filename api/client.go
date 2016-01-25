@@ -347,7 +347,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	return info, err
 }
 
-// ModelUUID returns the environment UUID from the client connection.
+// ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() string {
 	tag, err := c.st.EnvironTag()
 	if err != nil {
@@ -491,11 +491,11 @@ func (c *Client) ModelUnset(keys ...string) error {
 	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
-// SetControllerAgentVersion sets the agent-version setting
+// SetModelAgentVersion sets the model agent-version setting
 // to the given value.
-func (c *Client) SetControllerAgentVersion(version version.Number) error {
-	args := params.SetControllerAgentVersion{Version: version}
-	return c.facade.FacadeCall("SetControllerAgentVersion", args, nil)
+func (c *Client) SetModelAgentVersion(version version.Number) error {
+	args := params.SetModelAgentVersion{Version: version}
+	return c.facade.FacadeCall("SetModelAgentVersion", args, nil)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade

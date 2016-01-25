@@ -69,16 +69,16 @@ func (s *sequenceSuite) checkDocCount(c *gc.C, expectedCount int) {
 	c.Check(count, gc.Equals, expectedCount)
 }
 
-func (s *sequenceSuite) checkDoc(c *gc.C, envUUID, name string, value int) {
+func (s *sequenceSuite) checkDoc(c *gc.C, modelUUID, name string, value int) {
 	coll, closer := state.GetRawCollection(s.State, "sequence")
 	defer closer()
 
-	docID := envUUID + ":" + name
+	docID := modelUUID + ":" + name
 	var doc bson.M
 	err := coll.FindId(docID).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc["_id"], gc.Equals, docID)
 	c.Check(doc["name"], gc.Equals, name)
-	c.Check(doc["model-uuid"], gc.Equals, envUUID)
+	c.Check(doc["model-uuid"], gc.Equals, modelUUID)
 	c.Check(doc["counter"], gc.Equals, value)
 }

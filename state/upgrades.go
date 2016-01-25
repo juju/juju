@@ -77,14 +77,14 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 	}
 
 	for _, envDoc := range envDocs {
-		envUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		modelUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(modelUUID))
 		if err != nil {
-			return errors.Annotatef(err, "failed to open model %q", envUUID)
+			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
 		defer envSt.Close()
 		if err := runner(envSt); err != nil {
-			return errors.Annotatef(err, "model UUID %q", envUUID)
+			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
 	}
 	return nil

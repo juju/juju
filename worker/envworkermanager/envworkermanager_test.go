@@ -68,7 +68,7 @@ func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
 	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
 	for _, r := range s.seeRunnersStart(c, 2) {
-		seenEnvs = append(seenEnvs, r.envUUID)
+		seenEnvs = append(seenEnvs, r.modelUUID)
 	}
 
 	c.Assert(seenEnvs, jc.SameContents,
@@ -77,7 +77,7 @@ func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
 
 	destroyEnvironment(c, moreState)
 	dyingRunner := s.seeRunnersStart(c, 1)[0]
-	c.Assert(dyingRunner.envUUID, gc.Equals, moreState.EnvironUUID())
+	c.Assert(dyingRunner.modelUUID, gc.Equals, moreState.EnvironUUID())
 }
 
 func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
@@ -88,7 +88,7 @@ func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
 	// Create another environment and watch a runner be created for it.
 	st2 := s.makeEnvironment(c)
 	runner := s.seeRunnersStart(c, 1)[0]
-	c.Assert(runner.envUUID, gc.Equals, st2.EnvironUUID())
+	c.Assert(runner.modelUUID, gc.Equals, st2.EnvironUUID())
 }
 
 func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
@@ -364,7 +364,7 @@ func (s *suite) startEnvWorker(ssSt envworkermanager.InitialState, st *state.Sta
 	}
 	runner := &fakeRunner{
 		ssEnvUUID: ssSt.EnvironUUID(),
-		envUUID:   st.EnvironUUID(),
+		modelUUID: st.EnvironUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -379,7 +379,7 @@ func (s *suite) dyingEnvWorker(ssSt envworkermanager.InitialState, st *state.Sta
 	}
 	runner := &fakeRunner{
 		ssEnvUUID: ssSt.EnvironUUID(),
-		envUUID:   st.EnvironUUID(),
+		modelUUID: st.EnvironUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -406,7 +406,7 @@ func waitOrFatal(c *gc.C, wait func() error) error {
 type fakeRunner struct {
 	tomb      tomb.Tomb
 	ssEnvUUID string
-	envUUID   string
+	modelUUID string
 	killed    bool
 }
 

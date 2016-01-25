@@ -110,9 +110,9 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	list, err := s.controller.ListBlockedModels()
@@ -171,9 +171,9 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})

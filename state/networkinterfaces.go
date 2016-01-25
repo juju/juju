@@ -182,10 +182,10 @@ func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface 
 	return &NetworkInterface{st, *doc}
 }
 
-func newNetworkInterfaceDoc(machineID, envUUID string, args NetworkInterfaceInfo) *networkInterfaceDoc {
+func newNetworkInterfaceDoc(machineID, modelUUID string, args NetworkInterfaceInfo) *networkInterfaceDoc {
 	return &networkInterfaceDoc{
 		Id:            bson.NewObjectId(),
-		ModelUUID:     envUUID,
+		ModelUUID:     modelUUID,
 		MachineId:     machineID,
 		MACAddress:    args.MACAddress,
 		InterfaceName: args.InterfaceName,

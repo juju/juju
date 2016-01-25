@@ -1048,7 +1048,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	envUUID, err := st.EnvironTag()
+	modelUUID, err := st.EnvironTag()
 	if err != nil {
 		return err
 	}
@@ -1066,7 +1066,7 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
 				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
 			})
 	}
@@ -1183,9 +1183,9 @@ func (a *MachineAgent) startEnvWorkers(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	envUUID := st.EnvironUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
-	logger.Infof("starting workers for env %s", envUUID)
+	modelUUID := st.EnvironUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", modelUUID)
+	logger.Infof("starting workers for env %s", modelUUID)
 
 	// Establish API connection for this environment.
 	agentConfig := a.CurrentConfig()
@@ -1214,7 +1214,7 @@ func (a *MachineAgent) startEnvWorkers(
 		runner.Wait()
 		err := apiSt.Close()
 		if err != nil {
-			logger.Errorf("failed to close API connection for env %s: %v", envUUID, err)
+			logger.Errorf("failed to close API connection for env %s: %v", modelUUID, err)
 		}
 	}()
 
@@ -1314,9 +1314,9 @@ func (a *MachineAgent) undertakerWorker(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	envUUID := st.EnvironUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for env %s", envUUID)
-	logger.Infof("starting undertaker worker for env %s", envUUID)
+	modelUUID := st.EnvironUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for env %s", modelUUID)
+	logger.Infof("starting undertaker worker for env %s", modelUUID)
 	singularRunner, runner, apiSt, err := a.newRunnersForAPIConn(ssSt, st)
 	if err != nil {
 		return nil, errors.Trace(err)

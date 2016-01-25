@@ -158,8 +158,8 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, envUUID, tail string) {
-	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/model/"+envUUID+tail+"$")
+func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, modelUUID, tail string) {
+	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/model/"+modelUUID+tail+"$")
 }
 
 func assertConnAddrForRoot(c *gc.C, conn *websocket.Conn, addr string) {

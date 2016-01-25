@@ -64,9 +64,9 @@ type logDoc struct {
 }
 
 type DbLogger struct {
-	logsColl *mgo.Collection
-	envUUID  string
-	entity   string
+	logsColl  *mgo.Collection
+	modelUUID string
+	entity    string
 }
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
@@ -74,9 +74,9 @@ type DbLogger struct {
 func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
-		logsColl: logsColl,
-		envUUID:  st.EnvironUUID(),
-		entity:   entity.String(),
+		logsColl:  logsColl,
+		modelUUID: st.EnvironUUID(),
+		entity:    entity.String(),
 	}
 }
 
@@ -85,7 +85,7 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
 		Time:      t,
-		ModelUUID: logger.envUUID,
+		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
 		Module:    module,
 		Location:  location,
@@ -170,7 +170,7 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		envUUID:   st.EnvironUUID(),
+		modelUUID: st.EnvironUUID(),
 		session:   session,
 		logsColl:  session.DB(logsDB).C(logsC).With(session),
 		params:    params,
@@ -189,7 +189,7 @@ func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 
 type logTailer struct {
 	tomb      tomb.Tomb
-	envUUID   string
+	modelUUID string
 	session   *mgo.Session
 	logsColl  *mgo.Collection
 	params    *LogTailerParams
@@ -320,7 +320,7 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"e", t.envUUID},
+		{"e", t.modelUUID},
 		{"t", bson.M{"$gte": params.StartTime}},
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
@@ -445,15 +445,15 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 
 	// Remove old log entries (per environment UUID to take advantage
 	// of indexes on the logs collection).
-	for _, envUUID := range envUUIDs {
+	for _, modelUUID := range envUUIDs {
 		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": envUUID,
+			"e": modelUUID,
 			"t": bson.M{"$lt": minLogTime},
 		})
 		if err != nil {
 			return errors.Annotate(err, "failed to prune logs by time")
 		}
-		pruneCounts[envUUID] = removeInfo.Removed
+		pruneCounts[modelUUID] = removeInfo.Removed
 	}
 
 	// Do further pruning if the logs collection is over the maximum size.
@@ -466,7 +466,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 			break
 		}
 
-		envUUID, count, err := findEnvWithMostLogs(logsColl, envUUIDs)
+		modelUUID, count, err := findEnvWithMostLogs(logsColl, envUUIDs)
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
@@ -481,7 +481,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 		// NOTE: this assumes that there are no more logs being added
 		// for the time range being pruned (which should be true for
 		// any realistic minimum log collection size).
-		tsQuery := logsColl.Find(bson.M{"e": envUUID}).Sort("t")
+		tsQuery := logsColl.Find(bson.M{"e": modelUUID}).Sort("t")
 		tsQuery = tsQuery.Skip(toRemove)
 		tsQuery = tsQuery.Select(bson.M{"t": 1})
 		var doc bson.M
@@ -493,18 +493,18 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 
 		// Remove old records.
 		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": envUUID,
+			"e": modelUUID,
 			"t": bson.M{"$lt": thresholdTs},
 		})
 		if err != nil {
 			return errors.Annotate(err, "log pruning failed")
 		}
-		pruneCounts[envUUID] += removeInfo.Removed
+		pruneCounts[modelUUID] += removeInfo.Removed
 	}
 
-	for envUUID, count := range pruneCounts {
+	for modelUUID, count := range pruneCounts {
 		if count > 0 {
-			logger.Debugf("pruned %d logs for model %s", count, envUUID)
+			logger.Debugf("pruned %d logs for model %s", count, modelUUID)
 		}
 	}
 	return nil
@@ -551,18 +551,18 @@ func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
 	return envUUIDs, nil
 }
 
-// findEnvWithMostLogs returns the envUUID and log count for the
+// findEnvWithMostLogs returns the modelUUID and log count for the
 // environment with the most logs in the logs collection.
 func findEnvWithMostLogs(logsColl *mgo.Collection, envUUIDs []string) (string, int, error) {
 	var maxEnvUUID string
 	var maxCount int
-	for _, envUUID := range envUUIDs {
-		count, err := getLogCountForEnv(logsColl, envUUID)
+	for _, modelUUID := range envUUIDs {
+		count, err := getLogCountForEnv(logsColl, modelUUID)
 		if err != nil {
 			return "", -1, errors.Trace(err)
 		}
 		if count > maxCount {
-			maxEnvUUID = envUUID
+			maxEnvUUID = modelUUID
 			maxCount = count
 		}
 	}
@@ -571,8 +571,8 @@ func findEnvWithMostLogs(logsColl *mgo.Collection, envUUIDs []string) (string, i
 
 // getLogCountForEnv returns the number of log records stored for a
 // given environment.
-func getLogCountForEnv(coll *mgo.Collection, envUUID string) (int, error) {
-	count, err := coll.Find(bson.M{"e": envUUID}).Count()
+func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
+	count, err := coll.Find(bson.M{"e": modelUUID}).Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")
 	}

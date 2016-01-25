@@ -261,7 +261,7 @@ func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
 }
 
-// ModelUUID returns the environment UUID this metric applies to.
+// ModelUUID returns the model UUID this metric applies to.
 func (m *MetricBatch) ModelUUID() string {
 	return m.doc.ModelUUID
 }

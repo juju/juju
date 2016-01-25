@@ -64,7 +64,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 // we can check that they all get pulled in by
 // all(Env)WatcherStateBacking.GetAll.
 func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
-	envUUID := st.EnvironUUID()
+	modelUUID := st.EnvironUUID()
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
@@ -81,7 +81,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = m.SetProviderAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
-		ModelUUID:               envUUID,
+		ModelUUID:               modelUUID,
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
 		Status:                  multiwatcher.Status("pending"),
@@ -104,7 +104,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	setServiceConfigAttr(c, wordpress, "blog-title", "boring")
 	add(&multiwatcher.ServiceInfo{
-		ModelUUID:   envUUID,
+		ModelUUID:   modelUUID,
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
@@ -124,14 +124,14 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = st.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
-		ModelUUID:   envUUID,
+		ModelUUID:   modelUUID,
 		Tag:         "service-wordpress",
 		Annotations: pairs,
 	})
 
 	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
 	add(&multiwatcher.ServiceInfo{
-		ModelUUID:   envUUID,
+		ModelUUID:   modelUUID,
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
 		OwnerTag:    s.owner.String(),
@@ -150,7 +150,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.RelationInfo{
-		ModelUUID: envUUID,
+		ModelUUID: modelUUID,
 		Key:       "logging:logging-directory wordpress:logging-dir",
 		Id:        rel.Id(),
 		Endpoints: []multiwatcher.Endpoint{
@@ -168,7 +168,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&multiwatcher.UnitInfo{
-			ModelUUID:   envUUID,
+			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("wordpress/%d", i),
 			Service:     wordpress.Name(),
 			Series:      m.Series(),
@@ -192,7 +192,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		err = st.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
-			ModelUUID:   envUUID,
+			ModelUUID:   modelUUID,
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
@@ -204,7 +204,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.MachineInfo{
-			ModelUUID:               envUUID,
+			ModelUUID:               modelUUID,
 			Id:                      fmt.Sprint(i + 1),
 			InstanceId:              "i-" + m.Tag().String(),
 			Status:                  multiwatcher.Status("error"),
@@ -240,7 +240,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&multiwatcher.UnitInfo{
-			ModelUUID:   envUUID,
+			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("logging/%d", i),
 			Service:     "logging",
 			Series:      "quantal",

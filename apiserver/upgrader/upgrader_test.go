@@ -289,7 +289,7 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
-	// In order to call SetControllerAgentVersion we have to first SetTools on
+	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
 	current := version.Binary{
 		Number: version.Current,
@@ -300,7 +300,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	s.rawMachine.SetAgentVersion(current)
 	newer := current
 	newer.Patch++
-	err := s.State.SetControllerAgentVersion(newer.Number)
+	err := s.State.SetModelAgentVersion(newer.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)

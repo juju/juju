@@ -37,25 +37,25 @@ type Storage interface {
 }
 
 // Storage returns a Storage for the environment with the specified UUID.
-func NewStorage(envUUID string, session *mgo.Session) Storage {
-	return stateStorage{envUUID, session}
+func NewStorage(modelUUID string, session *mgo.Session) Storage {
+	return stateStorage{modelUUID, session}
 }
 
 type stateStorage struct {
-	envUUID string
-	session *mgo.Session
+	modelUUID string
+	session   *mgo.Session
 }
 
 func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
 	session := s.session.Copy()
-	rs := blobstore.NewGridFS(blobstoreDB, s.envUUID, session)
+	rs := blobstore.NewGridFS(blobstoreDB, s.modelUUID, session)
 	db := session.DB(metadataDB)
 	return session, blobstore.NewManagedStorage(db, rs)
 }
 
 func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
 	session, ms := s.blobstore()
-	r, length, err = ms.GetForEnvironment(s.envUUID, path)
+	r, length, err = ms.GetForEnvironment(s.modelUUID, path)
 	if err != nil {
 		session.Close()
 		return nil, -1, err
@@ -66,13 +66,13 @@ func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error
 func (s stateStorage) Put(path string, r io.Reader, length int64) error {
 	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.PutForEnvironment(s.envUUID, path, r, length)
+	return ms.PutForEnvironment(s.modelUUID, path, r, length)
 }
 
 func (s stateStorage) Remove(path string) error {
 	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.RemoveForEnvironment(s.envUUID, path)
+	return ms.RemoveForEnvironment(s.modelUUID, path)
 }
 
 type stateStorageReadCloser struct {

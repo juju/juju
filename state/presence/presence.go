@@ -30,17 +30,17 @@ type Presencer interface {
 }
 
 // docIDInt64 generates a globally unique id value
-// where the environment uuid is prefixed to the
+// where the model uuid is prefixed to the
 // given int64 localID.
-func docIDInt64(envUUID string, localID int64) string {
-	return envUUID + ":" + strconv.FormatInt(localID, 10)
+func docIDInt64(modelUUID string, localID int64) string {
+	return modelUUID + ":" + strconv.FormatInt(localID, 10)
 }
 
 // docIDStr generates a globally unique id value
-// where the environment uuid is prefixed to the
+// where the model uuid is prefixed to the
 // given string localID.
-func docIDStr(envUUID string, localID string) string {
-	return envUUID + ":" + localID
+func docIDStr(modelUUID string, localID string) string {
+	return modelUUID + ":" + localID
 }
 
 // The implementation works by assigning a unique sequence number to each
@@ -52,9 +52,9 @@ func docIDStr(envUUID string, localID string) string {
 // internal implementation of the time slot document is as follows:
 //
 // {
-//   "_id":   <environ UUID>:<time slot>,
+//   "_id":   <model UUID>:<time slot>,
 //   "slot": <slot>,
-//   "model-uuid": <environ UUID>,
+//   "model-uuid": <model UUID>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
@@ -75,11 +75,11 @@ func docIDStr(envUUID string, localID string) string {
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
-	envUUID string
-	tomb    tomb.Tomb
-	base    *mgo.Collection
-	pings   *mgo.Collection
-	beings  *mgo.Collection
+	modelUUID string
+	tomb      tomb.Tomb
+	base      *mgo.Collection
+	pings     *mgo.Collection
+	beings    *mgo.Collection
 
 	// delta is an approximate clock skew between the local system
 	// clock and the database clock.
@@ -126,14 +126,14 @@ type Change struct {
 // NewWatcher returns a new Watcher.
 func NewWatcher(base *mgo.Collection, envTag names.EnvironTag) *Watcher {
 	w := &Watcher{
-		envUUID:  envTag.Id(),
-		base:     base,
-		pings:    pingsC(base),
-		beings:   beingsC(base),
-		beingKey: make(map[int64]string),
-		beingSeq: make(map[string]int64),
-		watches:  make(map[string][]chan<- Change),
-		request:  make(chan interface{}),
+		modelUUID: envTag.Id(),
+		base:      base,
+		pings:     pingsC(base),
+		beings:    beingsC(base),
+		beingKey:  make(map[int64]string),
+		beingSeq:  make(map[string]int64),
+		watches:   make(map[string][]chan<- Change),
+		request:   make(chan interface{}),
 	}
 	go func() {
 		err := w.loop()
@@ -356,7 +356,7 @@ func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	defer session.Close()
 	beingsC := w.beings.With(session)
 
-	err := beingsC.Find(bson.D{{"model-uuid", w.envUUID}}).All(&beings)
+	err := beingsC.Find(bson.D{{"model-uuid", w.modelUUID}}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
@@ -381,8 +381,8 @@ func (w *Watcher) sync() error {
 		}
 	}
 	s := timeSlot(time.Now(), w.delta)
-	slot := docIDInt64(w.envUUID, s)
-	previousSlot := docIDInt64(w.envUUID, s-period)
+	slot := docIDInt64(w.modelUUID, s)
+	previousSlot := docIDInt64(w.modelUUID, s-period)
 	session := w.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := w.pings.With(session)
@@ -445,7 +445,7 @@ func (w *Watcher) sync() error {
 				// otherwise do a single lookup in mongo
 				var ok bool
 				if being, ok = allBeings[seq]; !ok {
-					err := beingsC.Find(bson.D{{"_id", docIDInt64(w.envUUID, seq)}}).One(&being)
+					err := beingsC.Find(bson.D{{"_id", docIDInt64(w.modelUUID, seq)}}).One(&being)
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
@@ -491,28 +491,28 @@ func (w *Watcher) sync() error {
 // Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
-	envUUID  string
-	mu       sync.Mutex
-	tomb     tomb.Tomb
-	base     *mgo.Collection
-	pings    *mgo.Collection
-	started  bool
-	beingKey string
-	beingSeq int64
-	fieldKey string // hex(beingKey / 63)
-	fieldBit uint64 // 1 << (beingKey%63)
-	lastSlot int64
-	delta    time.Duration
+	modelUUID string
+	mu        sync.Mutex
+	tomb      tomb.Tomb
+	base      *mgo.Collection
+	pings     *mgo.Collection
+	started   bool
+	beingKey  string
+	beingSeq  int64
+	fieldKey  string // hex(beingKey / 63)
+	fieldBit  uint64 // 1 << (beingKey%63)
+	lastSlot  int64
+	delta     time.Duration
 }
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
 func NewPinger(base *mgo.Collection, envTag names.EnvironTag, key string) *Pinger {
 	return &Pinger{
-		base:     base,
-		pings:    pingsC(base),
-		beingKey: key,
-		envUUID:  envTag.Id(),
+		base:      base,
+		pings:     pingsC(base),
+		beingKey:  key,
+		modelUUID: envTag.Id(),
 	}
 }
 
@@ -591,7 +591,7 @@ func (p *Pinger) killStarted() error {
 	session := p.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := p.pings.With(session)
-	if _, err := pings.UpsertId(docIDInt64(p.envUUID, slot), udoc); err != nil {
+	if _, err := pings.UpsertId(docIDInt64(p.modelUUID, slot), udoc); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(killErr)
@@ -614,7 +614,7 @@ func (p *Pinger) killStopped() error {
 	session := p.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := p.pings.With(session)
-	_, err := pings.UpsertId(docIDInt64(p.envUUID, slot), udoc)
+	_, err := pings.UpsertId(docIDInt64(p.modelUUID, slot), udoc)
 	return errors.Trace(err)
 }
 
@@ -646,7 +646,7 @@ func (p *Pinger) prepare() error {
 	base := p.base.With(session)
 	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
-	seqID := docIDStr(p.envUUID, "beings")
+	seqID := docIDStr(p.modelUUID, "beings")
 	if _, err := seqs.FindId(seqID).Apply(change, &seq); err != nil {
 		return errors.Trace(err)
 	}
@@ -657,9 +657,9 @@ func (p *Pinger) prepare() error {
 	beings := beingsC(base)
 	return errors.Trace(beings.Insert(
 		beingInfo{
-			DocID:     docIDInt64(p.envUUID, p.beingSeq),
+			DocID:     docIDInt64(p.modelUUID, p.beingSeq),
 			Seq:       p.beingSeq,
-			ModelUUID: p.envUUID,
+			ModelUUID: p.modelUUID,
 			Key:       p.beingKey,
 		},
 	))
@@ -698,7 +698,7 @@ func (p *Pinger) ping() (err error) {
 	p.lastSlot = slot
 	pings := p.pings.With(session)
 	_, err = pings.UpsertId(
-		docIDInt64(p.envUUID, slot),
+		docIDInt64(p.modelUUID, slot),
 		bson.D{
 			{"$set", bson.D{{"slot", slot}}},
 			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},

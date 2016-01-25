@@ -823,13 +823,13 @@ func newTestBacking(initial []multiwatcher.EntityInfo) *storeManagerTestBacking 
 }
 
 func (b *storeManagerTestBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
-	envUUID, changeId, ok := splitDocID(change.Id.(string))
+	modelUUID, changeId, ok := splitDocID(change.Id.(string))
 	if !ok {
 		return errors.Errorf("unexpected id format: %v", change.Id)
 	}
 	id := multiwatcher.EntityId{
 		Kind:      change.C,
-		ModelUUID: envUUID,
+		ModelUUID: modelUUID,
 		Id:        changeId,
 	}
 	info, err := b.fetch(id)

@@ -124,26 +124,26 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	var envList = []struct {
 		name         string
 		serverUUID   string
-		envUUID      string
+		modelUUID    string
 		bootstrapCfg map[string]interface{}
 	}{
 		{
 			name:         "test1",
 			serverUUID:   "test1-uuid",
-			envUUID:      "test1-uuid",
+			modelUUID:    "test1-uuid",
 			bootstrapCfg: createBootstrapInfo(c, "test1"),
 		}, {
 			name:       "test2",
 			serverUUID: "test1-uuid",
-			envUUID:    "test2-uuid",
+			modelUUID:  "test2-uuid",
 		}, {
-			name:    "test3",
-			envUUID: "test3-uuid",
+			name:      "test3",
+			modelUUID: "test3-uuid",
 		},
 	}
 	for _, env := range envList {
 		info := s.store.CreateInfo(env.name)
-		uuid := env.envUUID
+		uuid := env.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:   []string{"localhost"},
 			CACert:      testing.CACert,
@@ -163,7 +163,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 			Owner: owner.Canonical(),
 		})
 
-		s.api.envStatus[env.envUUID] = base.ModelStatus{
+		s.api.envStatus[env.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
 			HostedMachineCount: 0,

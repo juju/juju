@@ -124,7 +124,7 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			},
 		},
 		ResourceTags: map[string]string{
-			tags.JujuEnv: s.TestConfig["uuid"].(string),
+			tags.JujuModel: s.TestConfig["uuid"].(string),
 		},
 	}, {
 		Tag:      volume1,
@@ -136,7 +136,7 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			},
 		},
 		ResourceTags: map[string]string{
-			tags.JujuEnv: "something-else",
+			tags.JujuModel: "something-else",
 		},
 	}, {
 		Tag:      volume2,

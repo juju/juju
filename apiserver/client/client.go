@@ -397,7 +397,7 @@ func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (param
 	return params.GetConstraintsResults{cons}, err
 }
 
-// GetModelConstraints returns the constraints for the environment.
+// GetModelConstraints returns the constraints for the model.
 func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
 	cons, err := c.api.stateAccessor.EnvironConstraints()
 	if err != nil {
@@ -419,7 +419,7 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 	return svc.SetConstraints(args.Constraints)
 }
 
-// SetModelConstraints sets the constraints for the environment.
+// SetModelConstraints sets the constraints for the model.
 func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -838,8 +838,8 @@ func (c *Client) ModelUnset(args params.ModelUnset) error {
 	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
-// SetControllerAgentVersion sets the environment agent version.
-func (c *Client) SetControllerAgentVersion(args params.SetControllerAgentVersion) error {
+// SetModelAgentVersion sets the environment agent version.
+func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -856,7 +856,7 @@ func (c *Client) SetControllerAgentVersion(args params.SetControllerAgentVersion
 	if err := environs.CheckProviderAPI(env); err != nil {
 		return err
 	}
-	return c.api.stateAccessor.SetControllerAgentVersion(args.Version)
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
 }
 
 var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {

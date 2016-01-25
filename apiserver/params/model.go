@@ -47,9 +47,9 @@ type ModifyModelUser struct {
 	Action  ModelAction `json:"action"`
 }
 
-// SetControllerAgentVersion contains the arguments for
-// SetControllerAgentVersion client API call.
-type SetControllerAgentVersion struct {
+// SetModelAgentVersion contains the arguments for
+// SetModelAgentVersion client API call.
+type SetModelAgentVersion struct {
 	Version version.Number
 }
 

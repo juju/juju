@@ -40,7 +40,7 @@ func (m *MetricsManager) DocID() string {
 	return m.doc.DocID
 }
 
-// ModelUUID returns the environment UUID of the Metrics Manager.
+// ModelUUID returns the model UUID of the Metrics Manager.
 func (m *MetricsManager) ModelUUID() string {
 	return m.doc.ModelUUID
 }

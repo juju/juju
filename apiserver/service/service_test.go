@@ -628,7 +628,7 @@ func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
 
 func (s *serviceSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetCharm")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceSetCharm")
 	s.assertServiceSetCharm(c, false)
 }
 
@@ -682,7 +682,7 @@ func (s *serviceSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 	// block all changes
 	s.BlockAllChanges(c, "TestBlockServiceSetCharmForce")
 	s.BlockRemoveObject(c, "TestBlockServiceSetCharmForce")
-	s.BlockDestroyEnvironment(c, "TestBlockServiceSetCharmForce")
+	s.BlockDestroyModel(c, "TestBlockServiceSetCharmForce")
 
 	s.assertServiceSetCharm(c, true)
 }
@@ -904,7 +904,7 @@ func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, 
 
 func (s *serviceSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployPrincipal")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceDeployPrincipal")
 	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
@@ -1109,7 +1109,7 @@ func (s *serviceSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
 }
 
 func (s *serviceSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUpdate")
+	s.BlockDestroyModel(c, "TestBlockDestroyServiceUpdate")
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
@@ -1148,7 +1148,7 @@ func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
 
 	// block all changes. Force should ignore block :)
 	s.BlockAllChanges(c, "TestBlockServiceUpdateForced")
-	s.BlockDestroyEnvironment(c, "TestBlockServiceUpdateForced")
+	s.BlockDestroyModel(c, "TestBlockServiceUpdateForced")
 	s.BlockRemoveObject(c, "TestBlockServiceUpdateForced")
 
 	// Update the charm for the service.

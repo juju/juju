@@ -233,7 +233,7 @@ func (st *State) EnvironTag() names.EnvironTag {
 	return st.environTag
 }
 
-// EnvironUUID returns the environment UUID for the environment
+// EnvironUUID returns the model UUID for the environment
 // controlled by this state instance.
 func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
@@ -429,11 +429,11 @@ func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == UpgradeInProgressError
 }
 
-// SetControllerAgentVersion changes the agent version for the environment to the
+// SetModelAgentVersion changes the agent version for the environment to the
 // given version, only if the environment is in a stable state (all agents are
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
-func (st *State) SetControllerAgentVersion(newVersion version.Number) (err error) {
+func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
@@ -1760,8 +1760,8 @@ func (st *State) docID(localID string) string {
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != st.EnvironUUID() {
 		return ID
 	}
 	return localID
@@ -1773,8 +1773,8 @@ func (st *State) localID(ID string) string {
 // If there is no prefix matching the State's environment, an error is
 // returned.
 func (st *State) strictLocalID(ID string) (string, error) {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != st.EnvironUUID() {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
 	return localID, nil

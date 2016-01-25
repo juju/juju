@@ -38,7 +38,7 @@ func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
 // possible).
 type envStateCollection struct {
 	mongo.WriteCollection
-	envUUID string
+	modelUUID string
 }
 
 // Writeable is part of the Collection interface.
@@ -51,7 +51,7 @@ func (c *envStateCollection) Writeable() mongo.WriteCollection {
 // Count returns the number of documents in the collection that belong
 // to the environment that the envStateCollection is filtering on.
 func (c *envStateCollection) Count() (int, error) {
-	return c.WriteCollection.Find(bson.D{{"model-uuid", c.envUUID}}).Count()
+	return c.WriteCollection.Find(bson.D{{"model-uuid", c.modelUUID}}).Count()
 }
 
 // Find performs a query on the collection. The query must be given as
@@ -75,20 +75,20 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 // query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.FindId(ensureEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.FindId(ensureEnvUUID(c.modelUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
 }
 
 // Insert adds one or more documents to a collection. If the document
-// id is a string the environment UUID prefix will be automatically
+// id is a string the model UUID prefix will be automatically
 // added to it. The model-uuid field will also be automatically added if
 // it is missing. An error will be returned if an model-uuid field is
 // provided but is the wrong value.
 func (c *envStateCollection) Insert(docs ...interface{}) error {
 	var mungedDocs []interface{}
 	for _, doc := range docs {
-		mungedDoc, err := mungeDocForMultiEnv(doc, c.envUUID, envUUIDRequired)
+		mungedDoc, err := mungeDocForMultiEnv(doc, c.modelUUID, envUUIDRequired)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -119,7 +119,7 @@ func (c *envStateCollection) Update(query interface{}, update interface{}) error
 // prefix isn't there already.
 func (c *envStateCollection) UpdateId(id interface{}, update interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.UpdateId(ensureEnvUUID(c.envUUID, sid), update)
+		return c.WriteCollection.UpdateId(ensureEnvUUID(c.modelUUID, sid), update)
 	}
 	return c.WriteCollection.UpdateId(bson.D{{"_id", id}}, update)
 }
@@ -135,7 +135,7 @@ func (c *envStateCollection) Remove(query interface{}) error {
 // query will be handled as per Find().
 func (c *envStateCollection) RemoveId(id interface{}) error {
 	if sid, ok := id.(string); ok {
-		return c.WriteCollection.RemoveId(ensureEnvUUID(c.envUUID, sid))
+		return c.WriteCollection.RemoveId(ensureEnvUUID(c.modelUUID, sid))
 	}
 	return c.Remove(bson.D{{"_id", id}})
 }
@@ -147,7 +147,7 @@ func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, erro
 }
 
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
-	outq, err := mungeDocForMultiEnv(inq, c.envUUID, envUUIDRequired|noEnvUUIDInInput)
+	outq, err := mungeDocForMultiEnv(inq, c.modelUUID, envUUIDRequired|noEnvUUIDInInput)
 	if err != nil {
 		panic(err)
 	}

@@ -597,10 +597,10 @@ func (e *Environment) assertAliveOp() txn.Op {
 
 // assertEnvAliveOp returns a txn.Op that asserts the given
 // environment UUID refers to an Alive environment.
-func assertEnvAliveOp(envUUID string) txn.Op {
+func assertEnvAliveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
-		Id:     envUUID,
+		Id:     modelUUID,
 		Assert: isEnvAliveDoc,
 	}
 }

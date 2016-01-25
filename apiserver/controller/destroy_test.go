@@ -68,9 +68,9 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
-	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
@@ -84,9 +84,9 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBl
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironmentsErr(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
-	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
@@ -114,9 +114,9 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
-	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -143,7 +143,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -157,7 +157,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(
 	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
+	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})

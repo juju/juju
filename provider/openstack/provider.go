@@ -1241,8 +1241,8 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 		return nil, errors.NotFoundf("model UUID")
 	}
 	for _, server := range servers {
-		envUUID, ok := server.Metadata[tags.JujuEnv]
-		if !ok || envUUID != eUUID {
+		modelUUID, ok := server.Metadata[tags.JujuModel]
+		if !ok || modelUUID != eUUID {
 			continue
 		}
 		if e.isAliveServer(server) {
