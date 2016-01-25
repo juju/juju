@@ -785,8 +785,8 @@ class TestTestUpgrade(FakeHomeTestCase):
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
-    STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
-    GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
+    STATUS = ('juju', '--show-log', 'show-status', '-m', 'foo')
+    GET_ENV = ('juju', '--show-log', 'get-env', '-m', 'foo',
                'tools-metadata-url')
 
     @classmethod
@@ -826,7 +826,7 @@ class TestTestUpgrade(FakeHomeTestCase):
             assess_upgrade(old_client, '/bar/juju')
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo', '--version',
             '2.0-zeta1'), 0)
         self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
