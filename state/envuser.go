@@ -26,7 +26,7 @@ type EnvironmentUser struct {
 
 type envUserDoc struct {
 	ID          string    `bson:"_id"`
-	EnvUUID     string    `bson:"env-uuid"`
+	ModelUUID   string    `bson:"model-uuid"`
 	UserName    string    `bson:"user"`
 	DisplayName string    `bson:"displayname"`
 	CreatedBy   string    `bson:"createdby"`
@@ -41,7 +41,7 @@ type envUserDoc struct {
 // far as everyone except the api server is concerned.
 type envUserLastConnectionDoc struct {
 	ID             string    `bson:"_id"`
-	EnvUUID        string    `bson:"env-uuid"`
+	ModelUUID      string    `bson:"model-uuid"`
 	UserName       string    `bson:"user"`
 	LastConnection time.Time `bson:"last-connection"`
 }
@@ -53,7 +53,7 @@ func (e *EnvironmentUser) ID() string {
 
 // EnvironmentTag returns the environment tag of the environment user.
 func (e *EnvironmentUser) EnvironmentTag() names.EnvironTag {
-	return names.NewEnvironTag(e.doc.EnvUUID)
+	return names.NewEnvironTag(e.doc.ModelUUID)
 }
 
 // UserTag returns the tag for the environment user.
@@ -136,7 +136,7 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 
 	lastConn := envUserLastConnectionDoc{
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
-		EnvUUID:        e.EnvironmentTag().Id(),
+		ModelUUID:      e.EnvironmentTag().Id(),
 		UserName:       e.UserName(),
 		LastConnection: nowToTheSecond(),
 	}
@@ -213,7 +213,7 @@ func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName 
 	creatorname := createdBy.Canonical()
 	doc := &envUserDoc{
 		ID:          envUserID(user),
-		EnvUUID:     envuuid,
+		ModelUUID:   envuuid,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
 		ReadOnly:    readOnly,
@@ -246,16 +246,16 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	return nil
 }
 
-// UserEnvironment contains information about an environment that a
+// UserModel contains information about an environment that a
 // user has access to.
-type UserEnvironment struct {
+type UserModel struct {
 	*Environment
 	User names.UserTag
 }
 
 // LastConnection returns the last time the user has connected to the
 // environment.
-func (e *UserEnvironment) LastConnection() (time.Time, error) {
+func (e *UserModel) LastConnection() (time.Time, error) {
 	lastConnections, lastConnCloser := e.st.getRawCollection(envUserLastConnectionC)
 	defer lastConnCloser()
 
@@ -271,7 +271,7 @@ func (e *UserEnvironment) LastConnection() (time.Time, error) {
 
 // EnvironmentsForUser returns a list of enviroments that the user
 // is able to access.
-func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, error) {
+func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserModel, error) {
 	// Since there are no groups at this stage, the simplest way to get all
 	// the environments that a particular user can see is to look through the
 	// environment user collection. A raw collection is required to support
@@ -281,20 +281,20 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 
 	// TODO: consider adding an index to the envUsers collection on the username.
 	var userSlice []envUserDoc
-	err := envUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"env-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err := envUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
 
-	var result []*UserEnvironment
+	var result []*UserModel
 	for _, doc := range userSlice {
-		envTag := names.NewEnvironTag(doc.EnvUUID)
+		envTag := names.NewEnvironTag(doc.ModelUUID)
 		env, err := st.GetEnvironment(envTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		result = append(result, &UserEnvironment{Environment: env, User: user})
+		result = append(result, &UserModel{Environment: env, User: user})
 	}
 
 	return result, nil
@@ -314,7 +314,7 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	defer userCloser()
 
 	count, err := envUsers.Find(bson.D{
-		{"env-uuid", serverUUID},
+		{"model-uuid", serverUUID},
 		{"user", user.Canonical()},
 	}).Count()
 	if err != nil {

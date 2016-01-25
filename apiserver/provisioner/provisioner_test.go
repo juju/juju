@@ -807,7 +807,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.EnvironmentTag.Id(),
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
@@ -817,7 +817,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.EnvironmentTag.Id(),
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": []string{"zone1"},
@@ -829,7 +829,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.EnvironmentTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -842,7 +842,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.EnvironmentTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -941,7 +941,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.EnvironmentTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-1",
@@ -949,7 +949,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					Provider:   "static",
 					Attributes: nil,
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.EnvironmentTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -988,7 +988,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.EnvironmentTag.Id(),
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},

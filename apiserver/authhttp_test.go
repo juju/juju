@@ -45,7 +45,7 @@ type authHttpSuite struct {
 	// all other fields will be zero.
 	apitesting.MacaroonSuite
 
-	envUUID string
+	modelUUID string
 
 	// userTag and password hold the user tag and password
 	// to use in authRequest. When macaroonAuthEnabled
@@ -62,13 +62,13 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 		s.JujuConnSuite.SetUpTest(c)
 	}
 
-	s.envUUID = s.State.EnvironUUID()
+	s.modelUUID = s.State.EnvironUUID()
 
 	if s.macaroonAuthEnabled {
 		// When macaroon authentication is enabled, we must use
 		// an external user.
 		s.userTag = names.NewUserTag("bob@authhttpsuite")
-		s.AddEnvUser(c, s.userTag.Id())
+		s.AddModelUser(c, s.userTag.Id())
 	} else {
 		// Make a user in the state.
 		s.password = "password"
@@ -239,7 +239,7 @@ func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"
-	s.envUUID = envState.EnvironUUID()
+	s.modelUUID = envState.EnvironUUID()
 	return envState
 }
 

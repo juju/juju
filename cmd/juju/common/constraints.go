@@ -67,9 +67,9 @@ type GetConstraintsCommand struct {
 // the get-constraints and set-constraints commands call
 type ConstraintsAPI interface {
 	Close() error
-	GetEnvironmentConstraints() (constraints.Value, error)
+	GetModelConstraints() (constraints.Value, error)
 	GetServiceConstraints(string) (constraints.Value, error)
-	SetEnvironmentConstraints(constraints.Value) error
+	SetModelConstraints(constraints.Value) error
 	SetServiceConstraints(string, constraints.Value) error
 }
 
@@ -120,7 +120,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 	var cons constraints.Value
 	if c.ServiceName == "" {
-		cons, err = apiclient.GetEnvironmentConstraints()
+		cons, err = apiclient.GetModelConstraints()
 	} else {
 		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
@@ -183,7 +183,7 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	defer apiclient.Close()
 
 	if c.ServiceName == "" {
-		err = apiclient.SetEnvironmentConstraints(c.Constraints)
+		err = apiclient.SetModelConstraints(c.Constraints)
 	} else {
 		err = apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 	}

@@ -154,7 +154,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 		var doc bson.M
 		coll, closer := state.GetRawCollection(st, state.NetworkInterfacesC)
 		defer closer()
-		err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).One(&doc)
+		err := coll.Find(bson.D{{"model-uuid", st.EnvironUUID()}}).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		return doc["_id"].(bson.ObjectId)
 	}
@@ -172,7 +172,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 	// Grab the document id of the just added network interface for use in tests.
 	ifaceId := getIfaceId(s.State)
 
-	// Add a network interface to the other environment to test collections that rely on the env-uuid field.
+	// Add a network interface to the other environment to test collections that rely on the model-uuid field.
 	_, err = st1.AddNetwork(state.NetworkInfo{"net2", "net2", "0.1.2.4/24", 0})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherM0.AddNetworkInterface(state.NetworkInterfaceInfo{
@@ -243,7 +243,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 					{"_id", bson.D{{"$regex", ":" + m0.Id() + "$"}}},
 				}).Count()
 			},
-			expectedCount: 1, // not 2 because env-uuid filter is still added
+			expectedCount: 1, // not 2 because model-uuid filter is still added
 		},
 		{
 			label: "Find works with collections with ObjectId ids",
@@ -267,12 +267,12 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
-			label: "Find panics if env-uuid is included",
+			label: "Find panics if model-uuid is included",
 			test: func() (int, error) {
-				machines0.Find(bson.D{{"env-uuid", "whatever"}})
+				machines0.Find(bson.D{{"model-uuid", "whatever"}})
 				return 0, nil
 			},
-			expectedPanic: "env-uuid is added automatically and should not be provided",
+			expectedPanic: "model-uuid is added automatically and should not be provided",
 		},
 		{
 			label: "FindId adds env UUID prefix",
@@ -296,7 +296,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
-			label: "FindId adds env-uuid field",
+			label: "FindId adds model-uuid field",
 			test: func() (int, error) {
 				return networkInterfaces.FindId(otherIfaceId).Count()
 			},
@@ -305,7 +305,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 0,
 		},
 		{
-			label: "Insert adds env-uuid",
+			label: "Insert adds model-uuid",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
@@ -317,12 +317,12 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 3,
 		},
 		{
-			label: "Insert populates env-uuid if blank",
+			label: "Insert populates model-uuid if blank",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
 					{"machineid", 99},
-					{"env-uuid", ""},
+					{"model-uuid", ""},
 				})
 				c.Assert(err, jc.ErrorIsNil)
 				return machines0.Count()
@@ -342,12 +342,12 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
-			label: "Insert tolerates prefixed _id and correct env-uuid if provided",
+			label: "Insert tolerates prefixed _id and correct model-uuid if provided",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
 					{"machineid", 99},
-					{"env-uuid", s.State.EnvironUUID()},
+					{"model-uuid", s.State.EnvironUUID()},
 				})
 				c.Assert(err, jc.ErrorIsNil)
 				return machines0.Count()
@@ -355,16 +355,16 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 3,
 		},
 		{
-			label: "Insert fails if env-uuid doesn't match",
+			label: "Insert fails if model-uuid doesn't match",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", "99"},
 					{"machineid", 99},
-					{"env-uuid", "something-else"},
+					{"model-uuid", "something-else"},
 				})
 				return 0, err
 			},
-			expectedError: "bad \"env-uuid\" value: .+",
+			expectedError: "bad \"model-uuid\" value: .+",
 		},
 		{
 			label: "Remove adds env UUID prefix to _id",
@@ -415,7 +415,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
 		},
 		{
-			label: "RemoveId filters by env-uuid field",
+			label: "RemoveId filters by model-uuid field",
 			test: func() (int, error) {
 				err := networkInterfaces.Writeable().RemoveId(otherIfaceId)
 				c.Assert(err, gc.ErrorMatches, "not found")
@@ -462,12 +462,12 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1, // Expect machine-0 in second env
 		},
 		{
-			label: "RemoveAll panics if env-uuid is included",
+			label: "RemoveAll panics if model-uuid is included",
 			test: func() (int, error) {
-				machines0.Writeable().RemoveAll(bson.D{{"env-uuid", "whatever"}})
+				machines0.Writeable().RemoveAll(bson.D{{"model-uuid", "whatever"}})
 				return 0, nil
 			},
-			expectedPanic: "env-uuid is added automatically and should not be provided",
+			expectedPanic: "model-uuid is added automatically and should not be provided",
 		},
 		{
 			label: "Update",

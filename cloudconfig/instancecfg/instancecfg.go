@@ -564,14 +564,14 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		return errors.New("model configuration has no admin-secret")
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
-	envUUID, uuidSet := cfg.UUID()
+	modelUUID, uuidSet := cfg.UUID()
 	if !uuidSet {
 		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
 		Password:   passwordHash,
 		CACert:     caCert,
-		EnvironTag: names.NewEnvironTag(envUUID),
+		EnvironTag: names.NewEnvironTag(modelUUID),
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 

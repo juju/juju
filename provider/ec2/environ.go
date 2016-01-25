@@ -1182,7 +1182,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
-			tagUUID, ok := getTagByKey(tags.JujuEnv, inst.Tags)
+			tagUUID, ok := getTagByKey(tags.JujuModel, inst.Tags)
 			// tagless instances will always be included to avoid
 			// breakage of old environments, if one of these exists it might
 			// hinder the ability to deploy a second environment of the same

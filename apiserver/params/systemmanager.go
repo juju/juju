@@ -15,7 +15,7 @@ type DestroyControllerArgs struct {
 // current blocks.
 type ModelBlockInfo struct {
 	Name     string   `json:"name"`
-	UUID     string   `json:"env-uuid"`
+	UUID     string   `json:"model-uuid"`
 	OwnerTag string   `json:"owner-tag"`
 	Blocks   []string `json:"blocks"`
 }

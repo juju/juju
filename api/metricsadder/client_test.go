@@ -152,6 +152,6 @@ func (s *metricsAdderIntegrationSuite) TestAddMetricBatches(c *gc.C) {
 	c.Assert(stateBatches, gc.HasLen, 1)
 	c.Assert(stateBatches[0].CharmURL(), gc.Equals, batches[0].Batch.CharmURL)
 	c.Assert(stateBatches[0].UUID(), gc.Equals, batches[0].Batch.UUID)
-	c.Assert(stateBatches[0].EnvUUID(), gc.Equals, s.State.EnvironUUID())
+	c.Assert(stateBatches[0].ModelUUID(), gc.Equals, s.State.EnvironUUID())
 	c.Assert(stateBatches[0].Unit(), gc.Equals, s.unitTag.Id())
 }

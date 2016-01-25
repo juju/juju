@@ -110,9 +110,9 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	list, err := s.controller.ListBlockedModels()
@@ -171,9 +171,9 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
@@ -213,8 +213,8 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 		// Expect to see the initial environment be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
-		c.Assert(envInfo.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.EnvironUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

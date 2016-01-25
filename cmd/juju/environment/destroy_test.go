@@ -36,7 +36,7 @@ type fakeDestroyAPI struct {
 
 func (f *fakeDestroyAPI) Close() error { return nil }
 
-func (f *fakeDestroyAPI) DestroyEnvironment() error {
+func (f *fakeDestroyAPI) DestroyModel() error {
 	return f.err
 }
 
@@ -52,16 +52,16 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	var envList = []struct {
 		name       string
 		serverUUID string
-		envUUID    string
+		modelUUID  string
 	}{
 		{
 			name:       "test1",
 			serverUUID: "test1-uuid",
-			envUUID:    "test1-uuid",
+			modelUUID:  "test1-uuid",
 		}, {
 			name:       "test2",
 			serverUUID: "test1-uuid",
-			envUUID:    "test2-uuid",
+			modelUUID:  "test2-uuid",
 		},
 	}
 	for _, env := range envList {
@@ -69,7 +69,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:   []string{"localhost"},
 			CACert:      testing.CACert,
-			EnvironUUID: env.envUUID,
+			EnvironUUID: env.modelUUID,
 			ServerUUID:  env.serverUUID,
 		})
 

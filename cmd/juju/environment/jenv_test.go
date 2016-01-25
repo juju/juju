@@ -100,7 +100,7 @@ var jenvFileContentErrorsTests = []struct {
 	err:      "invalid jenv file .*: cannot unmarshal jenv data: yaml: .*",
 }, {
 	about:    "missing field",
-	contents: makeJenvContents("myuser", "mypasswd", "env-uuid", "", "1.2.3.4:17070"),
+	contents: makeJenvContents("myuser", "mypasswd", "model-uuid", "", "1.2.3.4:17070"),
 	err:      "invalid jenv file .*: missing required fields in jenv data: CACert",
 }}
 
@@ -323,7 +323,7 @@ func makeJenvContents(user, password, environUUID, caCert string, stateServers .
 // makeValidJenvContents returns valid jenv file YAML encoded contents.
 func makeValidJenvContents() []byte {
 	return makeJenvContents(
-		"myuser", "mypasswd", "env-uuid", testing.CACert,
+		"myuser", "mypasswd", "model-uuid", testing.CACert,
 		"1.2.3.4:17070", "example.com:17070")
 }
 

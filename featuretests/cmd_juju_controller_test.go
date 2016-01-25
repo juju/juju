@@ -166,7 +166,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 
 func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	s.run(c, "remove-all-blocks")
@@ -181,7 +181,7 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 		Name: "foo",
 	})
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.Close()
 
 	s.run(c, "kill-controller", "dummymodel", "-y")
@@ -193,11 +193,11 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 
 func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"dummymodel","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+	expected := fmt.Sprintf(`[{"name":"dummymodel","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
 		s.State.EnvironUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
@@ -210,7 +210,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	})
 	defer st.Close()
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.Close()
 
 	opc := make(chan dummy.Operation, 200)

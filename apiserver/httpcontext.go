@@ -22,7 +22,7 @@ import (
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
-	// strictValidation means that empty envUUID values are not valid.
+	// strictValidation means that empty modelUUID values are not valid.
 	strictValidation bool
 	// controllerModelOnly only validates the controller model.
 	controllerModelOnly bool

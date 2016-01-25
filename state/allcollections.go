@@ -164,9 +164,9 @@ func allCollections() collectionSchema {
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "type"},
+				Key: []string{"model-uuid", "type"},
 			}, {
-				Key: []string{"env-uuid", "namespace"},
+				Key: []string{"model-uuid", "namespace"},
 			}},
 		},
 
@@ -177,11 +177,11 @@ func allCollections() collectionSchema {
 		servicesC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "service"},
+				Key: []string{"model-uuid", "service"},
 			}, {
-				Key: []string{"env-uuid", "principal"},
+				Key: []string{"model-uuid", "principal"},
 			}, {
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		minUnitsC: {},
@@ -196,9 +196,9 @@ func allCollections() collectionSchema {
 		settingsrefsC: {},
 		relationsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "endpoints.relationname"},
+				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"env-uuid", "endpoints.servicename"},
+				Key: []string{"model-uuid", "endpoints.servicename"},
 			}},
 		},
 		relationScopesC: {},
@@ -216,30 +216,30 @@ func allCollections() collectionSchema {
 		// These collections hold information associated with storage.
 		blockDevicesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		filesystemsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		filesystemAttachmentsC: {},
 		storageInstancesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "owner"},
+				Key: []string{"model-uuid", "owner"},
 			}},
 		},
 		storageAttachmentsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}, {
-				Key: []string{"env-uuid", "unitid"},
+				Key: []string{"model-uuid", "unitid"},
 			}},
 		},
 		volumesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		volumeAttachmentsC: {},
@@ -251,27 +251,27 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"uuid"},
 			}, {
-				Key: []string{"env-uuid", "state"},
+				Key: []string{"model-uuid", "state"},
 			}, {
-				Key: []string{"env-uuid", "subnetid"},
+				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
 		networkInterfacesC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "interfacename", "machineid"},
+				Key:    []string{"model-uuid", "interfacename", "machineid"},
 				Unique: true,
 			}, {
-				Key:    []string{"env-uuid", "macaddress", "networkname"},
+				Key:    []string{"model-uuid", "macaddress", "networkname"},
 				Unique: true,
 			}, {
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}, {
-				Key: []string{"env-uuid", "networkname"},
+				Key: []string{"model-uuid", "networkname"},
 			}},
 		},
 		networksC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "providerid"},
+				Key:    []string{"model-uuid", "providerid"},
 				Unique: true,
 			}},
 		},
@@ -324,7 +324,7 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "globalkey"},
+				Key: []string{"model-uuid", "globalkey"},
 			}},
 		},
 		spacesC: {},

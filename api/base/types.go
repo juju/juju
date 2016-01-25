@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// UserModel holds information about an environment and the last
+// UserModel holds information about a model and the last
 // time the model was accessed for a particular user. This is a client
 // side structure that translates the owner tag into a user facing string.
 type UserModel struct {

@@ -23,7 +23,7 @@ func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
 }
 
 // NewSetCommandForTest returns a SetCommand with the api provided as specified.
-func NewSetCommandForTest(api SetEnvironmentAPI) cmd.Command {
+func NewSetCommandForTest(api SetModelAPI) cmd.Command {
 	cmd := &setCommand{
 		api: api,
 	}

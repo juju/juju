@@ -84,7 +84,7 @@ type fakeDestroyAPIClient struct {
 
 func (f *fakeDestroyAPIClient) Close() error { return nil }
 
-func (f *fakeDestroyAPIClient) EnvironmentGet() (map[string]interface{}, error) {
+func (f *fakeDestroyAPIClient) ModelGet() (map[string]interface{}, error) {
 	f.envgetcalled = true
 	if f.err != nil {
 		return nil, f.err
@@ -92,7 +92,7 @@ func (f *fakeDestroyAPIClient) EnvironmentGet() (map[string]interface{}, error) 
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPIClient) DestroyEnvironment() error {
+func (f *fakeDestroyAPIClient) DestroyModel() error {
 	f.destroycalled = true
 	return f.err
 }
@@ -124,26 +124,26 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	var envList = []struct {
 		name         string
 		serverUUID   string
-		envUUID      string
+		modelUUID    string
 		bootstrapCfg map[string]interface{}
 	}{
 		{
 			name:         "test1",
 			serverUUID:   "test1-uuid",
-			envUUID:      "test1-uuid",
+			modelUUID:    "test1-uuid",
 			bootstrapCfg: createBootstrapInfo(c, "test1"),
 		}, {
 			name:       "test2",
 			serverUUID: "test1-uuid",
-			envUUID:    "test2-uuid",
+			modelUUID:  "test2-uuid",
 		}, {
-			name:    "test3",
-			envUUID: "test3-uuid",
+			name:      "test3",
+			modelUUID: "test3-uuid",
 		},
 	}
 	for _, env := range envList {
 		info := s.store.CreateInfo(env.name)
-		uuid := env.envUUID
+		uuid := env.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:   []string{"localhost"},
 			CACert:      testing.CACert,
@@ -163,7 +163,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 			Owner: owner.Canonical(),
 		})
 
-		s.api.envStatus[env.envUUID] = base.ModelStatus{
+		s.api.envStatus[env.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
 			HostedMachineCount: 0,
@@ -255,7 +255,7 @@ func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyEnvironment", Code: params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "DestroyModel", Code: params.CodeNotImplemented}
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
@@ -263,7 +263,7 @@ func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
 }
 
 func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "EnvironmentGet", Code: params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "ModelGet", Code: params.CodeNotImplemented}
 	s.clientapi.env = createBootstrapInfo(c, "test3")
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, jc.ErrorIsNil)

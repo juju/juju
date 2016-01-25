@@ -781,8 +781,8 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
-// EnvironmentInfo holds information about the Juju environment.
-type EnvironmentInfo struct {
+// ModelInfo holds information about the Juju environment.
+type ModelInfo struct {
 	DefaultSeries string `json:"DefaultSeries"`
 	ProviderType  string `json:"ProviderType"`
 	Name          string `json:"Name"`

@@ -99,7 +99,7 @@ type filesystemAttachment struct {
 type filesystemDoc struct {
 	DocID        string `bson:"_id"`
 	FilesystemId string `bson:"filesystemid"`
-	EnvUUID      string `bson:"env-uuid"`
+	ModelUUID    string `bson:"model-uuid"`
 	Life         Life   `bson:"life"`
 	StorageId    string `bson:"storageid,omitempty"`
 	VolumeId     string `bson:"volumeid,omitempty"`
@@ -116,7 +116,7 @@ type filesystemDoc struct {
 type filesystemAttachmentDoc struct {
 	// DocID is the machine global key followed by the filesystem name.
 	DocID      string                      `bson:"_id"`
-	EnvUUID    string                      `bson:"env-uuid"`
+	ModelUUID  string                      `bson:"model-uuid"`
 	Filesystem string                      `bson:"filesystemid"`
 	Machine    string                      `bson:"machineid"`
 	Life       Life                        `bson:"life"`

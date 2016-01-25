@@ -29,7 +29,7 @@ type ImageURLGetter interface {
 
 type ImageURLGetterConfig struct {
 	ServerRoot        string
-	EnvUUID           string
+	ModelUUID         string
 	CACert            []byte
 	CloudimgBaseUrl   string
 	ImageDownloadFunc func(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error)
@@ -54,7 +54,7 @@ func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch str
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"https://%s/model/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.EnvUUID, kind, series, arch, imageFilename,
+		"https://%s/model/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.ModelUUID, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
 }

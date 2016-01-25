@@ -37,7 +37,7 @@ func (s *loginV2Suite) TestClientLoginToEnvironment(c *gc.C) {
 	defer apiState.Close()
 
 	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
+	_, err = client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -52,7 +52,7 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	defer apiState.Close()
 
 	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
+	_, err = client.GetModelConstraints()
 	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
 }
 

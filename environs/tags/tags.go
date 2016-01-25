@@ -9,9 +9,9 @@ const (
 	// JujuTagPrefix is the prefix for Juju-managed tags.
 	JujuTagPrefix = "juju-"
 
-	// JujuEnv is the tag name used for identifying the
-	// Juju environment a resource is part of.
-	JujuEnv = JujuTagPrefix + "env-uuid"
+	// JujuModel is the tag name used for identifying the
+	// Juju model a resource is part of.
+	JujuModel = JujuTagPrefix + "model-uuid"
 
 	// JujuStateServer is the tag name used for determining
 	// whether a machine instance is a state server or not.
@@ -54,6 +54,6 @@ func ResourceTags(e names.EnvironTag, taggers ...ResourceTagger) map[string]stri
 			allTags[k] = v
 		}
 	}
-	allTags[JujuEnv] = e.Id()
+	allTags[JujuModel] = e.Id()
 	return allTags
 }

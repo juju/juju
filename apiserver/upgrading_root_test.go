@@ -21,7 +21,7 @@ func (r *upgradingRootSuite) TestClientMethods(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
 	for _, method := range []string{
-		"FullStatus", "EnvironmentGet", "PrivateAddress",
+		"FullStatus", "ModelGet", "PrivateAddress",
 		"PublicAddress",
 	} {
 		caller, err := root.FindMethod("Client", 1, method)

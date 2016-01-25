@@ -78,7 +78,7 @@ func (c *unshareCommand) getAPI() (UnshareEnvironmentAPI, error) {
 // unshare command.
 type UnshareEnvironmentAPI interface {
 	Close() error
-	UnshareEnvironment(...names.UserTag) error
+	UnshareModel(...names.UserTag) error
 }
 
 func (c *unshareCommand) Run(ctx *cmd.Context) error {
@@ -88,5 +88,5 @@ func (c *unshareCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.UnshareEnvironment(c.Users...), block.BlockChange)
+	return block.ProcessBlockedError(client.UnshareModel(c.Users...), block.BlockChange)
 }

@@ -13,15 +13,15 @@ import (
 
 type statePoolSuite struct {
 	statetesting.StateSuite
-	State1, State2              *state.State
-	EnvUUID, EnvUUID1, EnvUUID2 string
+	State1, State2                *state.State
+	ModelUUID, EnvUUID1, EnvUUID2 string
 }
 
 var _ = gc.Suite(&statePoolSuite{})
 
 func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.EnvUUID = s.State.EnvironUUID()
+	s.ModelUUID = s.State.EnvironUUID()
 
 	s.State1 = s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State1.Close() })
@@ -61,7 +61,7 @@ func (s *statePoolSuite) TestGetWithStateServerEnv(c *gc.C) {
 
 	// When a State for the state server env is requested, the same
 	// State that was original passed in should be returned.
-	st0, err := p.Get(s.EnvUUID)
+	st0, err := p.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st0, gc.Equals, s.State)
 }

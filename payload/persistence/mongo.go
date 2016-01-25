@@ -102,8 +102,8 @@ func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
 
 // payloadDoc is the top-level document for payloads.
 type payloadDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 
 	UnitID string `bson:"unitid"`
 

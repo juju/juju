@@ -281,7 +281,7 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		if w.isMaster {
 			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
-			if rollbackErr := w.st.SetEnvironAgentVersion(w.fromVersion); rollbackErr != nil {
+			if rollbackErr := w.st.SetModelAgentVersion(w.fromVersion); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}

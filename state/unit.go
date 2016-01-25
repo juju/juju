@@ -86,7 +86,7 @@ func networkPorts(ports []port) []network.Port {
 type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
-	EnvUUID                string `bson:"env-uuid"`
+	ModelUUID              string `bson:"model-uuid"`
 	Service                string
 	Series                 string
 	CharmURL               *charm.URL

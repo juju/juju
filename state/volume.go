@@ -83,7 +83,7 @@ type volumeAttachment struct {
 type volumeDoc struct {
 	DocID           string        `bson:"_id"`
 	Name            string        `bson:"name"`
-	EnvUUID         string        `bson:"env-uuid"`
+	ModelUUID       string        `bson:"model-uuid"`
 	Life            Life          `bson:"life"`
 	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
@@ -95,13 +95,13 @@ type volumeDoc struct {
 // volumeAttachmentDoc records information about a volume attachment.
 type volumeAttachmentDoc struct {
 	// DocID is the machine global key followed by the volume name.
-	DocID   string                  `bson:"_id"`
-	EnvUUID string                  `bson:"env-uuid"`
-	Volume  string                  `bson:"volumeid"`
-	Machine string                  `bson:"machineid"`
-	Life    Life                    `bson:"life"`
-	Info    *VolumeAttachmentInfo   `bson:"info,omitempty"`
-	Params  *VolumeAttachmentParams `bson:"params,omitempty"`
+	DocID     string                  `bson:"_id"`
+	ModelUUID string                  `bson:"model-uuid"`
+	Volume    string                  `bson:"volumeid"`
+	Machine   string                  `bson:"machineid"`
+	Life      Life                    `bson:"life"`
+	Info      *VolumeAttachmentInfo   `bson:"info,omitempty"`
+	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
 }
 
 // VolumeParams records parameters for provisioning a new volume.

@@ -165,7 +165,7 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	rdr := io.TeeReader(resp.Body, hash)
 
 	metadata := &imagestorage.Metadata{
-		EnvUUID:   envuuid,
+		ModelUUID: envuuid,
 		Kind:      string(instance.LXC),
 		Series:    series,
 		Arch:      arch,

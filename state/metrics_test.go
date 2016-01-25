@@ -61,7 +61,7 @@ func (s *MetricSuite) assertAddUnit(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
-	envUUID := s.State.EnvironUUID()
+	modelUUID := s.State.EnvironUUID()
 	m := state.Metric{"pings", "5", now}
 	metricBatch, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -74,7 +74,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
+	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
 	c.Assert(metricBatch.Sent(), jc.IsFalse)
 	c.Assert(metricBatch.Created(), gc.Equals, now)
@@ -578,7 +578,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 	for _, test := range tests {
 		c.Logf("running test: %v", test.about)
 		now := state.NowToTheSecond()
-		envUUID := s.State.EnvironUUID()
+		modelUUID := s.State.EnvironUUID()
 		m := state.Metric{"juju-units", test.value, now}
 		metricBatch, err := s.State.AddMetrics(
 			state.BatchParam{
@@ -592,7 +592,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
-			c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
+			c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
 			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
 			c.Assert(metricBatch.Sent(), jc.IsFalse)
 			c.Assert(metricBatch.Created(), gc.Equals, now)

@@ -171,6 +171,6 @@ func (st *mockBlock) Message() string {
 	return "not allowed"
 }
 
-func (st *mockBlock) EnvUUID() string {
+func (st *mockBlock) ModelUUID() string {
 	return "uuid"
 }

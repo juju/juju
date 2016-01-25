@@ -64,7 +64,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 func parsePlacement(spec string) (*instance.Placement, error) {
 	placement, err := instance.ParsePlacement(spec)
 	if err == instance.ErrPlacementScopeMissing {
-		spec = "env-uuid" + ":" + spec
+		spec = "model-uuid" + ":" + spec
 		placement, err = instance.ParsePlacement(spec)
 	}
 	if err != nil {
@@ -93,7 +93,7 @@ func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
 // once deploy is moved under service
 var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
 	// Separated into a variable for easy overrides
-	attrs, err := client.EnvironmentGet()
+	attrs, err := client.ModelGet()
 	if err != nil {
 		return nil, err
 	}
@@ -160,10 +160,10 @@ func (c *addUnitCommand) Init(args []string) error {
 // that the service add-unit command calls.
 type ServiceAddUnitAPI interface {
 	Close() error
-	EnvironmentUUID() string
+	ModelUUID() string
 	AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error)
 	AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error)
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 }
 
 func (c *addUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
@@ -192,8 +192,8 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	}
 
 	for i, p := range c.Placement {
-		if p.Scope == "env-uuid" {
-			p.Scope = apiclient.EnvironmentUUID()
+		if p.Scope == "model-uuid" {
+			p.Scope = apiclient.ModelUUID()
 		}
 		c.Placement[i] = p
 	}

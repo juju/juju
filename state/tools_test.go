@@ -98,13 +98,13 @@ func (s *ToolsSuite) TestStorageParams(c *gc.C) {
 
 	var called bool
 	s.PatchValue(state.ToolstorageNewStorage, func(
-		envUUID string,
+		modelUUID string,
 		managedStorage blobstore.ManagedStorage,
 		metadataCollection *mgo.Collection,
 		runner jujutxn.Runner,
 	) toolstorage.Storage {
 		called = true
-		c.Assert(envUUID, gc.Equals, env.UUID())
+		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(managedStorage, gc.NotNil)
 		c.Assert(metadataCollection.Name, gc.Equals, "toolsmetadata")
 		c.Assert(runner, gc.NotNil)

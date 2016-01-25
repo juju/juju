@@ -28,7 +28,7 @@ func init() {
 type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
-	EnvironmentConfig() (params.EnvironmentConfigResults, error)
+	EnvironmentConfig() (params.ModelConfigResults, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllEnvs() (params.AllWatcherId, error)
@@ -146,7 +146,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 
 	envBlocks := make(map[string][]string)
 	for _, block := range blocks {
-		uuid := block.EnvUUID()
+		uuid := block.ModelUUID()
 		types, ok := envBlocks[uuid]
 		if !ok {
 			types = []string{block.Type().String()}
@@ -178,9 +178,9 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 
 // EnvironmentConfig returns the environment config for the controller
 // environment.  For information on the current environment, use
-// client.EnvironmentGet
-func (s *ControllerAPI) EnvironmentConfig() (params.EnvironmentConfigResults, error) {
-	result := params.EnvironmentConfigResults{}
+// client.ModelGet
+func (s *ControllerAPI) EnvironmentConfig() (params.ModelConfigResults, error) {
+	result := params.ModelConfigResults{}
 
 	stateServerEnv, err := s.state.ControllerEnvironment()
 	if err != nil {

@@ -133,19 +133,19 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientSetServiceConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetEnvironmentConstraints",
+		about: "Client.SetModelConstraints",
 		op:    opClientSetEnvironmentConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.EnvironmentGet",
+		about: "Client.ModelGet",
 		op:    opClientEnvironmentGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.EnvironmentSet",
+		about: "Client.ModelSet",
 		op:    opClientEnvironmentSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetEnvironAgentVersion",
+		about: "Client.SetModelAgentVersion",
 		op:    opClientSetEnvironAgentVersion,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -391,7 +391,7 @@ func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State)
 
 func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := st.Client().SetEnvironmentConstraints(nullConstraints)
+	err := st.Client().SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -399,7 +399,7 @@ func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.St
 }
 
 func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().EnvironmentGet()
+	_, err := st.Client().ModelGet()
 	if err != nil {
 		return func() {}, err
 	}
@@ -408,22 +408,22 @@ func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(
 
 func opClientEnvironmentSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := map[string]interface{}{"some-key": "some-value"}
-	err := st.Client().EnvironmentSet(args)
+	err := st.Client().ModelSet(args)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		args["some-key"] = nil
-		st.Client().EnvironmentSet(args)
+		st.Client().ModelSet(args)
 	}, nil
 }
 
 func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	attrs, err := st.Client().EnvironmentGet()
+	attrs, err := st.Client().ModelGet()
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetEnvironAgentVersion(version.Current)
+	err = st.Client().SetModelAgentVersion(version.Current)
 	if err != nil {
 		return func() {}, err
 	}
@@ -432,7 +432,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetEnvironAgentVersion(version.MustParse(versionString))
+			st.Client().SetModelAgentVersion(version.MustParse(versionString))
 		}
 	}, nil
 }

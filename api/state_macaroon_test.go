@@ -24,7 +24,7 @@ const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddEnvUser(c, testUserName)
+	s.AddModelUser(c, testUserName)
 	info := s.APIInfo(c)
 	// Don't log in.
 	info.UseMacaroons = false

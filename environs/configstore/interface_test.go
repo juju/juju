@@ -45,12 +45,12 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 }
 
-func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, envUUID, serverUUID string) {
+func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, modelUUID, serverUUID string) {
 	info := store.CreateInfo(envName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   []string{"localhost"},
 		CACert:      testing.CACert,
-		EnvironUUID: envUUID,
+		EnvironUUID: modelUUID,
 		ServerUUID:  serverUUID,
 	})
 	err := info.Write()

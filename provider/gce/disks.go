@@ -50,9 +50,9 @@ func (g *storageProvider) FilesystemSource(environConfig *config.Config, provide
 }
 
 type volumeSource struct {
-	gce     gceConnection
-	envName string // non-unique, informational only
-	envUUID string
+	gce       gceConnection
+	envName   string // non-unique, informational only
+	modelUUID string
 }
 
 func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
@@ -68,9 +68,9 @@ func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storag
 	}
 
 	source := &volumeSource{
-		gce:     env.gce,
-		envName: environConfig.Name(),
-		envUUID: uuid,
+		gce:       env.gce,
+		envName:   environConfig.Name(),
+		modelUUID: uuid,
 	}
 	return source, nil
 }
@@ -199,7 +199,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		SizeHintGB:         mibToGib(p.Size),
 		Name:               volumeName,
 		PersistentDiskType: persistentType,
-		Description:        v.envUUID,
+		Description:        v.modelUUID,
 	}
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
@@ -297,7 +297,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 		for _, disk := range disks {
 			// Blank disk description means an older disk or a disk
 			// not created by storage, we should not touch it.
-			if disk.Description != v.envUUID && disk.Description != "" {
+			if disk.Description != v.modelUUID && disk.Description != "" {
 				continue
 			}
 			// We don't want to lay hands on disks we did not create.

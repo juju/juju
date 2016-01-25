@@ -170,11 +170,11 @@ func formatTools(tools coretools.List) string {
 }
 
 type upgradeJujuAPI interface {
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
 	AbortCurrentUpgrade() error
-	SetEnvironAgentVersion(version version.Number) error
+	SetModelAgentVersion(version version.Number) error
 	Close() error
 }
 
@@ -197,7 +197,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	attrs, err := client.EnvironmentGet()
+	attrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -304,7 +304,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
+		if err := client.SetModelAgentVersion(context.chosen); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+

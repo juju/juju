@@ -38,7 +38,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// EnvironUUID returns the model UUID to connect to the environment
 // that the current connection is for.
 func (a *APIAddresser) EnvironUUID() (string, error) {
 	var result params.StringResult

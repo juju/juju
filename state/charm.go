@@ -18,9 +18,9 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	DocID   string     `bson:"_id"`
-	URL     *charm.URL `bson:"url"` // DANGEROUS see below
-	EnvUUID string     `bson:"env-uuid"`
+	DocID     string     `bson:"_id"`
+	URL       *charm.URL `bson:"url"` // DANGEROUS see below
+	ModelUUID string     `bson:"model-uuid"`
 
 	// TODO(fwereade) 2015-06-18 lp:1467964
 	// DANGEROUS: our schema can change any time the charm package changes,
@@ -55,7 +55,7 @@ func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bun
 	return insertAnyCharmOps(&charmDoc{
 		DocID:        curl.String(),
 		URL:          curl,
-		EnvUUID:      st.EnvironTag().Id(),
+		ModelUUID:    st.EnvironTag().Id(),
 		Meta:         ch.Meta(),
 		Config:       safeConfig(ch),
 		Metrics:      ch.Metrics(),
@@ -75,7 +75,7 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
-		EnvUUID:     st.EnvironTag().Id(),
+		ModelUUID:   st.EnvironTag().Id(),
 		Placeholder: true,
 	})
 }
@@ -90,7 +90,7 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
-		EnvUUID:       st.EnvironTag().Id(),
+		ModelUUID:     st.EnvironTag().Id(),
 		PendingUpload: true,
 	})
 }

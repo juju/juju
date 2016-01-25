@@ -34,7 +34,7 @@ type useEnvironmentCommand struct {
 	LocalName string
 	Owner     string
 	EnvName   string
-	EnvUUID   string
+	ModelUUID string
 }
 
 // UseModelAPI defines the methods on the environment manager API that
@@ -155,7 +155,7 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 	// instead of a name. For now, we only accept a properly formatted UUID,
 	// which means one with dashes in the right place.
 	if names.IsValidEnvironment(c.EnvName) {
-		c.EnvUUID, c.EnvName = c.EnvName, ""
+		c.ModelUUID, c.EnvName = c.EnvName, ""
 	}
 
 	return cmd.CheckEmpty(args)
@@ -180,17 +180,17 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 	username := names.NewUserTag(creds.User).Canonical()
 
-	env, err := c.findMatchingEnvironment(ctx, client, creds)
+	model, err := c.findMatchingModel(ctx, client, creds)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if c.LocalName == "" {
-		if env.Owner == username {
-			c.LocalName = env.Name
+		if model.Owner == username {
+			c.LocalName = model.Name
 		} else {
-			envOwner := names.NewUserTag(env.Owner)
-			c.LocalName = envOwner.Name() + "-" + env.Name
+			envOwner := names.NewUserTag(model.Owner)
+			c.LocalName = envOwner.Name() + "-" + model.Name
 		}
 	}
 
@@ -210,7 +210,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		// Need to make sure we check the username of the credentials,
 		// not just matching tags.
 		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
-		if endpoint.EnvironUUID == env.UUID && existingUsername == username {
+		if endpoint.EnvironUUID == model.UUID && existingUsername == username {
 			ctx.Infof("You already have model details for %q cached locally.", c.LocalName)
 			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 		}
@@ -219,24 +219,24 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 	}
 
 	info := store.CreateInfo(c.LocalName)
-	if err := c.updateCachedInfo(info, env.UUID, creds, endpoint); err != nil {
+	if err := c.updateCachedInfo(info, model.UUID, creds, endpoint); err != nil {
 		return errors.Annotatef(err, "failed to cache model details")
 	}
 
 	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 }
 
-func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, envUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
+func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, modelUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
 	info.SetAPICredentials(creds)
-	// Specify the environment UUID. The server UUID will be the same as the
+	// Specify the model UUID. The server UUID will be the same as the
 	// endpoint that we have just connected to, as will be the CACert, addresses
 	// and hostnames.
-	endpoint.EnvironUUID = envUUID
+	endpoint.EnvironUUID = modelUUID
 	info.SetAPIEndpoint(endpoint)
 	return errors.Trace(info.Write())
 }
 
-func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseModelAPI, creds configstore.APICredentials) (base.UserModel, error) {
+func (c *useEnvironmentCommand) findMatchingModel(ctx *cmd.Context, client UseModelAPI, creds configstore.APICredentials) (base.UserModel, error) {
 
 	var empty base.UserModel
 
@@ -252,10 +252,10 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 	}
 
 	// If we have a UUID, we warn if the owner is different, but accept it.
-	// We also trust that the environment UUIDs are unique
-	if c.EnvUUID != "" {
+	// We also trust that the model UUIDs are unique
+	if c.ModelUUID != "" {
 		for _, env := range envs {
-			if env.UUID == c.EnvUUID {
+			if env.UUID == c.ModelUUID {
 				if owner != "" && env.Owner != owner {
 					ctx.Infof("Specified model owned by %s, not %s", env.Owner, owner)
 				}

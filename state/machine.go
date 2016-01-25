@@ -97,7 +97,7 @@ const manualMachinePrefix = "manual:"
 type machineDoc struct {
 	DocID         string `bson:"_id"`
 	Id            string `bson:"machineid"`
-	EnvUUID       string `bson:"env-uuid"`
+	ModelUUID     string `bson:"model-uuid"`
 	Nonce         string
 	Series        string
 	ContainerType string
@@ -191,7 +191,7 @@ type instanceData struct {
 	DocID      string      `bson:"_id"`
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
-	EnvUUID    string      `bson:"env-uuid"`
+	ModelUUID  string      `bson:"model-uuid"`
 	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
@@ -1066,7 +1066,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		DocID:      m.doc.DocID,
 		MachineId:  m.doc.Id,
 		InstanceId: id,
-		EnvUUID:    m.doc.EnvUUID,
+		ModelUUID:  m.doc.ModelUUID,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
 		RootDisk:   characteristics.RootDisk,

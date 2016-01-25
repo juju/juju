@@ -106,8 +106,8 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 		expectedMcfg.Tags = map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"juju-is-state": "true",
+			"juju-model-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-is-state":   "true",
 		}
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)

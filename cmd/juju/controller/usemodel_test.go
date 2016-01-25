@@ -21,10 +21,10 @@ import (
 
 const (
 	serverUUID = "0dbfe161-de6c-47ad-9283-5e3ea64e1dd3"
-	env1UUID   = "ebf03329-cdad-44a5-9f10-fe318efda3ce"
-	env2UUID   = "b366cdd5-82da-49a1-ac18-001f26bb59a3"
-	env3UUID   = "fd0f57a3-eb94-4095-9ab0-d1f6042f942a"
-	env4UUID   = "1e45141b-85cb-4a0a-96ef-0aa6bbeac45a"
+	model1UUID = "ebf03329-cdad-44a5-9f10-fe318efda3ce"
+	model2UUID = "b366cdd5-82da-49a1-ac18-001f26bb59a3"
+	model3UUID = "fd0f57a3-eb94-4095-9ab0-d1f6042f942a"
+	model4UUID = "1e45141b-85cb-4a0a-96ef-0aa6bbeac45a"
 )
 
 type UseModelSuite struct {
@@ -49,19 +49,19 @@ func (s *UseModelSuite) SetUpTest(c *gc.C) {
 	}, {
 		Name:  "test",
 		Owner: "tester@local",
-		UUID:  env1UUID,
+		UUID:  model1UUID,
 	}, {
 		Name:  "test",
 		Owner: "bob@local",
-		UUID:  env2UUID,
+		UUID:  model2UUID,
 	}, {
 		Name:  "other",
 		Owner: "bob@local",
-		UUID:  env3UUID,
+		UUID:  model3UUID,
 	}, {
 		Name:  "other",
 		Owner: "bob@remote",
-		UUID:  env4UUID,
+		UUID:  model4UUID,
 	}}
 	s.api = &fakeModelMgrAPIClient{models: models}
 	s.creds = configstore.APICredentials{User: "tester", Password: "password"}
@@ -114,12 +114,12 @@ func (s *UseModelSuite) TestInit(c *gc.C) {
 		args:        []string{"+user+name/foobar"},
 		errorString: `"\+user\+name" is not a valid user`,
 	}, {
-		args:      []string{env1UUID},
-		modelUUID: env1UUID,
+		args:      []string{model1UUID},
+		modelUUID: model1UUID,
 	}, {
-		args:      []string{"user/" + env1UUID},
+		args:      []string{"user/" + model1UUID},
 		owner:     "user",
-		modelUUID: env1UUID,
+		modelUUID: model1UUID,
 	}} {
 		c.Logf("test %d", i)
 		wrappedCommand, command := controller.NewUseEnvironmentCommandForTest(nil, nil, nil)
@@ -127,7 +127,7 @@ func (s *UseModelSuite) TestInit(c *gc.C) {
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)
 			c.Check(command.EnvName, gc.Equals, test.modelName)
-			c.Check(command.EnvUUID, gc.Equals, test.modelUUID)
+			c.Check(command.ModelUUID, gc.Equals, test.modelUUID)
 			c.Check(command.Owner, gc.Equals, test.owner)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
@@ -147,26 +147,26 @@ func (s *UseModelSuite) TestNameNotFound(c *gc.C) {
 }
 
 func (s *UseModelSuite) TestUUID(c *gc.C) {
-	_, err := s.run(c, env3UUID)
+	_, err := s.run(c, model3UUID)
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
+	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUUIDCorrectOwner(c *gc.C) {
-	_, err := s.run(c, "bob/"+env3UUID)
+	_, err := s.run(c, "bob/"+model3UUID)
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
+	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUUIDWrongOwner(c *gc.C) {
-	ctx, err := s.run(c, "charles/"+env3UUID)
+	ctx, err := s.run(c, "charles/"+model3UUID)
 	c.Assert(err, gc.IsNil)
 	expected := "Specified model owned by bob@local, not charles@local"
 	c.Assert(testing.Stderr(ctx), jc.Contains, expected)
 
-	s.assertCurrentEnvironment(c, "bob-other", env3UUID)
+	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUniqueName(c *gc.C) {
@@ -184,8 +184,8 @@ func (s *UseModelSuite) TestMultipleNameMatches(c *gc.C) {
 	lines := strings.Split(message, "\n")
 	c.Assert(lines, gc.HasLen, 4)
 	c.Assert(lines[0], gc.Equals, `Multiple models matched name "test":`)
-	c.Assert(lines[1], gc.Equals, "  "+env1UUID+", owned by tester@local")
-	c.Assert(lines[2], gc.Equals, "  "+env2UUID+", owned by bob@local")
+	c.Assert(lines[1], gc.Equals, "  "+model1UUID+", owned by tester@local")
+	c.Assert(lines[2], gc.Equals, "  "+model2UUID+", owned by bob@local")
 	c.Assert(lines[3], gc.Equals, `Please specify either the model UUID or the owner to disambiguate.`)
 }
 
@@ -193,21 +193,21 @@ func (s *UseModelSuite) TestUserOwnerOfEnvironment(c *gc.C) {
 	_, err := s.run(c, "tester/test")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "test", env1UUID)
+	s.assertCurrentEnvironment(c, "test", model1UUID)
 }
 
 func (s *UseModelSuite) TestOtherUsersEnvironment(c *gc.C) {
 	_, err := s.run(c, "bob/test")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-test", env2UUID)
+	s.assertCurrentEnvironment(c, "bob-test", model2UUID)
 }
 
 func (s *UseModelSuite) TestRemoteUsersEnvironmentName(c *gc.C) {
 	_, err := s.run(c, "bob@remote/other")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", env4UUID)
+	s.assertCurrentEnvironment(c, "bob-other", model4UUID)
 }
 
 func (s *UseModelSuite) TestDisambiguateWrongOwner(c *gc.C) {

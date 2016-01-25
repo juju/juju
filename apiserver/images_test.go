@@ -45,7 +45,7 @@ func (s *imageSuite) SetUpSuite(c *gc.C) {
 func (s *imageSuite) TestDownloadMissingEnvUUIDPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
-	s.envUUID = ""
+	s.modelUUID = ""
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
 	c.Assert(url.Path, jc.HasPrefix, "/model//images")
 
@@ -75,7 +75,7 @@ func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
 }
 
 func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
-	s.envUUID = "dead-beef-123456"
+	s.modelUUID = "dead-beef-123456"
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
 	response := s.downloadRequest(c, url)
 	s.assertErrorResponse(c, response, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
@@ -229,7 +229,7 @@ func (s *imageSuite) downloadRequest(c *gc.C, url *url.URL) *http.Response {
 func (s *imageSuite) storeFakeImage(c *gc.C, st *state.State, kind, series, arch string) {
 	storage := st.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		EnvUUID:   st.EnvironUUID(),
+		ModelUUID: st.EnvironUUID(),
 		Kind:      kind,
 		Series:    series,
 		Arch:      arch,
@@ -253,7 +253,7 @@ func (s *imageSuite) getImageFromStorage(c *gc.C, st *state.State, kind, series,
 
 func (s *imageSuite) imageURL(c *gc.C, kind, series, arch string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/model/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.envUUID, kind, series, arch)
+	uri.Path = fmt.Sprintf("/model/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.modelUUID, kind, series, arch)
 	return uri
 }
 

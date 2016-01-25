@@ -138,7 +138,7 @@ func (c *addCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = "env-uuid" + ":" + placement
+		placement = "model-uuid" + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {
@@ -155,8 +155,8 @@ type AddMachineAPI interface {
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	EnvironmentGet() (map[string]interface{}, error)
-	EnvironmentUUID() string
+	ModelGet() (map[string]interface{}, error)
+	ModelUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -238,8 +238,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("model provisioning")
-	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
-		c.Placement.Scope = client.EnvironmentUUID()
+	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
+		c.Placement.Scope = client.ModelUUID()
 	}
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {

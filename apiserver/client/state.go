@@ -48,7 +48,7 @@ type stateInterface interface {
 	EnvironUUID() string
 	EnvironTag() names.EnvironTag
 	Environment() (*state.Environment, error)
-	SetEnvironAgentVersion(version.Number) error
+	SetModelAgentVersion(version.Number) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)

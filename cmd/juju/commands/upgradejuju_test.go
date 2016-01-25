@@ -871,7 +871,7 @@ func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
 	}
 }
 
-func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
+func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
 	config, err := a.st.EnvironConfig()
 	if err != nil {
 		return make(map[string]interface{}), err
@@ -902,7 +902,7 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetEnvironAgentVersion(v version.Number) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number) error {
 	a.setVersionCalledWith = v
 	return a.setVersionErr
 }

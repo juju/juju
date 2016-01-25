@@ -69,8 +69,8 @@ type destroyControllerAPI interface {
 // destroy command might call.
 type destroyClientAPI interface {
 	Close() error
-	EnvironmentGet() (map[string]interface{}, error)
-	DestroyEnvironment() error
+	ModelGet() (map[string]interface{}, error)
+	DestroyModel() error
 }
 
 // Info implements Command.Info.
@@ -164,7 +164,7 @@ func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info confi
 	}
 	defer api.Close()
 
-	err = api.DestroyEnvironment()
+	err = api.DestroyModel()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
 	}
@@ -322,7 +322,7 @@ func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, 
 				return nil, errors.Trace(err)
 			}
 			defer client.Close()
-			bootstrapCfg, err = client.EnvironmentGet()
+			bootstrapCfg, err = client.ModelGet()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -111,7 +111,7 @@ func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 // Local structure that controls the output structure.
 type UserModel struct {
 	Name           string `json:"name"`
-	UUID           string `json:"env-uuid" yaml:"env-uuid"`
+	UUID           string `json:"model-uuid" yaml:"model-uuid"`
 	Owner          string `json:"owner"`
 	LastConnection string `json:"last-connection" yaml:"last-connection"`
 }

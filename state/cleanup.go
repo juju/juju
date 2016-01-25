@@ -35,20 +35,20 @@ const (
 // cleanupDoc represents a potentially large set of documents that should be
 // removed.
 type cleanupDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Kind    cleanupKind
-	Prefix  string
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
+	Kind      cleanupKind
+	Prefix    string
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
 func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
-		DocID:   st.docID(fmt.Sprint(bson.NewObjectId())),
-		EnvUUID: st.EnvironUUID(),
-		Kind:    kind,
-		Prefix:  prefix,
+		DocID:     st.docID(fmt.Sprint(bson.NewObjectId())),
+		ModelUUID: st.EnvironUUID(),
+		Kind:      kind,
+		Prefix:    prefix,
 	}
 	return txn.Op{
 		C:      cleanupsC,

@@ -66,7 +66,7 @@ func (st *State) MaybePruneTransactions() error {
 type multiEnvRunner struct {
 	rawRunner jujutxn.Runner
 	schema    collectionSchema
-	envUUID   string
+	modelUUID string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
@@ -126,9 +126,9 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		}
 		outOp := op
 		if !collInfo.global {
-			outOp.Id = ensureEnvUUIDIfString(r.envUUID, op.Id)
+			outOp.Id = ensureEnvUUIDIfString(r.modelUUID, op.Id)
 			if op.Insert != nil {
-				newInsert, err := mungeDocForMultiEnv(op.Insert, r.envUUID, envUUIDRequired)
+				newInsert, err := mungeDocForMultiEnv(op.Insert, r.modelUUID, envUUIDRequired)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
@@ -169,7 +169,7 @@ func (r *multiEnvRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
 	outDoc := make(bson.D, 0, len(updateDoc))
 	for _, elem := range updateDoc {
 		if elem.Name == "$set" {
-			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.envUUID, 0)
+			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -189,7 +189,7 @@ func (r *multiEnvRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
 	for name, elem := range updateDoc {
 		if name == "$set" {
 			var err error
-			elem, err = mungeDocForMultiEnv(elem, r.envUUID, 0)
+			elem, err = mungeDocForMultiEnv(elem, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

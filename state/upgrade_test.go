@@ -413,7 +413,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c
 	defer closer()
 
 	// Add minimal machine and instanceData docs for the state servers
-	// that look how these documents did before the environment UUID
+	// that look how these documents did before the model UUID
 	// migration.
 	_, err := instanceData.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)

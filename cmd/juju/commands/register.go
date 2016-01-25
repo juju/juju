@@ -21,10 +21,10 @@ import (
 )
 
 type metricRegistrationPost struct {
-	EnvironmentUUID string `json:"env-uuid"`
-	CharmURL        string `json:"charm-url"`
-	ServiceName     string `json:"service-name"`
-	PlanURL         string `json:"plan-url"`
+	ModelUUID   string `json:"model-uuid"`
+	CharmURL    string `json:"charm-url"`
+	ServiceName string `json:"service-name"`
+	PlanURL     string `json:"plan-url"`
 }
 
 // RegisterMeteredCharm implements the DeployStep interface.
@@ -74,7 +74,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		}
 	}
 
-	r.credentials, err = r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
 		logger.Infof("failed to obtain plan authorization: %v", err)
 		return err
@@ -217,10 +217,10 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 	}
 
 	registrationPost := metricRegistrationPost{
-		EnvironmentUUID: environmentUUID,
-		CharmURL:        charmURL,
-		ServiceName:     serviceName,
-		PlanURL:         r.Plan,
+		ModelUUID:   environmentUUID,
+		CharmURL:    charmURL,
+		ServiceName: serviceName,
+		PlanURL:     r.Plan,
 	}
 
 	buff := &bytes.Buffer{}

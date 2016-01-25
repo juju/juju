@@ -29,24 +29,24 @@ type StatePool struct {
 
 // Get returns a State for a given environment from the pool, creating
 // one if required.
-func (p *StatePool) Get(envUUID string) (*State, error) {
-	if envUUID == p.systemState.EnvironUUID() {
+func (p *StatePool) Get(modelUUID string) (*State, error) {
+	if modelUUID == p.systemState.EnvironUUID() {
 		return p.systemState, nil
 	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	st, ok := p.pool[envUUID]
+	st, ok := p.pool[modelUUID]
 	if ok {
 		return st, nil
 	}
 
-	st, err := p.systemState.ForEnviron(names.NewEnvironTag(envUUID))
+	st, err := p.systemState.ForEnviron(names.NewEnvironTag(modelUUID))
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create state for model %v", envUUID)
+		return nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
 	}
-	p.pool[envUUID] = st
+	p.pool[modelUUID] = st
 	return st, nil
 }
 

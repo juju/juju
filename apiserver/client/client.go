@@ -397,8 +397,8 @@ func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (param
 	return params.GetConstraintsResults{cons}, err
 }
 
-// GetEnvironmentConstraints returns the constraints for the environment.
-func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
+// GetModelConstraints returns the constraints for the model.
+func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
 	cons, err := c.api.stateAccessor.EnvironConstraints()
 	if err != nil {
 		return params.GetConstraintsResults{}, err
@@ -419,8 +419,8 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 	return svc.SetConstraints(args.Constraints)
 }
 
-// SetEnvironmentConstraints sets the constraints for the environment.
-func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+// SetModelConstraints sets the constraints for the model.
+func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -625,20 +625,20 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	return info, nil
 }
 
-// EnvironmentInfo returns information about the current environment (default
+// ModelInfo returns information about the current environment (default
 // series and type).
-func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
+func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	state := c.api.stateAccessor
 	conf, err := state.EnvironConfig()
 	if err != nil {
-		return params.EnvironmentInfo{}, err
+		return params.ModelInfo{}, err
 	}
 	env, err := state.Environment()
 	if err != nil {
-		return params.EnvironmentInfo{}, err
+		return params.ModelInfo{}, err
 	}
 
-	info := params.EnvironmentInfo{
+	info := params.ModelInfo{
 		DefaultSeries:  config.PreferredSeries(conf),
 		ProviderType:   conf.Type(),
 		Name:           conf.Name(),
@@ -648,8 +648,8 @@ func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
 	return info, nil
 }
 
-// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
-func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
+// ShareModel manages allowing and denying the given user(s) access to the environment.
+func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
 	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
@@ -671,14 +671,14 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 			continue
 		}
 		switch arg.Action {
-		case params.AddEnvUser:
+		case params.AddModelUser:
 			_, err := c.api.stateAccessor.AddEnvironmentUser(
 				state.EnvUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share model")
 				result.Results[i].Error = common.ServerError(err)
 			}
-		case params.RemoveEnvUser:
+		case params.RemoveModelUser:
 			err := c.api.stateAccessor.RemoveEnvironmentUser(user)
 			if err != nil {
 				err = errors.Annotate(err, "could not unshare model")
@@ -691,9 +691,9 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 	return result, nil
 }
 
-// EnvUserInfo returns information on all users in the environment.
-func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
-	var results params.EnvUserInfoResults
+// ModelUserInfo returns information on all users in the environment.
+func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
+	var results params.ModelUserInfoResults
 	env, err := c.api.stateAccessor.Environment()
 	if err != nil {
 		return results, errors.Trace(err)
@@ -713,8 +713,8 @@ func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 		} else {
 			lastConn = &userLastConn
 		}
-		results.Results = append(results.Results, params.EnvUserInfoResult{
-			Result: &params.EnvUserInfo{
+		results.Results = append(results.Results, params.ModelUserInfoResult{
+			Result: &params.ModelUserInfo{
 				UserName:       user.UserName(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
@@ -789,10 +789,10 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	return params.AgentVersionResult{Version: version.Current}, nil
 }
 
-// EnvironmentGet implements the server-side part of the
+// ModelGet implements the server-side part of the
 // get-model CLI command.
-func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
-	result := params.EnvironmentConfigResults{}
+func (c *Client) ModelGet() (params.ModelConfigResults, error) {
+	result := params.ModelConfigResults{}
 	// Get the existing environment config from the state.
 	config, err := c.api.stateAccessor.EnvironConfig()
 	if err != nil {
@@ -802,9 +802,9 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 	return result, nil
 }
 
-// EnvironmentSet implements the server-side part of the
+// ModelSet implements the server-side part of the
 // set-model CLI command.
-func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+func (c *Client) ModelSet(args params.ModelSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -826,9 +826,9 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	return c.api.stateAccessor.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
 }
 
-// EnvironmentUnset implements the server-side part of the
+// ModelUnset implements the server-side part of the
 // set-model CLI command.
-func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+func (c *Client) ModelUnset(args params.ModelUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -838,8 +838,8 @@ func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
-// SetEnvironAgentVersion sets the environment agent version.
-func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
+// SetModelAgentVersion sets the environment agent version.
+func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -856,7 +856,7 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := environs.CheckProviderAPI(env); err != nil {
 		return err
 	}
-	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
 }
 
 var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
@@ -943,13 +943,13 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 	return results, nil
 }
 
-// DestroyEnvironment will try to destroy the current environment.
+// DestroyModel will try to destroy the current environment.
 // If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyEnvironment() (err error) {
+func (c *Client) DestroyModel() (err error) {
 	if err := c.check.DestroyAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 
 	environTag := c.api.stateAccessor.EnvironTag()
-	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag))
+	return errors.Trace(common.DestroyModel(c.api.state(), environTag))
 }

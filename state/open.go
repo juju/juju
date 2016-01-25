@@ -144,7 +144,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Id:     environGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{
-				EnvUUID: st.EnvironUUID(),
+				ModelUUID: st.EnvironUUID(),
 			},
 		},
 		txn.Op{
@@ -176,7 +176,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,14 +184,14 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
-		serverUUID = envUUID
+		serverUUID = modelUUID
 	}
-	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name(), false)
+	envUserOp := createEnvUserOp(modelUUID, owner, owner, owner.Name(), false)
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(environGlobalKey, cfg.AllAttrs()),
 		incHostedEnvironCountOp(),
-		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
+		createEnvironmentOp(st, owner, cfg.Name(), modelUUID, serverUUID),
 		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
 		envUserOp,
 	}

@@ -47,7 +47,7 @@ type apiHandler struct {
 	resources        *common.Resources
 	entity           state.Entity
 	mongoUnavailable *uint32
-	// An empty envUUID means that the user has logged in through the
+	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:env-uuid/api
 	// path, logins processed with v2 or later will only offer the
 	// user manager and model manager api endpoints from here.

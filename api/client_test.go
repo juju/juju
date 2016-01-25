@@ -198,7 +198,7 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
-	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
+	c.Assert(client.ModelUUID(), gc.Equals, environ.Tag().Id())
 }
 
 func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
@@ -206,11 +206,11 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			c.Assert(paramsIn, gc.IsNil)
-			if response, ok := response.(*params.EnvUserInfoResults); ok {
-				response.Results = []params.EnvUserInfoResult{
-					{Result: &params.EnvUserInfo{UserName: "one"}},
-					{Result: &params.EnvUserInfo{UserName: "two"}},
-					{Result: &params.EnvUserInfo{UserName: "three"}},
+			if response, ok := response.(*params.ModelUserInfoResults); ok {
+				response.Results = []params.ModelUserInfoResult{
+					{Result: &params.ModelUserInfo{UserName: "one"}},
+					{Result: &params.ModelUserInfo{UserName: "two"}},
+					{Result: &params.ModelUserInfo{UserName: "three"}},
 				}
 			} else {
 				c.Log("wrong output structure")
@@ -221,10 +221,10 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	obtained, err := client.EnvironmentUserInfo()
+	obtained, err := client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(obtained, jc.DeepEquals, []params.EnvUserInfo{
+	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
 		{UserName: "one"},
 		{UserName: "two"},
 		{UserName: "three"},
@@ -236,9 +236,9 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	user := s.Factory.MakeEnvUser(c, nil)
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 1)
-				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
 				c.Logf(users.Changes[0].UserTag, gc.Equals, user.UserTag().String())
 			} else {
 				c.Fatalf("wrong input structure")
@@ -257,7 +257,7 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareEnvironment(user.UserTag())
+	err := client.ShareModel(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	logMsg := fmt.Sprintf("WARNING juju.api model is already shared with %s", user.UserName())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
@@ -268,13 +268,13 @@ func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
 	var called bool
 	cleanup := api.PatchClientFacadeCall(client,
 		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyEnvironment")
+			c.Assert(req, gc.Equals, "DestroyModel")
 			called = true
 			return nil
 		})
 	defer cleanup()
 
-	err := client.DestroyEnvironment()
+	err := client.DestroyModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -286,13 +286,13 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	newUserTag := names.NewUserTag("foo@bar")
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
 				c.Assert(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
-				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.AddModelUser))
 				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.AddModelUser))
 				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
 			} else {
 				c.Log("wrong input structure")
@@ -310,7 +310,7 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareEnvironment(existingUser.UserTag(), localUser.UserTag(), newUserTag)
+	err := client.ShareModel(existingUser.UserTag(), localUser.UserTag(), newUserTag)
 	c.Assert(err, gc.ErrorMatches, `existing user`)
 }
 
@@ -321,13 +321,13 @@ func (s *clientSuite) TestUnshareEnvironmentThreeUsers(c *gc.C) {
 	newUserTag := names.NewUserTag("foo@bar")
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.RemoveModelUser))
 				c.Assert(users.Changes[0].UserTag, gc.Equals, missingUser.UserTag().String())
-				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.RemoveModelUser))
 				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.RemoveModelUser))
 				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
 			} else {
 				c.Log("wrong input structure")
@@ -345,7 +345,7 @@ func (s *clientSuite) TestUnshareEnvironmentThreeUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.UnshareEnvironment(missingUser.UserTag(), localUser.UserTag(), newUserTag)
+	err := client.UnshareModel(missingUser.UserTag(), localUser.UserTag(), newUserTag)
 	c.Assert(err, gc.ErrorMatches, "error unsharing user")
 }
 
@@ -354,9 +354,9 @@ func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 	user := names.NewUserTag("bob@local")
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 1)
-				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.RemoveModelUser))
 				c.Logf(users.Changes[0].UserTag, gc.Equals, user.String())
 			} else {
 				c.Fatalf("wrong input structure")
@@ -375,7 +375,7 @@ func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.UnshareEnvironment(user)
+	err := client.UnshareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 	logMsg := fmt.Sprintf("WARNING juju.api model was not previously shared with user %s", user.Canonical())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
@@ -512,7 +512,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
-	// SetEnvironAgentVersion call when an upgrade is in progress.
+	// SetModelAgentVersion call when an upgrade is in progress.
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -526,7 +526,7 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
+	err = s.APIState.Client().SetModelAgentVersion(nextVersion)
 
 	// Expect an error with a error code that indicates this specific
 	// situation. The client needs to be able to reliably identify
@@ -553,7 +553,7 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 func (s *clientSuite) TestEnvironmentGet(c *gc.C) {
 	client := s.APIState.Client()
-	env, err := client.EnvironmentGet()
+	env, err := client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check a known value, just checking that there is something there.
 	c.Assert(env["type"], gc.Equals, "dummy")
@@ -561,13 +561,13 @@ func (s *clientSuite) TestEnvironmentGet(c *gc.C) {
 
 func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
 	client := s.APIState.Client()
-	err := client.EnvironmentSet(map[string]interface{}{
+	err := client.ModelSet(map[string]interface{}{
 		"some-name":  "value",
 		"other-name": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Check them using EnvironmentGet.
-	env, err := client.EnvironmentGet()
+	// Check them using ModelGet.
+	env, err := client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env["some-name"], gc.Equals, "value")
 	c.Assert(env["other-name"], gc.Equals, true)
@@ -575,16 +575,16 @@ func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
 
 func (s *clientSuite) TestEnvironmentUnset(c *gc.C) {
 	client := s.APIState.Client()
-	err := client.EnvironmentSet(map[string]interface{}{
+	err := client.ModelSet(map[string]interface{}{
 		"some-name": "value",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now unset it and make sure it isn't there.
-	err = client.EnvironmentUnset("some-name")
+	err = client.ModelUnset("some-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := client.EnvironmentGet()
+	env, err := client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := env["some-name"]
 	c.Assert(found, jc.IsFalse)

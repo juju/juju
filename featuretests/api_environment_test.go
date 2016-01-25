@@ -44,7 +44,7 @@ func (s *apiEnvironmentSuite) TearDownTest(c *gc.C) {
 func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	user := names.NewUserTag("foo@ubuntuone")
 
-	err := s.client.ShareEnvironment(user)
+	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
@@ -59,7 +59,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	// Firt share an environment with a user.
 	user := names.NewUserTag("foo@ubuntuone")
-	err := s.client.ShareEnvironment(user)
+	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
@@ -67,7 +67,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	c.Assert(envUser, gc.NotNil)
 
 	// Then test unsharing the environment.
-	err = s.client.UnshareEnvironment(user)
+	err = s.client.UnshareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err = s.State.EnvironmentUser(user)
@@ -82,9 +82,9 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 	owner, err := s.State.EnvironmentUser(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, err := s.client.EnvironmentUserInfo()
+	obtained, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, []params.EnvUserInfo{
+	c.Assert(obtained, gc.DeepEquals, []params.ModelUserInfo{
 		{
 			UserName:       owner.UserName(),
 			DisplayName:    owner.DisplayName(),

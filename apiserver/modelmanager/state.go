@@ -15,7 +15,7 @@ var getState = func(st *state.State) stateInterface {
 }
 
 type stateInterface interface {
-	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
+	EnvironmentsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
 	ControllerEnvironment() (*state.Environment, error)

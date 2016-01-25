@@ -36,10 +36,10 @@ type charmsCommonSuite struct {
 
 func (s *charmsCommonSuite) charmsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	if s.envUUID == "" {
+	if s.modelUUID == "" {
 		uri.Path = "/charms"
 	} else {
-		uri.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
+		uri.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	}
 	uri.RawQuery = query
 	return uri
@@ -246,7 +246,7 @@ func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
@@ -429,7 +429,7 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }

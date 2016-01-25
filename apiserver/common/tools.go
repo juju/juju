@@ -334,14 +334,14 @@ func toolsFilter(args params.FindToolsParams) coretools.Filter {
 }
 
 type toolsURLGetter struct {
-	envUUID            string
+	modelUUID          string
 	apiHostPortsGetter APIHostPortsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(envUUID string, a APIHostPortsGetter) *toolsURLGetter {
-	return &toolsURLGetter{envUUID, a}
+func NewToolsURLGetter(modelUUID string, a APIHostPortsGetter) *toolsURLGetter {
+	return &toolsURLGetter{modelUUID, a}
 }
 
 func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
@@ -366,7 +366,7 @@ func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
 	if apiAddress == "" {
 		return "", errors.Errorf("no suitable API server address to pick from %v", hostPorts)
 	}
-	serverRoot := fmt.Sprintf("https://%s/model/%s", apiAddress, t.envUUID)
+	serverRoot := fmt.Sprintf("https://%s/model/%s", apiAddress, t.modelUUID)
 	return ToolsURL(serverRoot, v), nil
 }
 

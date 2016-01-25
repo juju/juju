@@ -35,7 +35,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Addresses:   []string{"127.0.0.1:12345"},
 		Hostnames:   []string{"localhost:12345"},
 		CACert:      testing.CACert,
-		EnvironUUID: "env-uuid",
+		EnvironUUID: "model-uuid",
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     "user-test",

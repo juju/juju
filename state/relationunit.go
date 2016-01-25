@@ -132,9 +132,9 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		Id:     rsDocID,
 		Assert: txn.DocMissing,
 		Insert: relationScopeDoc{
-			DocID:   rsDocID,
-			Key:     ruKey,
-			EnvUUID: ru.st.EnvironUUID(),
+			DocID:     rsDocID,
+			Key:       ruKey,
+			ModelUUID: ru.st.EnvironUUID(),
 		},
 	})
 
@@ -443,7 +443,7 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 type relationScopeDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
-	EnvUUID   string `bson:"env-uuid"`
+	ModelUUID string `bson:"model-uuid"`
 	Departing bool
 }
 

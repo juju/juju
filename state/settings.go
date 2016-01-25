@@ -35,8 +35,8 @@ const (
 // settingsDoc is the mongo document representation for
 // a settings.
 type settingsDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 
 	// Settings contains the settings. This must not be
 	// omitempty, or migration cannot work correctly.

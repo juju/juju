@@ -2029,7 +2029,7 @@ func inCollectionOp(key string, ids ...string) bson.D {
 }
 
 // localIdInCollectionOp is a special form of inCollectionOp that just
-// converts id's to their env-uuid prefixed form.
+// converts id's to their model-uuid prefixed form.
 func localIdInCollectionOp(st *State, localIds ...string) bson.D {
 	ids := make([]string, len(localIds))
 	for i, id := range localIds {
@@ -2215,7 +2215,7 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // and to account for the potential overlap between the id's that were
 // pending before the watcher started, and the new id's detected by the
 // watcher.
-// Additionally, mergeIds strips the environment UUID prefix from the id
+// Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
 	return mergeIds(st, changes, updates, w.idconv)

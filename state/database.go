@@ -186,7 +186,7 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	if !info.global {
 		collection = &envStateCollection{
 			WriteCollection: collection.Writeable(),
-			envUUID:         db.environUUID,
+			modelUUID:       db.environUUID,
 		}
 	}
 
@@ -215,7 +215,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 	}
 	return &multiEnvRunner{
 		rawRunner: runner,
-		envUUID:   db.environUUID,
+		modelUUID: db.environUUID,
 		schema:    db.schema,
 	}, closer
 }

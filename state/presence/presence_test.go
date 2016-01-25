@@ -532,10 +532,10 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	envUUID := uuid.String()
+	modelUUID := uuid.String()
 
-	w := presence.NewWatcher(s.presence, names.NewEnvironTag(envUUID))
-	p := presence.NewPinger(s.presence, names.NewEnvironTag(envUUID), key)
+	w := presence.NewWatcher(s.presence, names.NewEnvironTag(modelUUID))
+	p := presence.NewPinger(s.presence, names.NewEnvironTag(modelUUID), key)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)

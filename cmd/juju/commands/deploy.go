@@ -188,7 +188,7 @@ type DeployStep interface {
 type DeploymentInfo struct {
 	CharmURL    *charm.URL
 	ServiceName string
-	EnvUUID     string
+	ModelUUID   string
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -475,7 +475,7 @@ func (c *DeployCommand) deployCharm(
 	deployInfo := DeploymentInfo{
 		CharmURL:    curl,
 		ServiceName: serviceName,
-		EnvUUID:     client.EnvironmentUUID(),
+		ModelUUID:   client.ModelUUID(),
 	}
 
 	for _, step := range c.Steps {
@@ -559,8 +559,8 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		)
 	}
 	for i, p := range args.placement {
-		if p.Scope == "env-uuid" {
-			p.Scope = serviceClient.EnvironmentUUID()
+		if p.Scope == "model-uuid" {
+			p.Scope = serviceClient.ModelUUID()
 		}
 		args.placement[i] = p
 	}

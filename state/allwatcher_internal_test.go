@@ -64,7 +64,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 // we can check that they all get pulled in by
 // all(Env)WatcherStateBacking.GetAll.
 func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
-	envUUID := st.EnvironUUID()
+	modelUUID := st.EnvironUUID()
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
@@ -81,7 +81,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = m.SetProviderAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
-		EnvUUID:                 envUUID,
+		ModelUUID:               modelUUID,
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
 		Status:                  multiwatcher.Status("pending"),
@@ -104,7 +104,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	setServiceConfigAttr(c, wordpress, "blog-title", "boring")
 	add(&multiwatcher.ServiceInfo{
-		EnvUUID:     envUUID,
+		ModelUUID:   modelUUID,
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
@@ -124,14 +124,14 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = st.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
-		EnvUUID:     envUUID,
+		ModelUUID:   modelUUID,
 		Tag:         "service-wordpress",
 		Annotations: pairs,
 	})
 
 	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
 	add(&multiwatcher.ServiceInfo{
-		EnvUUID:     envUUID,
+		ModelUUID:   modelUUID,
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
 		OwnerTag:    s.owner.String(),
@@ -150,9 +150,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.RelationInfo{
-		EnvUUID: envUUID,
-		Key:     "logging:logging-directory wordpress:logging-dir",
-		Id:      rel.Id(),
+		ModelUUID: modelUUID,
+		Key:       "logging:logging-directory wordpress:logging-dir",
+		Id:        rel.Id(),
 		Endpoints: []multiwatcher.Endpoint{
 			{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 			{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
@@ -168,7 +168,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&multiwatcher.UnitInfo{
-			EnvUUID:     envUUID,
+			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("wordpress/%d", i),
 			Service:     wordpress.Name(),
 			Series:      m.Series(),
@@ -192,7 +192,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		err = st.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
-			EnvUUID:     envUUID,
+			ModelUUID:   modelUUID,
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
@@ -204,7 +204,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.MachineInfo{
-			EnvUUID:                 envUUID,
+			ModelUUID:               modelUUID,
 			Id:                      fmt.Sprint(i + 1),
 			InstanceId:              "i-" + m.Tag().String(),
 			Status:                  multiwatcher.Status("error"),
@@ -240,7 +240,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&multiwatcher.UnitInfo{
-			EnvUUID:     envUUID,
+			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("logging/%d", i),
 			Service:     "logging",
 			Series:      "quantal",
@@ -448,22 +448,22 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 			return changeTestCase{
 				about: "no change if block is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
-					EnvUUID: st.EnvironUUID(),
-					Id:      blockId,
-					Type:    blockType,
-					Message: blockMsg,
-					Tag:     st.EnvironTag().String(),
+					ModelUUID: st.EnvironUUID(),
+					Id:        blockId,
+					Type:      blockType,
+					Message:   blockMsg,
+					Tag:       st.EnvironTag().String(),
 				}},
 				change: watcher.Change{
 					C:  blocksC,
 					Id: st.localID(blockId),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
-					EnvUUID: st.EnvironUUID(),
-					Id:      blockId,
-					Type:    blockType,
-					Message: blockMsg,
-					Tag:     st.EnvironTag().String(),
+					ModelUUID: st.EnvironUUID(),
+					Id:        blockId,
+					Type:      blockType,
+					Message:   blockMsg,
+					Tag:       st.EnvironTag().String(),
 				}},
 			}
 		},
@@ -483,11 +483,11 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.BlockInfo{
-						EnvUUID: st.EnvironUUID(),
-						Id:      st.localID(blockId),
-						Type:    b.Type().ToParams(),
-						Message: b.Message(),
-						Tag:     st.EnvironTag().String(),
+						ModelUUID: st.EnvironUUID(),
+						Id:        st.localID(blockId),
+						Type:      b.Type().ToParams(),
+						Message:   b.Message(),
+						Tag:       st.EnvironTag().String(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -531,8 +531,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
 	all.Update(&multiwatcher.MachineInfo{
-		EnvUUID: s.state.EnvironUUID(),
-		Id:      "0",
+		ModelUUID: s.state.EnvironUUID(),
+		Id:        "0",
 	})
 	// Check opened ports.
 	err = b.Changed(all, watcher.Change{
@@ -544,7 +544,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
-			EnvUUID:        s.state.EnvironUUID(),
+			ModelUUID:      s.state.EnvironUUID(),
 			Name:           "wordpress/0",
 			Service:        "wordpress",
 			Series:         "quantal",
@@ -566,8 +566,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			},
 		},
 		&multiwatcher.MachineInfo{
-			EnvUUID: s.state.EnvironUUID(),
-			Id:      "0",
+			ModelUUID: s.state.EnvironUUID(),
+			Id:        "0",
 		},
 	})
 	// Close the ports.
@@ -581,7 +581,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	entities = all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
-			EnvUUID:        s.state.EnvironUUID(),
+			ModelUUID:      s.state.EnvironUUID(),
 			Name:           "wordpress/0",
 			Service:        "wordpress",
 			Series:         "quantal",
@@ -603,8 +603,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			},
 		},
 		&multiwatcher.MachineInfo{
-			EnvUUID: s.state.EnvironUUID(),
-			Id:      "0",
+			ModelUUID: s.state.EnvironUUID(),
+			Id:        "0",
 		},
 	})
 }
@@ -619,9 +619,9 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	setServiceConfigAttr(c, svc, "username", "foo")
 	setServiceConfigAttr(c, svc, "outlook", "foo@bar")
 	all.Update(&multiwatcher.ServiceInfo{
-		EnvUUID:  s.state.EnvironUUID(),
-		Name:     "dummy-service",
-		CharmURL: "local:quantal/quantal-dummy-1",
+		ModelUUID: s.state.EnvironUUID(),
+		Name:      "dummy-service",
+		CharmURL:  "local:quantal/quantal-dummy-1",
 	})
 	err := b.Changed(all, watcher.Change{
 		C:  "settings",
@@ -632,10 +632,10 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.ServiceInfo{
-			EnvUUID:  s.state.EnvironUUID(),
-			Name:     "dummy-service",
-			CharmURL: "local:quantal/quantal-dummy-1",
-			Config:   charm.Settings{"outlook": "foo@bar", "username": "foo"},
+			ModelUUID: s.state.EnvironUUID(),
+			Name:      "dummy-service",
+			CharmURL:  "local:quantal/quantal-dummy-1",
+			Config:    charm.Settings{"outlook": "foo@bar", "username": "foo"},
 		},
 	})
 	// 2nd scenario part: destroy the service and signal change.
@@ -649,9 +649,9 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	entities = all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.ServiceInfo{
-			EnvUUID:  s.state.EnvironUUID(),
-			Name:     "dummy-service",
-			CharmURL: "local:quantal/quantal-dummy-1",
+			ModelUUID: s.state.EnvironUUID(),
+			Name:      "dummy-service",
+			CharmURL:  "local:quantal/quantal-dummy-1",
 		},
 	})
 }
@@ -675,7 +675,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	deltas := tw.All(2)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -688,7 +688,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Id:         "1",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -709,7 +709,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Id:         "1",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -729,7 +729,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Id:         "1",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -772,7 +772,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:                 s.state.EnvironUUID(),
+			ModelUUID:               s.state.EnvironUUID(),
 			Id:                      "0",
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
@@ -788,12 +788,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID: s.state.EnvironUUID(),
-			Id:      "1",
+			ModelUUID: s.state.EnvironUUID(),
+			Id:        "1",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Id:         "2",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -806,12 +806,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{
-			EnvUUID:  s.state.EnvironUUID(),
-			Name:     "wordpress",
-			CharmURL: "local:quantal/quantal-wordpress-3",
-			OwnerTag: s.owner.String(),
-			Life:     "alive",
-			Config:   make(map[string]interface{}),
+			ModelUUID: s.state.EnvironUUID(),
+			Name:      "wordpress",
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			OwnerTag:  s.owner.String(),
+			Life:      "alive",
+			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -820,7 +820,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.UnitInfo{
-			EnvUUID:    s.state.EnvironUUID(),
+			ModelUUID:  s.state.EnvironUUID(),
 			Name:       "wordpress/0",
 			Service:    "wordpress",
 			Series:     "quantal",
@@ -1040,7 +1040,7 @@ func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFunc
 			// build a list of the entities for the second env.
 			newEntities := make([]multiwatcher.EntityInfo, 0)
 			for _, entity := range entities {
-				if entity.EntityId().EnvUUID == s.state1.EnvironUUID() {
+				if entity.EntityId().ModelUUID == s.state1.EnvironUUID() {
 					newEntities = append(newEntities, entity)
 				}
 			}
@@ -1098,8 +1098,8 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "model is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.EnvironmentInfo{
-					EnvUUID: "some-uuid",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
+					ModelUUID: "some-uuid",
 				}},
 				change: watcher.Change{
 					C:  "environments",
@@ -1116,8 +1116,8 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 					Id: st.EnvironUUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.EnvironmentInfo{
-						EnvUUID:    env.UUID(),
+					&multiwatcher.ModelInfo{
+						ModelUUID:  env.UUID(),
 						Name:       env.Name(),
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
@@ -1130,8 +1130,8 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.EnvironmentInfo{
-						EnvUUID:    env.UUID(),
+					&multiwatcher.ModelInfo{
+						ModelUUID:  env.UUID(),
 						Name:       "",
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
@@ -1143,8 +1143,8 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 					Id: env.UUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.EnvironmentInfo{
-						EnvUUID:    env.UUID(),
+					&multiwatcher.ModelInfo{
+						ModelUUID:  env.UUID(),
 						Name:       env.Name(),
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
@@ -1159,7 +1159,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 			return changeTestCase{
 				about: "status is changed if the service exists in the store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:     st.EnvironUUID(),
+					ModelUUID:   st.EnvironUUID(),
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 				}},
@@ -1169,7 +1169,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:     st.EnvironUUID(),
+						ModelUUID:   st.EnvironUUID(),
 						Name:        "wordpress",
 						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
@@ -1189,8 +1189,8 @@ func (s *allEnvWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 	// Insert a machine for an environment that doesn't actually
 	// exist (mimics env removal).
 	all.Update(&multiwatcher.MachineInfo{
-		EnvUUID: "uuid",
-		Id:      "0",
+		ModelUUID: "uuid",
+		Id:        "0",
 	})
 	c.Assert(all.All(), gc.HasLen, 1)
 
@@ -1217,15 +1217,15 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 	env1, err := s.state1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedEntities = append(expectedEntities,
-		&multiwatcher.EnvironmentInfo{
-			EnvUUID:    env.UUID(),
+		&multiwatcher.ModelInfo{
+			ModelUUID:  env.UUID(),
 			Name:       env.Name(),
 			Life:       multiwatcher.Life("alive"),
 			Owner:      env.Owner().Id(),
 			ServerUUID: env.ControllerUUID(),
 		},
-		&multiwatcher.EnvironmentInfo{
-			EnvUUID:    env1.UUID(),
+		&multiwatcher.ModelInfo{
+			ModelUUID:  env1.UUID(),
 			Name:       env1.Name(),
 			Life:       multiwatcher.Life("alive"),
 			Owner:      env1.Owner().Id(),
@@ -1272,16 +1272,16 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	// machines first.
 	deltas := tw.All(4)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.EnvironmentInfo{
-			EnvUUID:    env0.UUID(),
+		Entity: &multiwatcher.ModelInfo{
+			ModelUUID:  env0.UUID(),
 			Name:       env0.Name(),
 			Life:       "alive",
 			Owner:      env0.Owner().Id(),
 			ServerUUID: env0.ControllerUUID(),
 		},
 	}, {
-		Entity: &multiwatcher.EnvironmentInfo{
-			EnvUUID:    env1.UUID(),
+		Entity: &multiwatcher.ModelInfo{
+			ModelUUID:  env1.UUID(),
 			Name:       env1.Name(),
 			Life:       "alive",
 			Owner:      env1.Owner().Id(),
@@ -1289,7 +1289,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st0.EnvironUUID(),
+			ModelUUID:  st0.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1302,7 +1302,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st1.EnvironUUID(),
+			ModelUUID:  st1.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1323,7 +1323,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st1.EnvironUUID(),
+			ModelUUID:  st1.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1343,7 +1343,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	zeroOutTimestampsForDeltas(c, deltas)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st1.EnvironUUID(),
+			ModelUUID:  st1.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1388,7 +1388,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:                 st0.EnvironUUID(),
+			ModelUUID:               st0.EnvironUUID(),
 			Id:                      "0",
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
@@ -1404,12 +1404,12 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID: st1.EnvironUUID(),
-			Id:      "0",
+			ModelUUID: st1.EnvironUUID(),
+			Id:        "0",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st1.EnvironUUID(),
+			ModelUUID:  st1.EnvironUUID(),
 			Id:         "1",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1422,12 +1422,12 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{
-			EnvUUID:  st1.EnvironUUID(),
-			Name:     "wordpress",
-			CharmURL: "local:quantal/quantal-wordpress-3",
-			OwnerTag: s.owner.String(),
-			Life:     "alive",
-			Config:   make(map[string]interface{}),
+			ModelUUID: st1.EnvironUUID(),
+			Name:      "wordpress",
+			CharmURL:  "local:quantal/quantal-wordpress-3",
+			OwnerTag:  s.owner.String(),
+			Life:      "alive",
+			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -1436,7 +1436,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.UnitInfo{
-			EnvUUID:    st1.EnvironUUID(),
+			ModelUUID:  st1.EnvironUUID(),
 			Name:       "wordpress/0",
 			Service:    "wordpress",
 			Series:     "quantal",
@@ -1455,8 +1455,8 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			},
 		},
 	}, {
-		Entity: &multiwatcher.EnvironmentInfo{
-			EnvUUID:    env2.UUID(),
+		Entity: &multiwatcher.ModelInfo{
+			ModelUUID:  env2.UUID(),
 			Name:       env2.Name(),
 			Life:       "alive",
 			Owner:      env2.Owner().Id(),
@@ -1464,7 +1464,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st2.EnvironUUID(),
+			ModelUUID:  st2.EnvironUUID(),
 			Id:         "0",
 			Status:     multiwatcher.Status("pending"),
 			StatusData: map[string]interface{}{},
@@ -1509,8 +1509,8 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			return changeTestCase{
 				about: "annotation is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
-					EnvUUID: st.EnvironUUID(),
-					Tag:     "machine-0",
+					ModelUUID: st.EnvironUUID(),
+					Tag:       "machine-0",
 				}},
 				change: watcher.Change{
 					C:  "annotations",
@@ -1531,7 +1531,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
-						EnvUUID:     st.EnvironUUID(),
+						ModelUUID:   st.EnvironUUID(),
 						Tag:         "machine-0",
 						Annotations: map[string]string{"foo": "bar", "arble": "baz"},
 					}}}
@@ -1549,8 +1549,8 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			return changeTestCase{
 				about: "annotation is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
-					EnvUUID: st.EnvironUUID(),
-					Tag:     "machine-0",
+					ModelUUID: st.EnvironUUID(),
+					Tag:       "machine-0",
 					Annotations: map[string]string{
 						"arble":  "baz",
 						"foo":    "bar",
@@ -1563,8 +1563,8 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
-						EnvUUID: st.EnvironUUID(),
-						Tag:     "machine-0",
+						ModelUUID: st.EnvironUUID(),
+						Tag:       "machine-0",
 						Annotations: map[string]string{
 							"arble": "khroomph",
 							"new":   "attr",
@@ -1596,8 +1596,8 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			return changeTestCase{
 				about: "machine is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
-					EnvUUID: st.EnvironUUID(),
-					Id:      "1",
+					ModelUUID: st.EnvironUUID(),
+					Id:        "1",
 				}},
 				change: watcher.Change{
 					C:  "machines",
@@ -1618,7 +1618,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
@@ -1643,7 +1643,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				about: "machine is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
@@ -1656,7 +1656,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID:                  st.EnvironUUID(),
+						ModelUUID:                st.EnvironUUID(),
 						Id:                       "0",
 						InstanceId:               "i-0",
 						Status:                   multiwatcher.Status("error"),
@@ -1675,7 +1675,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			return changeTestCase{
 				about: "no change if status is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -1687,7 +1687,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
@@ -1703,7 +1703,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			return changeTestCase{
 				about: "status is changed if the machine exists in the store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -1715,7 +1715,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						Status:     multiwatcher.Status("started"),
 						StatusData: make(map[string]interface{}),
@@ -1739,8 +1739,8 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 			return changeTestCase{
 				about: "relation is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.RelationInfo{
-					EnvUUID: st.EnvironUUID(),
-					Key:     "logging:logging-directory wordpress:logging-dir",
+					ModelUUID: st.EnvironUUID(),
+					Key:       "logging:logging-directory wordpress:logging-dir",
 				}},
 				change: watcher.Change{
 					C:  "relations",
@@ -1763,8 +1763,8 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.RelationInfo{
-						EnvUUID: st.EnvironUUID(),
-						Key:     "logging:logging-directory wordpress:logging-dir",
+						ModelUUID: st.EnvironUUID(),
+						Key:       "logging:logging-directory wordpress:logging-dir",
 						Endpoints: []multiwatcher.Endpoint{
 							{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 							{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
@@ -1791,8 +1791,8 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				about: "service is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress",
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress",
 					},
 				},
 				change: watcher.Change{
@@ -1815,14 +1815,14 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "wordpress",
-						Exposed:  true,
-						CharmURL: "local:quantal/quantal-wordpress-3",
-						OwnerTag: owner.String(),
-						Life:     multiwatcher.Life("alive"),
-						MinUnits: 42,
-						Config:   charm.Settings{},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress",
+						Exposed:   true,
+						CharmURL:  "local:quantal/quantal-wordpress-3",
+						OwnerTag:  owner.String(),
+						Life:      multiwatcher.Life("alive"),
+						MinUnits:  42,
+						Config:    charm.Settings{},
 						Status: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -1837,7 +1837,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:     st.EnvironUUID(),
+					ModelUUID:   st.EnvironUUID(),
 					Name:        "wordpress",
 					Exposed:     true,
 					CharmURL:    "local:quantal/quantal-wordpress-3",
@@ -1851,7 +1851,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:     st.EnvironUUID(),
+						ModelUUID:   st.EnvironUUID(),
 						Name:        "wordpress",
 						CharmURL:    "local:quantal/quantal-wordpress-3",
 						OwnerTag:    owner.String(),
@@ -1867,8 +1867,8 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service re-reads config when charm URL changes",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID: st.EnvironUUID(),
-					Name:    "wordpress",
+					ModelUUID: st.EnvironUUID(),
+					Name:      "wordpress",
 					// Note: CharmURL has a different revision number from
 					// the wordpress revision in the testing repo.
 					CharmURL: "local:quantal/quantal-wordpress-2",
@@ -1880,12 +1880,12 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "wordpress",
-						CharmURL: "local:quantal/quantal-wordpress-3",
-						OwnerTag: owner.String(),
-						Life:     multiwatcher.Life("alive"),
-						Config:   charm.Settings{"blog-title": "boring"},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress",
+						CharmURL:  "local:quantal/quantal-wordpress-3",
+						OwnerTag:  owner.String(),
+						Life:      multiwatcher.Life("alive"),
+						Config:    charm.Settings{"blog-title": "boring"},
 					}}}
 		},
 		// Settings.
@@ -1901,18 +1901,18 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "no change if service is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-1",
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
 					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-1",
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-1",
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1923,9 +1923,9 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service config is changed if service exists in the store with the same URL",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-1",
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
@@ -1933,10 +1933,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "dummy-service",
-						CharmURL: "local:quantal/quantal-dummy-1",
-						Config:   charm.Settings{"username": "foo", "outlook": "foo@bar"},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "dummy-service",
+						CharmURL:  "local:quantal/quantal-dummy-1",
+						Config:    charm.Settings{"username": "foo", "outlook": "foo@bar"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1948,10 +1948,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service config is changed after removing of a setting",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-1",
-					Config:   charm.Settings{"username": "foo", "outlook": "foo@bar"},
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-1",
+					Config:    charm.Settings{"username": "foo", "outlook": "foo@bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
@@ -1959,10 +1959,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "dummy-service",
-						CharmURL: "local:quantal/quantal-dummy-1",
-						Config:   charm.Settings{"outlook": "foo@bar"},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "dummy-service",
+						CharmURL:  "local:quantal/quantal-dummy-1",
+						Config:    charm.Settings{"outlook": "foo@bar"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1976,10 +1976,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service config is unescaped when reading from the backing store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-1",
-					Config:   charm.Settings{"key.dotted": "bar"},
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-1",
+					Config:    charm.Settings{"key.dotted": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
@@ -1987,10 +1987,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "dummy-service",
-						CharmURL: "local:quantal/quantal-dummy-1",
-						Config:   charm.Settings{"key.dotted": "foo"},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "dummy-service",
+						CharmURL:  "local:quantal/quantal-dummy-1",
+						Config:    charm.Settings{"key.dotted": "foo"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -2000,10 +2000,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 			return changeTestCase{
 				about: "service config is unchanged if service exists in the store with a different URL",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:  st.EnvironUUID(),
-					Name:     "dummy-service",
-					CharmURL: "local:quantal/quantal-dummy-2", // Note different revno.
-					Config:   charm.Settings{"username": "bar"},
+					ModelUUID: st.EnvironUUID(),
+					Name:      "dummy-service",
+					CharmURL:  "local:quantal/quantal-dummy-2", // Note different revno.
+					Config:    charm.Settings{"username": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
@@ -2011,10 +2011,10 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:  st.EnvironUUID(),
-						Name:     "dummy-service",
-						CharmURL: "local:quantal/quantal-dummy-2",
-						Config:   charm.Settings{"username": "bar"},
+						ModelUUID: st.EnvironUUID(),
+						Name:      "dummy-service",
+						CharmURL:  "local:quantal/quantal-dummy-2",
+						Config:    charm.Settings{"username": "bar"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -2051,7 +2051,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 			return changeTestCase{
 				about: "no change if service is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:     st.EnvironUUID(),
+					ModelUUID:   st.EnvironUUID(),
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M"),
 				}},
@@ -2060,7 +2060,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 					Id: st.docID("s#wordpress"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:     st.EnvironUUID(),
+					ModelUUID:   st.EnvironUUID(),
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M"),
 				}}}
@@ -2073,7 +2073,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 			return changeTestCase{
 				about: "status is changed if the service exists in the store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					EnvUUID:     st.EnvironUUID(),
+					ModelUUID:   st.EnvironUUID(),
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 				}},
@@ -2083,7 +2083,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						EnvUUID:     st.EnvironUUID(),
+						ModelUUID:   st.EnvironUUID(),
 						Name:        "wordpress",
 						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
@@ -2108,8 +2108,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "unit is removed if it's not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress/1",
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress/1",
 					},
 				},
 				change: watcher.Change{
@@ -2142,7 +2142,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:   st.EnvironUUID(),
+						ModelUUID: st.EnvironUUID(),
 						Name:      "wordpress/0",
 						Service:   "wordpress",
 						Series:    "quantal",
@@ -2189,7 +2189,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
@@ -2215,7 +2215,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Series:     "quantal",
@@ -2252,12 +2252,12 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "unit info is updated if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						StatusData: map[string]interface{}{},
 					},
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						StatusData: map[string]interface{}{},
 					},
@@ -2268,14 +2268,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Ports:      []network.Port{{"tcp", 4242}},
 						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
 						StatusData: map[string]interface{}{},
 					},
 					&multiwatcher.MachineInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Id:         "0",
 						StatusData: map[string]interface{}{},
 					},
@@ -2296,8 +2296,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "unit is created if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						EnvUUID: st.EnvironUUID(),
-						Id:      "0",
+						ModelUUID: st.EnvironUUID(),
+						Id:        "0",
 					},
 				},
 				change: watcher.Change{
@@ -2306,7 +2306,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Series:     "quantal",
@@ -2326,8 +2326,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						PortRanges: []network.PortRange{{21, 22, "tcp"}},
 					},
 					&multiwatcher.MachineInfo{
-						EnvUUID: st.EnvironUUID(),
-						Id:      "0",
+						ModelUUID: st.EnvironUUID(),
+						Id:        "0",
 					},
 				}}
 		},
@@ -2356,7 +2356,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:        st.EnvironUUID(),
+						ModelUUID:      st.EnvironUUID(),
 						Name:           "wordpress/0",
 						Service:        "wordpress",
 						Series:         "quantal",
@@ -2392,7 +2392,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "no change if status is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Name:       "wordpress/0",
 					Service:    "wordpress",
 					Status:     multiwatcher.Status("error"),
@@ -2417,7 +2417,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("error"),
@@ -2445,7 +2445,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "status is changed if the unit exists in the store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Name:       "wordpress/0",
 					Service:    "wordpress",
 					Status:     multiwatcher.Status("started"),
@@ -2470,7 +2470,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("started"),
@@ -2500,7 +2500,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "unit status is changed if the agent comes off error state",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					EnvUUID:    st.EnvironUUID(),
+					ModelUUID:  st.EnvironUUID(),
 					Name:       "wordpress/0",
 					Service:    "wordpress",
 					Status:     multiwatcher.Status("error"),
@@ -2524,7 +2524,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("started"),
@@ -2556,10 +2556,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			return changeTestCase{
 				about: "status is changed with additional status data",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
-					EnvUUID: st.EnvironUUID(),
-					Name:    "wordpress/0",
-					Service: "wordpress",
-					Status:  multiwatcher.Status("started"),
+					ModelUUID: st.EnvironUUID(),
+					Name:      "wordpress/0",
+					Service:   "wordpress",
+					Status:    multiwatcher.Status("started"),
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2577,7 +2577,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("error"),
@@ -2614,10 +2614,10 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "service status is changed if the unit status changes",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress/0",
-						Service: "wordpress",
-						Status:  multiwatcher.Status("error"),
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress/0",
+						Service:   "wordpress",
+						Status:    multiwatcher.Status("error"),
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2632,8 +2632,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						},
 					},
 					&multiwatcher.ServiceInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress",
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress",
 						Status: multiwatcher.StatusInfo{
 							Current: "error",
 							Message: "failure",
@@ -2648,7 +2648,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("started"),
@@ -2665,8 +2665,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						},
 					},
 					&multiwatcher.ServiceInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress",
+						ModelUUID: st.EnvironUUID(),
+						Name:      "wordpress",
 						Status: multiwatcher.StatusInfo{
 							Current: "active",
 							Message: "",
@@ -2733,7 +2733,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Series:     "quantal",
@@ -2765,7 +2765,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:        st.EnvironUUID(),
+						ModelUUID:      st.EnvironUUID(),
 						Name:           "wordpress/0",
 						Service:        "wordpress",
 						Series:         "quantal",
@@ -2799,7 +2799,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:        st.EnvironUUID(),
+						ModelUUID:      st.EnvironUUID(),
 						Name:           "wordpress/0",
 						Service:        "wordpress",
 						Series:         "quantal",
@@ -2833,7 +2833,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:    st.EnvironUUID(),
+						ModelUUID:  st.EnvironUUID(),
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Series:     "quantal",
@@ -2977,8 +2977,8 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	if id0.Kind != id1.Kind {
 		return id0.Kind < id1.Kind
 	}
-	if id0.EnvUUID != id1.EnvUUID {
-		return id0.EnvUUID < id1.EnvUUID
+	if id0.ModelUUID != id1.ModelUUID {
+		return id0.ModelUUID < id1.ModelUUID
 	}
 	return id0.Id < id1.Id
 }
@@ -3004,7 +3004,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
-		EnvUUID:    st.EnvironUUID(),
+		ModelUUID:  st.EnvironUUID(),
 		Id:         a.Id(),
 		Receiver:   a.Receiver(),
 		Name:       a.Name(),

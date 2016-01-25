@@ -281,7 +281,7 @@ type fakeEnvGetter struct {
 	getCalled    bool
 }
 
-func (g *fakeEnvGetter) EnvironmentGet() (map[string]interface{}, error) {
+func (g *fakeEnvGetter) ModelGet() (map[string]interface{}, error) {
 	g.getCalled = true
 	if g.err != nil {
 		return nil, g.err
@@ -462,7 +462,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	environTag := names.NewEnvironTag(s.State.EnvironUUID())
 	s.envName = environTag.Id()
 
-	s.MacaroonSuite.AddEnvUser(c, testUser)
+	s.MacaroonSuite.AddModelUser(c, testUser)
 
 	apiInfo := s.APIInfo(c)
 	var serverDetails envcmd.ServerFile

@@ -51,8 +51,8 @@ func (c *unsetCommand) Init(args []string) (err error) {
 
 type UnsetEnvironmentAPI interface {
 	Close() error
-	EnvironmentGet() (map[string]interface{}, error)
-	EnvironmentUnset(keys ...string) error
+	ModelGet() (map[string]interface{}, error)
+	ModelUnset(keys ...string) error
 }
 
 func (c *unsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
@@ -70,7 +70,7 @@ func (c *unsetCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	// extra call to the API to retrieve env config
-	envAttrs, err := client.EnvironmentGet()
+	envAttrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}
@@ -83,5 +83,5 @@ func (c *unsetCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(client.EnvironmentUnset(c.keys...), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelUnset(c.keys...), block.BlockChange)
 }

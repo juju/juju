@@ -36,15 +36,15 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 
 	addressID := st.docID(addr.Value)
 	ipDoc := ipaddressDoc{
-		DocID:    addressID,
-		EnvUUID:  st.EnvironUUID(),
-		UUID:     uuid.String(),
-		Life:     Alive,
-		State:    AddressStateUnknown,
-		SubnetId: subnetid,
-		Value:    addr.Value,
-		Type:     string(addr.Type),
-		Scope:    string(addr.Scope),
+		DocID:     addressID,
+		ModelUUID: st.EnvironUUID(),
+		UUID:      uuid.String(),
+		Life:      Alive,
+		State:     AddressStateUnknown,
+		SubnetId:  subnetid,
+		Value:     addr.Value,
+		Type:      string(addr.Type),
+		Scope:     string(addr.Scope),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
@@ -164,7 +164,7 @@ type IPAddress struct {
 
 type ipaddressDoc struct {
 	DocID       string       `bson:"_id"`
-	EnvUUID     string       `bson:"env-uuid"`
+	ModelUUID   string       `bson:"model-uuid"`
 	UUID        string       `bson:"uuid"`
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`

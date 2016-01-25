@@ -314,7 +314,7 @@ func StrictLocalID(st *State, id string) (string, error) {
 }
 
 func GetUnitEnvUUID(unit *Unit) string {
-	return unit.doc.EnvUUID
+	return unit.doc.ModelUUID
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
@@ -344,7 +344,7 @@ func Sequence(st *State, name string) (int, error) {
 }
 
 // This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// watching after the client calls DestroyModel and the environ doc is removed.
 // It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
@@ -356,10 +356,10 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDead(st *State, envUUID string) error {
+func SetEnvLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
-		Id:     envUUID,
+		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
@@ -421,7 +421,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	envUUID string,
+	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -430,14 +430,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  envUUID,
-		Entity:   entity.String(),
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t,
+		ModelUUID: modelUUID,
+		Entity:    entity.String(),
+		Module:    module,
+		Location:  location,
+		Level:     level,
+		Message:   msg,
 	}
 }
 

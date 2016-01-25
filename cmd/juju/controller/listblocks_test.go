@@ -94,9 +94,9 @@ func (s *ListBlocksSuite) TestListBlocksJSON(c *gc.C) {
 	ctx, err := s.runListBlocksCommand(c, "--format", "json")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(ctx), gc.Equals, "["+
-		`{"name":"test1","env-uuid":"test1-uuid","owner-tag":"cheryl@local",`+
+		`{"name":"test1","model-uuid":"test1-uuid","owner-tag":"cheryl@local",`+
 		`"blocks":["BlockDestroy"]},`+
-		`{"name":"test2","env-uuid":"test2-uuid","owner-tag":"bob@local",`+
+		`{"name":"test2","model-uuid":"test2-uuid","owner-tag":"bob@local",`+
 		`"blocks":["BlockDestroy","BlockChange"]}`+
 		"]\n")
 }

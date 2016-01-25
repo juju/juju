@@ -301,7 +301,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				DocID:      mdoc.DocID,
 				MachineId:  mdoc.Id,
 				InstanceId: template.InstanceId,
-				EnvUUID:    mdoc.EnvUUID,
+				ModelUUID:  mdoc.ModelUUID,
 				Arch:       template.HardwareCharacteristics.Arch,
 				Mem:        template.HardwareCharacteristics.Mem,
 				RootDisk:   template.HardwareCharacteristics.RootDisk,
@@ -459,7 +459,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,
-		EnvUUID:                 st.EnvironUUID(),
+		ModelUUID:               st.EnvironUUID(),
 		Series:                  template.Series,
 		Jobs:                    template.Jobs,
 		Clean:                   !template.Dirty,
@@ -486,9 +486,9 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	statusDoc := statusDoc{
-		Status:  StatusPending,
-		EnvUUID: st.EnvironUUID(),
-		Updated: time.Now().UnixNano(),
+		Status:    StatusPending,
+		ModelUUID: st.EnvironUUID(),
+		Updated:   time.Now().UnixNano(),
 	}
 	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{

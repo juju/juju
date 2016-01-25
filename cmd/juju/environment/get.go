@@ -58,7 +58,7 @@ func (c *getCommand) Init(args []string) (err error) {
 
 type GetEnvironmentAPI interface {
 	Close() error
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 }
 
 func (c *getCommand) getAPI() (GetEnvironmentAPI, error) {
@@ -75,7 +75,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	attrs, err := client.EnvironmentGet()
+	attrs, err := client.ModelGet()
 	if err != nil {
 		return err
 	}

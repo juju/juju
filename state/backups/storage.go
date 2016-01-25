@@ -191,11 +191,11 @@ type storageDBWrapper struct {
 	db        *mgo.Database
 	metaColl  *mgo.Collection
 	txnRunner jujutxn.Runner
-	envUUID   string
+	modelUUID string
 }
 
 // newStorageDBWrapper returns a DB operator for the , with its own session.
-func newStorageDBWrapper(db *mgo.Database, metaColl, envUUID string) *storageDBWrapper {
+func newStorageDBWrapper(db *mgo.Database, metaColl, modelUUID string) *storageDBWrapper {
 	session := db.Session.Copy()
 	db = db.With(session)
 
@@ -206,7 +206,7 @@ func newStorageDBWrapper(db *mgo.Database, metaColl, envUUID string) *storageDBW
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
-		envUUID:   envUUID,
+		modelUUID: modelUUID,
 	}
 	return &dbWrap
 }
@@ -269,7 +269,7 @@ func (b *storageDBWrapper) runTransaction(ops []txn.Op) error {
 
 // blobStorage returns a ManagedStorage matching the env storage and the blobDB.
 func (b *storageDBWrapper) blobStorage(blobDB string) blobstore.ManagedStorage {
-	dataStore := blobstore.NewGridFS(blobDB, b.envUUID, b.session)
+	dataStore := blobstore.NewGridFS(blobDB, b.modelUUID, b.session)
 	return blobstore.NewManagedStorage(b.db, dataStore)
 }
 
@@ -285,7 +285,7 @@ func (b *storageDBWrapper) Copy() *storageDBWrapper {
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
-		envUUID:   b.envUUID,
+		modelUUID: b.modelUUID,
 	}
 	return &dbWrap
 }
@@ -376,8 +376,8 @@ type backupsDocStorage struct {
 
 type backupsMetadataStorage struct {
 	filestorage.MetadataDocStorage
-	db      *mgo.Database
-	envUUID string
+	db        *mgo.Database
+	modelUUID string
 }
 
 func newMetadataStorage(dbWrap *storageDBWrapper) *backupsMetadataStorage {
@@ -387,7 +387,7 @@ func newMetadataStorage(dbWrap *storageDBWrapper) *backupsMetadataStorage {
 	stor := backupsMetadataStorage{
 		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
 		db:                 dbWrap.db,
-		envUUID:            dbWrap.envUUID,
+		modelUUID:          dbWrap.modelUUID,
 	}
 	return &stor
 }
@@ -454,7 +454,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.envUUID)
+	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.modelUUID)
 	defer dbWrap.Close()
 
 	err := setStorageStoredTime(dbWrap, id, time.Now())
@@ -469,7 +469,7 @@ const backupStorageRoot = "backups"
 type backupBlobStorage struct {
 	dbWrap *storageDBWrapper
 
-	envUUID   string
+	modelUUID string
 	storeImpl blobstore.ManagedStorage
 	root      string
 }
@@ -480,7 +480,7 @@ func newFileStorage(dbWrap *storageDBWrapper, root string) filestorage.RawFileSt
 	managed := dbWrap.blobStorage(dbWrap.db.Name)
 	stor := backupBlobStorage{
 		dbWrap:    dbWrap,
-		envUUID:   dbWrap.envUUID,
+		modelUUID: dbWrap.modelUUID,
 		storeImpl: managed,
 		root:      root,
 	}
@@ -495,18 +495,18 @@ func (s *backupBlobStorage) path(id string) string {
 
 // File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
-	file, _, err := s.storeImpl.GetForBucket(s.envUUID, s.path(id))
+	file, _, err := s.storeImpl.GetForBucket(s.modelUUID, s.path(id))
 	return file, errors.Trace(err)
 }
 
 // AddFile adds the file to storage.
 func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.storeImpl.PutForBucket(s.envUUID, s.path(id), file, size)
+	return s.storeImpl.PutForBucket(s.modelUUID, s.path(id), file, size)
 }
 
 // RemoveFile removes the identified file from storage.
 func (s *backupBlobStorage) RemoveFile(id string) error {
-	return s.storeImpl.RemoveForBucket(s.envUUID, s.path(id))
+	return s.storeImpl.RemoveForBucket(s.modelUUID, s.path(id))
 }
 
 // Close closes the storage.
@@ -536,9 +536,9 @@ type DB interface {
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewStorage(st DB) filestorage.FileStorage {
-	envUUID := st.EnvironTag().Id()
+	modelUUID := st.EnvironTag().Id()
 	db := st.MongoSession().DB(storageDBName)
-	dbWrap := newStorageDBWrapper(db, storageMetaName, envUUID)
+	dbWrap := newStorageDBWrapper(db, storageMetaName, modelUUID)
 	defer dbWrap.Close()
 
 	files := newFileStorage(dbWrap, backupStorageRoot)

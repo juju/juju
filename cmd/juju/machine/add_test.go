@@ -80,11 +80,11 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		}, {
 			args:      []string{"zone=us-east-1a"},
 			count:     1,
-			placement: "env-uuid:zone=us-east-1a",
+			placement: "model-uuid:zone=us-east-1a",
 		}, {
 			args:      []string{"anything-here"},
 			count:     1,
-			placement: "env-uuid:anything-here",
+			placement: "model-uuid:anything-here",
 		}, {
 			args:        []string{"anything", "else"},
 			errorString: `unrecognized args: \["else"\]`,
@@ -231,7 +231,7 @@ func (f *fakeAddMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeAddMachineAPI) EnvironmentUUID() string {
+func (f *fakeAddMachineAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
@@ -270,7 +270,7 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 	return "", errors.NotImplementedf("ProvisioningScript")
 }
 
-func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
+func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
 	return map[string]interface{}{"agent-version": f.agentVersion}, nil
 }
 

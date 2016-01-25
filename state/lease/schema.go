@@ -84,10 +84,10 @@ type leaseDoc struct {
 	Namespace string `bson:"namespace"`
 	Name      string `bson:"name"`
 
-	// EnvUUID exists because state.multiEnvRunner can't handle structs
-	// without `bson:"env-uuid"` fields. It's not necessary for the logic
+	// ModelUUID exists because state.multiEnvRunner can't handle structs
+	// without `bson:"model-uuid"` fields. It's not necessary for the logic
 	// in this package, though.
-	EnvUUID string `bson:"env-uuid"`
+	ModelUUID string `bson:"model-uuid"`
 
 	// Holder, Expiry, and Writer map directly to entry.
 	Holder string `bson:"holder"`
@@ -163,10 +163,10 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
-	// EnvUUID exists because state.multiEnvRunner can't handle structs
-	// without `bson:"env-uuid"` fields. It's not necessary for the logic
+	// ModelUUID exists because state.multiEnvRunner can't handle structs
+	// without `bson:"model-uuid"` fields. It's not necessary for the logic
 	// in this package, though.
-	EnvUUID string `bson:"env-uuid"`
+	ModelUUID string `bson:"model-uuid"`
 
 	// Writers holds a the latest acknowledged time for every known client.
 	Writers map[string]int64 `bson:"writers"`

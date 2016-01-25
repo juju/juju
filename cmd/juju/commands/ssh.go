@@ -173,7 +173,7 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 		return false, err
 	}
 	var cfg *config.Config
-	attrs, err := c.apiClient.EnvironmentGet()
+	attrs, err := c.apiClient.ModelGet()
 	if err == nil {
 		cfg, err = config.New(config.NoDefaults, attrs)
 	}
@@ -204,7 +204,7 @@ func (c *SSHCommon) initAPIClient() (sshAPIClient, error) {
 }
 
 type sshAPIClient interface {
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
 	ServiceCharmRelations(service string) ([]string, error)
