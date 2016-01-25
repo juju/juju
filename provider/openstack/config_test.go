@@ -480,7 +480,9 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := env.(*Environ).ecfg().StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)

@@ -76,69 +76,6 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	return cfg, ConfigFromEnvirons, err
 }
 
-// maybeNotBootstrapped takes an error and source, returned by
-// ConfigForName and returns ErrNotBootstrapped if it looks like the
-// environment is not bootstrapped, or err as-is otherwise.
-func maybeNotBootstrapped(err error, source ConfigSource) error {
-	if err != nil && source == ConfigFromEnvirons {
-		return ErrNotBootstrapped
-	}
-	return err
-}
-
-// NewFromName opens the environment with the given
-// name from the default environments file. If the
-// name is blank, the default environment will be used.
-// If the given store contains an entry for the environment
-// and it has associated bootstrap config, that configuration
-// will be returned.
-func NewFromName(name string, store configstore.Storage) (Environ, error) {
-	// If we get an error when reading from a legacy
-	// environments.yaml entry, we pretend it didn't exist
-	// because the error is likely to be because
-	// configuration attributes don't exist which
-	// will be filled in by Prepare.
-	cfg, source, err := ConfigForName(name, store)
-	if err := maybeNotBootstrapped(err, source); err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	env, err := New(cfg)
-	if err := maybeNotBootstrapped(err, source); err != nil {
-		return nil, err
-	}
-	return env, err
-}
-
-// PrepareFromName is the same as NewFromName except
-// that the environment is is prepared as well as opened,
-// and environment information is created using the
-// given store. If the environment is already prepared,
-// it behaves like NewFromName.
-var PrepareFromName = prepareFromNameProductionFunc
-
-func prepareFromNameProductionFunc(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-	cfg, _, err := ConfigForName(name, store)
-	if err != nil {
-		return nil, err
-	}
-	return Prepare(cfg, ctx, store)
-}
-
-// NewFromAttrs returns a new environment based on the provided configuration
-// attributes.
-// TODO(rog) remove this function - it's almost always wrong to use it.
-func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return New(cfg)
-}
-
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
 	p, err := Provider(config.Type())
@@ -149,38 +86,33 @@ func New(config *config.Config) (Environ, error) {
 }
 
 // Prepare prepares a new environment based on the provided configuration.
-// If the environment is already prepared, it behaves like New.
+// It is an error to prepare a environment if there already exists an
+// entry in the config store with that name.
+//
+// TODO(axw) Prepare will be changed to accept PrepareForBootstrapParams
+//           instead of just a Config.
 func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 
-	if p, err := Provider(cfg.Type()); err != nil {
-		return nil, errors.Trace(err)
-	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
-		info = store.CreateInfo(cfg.Name())
-		if env, err := prepare(ctx, cfg, info, p); err == nil {
-			return env, decorateAndWriteInfo(info, env.Config())
-		} else {
-			if err := info.Destroy(); err != nil {
-				logger.Warningf("cannot destroy newly created model info: %v", err)
-			}
-			return nil, errors.Trace(err)
-		}
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "error reading model info %q", cfg.Name())
-	} else if !info.Initialized() {
-		return nil,
-			errors.Errorf(
-				"found uninitialized model info for %q; model preparation probably in progress or interrupted",
-				cfg.Name(),
-			)
-	} else if len(info.BootstrapConfig()) == 0 {
-		return nil, errors.New("found model info but no bootstrap config")
-	} else {
-		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot parse bootstrap config")
-		}
-		return New(cfg)
+	info, err := store.ReadInfo(cfg.Name())
+	if err == nil {
+		return nil, ErrAlreadyBootstrapped
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "error reading controller %q info", cfg.Name())
 	}
+
+	p, err := Provider(cfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info = store.CreateInfo(cfg.Name())
+	env, err := prepare(ctx, cfg, info, p)
+	if err != nil {
+		if err := info.Destroy(); err != nil {
+			logger.Warningf("cannot destroy newly created model info: %v", err)
+		}
+		return nil, errors.Trace(err)
+	}
+	return env, decorateAndWriteInfo(info, env.Config())
 }
 
 // decorateAndWriteInfo decorates the info struct with information
@@ -231,8 +163,10 @@ func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironI
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot ensure uuid")
 	}
-
-	return p.PrepareForBootstrap(ctx, cfg)
+	args := PrepareForBootstrapParams{
+		Config: cfg,
+	}
+	return p.PrepareForBootstrap(ctx, args)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.

@@ -106,7 +106,8 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	attrs := map[string]interface{}{
 		// We must not proxy SSH through the API server in a
 		// local provider environment. Besides not being useful,

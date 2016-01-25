@@ -58,7 +58,8 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 	return cfg.Apply(attrs)
 }
 
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err

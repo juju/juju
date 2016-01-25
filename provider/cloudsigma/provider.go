@@ -102,7 +102,8 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 // configuration attributes in the returned environment should
 // be saved to be used later. If the environment is already
 // prepared, this call is equivalent to Open.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }

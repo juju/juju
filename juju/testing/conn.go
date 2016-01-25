@@ -228,11 +228,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
 	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
-
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummymodel-cert.pem"), []byte(testing.CACert), 0666)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummymodel-private-key.pem"), []byte(testing.CAKey), 0600)
+	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
@@ -240,7 +236,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("dummymodel", modelcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.Prepare(cfg, modelcmd.BootstrapContext(ctx), s.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
@@ -498,25 +494,33 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
-	if s.DummyConfig == nil {
-		s.DummyConfig = dummy.SampleConfig()
-	}
-	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"admin-secret":  AdminSecret,
-		"agent-version": version.Current.String(),
-	}).Delete("name")
-	// Add any custom attributes required.
-	for attr, val := range s.ConfigAttrs {
-		attrs[attr] = val
-	}
+	attrs := s.sampleConfig().Delete("name")
 	whole := map[string]interface{}{
 		"environments": map[string]interface{}{
-			"dummymodel": attrs,
+			"dummyenv": attrs,
 		},
 	}
 	data, err := goyaml.Marshal(whole)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WriteConfig(string(data))
+}
+
+func (s *JujuConnSuite) sampleConfig() testing.Attrs {
+	if s.DummyConfig == nil {
+		s.DummyConfig = dummy.SampleConfig()
+	}
+	attrs := s.DummyConfig.Merge(testing.Attrs{
+		"name":           "dummyenv",
+		"admin-secret":   AdminSecret,
+		"agent-version":  version.Current.String(),
+		"ca-cert":        testing.CACert,
+		"ca-private-key": testing.CAKey,
+	})
+	// Add any custom attributes required.
+	for attr, val := range s.ConfigAttrs {
+		attrs[attr] = val
+	}
+	return attrs
 }
 
 type GetStater interface {

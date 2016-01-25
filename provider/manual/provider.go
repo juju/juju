@@ -45,7 +45,8 @@ func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config
 	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
 }
 
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
 		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}

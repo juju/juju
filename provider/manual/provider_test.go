@@ -34,7 +34,9 @@ func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 	minimal["use-sshstorage"] = true
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: testConfig,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -43,13 +45,17 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: testConfig,
+	})
 	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: testConfig,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -59,7 +65,9 @@ func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: testConfig,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := env.Config()
 	value := cfg.AllAttrs()["use-sshstorage"]

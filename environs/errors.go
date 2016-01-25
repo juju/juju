@@ -9,7 +9,7 @@ import (
 
 var (
 	ErrNotBootstrapped     = errors.New("model is not bootstrapped")
-	ErrAlreadyBootstrapped = errors.New("model is already bootstrapped")
+	ErrAlreadyBootstrapped = errors.NewAlreadyExists(nil, "model is already bootstrapped")
 	ErrNoInstances         = errors.NotFoundf("instances")
 	ErrPartialInstances    = errors.New("only some instances were found")
 

@@ -223,7 +223,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	environ, cleanup, err := environFromName(
+	environ, cleanup, err := prepareFromName(
 		ctx,
 		envName,
 		"Bootstrap",
@@ -245,6 +245,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Handle any errors from environFromName(...).
 	if err != nil {
+		if errors.Cause(err) == environs.ErrAlreadyBootstrapped {
+			return err
+		}
 		return errors.Annotatef(err, "there was an issue examining the model")
 	}
 

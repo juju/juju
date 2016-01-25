@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
@@ -48,7 +49,9 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	environ, err := providerInstance.PrepareForBootstrap(ctx, config)
+	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	preparedConfig := environ.Config()
@@ -102,7 +105,9 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err = providerInstance.PrepareForBootstrap(ctx, config)
+	_, err = providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: config,
+	})
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 

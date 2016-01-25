@@ -157,7 +157,9 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configst
 	}
 	ctx := envtesting.BootstrapContext(c)
 	c.Logf("env name: %s", envName)
-	env, err := environs.PrepareFromName(envName, ctx, store)
+	cfg, _, err := environs.ConfigForName(envName, store)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()

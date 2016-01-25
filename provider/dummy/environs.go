@@ -575,7 +575,8 @@ func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*conf
 	return cfg, nil
 }
 
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err

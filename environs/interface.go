@@ -29,9 +29,8 @@ type EnvironProvider interface {
 
 	// PrepareForBootstrap prepares an environment for use. Any additional
 	// configuration attributes in the returned environment should
-	// be saved to be used later. If the environment is already
-	// prepared, this call is equivalent to Open.
-	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+	// be saved to be used later.
+	PrepareForBootstrap(ctx BootstrapContext, args PrepareForBootstrapParams) (Environ, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -61,6 +60,29 @@ type EnvironProvider interface {
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
 
 	ProviderCredentials
+}
+
+// PrepareForBootstrapParams contains the parameters for
+// EnvironProvider.PrepareForBootstrap.
+type PrepareForBootstrapParams struct {
+	// Config is the base configuration for the provider. This should
+	// be updated with the region, endpoint and credentials.
+	Config *config.Config
+
+	// TODO(axw) the attributes below will be populated in a
+	// follow-up.
+
+	// Credentials is the set of credentials to use to bootstrap.
+	Credentials cloud.Credential
+
+	// CloudRegion is the name of the region of the cloud to create
+	// the Juju controller in. This will be empty for clouds without
+	// regions.
+	CloudRegion string
+
+	// CloudEndpoint is the location of the API endpoint to use when
+	// communicating with the cloud.
+	CloudEndpoint string
 }
 
 // ProviderCredentials is an interface that an EnvironProvider implements

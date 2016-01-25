@@ -268,7 +268,8 @@ func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
