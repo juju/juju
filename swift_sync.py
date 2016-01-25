@@ -27,8 +27,8 @@ def get_account():
 def get_files(args):
     swift_url = os.environ['OS_SWIFT_URL']
     account = get_account()
-    container_url = '{0}/{1}/{2}?format=json'.format(
-        swift_url, account, args.container)
+    container_url = '{0}/{1}/{2}?prefix={3}&format=json'.format(
+        swift_url, account, args.container, args.path)
     if args.verbose:
         print("Checking {0}".format(container_url))
     response = urllib2.urlopen(container_url)
