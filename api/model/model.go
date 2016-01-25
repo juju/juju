@@ -1,14 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment
+package model
 
 import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 )
 
-const apiName = "Environment"
+const apiName = "Model"
 
 // Facade provides access to a machine environment worker's view of the world.
 type Facade struct {

@@ -60,9 +60,9 @@ type destroyControllerAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool) error
-	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
-	EnvironmentStatus(envs ...names.EnvironTag) ([]base.EnvironmentStatus, error)
-	AllEnvironments() ([]base.UserEnvironment, error)
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
+	ModelStatus(envs ...names.EnvironTag) ([]base.ModelStatus, error)
+	AllModels() ([]base.UserModel, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -186,7 +186,7 @@ To remove all blocks in the controller, please run:
 
 `)
 		if api != nil {
-			envs, err := api.ListBlockedEnvironments()
+			envs, err := api.ListBlockedModels()
 			var bytes []byte
 			if err == nil {
 				bytes, err = formatTabularBlockedEnvironments(envs)
@@ -216,7 +216,7 @@ to be cleaned up.
 `
 
 func formatTabularBlockedEnvironments(value interface{}) ([]byte, error) {
-	envs, ok := value.([]params.EnvironmentBlockInfo)
+	envs, ok := value.([]params.ModelBlockInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}

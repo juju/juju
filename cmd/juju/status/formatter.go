@@ -41,7 +41,7 @@ func (sf *statusFormatter) format() formattedStatus {
 		Services: make(map[string]serviceStatus),
 	}
 	if sf.status.AvailableVersion != "" {
-		out.ModelStatus = &environmentStatus{
+		out.ModelStatus = &modelStatus{
 			AvailableVersion: sf.status.AvailableVersion,
 		}
 	}

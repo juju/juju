@@ -36,17 +36,17 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 	r.assertMethodAllowed(c, "AllEnvWatcher", 2, "Next")
 	r.assertMethodAllowed(c, "AllEnvWatcher", 2, "Stop")
 
-	r.assertMethodAllowed(c, "EnvironmentManager", 2, "CreateEnvironment")
-	r.assertMethodAllowed(c, "EnvironmentManager", 2, "ListEnvironments")
+	r.assertMethodAllowed(c, "ModelManager", 2, "CreateModel")
+	r.assertMethodAllowed(c, "ModelManager", 2, "ListModels")
 
 	r.assertMethodAllowed(c, "UserManager", 1, "AddUser")
 	r.assertMethodAllowed(c, "UserManager", 1, "SetPassword")
 	r.assertMethodAllowed(c, "UserManager", 1, "UserInfo")
 
-	r.assertMethodAllowed(c, "Controller", 2, "AllEnvironments")
+	r.assertMethodAllowed(c, "Controller", 2, "AllModels")
 	r.assertMethodAllowed(c, "Controller", 2, "DestroyController")
 	r.assertMethodAllowed(c, "Controller", 2, "EnvironmentConfig")
-	r.assertMethodAllowed(c, "Controller", 2, "ListBlockedEnvironments")
+	r.assertMethodAllowed(c, "Controller", 2, "ListBlockedModels")
 }
 
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
@@ -65,9 +65,9 @@ func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 }
 
 func (r *restrictedRootSuite) TestFindNonExistentMethod(c *gc.C) {
-	caller, err := r.root.FindMethod("EnvironmentManager", 2, "Bar")
+	caller, err := r.root.FindMethod("ModelManager", 2, "Bar")
 
-	c.Assert(err, gc.ErrorMatches, `no such request - method EnvironmentManager\(2\).Bar is not implemented`)
+	c.Assert(err, gc.ErrorMatches, `no such request - method ModelManager\(2\).Bar is not implemented`)
 	c.Assert(caller, gc.IsNil)
 }
 

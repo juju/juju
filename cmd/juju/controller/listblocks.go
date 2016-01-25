@@ -31,7 +31,7 @@ var listBlocksDoc = `List all blocks for models within the specified controller`
 // that the list-blocks command calls.
 type listBlocksAPI interface {
 	Close() error
-	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
 }
 
 // Info implements Command.Info.
@@ -67,7 +67,7 @@ func (c *listBlocksCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	envs, err := api.ListBlockedEnvironments()
+	envs, err := api.ListBlockedModels()
 	if err != nil {
 		logger.Errorf("Unable to list blocked models: %s", err)
 		return err

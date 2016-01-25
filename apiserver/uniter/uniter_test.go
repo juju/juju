@@ -1064,7 +1064,7 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 
 	result, err := s.uniter.CurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.EnvironmentResult{
+	expected := params.ModelResult{
 		Name: env.Name(),
 		UUID: env.UUID(),
 	}

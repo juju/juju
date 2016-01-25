@@ -3061,7 +3061,7 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 }
 
 func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	// The full tests for DestroyEnvironment are in environmentmanager.
+	// The full tests for DestroyEnvironment are in modelmanager.
 	// Here we just test that things are hooked up such that we can destroy
 	// the environment through the client endpoint to support older juju clients.
 	err := s.APIState.Client().DestroyEnvironment()

@@ -25,11 +25,11 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 		return errors.Trace(err)
 	}
 
-	// If we are destroying environments, we need to tolerate living
-	// environments but set the controller to dying to prevent new
-	// environments sneaking in. If we are not destroying hosted environments,
-	// this will fail if any hosted environments are found.
-	if args.DestroyEnvironments {
+	// If we are destroying models, we need to tolerate living
+	// models but set the controller to dying to prevent new
+	// models sneaking in. If we are not destroying hosted models,
+	// this will fail if any hosted models are found.
+	if args.DestroyModels {
 		return errors.Trace(common.DestroyEnvironmentIncludingHosted(s.state, systemTag))
 	}
 	if err = common.DestroyEnvironment(s.state, systemTag); state.IsHasHostedEnvironsError(err) {

@@ -183,7 +183,7 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *KillSuite) TestControllerStatus(c *gc.C) {
-	s.api.allEnvs = []base.UserEnvironment{
+	s.api.allEnvs = []base.UserModel{
 		{Name: "admin",
 			UUID:  "123",
 			Owner: names.NewUserTag("admin").String(),
@@ -196,11 +196,11 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		},
 	}
 
-	s.api.envStatus = make(map[string]base.EnvironmentStatus)
+	s.api.envStatus = make(map[string]base.ModelStatus)
 	for _, env := range s.api.allEnvs {
 		owner, err := names.ParseUserTag(env.Owner)
 		c.Assert(err, jc.ErrorIsNil)
-		s.api.envStatus[env.UUID] = base.EnvironmentStatus{
+		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
 			Life:               params.Dying,
 			HostedMachineCount: 2,

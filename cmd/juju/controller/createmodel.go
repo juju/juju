@@ -100,14 +100,14 @@ func (c *createEnvironmentCommand) Init(args []string) error {
 type CreateEnvironmentAPI interface {
 	Close() error
 	ConfigSkeleton(provider, region string) (params.EnvironConfig, error)
-	CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error)
+	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
 func (c *createEnvironmentCommand) getAPI() (CreateEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewEnvironmentManagerAPIClient()
+	return c.NewModelManagerAPIClient()
 }
 
 func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
@@ -180,7 +180,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	}
 
 	// We pass nil through for the account details until we implement that bit.
-	env, err := client.CreateEnvironment(envOwner, nil, attrs)
+	env, err := client.CreateModel(envOwner, nil, attrs)
 	if err != nil {
 		// cleanup configstore
 		return errors.Trace(err)

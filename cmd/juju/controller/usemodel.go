@@ -27,7 +27,7 @@ func NewUseEnvironmentCommand() cmd.Command {
 type useEnvironmentCommand struct {
 	envcmd.ControllerCommandBase
 
-	api       UseEnvironmentAPI
+	api       UseModelAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint
 
@@ -37,11 +37,11 @@ type useEnvironmentCommand struct {
 	EnvUUID   string
 }
 
-// UseEnvironmentAPI defines the methods on the environment manager API that
+// UseModelAPI defines the methods on the environment manager API that
 // the use environment command calls.
-type UseEnvironmentAPI interface {
+type UseModelAPI interface {
 	Close() error
-	ListEnvironments(user string) ([]base.UserEnvironment, error)
+	ListModels(user string) ([]base.UserModel, error)
 }
 
 var useEnvDoc = `
@@ -100,11 +100,11 @@ func (c *useEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *useEnvironmentCommand) getAPI() (UseEnvironmentAPI, error) {
+func (c *useEnvironmentCommand) getAPI() (UseModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewEnvironmentManagerAPIClient()
+	return c.NewModelManagerAPIClient()
 }
 
 func (c *useEnvironmentCommand) getConnectionCredentials() (configstore.APICredentials, error) {
@@ -236,11 +236,11 @@ func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, e
 	return errors.Trace(info.Write())
 }
 
-func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseEnvironmentAPI, creds configstore.APICredentials) (base.UserEnvironment, error) {
+func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client UseModelAPI, creds configstore.APICredentials) (base.UserModel, error) {
 
-	var empty base.UserEnvironment
+	var empty base.UserModel
 
-	envs, err := client.ListEnvironments(creds.User)
+	envs, err := client.ListModels(creds.User)
 	if err != nil {
 		return empty, errors.Annotate(err, "cannot list models")
 	}
@@ -265,7 +265,7 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 		return empty, errors.NotFoundf("matching model")
 	}
 
-	var matches []base.UserEnvironment
+	var matches []base.UserModel
 	for _, env := range envs {
 		match := env.Name == c.EnvName
 		if match && owner != "" {

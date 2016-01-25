@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -67,14 +67,14 @@ func (c *ControllerCommandBase) SetAPIOpener(opener APIOpener) {
 	c.opener = opener
 }
 
-// NewEnvironmentManagerAPIClient returns an API client for the
-// EnvironmentManager on the current controller using the current credentials.
-func (c *ControllerCommandBase) NewEnvironmentManagerAPIClient() (*environmentmanager.Client, error) {
+// NewModelManagerAPIClient returns an API client for the
+// ModelManager on the current controller using the current credentials.
+func (c *ControllerCommandBase) NewModelManagerAPIClient() (*modelmanager.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return environmentmanager.NewClient(root), nil
+	return modelmanager.NewClient(root), nil
 }
 
 // NewControllerAPIClient returns an API client for the Controller on
@@ -98,7 +98,7 @@ func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, 
 }
 
 // NewAPIRoot returns a restricted API for the current controller using the current
-// credentials.  Only the UserManager and EnvironmentManager may be accessed
+// credentials.  Only the UserManager and ModelManager may be accessed
 // through this API connection.
 func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.controllerName == "" {
