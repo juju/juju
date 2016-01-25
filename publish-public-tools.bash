@@ -115,9 +115,9 @@ publish_to_canonistack() {
     source $JUJU_DIR/canonistacktoolsrc
     if [[ ! $PURPOSE =~ ^(devel|proposed)$ ]]; then
         cd $STREAM_PATH/releases/
-        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
+        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN -v $destination/releases/ *.tgz
         cd $STREAM_PATH/streams/v1
-        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
+        ${SCRIPT_DIR}/swift_sync.py $DRY_RUN -v $destination/streams/v1/ {index,com}*
         verify_stream $CAN_SITE $STREAM_PATH
     fi
     #
@@ -128,9 +128,9 @@ publish_to_canonistack() {
     fi
     echo "Phase 5.1: Publishing $PURPOSE to canonistack one-tree."
     cd $JUJU_DIST/tools/$PURPOSE/
-    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN -v tools/$PURPOSE/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN -v tools/streams/v1/ {index,com}*
     verify_stream $CAN_SITE $JUJU_DIST/tools
 }
 
