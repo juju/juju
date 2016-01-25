@@ -49,14 +49,14 @@ func NewStorage(
 func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
-	if err := s.managedStorage.PutForModel(s.envUUID, path, r, metadata.Size); err != nil {
+	if err := s.managedStorage.PutForBucket(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store tools tarball")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := s.managedStorage.RemoveForModel(s.envUUID, path)
+		err := s.managedStorage.RemoveForBucket(s.envUUID, path)
 		if err != nil {
 			logger.Errorf("failed to remove tools blob: %v", err)
 		}
@@ -112,7 +112,7 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := s.managedStorage.RemoveForModel(s.envUUID, oldPath)
+		err := s.managedStorage.RemoveForBucket(s.envUUID, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old tools blob: %v", err)
 		} else {
@@ -187,7 +187,7 @@ func (s *toolsStorage) toolsMetadata(v version.Binary) (toolsMetadataDoc, error)
 }
 
 func (s *toolsStorage) toolsTarball(path string) (io.ReadCloser, error) {
-	r, _, err := s.managedStorage.GetForModel(s.envUUID, path)
+	r, _, err := s.managedStorage.GetForBucket(s.envUUID, path)
 	return r, err
 }
 

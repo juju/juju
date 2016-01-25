@@ -32,7 +32,7 @@ type removeFailsManagedStorage struct {
 	blobstore.ManagedStorage
 }
 
-func (removeFailsManagedStorage) RemoveForModel(uuid, path string) error {
+func (removeFailsManagedStorage) RemoveForBucket(uuid, path string) error {
 	return errors.Errorf("cannot remove %s:%s", uuid, path)
 }
 

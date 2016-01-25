@@ -54,7 +54,7 @@ func (s *StorageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *StorageSuite) TestStorageGet(c *gc.C) {
-	err := s.managedStorage.PutForModel(testUUID, "abc", strings.NewReader("abc"), 3)
+	err := s.managedStorage.PutForBucket(testUUID, "abc", strings.NewReader("abc"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	r, length, err := s.storage.Get("abc")
@@ -71,7 +71,7 @@ func (s *StorageSuite) TestStoragePut(c *gc.C) {
 	err := s.storage.Put("path", strings.NewReader("abcdef"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	r, length, err := s.managedStorage.GetForModel(testUUID, "path")
+	r, length, err := s.managedStorage.GetForBucket(testUUID, "path")
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 

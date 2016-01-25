@@ -495,18 +495,18 @@ func (s *backupBlobStorage) path(id string) string {
 
 // File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
-	file, _, err := s.storeImpl.GetForModel(s.envUUID, s.path(id))
+	file, _, err := s.storeImpl.GetForBucket(s.envUUID, s.path(id))
 	return file, errors.Trace(err)
 }
 
 // AddFile adds the file to storage.
 func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.storeImpl.PutForModel(s.envUUID, s.path(id), file, size)
+	return s.storeImpl.PutForBucket(s.envUUID, s.path(id), file, size)
 }
 
 // RemoveFile removes the identified file from storage.
 func (s *backupBlobStorage) RemoveFile(id string) error {
-	return s.storeImpl.RemoveForModel(s.envUUID, s.path(id))
+	return s.storeImpl.RemoveForBucket(s.envUUID, s.path(id))
 }
 
 // Close closes the storage.
