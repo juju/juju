@@ -64,5 +64,4 @@ gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:0
 gopkg.in/yaml.v2	git	53feefa2559fb8dfa8d81baad31be332c97d6c77	2015-09-24T14:23:14Z
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
-launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20150811023840-kvosbu9d0kwwjfm2	245
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20140529072043-hzcrlnl3ygvg914q	18

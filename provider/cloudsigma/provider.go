@@ -32,7 +32,9 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames), nil
 }
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = environProvider{}
 
