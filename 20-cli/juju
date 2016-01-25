@@ -16,6 +16,7 @@ def main():
         'list-space': ['space', 'list'],
         'add-space': ['space', 'create'],
         'add-subnet': ['subnet', 'add'],
+        'set-config': ['set'],
         'get-config': ['get'],
         'show-status': ['status'],
     }

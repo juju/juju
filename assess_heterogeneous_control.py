@@ -26,7 +26,7 @@ def prepare_dummy_env(client):
     client.deploy('local:dummy-source')
     client.deploy('local:dummy-sink')
     token = get_random_string()
-    client.juju('set', ('dummy-source', 'token=%s' % token))
+    client.set_config('dummy-source', {'token': token})
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     return token

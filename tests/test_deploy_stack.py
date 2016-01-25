@@ -558,7 +558,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
                                autospec=True) as ct_mock:
                         assess_juju_relations(client)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set', '-m', 'foo', 'dummy-source',
+            'juju', '--show-log', 'set-config', '-m', 'foo', 'dummy-source',
             'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 
