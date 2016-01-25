@@ -156,7 +156,7 @@ func (s *ToolsSuite) TestTools(c *gc.C) {
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	_, _, err = s.storage.Tools(current)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
+	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
 	err = s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)

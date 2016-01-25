@@ -121,7 +121,7 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "path", "http://path")
 	_, _, err = s.storage.Image("lxc", "trusty", "amd64")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
+	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
 	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
 	err = managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
