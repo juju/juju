@@ -143,10 +143,6 @@ func (s *Service) serviceOwnerTag() (names.UserTag, error) {
 // SetStatus sets the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) SetStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
-	//TODO(perrito666) bump api version for this?
-	if s.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("SetStatus")
-	}
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -169,7 +165,7 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	return result.OneError()
 }
 
-// ServiceStatus returns the status of the service if the passed unitName,
+// Status returns the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	tag := names.NewUnitTag(unitName)
