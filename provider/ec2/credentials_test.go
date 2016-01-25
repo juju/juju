@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type credentialsSuite struct {
@@ -29,50 +30,23 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ProviderCredentials))
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-
-	schemas := providerCredentials.CredentialSchemas()
-	c.Assert(schemas, gc.HasLen, 1)
-	_, ok := schemas["access-key"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected access-key auth-type schema"))
+	envtesting.AssertProviderAuthTypes(c, s.provider, "access-key")
 }
 
-var sampleCredentialAttributes = map[string]string{
-	"access-key": "key",
-	"secret-key": "secret",
+func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "access-key", map[string]string{
+		"access-key": "key",
+		"secret-key": "secret",
+	})
 }
 
-func (s *credentialsSuite) TestAccessKeyCredentialSchema(c *gc.C) {
-	schema := s.accessKeyCredentialSchema(c)
-
-	err := schema.Validate(sampleCredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(schema["access-key"].Hidden, jc.IsFalse)
-	c.Assert(schema["secret-key"].Hidden, jc.IsTrue)
-}
-
-func (s *credentialsSuite) TestAccessKeyCredentialSchemaMissingAttributes(c *gc.C) {
-	schema := s.accessKeyCredentialSchema(c)
-
-	// If any one of the attributes is missing, it's an error.
-	for excludedKey := range sampleCredentialAttributes {
-		attrs := make(map[string]string)
-		for key, value := range sampleCredentialAttributes {
-			if key != excludedKey {
-				attrs[key] = value
-			}
-		}
-		err := schema.Validate(attrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
-	}
+func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *gc.C) {
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "access-key", "secret-key")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(credentials, gc.HasLen, 0)
 }
@@ -81,8 +55,7 @@ func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "key-id")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret-access-key")
 
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
 	c.Assert(credentials[0], jc.DeepEquals, cloud.NewCredential(
@@ -91,9 +64,4 @@ func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {
 			"secret-key": "secret-access-key",
 		},
 	))
-}
-
-func (s *credentialsSuite) accessKeyCredentialSchema(c *gc.C) cloud.CredentialSchema {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	return providerCredentials.CredentialSchemas()["access-key"]
 }

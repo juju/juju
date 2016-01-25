@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type credentialsSuite struct {
@@ -29,42 +29,21 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ProviderCredentials))
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-
-	schemas := providerCredentials.CredentialSchemas()
-	c.Assert(schemas, gc.HasLen, 1)
-	_, ok := schemas["oauth1"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected oauth1 auth-type schema"))
+	envtesting.AssertProviderAuthTypes(c, s.provider, "oauth1")
 }
 
-var sampleOAuth1CredentialAttributes = map[string]string{
-	"maas-oauth": "123:456:789",
+func (s *credentialsSuite) TestOAuth1CredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "oauth1", map[string]string{
+		"maas-oauth": "123:456:789",
+	})
 }
 
-func (s *credentialsSuite) TestOAuth1CredentialSchema(c *gc.C) {
-	schema := s.credentialSchema(c, "oauth1")
-
-	err := schema.Validate(sampleOAuth1CredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(schema["maas-oauth"].Hidden, jc.IsTrue)
-}
-
-func (s *credentialsSuite) TestOAuth1CredentialSchemaMissingAttributes(c *gc.C) {
-	schema := s.credentialSchema(c, "oauth1")
-	err := schema.Validate(nil)
-	c.Assert(err, gc.ErrorMatches, "maas-oauth: expected string, got nothing")
+func (s *credentialsSuite) TestOAuth1HiddenAttributes(c *gc.C) {
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "oauth1", "maas-oauth")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(credentials, gc.HasLen, 0)
-}
-
-func (s *credentialsSuite) credentialSchema(c *gc.C, authType cloud.AuthType) cloud.CredentialSchema {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	return providerCredentials.CredentialSchemas()[authType]
 }

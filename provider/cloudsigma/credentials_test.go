@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type credentialsSuite struct {
@@ -29,54 +29,22 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ProviderCredentials))
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-
-	schemas := providerCredentials.CredentialSchemas()
-	c.Assert(schemas, gc.HasLen, 1)
-	_, ok := schemas["userpass"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected userpass auth-type schema"))
+	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass")
 }
 
-var sampleUserPassCredentialAttributes = map[string]string{
-	"username": "bob",
-	"password": "dobbs",
+func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
+		"username": "bob",
+		"password": "dobbs",
+	})
 }
 
-func (s *credentialsSuite) TestUserPassCredentialSchema(c *gc.C) {
-	schema := s.credentialSchema(c, "userpass")
-
-	err := schema.Validate(sampleUserPassCredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(schema["username"].Hidden, jc.IsFalse)
-	c.Assert(schema["password"].Hidden, jc.IsTrue)
-}
-
-func (s *credentialsSuite) TestUserPassCredentialSchemaMissingAttributes(c *gc.C) {
-	schema := s.credentialSchema(c, "userpass")
-
-	// If any one of the attributes is missing, it's an error.
-	for excludedKey := range sampleUserPassCredentialAttributes {
-		attrs := make(map[string]string)
-		for key, value := range sampleUserPassCredentialAttributes {
-			if key != excludedKey {
-				attrs[key] = value
-			}
-		}
-		err := schema.Validate(attrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
-	}
+func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(credentials, gc.HasLen, 0)
-}
-
-func (s *credentialsSuite) credentialSchema(c *gc.C, authType cloud.AuthType) cloud.CredentialSchema {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	return providerCredentials.CredentialSchemas()[authType]
 }
