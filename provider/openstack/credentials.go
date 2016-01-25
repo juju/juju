@@ -14,6 +14,7 @@ import (
 
 type OpenstackCredentials struct{}
 
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
@@ -43,6 +44,7 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 	}
 }
 
+// DetectCredentials is part of the environs.ProviderCredentials interface.
 func (OpenstackCredentials) DetectCredentials() ([]cloud.Credential, error) {
 	creds := identity.CredentialsFromEnv()
 	if creds.TenantName == "" {

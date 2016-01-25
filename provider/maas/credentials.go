@@ -10,6 +10,7 @@ import (
 
 type environProviderCredentials struct{}
 
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.OAuth1AuthType: {
@@ -21,6 +22,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	}
 }
 
+// DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
 	// TODO(axw) find out where the MAAS CLI stores credentials.
 	return nil, errors.NotFoundf("credentials")

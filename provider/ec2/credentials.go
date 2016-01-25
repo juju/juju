@@ -12,6 +12,7 @@ import (
 
 type environProviderCredentials struct{}
 
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.AccessKeyAuthType: {
@@ -26,6 +27,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	}
 }
 
+// DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
 	// TODO(axw) check for credentials file as described at
 	// http://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs

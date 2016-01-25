@@ -7,10 +7,12 @@ import "github.com/juju/juju/cloud"
 
 type environProviderCredentials struct{}
 
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
+// DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
 	emptyCredential := cloud.NewEmptyCredential()
 	return []cloud.Credential{emptyCredential}, nil
