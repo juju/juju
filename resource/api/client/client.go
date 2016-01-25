@@ -48,7 +48,7 @@ func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 
 // ListResources calls the ListResources API server method with
 // the given service names.
-func (c Client) ListResources(services []string) ([][]resource.Resource, error) {
+func (c Client) ListResources(services []string) ([]resource.ServiceResources, error) {
 	args, err := api.NewListResourcesArgs(services)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -66,11 +66,11 @@ func (c Client) ListResources(services []string) ([][]resource.Resource, error) 
 	}
 
 	var errs []error
-	results := make([][]resource.Resource, len(services))
+	results := make([]resource.ServiceResources, len(services))
 	for i := range services {
 		apiResult := apiResults.Results[i]
 
-		result, err := api.APIResult2Resources(apiResult)
+		result, err := api.APIResult2ServiceResources(apiResult)
 		if err != nil {
 			errs = append(errs, errors.Trace(err))
 		}

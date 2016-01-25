@@ -14,23 +14,6 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// ServiceTag2ID converts the provided tag into a service ID.
-func ServiceTag2ID(tagStr string) (string, error) {
-	kind, err := names.TagKind(tagStr)
-	if err != nil {
-		return "", errors.Annotatef(err, "could not determine tag type from %q", tagStr)
-	}
-	if kind != names.ServiceTagKind {
-		return "", errors.Errorf("expected service tag, got %q", tagStr)
-	}
-
-	tag, err := names.ParseTag(tagStr)
-	if err != nil {
-		return "", errors.Errorf("invalid service tag %q", tagStr)
-	}
-	return tag.Id(), nil
-}
-
 // Resource2API converts a resource.Resource into
 // a Resource struct.
 func Resource2API(res resource.Resource) Resource {
@@ -41,14 +24,14 @@ func Resource2API(res resource.Resource) Resource {
 	}
 }
 
-// APIResult2Resources converts a ResourcesResult into []resource.Resource.
-func APIResult2Resources(apiResult ResourcesResult) ([]resource.Resource, error) {
-	var result []resource.Resource
+// APIResult2ServiceResources converts a ResourcesResult into a resource.ServiceResources.
+func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceResources, error) {
+	var result resource.ServiceResources
 
 	if apiResult.Error != nil {
 		// TODO(ericsnow) Return the resources too?
 		err, _ := common.RestoreError(apiResult.Error)
-		return nil, errors.Trace(err)
+		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
 	for _, apiRes := range apiResult.Resources {
@@ -57,9 +40,25 @@ func APIResult2Resources(apiResult ResourcesResult) ([]resource.Resource, error)
 			// This could happen if the server is misbehaving
 			// or non-conforming.
 			// TODO(ericsnow) Aggregate errors?
-			return nil, errors.Annotate(err, "got bad data from server")
+			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 		}
-		result = append(result, res)
+		result.Resources = append(result.Resources, res)
+	}
+
+	for _, unitRes := range apiResult.UnitResources {
+		tag, err := names.ParseUnitTag(unitRes.Tag)
+		if err != nil {
+			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+		}
+		unitResources := resource.UnitResources{Tag: tag}
+		for _, apiRes := range unitRes.Resources {
+			res, err := API2Resource(apiRes)
+			if err != nil {
+				return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+			}
+			unitResources.Resources = append(unitResources.Resources, res)
+		}
+		result.UnitResources = append(result.UnitResources, unitResources)
 	}
 
 	return result, nil

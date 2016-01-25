@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -84,4 +85,17 @@ type Unit interface {
 
 	// ServiceName is the name of the service to which the unit belongs.
 	ServiceName() string
+}
+
+// ServiceResources contains the list of resources for the service and all its
+// units.
+type ServiceResources struct {
+	Resources     []Resource
+	UnitResources []UnitResources
+}
+
+// UnitResources conains the list of resources used by a unit.
+type UnitResources struct {
+	Tag       names.UnitTag
+	Resources []Resource
 }

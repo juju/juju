@@ -5,7 +5,10 @@ package server
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -40,34 +43,56 @@ func NewFacade(data DataStore) *Facade {
 // for the ListResources endpoint.
 type resourceLister interface {
 	// ListResources returns the resources for the given service.
-	ListResources(service string) ([]resource.Resource, error)
+	ListResources(service string) ([]resource.Resource, map[names.UnitTag][]resource.Resource, error)
 }
 
 // ListResources returns the list of resources for the given service.
 func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults, error) {
 	var r api.ResourcesResults
-	r.Results = make([]api.ResourcesResult, len(args.Entities))
 
-	for i, e := range args.Entities {
+	for _, e := range args.Entities.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
-		result, service := api.NewResourcesResult(e.Tag)
-		r.Results[i] = result
-		if result.Error != nil {
-			continue
-		}
-
-		resources, err := f.lister.ListResources(service)
+		tag, err := names.ParseServiceTag(e.Tag)
 		if err != nil {
-			api.SetResultError(&r.Results[i], err)
+			result := badRequest(err)
+			r.Results = append(r.Results, result)
 			continue
 		}
 
-		var apiResources []api.Resource
-		for _, res := range resources {
-			apiRes := api.Resource2API(res)
-			apiResources = append(apiResources, apiRes)
+		serviceResources, unitResources, err := f.lister.ListResources(tag.Id())
+		if err != nil {
+			r.Results = append(r.Results, api.ResourcesResult{
+				ErrorResult: params.ErrorResult{
+					Error: common.ServerError(err),
+				},
+			})
+			continue
 		}
-		r.Results[i].Resources = apiResources
+
+		var result api.ResourcesResult
+		for _, res := range serviceResources {
+			result.Resources = append(result.Resources, api.Resource2API(res))
+		}
+		for tag, resources := range unitResources {
+			unit := api.UnitResources{
+				Entity: params.Entity{Tag: tag.String()},
+			}
+			for _, res := range resources {
+				unit.Resources = append(unit.Resources, api.Resource2API(res))
+			}
+			result.UnitResources = append(result.UnitResources, unit)
+		}
+		r.Results = append(r.Results, result)
 	}
 	return r, nil
+}
+
+func badRequest(err error) api.ResourcesResult {
+	apierr := common.ServerError(err)
+	apierr.Code = params.CodeBadRequest
+	return api.ResourcesResult{
+		ErrorResult: params.ErrorResult{
+			Error: apierr,
+		},
+	}
 }

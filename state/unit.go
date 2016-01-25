@@ -196,6 +196,16 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
+// IsAliveOp returns a transaction operation that will fail its assert if this
+// unit is not alive at the time of the transaction.
+func (u *Unit) IsAliveOp() txn.Op {
+	return txn.Op{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: isAliveDoc,
+	}
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies errors.IsNotFound if the tools have not
 // yet been set.
@@ -373,12 +383,9 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
 	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
-	setDyingOps := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: isAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, cleanupOp, minUnitsOp}
+	setDyingOp := u.IsAliveOp()
+	setDyingOp.Update = bson.D{{"$set", bson.D{{"life", Dying}}}}
+	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
