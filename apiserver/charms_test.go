@@ -470,7 +470,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertGetFileResponse(c, resp, contents, "application/javascript")
+	s.assertGetFileResponse(c, resp, contents, apihttp.CTypeJS)
 }
 
 func (s *charmsSuite) charmsURL(c *gc.C, query string) *url.URL {
