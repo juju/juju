@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type credentialsSuite struct {
@@ -29,87 +30,36 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ProviderCredentials))
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-
-	schemas := providerCredentials.CredentialSchemas()
-	c.Assert(schemas, gc.HasLen, 2)
-	_, ok := schemas["access-key"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected access-key auth-type schema"))
-	_, ok = schemas["userpass"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected userpass auth-type schema"))
+	envtesting.AssertProviderAuthTypes(c, s.provider, "access-key", "userpass")
 }
 
-var sampleAccessKeyCredentialAttributes = map[string]string{
-	"access-key":  "key",
-	"secret-key":  "secret",
-	"tenant-name": "gary",
+func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "access-key", map[string]string{
+		"access-key":  "key",
+		"secret-key":  "secret",
+		"tenant-name": "gary",
+	})
 }
 
-func (s *credentialsSuite) TestAccessKeyCredentialSchema(c *gc.C) {
-	schema := s.credentialSchema(c, "access-key")
-
-	err := schema.Validate(sampleAccessKeyCredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(schema["access-key"].Hidden, jc.IsFalse)
-	c.Assert(schema["tenant-name"].Hidden, jc.IsFalse)
-	c.Assert(schema["secret-key"].Hidden, jc.IsTrue)
+func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *gc.C) {
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "access-key", "secret-key")
 }
 
-func (s *credentialsSuite) TestAccessKeyCredentialSchemaMissingAttributes(c *gc.C) {
-	schema := s.credentialSchema(c, "access-key")
-
-	// If any one of the attributes is missing, it's an error.
-	for excludedKey := range sampleAccessKeyCredentialAttributes {
-		attrs := make(map[string]string)
-		for key, value := range sampleAccessKeyCredentialAttributes {
-			if key != excludedKey {
-				attrs[key] = value
-			}
-		}
-		err := schema.Validate(attrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
-	}
+func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
+		"username":    "bob",
+		"password":    "dobbs",
+		"tenant-name": "gary",
+	})
 }
 
-var sampleUserPassCredentialAttributes = map[string]string{
-	"username":    "bob",
-	"password":    "dobbs",
-	"tenant-name": "gary",
-}
-
-func (s *credentialsSuite) TestUserPassCredentialSchema(c *gc.C) {
-	schema := s.credentialSchema(c, "userpass")
-
-	err := schema.Validate(sampleUserPassCredentialAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(schema["username"].Hidden, jc.IsFalse)
-	c.Assert(schema["tenant-name"].Hidden, jc.IsFalse)
-	c.Assert(schema["password"].Hidden, jc.IsTrue)
-}
-
-func (s *credentialsSuite) TestUserPassCredentialSchemaMissingAttributes(c *gc.C) {
-	schema := s.credentialSchema(c, "userpass")
-
-	// If any one of the attributes is missing, it's an error.
-	for excludedKey := range sampleUserPassCredentialAttributes {
-		attrs := make(map[string]string)
-		for key, value := range sampleUserPassCredentialAttributes {
-			if key != excludedKey {
-				attrs[key] = value
-			}
-		}
-		err := schema.Validate(attrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
-	}
+func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(credentials, gc.HasLen, 0)
 }
@@ -119,8 +69,7 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	s.PatchEnvironment("OS_ACCESS_KEY", "key-id")
 	s.PatchEnvironment("OS_SECRET_KEY", "secret-access-key")
 
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
 	c.Assert(credentials[0], jc.DeepEquals, cloud.NewCredential(
@@ -137,8 +86,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 	s.PatchEnvironment("OS_USERNAME", "bob")
 	s.PatchEnvironment("OS_PASSWORD", "dobbs")
 
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
 	c.Assert(credentials[0], jc.DeepEquals, cloud.NewCredential(
@@ -148,9 +96,4 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 			"tenant-name": "gary",
 		},
 	))
-}
-
-func (s *credentialsSuite) credentialSchema(c *gc.C, authType cloud.AuthType) cloud.CredentialSchema {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	return providerCredentials.CredentialSchemas()[authType]
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,18 +29,11 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.ProviderCredentials))
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-
-	schemas := providerCredentials.CredentialSchemas()
-	c.Assert(schemas, gc.HasLen, 1)
-	_, ok := schemas["empty"]
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected empty auth-type schema"))
+	envtesting.AssertProviderAuthTypes(c, s.provider, "empty")
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
-	providerCredentials := s.provider.(environs.ProviderCredentials)
-	credentials, err := providerCredentials.DetectCredentials()
+	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
 	c.Assert(credentials[0], jc.DeepEquals, cloud.NewEmptyCredential())
