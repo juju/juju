@@ -78,7 +78,7 @@ func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.A
 			c.Check(index < len(apiCalls), jc.IsTrue)
 			call := apiCalls[index]
 			c.Logf("request %d, %s", index, request)
-			c.Check(version, gc.Equals, 2)
+			c.Check(version, gc.Equals, 3)
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, call.request)
 			c.Check(arg, jc.DeepEquals, call.args)

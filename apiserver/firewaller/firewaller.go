@@ -16,7 +16,7 @@ import (
 
 func init() {
 	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 1, NewFirewallerAPI)
+	common.RegisterStandardFacade("Firewaller", 2, NewFirewallerAPI)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.

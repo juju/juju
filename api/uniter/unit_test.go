@@ -121,33 +121,6 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	c.Assert(agentStatusInfo.Data, gc.HasLen, 0)
 }
 
-func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
-	err := s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
-	c.Assert(err.Error(), gc.Equals, "SetUnitStatus not implemented")
-}
-
-func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
-	statusInfo, err := s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
-	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err = s.wordpressUnit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
-	c.Assert(statusInfo.Message, gc.Equals, "blah")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-}
-
 func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,17 +251,7 @@ func (s *unitSuite) TestResolve(c *gc.C) {
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
-func (s *unitSuite) TestAssignedMachineV0NotImplemented(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV0)
-
-	_, err := s.apiUnit.AssignedMachine()
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
-	c.Assert(err.Error(), gc.Equals, "unit.AssignedMachine() (need V1+) not implemented")
-}
-
-func (s *unitSuite) TestAssignedMachineV1(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
+func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	machineTag, err := s.apiUnit.AssignedMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineTag, gc.Equals, s.wordpressMachine.Tag())
@@ -389,42 +352,6 @@ func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
 	})
 
 	err = s.apiUnit.ClosePorts("tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
-}
-
-func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	ports, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
-
-	err = s.apiUnit.OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.apiUnit.OpenPort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
-		{Protocol: "tcp", FromPort: 4321, ToPort: 4321},
-	})
-
-	err = s.apiUnit.ClosePort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ports, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{
-		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
-	})
-
-	err = s.apiUnit.ClosePort("tcp", 1234)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err = s.wordpressUnit.OpenedPorts()

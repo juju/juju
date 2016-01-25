@@ -191,5 +191,5 @@ func (s *keymanagerSuite) TestImportKeysInvalidUser(c *gc.C) {
 }
 
 func (s *keymanagerSuite) TestExposesBestAPIVersion(c *gc.C) {
-	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 0)
+	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 1)
 }

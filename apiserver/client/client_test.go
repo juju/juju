@@ -2216,7 +2216,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
-	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
@@ -2493,7 +2493,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.APICall("Client", 0, "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", 1, "", "AddMachines", args, &results)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }

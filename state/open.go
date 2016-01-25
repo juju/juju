@@ -132,7 +132,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
-	logger.Infof("initializing state server model %s", uuid)
+	logger.Infof("initializing controller model %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)

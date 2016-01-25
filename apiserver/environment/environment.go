@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Environment", 0, NewEnvironmentAPI)
+	common.RegisterStandardFacade("Environment", 1, NewEnvironmentAPI)
 }
 
 // EnvironmentAPI implements the API used by the machine environment worker.

@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 func init() {
-	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)
+	common.RegisterStandardFacade("Upgrader", 1, upgraderFacade)
 }
 
 // upgraderFacade is a bit unique vs the other API Facades, as it has two
