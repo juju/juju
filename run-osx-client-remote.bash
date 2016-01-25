@@ -8,7 +8,6 @@ source $HOME/.bashrc
 set -x
 
 env=testing-osx-client1
-~/Bin/juju destroy-environment --force -y $env || true
 tar -xf $TARFILE -C $WORKSPACE
 mkdir artifacts
 deploy_job.py parallel-osx-client-base $WORKSPACE/juju-bin/juju artifacts $env \
