@@ -39,7 +39,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 
 func (or OpenedResource) Content() Content {
 	return Content{
-		Data:        or,
+		Data:        or.ReadCloser,
 		Size:        or.Size,
 		Fingerprint: or.Fingerprint,
 	}
