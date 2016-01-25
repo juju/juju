@@ -173,6 +173,8 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
+	// TODO(wallyworld) - we should rename this package to eg proxyupdater and fix the callers
+	// to use the most appropriate facade eg agent which reads config at startup should use agent api.
 	Model() *model.Facade
 	Logger() *apilogger.State
 	KeyUpdater() *keyupdater.State

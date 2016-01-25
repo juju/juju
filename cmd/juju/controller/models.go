@@ -52,7 +52,7 @@ See Also:
 `
 
 // ModelManagerAPI defines the methods on the model manager API that
-// the environments command calls.
+// the models command calls.
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)

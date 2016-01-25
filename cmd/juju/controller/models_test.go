@@ -100,7 +100,7 @@ func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 		"\n")
 }
 
-func (s *ModelsSuite) TestEnvironments(c *gc.C) {
+func (s *ModelsSuite) TestModels(c *gc.C) {
 	s.checkSuccess(c, "admin@local")
 	s.checkSuccess(c, "bob", "--user", "bob")
 }
@@ -117,7 +117,7 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 		"\n")
 }
 
-func (s *ModelsSuite) TestEnvironmentsUUID(c *gc.C) {
+func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
@@ -134,7 +134,7 @@ func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
-func (s *ModelsSuite) TestEnvironmentsError(c *gc.C) {
+func (s *ModelsSuite) TestModelsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")

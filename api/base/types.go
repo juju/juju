@@ -10,7 +10,7 @@ import (
 )
 
 // UserModel holds information about an environment and the last
-// time the environment was accessed for a particular user. This is a client
+// time the model was accessed for a particular user. This is a client
 // side structure that translates the owner tag into a user facing string.
 type UserModel struct {
 	Name           string

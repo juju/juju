@@ -31,15 +31,15 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // AllModels allows controller administrators to get the list of all the
-// environments in the controller.
+// models in the controller.
 func (c *Client) AllModels() ([]base.UserModel, error) {
-	var environments params.UserModelList
-	err := c.facade.FacadeCall("AllModels", nil, &environments)
+	var models params.UserModelList
+	err := c.facade.FacadeCall("AllModels", nil, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]base.UserModel, len(environments.UserModels))
-	for i, env := range environments.UserModels {
+	result := make([]base.UserModel, len(models.UserModels))
+	for i, env := range models.UserModels {
 		owner, err := names.ParseUserTag(env.OwnerTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
@@ -62,8 +62,8 @@ func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 	return result.Config, err
 }
 
-// DestroyController puts the controller environment into a "dying" state,
-// and removes all non-manager machine instances. Underlying DestroyEnvironment
+// DestroyController puts the controller model into a "dying" state,
+// and removes all non-manager machine instances. Underlying DestroyModel
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
 func (c *Client) DestroyController(destroyEnvs bool) error {
@@ -73,7 +73,7 @@ func (c *Client) DestroyController(destroyEnvs bool) error {
 	return c.facade.FacadeCall("DestroyController", args, nil)
 }
 
-// ListBlockedModels returns a list of all environments within the controller
+// ListBlockedModels returns a list of all models within the controller
 // which have at least one block in place.
 func (c *Client) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 	result := params.ModelBlockInfoList{}
@@ -88,7 +88,7 @@ func (c *Client) RemoveBlocks() error {
 }
 
 // WatchAllEnvs returns an AllEnvWatcher, from which you can request
-// the Next collection of Deltas (for all environments).
+// the Next collection of Deltas (for all models).
 func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	info := new(api.WatchAll)
 	if err := c.facade.FacadeCall("WatchAllEnvs", nil, info); err != nil {
@@ -97,7 +97,7 @@ func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
-// ModelStatus returns a status summary for each environment tag passed in.
+// ModelStatus returns a status summary for each model tag passed in.
 func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResults{}
 	envs := make([]params.Entity, len(tags))

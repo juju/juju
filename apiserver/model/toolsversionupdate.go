@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.environment")
+var logger = loggo.GetLogger("juju.apiserver.model")
 
 var (
 	findTools = tools.FindTools
@@ -41,7 +41,7 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 
 	env, err := newEnvirons(cfg)
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot make environ")
+		return version.Zero, errors.Annotatef(err, "cannot make model")
 	}
 
 	// finder receives major and minor as parameters as it uses them to filter versions and
