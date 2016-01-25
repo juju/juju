@@ -129,6 +129,7 @@ func (c *ensureAvailabilityCommand) Info() *cmd.Info {
 		Name:    "ensure-availability",
 		Purpose: "ensure that sufficient state servers exist to provide redundancy",
 		Doc:     ensureAvailabilityDoc,
+		Aliases: []string{"enable-ha"},
 	}
 }
 

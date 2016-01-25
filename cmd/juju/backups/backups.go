@@ -28,23 +28,14 @@ more information on juju controllers, see:
 
 const backupsPurpose = "create, manage, and restore backups of juju's state"
 
-// Command is the top-level command wrapping all backups functionality.
-type Command struct {
-	cmd.SuperCommand
-}
-
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
-	backupsCmd := Command{
-		SuperCommand: *cmd.NewSuperCommand(
-			cmd.SuperCommandParams{
-				Name:        "backups",
-				Doc:         backupsDoc,
-				UsagePrefix: "juju",
-				Purpose:     backupsPurpose,
-			},
-		),
-	}
+	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "backups",
+		Doc:         backupsDoc,
+		UsagePrefix: "juju",
+		Purpose:     backupsPurpose,
+	})
 	backupsCmd.Register(newCreateCommand())
 	backupsCmd.Register(newInfoCommand())
 	backupsCmd.Register(newListCommand())
@@ -52,7 +43,7 @@ func NewSuperCommand() cmd.Command {
 	backupsCmd.Register(newUploadCommand())
 	backupsCmd.Register(newRemoveCommand())
 	backupsCmd.Register(newRestoreCommand())
-	return &backupsCmd
+	return backupsCmd
 }
 
 // APIClient represents the backups API client functionality used by
@@ -73,7 +64,7 @@ type APIClient interface {
 	Remove(id string) error
 	// Restore will restore a backup with the given id into the state server.
 	Restore(string, backups.ClientConnection) error
-	// Restore will restore a backup file into the state server.
+	// RestoreReader will restore a backup file into the state server.
 	RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, backups.ClientConnection) error
 }
 
