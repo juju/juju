@@ -90,6 +90,16 @@ type Machine interface {
 
 	// THINKING: Validate() error to make sure the machine has
 	// enough stuff set, like tools, and addresses etc.
+
+	// status
+	// constraints
+	// requested networks
+	// annotations
+	// reboot doc
+	// block devices
+	// network interfaces
+	// port docs
+	// machine filesystems
 }
 
 // CloudInstance holds information particular to a machine

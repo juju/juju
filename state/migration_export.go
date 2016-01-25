@@ -129,6 +129,8 @@ func (e *exporter) machines() error {
 			return errors.Trace(err)
 		}
 		machineMap[machine.Id()] = exMachine
+
+		// TODO: status and constraints for machines.
 	}
 
 	return nil

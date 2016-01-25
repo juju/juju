@@ -57,6 +57,9 @@ func (st *State) Import(description migration.Description) (_ *Environment, _ *S
 	if err := restore.environmentUsers(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if err := restore.machines(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// Add machine docs...
 
@@ -64,6 +67,9 @@ func (st *State) Import(description migration.Description) (_ *Environment, _ *S
 	// is set to "imported" not "active" (or whatever we call it). This way
 	// we don't start environment workers for it before the migration process
 	// is complete.
+
+	// Update the sequences to match that the source.
+
 	return env, envSt, nil
 }
 
@@ -110,6 +116,38 @@ func (i *importer) environmentUsers() error {
 		err = envUser.updateLastConnection(lastConnection)
 		if err != nil {
 			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (i *importer) machines() error {
+	for _, m := range i.model.Machines {
+		if err := i.machine(m); err != nil {
+			return errors.Annotate(err, m.Id().String())
+		}
+	}
+
+	return nil
+}
+
+func (i *importer) machine(m migration.Machine) error {
+	// Import this machine, then import its containers.
+
+	// 1. construct a machineDoc
+	// 2. construct enough MachineTemplate to pass into 'insertNewMahcineOps'
+	//    - adds constraints doc
+	//    - adds status doc
+	//    - adds requested network doc
+	//    - adds machine block devices doc
+	// 3. create op for adding in instance data
+	// 4. gather prereqs and machine op, run ops.
+
+	// TODO: status and constraints for machines.
+
+	for _, container := range m.Containers() {
+		if err != i.machine(container); err != nil {
+			return errors.Annotate(err, container.Id().String())
 		}
 	}
 	return nil
