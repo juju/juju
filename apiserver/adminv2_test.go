@@ -87,11 +87,6 @@ func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
 
 	info := s.APIInfo(c)
 	info.EnvironTag = names.EnvironTag{}
-	apiState, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
-	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
+	c.Assert(err, gc.ErrorMatches, ".*not implemented.*")
 }

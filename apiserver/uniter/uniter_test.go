@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
@@ -24,17 +25,19 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
 
-// uniterBaseSuite implements common testing suite for all API
+// uniterSuite implements common testing suite for all API
 // versions. It's not intended to be used directly or registered as a
 // suite, but embedded.
-type uniterBaseSuite struct {
+type uniterSuite struct {
 	testing.JujuConnSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
+	uniter     *uniter.UniterAPIV3
 
 	machine0      *state.Machine
 	machine1      *state.Machine
@@ -49,7 +52,9 @@ type uniterBaseSuite struct {
 	meteredUnit    *state.Unit
 }
 
-func (s *uniterBaseSuite) setUpTest(c *gc.C) {
+var _ = gc.Suite(&uniterSuite{})
+
+func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	factory := jujuFactory.NewFactory(s.State)
@@ -110,25 +115,25 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 	// Register.
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	uniterAPIV2, err := uniter.NewUniterAPIV3(
+		s.State,
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.uniter = uniterAPIV2
 }
 
-func (s *uniterBaseSuite) testUniterFailsWithNonUnitAgentUser(
-	c *gc.C,
-	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) error,
-) {
+func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	err := factory(s.State, s.resources, anAuthorizer)
+	_, err := uniter.NewUniterAPIV3(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *uniterBaseSuite) testSetStatus(
-	c *gc.C,
-	facade interface {
-		SetStatus(args params.SetStatus) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
@@ -140,7 +145,7 @@ func (s *uniterBaseSuite) testSetStatus(
 			{Tag: "unit-wordpress-0", Status: params.StatusRebooting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
 		}}
-	result, err := facade.SetStatus(args)
+	result, err := s.uniter.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -162,12 +167,7 @@ func (s *uniterBaseSuite) testSetStatus(
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
-func (s *uniterBaseSuite) testSetAgentStatus(
-	c *gc.C,
-	facade interface {
-		SetAgentStatus(args params.SetStatus) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
@@ -179,7 +179,7 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 			{Tag: "unit-wordpress-0", Status: params.StatusExecuting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusRebooting, Info: "blah"},
 		}}
-	result, err := facade.SetAgentStatus(args)
+	result, err := s.uniter.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -201,12 +201,7 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
-func (s *uniterBaseSuite) testSetUnitStatus(
-	c *gc.C,
-	facade interface {
-		SetUnitStatus(args params.SetStatus) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 	err := s.wordpressUnit.SetStatus(state.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
@@ -218,7 +213,7 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 			{Tag: "unit-wordpress-0", Status: params.StatusTerminated, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
 		}}
-	result, err := facade.SetUnitStatus(args)
+	result, err := s.uniter.SetUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -240,12 +235,7 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
-func (s *uniterBaseSuite) testLife(
-	c *gc.C,
-	facade interface {
-		Life(args params.Entities) (params.LifeResults, error)
-	},
-) {
+func (s *uniterSuite) TestLife(c *gc.C) {
 	// Add a relation wordpress-mysql.
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
@@ -292,7 +282,7 @@ func (s *uniterBaseSuite) testLife(
 		{Tag: "relation-svc1.rel1#svc2.rel2"},
 		// {Tag: "relation-blah"},
 	}}
-	result, err := facade.Life(args)
+	result, err := s.uniter.Life(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -314,12 +304,7 @@ func (s *uniterBaseSuite) testLife(
 	})
 }
 
-func (s *uniterBaseSuite) testEnsureDead(
-	c *gc.C,
-	facade interface {
-		EnsureDead(args params.Entities) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 	c.Assert(s.mysqlUnit.Life(), gc.Equals, state.Alive)
 
@@ -328,7 +313,7 @@ func (s *uniterBaseSuite) testEnsureDead(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.EnsureDead(args)
+	result, err := s.uniter.EnsureDead(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -349,7 +334,7 @@ func (s *uniterBaseSuite) testEnsureDead(
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "unit-wordpress-0"}},
 	}
-	result, err = facade.EnsureDead(args)
+	result, err = s.uniter.EnsureDead(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
@@ -361,12 +346,7 @@ func (s *uniterBaseSuite) testEnsureDead(
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 }
 
-func (s *uniterBaseSuite) testWatch(
-	c *gc.C,
-	facade interface {
-		Watch(args params.Entities) (params.NotifyWatchResults, error)
-	},
-) {
+func (s *uniterSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -381,7 +361,7 @@ func (s *uniterBaseSuite) testWatch(
 		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
-	result, err := facade.Watch(args)
+	result, err := s.uniter.Watch(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -411,12 +391,7 @@ func (s *uniterBaseSuite) testWatch(
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) testPublicAddress(
-	c *gc.C,
-	facade interface {
-		PublicAddress(args params.Entities) (params.StringResults, error)
-	},
-) {
+func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	// Try first without setting an address.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -427,7 +402,7 @@ func (s *uniterBaseSuite) testPublicAddress(
 		Code:    params.CodeNoAddressSet,
 		Message: `"unit-wordpress-0" has no public address set`,
 	}
-	result, err := facade.PublicAddress(args)
+	result, err := s.uniter.PublicAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -446,7 +421,7 @@ func (s *uniterBaseSuite) testPublicAddress(
 	c.Assert(address.Value, gc.Equals, "1.2.3.4")
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = facade.PublicAddress(args)
+	result, err = s.uniter.PublicAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -457,12 +432,7 @@ func (s *uniterBaseSuite) testPublicAddress(
 	})
 }
 
-func (s *uniterBaseSuite) testPrivateAddress(
-	c *gc.C,
-	facade interface {
-		PrivateAddress(args params.Entities) (params.StringResults, error)
-	},
-) {
+func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -472,7 +442,7 @@ func (s *uniterBaseSuite) testPrivateAddress(
 		Code:    params.CodeNoAddressSet,
 		Message: `"unit-wordpress-0" has no private address set`,
 	}
-	result, err := facade.PrivateAddress(args)
+	result, err := s.uniter.PrivateAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -491,7 +461,7 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	c.Assert(address.Value, gc.Equals, "1.2.3.4")
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = facade.PrivateAddress(args)
+	result, err = s.uniter.PrivateAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -502,12 +472,7 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 }
 
-func (s *uniterBaseSuite) testAvailabilityZone(
-	c *gc.C,
-	facade interface {
-		AvailabilityZone(args params.Entities) (params.StringResults, error)
-	},
-) {
+func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
 		return "a_zone", nil
 	})
@@ -515,7 +480,7 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
 	}}
-	result, err := facade.AvailabilityZone(args)
+	result, err := s.uniter.AvailabilityZone(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, gc.DeepEquals, params.StringResults{
@@ -525,12 +490,7 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 	})
 }
 
-func (s *uniterBaseSuite) testResolved(
-	c *gc.C,
-	facade interface {
-		Resolved(args params.Entities) (params.ResolvedModeResults, error)
-	},
-) {
+func (s *uniterSuite) TestResolved(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
 	mode := s.wordpressUnit.Resolved()
@@ -541,7 +501,7 @@ func (s *uniterBaseSuite) testResolved(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.Resolved(args)
+	result, err := s.uniter.Resolved(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ResolvedModeResults{
 		Results: []params.ResolvedModeResult{
@@ -552,12 +512,7 @@ func (s *uniterBaseSuite) testResolved(
 	})
 }
 
-func (s *uniterBaseSuite) testClearResolved(
-	c *gc.C,
-	facade interface {
-		ClearResolved(args params.Entities) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestClearResolved(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
 	mode := s.wordpressUnit.Resolved()
@@ -568,7 +523,7 @@ func (s *uniterBaseSuite) testClearResolved(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.ClearResolved(args)
+	result, err := s.uniter.ClearResolved(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -585,15 +540,7 @@ func (s *uniterBaseSuite) testClearResolved(
 	c.Assert(mode, gc.Equals, state.ResolvedNone)
 }
 
-type getPrincipal interface {
-	GetPrincipal(args params.Entities) (params.StringBoolResults, error)
-}
-
-func (s *uniterBaseSuite) testGetPrincipal(
-	c *gc.C,
-	facade getPrincipal,
-	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) (getPrincipal, error),
-) {
+func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Add a subordinate to wordpressUnit.
 	_, _, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 
@@ -608,7 +555,7 @@ func (s *uniterBaseSuite) testGetPrincipal(
 		{Tag: subordinate.Tag().String()},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.GetPrincipal(args)
+	result, err := s.uniter.GetPrincipal(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -622,7 +569,7 @@ func (s *uniterBaseSuite) testGetPrincipal(
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := factory(s.State, s.resources, subAuthorizer)
+	subUniter, err := uniter.NewUniterAPIV3(s.State, s.resources, subAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = subUniter.GetPrincipal(args)
@@ -637,12 +584,7 @@ func (s *uniterBaseSuite) testGetPrincipal(
 	})
 }
 
-func (s *uniterBaseSuite) testHasSubordinates(
-	c *gc.C,
-	facade interface {
-		HasSubordinates(args params.Entities) (params.BoolResults, error)
-	},
-) {
+func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	// Try first without any subordinates for wordpressUnit.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -650,7 +592,7 @@ func (s *uniterBaseSuite) testHasSubordinates(
 		{Tag: "unit-logging-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.HasSubordinates(args)
+	result, err := s.uniter.HasSubordinates(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -665,7 +607,7 @@ func (s *uniterBaseSuite) testHasSubordinates(
 	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 
-	result, err = facade.HasSubordinates(args)
+	result, err = s.uniter.HasSubordinates(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -677,12 +619,7 @@ func (s *uniterBaseSuite) testHasSubordinates(
 	})
 }
 
-func (s *uniterBaseSuite) testDestroy(
-	c *gc.C,
-	facade interface {
-		Destroy(args params.Entities) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -690,7 +627,7 @@ func (s *uniterBaseSuite) testDestroy(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.Destroy(args)
+	result, err := s.uniter.Destroy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -705,12 +642,7 @@ func (s *uniterBaseSuite) testDestroy(
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *uniterBaseSuite) testDestroyAllSubordinates(
-	c *gc.C,
-	facade interface {
-		DestroyAllSubordinates(args params.Entities) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
 	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
@@ -727,7 +659,7 @@ func (s *uniterBaseSuite) testDestroyAllSubordinates(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.DestroyAllSubordinates(args)
+	result, err := s.uniter.DestroyAllSubordinates(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -746,12 +678,7 @@ func (s *uniterBaseSuite) testDestroyAllSubordinates(
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
 }
 
-func (s *uniterBaseSuite) testCharmURL(
-	c *gc.C,
-	facade interface {
-		CharmURL(args params.Entities) (params.StringBoolResults, error)
-	},
-) {
+func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	// Set wordpressUnit's charm URL first.
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -776,7 +703,7 @@ func (s *uniterBaseSuite) testCharmURL(
 		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
-	result, err := facade.CharmURL(args)
+	result, err := s.uniter.CharmURL(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -792,12 +719,7 @@ func (s *uniterBaseSuite) testCharmURL(
 	})
 }
 
-func (s *uniterBaseSuite) testSetCharmURL(
-	c *gc.C,
-	facade interface {
-		SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	_, ok := s.wordpressUnit.CharmURL()
 	c.Assert(ok, jc.IsFalse)
 
@@ -806,7 +728,7 @@ func (s *uniterBaseSuite) testSetCharmURL(
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
 		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
 	}}
-	result, err := facade.SetCharmURL(args)
+	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -825,12 +747,7 @@ func (s *uniterBaseSuite) testSetCharmURL(
 	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
-func (s *uniterBaseSuite) testOpenPorts(
-	c *gc.C,
-	facade interface {
-		OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)
@@ -840,7 +757,7 @@ func (s *uniterBaseSuite) testOpenPorts(
 		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
 		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
 	}}
-	result, err := facade.OpenPorts(args)
+	result, err := s.uniter.OpenPorts(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -858,12 +775,7 @@ func (s *uniterBaseSuite) testOpenPorts(
 	})
 }
 
-func (s *uniterBaseSuite) testClosePorts(
-	c *gc.C,
-	facade interface {
-		ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
 	err := s.wordpressUnit.OpenPorts("udp", 4321, 5000)
 	c.Assert(err, jc.ErrorIsNil)
@@ -878,7 +790,7 @@ func (s *uniterBaseSuite) testClosePorts(
 		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
 		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
 	}}
-	result, err := facade.ClosePorts(args)
+	result, err := s.uniter.ClosePorts(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -894,81 +806,7 @@ func (s *uniterBaseSuite) testClosePorts(
 	c.Assert(openedPorts, gc.HasLen, 0)
 }
 
-func (s *uniterBaseSuite) testOpenPort(
-	c *gc.C,
-	facade interface {
-		OpenPort(args params.EntitiesPorts) (params.ErrorResults, error)
-	},
-) {
-	openedPorts, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.HasLen, 0)
-
-	args := params.EntitiesPorts{Entities: []params.EntityPort{
-		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
-		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
-		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
-	}}
-	result, err := facade.OpenPort(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the wordpressUnit's port is opened.
-	openedPorts, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
-	})
-}
-
-func (s *uniterBaseSuite) testClosePort(
-	c *gc.C,
-	facade interface {
-		ClosePort(args params.EntitiesPorts) (params.ErrorResults, error)
-	},
-) {
-	// Open port udp:4321 in advance on wordpressUnit.
-	err := s.wordpressUnit.OpenPort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-	openedPorts, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
-		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
-	})
-
-	args := params.EntitiesPorts{Entities: []params.EntityPort{
-		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
-		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
-		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
-	}}
-	result, err := facade.ClosePort(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the wordpressUnit's port is closed.
-	openedPorts, err = s.wordpressUnit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.HasLen, 0)
-}
-
-func (s *uniterBaseSuite) testWatchConfigSettings(
-	c *gc.C,
-	facade interface {
-		WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error)
-	},
-) {
+func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -979,7 +817,7 @@ func (s *uniterBaseSuite) testWatchConfigSettings(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.WatchConfigSettings(args)
+	result, err := s.uniter.WatchConfigSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -1000,11 +838,7 @@ func (s *uniterBaseSuite) testWatchConfigSettings(
 	wc.AssertNoChange()
 }
 
-type watchActions interface {
-	WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error)
-}
-
-func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1015,7 +849,7 @@ func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActi
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.WatchActionNotifications(args)
+	result, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -1041,7 +875,7 @@ func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActi
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1057,7 +891,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	}}
 
 	s.State.StartSync()
-	results, err := facade.WatchActionNotifications(args)
+	results, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
@@ -1078,40 +912,40 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) testWatchActionNotificationsMalformedTag(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := facade.WatchActionNotifications(args)
+	_, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionNotificationsMalformedUnitName(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := facade.WatchActionNotifications(args)
+	_, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionNotificationsNotUnit(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 	action, err := s.mysqlUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
 	}}
-	_, err = facade.WatchActionNotifications(args)
+	_, err = s.uniter.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"action-`+action.Id()+`" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, facade watchActions) {
+func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
-	results, err := facade.WatchActionNotifications(args)
+	results, err := s.uniter.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1120,12 +954,7 @@ func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, 
 	c.Assert(result.Error.Message, gc.Equals, "permission denied")
 }
 
-func (s *uniterBaseSuite) testConfigSettings(
-	c *gc.C,
-	facade interface {
-		ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error)
-	},
-) {
+func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := s.wordpressUnit.ConfigSettings()
@@ -1137,7 +966,7 @@ func (s *uniterBaseSuite) testConfigSettings(
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.ConfigSettings(args)
+	result, err := s.uniter.ConfigSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ConfigSettingsResults{
 		Results: []params.ConfigSettingsResult{
@@ -1148,12 +977,7 @@ func (s *uniterBaseSuite) testConfigSettings(
 	})
 }
 
-func (s *uniterBaseSuite) testWatchServiceRelations(
-	c *gc.C,
-	facade interface {
-		WatchServiceRelations(args params.Entities) (params.StringsWatchResults, error)
-	},
-) {
+func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1161,16 +985,11 @@ func (s *uniterBaseSuite) testWatchServiceRelations(
 		{Tag: "service-wordpress"},
 		{Tag: "service-foo"},
 	}}
-	result, err := facade.WatchServiceRelations(args)
+	result, err := s.uniter.WatchServiceRelations(args)
 	s.assertOneStringsWatcher(c, result, err)
 }
 
-func (s *uniterBaseSuite) testCharmArchiveSha256(
-	c *gc.C,
-	facade interface {
-		CharmArchiveSha256(args params.CharmURLs) (params.StringResults, error)
-	},
-) {
+func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
@@ -1178,7 +997,7 @@ func (s *uniterBaseSuite) testCharmArchiveSha256(
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := facade.CharmArchiveSha256(args)
+	result, err := s.uniter.CharmArchiveSha256(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -1189,12 +1008,7 @@ func (s *uniterBaseSuite) testCharmArchiveSha256(
 	})
 }
 
-func (s *uniterBaseSuite) testCharmArchiveURLs(
-	c *gc.C,
-	facade interface {
-		CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error)
-	},
-) {
+func (s *uniterSuite) TestCharmArchiveURLs(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	hostPorts := [][]network.HostPort{
@@ -1214,7 +1028,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := facade.CharmArchiveURLs(args)
+	result, err := s.uniter.CharmArchiveURLs(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressURLs := []string{
@@ -1235,30 +1049,20 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 	})
 }
 
-func (s *uniterBaseSuite) testCurrentEnvironUUID(
-	c *gc.C,
-	facade interface {
-		CurrentEnvironUUID() (params.StringResult, error)
-	},
-) {
+func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := facade.CurrentEnvironUUID()
+	result, err := s.uniter.CurrentEnvironUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
 }
 
-func (s *uniterBaseSuite) testCurrentEnvironment(
-	c *gc.C,
-	facade interface {
-		CurrentEnvironment() (params.EnvironmentResult, error)
-	},
-) {
+func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := facade.CurrentEnvironment()
+	result, err := s.uniter.CurrentEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := params.EnvironmentResult{
 		Name: env.Name(),
@@ -1267,11 +1071,7 @@ func (s *uniterBaseSuite) testCurrentEnvironment(
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
-type actions interface {
-	Actions(args params.Entities) (params.ActionsQueryResults, error)
-}
-
-func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
+func (s *uniterSuite) TestActions(c *gc.C) {
 	var actionTests = []struct {
 		description string
 		action      params.ActionResult
@@ -1315,7 +1115,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 				Tag: actionTag.String(),
 			}},
 		}
-		results, err := facade.Actions(args)
+		results, err := s.uniter.Actions(args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(results.Results, gc.HasLen, 1)
 
@@ -1326,7 +1126,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 	}
 }
 
-func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
+func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -1334,7 +1134,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 			Tag: names.NewActionTag(uuid.String()).String(),
 		}},
 	}
-	results, err := facade.Actions(args)
+	results, err := s.uniter.Actions(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1343,15 +1143,12 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
 }
 
-func (s *uniterBaseSuite) testActionsWrongUnit(
-	c *gc.C,
-	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) (actions, error),
-) {
+func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := factory(s.State, s.resources, mysqlUnitAuthorizer)
+	mysqlUnitFacade, err := uniter.NewUniterAPIV3(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
@@ -1367,7 +1164,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 	c.Assert(actions.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
+func (s *uniterSuite) TestActionsPermissionDenied(c *gc.C) {
 	action, err := s.mysqlUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -1375,17 +1172,13 @@ func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
 			Tag: action.Tag().String(),
 		}},
 	}
-	actions, err := facade.Actions(args)
+	actions, err := s.uniter.Actions(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions.Results), gc.Equals, 1)
 	c.Assert(actions.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-type finishActions interface {
-	FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error)
-}
-
-func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions) {
+func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 	testName := "fakeaction"
 	testOutput := map[string]interface{}{"output": "completed fakeaction successfully"}
 
@@ -1403,7 +1196,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 			Results:   testOutput,
 		}},
 	}
-	res, err := facade.FinishActions(actionResults)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
@@ -1417,7 +1210,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
-func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions) {
+func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 	testName := "fakeaction"
 	testError := "fakeaction was a dismal failure"
 
@@ -1436,7 +1229,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 			Message:   testError,
 		}},
 	}
-	res, err := facade.FinishActions(actionResults)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
@@ -1450,7 +1243,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
-func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActions) {
+func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
 	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1476,7 +1269,7 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	}
 
 	// Invoke FinishActions
-	res, err := facade.FinishActions(actionResults)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify permissions errors for actions queued on different unit
@@ -1491,11 +1284,7 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	}
 }
 
-type beginActions interface {
-	BeginActions(args params.Entities) (params.ErrorResults, error)
-}
-
-func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
+func (s *uniterSuite) TestBeginActions(c *gc.C) {
 	ten_seconds_ago := time.Now().Add(-10 * time.Second)
 	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1505,7 +1294,7 @@ func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
 	c.Assert(len(running), gc.Equals, 0, gc.Commentf("expected no running actions, got %d", len(running)))
 
 	args := params.Entities{Entities: []params.Entity{{Tag: good.ActionTag().String()}}}
-	res, err := facade.BeginActions(args)
+	res, err := s.uniter.BeginActions(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(res.Results), gc.Equals, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -1520,12 +1309,7 @@ func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
 	c.Assert(started.After(enqueued) || started.Equal(enqueued), jc.IsTrue, gc.Commentf("started should be after or equal to enqueued time"))
 }
 
-func (s *uniterBaseSuite) testRelation(
-	c *gc.C,
-	facade interface {
-		Relation(args params.RelationUnits) (params.RelationResults, error)
-	},
-) {
+func (s *uniterSuite) TestRelation(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1540,7 +1324,7 @@ func (s *uniterBaseSuite) testRelation(
 		{Relation: "foo", Unit: "bar"},
 		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
 	}}
-	result, err := facade.Relation(args)
+	result, err := s.uniter.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
@@ -1564,12 +1348,7 @@ func (s *uniterBaseSuite) testRelation(
 	})
 }
 
-func (s *uniterBaseSuite) testRelationById(
-	c *gc.C,
-	facade interface {
-		RelationById(args params.RelationIds) (params.RelationResults, error)
-	},
-) {
+func (s *uniterSuite) TestRelationById(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	c.Assert(rel.Id(), gc.Equals, 0)
 	wpEp, err := rel.Endpoint("wordpress")
@@ -1582,7 +1361,7 @@ func (s *uniterBaseSuite) testRelationById(
 	args := params.RelationIds{
 		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
 	}
-	result, err := facade.RelationById(args)
+	result, err := s.uniter.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
@@ -1603,26 +1382,16 @@ func (s *uniterBaseSuite) testRelationById(
 	})
 }
 
-func (s *uniterBaseSuite) testProviderType(
-	c *gc.C,
-	facade interface {
-		ProviderType() (params.StringResult, error)
-	},
-) {
+func (s *uniterSuite) TestProviderType(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := facade.ProviderType()
+	result, err := s.uniter.ProviderType()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: cfg.Type()})
 }
 
-func (s *uniterBaseSuite) testEnterScope(
-	c *gc.C,
-	facade interface {
-		EnterScope(args params.RelationUnits) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
@@ -1647,7 +1416,7 @@ func (s *uniterBaseSuite) testEnterScope(
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := facade.EnterScope(args)
+	result, err := s.uniter.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1674,12 +1443,7 @@ func (s *uniterBaseSuite) testEnterScope(
 	})
 }
 
-func (s *uniterBaseSuite) testLeaveScope(
-	c *gc.C,
-	facade interface {
-		LeaveScope(args params.RelationUnits) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1703,7 +1467,7 @@ func (s *uniterBaseSuite) testLeaveScope(
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := facade.LeaveScope(args)
+	result, err := s.uniter.LeaveScope(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1728,12 +1492,7 @@ func (s *uniterBaseSuite) testLeaveScope(
 	c.Assert(readSettings, gc.DeepEquals, settings)
 }
 
-func (s *uniterBaseSuite) testJoinedRelations(
-	c *gc.C,
-	facade interface {
-		JoinedRelations(args params.Entities) (params.StringsResults, error)
-	},
-) {
+func (s *uniterSuite) TestJoinedRelations(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1761,7 +1520,7 @@ func (s *uniterBaseSuite) testJoinedRelations(
 		},
 	}
 	check := func() {
-		result, err := facade.JoinedRelations(args)
+		result, err := s.uniter.JoinedRelations(args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, gc.DeepEquals, expect)
 	}
@@ -1771,11 +1530,7 @@ func (s *uniterBaseSuite) testJoinedRelations(
 	check()
 }
 
-type readSettings interface {
-	ReadSettings(args params.RelationUnits) (params.SettingsResults, error)
-}
-
-func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
+func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1799,7 +1554,7 @@ func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := facade.ReadSettings(args)
+	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -1820,7 +1575,7 @@ func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
 	})
 }
 
-func (s *uniterBaseSuite) testReadSettingsWithNonStringValuesFails(c *gc.C, facade readSettings) {
+func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1836,7 +1591,7 @@ func (s *uniterBaseSuite) testReadSettingsWithNonStringValuesFails(c *gc.C, faca
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := facade.ReadSettings(args)
+	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -1845,11 +1600,7 @@ func (s *uniterBaseSuite) testReadSettingsWithNonStringValuesFails(c *gc.C, faca
 	})
 }
 
-type readRemoteSettings interface {
-	ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error)
-}
-
-func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSettings) {
+func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1875,7 +1626,7 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 		{Relation: rel.Tag().String(), LocalUnit: "service-mysql", RemoteUnit: "foo"},
 		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
 	}}
-	result, err := facade.ReadRemoteSettings(args)
+	result, err := s.uniter.ReadRemoteSettings(args)
 
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings`
@@ -1922,7 +1673,7 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 			}},
 		},
 	}
-	result, err = facade.ReadRemoteSettings(args)
+	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 
@@ -1933,12 +1684,12 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	result, err = facade.ReadRemoteSettings(args)
+	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 }
 
-func (s *uniterBaseSuite) testReadRemoteSettingsWithNonStringValuesFails(c *gc.C, facade readRemoteSettings) {
+func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1956,7 +1707,7 @@ func (s *uniterBaseSuite) testReadRemoteSettingsWithNonStringValuesFails(c *gc.C
 		RemoteUnit: "unit-mysql-0",
 	}}}
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := facade.ReadRemoteSettings(args)
+	result, err := s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -1965,12 +1716,7 @@ func (s *uniterBaseSuite) testReadRemoteSettingsWithNonStringValuesFails(c *gc.C
 	})
 }
 
-func (s *uniterBaseSuite) testUpdateSettings(
-	c *gc.C,
-	facade interface {
-		UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error)
-	},
-) {
+func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1998,7 +1744,7 @@ func (s *uniterBaseSuite) testUpdateSettings(
 		{Relation: rel.Tag().String(), Unit: "service-mysql", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
 	}}
-	result, err := facade.UpdateSettings(args)
+	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -2024,12 +1770,7 @@ func (s *uniterBaseSuite) testUpdateSettings(
 	})
 }
 
-func (s *uniterBaseSuite) testWatchRelationUnits(
-	c *gc.C,
-	facade interface {
-		WatchRelationUnits(args params.RelationUnits) (params.RelationUnitsWatchResults, error)
-	},
-) {
+func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -2054,7 +1795,7 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := facade.WatchRelationUnits(args)
+	result, err := s.uniter.WatchRelationUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
 	// UnitSettings versions are volatile, so we don't check them.
 	// We just make sure the keys of the Changed field are as
@@ -2104,31 +1845,21 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 	wc.AssertChange(nil, []string{"mysql/0"})
 }
 
-func (s *uniterBaseSuite) testAPIAddresses(
-	c *gc.C,
-	facade interface {
-		APIAddresses() (params.StringsResult, error)
-	},
-) {
+func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := facade.APIAddresses()
+	result, err := s.uniter.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	})
 }
 
-func (s *uniterBaseSuite) testWatchUnitAddresses(
-	c *gc.C,
-	facade interface {
-		WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error)
-	},
-) {
+func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -2138,7 +1869,7 @@ func (s *uniterBaseSuite) testWatchUnitAddresses(
 		{Tag: "machine-0"},
 		{Tag: "service-wordpress"},
 	}}
-	result, err := facade.WatchUnitAddresses(args)
+	result, err := s.uniter.WatchUnitAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -2161,13 +1892,9 @@ func (s *uniterBaseSuite) testWatchUnitAddresses(
 	wc.AssertNoChange()
 }
 
-type getMeterStatus interface {
-	GetMeterStatus(args params.Entities) (params.MeterStatusResults, error)
-}
-
-func (s *uniterBaseSuite) testGetMeterStatusUnauthenticated(c *gc.C, facade getMeterStatus) {
+func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := facade.GetMeterStatus(args)
+	result, err := s.uniter.GetMeterStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -2175,7 +1902,7 @@ func (s *uniterBaseSuite) testGetMeterStatusUnauthenticated(c *gc.C, facade getM
 	c.Assert(result.Results[0].Info, gc.Equals, "")
 }
 
-func (s *uniterBaseSuite) testGetMeterStatusBadTag(c *gc.C, facade getMeterStatus) {
+func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	tags := []string{
 		"user-admin",
 		"unit-nosuchunit",
@@ -2187,7 +1914,7 @@ func (s *uniterBaseSuite) testGetMeterStatusBadTag(c *gc.C, facade getMeterStatu
 	for i, tag := range tags {
 		args.Entities[i] = params.Entity{Tag: tag}
 	}
-	result, err := facade.GetMeterStatus(args)
+	result, err := s.uniter.GetMeterStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(tags))
 	for i, result := range result.Results {
@@ -2198,7 +1925,7 @@ func (s *uniterBaseSuite) testGetMeterStatusBadTag(c *gc.C, facade getMeterStatu
 	}
 }
 
-func (s *uniterBaseSuite) assertOneStringsWatcher(c *gc.C, result params.StringsWatchResults, err error) {
+func (s *uniterSuite) assertOneStringsWatcher(c *gc.C, result params.StringsWatchResults, err error) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
@@ -2218,13 +1945,13 @@ func (s *uniterBaseSuite) assertOneStringsWatcher(c *gc.C, result params.Strings
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ok, gc.Equals, inScope)
 }
 
-func (s *uniterBaseSuite) addRelation(c *gc.C, first, second string) *state.Relation {
+func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints(first, second)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2232,7 +1959,7 @@ func (s *uniterBaseSuite) addRelation(c *gc.C, first, second string) *state.Rela
 	return rel
 }
 
-func (s *uniterBaseSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
 	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
@@ -2242,6 +1969,32 @@ func (s *uniterBaseSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string
 	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
 	c.Assert(err, jc.ErrorIsNil)
 	return rel, relatedService, relatedUnit
+}
+
+func (s *uniterSuite) TestRequestReboot(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine0.Tag().String()},
+		{Tag: s.machine1.Tag().String()},
+		{Tag: "bogus"},
+		{Tag: "nasty-tag"},
+	}}
+	errResult, err := s.uniter.RequestReboot(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		}})
+
+	rFlag, err := s.machine0.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	rFlag, err = s.machine1.GetRebootFlag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rFlag, jc.IsFalse)
 }
 
 func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsWatchResults) {
@@ -2260,4 +2013,337 @@ func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsW
 		obtainedIds[change]++
 	}
 	c.Check(obtainedIds, jc.DeepEquals, expectedIds)
+}
+
+func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
+	// We need to set up a unit that has storage metadata defined.
+	ch := s.AddTestingCharm(c, "storage-block")
+	sCons := map[string]state.StorageConstraints{
+		"data": {Pool: "", Size: 1024, Count: 1},
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetVolumeInfo(
+		volumeAttachments[0].Volume(),
+		state.VolumeInfo{VolumeId: "vol-123", Size: 456},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetVolumeAttachmentInfo(
+		machine.MachineTag(),
+		volumeAttachments[0].Volume(),
+		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	password, err := utils.RandomPassword()
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.OpenAPIAs(c, unit.Tag(), password)
+	uniter, err := st.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+
+	attachments, err := uniter.UnitStorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.DeepEquals, []params.StorageAttachmentId{{
+		StorageTag: "storage-data-0",
+		UnitTag:    unit.Tag().String(),
+	}})
+}
+
+func (s *uniterSuite) TestUnitStatus(c *gc.C) {
+	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "unit-wordpress-0"},
+			{Tag: "unit-foo-42"},
+			{Tag: "machine-1"},
+			{Tag: "invalid"},
+		}}
+	result, err := s.uniter.UnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Status: params.StatusMaintenance, Info: "blah", Data: map[string]interface{}{}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
+		},
+	})
+}
+
+func (s *uniterSuite) TestServiceOwner(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "service-wordpress"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.ServiceOwner(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: s.AdminUserTag(c).String()},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"},
+		{Tag: "service-foo"},
+		{Tag: "relation-svc1.rel1#svc2.rel2"},
+	}}
+	result, err := s.uniter.AssignedMachine(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "machine-0"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
+	// Verify no ports are opened yet on the machine or unit.
+	machinePorts, err := s.machine0.AllPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machinePorts, gc.HasLen, 0)
+	unitPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitPorts, gc.HasLen, 0)
+
+	// Add another mysql unit on machine 0.
+	mysqlUnit1, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlUnit1.AssignToMachine(s.machine0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Open some ports on both units.
+	err = s.wordpressUnit.OpenPorts("tcp", 100, 200)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.wordpressUnit.OpenPorts("udp", 10, 20)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlUnit1.OpenPorts("tcp", 201, 250)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlUnit1.OpenPorts("udp", 1, 8)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-42"},
+		{Tag: "service-wordpress"},
+	}}
+	expectPorts := []params.MachinePortRange{
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{100, 200, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{201, 250, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{1, 8, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{10, 20, "udp"}},
+	}
+	result, err := s.uniter.AllMachinePorts(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.MachinePortsResults{
+		Results: []params.MachinePortsResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Ports: expectPorts},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+type unitMetricBatchesSuite struct {
+	uniterSuite
+	*commontesting.EnvironWatcherTest
+	uniter *uniter.UniterAPIV3
+}
+
+var _ = gc.Suite(&unitMetricBatchesSuite{})
+
+func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
+	s.uniterSuite.SetUpTest(c)
+
+	meteredAuthorizer := apiservertesting.FakeAuthorizer{
+		Tag: s.meteredUnit.Tag(),
+	}
+	var err error
+	s.uniter, err = uniter.NewUniterAPIV3(
+		s.State,
+		s.resources,
+		meteredAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
+		s.uniter,
+		s.State,
+		s.resources,
+		commontesting.NoSecrets,
+	)
+}
+
+func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
+	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+
+	result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
+		Batches: []params.MetricBatchParam{{
+			Tag: s.meteredUnit.Tag().String(),
+			Batch: params.MetricBatch{
+				UUID:     uuid,
+				CharmURL: s.meteredCharm.URL().String(),
+				Created:  time.Now(),
+				Metrics:  metrics,
+			}}}},
+	)
+
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	batch, err := s.State.MetricBatch(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(batch.UUID(), gc.Equals, uuid)
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL().String())
+	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
+	storedMetrics := batch.Metrics()
+	c.Assert(storedMetrics, gc.HasLen, 1)
+	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
+	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
+}
+
+func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
+	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+
+	result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
+		Batches: []params.MetricBatchParam{{
+			Tag: s.meteredUnit.Tag().String(),
+			Batch: params.MetricBatch{
+				UUID:     uuid,
+				CharmURL: s.meteredCharm.URL().String(),
+				Created:  time.Now(),
+				Metrics:  metrics,
+			}}}})
+
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	batch, err := s.State.MetricBatch(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(batch.UUID(), gc.Equals, uuid)
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL().String())
+	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
+	storedMetrics := batch.Metrics()
+	c.Assert(storedMetrics, gc.HasLen, 1)
+	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
+	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
+}
+
+func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+
+	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+
+	tests := []struct {
+		about  string
+		tag    string
+		expect string
+	}{{
+		about:  "different unit",
+		tag:    unit2.Tag().String(),
+		expect: "permission denied",
+	}, {
+		about:  "user tag",
+		tag:    names.NewLocalUserTag("admin").String(),
+		expect: `"user-admin@local" is not a valid unit tag`,
+	}, {
+		about:  "machine tag",
+		tag:    names.NewMachineTag("0").String(),
+		expect: `"machine-0" is not a valid unit tag`,
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.about)
+		result, err := s.uniter.AddMetricBatches(params.MetricBatchParams{
+			Batches: []params.MetricBatchParam{{
+				Tag: test.tag,
+				Batch: params.MetricBatch{
+					UUID:     uuid,
+					CharmURL: "",
+					Created:  time.Now(),
+					Metrics:  metrics,
+				}}}})
+
+		if test.expect == "" {
+			c.Assert(result.OneError(), jc.ErrorIsNil)
+		} else {
+			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
+		}
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, err = s.State.MetricBatch(uuid)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 }

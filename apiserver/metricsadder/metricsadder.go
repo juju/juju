@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsAdder", 1, NewMetricsAdderAPI)
+	common.RegisterStandardFacade("MetricsAdder", 2, NewMetricsAdderAPI)
 }
 
 // MetricsAdder defines methods that are used to store metric batches in the state.

@@ -51,17 +51,14 @@ func newStateForVersion(
 		unitTag:         authTag,
 	}
 
-	if version >= 2 {
-		newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
-			return watcher.NewNotifyWatcher(caller, result)
-		}
-		state.LeadershipSettings = NewLeadershipSettingsAccessor(
-			facadeCaller.FacadeCall,
-			newWatcher,
-			ErrIfNotVersionFn(2, state.BestAPIVersion()),
-		)
+	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
+		return watcher.NewNotifyWatcher(caller, result)
 	}
-
+	state.LeadershipSettings = NewLeadershipSettingsAccessor(
+		facadeCaller.FacadeCall,
+		newWatcher,
+		ErrIfNotVersionFn(2, state.BestAPIVersion()),
+	)
 	return state
 }
 
@@ -71,18 +68,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV0 creates a new client-side Uniter facade, version 0.
-var newStateV0 = newStateForVersionFn(0)
-
-// newStateV1 creates a new client-side Uniter facade, version 1.
-var newStateV1 = newStateForVersionFn(1)
-
-// newStateV2 creates a new client-side Uniter facade, version 2.
-var newStateV2 = newStateForVersionFn(2)
+// newStateV3 creates a new client-side Uniter facade, version 3.
+var newStateV3 = newStateForVersionFn(3)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV2
+var NewState = newStateV3
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.

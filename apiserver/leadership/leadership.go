@@ -38,7 +38,7 @@ var (
 func init() {
 	common.RegisterStandardFacade(
 		FacadeName,
-		1,
+		2,
 		NewLeadershipServiceFacade,
 	)
 }

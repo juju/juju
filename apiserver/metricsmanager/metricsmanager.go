@@ -24,7 +24,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsManager", 0, NewMetricsManagerAPI)
+	common.RegisterStandardFacade("MetricsManager", 1, NewMetricsManagerAPI)
 }
 
 // MetricsManager defines the methods on the metricsmanager API end point.

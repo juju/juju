@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/names"
@@ -22,12 +21,10 @@ import (
 )
 
 var (
-	RootType              = reflect.TypeOf(&apiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
 	NewBackups            = &newBackups
-	NewLogTailer          = &newLogTailer
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -54,10 +51,6 @@ func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.Entit
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
-}
-
-func ServerAuthenticator(srv *Server, tag names.Tag) authentication.EntityAuthenticator {
-	return srv.authCtxt
 }
 
 const LoginRateLimit = loginRateLimit
@@ -103,7 +96,7 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 	return h, h.getResources()
 }
 
-// TestingUpgradingApiHandler returns a limited srvRoot
+// TestingUpgradingRoot returns a limited srvRoot
 // in an upgrade scenario.
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)

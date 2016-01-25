@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("KeyUpdater", 0, NewKeyUpdaterAPI)
+	common.RegisterStandardFacade("KeyUpdater", 1, NewKeyUpdaterAPI)
 }
 
 // KeyUpdater defines the methods on the keyupdater API end point.

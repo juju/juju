@@ -1,8 +1,8 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The uniter package implements the API interface used by the uniter
-// worker. This file contains code common to all API versions.
+// Package uniter implements the API interface used by the uniter worker.
+
 package uniter
 
 import (
@@ -11,6 +11,7 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -25,13 +26,14 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// Note that the charm payloads component has its own unit-based facade
-// that the payload-related hook context commands use. See
-// workload/api/internal and component/all/workloads.go.
+var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// uniterBaseAPI implements common methods used by all API versions,
-// and it's intended for embedding.
-type uniterBaseAPI struct {
+func init() {
+	common.RegisterStandardFacade("Uniter", 3, NewUniterAPIV3)
+}
+
+// UniterAPIV3 implements the API version 3, used by the uniter worker.
+type UniterAPIV3 struct {
 	*common.LifeGetter
 	*StatusAPI
 	*common.DeadEnsurer
@@ -48,10 +50,12 @@ type uniterBaseAPI struct {
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
 	unit          *state.Unit
+	accessMachine common.GetAuthFunc
+	StorageAPI
 }
 
-// newUniterBaseAPI creates a new instance of the uniter base API.
-func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*uniterBaseAPI, error) {
+// NewUniterAPIV3 creates a new instance of the Uniter API, version 3.
+func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
@@ -86,24 +90,34 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 		}
 	}
 	accessMachine := func() (common.AuthFunc, error) {
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return nil, errors.Trace(err)
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.UnitTag:
+			entity, err := st.Unit(tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			machineId, err := entity.AssignedMachineId()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			machineTag := names.NewMachineTag(machineId)
+			return func(tag names.Tag) bool {
+				return tag == machineTag
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
-		machine, err := st.Machine(machineId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return func(tag names.Tag) bool {
-			return tag == machine.Tag()
-		}, nil
+	}
+	storageAPI, err := newStorageAPI(getStorageState(st), resources, accessUnit)
+	if err != nil {
+		return nil, err
 	}
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	return &uniterBaseAPI{
+	return &UniterAPIV3{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
@@ -121,12 +135,138 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 		resources:     resources,
 		accessUnit:    accessUnit,
 		accessService: accessService,
+		accessMachine: accessMachine,
 		unit:          unit,
+		StorageAPI:    *storageAPI,
 	}, nil
 }
 
+// AllMachinePorts returns all opened port ranges for each given
+// machine (on all networks).
+func (u *UniterAPIV3) AllMachinePorts(args params.Entities) (params.MachinePortsResults, error) {
+	result := params.MachinePortsResults{
+		Results: make([]params.MachinePortsResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessMachine()
+	if err != nil {
+		return params.MachinePortsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		result.Results[i] = u.getOneMachinePorts(canAccess, entity.Tag)
+	}
+	return result, nil
+}
+
+// ServiceOwner returns the owner user for each given service tag.
+func (u *UniterAPIV3) ServiceOwner(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessService()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseServiceTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		service, err := u.getService(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = service.GetOwnerTag()
+	}
+	return result, nil
+}
+
+// AssignedMachine returns the machine tag for each given unit tag, or
+// an error satisfying params.IsCodeNotAssigned when a unit has no
+// assigned machine.
+func (u *UniterAPIV3) AssignedMachine(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		} else {
+			result.Results[i].Result = names.NewMachineTag(machineId).String()
+		}
+	}
+	return result, nil
+}
+
+func (u *UniterAPIV3) getMachine(tag names.MachineTag) (*state.Machine, error) {
+	return u.st.Machine(tag.Id())
+}
+
+func (u *UniterAPIV3) getOneMachinePorts(canAccess common.AuthFunc, machineTag string) params.MachinePortsResult {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return params.MachinePortsResult{Error: common.ServerError(common.ErrPerm)}
+	}
+	if !canAccess(tag) {
+		return params.MachinePortsResult{Error: common.ServerError(common.ErrPerm)}
+	}
+	machine, err := u.getMachine(tag)
+	if err != nil {
+		return params.MachinePortsResult{Error: common.ServerError(err)}
+	}
+	allPorts, err := machine.AllPorts()
+	if err != nil {
+		return params.MachinePortsResult{Error: common.ServerError(err)}
+	}
+	var resultPorts []params.MachinePortRange
+	for _, ports := range allPorts {
+		// AllPortRanges gives a map, but apis require a stable order
+		// for results, so sort the port ranges.
+		portRangesToUnits := ports.AllPortRanges()
+		portRanges := make([]network.PortRange, 0, len(portRangesToUnits))
+		for portRange := range portRangesToUnits {
+			portRanges = append(portRanges, portRange)
+		}
+		network.SortPortRanges(portRanges)
+		for _, portRange := range portRanges {
+			unitName := portRangesToUnits[portRange]
+			resultPorts = append(resultPorts, params.MachinePortRange{
+				UnitTag:   names.NewUnitTag(unitName).String(),
+				PortRange: params.FromNetworkPortRange(portRange),
+			})
+		}
+	}
+	return params.MachinePortsResult{
+		Ports: resultPorts,
+	}
+}
+
 // PublicAddress returns the public address for each given unit, if set.
-func (u *uniterBaseAPI) PublicAddress(args params.Entities) (params.StringResults, error) {
+func (u *UniterAPIV3) PublicAddress(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -160,7 +300,7 @@ func (u *uniterBaseAPI) PublicAddress(args params.Entities) (params.StringResult
 }
 
 // PrivateAddress returns the private address for each given unit, if set.
-func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResults, error) {
+func (u *UniterAPIV3) PrivateAddress(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -205,7 +345,7 @@ var getZone = func(st *state.State, tag names.Tag) (string, error) {
 }
 
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
-func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
+func (u *UniterAPIV3) AvailabilityZone(args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
 
 	canAccess, err := u.accessUnit()
@@ -242,7 +382,7 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 }
 
 // Resolved returns the current resolved setting for each given unit.
-func (u *uniterBaseAPI) Resolved(args params.Entities) (params.ResolvedModeResults, error) {
+func (u *UniterAPIV3) Resolved(args params.Entities) (params.ResolvedModeResults, error) {
 	result := params.ResolvedModeResults{
 		Results: make([]params.ResolvedModeResult, len(args.Entities)),
 	}
@@ -270,7 +410,7 @@ func (u *uniterBaseAPI) Resolved(args params.Entities) (params.ResolvedModeResul
 }
 
 // ClearResolved removes any resolved setting from each given unit.
-func (u *uniterBaseAPI) ClearResolved(args params.Entities) (params.ErrorResults, error) {
+func (u *UniterAPIV3) ClearResolved(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -299,7 +439,7 @@ func (u *uniterBaseAPI) ClearResolved(args params.Entities) (params.ErrorResults
 
 // GetPrincipal returns the result of calling PrincipalName() and
 // converting it to a tag, on each given unit.
-func (u *uniterBaseAPI) GetPrincipal(args params.Entities) (params.StringBoolResults, error) {
+func (u *UniterAPIV3) GetPrincipal(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
@@ -332,7 +472,7 @@ func (u *uniterBaseAPI) GetPrincipal(args params.Entities) (params.StringBoolRes
 
 // Destroy advances all given Alive units' lifecycles as far as
 // possible. See state/Unit.Destroy().
-func (u *uniterBaseAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
+func (u *UniterAPIV3) Destroy(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -360,7 +500,7 @@ func (u *uniterBaseAPI) Destroy(args params.Entities) (params.ErrorResults, erro
 }
 
 // DestroyAllSubordinates destroys all subordinates of each given unit.
-func (u *uniterBaseAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorResults, error) {
+func (u *UniterAPIV3) DestroyAllSubordinates(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -388,7 +528,7 @@ func (u *uniterBaseAPI) DestroyAllSubordinates(args params.Entities) (params.Err
 }
 
 // HasSubordinates returns the whether each given unit has any subordinates.
-func (u *uniterBaseAPI) HasSubordinates(args params.Entities) (params.BoolResults, error) {
+func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
@@ -417,7 +557,7 @@ func (u *uniterBaseAPI) HasSubordinates(args params.Entities) (params.BoolResult
 }
 
 // CharmURL returns the charm URL for all given units or services.
-func (u *uniterBaseAPI) CharmURL(args params.Entities) (params.StringBoolResults, error) {
+func (u *UniterAPIV3) CharmURL(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
@@ -454,7 +594,7 @@ func (u *uniterBaseAPI) CharmURL(args params.Entities) (params.StringBoolResults
 
 // SetCharmURL sets the charm URL for each given unit. An error will
 // be returned if a unit is dead, or the charm URL is not know.
-func (u *uniterBaseAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResults, error) {
+func (u *UniterAPIV3) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -487,7 +627,7 @@ func (u *uniterBaseAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorR
 
 // OpenPorts sets the policy of the port range with protocol to be
 // opened, for all given units.
-func (u *uniterBaseAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
+func (u *UniterAPIV3) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -516,7 +656,7 @@ func (u *uniterBaseAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorR
 
 // ClosePorts sets the policy of the port range with protocol to be
 // closed, for all given units.
-func (u *uniterBaseAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
+func (u *UniterAPIV3) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -543,50 +683,10 @@ func (u *uniterBaseAPI) ClosePorts(args params.EntitiesPortRanges) (params.Error
 	return result, nil
 }
 
-// OpenPort sets the policy of the port with protocol an number to be
-// opened, for all given units.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use OpenPorts instead.
-func (u *uniterBaseAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
-	rangesArgs := params.EntitiesPortRanges{
-		Entities: make([]params.EntityPortRange, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		rangesArgs.Entities[i] = params.EntityPortRange{
-			Tag:      entity.Tag,
-			Protocol: entity.Protocol,
-			FromPort: entity.Port,
-			ToPort:   entity.Port,
-		}
-	}
-	return u.OpenPorts(rangesArgs)
-}
-
-// ClosePort sets the policy of the port with protocol and number to
-// be closed, for all given units.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use ClosePorts instead.
-func (u *uniterBaseAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
-	rangesArgs := params.EntitiesPortRanges{
-		Entities: make([]params.EntityPortRange, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		rangesArgs.Entities[i] = params.EntityPortRange{
-			Tag:      entity.Tag,
-			Protocol: entity.Protocol,
-			FromPort: entity.Port,
-			ToPort:   entity.Port,
-		}
-	}
-	return u.ClosePorts(rangesArgs)
-}
-
 // WatchConfigSettings returns a NotifyWatcher for observing changes
 // to each unit's service configuration settings. See also
 // state/watcher.go:Unit.WatchConfigSettings().
-func (u *uniterBaseAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV3) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -615,7 +715,7 @@ func (u *uniterBaseAPI) WatchConfigSettings(args params.Entities) (params.Notify
 // incoming action calls to a unit. See also state/watcher.go
 // Unit.WatchActionNotifications(). This method is called from
 // api/uniter/uniter.go WatchActionNotifications().
-func (u *uniterBaseAPI) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
+func (u *UniterAPIV3) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
 	nothing := params.StringsWatchResults{}
 
 	result := params.StringsWatchResults{
@@ -641,7 +741,7 @@ func (u *uniterBaseAPI) WatchActionNotifications(args params.Entities) (params.S
 
 // ConfigSettings returns the complete set of service charm config
 // settings available to each given unit.
-func (u *uniterBaseAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {
+func (u *UniterAPIV3) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {
 	result := params.ConfigSettingsResults{
 		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
 	}
@@ -675,7 +775,7 @@ func (u *uniterBaseAPI) ConfigSettings(args params.Entities) (params.ConfigSetti
 // WatchServiceRelations returns a StringsWatcher, for each given
 // service, that notifies of changes to the lifecycles of relations
 // involving that service.
-func (u *uniterBaseAPI) WatchServiceRelations(args params.Entities) (params.StringsWatchResults, error) {
+func (u *UniterAPIV3) WatchServiceRelations(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -700,7 +800,7 @@ func (u *uniterBaseAPI) WatchServiceRelations(args params.Entities) (params.Stri
 
 // CharmArchiveSha256 returns the SHA256 digest of the charm archive
 // (bundle) data for each charm url in the given parameters.
-func (u *uniterBaseAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResults, error) {
+func (u *UniterAPIV3) CharmArchiveSha256(args params.CharmURLs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.URLs)),
 	}
@@ -725,7 +825,7 @@ func (u *uniterBaseAPI) CharmArchiveSha256(args params.CharmURLs) (params.String
 
 // CharmArchiveURLs returns the URLS for the charm archive
 // (bundle) data for each charm url in the given parameters.
-func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
+func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
 	apiHostPorts, err := u.st.APIHostPorts()
 	if err != nil {
 		return params.StringsResults{}, err
@@ -764,7 +864,7 @@ func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsR
 
 // Relation returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *uniterBaseAPI) Relation(args params.RelationUnits) (params.RelationResults, error) {
+func (u *UniterAPIV3) Relation(args params.RelationUnits) (params.RelationResults, error) {
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationUnits)),
 	}
@@ -784,7 +884,7 @@ func (u *uniterBaseAPI) Relation(args params.RelationUnits) (params.RelationResu
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
-func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
+func (u *UniterAPIV3) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
 
 	actionFn, err := u.authAndActionFromTagFn()
@@ -816,7 +916,7 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
-func (u *uniterBaseAPI) BeginActions(args params.Entities) (params.ErrorResults, error) {
+func (u *UniterAPIV3) BeginActions(args params.Entities) (params.ErrorResults, error) {
 	nothing := params.ErrorResults{}
 
 	actionFn, err := u.authAndActionFromTagFn()
@@ -844,7 +944,7 @@ func (u *uniterBaseAPI) BeginActions(args params.Entities) (params.ErrorResults,
 }
 
 // FinishActions saves the result of a completed Action
-func (u *uniterBaseAPI) FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error) {
+func (u *UniterAPIV3) FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error) {
 	nothing := params.ErrorResults{}
 
 	actionFn, err := u.authAndActionFromTagFn()
@@ -902,7 +1002,7 @@ func paramsActionExecutionResultsToStateActionResults(arg params.ActionExecution
 // RelationById returns information about all given relations,
 // specified by their ids, including their key and the local
 // endpoint.
-func (u *uniterBaseAPI) RelationById(args params.RelationIds) (params.RelationResults, error) {
+func (u *UniterAPIV3) RelationById(args params.RelationIds) (params.RelationResults, error) {
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationIds)),
 	}
@@ -919,7 +1019,7 @@ func (u *uniterBaseAPI) RelationById(args params.RelationIds) (params.RelationRe
 // JoinedRelations returns the tags of all relations for which each supplied unit
 // has entered scope. It should be called RelationsInScope, but it's not convenient
 // to make that change until we have versioned APIs.
-func (u *uniterBaseAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
+func (u *UniterAPIV3) JoinedRelations(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -950,7 +1050,7 @@ func (u *uniterBaseAPI) JoinedRelations(args params.Entities) (params.StringsRes
 }
 
 // CurrentEnvironUUID returns the UUID for the current juju environment.
-func (u *uniterBaseAPI) CurrentEnvironUUID() (params.StringResult, error) {
+func (u *UniterAPIV3) CurrentEnvironUUID() (params.StringResult, error) {
 	result := params.StringResult{}
 	env, err := u.st.Environment()
 	if err == nil {
@@ -960,7 +1060,7 @@ func (u *uniterBaseAPI) CurrentEnvironUUID() (params.StringResult, error) {
 }
 
 // CurrentEnvironment returns the name and UUID for the current juju environment.
-func (u *uniterBaseAPI) CurrentEnvironment() (params.EnvironmentResult, error) {
+func (u *UniterAPIV3) CurrentEnvironment() (params.EnvironmentResult, error) {
 	result := params.EnvironmentResult{}
 	env, err := u.st.Environment()
 	if err == nil {
@@ -976,7 +1076,7 @@ func (u *uniterBaseAPI) CurrentEnvironment() (params.EnvironmentResult, error) {
 // TODO(dimitern): Refactor the uniter to call this instead of calling
 // EnvironConfig() just to get the provider type. Once we have machine
 // addresses, this might be completely unnecessary though.
-func (u *uniterBaseAPI) ProviderType() (params.StringResult, error) {
+func (u *UniterAPIV3) ProviderType() (params.StringResult, error) {
 	result := params.StringResult{}
 	cfg, err := u.st.EnvironConfig()
 	if err == nil {
@@ -988,7 +1088,7 @@ func (u *uniterBaseAPI) ProviderType() (params.StringResult, error) {
 // EnterScope ensures each unit has entered its scope in the relation,
 // for all of the given relation/unit pairs. See also
 // state.RelationUnit.EnterScope().
-func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, error) {
+func (u *UniterAPIV3) EnterScope(args params.RelationUnits) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -1020,7 +1120,7 @@ func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResul
 // LeaveScope signals each unit has left its scope in the relation,
 // for all of the given relation/unit pairs. See also
 // state.RelationUnit.LeaveScope().
-func (u *uniterBaseAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, error) {
+func (u *UniterAPIV3) LeaveScope(args params.RelationUnits) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -1045,7 +1145,7 @@ func (u *uniterBaseAPI) LeaveScope(args params.RelationUnits) (params.ErrorResul
 
 // ReadSettings returns the local settings of each given set of
 // relation/unit.
-func (u *uniterBaseAPI) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
+func (u *UniterAPIV3) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnits)),
 	}
@@ -1074,7 +1174,7 @@ func (u *uniterBaseAPI) ReadSettings(args params.RelationUnits) (params.Settings
 
 // ReadRemoteSettings returns the remote settings of each given set of
 // relation/local unit/remote unit.
-func (u *uniterBaseAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
+func (u *UniterAPIV3) ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
 	}
@@ -1109,7 +1209,7 @@ func (u *uniterBaseAPI) ReadRemoteSettings(args params.RelationUnitPairs) (param
 // UpdateSettings persists all changes made to the local settings of
 // all given pairs of relation and unit. Keys with empty values are
 // considered a signal to delete these values.
-func (u *uniterBaseAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
+func (u *UniterAPIV3) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -1146,7 +1246,7 @@ func (u *uniterBaseAPI) UpdateSettings(args params.RelationUnitsSettings) (param
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
 // changes to every unit in the supplied relation that is visible to
 // the supplied unit. See also state/watcher.go:RelationUnit.Watch().
-func (u *uniterBaseAPI) WatchRelationUnits(args params.RelationUnits) (params.RelationUnitsWatchResults, error) {
+func (u *UniterAPIV3) WatchRelationUnits(args params.RelationUnits) (params.RelationUnitsWatchResults, error) {
 	result := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(args.RelationUnits)),
 	}
@@ -1169,9 +1269,9 @@ func (u *uniterBaseAPI) WatchRelationUnits(args params.RelationUnits) (params.Re
 	return result, nil
 }
 
-// WatchAddresses returns a NotifyWatcher for observing changes
+// WatchUnitAddresses returns a NotifyWatcher for observing changes
 // to each unit's addresses.
-func (u *uniterBaseAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPIV3) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -1196,15 +1296,15 @@ func (u *uniterBaseAPI) WatchUnitAddresses(args params.Entities) (params.NotifyW
 	return result, nil
 }
 
-func (u *uniterBaseAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
+func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *uniterBaseAPI) getService(tag names.ServiceTag) (*state.Service, error) {
+func (u *UniterAPIV3) getService(tag names.ServiceTag) (*state.Service, error) {
 	return u.st.Service(tag.Id())
 }
 
-func (u *uniterBaseAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
+func (u *UniterAPIV3) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
 	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
 	if err != nil {
 		return nil, err
@@ -1212,7 +1312,7 @@ func (u *uniterBaseAPI) getRelationUnit(canAccess common.AuthFunc, relTag string
 	return rel.Unit(unit)
 }
 
-func (u *uniterBaseAPI) getOneRelationById(relId int) (params.RelationResult, error) {
+func (u *UniterAPIV3) getOneRelationById(relId int) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	rel, err := u.st.Relation(relId)
 	if errors.IsNotFound(err) {
@@ -1243,7 +1343,7 @@ func (u *uniterBaseAPI) getOneRelationById(relId int) (params.RelationResult, er
 	return result, nil
 }
 
-func (u *uniterBaseAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
+func (u *UniterAPIV3) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
 	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
 		return nil, nil, common.ErrPerm
@@ -1261,7 +1361,7 @@ func (u *uniterBaseAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag str
 	return rel, unit, err
 }
 
-func (u *uniterBaseAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
+func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	ep, err := rel.Endpoint(unit.ServiceName())
 	if err != nil {
@@ -1280,7 +1380,7 @@ func (u *uniterBaseAPI) prepareRelationResult(rel *state.Relation, unit *state.U
 	}, nil
 }
 
-func (u *uniterBaseAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
+func (u *UniterAPIV3) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
@@ -1293,7 +1393,7 @@ func (u *uniterBaseAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTa
 	return u.prepareRelationResult(rel, unit)
 }
 
-func (u *uniterBaseAPI) destroySubordinates(principal *state.Unit) error {
+func (u *UniterAPIV3) destroySubordinates(principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
 		unit, err := u.getUnit(names.NewUnitTag(subName))
@@ -1307,7 +1407,7 @@ func (u *uniterBaseAPI) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *uniterBaseAPI) watchOneServiceRelations(tag names.ServiceTag) (params.StringsWatchResult, error) {
+func (u *UniterAPIV3) watchOneServiceRelations(tag names.ServiceTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	service, err := u.getService(tag)
 	if err != nil {
@@ -1324,7 +1424,7 @@ func (u *uniterBaseAPI) watchOneServiceRelations(tag names.ServiceTag) (params.S
 	return nothing, watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, error) {
+func (u *UniterAPIV3) watchOneUnitConfigSettings(tag names.UnitTag) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
@@ -1343,7 +1443,7 @@ func (u *uniterBaseAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, e
 	return "", watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneUnitActionNotifications(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *UniterAPIV3) watchOneUnitActionNotifications(tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	unit, err := u.getUnit(tag)
 	if err != nil {
@@ -1360,7 +1460,7 @@ func (u *uniterBaseAPI) watchOneUnitActionNotifications(tag names.UnitTag) (para
 	return nothing, watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
+func (u *UniterAPIV3) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
@@ -1384,7 +1484,7 @@ func (u *uniterBaseAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error)
 	return "", watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
+func (u *UniterAPIV3) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
 	watch := relUnit.Watch()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
@@ -1396,7 +1496,7 @@ func (u *uniterBaseAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (param
 	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
+func (u *UniterAPIV3) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
 	// Make sure the unit is indeed remote.
 	if remoteUnitTag == u.auth.GetAuthTag().String() {
 		return "", common.ErrPerm
@@ -1425,7 +1525,7 @@ func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitT
 // authAndActionFromTagFn first authenticates the request, and then returns
 // a function with which to authenticate and retrieve each action in the
 // request.
-func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
+func (u *UniterAPIV3) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return nil, err
@@ -1521,4 +1621,44 @@ func leadershipSettingsAccessorFactory(
 		st.LeadershipChecker().LeadershipCheck,
 		writeSettings,
 	)
+}
+
+// AddMetricBatches adds the metrics for the specified unit.
+func (u *UniterAPIV3) AddMetricBatches(args params.MetricBatchParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Batches)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		logger.Warningf("failed to check unit access: %v", err)
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, batch := range args.Batches {
+		tag, err := names.ParseUnitTag(batch.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		metrics := make([]state.Metric, len(batch.Batch.Metrics))
+		for j, metric := range batch.Batch.Metrics {
+			metrics[j] = state.Metric{
+				Key:   metric.Key,
+				Value: metric.Value,
+				Time:  metric.Time,
+			}
+		}
+		_, err = u.st.AddMetrics(state.BatchParam{
+			UUID:     batch.Batch.UUID,
+			Created:  batch.Batch.Created,
+			CharmURL: batch.Batch.CharmURL,
+			Metrics:  metrics,
+			Unit:     tag,
+		})
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }

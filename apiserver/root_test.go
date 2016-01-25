@@ -382,7 +382,7 @@ func (r *rootSuite) TestDescribeFacades(c *gc.C) {
 	}
 	clientVersions := asMap["Client"]
 	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 0)
+	c.Check(clientVersions[0], gc.Equals, 1)
 }
 
 type stubStateEntity struct{ tag names.Tag }

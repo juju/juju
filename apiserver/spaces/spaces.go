@@ -18,7 +18,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 func init() {
-	common.RegisterStandardFacade("Spaces", 1, NewAPI)
+	common.RegisterStandardFacade("Spaces", 2, NewAPI)
 }
 
 // API defines the methods the Spaces API facade implements.

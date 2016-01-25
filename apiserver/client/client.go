@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Client", 0, NewClient)
+	common.RegisterStandardFacade("Client", 1, NewClient)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.client")

@@ -63,7 +63,7 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestRegistered(c *gc.C) {
-	_, err := common.Facades.GetType("Backups", 0)
+	_, err := common.Facades.GetType("Backups", 1)
 	c.Check(err, jc.ErrorIsNil)
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("StatusHistory", 1, NewAPI)
+	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.statushistory")

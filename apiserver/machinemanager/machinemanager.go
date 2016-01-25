@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("MachineManager", 1, NewMachineManagerAPI)
+	common.RegisterStandardFacade("MachineManager", 2, NewMachineManagerAPI)
 }
 
 // MachineManagerAPI provides access to the MachineManager API facade.

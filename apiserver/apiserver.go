@@ -188,8 +188,6 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		limiter:   utils.NewLimiter(loginRateLimit),
 		validator: cfg.Validator,
 		adminApiFactories: map[int]adminApiFactory{
-			0: newAdminApiV0,
-			1: newAdminApiV1,
 			2: newAdminApiV2,
 		},
 	}
@@ -492,7 +490,8 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, m
 
 func (srv *Server) mongoPinger() error {
 	timer := time.NewTimer(0)
-	session := srv.state.MongoSession()
+	session := srv.state.MongoSession().Copy()
+	defer session.Close()
 	for {
 		select {
 		case <-timer.C:
