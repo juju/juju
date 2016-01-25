@@ -54,13 +54,13 @@ func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
 
 }
 
-func (s *modelmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {
+func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	_, err := modelManager.CreateModel("not a user", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
 }
 
-func (s *modelmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {
+func (s *modelmanagerSuite) TestCreateModelMissingConfig(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	_, err := modelManager.CreateModel("owner", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `creating config from values failed: name: expected string, got nothing`)
@@ -82,13 +82,13 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
 }
 
-func (s *modelmanagerSuite) TestListEnvironmentsBadUser(c *gc.C) {
+func (s *modelmanagerSuite) TestListModelsBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	_, err := modelManager.ListModels("not a user")
 	c.Assert(err, gc.ErrorMatches, `invalid user name "not a user"`)
 }
 
-func (s *modelmanagerSuite) TestListEnvironments(c *gc.C) {
+func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "first", Owner: owner}).Close()
