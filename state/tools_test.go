@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
