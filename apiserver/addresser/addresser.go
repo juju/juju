@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Addresser", 1, NewAddresserAPI)
+	common.RegisterStandardFacade("Addresser", 2, NewAddresserAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.addresser")

@@ -23,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
 func init() {
-	common.RegisterStandardFacade("KeyManager", 0, NewKeyManagerAPI)
+	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
 }
 
 // KeyManager defines the methods on the keymanager API end point.
@@ -34,7 +34,7 @@ type KeyManager interface {
 	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 }
 
-// KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
+// KeyManagerAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyManagerAPI struct {
 	state      *state.State

@@ -18,7 +18,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.usermanager")
 
 func init() {
-	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)
+	common.RegisterStandardFacade("UserManager", 1, NewUserManagerAPI)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete

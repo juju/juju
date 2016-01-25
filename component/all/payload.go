@@ -56,7 +56,7 @@ func (payloads) newPublicFacade(st *state.State, resources *common.Resources, au
 func (c payloads) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		payload.ComponentName,
-		0,
+		1,
 		c.newPublicFacade,
 	)
 }

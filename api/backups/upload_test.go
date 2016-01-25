@@ -61,6 +61,6 @@ func (s *uploadSuite) TestFailedRequest(c *gc.C) {
 	meta.Environment = ""
 
 	id, err := s.client.Upload(archive, meta)
-	c.Assert(err, gc.ErrorMatches, `PUT https://.*/environment/.*/backups: while storing backup archive: missing Model`)
+	c.Assert(err, gc.ErrorMatches, `PUT https://.*/model/.*/backups: while storing backup archive: missing Model`)
 	c.Assert(id, gc.Equals, "")
 }

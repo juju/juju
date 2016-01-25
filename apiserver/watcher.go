@@ -16,7 +16,7 @@ import (
 
 func init() {
 	common.RegisterFacade(
-		"AllWatcher", 0, NewAllWatcher,
+		"AllWatcher", 1, NewAllWatcher,
 		reflect.TypeOf((*SrvAllWatcher)(nil)),
 	)
 	// Note: AllEnvWatcher uses the same infrastructure as AllWatcher
@@ -24,31 +24,31 @@ func init() {
 	// diverge in the future (especially in terms of authorisation
 	// checks).
 	common.RegisterFacade(
-		"AllEnvWatcher", 1, NewAllWatcher,
+		"AllEnvWatcher", 2, NewAllWatcher,
 		reflect.TypeOf((*SrvAllWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"NotifyWatcher", 0, newNotifyWatcher,
+		"NotifyWatcher", 1, newNotifyWatcher,
 		reflect.TypeOf((*srvNotifyWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"StringsWatcher", 0, newStringsWatcher,
+		"StringsWatcher", 1, newStringsWatcher,
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"RelationUnitsWatcher", 0, newRelationUnitsWatcher,
+		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
+		"VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
+		"FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"EntityWatcher", 1, newEntityWatcher,
+		"EntityWatcher", 2, newEntityWatcher,
 		reflect.TypeOf((*srvEntityWatcher)(nil)),
 	)
 }

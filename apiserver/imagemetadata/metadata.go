@@ -24,7 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 
 func init() {
-	common.RegisterStandardFacade("ImageMetadata", 1, NewAPI)
+	common.RegisterStandardFacade("ImageMetadata", 2, NewAPI)
 }
 
 // API is the concrete implementation of the api end point

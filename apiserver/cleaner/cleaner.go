@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Cleaner", 1, NewCleanerAPI)
+	common.RegisterStandardFacade("Cleaner", 2, NewCleanerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.cleaner")

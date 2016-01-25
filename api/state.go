@@ -179,9 +179,9 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
-	st.environTag = environTag
+	st.modelTag = modelTag
 	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)

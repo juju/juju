@@ -180,7 +180,7 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
-	err:        common.UnknownEnvironmentError("dead-beef-123456"),
+	err:        common.UnknownModelError("dead-beef-123456"),
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
@@ -234,7 +234,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeDischargeRequired:
 			continue
 		case params.CodeNotFound:
-			if common.IsUnknownEnviromentError(t.err) {
+			if common.IsUnknownModelError(t.err) {
 				continue
 			}
 		case params.CodeOperationBlocked:
@@ -259,8 +259,8 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	}
 }
 
-func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
-	err := common.UnknownEnvironmentError("dead-beef")
+func (s *errorsSuite) TestUnknownModel(c *gc.C) {
+	err := common.UnknownModelError("dead-beef")
 	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
 }
 

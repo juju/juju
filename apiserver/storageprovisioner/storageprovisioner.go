@@ -20,7 +20,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.storageprovisioner")
 
 func init() {
-	common.RegisterStandardFacade("StorageProvisioner", 1, NewStorageProvisionerAPI)
+	common.RegisterStandardFacade("StorageProvisioner", 2, NewStorageProvisionerAPI)
 }
 
 // StorageProvisionerAPI provides access to the Provisioner API facade.

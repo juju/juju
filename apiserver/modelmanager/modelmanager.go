@@ -24,7 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
 func init() {
-	common.RegisterStandardFacade("ModelManager", 1, NewModelManagerAPI)
+	common.RegisterStandardFacade("ModelManager", 2, NewModelManagerAPI)
 }
 
 // ModelManager defines the methods on the modelmanager API end

@@ -469,44 +469,6 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
 	return result.OneError()
 }
 
-// OpenPort sets the policy of the port with protocol and number to be
-// opened.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use OpenPorts instead.
-func (u *Unit) OpenPort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("OpenPort", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// ClosePort sets the policy of the port with protocol and number to
-// be closed.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use ClosePorts instead.
-func (u *Unit) ClosePort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("ClosePort", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.

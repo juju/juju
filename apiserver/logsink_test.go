@@ -32,7 +32,7 @@ type logsinkBaseSuite struct {
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/environment/"+s.State.EnvironUUID()+"/logsink", nil)
+	return s.makeURL(c, scheme, "/model/"+s.State.EnvironUUID()+"/logsink", nil)
 }
 
 type logsinkSuite struct {
@@ -59,7 +59,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
-	reader := s.openWebsocketCustomPath(c, "/environment/does-not-exist/logsink")
+	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	s.assertWebsocketClosed(c, reader)
 }

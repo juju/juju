@@ -318,11 +318,11 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 
 	// this call should always work
 	var result params.FullStatus
-	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
+	err = apiState.APICall("Client", 1, "", "FullStatus", nil, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
-	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
+	return apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
 }
 
 var upgradeTestDialOpts = api.DialOpts{

@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Storage", 1, NewAPI)
+	common.RegisterStandardFacade("Storage", 2, NewAPI)
 }
 
 // API implements the storage interface and is the concrete
