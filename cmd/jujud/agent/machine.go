@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -98,7 +97,6 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -761,17 +759,9 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 	})
 
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		rsyslogMode := rsyslog.RsyslogModeForwarding
-		if isEnvironManager {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-		}
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
-			}
-			return w, nil
+	if !isEnvironManager {
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
 		})
 	}
 

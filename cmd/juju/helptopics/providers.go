@@ -218,17 +218,33 @@ A generic Windows Azure environment looks like this:
     # Location for instances, e.g. West US, North Europe.
     location: West US
 
-    # http://msdn.microsoft.com/en-us/library/windowsazure
-    # Windows Azure Management info.
-    management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
-    management-certificate-path: /home/me/azure.pem
+    # application-id is the ID of an application you create in Azure Active
+    # Directory for Juju to use. For instructions on how to do this, see:
+    #   https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal
+    application-id: 00000000-0000-0000-0000-000000000000
 
-    # Windows Azure Storage info.
-    storage-account-name: juju0useast0
+    # application-password is the password specified when creating the
+    # application in Azure Active Directory.
+    application-password: XXX
 
-    # Override OS image selection with a fixed image for all deployments.
-    # Most useful for developers.
-    # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
+    # subscription-id defines the Azure account subscription ID to
+    # manage resources in. You can list your account subscriptions
+    # with the Azure CLI's "account list" action: "azure account list".
+    # The ID associated with each account is the subscription ID.
+    subscription-id: 00000000-0000-0000-0000-000000000000
+
+    # tenant-id is the ID of the Azure tenant, which identifies the Azure
+    # Active Directory instance. You can obtain this ID by using the Azure
+    # CLI's "account show" action. First list your accounts with
+    # "azure account list", and then feed the account ID to
+    # "azure account show" to obtain the properties of the account, including
+    # the tenant ID.
+    tenant-id: 00000000-0000-0000-0000-000000000000
+
+    # storage-account-type specifies the type of the storage account,
+    # which defines the replication strategy and support for different
+    # disk types.
+    storage-account-type: Standard_LRS
 
     # image-stream chooses a simplestreams stream from which to select
     # OS images, for example daily or released images (or any other stream
@@ -243,8 +259,8 @@ A generic Windows Azure environment looks like this:
     # agent-stream: "released"
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
-You will need to set the management-subscription-id, management-certificate-
-path, and storage-account-name.
+You will need to set application-id, application-password, subscription-id,
+and tenant-id.
 
 Note: Other than location, the defaults are recommended, but can be updated to
 your preference.
