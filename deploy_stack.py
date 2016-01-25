@@ -94,7 +94,7 @@ def deploy_dummy_stack(client, charm_prefix):
 
 def assess_juju_relations(client):
     token = get_random_string()
-    client.juju('set', ('dummy-source', 'token=%s' % token))
+    client.set_config('dummy-source', {'token': token})
     check_token(client, token)
 
 

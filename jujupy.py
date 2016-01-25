@@ -406,6 +406,10 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed')
 
+    def set_config(self, service, options):
+        option_strings = ['{}={}'.format(*item) for item in options.items()]
+        self.juju('set-config', (service,) + tuple(option_strings))
+
     def get_config(self, service):
         return yaml_loads(self.get_juju_output('get-config', service))
 
@@ -930,6 +934,10 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def add_subnet(self, subnet, space):
         self.juju('subnet add', (subnet, space))
+
+    def set_config(self, service, options):
+        option_strings = ['{}={}'.format(*item) for item in options.items()]
+        self.juju('set', (service,) + tuple(option_strings))
 
     def get_config(self, service):
         return yaml_loads(self.get_juju_output('get', service))

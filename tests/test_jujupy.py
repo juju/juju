@@ -333,6 +333,10 @@ class FakeJujuClient:
     def status_until(self, timeout):
         yield self.get_status()
 
+    def set_config(self, service, options):
+        option_strings = ['{}={}'.format(*item) for item in options.items()]
+        self.juju('set', (service,) + tuple(option_strings))
+
     def get_config(self, service):
         pass
 
@@ -1962,6 +1966,12 @@ class TestEnvJujuClient(ClientTest):
             environ = client._shell_environ()
         self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
 
+    def test_set_config(self):
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_config('foo', {'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+
     def test_get_config(self):
         def output(*args, **kwargs):
             return yaml.safe_dump({
@@ -3376,6 +3386,12 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('os.pathsep', '!'):
             environ = client._shell_environ()
         self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
+
+    def test_set_config(self):
+        client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_config('foo', {'bar': 'baz'})
+        juju_mock.assert_called_once_with('set', ('foo', 'bar=baz'))
 
     def test_get_config(self):
         def output(*args, **kwargs):
