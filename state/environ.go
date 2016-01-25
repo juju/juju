@@ -132,7 +132,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 
 	ssEnv, err := st.ControllerEnvironment()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load state server model")
+		return nil, nil, errors.Annotate(err, "could not load controller model")
 	}
 
 	uuid, ok := cfg.UUID()

@@ -50,7 +50,7 @@ func (s *charmSuite) TestURL(c *gc.C) {
 func (s *charmSuite) TestArchiveURLs(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	url, err := url.Parse(fmt.Sprintf(
-		"https://0.1.2.3:1234/environment/%s/charms?file=%s&url=%s",
+		"https://0.1.2.3:1234/model/%s/charms?file=%s&url=%s",
 		apiInfo.EnvironTag.Id(),
 		url.QueryEscape("*"),
 		url.QueryEscape(s.apiCharm.URL().String()),

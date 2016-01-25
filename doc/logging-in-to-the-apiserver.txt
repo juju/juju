@@ -34,7 +34,7 @@ Server struct has a map of adminApiFactories. This currently has keys of
 The Server instance is created with NewServer, and listens on the API port.
 
 The incoming socket connection is handled inside the (*Server).run method.
- - "/environment/:envuuid/api" -> srv.apiHandler
+ - "/model/:modeluuid/api" -> srv.apiHandler
  - "/" -> srv.apiHandler
 
 The apiHandler creates a go routine for handling the socket connection, and

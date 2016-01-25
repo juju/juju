@@ -48,21 +48,21 @@ type apiHandler struct {
 	entity           state.Entity
 	mongoUnavailable *uint32
 	// An empty envUUID means that the user has logged in through the
-	// root of the API server rather than the /environment/:env-uuid/api
+	// root of the API server rather than the /model/:env-uuid/api
 	// path, logins processed with v2 or later will only offer the
-	// user manager and environment manager api endpoints from here.
-	envUUID string
+	// user manager and model manager api endpoints from here.
+	modelUUID string
 }
 
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:            st,
 		resources:        common.NewResources(),
 		rpcConn:          rpcConn,
-		envUUID:          envUUID,
+		modelUUID:        modelUUID,
 		mongoUnavailable: &srv.mongoUnavailable,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {

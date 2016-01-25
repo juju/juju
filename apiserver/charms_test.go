@@ -39,7 +39,7 @@ func (s *charmsCommonSuite) charmsURL(c *gc.C, query string) *url.URL {
 	if s.envUUID == "" {
 		uri.Path = "/charms"
 	} else {
-		uri.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+		uri.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
 	}
 	uri.RawQuery = query
 	return uri
@@ -246,7 +246,7 @@ func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
@@ -257,7 +257,7 @@ func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.EnvironUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
@@ -266,7 +266,7 @@ func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
@@ -429,7 +429,7 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.envUUID)
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
@@ -440,14 +440,14 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.EnvironUUID())
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
