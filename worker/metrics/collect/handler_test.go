@@ -4,11 +4,14 @@
 package collect_test
 
 import (
-	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
@@ -18,11 +21,10 @@ import (
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-type listenerSuite struct {
+type handlerSuite struct {
 	coretesting.BaseSuite
 
 	manifoldConfig collect.ManifoldConfig
@@ -30,11 +32,13 @@ type listenerSuite struct {
 	dataDir        string
 	dummyResources dt.StubResources
 	getResource    dependency.GetResourceFunc
+	recorder       *dummyRecorder
+	listener       *mockListener
 }
 
-var _ = gc.Suite(&listenerSuite{})
+var _ = gc.Suite(&handlerSuite{})
 
-func (s *listenerSuite) SetUpTest(c *gc.C) {
+func (s *handlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
 		AgentName:       "agent-name",
@@ -54,39 +58,8 @@ func (s *listenerSuite) SetUpTest(c *gc.C) {
 		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
-}
 
-func (s *listenerSuite) TestListenerStart(c *gc.C) {
-	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
-			// Return a dummyRecorder here, because otherwise a real one
-			// *might* get instantiated and error out, if the periodic worker
-			// happens to fire before the worker shuts down (as seen in
-			// LP:#1497355).
-			return &dummyRecorder{
-				charmURL: "local:trusty/metered-1",
-				unitTag:  "metered/0",
-			}, nil
-		})
-	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("local:trusty/metered-1"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
-		})
-	s.PatchValue(collect.SocketPath,
-		func(p uniter.Paths) string {
-			return filepath.Join(s.dataDir, "metrics-collect.socket")
-		})
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *listenerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
-	recorder := &dummyRecorder{
+	s.recorder = &dummyRecorder{
 		charmURL: "local:trusty/metered-1",
 		unitTag:  "metered/0",
 	}
@@ -96,40 +69,111 @@ func (s *listenerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 			// *might* get instantiated and error out, if the periodic worker
 			// happens to fire before the worker shuts down (as seen in
 			// LP:#1497355).
-			return recorder, nil
-		})
+			return s.recorder, nil
+		},
+	)
 	s.PatchValue(collect.ReadCharm,
 		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("local:trusty/metered-1"), map[string]corecharm.Metric{
-				"pings": corecharm.Metric{
-					Description: "test metric",
-					Type:        corecharm.MetricTypeAbsolute,
-				},
-				"juju-units": corecharm.Metric{
-					Description: "built in metric",
-					Type:        corecharm.MetricTypeAbsolute,
-				},
-			}, nil
-		})
-	s.PatchValue(collect.SocketPath,
-		func(p uniter.Paths) string {
-			return filepath.Join(s.dataDir, "metrics-collect.socket")
-		})
+			return corecharm.MustParseURL("local:trusty/metered-1"),
+				map[string]corecharm.Metric{
+					"pings":      corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute},
+					"juju-units": corecharm.Metric{},
+				}, nil
+		},
+	)
+	s.listener = &mockListener{}
+	s.PatchValue(collect.NewSocketListener, collect.NewSocketListenerFnc(s.listener))
+}
+
+func (s *handlerSuite) TestListenerStart(c *gc.C) {
+
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
-
-	readCloser, err := dial(filepath.Join(s.dataDir, "metrics-collect.socket"))
+	c.Assert(s.listener.Calls(), gc.HasLen, 0)
+	worker.Kill()
+	err = worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
-	defer readCloser.Close()
-	decoder := json.NewDecoder(readCloser)
-	var batches []spool.MetricBatch
-	err = decoder.Decode(&batches)
+	s.listener.CheckCall(c, 0, "Stop")
+}
+
+func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
+	getResource := dt.StubGetResource(s.dummyResources)
+	worker, err := s.manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	c.Assert(s.listener.Calls(), gc.HasLen, 0)
+
+	conn, err := s.listener.trigger()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn.Calls(), gc.HasLen, 3)
+	conn.CheckCall(c, 2, "Close")
+
+	tmpDir := strings.Trim(string(conn.data), " \n\t")
+	reader, err := spool.NewJSONMetricReader(tmpDir)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := reader.Close()
+		c.Assert(err, jc.ErrorIsNil)
+		err = os.RemoveAll(string(conn.data))
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 
 	worker.Kill()
 	err = worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
+	s.listener.CheckCall(c, 0, "Stop")
+}
+
+type mockListener struct {
+	testing.Stub
+	handler spool.ConnectionHandler
+}
+
+func (l *mockListener) trigger() (*mockConnection, error) {
+	conn := &mockConnection{}
+	err := l.handler.Handle(conn)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+// Stop implements the stopper interface.
+func (l *mockListener) Stop() {
+	l.AddCall("Stop")
+}
+
+func (l *mockListener) SetHandler(handler spool.ConnectionHandler) {
+	l.handler = handler
+}
+
+type mockConnection struct {
+	net.Conn
+	testing.Stub
+	data []byte
+}
+
+// SetDeadline implements the net.Conn interface.
+func (c *mockConnection) SetDeadline(t time.Time) error {
+	c.AddCall("SetDeadline", t)
+	return nil
+}
+
+// Write implements the net.Conn interface.
+func (c *mockConnection) Write(data []byte) (int, error) {
+	c.AddCall("Write", data)
+	c.data = data
+	return len(data), nil
+}
+
+// Close implements the net.Conn interface.
+func (c *mockConnection) Close() error {
+	c.AddCall("Close")
+	return nil
 }

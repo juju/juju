@@ -6,6 +6,13 @@
 package sender
 
 import (
+	"bufio"
+	"net"
+	"os"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/metricsadder"
@@ -13,9 +20,18 @@ import (
 	"github.com/juju/juju/worker/metrics/spool"
 )
 
+const (
+	defaultSocketName = "metrics-send.socket"
+)
+
+type stopper interface {
+	Stop()
+}
+
 type sender struct {
-	client  metricsadder.MetricsAdderClient
-	factory spool.MetricFactory
+	client   metricsadder.MetricsAdderClient
+	factory  spool.MetricFactory
+	listener stopper
 }
 
 // Do sends metrics from the metric spool to the
@@ -25,12 +41,16 @@ func (s *sender) Do(stop <-chan struct{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer reader.Close()
+	return s.sendMetrics(reader)
+}
+
+func (s *sender) sendMetrics(reader spool.MetricReader) error {
 	batches, err := reader.Read()
 	if err != nil {
 		logger.Warningf("failed to open the metric reader: %v", err)
 		return errors.Trace(err)
 	}
-	defer reader.Close()
 	var sendBatches []params.MetricBatchParam
 	for _, batch := range batches {
 		sendBatches = append(sendBatches, spool.APIMetricBatch(batch))
@@ -56,9 +76,42 @@ func (s *sender) Do(stop <-chan struct{}) error {
 	return nil
 }
 
-func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory) sender {
-	return sender{
+// Handle sends metrics from the spool directory to the
+func (s *sender) Handle(c net.Conn) error {
+	defer c.Close()
+	err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
+	if err != nil {
+		return errors.Annotate(err, "failed to set the deadline")
+	}
+	tmpDir, err := bufio.NewReader(c).ReadString('\n')
+	if err != nil {
+		return errors.Annotate(err, "failed to read the temporary spool directory")
+	}
+	spoolDir := strings.Trim(tmpDir, " \n\t")
+	reader, err := spool.NewJSONMetricReader(spoolDir)
+	if err != nil {
+		return errors.Annotate(err, "failed to create the metric reader")
+	}
+	defer reader.Close()
+	defer os.RemoveAll(spoolDir)
+	return s.sendMetrics(reader)
+}
+
+func (s *sender) stop() {
+	if s.listener != nil {
+		s.listener.Stop()
+	}
+}
+
+func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory, baseDir string) (*sender, error) {
+	s := &sender{
 		client:  client,
 		factory: factory,
 	}
+	listener, err := spool.NewSocketListener(path.Join(baseDir, defaultSocketName), s)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	s.listener = listener
+	return s, nil
 }

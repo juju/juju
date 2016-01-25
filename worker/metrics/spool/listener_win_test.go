@@ -3,7 +3,7 @@
 
 // +build windows
 
-package collect_test
+package spool_test
 
 import (
 	"io"

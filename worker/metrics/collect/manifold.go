@@ -29,7 +29,10 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-const defaultPeriod = 5 * time.Minute
+const (
+	defaultPeriod     = 5 * time.Minute
+	defaultSocketName = "metrics-collect.socket"
+)
 
 var (
 	logger = loggo.GetLogger("juju.worker.metrics.collect")
@@ -55,10 +58,6 @@ var (
 		return chURL, charmMetrics, nil
 	}
 
-	socketPath = func(p uniter.Paths) string {
-		return path.Join(p.State.BaseDir, "metrics-collect.socket")
-	}
-
 	// newRecorder returns a struct that implements the spool.MetricRecorder
 	// interface.
 	newRecorder = func(unitTag names.UnitTag, paths context.Paths, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
@@ -71,7 +70,15 @@ var (
 		}
 		return metricFactory.Recorder(charmMetrics, chURL.String(), unitTag.String())
 	}
+
+	newSocketListener = func(path string, handler spool.ConnectionHandler) (stopper, error) {
+		return spool.NewSocketListener(path, handler)
+	}
 )
+
+type stopper interface {
+	Stop()
+}
 
 // ManifoldConfig identifies the resource names upon which the collect manifold
 // depends.
@@ -96,29 +103,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, err
 			}
-			return newPeriodicWorker(collector.Do, collector.period, worker.NewTimer, collector.stop), nil
+			return spool.NewPeriodicWorker(collector.Do, collector.period, worker.NewTimer, collector.stop), nil
 		},
 	}
-}
-
-// newPeriodicWorker returns a periodic worker, that will call a stop function
-// when it is killed.
-func newPeriodicWorker(do worker.PeriodicWorkerCall, period time.Duration, newTimer func(time.Duration) worker.PeriodicTimer, stop func()) worker.Worker {
-	return &periodicWorker{
-		Worker: worker.NewPeriodicWorker(do, period, newTimer),
-		stop:   stop,
-	}
-}
-
-type periodicWorker struct {
-	worker.Worker
-	stop func()
-}
-
-// Kill implements the worker.Worker interface.
-func (w *periodicWorker) Kill() {
-	w.stop()
-	w.Worker.Kill()
 }
 
 func newCollect(config ManifoldConfig, getResource dependency.GetResourceFunc) (*collect, error) {
@@ -155,20 +142,19 @@ func newCollect(config ManifoldConfig, getResource dependency.GetResourceFunc) (
 		unitTag: unitTag.String(),
 		paths:   paths,
 	}
-	var listener *socketListener
+	var listener stopper
 	charmURL, validMetrics, err := readCharm(unitTag, paths)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(validMetrics) > 0 && charmURL.Schema == "local" {
-		listener, err = newSocketListener(
-			socketPath(paths),
-			socketListenerConfig{
-				unitTag:      unitTag,
-				charmURL:     charmURL,
-				validMetrics: validMetrics,
-				runner:       runner,
-			})
+		h := newHandler(handlerConfig{
+			unitTag:      unitTag,
+			charmURL:     charmURL,
+			validMetrics: validMetrics,
+			runner:       runner,
+		})
+		listener, err = newSocketListener(path.Join(paths.State.BaseDir, defaultSocketName), h)
 		if err != nil {
 			return nil, err
 		}
@@ -190,13 +176,13 @@ type collect struct {
 	agent         agent.Agent
 	metricFactory spool.MetricFactory
 	charmdir      fortress.Guest
-	listener      *socketListener
+	listener      stopper
 	runner        *hookRunner
 }
 
 func (w *collect) stop() {
 	if w.listener != nil {
-		w.listener.stop()
+		w.listener.Stop()
 	}
 }
 

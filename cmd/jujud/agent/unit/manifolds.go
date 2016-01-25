@@ -180,6 +180,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The metric sender worker periodically sends accumulated metrics to the state server.
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
+			AgentName:       AgentName,
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
 		}),

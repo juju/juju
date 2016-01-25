@@ -238,6 +238,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())
+	r.Register(metricsdebug.NewCollectMetricsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
