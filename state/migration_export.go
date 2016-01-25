@@ -134,10 +134,6 @@ func (e *exporter) machines() error {
 	return nil
 }
 
-func (e *exporter) machineJob(job MachineJob) string {
-
-}
-
 func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, instances map[string]instanceData) (migration.Machine, error) {
 	args := migration.MachineArgs{
 		Id:            machine.MachineTag(),
@@ -149,7 +145,7 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 	}
 
 	if supported, ok := machine.SupportedContainers(); ok {
-		containers = make([]string, len(supported))
+		containers := make([]string, len(supported))
 		for i, containerType := range supported {
 			containers[i] = string(containerType)
 		}
@@ -202,7 +198,7 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 func (e *exporter) newAddressArgsSlice(a []address) []migration.AddressArgs {
 	result := []migration.AddressArgs{}
 	for _, addr := range a {
-		result = append(result, e.newaddressArgs(addr))
+		result = append(result, e.newAddressArgs(addr))
 	}
 	return result
 }
