@@ -56,7 +56,7 @@ func NewModelManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	urlGetter := common.NewToolsURLGetter(st.EnvironUUID(), st)
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
 		state:       getState(st),
 		authorizer:  authorizer,

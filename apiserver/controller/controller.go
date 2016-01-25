@@ -157,7 +157,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	}
 
 	for uuid, blocks := range envBlocks {
-		envInfo, err := s.state.GetEnvironment(names.NewEnvironTag(uuid))
+		envInfo, err := s.state.GetEnvironment(names.NewModelTag(uuid))
 		if err != nil {
 			logger.Debugf("Unable to get name for model: %s", uuid)
 			continue
@@ -259,11 +259,11 @@ func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResu
 
 func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 	var status params.ModelStatus
-	envTag, err := names.ParseEnvironTag(tag)
+	modelTag, err := names.ParseModelTag(tag)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	st, err := c.state.ForEnviron(envTag)
+	st, err := c.state.ForEnviron(modelTag)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -286,7 +286,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
 	}

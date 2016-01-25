@@ -30,7 +30,7 @@ const logsC = "logs"
 // LoggingState describes the methods on State required for logging to
 // the database.
 type LoggingState interface {
-	EnvironUUID() string
+	ModelUUID() string
 	MongoSession() *mgo.Session
 }
 
@@ -75,7 +75,7 @@ func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
-		modelUUID: st.EnvironUUID(),
+		modelUUID: st.ModelUUID(),
 		entity:    entity.String(),
 	}
 }
@@ -170,7 +170,7 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		modelUUID: st.EnvironUUID(),
+		modelUUID: st.ModelUUID(),
 		session:   session,
 		logsColl:  session.DB(logsDB).C(logsC).With(session),
 		params:    params,

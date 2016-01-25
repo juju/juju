@@ -32,7 +32,7 @@ type logsinkBaseSuite struct {
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/model/"+s.State.EnvironUUID()+"/logsink", nil)
+	return s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
 }
 
 type logsinkSuite struct {
@@ -145,7 +145,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	modelUUID := s.State.EnvironUUID()
+	modelUUID := s.State.ModelUUID()
 	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
 	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())

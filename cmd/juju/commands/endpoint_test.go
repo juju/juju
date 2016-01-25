@@ -276,7 +276,7 @@ func (s *EndpointSuite) runAndCheckOutput(c *gc.C, format string, output []inter
 
 // getStoreInfo returns the current environment's EnvironInfo.
 func (s *EndpointSuite) getStoreInfo(c *gc.C) configstore.EnvironInfo {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := s.ConfigStore.ReadInfo(env.Name())
 	c.Assert(err, jc.ErrorIsNil)

@@ -21,15 +21,15 @@ var _ = gc.Suite(&statePoolSuite{})
 
 func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.ModelUUID = s.State.EnvironUUID()
+	s.ModelUUID = s.State.ModelUUID()
 
 	s.State1 = s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State1.Close() })
-	s.EnvUUID1 = s.State1.EnvironUUID()
+	s.EnvUUID1 = s.State1.ModelUUID()
 
 	s.State2 = s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
-	s.EnvUUID2 = s.State2.EnvironUUID()
+	s.EnvUUID2 = s.State2.ModelUUID()
 }
 
 func (s *statePoolSuite) TestGet(c *gc.C) {
@@ -38,11 +38,11 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 
 	st1, err := p.Get(s.EnvUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1.EnvironUUID(), gc.Equals, s.EnvUUID1)
+	c.Assert(st1.ModelUUID(), gc.Equals, s.EnvUUID1)
 
 	st2, err := p.Get(s.EnvUUID2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st2.EnvironUUID(), gc.Equals, s.EnvUUID2)
+	c.Assert(st2.ModelUUID(), gc.Equals, s.EnvUUID2)
 
 	// Check that the same instances are returned
 	// when a State for the same env is re-requested.
@@ -90,7 +90,7 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Confirm that state server State isn't closed.
-	_, err = s.State.Environment()
+	_, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that new ones are returned if further States are

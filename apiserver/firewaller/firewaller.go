@@ -48,7 +48,7 @@ func NewFirewallerAPI(
 		return nil, common.ErrPerm
 	}
 	// Set up the various authorization checkers.
-	accessEnviron := common.AuthFuncForTagKind(names.EnvironTagKind)
+	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessService := common.AuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)

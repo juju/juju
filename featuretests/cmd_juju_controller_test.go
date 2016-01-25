@@ -138,7 +138,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		for a.Next() {
 			err := s.State.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
-			err = st.ProcessDyingEnviron()
+			err = st.ProcessDyingModel()
 			if errors.Cause(err) != state.ErrEnvironmentNotDying {
 				c.Check(err, jc.ErrorIsNil)
 				if err == nil {
@@ -198,7 +198,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
 	expected := fmt.Sprintf(`[{"name":"dummymodel","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
-		s.State.EnvironUUID(), s.AdminUserTag(c).String())
+		s.State.ModelUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Check(strippedOut, gc.Equals, expected)

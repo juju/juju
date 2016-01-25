@@ -2834,7 +2834,7 @@ func (e expect) step(c *gc.C, ctx *context) {
 type setToolsUpgradeAvailable struct{}
 
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
-	env, err := ctx.st.Environment()
+	env, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.UpdateLatestToolsVersion(nextVersion())
 	c.Assert(err, jc.ErrorIsNil)

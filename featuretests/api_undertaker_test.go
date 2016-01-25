@@ -31,7 +31,7 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 		undertakerClient := undertaker.NewClient(conn)
 		c.Assert(undertakerClient, gc.NotNil)
 
-		_, err := undertakerClient.EnvironInfo()
+		_, err := undertakerClient.ModelInfo()
 		c.Assert(err, gc.ErrorMatches, "permission denied")
 	}
 }
@@ -41,12 +41,12 @@ func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	result, err := undertakerClient.EnvironInfo()
+	result, err := undertakerClient.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Error, gc.IsNil)
 	info := result.Result
-	c.Assert(info.UUID, gc.Equals, coretesting.EnvironmentTag.Id())
+	c.Assert(info.UUID, gc.Equals, coretesting.ModelTag.Id())
 	c.Assert(info.Name, gc.Equals, "dummymodel")
 	c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin@local/dummymodel")
 	c.Assert(info.IsSystem, jc.IsTrue)
@@ -59,16 +59,16 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	err := undertakerClient.ProcessDyingEnviron()
+	err := undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	err = undertakerClient.ProcessDyingEnviron()
+	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
 }
 
@@ -83,12 +83,12 @@ func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	result, err := undertakerClient.EnvironInfo()
+	result, err := undertakerClient.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Error, gc.IsNil)
 	envInfo := result.Result
-	c.Assert(envInfo.UUID, gc.Equals, otherSt.EnvironUUID())
+	c.Assert(envInfo.UUID, gc.Equals, otherSt.ModelUUID())
 	c.Assert(envInfo.Name, gc.Equals, "hosted_env")
 	c.Assert(envInfo.GlobalName, gc.Equals, "user-dummy-admin@local/hosted_env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
@@ -100,21 +100,21 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	err := undertakerClient.ProcessDyingEnviron()
+	err := undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
 
-	result, err := undertakerClient.EnvironInfo()
+	result, err := undertakerClient.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -145,7 +145,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err := undertakerClient.RemoveEnviron()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
@@ -153,10 +153,10 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err = undertakerClient.RemoveEnviron()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
-	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(undertakerClient.RemoveEnviron(), jc.ErrorIsNil)
-	c.Assert(otherSt.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
 }
 
 func (s *undertakerSuite) TestHostedEnvironConfig(c *gc.C) {
@@ -167,7 +167,7 @@ func (s *undertakerSuite) TestHostedEnvironConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, otherSt.EnvironUUID())
+	c.Assert(uuid, gc.Equals, otherSt.ModelUUID())
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
@@ -187,7 +187,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.EnvironTag = otherState.EnvironTag()
+	info.ModelTag = otherState.ModelTag()
 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)

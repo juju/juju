@@ -56,7 +56,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker := storageprovisioner.NewStorageProvisioner(
-		coretesting.EnvironmentTag,
+		coretesting.ModelTag,
 		"dir",
 		newMockVolumeAccessor(),
 		newMockFilesystemAccessor(),
@@ -1696,7 +1696,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args = &workerArgs{}
 	}
 	if args.scope == nil {
-		args.scope = coretesting.EnvironmentTag
+		args.scope = coretesting.ModelTag
 	}
 	if args.volumes == nil {
 		args.volumes = newMockVolumeAccessor()

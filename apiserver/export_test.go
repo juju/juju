@@ -91,7 +91,7 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state: srvSt,
 		tag:   names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil, st.EnvironUUID())
+	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
@@ -120,11 +120,11 @@ func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
 	return r, nil
 }
 
-var PreFacadeEnvironTag = names.NewEnvironTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
+var PreFacadeEnvironTag = names.NewModelTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
 
 func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 	return params.LoginResult{
-		EnvironTag: PreFacadeEnvironTag.String(),
+		ModelTag: PreFacadeEnvironTag.String(),
 	}, nil
 }
 

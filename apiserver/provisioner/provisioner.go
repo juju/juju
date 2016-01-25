@@ -110,7 +110,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}

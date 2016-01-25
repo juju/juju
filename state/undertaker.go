@@ -10,11 +10,11 @@ import (
 
 var ErrEnvironmentNotDying = errors.New("model is not dying")
 
-// ProcessDyingEnviron checks if there are any machines or services left in
+// ProcessDyingModel checks if there are any machines or services left in
 // state. If there are none, the environment's life is changed from dying to dead.
-func (st *State) ProcessDyingEnviron() (err error) {
+func (st *State) ProcessDyingModel() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -29,7 +29,7 @@ func (st *State) ProcessDyingEnviron() (err error) {
 				return nil, errors.Trace(err)
 			}
 			for _, env := range envs {
-				if env.UUID() != st.EnvironUUID() && env.Life() != Dead {
+				if env.UUID() != st.ModelUUID() && env.Life() != Dead {
 					return nil, errors.Errorf("one or more hosted models are not yet dead")
 				}
 			}
@@ -50,8 +50,8 @@ func (st *State) ProcessDyingEnviron() (err error) {
 			return nil, errors.Errorf("model not empty, found %d service(s)", l)
 		}
 		return []txn.Op{{
-			C:      environmentsC,
-			Id:     st.EnvironUUID(),
+			C:      modelsC,
+			Id:     st.ModelUUID(),
 			Assert: isDyingDoc,
 			Update: bson.M{"$set": bson.M{
 				"life":          Dead,

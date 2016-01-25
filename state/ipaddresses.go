@@ -37,7 +37,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 	addressID := st.docID(addr.Value)
 	ipDoc := ipaddressDoc{
 		DocID:     addressID,
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		UUID:      uuid.String(),
 		Life:      Alive,
 		State:     AddressStateUnknown,
@@ -49,7 +49,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertEnvAliveOp(st.ModelUUID()),
 		{
 			C:      ipaddressesC,
 			Id:     addressID,
@@ -412,7 +412,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 
 		}
 		return []txn.Op{
-			assertEnvAliveOp(i.st.EnvironUUID()),
+			assertEnvAliveOp(i.st.ModelUUID()),
 			{
 				C:      ipaddressesC,
 				Id:     i.doc.DocID,

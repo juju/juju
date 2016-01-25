@@ -41,7 +41,7 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 	})
 	s.openError = nil
 	s.apiConnection = &mockAPIConnection{
-		controllerTag: testing.EnvironmentTag,
+		controllerTag: testing.ModelTag,
 		addr:          "192.168.2.1:1234",
 	}
 	s.username = "valid-user"
@@ -134,7 +134,7 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 }
 
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
-	s.apiConnection.controllerTag = names.EnvironTag{}
+	s.apiConnection.controllerTag = names.ModelTag{}
 	_, err := s.runServerFile(c)
 	c.Assert(err, gc.ErrorMatches, `juju controller too old to support login`)
 }
@@ -153,8 +153,8 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(creds.Password, gc.Equals, s.apiConnection.password)
 	endpoint := info.APIEndpoint()
 	c.Assert(endpoint.CACert, gc.Equals, "a-cert")
-	c.Assert(endpoint.EnvironUUID, gc.Equals, "")
-	c.Assert(endpoint.ServerUUID, gc.Equals, testing.EnvironmentTag.Id())
+	c.Assert(endpoint.ModelUUID, gc.Equals, "")
+	c.Assert(endpoint.ServerUUID, gc.Equals, testing.ModelTag.Id())
 	c.Assert(endpoint.Addresses, jc.DeepEquals, []string{"192.168.2.1:1234"})
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, []string{"192.168.2.1:1234"})
 
@@ -193,7 +193,7 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 	info := s.apiConnection.info
 	c.Assert(info.Addrs, jc.DeepEquals, []string{"192.168.2.1:1234", "192.168.2.2:1234"})
 	c.Assert(info.CACert, gc.Equals, "a-cert")
-	c.Assert(info.EnvironTag.Id(), gc.Equals, "")
+	c.Assert(info.ModelTag.Id(), gc.Equals, "")
 	c.Assert(info.Tag.Id(), gc.Equals, "valid-user@local")
 	c.Assert(info.Password, gc.Equals, "sekrit")
 	c.Assert(info.Nonce, gc.Equals, "")
@@ -213,7 +213,7 @@ type mockAPIConnection struct {
 	opts          api.DialOpts
 	addr          string
 	apiHostPorts  [][]network.HostPort
-	controllerTag names.EnvironTag
+	controllerTag names.ModelTag
 	username      string
 	password      string
 }
@@ -230,7 +230,7 @@ func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	return m.apiHostPorts
 }
 
-func (m *mockAPIConnection) ControllerTag() (names.EnvironTag, error) {
+func (m *mockAPIConnection) ControllerTag() (names.ModelTag, error) {
 	if m.controllerTag.Id() == "" {
 		return m.controllerTag, errors.New("no server tag")
 	}

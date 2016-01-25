@@ -349,7 +349,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 // ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() string {
-	tag, err := c.st.EnvironTag()
+	tag, err := c.st.ModelTag()
 	if err != nil {
 		logger.Warningf("model tag not an model: %v", err)
 		return ""
@@ -692,13 +692,13 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 // This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
-	envTag, err := c.st.EnvironTag()
+	modelTag, err := c.st.ModelTag()
 	if err != nil {
 		return params.StateServersChanges{}, errors.Trace(err)
 	}
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
-			EnvironTag:      envTag.String(),
+			ModelTag:        modelTag.String(),
 			NumStateServers: numStateServers,
 			Constraints:     cons,
 			Series:          series,

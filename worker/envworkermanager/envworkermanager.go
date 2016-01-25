@@ -49,9 +49,9 @@ func NewEnvWorkerManager(
 // funcs. It mainly exists to support testing.
 type InitialState interface {
 	WatchEnvironments() state.StringsWatcher
-	ForEnviron(names.EnvironTag) (*state.State, error)
-	GetEnvironment(names.EnvironTag) (*state.Environment, error)
-	EnvironUUID() string
+	ForEnviron(names.ModelTag) (*state.State, error)
+	GetEnvironment(names.ModelTag) (*state.Model, error)
+	ModelUUID() string
 	Machine(string) (*state.Machine, error)
 	MongoSession() *mgo.Session
 }
@@ -103,36 +103,36 @@ func (m *envWorkerManager) loop() error {
 }
 
 func (m *envWorkerManager) envHasChanged(uuid string) error {
-	envTag := names.NewEnvironTag(uuid)
-	env, err := m.st.GetEnvironment(envTag)
+	modelTag := names.NewModelTag(uuid)
+	env, err := m.st.GetEnvironment(modelTag)
 	if errors.IsNotFound(err) {
-		return m.envNotFound(envTag)
+		return m.envNotFound(modelTag)
 	} else if err != nil {
-		return errors.Annotatef(err, "error loading model %s", envTag.Id())
+		return errors.Annotatef(err, "error loading model %s", modelTag.Id())
 	}
 
 	switch env.Life() {
 	case state.Alive:
-		err = m.envIsAlive(envTag)
+		err = m.envIsAlive(modelTag)
 	case state.Dying:
-		err = m.envIsDying(envTag)
+		err = m.envIsDying(modelTag)
 	case state.Dead:
-		err = m.envIsDead(envTag)
+		err = m.envIsDead(modelTag)
 	}
 
 	return errors.Trace(err)
 }
 
-func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
-	return m.runner.StartWorker(envTag.Id(), func() (worker.Worker, error) {
-		st, err := m.st.ForEnviron(envTag)
+func (m *envWorkerManager) envIsAlive(modelTag names.ModelTag) error {
+	return m.runner.StartWorker(modelTag.Id(), func() (worker.Worker, error) {
+		st, err := m.st.ForEnviron(modelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to open state for model %s", envTag.Id())
+			return nil, errors.Annotatef(err, "failed to open state for model %s", modelTag.Id())
 		}
 		closeState := func() {
 			err := st.Close()
 			if err != nil {
-				logger.Errorf("error closing state for model %s: %v", envTag.Id(), err)
+				logger.Errorf("error closing state for model %s: %v", modelTag.Id(), err)
 			}
 		}
 
@@ -157,8 +157,8 @@ func dyingEnvWorkerId(uuid string) string {
 }
 
 // envNotFound stops all workers for that environment.
-func (m *envWorkerManager) envNotFound(envTag names.EnvironTag) error {
-	uuid := envTag.Id()
+func (m *envWorkerManager) envNotFound(modelTag names.ModelTag) error {
+	uuid := modelTag.Id()
 	if err := m.runner.StopWorker(uuid); err != nil {
 		return errors.Trace(err)
 	}
@@ -168,17 +168,17 @@ func (m *envWorkerManager) envNotFound(envTag names.EnvironTag) error {
 	return nil
 }
 
-func (m *envWorkerManager) envIsDying(envTag names.EnvironTag) error {
-	id := dyingEnvWorkerId(envTag.Id())
+func (m *envWorkerManager) envIsDying(modelTag names.ModelTag) error {
+	id := dyingEnvWorkerId(modelTag.Id())
 	return m.runner.StartWorker(id, func() (worker.Worker, error) {
-		st, err := m.st.ForEnviron(envTag)
+		st, err := m.st.ForEnviron(modelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to open state for model %s", envTag.Id())
+			return nil, errors.Annotatef(err, "failed to open state for model %s", modelTag.Id())
 		}
 		closeState := func() {
 			err := st.Close()
 			if err != nil {
-				logger.Errorf("error closing state for model %s: %v", envTag.Id(), err)
+				logger.Errorf("error closing state for model %s: %v", modelTag.Id(), err)
 			}
 		}
 
@@ -198,8 +198,8 @@ func (m *envWorkerManager) envIsDying(envTag names.EnvironTag) error {
 	})
 }
 
-func (m *envWorkerManager) envIsDead(envTag names.EnvironTag) error {
-	uuid := envTag.Id()
+func (m *envWorkerManager) envIsDead(modelTag names.ModelTag) error {
+	uuid := modelTag.Id()
 	err := m.runner.StopWorker(uuid)
 	if err != nil {
 		return errors.Trace(err)

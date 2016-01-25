@@ -68,7 +68,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Environment) {
+func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Model) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
@@ -83,7 +83,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddEnvironmentUser(state.EnvUserSpec{
+	st.AddModelUser(state.EnvModelSpec{
 		User:        admin.UserTag(),
 		CreatedBy:   remoteUserTag,
 		DisplayName: "Foo Bar"})
@@ -98,7 +98,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	var obtained []string
 	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
-		stateEnv, err := s.State.GetEnvironment(names.NewEnvironTag(env.UUID))
+		stateEnv, err := s.State.GetEnvironment(names.NewModelTag(env.UUID))
 		c.Assert(err, jc.ErrorIsNil)
 		s.checkEnvironmentMatches(c, env.Model, stateEnv)
 	}
@@ -121,7 +121,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
 			Name:     "dummymodel",
-			UUID:     s.State.EnvironUUID(),
+			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockDestroy",
@@ -130,7 +130,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		},
 		params.ModelBlockInfo{
 			Name:     "test",
-			UUID:     st.EnvironUUID(),
+			UUID:     st.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockDestroy",
@@ -214,7 +214,7 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
 		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
-		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.EnvironUUID())
+		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
@@ -245,8 +245,8 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 
-	controllerEnvTag := s.State.EnvironTag().String()
-	hostedEnvTag := otherSt.EnvironTag().String()
+	controllerEnvTag := s.State.ModelTag().String()
+	hostedEnvTag := otherSt.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},

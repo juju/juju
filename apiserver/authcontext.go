@@ -111,7 +111,7 @@ func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, er
 	}
 	svc, err := bakery.NewService(
 		bakery.NewServiceParams{
-			Location: "juju model " + st.EnvironUUID(),
+			Location: "juju model " + st.ModelUUID(),
 			Locator: bakery.PublicKeyLocatorMap{
 				idURL: idPK,
 			},

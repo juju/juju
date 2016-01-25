@@ -89,7 +89,7 @@ func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	}
 
 	meta := NewMetadata()
-	meta.Origin.Environment = db.EnvironTag().Id()
+	meta.Origin.Environment = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
 	return meta, nil

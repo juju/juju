@@ -61,7 +61,7 @@ func (s *MetricSuite) assertAddUnit(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
-	modelUUID := s.State.EnvironUUID()
+	modelUUID := s.State.ModelUUID()
 	m := state.Metric{"pings", "5", now}
 	metricBatch, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -578,7 +578,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 	for _, test := range tests {
 		c.Logf("running test: %v", test.about)
 		now := state.NowToTheSecond()
-		modelUUID := s.State.EnvironUUID()
+		modelUUID := s.State.ModelUUID()
 		m := state.Metric{"juju-units", test.value, now}
 		metricBatch, err := s.State.AddMetrics(
 			state.BatchParam{

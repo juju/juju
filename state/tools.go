@@ -21,7 +21,7 @@ var (
 //
 // TODO(axw) remove this, add a constructor function in toolstorage.
 func (st *State) ToolsStorage() (toolstorage.StorageCloser, error) {
-	uuid := st.EnvironUUID()
+	uuid := st.ModelUUID()
 	session := st.session.Copy()
 	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
 	db := session.DB(jujuDB)

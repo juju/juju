@@ -45,7 +45,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	environment, err := st.Environment()
+	environment, err := st.Model()
 	if err != nil {
 		return nil, err
 	}

@@ -281,7 +281,7 @@ func (u *User) UpdateLastLogin() (err error) {
 
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
-		ModelUUID: u.st.EnvironUUID(),
+		ModelUUID: u.st.ModelUUID(),
 		LastLogin: nowToTheSecond(),
 	}
 

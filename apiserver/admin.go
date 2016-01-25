@@ -157,14 +157,14 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
-	environ, err := a.root.state.Environment()
+	environ, err := a.root.state.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		EnvironTag:    environ.Tag().String(),
+		ModelTag:      environ.Tag().String(),
 		ControllerTag: environ.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
@@ -175,9 +175,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	// state server environment at the root of the API.
 	if serverOnlyLogin {
 		authedApi = newRestrictedRoot(authedApi)
-		// Remove the EnvironTag from the response as there is no
+		// Remove the ModelTag from the response as there is no
 		// environment here.
-		loginResult.EnvironTag = ""
+		loginResult.ModelTag = ""
 		// Strip out the facades that are not supported from the result.
 		var facades []params.FacadeVersions
 		for _, facade := range loginResult.Facades {
@@ -245,7 +245,7 @@ var doCheckCreds = checkCreds
 //
 // Note that when logging in with lookForEnvUser true, the returned
 // entity will be environmentUserEntity, not *state.User (external users
-// don't have user entries) or *state.EnvironmentUser (we
+// don't have user entries) or *state.ModelUser (we
 // don't want to lose the local user information associated with that).
 func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 	var tag names.Tag
@@ -304,7 +304,7 @@ func (f environmentUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, er
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	envUser, err := f.st.EnvironmentUser(utag)
+	envUser, err := f.st.ModelUser(utag)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +329,7 @@ var _ loginEntity = &environmentUserEntity{}
 // in such a way that the authentication mechanisms
 // can work without knowing these details.
 type environmentUserEntity struct {
-	envUser *state.EnvironmentUser
+	envUser *state.ModelUser
 	user    *state.User
 }
 

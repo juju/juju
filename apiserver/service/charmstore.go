@@ -124,7 +124,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage := newStateStorage(st.EnvironUUID(), st.MongoSession())
+	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")

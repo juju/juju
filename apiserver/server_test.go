@@ -61,12 +61,12 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	// Note we can't use openAs because we're not connecting to
 	apiInfo := &api.Info{
-		Tag:        machine.Tag(),
-		Password:   password,
-		Nonce:      "fake_nonce",
-		Addrs:      []string{address},
-		CACert:     coretesting.CACert,
-		EnvironTag: s.State.EnvironTag(),
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{address},
+		CACert:   coretesting.CACert,
+		ModelTag: s.State.ModelTag(),
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,12 +108,12 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Now connect twice - using IPv4 and IPv6 endpoints.
 	apiInfo := &api.Info{
-		Tag:        machine.Tag(),
-		Password:   password,
-		Nonce:      "fake_nonce",
-		Addrs:      []string{net.JoinHostPort("127.0.0.1", portString)},
-		CACert:     coretesting.CACert,
-		EnvironTag: s.State.EnvironTag(),
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
+		CACert:   coretesting.CACert,
+		ModelTag: s.State.ModelTag(),
 	}
 	ipv4State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +192,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
 	mongoInfo.Addrs = []string{proxy.Addr()}
 
-	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

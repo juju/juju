@@ -28,7 +28,7 @@ const (
 // NewUndertaker returns a worker which processes a dying environment.
 func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
-		result, err := client.EnvironInfo()
+		result, err := client.ModelInfo()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -87,10 +87,10 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker
 }
 
 func processDyingEnv(client apiundertaker.UndertakerClient, clock uc.Clock, stopCh <-chan struct{}) error {
-	// ProcessDyingEnviron will fail quite a few times before it succeeds as
+	// ProcessDyingModel will fail quite a few times before it succeeds as
 	// it is being woken up as every machine or service changes. We ignore the
-	// error here and rely on the logging inside the ProcessDyingEnviron.
-	if err := client.ProcessDyingEnviron(); err == nil {
+	// error here and rely on the logging inside the ProcessDyingModel.
+	if err := client.ProcessDyingModel(); err == nil {
 		return nil
 	}
 	watcher, err := client.WatchEnvironResources()
@@ -106,7 +106,7 @@ func processDyingEnv(client apiundertaker.UndertakerClient, clock uc.Clock, stop
 				return watcher.Err()
 			}
 
-			err := client.ProcessDyingEnviron()
+			err := client.ProcessDyingModel()
 			if err != nil {
 				// Yes, we ignore the error. See comment above.
 				continue

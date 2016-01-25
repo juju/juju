@@ -20,8 +20,8 @@ type Client struct {
 
 // UndertakerClient defines the methods on the undertaker API end point.
 type UndertakerClient interface {
-	EnvironInfo() (params.UndertakerEnvironInfoResult, error)
-	ProcessDyingEnviron() error
+	ModelInfo() (params.UndertakerModelInfoResult, error)
+	ProcessDyingModel() error
 	RemoveEnviron() error
 	WatchEnvironResources() (watcher.NotifyWatcher, error)
 	EnvironConfig() (*config.Config, error)
@@ -33,26 +33,26 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// EnvironInfo returns information on the environment needed by the undertaker worker.
-func (c *Client) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	result := params.UndertakerEnvironInfoResult{}
+// ModelInfo returns information on the environment needed by the undertaker worker.
+func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	result := params.UndertakerModelInfoResult{}
 	p, err := c.params()
 	if err != nil {
-		return params.UndertakerEnvironInfoResult{}, errors.Trace(err)
+		return params.UndertakerModelInfoResult{}, errors.Trace(err)
 	}
-	err = c.facade.FacadeCall("EnvironInfo", p, &result)
+	err = c.facade.FacadeCall("ModelInfo", p, &result)
 	return result, errors.Trace(err)
 }
 
-// ProcessDyingEnviron checks if a dying environment has any machines or services.
+// ProcessDyingModel checks if a dying environment has any machines or services.
 // If there are none, the environment's life is changed from dying to dead.
-func (c *Client) ProcessDyingEnviron() error {
+func (c *Client) ProcessDyingModel() error {
 	p, err := c.params()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return c.facade.FacadeCall("ProcessDyingEnviron", p, nil)
+	return c.facade.FacadeCall("ProcessDyingModel", p, nil)
 }
 
 // RemoveEnviron removes any records of this environment from Juju.
@@ -65,11 +65,11 @@ func (c *Client) RemoveEnviron() error {
 }
 
 func (c *Client) params() (params.Entities, error) {
-	envTag, err := c.st.EnvironTag()
+	modelTag, err := c.st.ModelTag()
 	if err != nil {
 		return params.Entities{}, errors.Trace(err)
 	}
-	return params.Entities{Entities: []params.Entity{{envTag.String()}}}, nil
+	return params.Entities{Entities: []params.Entity{{modelTag.String()}}}, nil
 }
 
 // WatchEnvironResources starts a watcher for changes to the environment's

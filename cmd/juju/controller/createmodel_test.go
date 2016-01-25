@@ -51,10 +51,10 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	s.serverUUID = "fake-server-uuid"
 	info := s.store.CreateInfo(envName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: s.serverUUID,
-		ServerUUID:  s.serverUUID,
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ModelUUID:  s.serverUUID,
+		ServerUUID: s.serverUUID,
 	})
 	info.SetAPICredentials(configstore.APICredentials{User: "bob", Password: "sekrit"})
 	err := info.Write()
@@ -385,7 +385,7 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, expected.Hostnames)
 	c.Assert(endpoint.ServerUUID, gc.Equals, expected.ServerUUID)
 	c.Assert(endpoint.CACert, gc.Equals, expected.CACert)
-	c.Assert(endpoint.EnvironUUID, gc.Equals, "fake-model-uuid")
+	c.Assert(endpoint.ModelUUID, gc.Equals, "fake-model-uuid")
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {

@@ -91,11 +91,11 @@ var _ = gc.Suite(&loginAncientSuite{
 })
 
 func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
-	return s.setupServerForEnvironment(c, s.State.EnvironTag())
+	return s.setupServerForEnvironment(c, s.State.ModelTag())
 }
 
-func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.EnvironTag) (api.Connection, func()) {
-	info, cleanup := s.setupServerForEnvironmentWithValidator(c, envTag, nil)
+func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
+	info, cleanup := s.setupServerForEnvironmentWithValidator(c, modelTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, func() {
@@ -517,8 +517,8 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	defer cleanup()
 	// If we call api.Open without giving a username and password, then it
 	// won't call Login, so we can call it ourselves.
-	// We Login without passing an EnvironTag, to show that it still lets
-	// us in, and that we can find out the real EnvironTag from the
+	// We Login without passing an ModelTag, to show that it still lets
+	// us in, and that we can find out the real ModelTag from the
 	// response.
 	adminUser := s.AdminUserTag(c)
 	var result params.LoginResult
@@ -528,13 +528,13 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, s.State.EnvironTag().String())
+	c.Assert(result.ModelTag, gc.Equals, s.State.ModelTag().String())
 }
 
 func (s *loginV1Suite) TestLoginReportsEnvironAndControllerTag(c *gc.C) {
 	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
-	newEnvTag := otherState.EnvironTag()
+	newEnvTag := otherState.ModelTag()
 
 	st, cleanup := s.setupServerForEnvironment(c, newEnvTag)
 	defer cleanup()
@@ -545,8 +545,8 @@ func (s *loginV1Suite) TestLoginReportsEnvironAndControllerTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, newEnvTag.String())
-	c.Assert(result.ControllerTag, gc.Equals, s.State.EnvironTag().String())
+	c.Assert(result.ModelTag, gc.Equals, newEnvTag.String())
+	c.Assert(result.ControllerTag, gc.Equals, s.State.ModelTag().String())
 }
 
 func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
@@ -659,12 +659,12 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 }
 
 func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.setupServerForEnvironmentWithValidator(c, env.EnvironTag(), validator)
+	return s.setupServerForEnvironmentWithValidator(c, env.ModelTag(), validator)
 }
 
-func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag names.EnvironTag, validator apiserver.LoginValidator) (*api.Info, func()) {
+func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTag names.ModelTag, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
@@ -682,11 +682,11 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 	c.Assert(s.setAdminApi, gc.NotNil)
 	s.setAdminApi(srv)
 	info := &api.Info{
-		Tag:        nil,
-		Password:   "",
-		EnvironTag: envTag,
-		Addrs:      []string{srv.Addr().String()},
-		CACert:     coretesting.CACert,
+		Tag:      nil,
+		Password: "",
+		ModelTag: modelTag,
+		Addrs:    []string{srv.Addr().String()},
+		CACert:   coretesting.CACert,
 	}
 	return info, func() {
 		err := srv.Stop()
@@ -766,16 +766,16 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "")
 	c.Assert(err, jc.ErrorIsNil)
-	envTag, err := st.EnvironTag()
+	modelTag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
+	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }
 
 func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
-	c.Assert(info.EnvironTag, gc.Equals, s.State.EnvironTag())
+	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -784,14 +784,14 @@ func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	err = st.Login(adminUser, "dummy-secret", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
+	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
 }
 
 func (s *loginSuite) TestControllerEnvironmentBadCreds(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
-	c.Assert(info.EnvironTag, gc.Equals, s.State.EnvironTag())
+	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -807,7 +807,7 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	info.EnvironTag = names.NewEnvironTag(uuid.String())
+	info.ModelTag = names.NewModelTag(uuid.String())
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -822,7 +822,7 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
-	info.EnvironTag = names.NewEnvironTag("rubbish")
+	info.ModelTag = names.NewModelTag("rubbish")
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -841,14 +841,14 @@ func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
 		Owner: envOwner.UserTag(),
 	})
 	defer envState.Close()
-	info.EnvironTag = envState.EnvironTag()
+	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	err = st.Login(envOwner.UserTag(), "password", "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoteEnvironment(c, st, envState.EnvironTag())
+	s.assertRemoteEnvironment(c, st, envState.ModelTag())
 }
 
 func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
@@ -874,7 +874,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 		Nonce: "nonce",
 	})
 
-	info.EnvironTag = envState.EnvironTag()
+	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -893,7 +893,7 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 
 	envState := s.Factory.MakeEnvironment(c, nil)
 	defer envState.Close()
-	info.EnvironTag = envState.EnvironTag()
+	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -910,7 +910,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 
 	envState := s.Factory.MakeEnvironment(c, nil)
 	defer envState.Close()
-	info.EnvironTag = envState.EnvironTag()
+	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -919,9 +919,9 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
 }
 
-func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {
+func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.ModelTag) {
 	// Look at what the api thinks it has.
-	tag, err := st.EnvironTag()
+	tag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, expected)
 	// Look at what the api Client thinks it has.
@@ -965,7 +965,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The env user is also updated.
-	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	envUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := envUser.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
@@ -991,7 +991,7 @@ func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 
 	// Zero the environment tag so that we log into the controller
 	// not the environment.
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 
 	client, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")

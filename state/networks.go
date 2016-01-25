@@ -55,7 +55,7 @@ func newNetwork(st *State, doc *networkDoc) *Network {
 func (st *State) newNetworkDoc(args NetworkInfo) *networkDoc {
 	return &networkDoc{
 		DocID:      st.docID(args.Name),
-		ModelUUID:  st.EnvironUUID(),
+		ModelUUID:  st.ModelUUID(),
 		Name:       args.Name,
 		ProviderId: string(args.ProviderId),
 		CIDR:       args.CIDR,

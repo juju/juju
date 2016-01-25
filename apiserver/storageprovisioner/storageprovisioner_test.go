@@ -368,7 +368,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      1024,
 				Provider:  "machinescoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -382,7 +382,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      2048,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -396,7 +396,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      4096,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -430,7 +430,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          1024,
 				Provider:      "machinescoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 			}},
 			{Result: params.FilesystemParams{
@@ -438,7 +438,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          2048,
 				Provider:      "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -684,7 +684,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -724,7 +724,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -785,7 +785,7 @@ func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -830,7 +830,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},

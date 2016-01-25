@@ -31,9 +31,9 @@ type APIEndpoint struct {
 	// signed the API server's key.
 	CACert string
 
-	// EnvironUUID holds the UUID for the environment we are connecting to.
+	// ModelUUID holds the UUID for the environment we are connecting to.
 	// This may be empty if the environment has not been bootstrapped.
-	EnvironUUID string
+	ModelUUID string
 
 	// ServerUUID holds the UUID for the server environment. This may be empty
 	// if the server is old and not sending the server uuid in the login

@@ -416,7 +416,7 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -510,7 +510,7 @@ func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 

@@ -158,7 +158,7 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
@@ -195,7 +195,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	} else if env.Life() != Alive {
@@ -290,7 +290,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertEnvAliveOp(st.EnvironUUID()))
+	prereqOps = append(prereqOps, assertEnvAliveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -459,7 +459,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,
-		ModelUUID:               st.EnvironUUID(),
+		ModelUUID:               st.ModelUUID(),
 		Series:                  template.Series,
 		Jobs:                    template.Jobs,
 		Clean:                   !template.Dirty,
@@ -487,7 +487,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 
 	statusDoc := statusDoc{
 		Status:    StatusPending,
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Updated:   time.Now().UnixNano(),
 	}
 	globalKey := machineGlobalKey(mdoc.Id)

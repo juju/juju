@@ -27,12 +27,12 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	st, err := open(tag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err := st.Environment(); err != nil {
+	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
 			logger.Errorf("error closing state for unreadable model %s: %v", tag.Id(), err)
 		}
@@ -47,7 +47,7 @@ func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	return st, nil
 }
 
-func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -74,7 +74,7 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 			session.Close()
 			return nil, errors.Trace(err)
 		}
-		tag = ssInfo.EnvironmentTag
+		tag = ssInfo.ModelTag
 	}
 
 	st, err := newState(tag, session, info, policy)
@@ -108,8 +108,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if !ok {
 		return nil, errors.Errorf("model uuid was not supplied")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	st, err := open(envTag, info, opts, policy)
+	modelTag := names.NewModelTag(uuid)
+	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -124,7 +124,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err := st.Environment(); err == nil {
+	if _, err := st.Model(); err == nil {
 		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -144,7 +144,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Id:     environGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{
-				ModelUUID: st.EnvironUUID(),
+				ModelUUID: st.ModelUUID(),
 			},
 		},
 		txn.Op{
@@ -170,7 +170,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(envTag); err != nil {
+	if err := st.start(modelTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -231,10 +231,10 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with a configured watcher but no
 // pwatcher, leadershipManager, or controllerTag. You must start() the returned
 // *State before it will function correctly.
-func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	// Set up database.
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(rawDB, environTag.Id())
+	database, err := allCollections().Load(rawDB, modelTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,12 +244,12 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 
 	// Create State.
 	return &State{
-		environTag: environTag,
-		mongoInfo:  mongoInfo,
-		session:    session,
-		database:   database,
-		policy:     policy,
-		watcher:    watcher.New(rawDB.C(txnLogC)),
+		modelTag:  modelTag,
+		mongoInfo: mongoInfo,
+		session:   session,
+		database:  database,
+		policy:    policy,
+		watcher:   watcher.New(rawDB.C(txnLogC)),
 	}, nil
 }
 

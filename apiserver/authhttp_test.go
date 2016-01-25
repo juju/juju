@@ -62,7 +62,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 		s.JujuConnSuite.SetUpTest(c)
 	}
 
-	s.modelUUID = s.State.EnvironUUID()
+	s.modelUUID = s.State.ModelUUID()
 
 	if s.macaroonAuthEnabled {
 		// When macaroon authentication is enabled, we must use
@@ -233,13 +233,13 @@ func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
 	envState := s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddEnvironmentUser(state.EnvUserSpec{
+	_, err := envState.AddModelUser(state.EnvModelSpec{
 		User:      user.UserTag(),
 		CreatedBy: s.userTag})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"
-	s.modelUUID = envState.EnvironUUID()
+	s.modelUUID = envState.ModelUUID()
 	return envState
 }
 

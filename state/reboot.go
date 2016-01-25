@@ -42,7 +42,7 @@ func (m *Machine) setFlag() error {
 		return mgo.ErrNotFound
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.EnvironUUID()),
+		assertEnvAliveOp(m.st.ModelUUID()),
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,

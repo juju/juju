@@ -417,7 +417,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
 	mongoInfo := s.State.MongoConnectionInfo()
-	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}

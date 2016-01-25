@@ -169,7 +169,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].Tools
 		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), current)
+			s.APIState.Addr(), coretesting.ModelTag.Id(), current)
 		c.Check(agentTools.URL, gc.Equals, url)
 		c.Check(agentTools.Version, gc.DeepEquals, current)
 	}

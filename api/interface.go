@@ -49,9 +49,9 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert string
 
-	// EnvironTag holds the environ tag for the environment we are
+	// ModelTag holds the environ tag for the environment we are
 	// trying to connect to.
-	EnvironTag names.EnvironTag
+	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
@@ -136,7 +136,7 @@ type Connection interface {
 	// (as opposed to the environment tag of the currently connected
 	// environment inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.EnvironTag, error)
+	ControllerTag() (names.ModelTag, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.

@@ -65,10 +65,10 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	for _, env := range envList {
 		info := s.store.CreateInfo(env.name)
 		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses:   []string{"localhost"},
-			CACert:      testing.CACert,
-			EnvironUUID: env.modelUUID,
-			ServerUUID:  env.serverUUID,
+			Addresses:  []string{"localhost"},
+			CACert:     testing.CACert,
+			ModelUUID:  env.modelUUID,
+			ServerUUID: env.serverUUID,
 		})
 		err := info.Write()
 		c.Assert(err, jc.ErrorIsNil)

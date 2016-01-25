@@ -103,7 +103,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	r, _, err := storage.Get(ch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()

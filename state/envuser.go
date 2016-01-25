@@ -15,16 +15,16 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// EnvironmentUser represents a user access to an environment whereas the user
-// could represent a remote user or a user across multiple environments the
-// environment user always represents a single user for a single environment.
-// There should be no more than one EnvironmentUser per environment.
-type EnvironmentUser struct {
+// ModelUser represents a user access to an model whereas the user
+// could represent a remote user or a user across multiple models the
+// model user always represents a single user for a single model.
+// There should be no more than one ModelUser per model.
+type ModelUser struct {
 	st  *State
-	doc envUserDoc
+	doc modelUserDoc
 }
 
-type envUserDoc struct {
+type modelUserDoc struct {
 	ID          string    `bson:"_id"`
 	ModelUUID   string    `bson:"model-uuid"`
 	UserName    string    `bson:"user"`
@@ -47,50 +47,50 @@ type envUserLastConnectionDoc struct {
 }
 
 // ID returns the ID of the environment user.
-func (e *EnvironmentUser) ID() string {
+func (e *ModelUser) ID() string {
 	return e.doc.ID
 }
 
-// EnvironmentTag returns the environment tag of the environment user.
-func (e *EnvironmentUser) EnvironmentTag() names.EnvironTag {
-	return names.NewEnvironTag(e.doc.ModelUUID)
+// ModelTag returns the environment tag of the environment user.
+func (e *ModelUser) ModelTag() names.ModelTag {
+	return names.NewModelTag(e.doc.ModelUUID)
 }
 
 // UserTag returns the tag for the environment user.
-func (e *EnvironmentUser) UserTag() names.UserTag {
+func (e *ModelUser) UserTag() names.UserTag {
 	return names.NewUserTag(e.doc.UserName)
 }
 
 // UserName returns the user name of the environment user.
-func (e *EnvironmentUser) UserName() string {
+func (e *ModelUser) UserName() string {
 	return e.doc.UserName
 }
 
 // DisplayName returns the display name of the environment user.
-func (e *EnvironmentUser) DisplayName() string {
+func (e *ModelUser) DisplayName() string {
 	return e.doc.DisplayName
 }
 
 // CreatedBy returns the user who created the environment user.
-func (e *EnvironmentUser) CreatedBy() string {
+func (e *ModelUser) CreatedBy() string {
 	return e.doc.CreatedBy
 }
 
 // DateCreated returns the date the environment user was created in UTC.
-func (e *EnvironmentUser) DateCreated() time.Time {
+func (e *ModelUser) DateCreated() time.Time {
 	return e.doc.DateCreated.UTC()
 }
 
 // ReadOnly returns whether or not the user has write access or only
 // read access to the environment.
-func (e *EnvironmentUser) ReadOnly() bool {
+func (e *ModelUser) ReadOnly() bool {
 	return e.doc.ReadOnly
 }
 
-// LastConnection returns when this EnvironmentUser last connected through the API
+// LastConnection returns when this ModelUser last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
-func (e *EnvironmentUser) LastConnection() (time.Time, error) {
-	lastConnections, closer := e.st.getRawCollection(envUserLastConnectionC)
+func (e *ModelUser) LastConnection() (time.Time, error) {
+	lastConnections, closer := e.st.getRawCollection(modelUserLastConnectionC)
 	defer closer()
 
 	username := strings.ToLower(e.UserName())
@@ -123,8 +123,8 @@ func IsNeverConnectedError(err error) bool {
 }
 
 // UpdateLastConnection updates the last connection time of the environment user.
-func (e *EnvironmentUser) UpdateLastConnection() error {
-	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
+func (e *ModelUser) UpdateLastConnection() error {
+	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -136,7 +136,7 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 
 	lastConn := envUserLastConnectionDoc{
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
-		ModelUUID:      e.EnvironmentTag().Id(),
+		ModelUUID:      e.ModelTag().Id(),
 		UserName:       e.UserName(),
 		LastConnection: nowToTheSecond(),
 	}
@@ -144,10 +144,10 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 	return errors.Trace(err)
 }
 
-// EnvironmentUser returns the environment user.
-func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
-	envUser := &EnvironmentUser{st: st}
-	envUsers, closer := st.getCollection(envUsersC)
+// ModelUser returns the environment user.
+func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
+	envUser := &ModelUser{st: st}
+	envUsers, closer := st.getCollection(modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
@@ -161,17 +161,17 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	return envUser, nil
 }
 
-// EnvUserSpec defines the attributes that can be set when adding a new
-// environment user.
-type EnvUserSpec struct {
+// EnvModelSpec defines the attributes that can be set when adding a new
+// model user.
+type EnvModelSpec struct {
 	User        names.UserTag
 	CreatedBy   names.UserTag
 	DisplayName string
 	ReadOnly    bool
 }
 
-// AddEnvironmentUser adds a new user to the database.
-func (st *State) AddEnvironmentUser(spec EnvUserSpec) (*EnvironmentUser, error) {
+// AddModelUser adds a new user to the database.
+func (st *State) AddModelUser(spec EnvModelSpec) (*ModelUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
 	if spec.User.IsLocal() {
 		localUser, err := st.User(spec.User)
@@ -190,7 +190,7 @@ func (st *State) AddEnvironmentUser(spec EnvUserSpec) (*EnvironmentUser, error) 
 		}
 	}
 
-	envuuid := st.EnvironUUID()
+	envuuid := st.ModelUUID()
 	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
@@ -200,7 +200,7 @@ func (st *State) AddEnvironmentUser(spec EnvUserSpec) (*EnvironmentUser, error) 
 		return nil, errors.Trace(err)
 	}
 	// Re-read from DB to get the multi-env updated values.
-	return st.EnvironmentUser(spec.User)
+	return st.ModelUser(spec.User)
 }
 
 // envUserID returns the document id of the environment user
@@ -211,7 +211,7 @@ func envUserID(user names.UserTag) string {
 
 func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
-	doc := &envUserDoc{
+	doc := &modelUserDoc{
 		ID:          envUserID(user),
 		ModelUUID:   envuuid,
 		UserName:    user.Canonical(),
@@ -221,17 +221,17 @@ func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName 
 		DateCreated: nowToTheSecond(),
 	}
 	return txn.Op{
-		C:      envUsersC,
+		C:      modelUsersC,
 		Id:     envUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
 }
 
-// RemoveEnvironmentUser removes a user from the database.
-func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
+// RemoveModelUser removes a user from the database.
+func (st *State) RemoveModelUser(user names.UserTag) error {
 	ops := []txn.Op{{
-		C:      envUsersC,
+		C:      modelUsersC,
 		Id:     envUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
@@ -249,18 +249,18 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 // UserModel contains information about an environment that a
 // user has access to.
 type UserModel struct {
-	*Environment
+	*Model
 	User names.UserTag
 }
 
 // LastConnection returns the last time the user has connected to the
 // environment.
 func (e *UserModel) LastConnection() (time.Time, error) {
-	lastConnections, lastConnCloser := e.st.getRawCollection(envUserLastConnectionC)
+	lastConnections, lastConnCloser := e.st.getRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
 	lastConnDoc := envUserLastConnectionDoc{}
-	id := ensureEnvUUID(e.EnvironTag().Id(), strings.ToLower(e.User.Canonical()))
+	id := ensureEnvUUID(e.ModelTag().Id(), strings.ToLower(e.User.Canonical()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
 		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Canonical()))
@@ -276,11 +276,11 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserModel, error) {
 	// the environments that a particular user can see is to look through the
 	// environment user collection. A raw collection is required to support
 	// queries across multiple environments.
-	envUsers, userCloser := st.getRawCollection(envUsersC)
+	envUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
 	// TODO: consider adding an index to the envUsers collection on the username.
-	var userSlice []envUserDoc
+	var userSlice []modelUserDoc
 	err := envUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
@@ -288,13 +288,13 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserModel, error) {
 
 	var result []*UserModel
 	for _, doc := range userSlice {
-		envTag := names.NewEnvironTag(doc.ModelUUID)
-		env, err := st.GetEnvironment(envTag)
+		modelTag := names.NewModelTag(doc.ModelUUID)
+		env, err := st.GetEnvironment(modelTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		result = append(result, &UserModel{Environment: env, User: user})
+		result = append(result, &UserModel{Model: env, User: user})
 	}
 
 	return result, nil
@@ -308,9 +308,9 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 		return false, errors.Annotate(err, "could not get state server info")
 	}
 
-	serverUUID := ssinfo.EnvironmentTag.Id()
+	serverUUID := ssinfo.ModelTag.Id()
 
-	envUsers, userCloser := st.getRawCollection(envUsersC)
+	envUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
 	count, err := envUsers.Find(bson.D{

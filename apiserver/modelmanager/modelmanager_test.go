@@ -114,14 +114,14 @@ func (s *modelManagerSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, err := s.State.ForEnviron(names.NewEnvironTag(model.UUID))
+	newState, err := s.State.ForEnviron(names.NewModelTag(model.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Close()
 
-	newModel, err := newState.Environment()
+	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newModel.Owner(), gc.Equals, owner)
-	_, err = newState.EnvironmentUser(owner)
+	_, err = newState.ModelUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -317,7 +317,7 @@ func (s *modelManagerSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *modelManagerSuite) checkModelMatches(c *gc.C, env params.Model, expected *state.Environment) {
+func (s *modelManagerSuite) checkModelMatches(c *gc.C, env params.Model, expected *state.Model) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
@@ -329,7 +329,7 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *gc.C) {
 	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 1)
-	expected, err := s.State.Environment()
+	expected, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkModelMatches(c, result.UserModels[0].Model, expected)
 }

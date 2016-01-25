@@ -218,7 +218,7 @@ func dropEnvUUID(id string) string {
 	fullID := id
 	parts := strings.SplitN(fullID, ":", 2)
 	if len(parts) == 2 {
-		if names.IsValidEnvironment(parts[0]) {
+		if names.IsValidModel(parts[0]) {
 			fullID = parts[1]
 		}
 	}

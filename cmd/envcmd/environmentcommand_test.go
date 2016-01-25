@@ -213,10 +213,10 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 		Password: "foopass",
 	})
 	s.endpoint = configstore.APIEndpoint{
-		Addresses:   []string{"0.1.2.3"},
-		Hostnames:   []string{"foo.invalid"},
-		CACert:      "certificated",
-		EnvironUUID: "fake-uuid",
+		Addresses: []string{"0.1.2.3"},
+		Hostnames: []string{"foo.invalid"},
+		CACert:    "certificated",
+		ModelUUID: "fake-uuid",
 	}
 	newInfo.SetAPIEndpoint(s.endpoint)
 	err := newInfo.Write()
@@ -241,10 +241,10 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 	newEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"0.1.2.3"},
-		Hostnames:   []string{"foo.example.com"},
-		CACert:      "certificated",
-		EnvironUUID: "fake-uuid",
+		Addresses: []string{"0.1.2.3"},
+		Hostnames: []string{"foo.example.com"},
+		CACert:    "certificated",
+		ModelUUID: "fake-uuid",
 	}
 	s.PatchValue(envcmd.EndpointRefresher, func(_ *envcmd.EnvCommandBase) (io.Closer, error) {
 		info, err := s.store.ReadInfo("env-name")
@@ -369,10 +369,10 @@ func (s *EnvConfigSuite) SetUpTest(c *gc.C) {
 func (s *EnvConfigSuite) writeStore(c *gc.C, bootstrapInfo bool) {
 	info := s.store.CreateInfo(s.envName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: s.envName + "-UUID",
-		ServerUUID:  s.envName + "-UUID",
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ModelUUID:  s.envName + "-UUID",
+		ServerUUID: s.envName + "-UUID",
 	})
 
 	if bootstrapInfo {
@@ -459,8 +459,8 @@ const testUser = "testuser@somewhere"
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 
-	environTag := names.NewEnvironTag(s.State.EnvironUUID())
-	s.envName = environTag.Id()
+	modelTag := names.NewModelTag(s.State.ModelUUID())
+	s.envName = modelTag.Id()
 
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
@@ -480,10 +480,10 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := store.CreateInfo(s.envName)
 	cfg.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   apiInfo.Addrs,
-		Hostnames:   []string{"0.1.2.3"},
-		CACert:      apiInfo.CACert,
-		EnvironUUID: s.envName,
+		Addresses: apiInfo.Addrs,
+		Hostnames: []string{"0.1.2.3"},
+		CACert:    apiInfo.CACert,
+		ModelUUID: s.envName,
 	})
 	err = cfg.Write()
 	cfg.SetAPICredentials(configstore.APICredentials{

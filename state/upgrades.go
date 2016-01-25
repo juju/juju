@@ -67,7 +67,7 @@ func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
 // runForAllEnvStates will run runner function for every env passing a state
 // for that env.
 func runForAllEnvStates(st *State, runner func(st *State) error) error {
-	environments, closer := st.getCollection(environmentsC)
+	environments, closer := st.getCollection(modelsC)
 	defer closer()
 
 	var envDocs []bson.M
@@ -78,7 +78,7 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 
 	for _, envDoc := range envDocs {
 		modelUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewEnvironTag(modelUUID))
+		envSt, err := st.ForEnviron(names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}

@@ -102,7 +102,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		"2:juju-public",
 	}
 
-	fakeEnvTag := names.NewEnvironTag("deadbeef-deaf-face-feed-0123456789ab")
+	fakeEnvTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: fakeEnvTag.String()},
 		{Tag: s.machines[0].Tag().String()},

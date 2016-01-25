@@ -182,7 +182,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
 
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
@@ -221,7 +221,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url.Path = "/tools"
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -229,10 +229,10 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ENVUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/model/%s/tools", s.State.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/tools", s.State.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -241,10 +241,10 @@ func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ENVUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/model/%s/tools", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/tools", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), envState.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), envState.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -267,7 +267,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 
 	// Check the response.
 	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), info.ModelTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
@@ -303,7 +303,7 @@ func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 		Size:   3,
 		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, s.State.EnvironUUID())
+	s.testDownload(c, tools, s.State.ModelUUID())
 }
 
 func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
@@ -317,7 +317,7 @@ func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
 		Size:   3,
 		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, envState.EnvironUUID())
+	s.testDownload(c, tools, envState.ModelUUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {

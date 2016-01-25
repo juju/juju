@@ -86,8 +86,8 @@ func APIInfo(env Environ) (*api.Info, error) {
 	if !uuidSet {
 		return nil, errors.New("config has no UUID")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
+	modelTag := names.NewModelTag(uuid)
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, ModelTag: modelTag}
 	return apiInfo, nil
 }
 

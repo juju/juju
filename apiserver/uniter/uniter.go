@@ -830,7 +830,7 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 	if err != nil {
 		return params.StringsResults{}, err
 	}
-	modelUUID := u.st.EnvironUUID()
+	modelUUID := u.st.ModelUUID()
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.URLs)),
 	}
@@ -1052,7 +1052,7 @@ func (u *UniterAPIV3) JoinedRelations(args params.Entities) (params.StringsResul
 // CurrentEnvironUUID returns the UUID for the current juju environment.
 func (u *UniterAPIV3) CurrentEnvironUUID() (params.StringResult, error) {
 	result := params.StringResult{}
-	env, err := u.st.Environment()
+	env, err := u.st.Model()
 	if err == nil {
 		result.Result = env.UUID()
 	}
@@ -1062,7 +1062,7 @@ func (u *UniterAPIV3) CurrentEnvironUUID() (params.StringResult, error) {
 // CurrentEnvironment returns the name and UUID for the current juju environment.
 func (u *UniterAPIV3) CurrentEnvironment() (params.ModelResult, error) {
 	result := params.ModelResult{}
-	env, err := u.st.Environment()
+	env, err := u.st.Model()
 	if err == nil {
 		result.Name = env.Name()
 		result.UUID = env.UUID()

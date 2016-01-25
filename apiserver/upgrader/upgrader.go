@@ -76,7 +76,7 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}

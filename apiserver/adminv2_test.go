@@ -46,7 +46,7 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	defer cleanup()
 
 	info := s.APIInfo(c)
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
@@ -69,7 +69,7 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) 
 	info := s.APIInfo(c)
 	info.Tag = user.Tag()
 	info.Password = password
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
@@ -86,7 +86,7 @@ func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	defer cleanup()
 
 	info := s.APIInfo(c)
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 	_, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
 	c.Assert(err, gc.ErrorMatches, ".*not implemented.*")
 }

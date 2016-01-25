@@ -32,7 +32,7 @@ var (
 // after an upgrade.  If there is no environment UUID set, then
 // use login version 1.
 func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if info.EnvironTag.Id() == "" {
+	if info.ModelTag.Id() == "" {
 		return api.OpenWithVersion(info, opts, 1)
 	}
 	return api.Open(info, opts)

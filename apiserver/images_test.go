@@ -57,7 +57,7 @@ func (s *imageSuite) TestDownloadEnvironmentPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", s.State.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", s.State.ModelUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -68,7 +68,7 @@ func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
 	s.storeFakeImage(c, envState, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", envState.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", envState.ModelUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -229,7 +229,7 @@ func (s *imageSuite) downloadRequest(c *gc.C, url *url.URL) *http.Response {
 func (s *imageSuite) storeFakeImage(c *gc.C, st *state.State, kind, series, arch string) {
 	storage := st.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Kind:      kind,
 		Series:    series,
 		Arch:      arch,

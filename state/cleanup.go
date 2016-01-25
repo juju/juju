@@ -46,7 +46,7 @@ type cleanupDoc struct {
 func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
 		DocID:     st.docID(fmt.Sprint(bson.NewObjectId())),
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Kind:      kind,
 		Prefix:    prefix,
 	}

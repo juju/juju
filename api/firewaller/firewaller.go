@@ -36,9 +36,9 @@ func (st *State) BestAPIVersion() int {
 	return st.facade.BestAPIVersion()
 }
 
-// EnvironTag returns the current environment's tag.
-func (st *State) EnvironTag() (names.EnvironTag, error) {
-	return st.facade.RawAPICaller().EnvironTag()
+// ModelTag returns the current environment's tag.
+func (st *State) ModelTag() (names.ModelTag, error) {
+	return st.facade.RawAPICaller().ModelTag()
 }
 
 // life requests the life cycle of the given entity from the server.
@@ -92,13 +92,13 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current environment.
 func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
-	envTag, err := st.EnvironTag()
+	modelTag, err := st.ModelTag()
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid environ tag")
 	}
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: envTag.String()}},
+		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
 	err = st.facade.FacadeCall("WatchOpenedPorts", args, &results)
 	if err != nil {

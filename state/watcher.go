@@ -167,7 +167,7 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 // WatchEnvironments returns a StringsWatcher that notifies of changes
 // to the lifecycles of all environments.
 func (st *State) WatchEnvironments() StringsWatcher {
-	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
+	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
@@ -1408,8 +1408,8 @@ func (u *Unit) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to an environment.
-func (e *Environment) Watch() NotifyWatcher {
-	return newEntityWatcher(e.st, environmentsC, e.doc.UUID)
+func (e *Model) Watch() NotifyWatcher {
+	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade

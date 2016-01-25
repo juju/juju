@@ -222,7 +222,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -257,7 +257,7 @@ func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/model/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
@@ -304,7 +304,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -440,7 +440,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/model/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }

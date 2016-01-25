@@ -246,7 +246,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			urls = append(urls, w.icfg.Tools.URL)
 		} else {
 			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when EnvironTag
+				// TODO(axw) encode env UUID in URL when ModelTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
 				urls = append(urls, url)

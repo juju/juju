@@ -17,9 +17,9 @@ type UndertakerEnvironInfo struct {
 	TimeOfDeath *time.Time
 }
 
-// UndertakerEnvironInfoResult holds the result of an API call that returns an
-// UndertakerEnvironInfoResult or an error.
-type UndertakerEnvironInfoResult struct {
+// UndertakerModelInfoResult holds the result of an API call that returns an
+// UndertakerModelInfoResult or an error.
+type UndertakerModelInfoResult struct {
 	Error  *Error
 	Result UndertakerEnvironInfo
 }

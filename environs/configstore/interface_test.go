@@ -48,10 +48,10 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, modelUUID, serverUUID string) {
 	info := store.CreateInfo(envName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: modelUUID,
-		ServerUUID:  serverUUID,
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ModelUUID:  modelUUID,
+		ServerUUID: serverUUID,
 	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,10 +88,10 @@ func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
 	info := store.CreateInfo("somemodel")
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"0.1.2.3"},
-		Hostnames:   []string{"example.com"},
-		CACert:      "a cert",
-		EnvironUUID: "dead-beef",
+		Addresses: []string{"0.1.2.3"},
+		Hostnames: []string{"example.com"},
+		CACert:    "a cert",
+		ModelUUID: "dead-beef",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
@@ -118,10 +118,10 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	info.SetAPICredentials(expectCreds)
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"0.1.2.3"},
-		Hostnames:   []string{"example.invalid"},
-		CACert:      "a cert",
-		EnvironUUID: "dead-beef",
+		Addresses: []string{"0.1.2.3"},
+		Hostnames: []string{"example.invalid"},
+		CACert:    "a cert",
+		ModelUUID: "dead-beef",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 
@@ -163,10 +163,10 @@ func (s *interfaceSuite) TestWriteTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"0.1.2.3"},
-		Hostnames:   []string{"example.invalid"},
-		CACert:      "a cert",
-		EnvironUUID: "dead-beef",
+		Addresses: []string{"0.1.2.3"},
+		Hostnames: []string{"example.invalid"},
+		CACert:    "a cert",
+		ModelUUID: "dead-beef",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 	err = info.Write()

@@ -119,10 +119,10 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 func (s *APIInfoSuite) TestOutput(c *gc.C) {
 	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{
-			Addresses:   []string{"localhost:12345", "10.0.3.1:12345"},
-			CACert:      "this is the cacert",
-			EnvironUUID: "deadbeef-dead-beef-dead-deaddeaddead",
-			ServerUUID:  "bad0f00d-dead-beef-0000-01234567899a",
+			Addresses:  []string{"localhost:12345", "10.0.3.1:12345"},
+			CACert:     "this is the cacert",
+			ModelUUID:  "deadbeef-dead-beef-dead-deaddeaddead",
+			ServerUUID: "bad0f00d-dead-beef-0000-01234567899a",
 		}, nil
 	})
 	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
@@ -227,9 +227,9 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
 	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{
-			Addresses:   []string{"localhost:12345", "10.0.3.1:12345"},
-			CACert:      "this is the cacert",
-			EnvironUUID: "deadbeef-dead-beef-dead-deaddeaddead",
+			Addresses: []string{"localhost:12345", "10.0.3.1:12345"},
+			CACert:    "this is the cacert",
+			ModelUUID: "deadbeef-dead-beef-dead-deaddeaddead",
 		}, nil
 	})
 	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {

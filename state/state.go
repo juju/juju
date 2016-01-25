@@ -63,8 +63,8 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	environTag    names.EnvironTag
-	controllerTag names.EnvironTag
+	modelTag      names.ModelTag
+	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
 	session       *mgo.Session
 	database      Database
@@ -103,27 +103,27 @@ type StateServingInfo struct {
 // IsStateServer returns true if this state instance has the bootstrap
 // environment UUID.
 func (st *State) IsStateServer() bool {
-	return st.environTag == st.controllerTag
+	return st.modelTag == st.controllerTag
 }
 
-// RemoveAllEnvironDocs removes all documents from multi-environment
+// RemoveAllModelDocs removes all documents from multi-environment
 // collections. The environment should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
-func (st *State) RemoveAllEnvironDocs() error {
-	env, err := st.Environment()
+func (st *State) RemoveAllModelDocs() error {
+	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userEnvNameIndex(env.Owner().Canonical(), env.Name())
+	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
 	ops := []txn.Op{{
 		// Cleanup the owner:envName unique key.
-		C:      userenvnameC,
+		C:      usermodelnameC,
 		Id:     id,
 		Remove: true,
 	}, {
-		C:      environmentsC,
-		Id:     st.EnvironUUID(),
+		C:      modelsC,
+		Id:     st.ModelUUID(),
 		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
@@ -161,7 +161,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 
 // ForEnviron returns a connection to mongo for the specified environment. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
+func (st *State) ForEnviron(env names.ModelTag) (*State, error) {
 	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -174,7 +174,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 
 // start starts the presence watcher, leadership manager and images metadata storage,
 // and fills in the controllerTag field with the supplied value.
-func (st *State) start(controllerTag names.EnvironTag) error {
+func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 
 	var clientId string
@@ -220,34 +220,34 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 	st.leadershipManager = leadershipManager
 
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
 
 	logger.Infof("starting presence watcher")
-	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
+	st.pwatcher = presence.NewWatcher(st.getPresence(), st.modelTag)
 	return nil
 }
 
-// EnvironTag() returns the environment tag for the environment controlled by
+// ModelTag() returns the model tag for the model controlled by
 // this state instance.
-func (st *State) EnvironTag() names.EnvironTag {
-	return st.environTag
+func (st *State) ModelTag() names.ModelTag {
+	return st.modelTag
 }
 
-// EnvironUUID returns the model UUID for the environment
+// ModelUUID returns the model UUID for the model
 // controlled by this state instance.
-func (st *State) EnvironUUID() string {
-	return st.environTag.Id()
+func (st *State) ModelUUID() string {
+	return st.modelTag.Id()
 }
 
-// userEnvNameIndex returns a string to be used as a userenvnameC unique index.
-func userEnvNameIndex(username, envName string) string {
+// userModelNameIndex returns a string to be used as a usermodelnameC unique index.
+func userModelNameIndex(username, envName string) string {
 	return strings.ToLower(username) + ":" + envName
 }
 
-// EnsureEnvironmentRemoved returns an error if any multi-environment
-// documents for this environment are found. It is intended only to be used in
+// EnsureModelRemoved returns an error if any multi-model
+// documents for this model are found. It is intended only to be used in
 // tests and exported so it can be used in the tests of other packages.
-func (st *State) EnsureEnvironmentRemoved() error {
+func (st *State) EnsureModelRemoved() error {
 	found := map[string]int{}
 	var foundOrdered []string
 	for name, info := range st.database.Schema() {
@@ -267,7 +267,7 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	}
 
 	if len(found) != 0 {
-		errMessage := fmt.Sprintf("found documents for model with uuid %s:", st.EnvironUUID())
+		errMessage := fmt.Sprintf("found documents for model with uuid %s:", st.ModelUUID())
 		sort.Strings(foundOrdered)
 		for _, name := range foundOrdered {
 			number := found[name]
@@ -698,8 +698,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.User(tag)
 	case names.ServiceTag:
 		return st.Service(id)
-	case names.EnvironTag:
-		env, err := st.Environment()
+	case names.ModelTag:
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -773,8 +773,8 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.RelationTag:
 		coll = relationsC
 		id = st.docID(id)
-	case names.EnvironTag:
-		coll = environmentsC
+	case names.ModelTag:
+		coll = modelsC
 	case names.NetworkTag:
 		coll = networksC
 		id = st.docID(id)
@@ -965,7 +965,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
-				ModelUUID:     st.EnvironTag().Id(),
+				ModelUUID:     st.ModelTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 			}
@@ -1080,7 +1080,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			ModelUUID: st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1129,13 +1129,13 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
 		return nil, errors.Errorf("model is no longer alive")
 	}
-	if _, err := st.EnvironmentUser(ownerTag); err != nil {
+	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.Storage == nil {
@@ -1240,7 +1240,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	svc := newService(st, svcDoc)
 
 	statusDoc := statusDoc{
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
@@ -1271,7 +1271,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
 				RefCount:  1,
-				ModelUUID: st.EnvironUUID()},
+				ModelUUID: st.ModelUUID()},
 		}, {
 			C:      servicesC,
 			Id:     serviceID,
@@ -1455,7 +1455,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 		}, nil
 	}
 	switch placement.Scope {
-	case st.EnvironUUID():
+	case st.ModelUUID():
 		return &placementData{directive: placement.Directive}, nil
 	case instance.MachineScope:
 		return &placementData{machineId: placement.Directive}, nil
@@ -1545,7 +1545,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
-		ModelUUID:         st.EnvironUUID(),
+		ModelUUID:         st.ModelUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
@@ -1561,7 +1561,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, err
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertEnvAliveOp(st.ModelUUID()),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1649,7 +1649,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertEnvAliveOp(st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     doc.DocID,
@@ -1754,14 +1754,14 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return ensureEnvUUID(st.EnvironUUID(), localID)
+	return ensureEnvUUID(st.ModelUUID(), localID)
 }
 
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
 	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.EnvironUUID() {
+	if !ok || modelUUID != st.ModelUUID() {
 		return ID
 	}
 	return localID
@@ -1774,7 +1774,7 @@ func (st *State) localID(ID string) string {
 // returned.
 func (st *State) strictLocalID(ID string) (string, error) {
 	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.EnvironUUID() {
+	if !ok || modelUUID != st.ModelUUID() {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
 	return localID, nil
@@ -1996,7 +1996,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			ModelUUID: st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -2169,10 +2169,10 @@ type stateServersDoc struct {
 // StateServerInfo holds information about currently
 // configured state server machines.
 type StateServerInfo struct {
-	// EnvironmentTag identifies the initial environment. Only the initial
+	// ModelTag identifies the initial environment. Only the initial
 	// environment is able to have machines that manage state. The initial
 	// environment is the environment that is created when bootstrapping.
-	EnvironmentTag names.EnvironTag
+	ModelTag names.ModelTag
 
 	// MachineIds holds the ids of all machines configured
 	// to run a state server. It includes all the machine
@@ -2210,12 +2210,12 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 		logger.Warningf("state servers info has no model UUID so retrieving it from model")
 
 		// This only happens when migrating from 1.20 to 1.21 before
-		// upgrade steps have been run. Without this hack environTag
+		// upgrade steps have been run. Without this hack modelTag
 		// on State ends up empty, breaking basic functionality needed
 		// to run upgrade steps (a chicken-and-egg scenario).
-		environments := db.C(environmentsC)
+		environments := db.C(modelsC)
 
-		var envDoc environmentDoc
+		var envDoc modelDoc
 		query := environments.Find(nil)
 		count, err := query.Count()
 		if err != nil {
@@ -2231,7 +2231,7 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 	}
 
 	return &StateServerInfo{
-		EnvironmentTag:   names.NewEnvironTag(doc.ModelUUID),
+		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
@@ -2300,7 +2300,7 @@ var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	's': names.ServiceTagKind + "-",
 	'u': names.UnitTagKind + "-",
-	'e': names.EnvironTagKind + "-",
+	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",
 	'n': names.NetworkTagKind + "-",
 }

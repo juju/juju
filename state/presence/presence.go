@@ -124,9 +124,9 @@ type Change struct {
 }
 
 // NewWatcher returns a new Watcher.
-func NewWatcher(base *mgo.Collection, envTag names.EnvironTag) *Watcher {
+func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 	w := &Watcher{
-		modelUUID: envTag.Id(),
+		modelUUID: modelTag.Id(),
 		base:      base,
 		pings:     pingsC(base),
 		beings:    beingsC(base),
@@ -507,12 +507,12 @@ type Pinger struct {
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
-func NewPinger(base *mgo.Collection, envTag names.EnvironTag, key string) *Pinger {
+func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string) *Pinger {
 	return &Pinger{
 		base:      base,
 		pings:     pingsC(base),
 		beingKey:  key,
-		modelUUID: envTag.Id(),
+		modelUUID: modelTag.Id(),
 	}
 }
 

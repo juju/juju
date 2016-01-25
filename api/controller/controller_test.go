@@ -92,7 +92,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
 			Name:     "dummymodel",
-			UUID:     s.State.EnvironUUID(),
+			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockChange",
@@ -139,7 +139,7 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 		c.Assert(deltas, gc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 
-		env, err := s.State.Environment()
+		env, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(modelInfo.ModelUUID, gc.Equals, env.UUID())
@@ -154,11 +154,11 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	controller := s.OpenAPI(c)
-	envTag := s.State.EnvironTag()
-	results, err := controller.ModelStatus(envTag)
+	modelTag := s.State.ModelTag()
+	results, err := controller.ModelStatus(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               envTag.Id(),
+		UUID:               modelTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,
 		Owner:              "dummy-admin@local",

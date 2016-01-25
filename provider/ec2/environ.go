@@ -642,7 +642,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
 		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")

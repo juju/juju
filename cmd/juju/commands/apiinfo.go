@@ -159,7 +159,7 @@ func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
 		result.Password = credentials.Password
 	}
 	if c.envuuid {
-		result.EnvironUUID = apiendpoint.EnvironUUID
+		result.ModelUUID = apiendpoint.ModelUUID
 	}
 	if c.servers {
 		result.StateServers = apiendpoint.Addresses
@@ -197,7 +197,7 @@ func (c *apiInfoCommand) format(value interface{}) ([]byte, error) {
 type InfoData struct {
 	User         string   `json:"user,omitempty" yaml:",omitempty"`
 	Password     string   `json:"password,omitempty" yaml:",omitempty"`
-	EnvironUUID  string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ModelUUID    string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
 	ServerUUID   string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
 	StateServers []string `json:"state-servers,omitempty" yaml:"state-servers,omitempty"`
 	CACert       string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
@@ -210,7 +210,7 @@ func (i *InfoData) field(name string) (interface{}, error) {
 	case "password":
 		return i.Password, nil
 	case "environ-uuid":
-		return i.EnvironUUID, nil
+		return i.ModelUUID, nil
 	case "state-servers":
 		return i.StateServers, nil
 	case "ca-cert":

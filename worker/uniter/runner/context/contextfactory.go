@@ -103,7 +103,7 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	environment, err := state.Environment()
+	environment, err := state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

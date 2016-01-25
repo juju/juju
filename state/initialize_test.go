@@ -39,9 +39,9 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 }
 
-func (s *InitializeSuite) openState(c *gc.C, environTag names.EnvironTag) {
+func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	st, err := state.Open(
-		environTag,
+		modelTag,
 		statetesting.NewMongoInfo(),
 		statetesting.NewDialOpts(),
 		state.Policy(nil),
@@ -67,20 +67,20 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
-	envTag := st.EnvironTag()
-	c.Assert(envTag.Id(), gc.Equals, uuid)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.openState(c, envTag)
+	s.openState(c, modelTag)
 
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
 	// Check that the environment has been created.
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Tag(), gc.Equals, envTag)
+	c.Assert(env.Tag(), gc.Equals, modelTag)
 	// Check that the owner has been created.
 	c.Assert(env.Owner(), gc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
@@ -88,13 +88,13 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, owner)
 	// Check that the owner has an EnvUser created for the bootstrapped environment.
-	envUser, err := s.State.EnvironmentUser(env.Owner())
+	envUser, err := s.State.ModelUser(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserTag(), gc.Equals, owner)
-	c.Assert(envUser.EnvironmentTag(), gc.Equals, env.Tag())
+	c.Assert(envUser.ModelTag(), gc.Equals, env.Tag())
 
 	// Check that the environment can be found through the tag.
-	entity, err = s.State.FindEntity(envTag)
+	entity, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvironmentTag: envTag})
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{ModelTag: modelTag})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	st := statetesting.Initialize(c, owner, good, nil)
 	st.Close()
 
-	s.openState(c, st.EnvironTag())
+	s.openState(c, st.ModelTag())
 	err = s.State.UpdateEnvironConfig(badUpdateAttrs, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
@@ -168,7 +168,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	// yay side effects
 	st.Close()
 
-	s.openState(c, st.EnvironTag())
+	s.openState(c, st.ModelTag())
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{}, []string{"agent-version"}, nil)
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 

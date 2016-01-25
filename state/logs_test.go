@@ -63,7 +63,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 2)
 
 	c.Assert(docs[0]["t"], gc.Equals, t0)
-	c.Assert(docs[0]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
@@ -71,7 +71,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1)
-	c.Assert(docs[1]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
@@ -146,7 +146,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
 		var doc bson.M
-		err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Sort("-t").One(&doc)
+		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(doc["t"].(time.Time), gc.Equals, now)
 	}
@@ -166,7 +166,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+	count, err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
@@ -575,7 +575,7 @@ func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 	if lt.ModelUUID == "" {
-		lt.ModelUUID = s.State.EnvironUUID()
+		lt.ModelUUID = s.State.ModelUUID()
 	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")

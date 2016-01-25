@@ -25,7 +25,7 @@ func (s *State) sequence(name string) (int, error) {
 		Update: bson.M{
 			"$set": bson.M{
 				"name":       name,
-				"model-uuid": s.EnvironUUID(),
+				"model-uuid": s.ModelUUID(),
 			},
 			"$inc": bson.M{"counter": 1},
 		},

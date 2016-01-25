@@ -146,7 +146,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.EnvironTag = s.State.EnvironTag()
+	apiInfo.ModelTag = s.State.ModelTag()
 	return apiInfo
 }
 
@@ -363,21 +363,21 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
-	environUUID, ok := config.UUID()
+	modelUUID, ok := config.UUID()
 	if !ok {
 		return nil, fmt.Errorf("cannot connect without model UUID")
 	}
-	environTag := names.NewEnvironTag(environUUID)
+	modelTag := names.NewModelTag(modelUUID)
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -485,7 +485,7 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
@@ -638,7 +638,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
-			Environment:       s.State.EnvironTag(),
+			Model:             s.State.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config

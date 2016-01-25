@@ -54,7 +54,7 @@ type diskStore struct {
 type EnvironInfoData struct {
 	User            string
 	Password        string
-	EnvironUUID     string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ModelUUID       string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
 	ServerUUID      string                 `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
 	StateServers    []string               `json:"state-servers" yaml:"state-servers"`
 	ServerHostnames []string               `json:"server-hostnames,omitempty" yaml:"server-hostnames,omitempty"`
@@ -176,7 +176,7 @@ func (d *diskStore) ListSystems() ([]string, error) {
 		// server by default.  Otherwise, if the server and env
 		// UUIDs match, it is a server.
 		api := env.APIEndpoint()
-		if api.ServerUUID == "" || api.ServerUUID == api.EnvironUUID {
+		if api.ServerUUID == "" || api.ServerUUID == api.ModelUUID {
 			servers.Add(name)
 		}
 	}
@@ -256,11 +256,11 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	return APIEndpoint{
-		Addresses:   info.apiEndpoints,
-		Hostnames:   info.apiHostnames,
-		CACert:      info.caCert,
-		EnvironUUID: info.environmentUUID,
-		ServerUUID:  info.serverUUID,
+		Addresses:  info.apiEndpoints,
+		Hostnames:  info.apiHostnames,
+		CACert:     info.caCert,
+		ModelUUID:  info.environmentUUID,
+		ServerUUID: info.serverUUID,
 	}
 }
 
@@ -281,7 +281,7 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.apiEndpoints = endpoint.Addresses
 	info.apiHostnames = endpoint.Hostnames
 	info.caCert = endpoint.CACert
-	info.environmentUUID = endpoint.EnvironUUID
+	info.environmentUUID = endpoint.ModelUUID
 	info.serverUUID = endpoint.ServerUUID
 }
 
@@ -419,7 +419,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.name = envName
 	info.user = values.User
 	info.credentials = values.Password
-	info.environmentUUID = values.EnvironUUID
+	info.environmentUUID = values.ModelUUID
 	info.serverUUID = values.ServerUUID
 	info.caCert = values.CACert
 	info.apiEndpoints = values.StateServers
@@ -448,7 +448,7 @@ func (info *environInfo) writeJENVFile() error {
 	infoData := EnvironInfoData{
 		User:            info.user,
 		Password:        info.credentials,
-		EnvironUUID:     info.environmentUUID,
+		ModelUUID:       info.environmentUUID,
 		ServerUUID:      info.serverUUID,
 		StateServers:    info.apiEndpoints,
 		ServerHostnames: info.apiHostnames,

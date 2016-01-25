@@ -39,7 +39,7 @@ func (s *ImageSuite) TestStorage(c *gc.C) {
 }
 
 func (s *ImageSuite) TestStorageParams(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, gc.IsNil)
 
 	var called bool

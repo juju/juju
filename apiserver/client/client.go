@@ -68,7 +68,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		return nil, common.ErrPerm
 	}
 	apiState := getState(st)
-	urlGetter := common.NewToolsURLGetter(apiState.EnvironUUID(), apiState)
+	urlGetter := common.NewToolsURLGetter(apiState.ModelUUID(), apiState)
 	client := &Client{
 		api: &API{
 			stateAccessor: apiState,
@@ -532,7 +532,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := c.api.stateAccessor.Environment()
+		env, err := c.api.stateAccessor.Model()
 		if err != nil {
 			return nil, err
 		}
@@ -578,10 +578,10 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
-	// override any environment settings the user may have specified.
+	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
-	// what's specified in the environments.yaml file.
+	// what's specified in the models.yaml file.
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
@@ -625,7 +625,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	return info, nil
 }
 
-// ModelInfo returns information about the current environment (default
+// ModelInfo returns information about the current model (default
 // series and type).
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	state := c.api.stateAccessor
@@ -633,7 +633,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
-	env, err := state.Environment()
+	env, err := state.Model()
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
@@ -648,7 +648,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	return info, nil
 }
 
-// ShareModel manages allowing and denying the given user(s) access to the environment.
+// ShareModel manages allowing and denying the given user(s) access to the model.
 func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
@@ -672,14 +672,14 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 		}
 		switch arg.Action {
 		case params.AddModelUser:
-			_, err := c.api.stateAccessor.AddEnvironmentUser(
-				state.EnvUserSpec{User: user, CreatedBy: createdBy})
+			_, err := c.api.stateAccessor.AddModelUser(
+				state.EnvModelSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share model")
 				result.Results[i].Error = common.ServerError(err)
 			}
 		case params.RemoveModelUser:
-			err := c.api.stateAccessor.RemoveEnvironmentUser(user)
+			err := c.api.stateAccessor.RemoveModelUser(user)
 			if err != nil {
 				err = errors.Annotate(err, "could not unshare model")
 				result.Results[i].Error = common.ServerError(err)
@@ -691,10 +691,10 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 	return result, nil
 }
 
-// ModelUserInfo returns information on all users in the environment.
+// ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	var results params.ModelUserInfoResults
-	env, err := c.api.stateAccessor.Environment()
+	env, err := c.api.stateAccessor.Model()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -838,7 +838,7 @@ func (c *Client) ModelUnset(args params.ModelUnset) error {
 	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
-// SetModelAgentVersion sets the environment agent version.
+// SetModelAgentVersion sets the model agent version.
 func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -888,7 +888,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
+// the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
@@ -943,13 +943,13 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 	return results, nil
 }
 
-// DestroyModel will try to destroy the current environment.
+// DestroyModel will try to destroy the current model.
 // If there is a block on destruction, this method will return an error.
 func (c *Client) DestroyModel() (err error) {
 	if err := c.check.DestroyAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 
-	environTag := c.api.stateAccessor.EnvironTag()
-	return errors.Trace(common.DestroyModel(c.api.state(), environTag))
+	modelTag := c.api.stateAccessor.ModelTag()
+	return errors.Trace(common.DestroyModel(c.api.state(), modelTag))
 }

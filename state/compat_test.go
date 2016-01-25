@@ -17,7 +17,7 @@ import (
 // schema changes.
 type compatSuite struct {
 	internalStateSuite
-	env *Environment
+	env *Model
 }
 
 var _ = gc.Suite(&compatSuite{})
@@ -25,7 +25,7 @@ var _ = gc.Suite(&compatSuite{})
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
 
-	env, err := s.state.Environment()
+	env, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 }
@@ -34,7 +34,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// 1.17+ has a "Life" field in environment documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
