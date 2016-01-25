@@ -1768,7 +1768,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                              puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
+            'juju', '--show-log', 'bootstrap', '-m', 'steve', '--constraints',
             'mem=2G'))
         po_mock.return_value.wait.return_value = 0
         self.assertEqual(puj_iterator.next(),
