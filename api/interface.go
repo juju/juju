@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/api/model"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
@@ -173,7 +173,9 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
-	Environment() *environment.Facade
+	// TODO(wallyworld) - we should rename this package to eg proxyupdater and fix the callers
+	// to use the most appropriate facade eg agent which reads config at startup should use agent api.
+	Model() *model.Facade
 	Logger() *apilogger.State
 	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API

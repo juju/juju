@@ -11,7 +11,7 @@ type DestroyControllerArgs struct {
 	DestroyModels bool `json:"destroy-models"`
 }
 
-// ModelBlockInfo holds information about a model and its
+// ModelBlockInfo holds information about an model and its
 // current blocks.
 type ModelBlockInfo struct {
 	Name     string   `json:"name"`
@@ -20,7 +20,7 @@ type ModelBlockInfo struct {
 	Blocks   []string `json:"blocks"`
 }
 
-// ModelBlockInfoList holds information about the blocked environments
+// ModelBlockInfoList holds information about the blocked models
 // for a controller.
 type ModelBlockInfoList struct {
 	Models []ModelBlockInfo `json:"models,omitempty"`
@@ -28,12 +28,12 @@ type ModelBlockInfoList struct {
 
 // RemoveBlocksArgs holds the arguments for the RemoveBlocks command. It is a
 // struct to facilitate the easy addition of being able to remove blocks for
-// individual environments at a later date.
+// individual models at a later date.
 type RemoveBlocksArgs struct {
 	All bool `json:"all"`
 }
 
-// ModelStatus holds information about the status of a juju environment.
+// ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	ModelTag           string `json:"model-tag"`
 	Life               Life   `json:"life"`
@@ -42,7 +42,7 @@ type ModelStatus struct {
 	OwnerTag           string `json:"owner-tag"`
 }
 
-// ModelStatusResults holds status information about a group of environments.
+// ModelStatusResults holds status information about a group of models.
 type ModelStatusResults struct {
 	Results []ModelStatus `json:"models"`
 }

@@ -587,7 +587,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 0, "", "DestroyModel", nil, nil)
+		err := st.APICall("Client", 1, "", "DestroyModel", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -612,10 +612,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(loginErr, gc.IsNil)
 
 		var statusResult params.FullStatus
-		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 0, "", "DestroyModel", nil, nil)
+		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
 		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -721,7 +721,7 @@ func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	}
 	clientVersions := asMap["Client"]
 	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 0)
+	c.Check(clientVersions[0], gc.Equals, 1)
 }
 
 func (s *loginV0Suite) TestLoginRejectV1(c *gc.C) {
@@ -757,7 +757,7 @@ func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	}
 	clientVersions := asMap["Client"]
 	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 0)
+	c.Check(clientVersions[0], gc.Equals, 1)
 }
 
 func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {

@@ -47,7 +47,7 @@ func (s *imageSuite) TestDownloadMissingEnvUUIDPath(c *gc.C) {
 
 	s.envUUID = ""
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, "/environment//images")
+	c.Assert(url.Path, jc.HasPrefix, "/model//images")
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -57,7 +57,7 @@ func (s *imageSuite) TestDownloadEnvironmentPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/environment/%s/", s.State.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", s.State.EnvironUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -68,7 +68,7 @@ func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
 	s.storeFakeImage(c, envState, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/environment/%s/", envState.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", envState.EnvironUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -253,7 +253,7 @@ func (s *imageSuite) getImageFromStorage(c *gc.C, st *state.State, kind, series,
 
 func (s *imageSuite) imageURL(c *gc.C, kind, series, arch string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.envUUID, kind, series, arch)
+	uri.Path = fmt.Sprintf("/model/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.envUUID, kind, series, arch)
 	return uri
 }
 

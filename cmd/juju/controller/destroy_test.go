@@ -70,7 +70,7 @@ func (f *fakeDestroyAPI) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStat
 	return status, f.err
 }
 
-func (f *fakeDestroyAPI) AllEnvironments() ([]base.UserModel, error) {
+func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 	return f.allEnvs, f.err
 }
 

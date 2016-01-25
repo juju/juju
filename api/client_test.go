@@ -167,7 +167,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.*/environment/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `POST http://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
@@ -186,11 +186,11 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 	return lis
 }
 
-// envEndpoint returns "/environment/<env-uuid>/<destination>"
+// envEndpoint returns "/model/<model-uuid>/<destination>"
 func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
 	envTag, err := apiState.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)
-	return path.Join("/environment", envTag.Id(), destination)
+	return path.Join("/model", envTag.Id(), destination)
 }
 
 func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
@@ -469,24 +469,9 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestConnectStreamRootPath(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-
-	// If the server is old, we connect to /path.
-	info := s.APIInfo(c)
-	info.EnvironTag = names.NewEnvironTag("")
-	apistate, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
-	reader, err := apistate.ConnectStream("/path", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, "/path")
-}
-
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-	// If the server supports it, we should log at "/environment/UUID/log"
+	// If the server supports it, we should log at "/model/UUID/log"
 	environ, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
@@ -497,7 +482,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	reader, err := apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/environment/%s/path", environ.UUID()))
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
 }
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {

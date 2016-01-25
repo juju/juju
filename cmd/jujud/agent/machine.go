@@ -734,7 +734,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+		return proxyupdater.New(st.Model(), writeSystemFiles), nil
 	})
 
 	if isEnvironManager {
@@ -750,7 +750,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 	})
 
-	envConfig, err := st.Environment().EnvironConfig()
+	envConfig, err := st.Model().EnvironConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -889,7 +889,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				checkerParams := toolsversionchecker.VersionCheckerParams{
 					CheckInterval: time.Hour * 6,
 				}
-				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+				return toolsversionchecker.New(st.Model(), &checkerParams), nil
 			})
 
 		case multiwatcher.JobManageStateDeprecated:
@@ -1392,7 +1392,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	envConfig, err := apiSt.Environment().EnvironConfig()
+	envConfig, err := apiSt.Model().EnvironConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read model config")
 	}

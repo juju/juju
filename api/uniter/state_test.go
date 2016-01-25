@@ -4,13 +4,11 @@
 package uniter_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
@@ -38,18 +36,7 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	c.Assert(providerType, gc.DeepEquals, cfg.Type())
 }
 
-func (s *stateSuite) TestAllMachinePortsV0NotImplemented(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV0)
-
-	ports, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
-	c.Assert(err.Error(), gc.Equals, "AllMachinePorts() (need V1+) not implemented")
-	c.Assert(ports, gc.IsNil)
-}
-
-func (s *stateSuite) TestAllMachinePortsV1(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
+func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	// Verify no ports are opened yet on the machine or unit.
 	machinePorts, err := s.wordpressMachine.AllPorts()
 	c.Assert(err, jc.ErrorIsNil)

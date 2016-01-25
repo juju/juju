@@ -41,7 +41,7 @@ This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
 
-// DestroyEnvironmentAPI defines the methods on the environmentmanager
+// DestroyEnvironmentAPI defines the methods on the modelmanager
 // API that the destroy command calls. It is exported for mocking in tests.
 type DestroyEnvironmentAPI interface {
 	Close() error

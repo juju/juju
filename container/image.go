@@ -54,7 +54,7 @@ func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch str
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.ModelUUID, kind, series, arch, imageFilename,
+		"https://%s/model/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.ModelUUID, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
 }

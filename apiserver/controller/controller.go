@@ -21,12 +21,12 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacade("Controller", 1, NewControllerAPI)
+	common.RegisterStandardFacade("Controller", 2, NewControllerAPI)
 }
 
 // Controller defines the methods on the controller API end point.
 type Controller interface {
-	AllEnvironments() (params.UserEnvironmentList, error)
+	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
 	EnvironmentConfig() (params.ModelConfigResults, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
@@ -77,10 +77,10 @@ func NewControllerAPI(
 	}, nil
 }
 
-// AllEnvironments allows controller administrators to get the list of all the
+// AllModels allows controller administrators to get the list of all the
 // environments in the controller.
-func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
-	result := params.UserEnvironmentList{}
+func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
+	result := params.UserModelList{}
 
 	// Get all the environments that the authenticated user can see, and
 	// supplement that with the other environments that exist that the user
@@ -98,8 +98,8 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 			return result, errors.Trace(err)
 		}
 		visibleEnvironments.Add(env.UUID())
-		result.UserEnvironments = append(result.UserEnvironments, params.UserModel{
-			Environment: params.Environment{
+		result.UserModels = append(result.UserModels, params.UserModel{
+			Model: params.Model{
 				Name:     env.Name(),
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
@@ -115,8 +115,8 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 
 	for _, env := range allEnvs {
 		if !visibleEnvironments.Contains(env.UUID()) {
-			result.UserEnvironments = append(result.UserEnvironments, params.UserModel{
-				Environment: params.Environment{
+			result.UserModels = append(result.UserModels, params.UserModel{
+				Model: params.Model{
 					Name:     env.Name(),
 					UUID:     env.UUID(),
 					OwnerTag: env.Owner().String(),
@@ -127,7 +127,7 @@ func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 	}
 
 	// Sort the resulting sequence by environment name, then owner.
-	sort.Sort(orderedUserEnvironments(result.UserEnvironments))
+	sort.Sort(orderedUserModels(result.UserModels))
 
 	return result, nil
 }
@@ -307,13 +307,13 @@ func (o orderedBlockInfo) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
 }
 
-type orderedUserEnvironments []params.UserModel
+type orderedUserModels []params.UserModel
 
-func (o orderedUserEnvironments) Len() int {
+func (o orderedUserModels) Len() int {
 	return len(o)
 }
 
-func (o orderedUserEnvironments) Less(i, j int) bool {
+func (o orderedUserModels) Less(i, j int) bool {
 	if o[i].Name < o[j].Name {
 		return true
 	}
@@ -334,6 +334,6 @@ func (o orderedUserEnvironments) Less(i, j int) bool {
 	return false
 }
 
-func (o orderedUserEnvironments) Swap(i, j int) {
+func (o orderedUserModels) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
 }

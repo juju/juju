@@ -74,7 +74,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 	connectURL := connectURLFromReader(c, conn)
-	c.Assert(connectURL.Path, gc.Equals, "/environment/"+s.State.EnvironTag().Id()+"/path")
+	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.EnvironTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 

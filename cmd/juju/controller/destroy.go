@@ -62,7 +62,7 @@ type destroyControllerAPI interface {
 	DestroyController(destroyEnvs bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(envs ...names.EnvironTag) ([]base.ModelStatus, error)
-	AllEnvironments() ([]base.UserModel, error)
+	AllModels() ([]base.UserModel, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the

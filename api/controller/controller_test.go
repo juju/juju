@@ -42,7 +42,7 @@ func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
 	return controller.NewClient(conn)
 }
 
-func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "first", Owner: owner}).Close()
@@ -50,7 +50,7 @@ func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 		Name: "second", Owner: owner}).Close()
 
 	sysManager := s.OpenAPI(c)
-	envs, err := sysManager.AllEnvironments()
+	envs, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envs, gc.HasLen, 3)
 
@@ -81,7 +81,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "controller model cannot be destroyed before all other models are destroyed")
 }
 
-func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
+func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for state server")
 	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for state server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	}
 }
 
-func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	controller := s.OpenAPI(c)
 	envTag := s.State.EnvironTag()
 	results, err := controller.ModelStatus(envTag)

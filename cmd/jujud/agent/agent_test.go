@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	apienvironment "github.com/juju/juju/api/environment"
+	apienvironment "github.com/juju/juju/api/model"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"

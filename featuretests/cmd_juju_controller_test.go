@@ -18,7 +18,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -48,8 +48,8 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
-	envManager := environmentmanager.NewClient(conn)
-	_, err = envManager.CreateEnvironment(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	modelManager := modelmanager.NewClient(conn)
+	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
 		"state-server":    isServer,
@@ -62,7 +62,7 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "dummymodel\n")
 }
 
-func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
+func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
@@ -100,7 +100,7 @@ func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	api.Close()
 }
 
-func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
+func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
@@ -130,7 +130,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	done := make(chan struct{})
 	// In order for the destroy controller command to complete we need to run
 	// the code that the cleaner and undertaker workers would be running in
-	// the agent in order to progress the lifecycle of the hosted environment,
+	// the agent in order to progress the lifecycle of the hosted model,
 	// and cleanup the documents.
 	go func() {
 		defer close(done)
@@ -231,7 +231,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 
 	s.run(c, "kill-controller", "dummymodel", "-y")
 
-	// Ensure that Destroy was called on the hosted environment ...
+	// Ensure that Destroy was called on the hosted model ...
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
 	// ... and that the configstore was removed.

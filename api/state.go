@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/api/model"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
@@ -179,9 +179,9 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
-	st.environTag = environTag
+	st.modelTag = modelTag
 	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)
@@ -366,9 +366,9 @@ func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
 }
 
-// Environment returns access to the Environment API
-func (st *state) Environment() *environment.Facade {
-	return environment.NewFacade(st)
+// Model returns access to the Model API
+func (st *state) Model() *model.Facade {
+	return model.NewFacade(st)
 }
 
 // Logger returns access to the Logger API

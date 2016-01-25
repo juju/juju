@@ -366,7 +366,7 @@ func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
 	if apiAddress == "" {
 		return "", errors.Errorf("no suitable API server address to pick from %v", hostPorts)
 	}
-	serverRoot := fmt.Sprintf("https://%s/environment/%s", apiAddress, t.envUUID)
+	serverRoot := fmt.Sprintf("https://%s/model/%s", apiAddress, t.envUUID)
 	return ToolsURL(serverRoot, v), nil
 }
 

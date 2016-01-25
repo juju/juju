@@ -30,25 +30,25 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AllEnvironments allows controller administrators to get the list of all the
-// environments in the controller.
-func (c *Client) AllEnvironments() ([]base.UserModel, error) {
-	var environments params.UserEnvironmentList
-	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
+// AllModels allows controller administrators to get the list of all the
+// models in the controller.
+func (c *Client) AllModels() ([]base.UserModel, error) {
+	var models params.UserModelList
+	err := c.facade.FacadeCall("AllModels", nil, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]base.UserModel, len(environments.UserEnvironments))
-	for i, env := range environments.UserEnvironments {
-		owner, err := names.ParseUserTag(env.OwnerTag)
+	result := make([]base.UserModel, len(models.UserModels))
+	for i, model := range models.UserModels {
+		owner, err := names.ParseUserTag(model.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
 		}
 		result[i] = base.UserModel{
-			Name:           env.Name,
-			UUID:           env.UUID,
+			Name:           model.Name,
+			UUID:           model.UUID,
 			Owner:          owner.Canonical(),
-			LastConnection: env.LastConnection,
+			LastConnection: model.LastConnection,
 		}
 	}
 	return result, nil
@@ -62,7 +62,7 @@ func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 	return result.Config, err
 }
 
-// DestroyController puts the controller environment into a "dying" state,
+// DestroyController puts the controller model into a "dying" state,
 // and removes all non-manager machine instances. Underlying DestroyModel
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
@@ -87,8 +87,8 @@ func (c *Client) RemoveBlocks() error {
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)
 }
 
-// WatchAllEnv returns an AllEnvWatcher, from which you can request
-// the Next collection of Deltas (for all environments).
+// WatchAllEnvs returns an AllEnvWatcher, from which you can request
+// the Next collection of Deltas (for all models).
 func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	info := new(api.WatchAll)
 	if err := c.facade.FacadeCall("WatchAllEnvs", nil, info); err != nil {
@@ -97,15 +97,15 @@ func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
-// ModelStatus returns a status summary for each environment tag passed in.
+// ModelStatus returns a status summary for each model tag passed in.
 func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResults{}
-	envs := make([]params.Entity, len(tags))
+	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
-		envs[i] = params.Entity{Tag: tag.String()}
+		models[i] = params.Entity{Tag: tag.String()}
 	}
 	req := params.Entities{
-		Entities: envs,
+		Entities: models,
 	}
 	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, erro
 
 	results := make([]base.ModelStatus, len(result.Results))
 	for i, r := range result.Results {
-		env, err := names.ParseEnvironTag(r.ModelTag)
+		model, err := names.ParseEnvironTag(r.ModelTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.ModelTag, i)
 		}
@@ -123,7 +123,7 @@ func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, erro
 		}
 
 		results[i] = base.ModelStatus{
-			UUID:               env.Id(),
+			UUID:               model.Id(),
 			Life:               r.Life,
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,

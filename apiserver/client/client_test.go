@@ -2216,7 +2216,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
-	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
@@ -2493,7 +2493,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.APICall("Client", 0, "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", 1, "", "AddMachines", args, &results)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
@@ -3060,8 +3060,8 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.assertDestroyRelation(c, endpoints)
 }
 
-func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	// The full tests for DestroyModel are in environmentmanager.
+func (s *clientSuite) TestDestroyModel(c *gc.C) {
+	// The full tests for DestroyModel are in modelmanager.
 	// Here we just test that things are hooked up such that we can destroy
 	// the environment through the client endpoint to support older juju clients.
 	err := s.APIState.Client().DestroyModel()
