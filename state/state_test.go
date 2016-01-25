@@ -164,13 +164,13 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 	c.Assert(st.ModelTag(), gc.Equals, s.modelTag)
 }
 
-func (s *StateSuite) TestEnvironUUID(c *gc.C) {
+func (s *StateSuite) TestModelUUID(c *gc.C) {
 	c.Assert(s.State.ModelUUID(), gc.Equals, s.modelTag.Id())
 }
 
-func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 1 modelusers doc, 1 leases doc, 1 settings doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 1 leases doc, 1 modelusers doc, 1 settings doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
