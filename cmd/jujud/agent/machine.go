@@ -759,12 +759,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 	})
 
-	if !isEnvironManager {
-		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
-			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
-		})
-	}
-
 	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 		api, err := apiConn.DiskManager()
 		if err != nil {
