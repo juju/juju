@@ -5,7 +5,7 @@ import os.path
 import re
 import sys
 
-from generate_simplestreams import json_dump
+from simplestreams.generate_simplestreams import json_dump
 
 
 def main():

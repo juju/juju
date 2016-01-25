@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import json
 import os
 
-from generate_simplestreams import json_dump
+from simplestreams.generate_simplestreams import json_dump
 
 
 def main():
