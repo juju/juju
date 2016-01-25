@@ -311,9 +311,7 @@ class EnvJujuClient:
 
     def get_bootstrap_args(self, upload_tools):
         """Bootstrap, using sudo if necessary."""
-        if self.env.hpcloud:
-            constraints = 'mem=2G'
-        elif self.env.maas:
+        if self.env.maas:
             constraints = 'mem=2G arch=amd64'
         elif self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1395,14 +1393,11 @@ class SimpleEnvironment:
             self.local = bool(self.config.get('type') == 'local')
             self.kvm = (
                 self.local and bool(self.config.get('container') == 'kvm'))
-            self.hpcloud = bool(
-                'hpcloudsvc' in self.config.get('auth-url', ''))
             self.maas = bool(self.config.get('type') == 'maas')
             self.joyent = bool(self.config.get('type') == 'joyent')
         else:
             self.local = False
             self.kvm = False
-            self.hpcloud = False
             self.maas = False
             self.joyent = False
 
@@ -1414,8 +1409,6 @@ class SimpleEnvironment:
         if self.config != other.config:
             return False
         if self.local != other.local:
-            return False
-        if self.hpcloud != other.hpcloud:
             return False
         if self.maas != other.maas:
             return False

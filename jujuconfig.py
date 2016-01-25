@@ -126,9 +126,7 @@ def describe_substrate(config):
             'lxc': 'LXC (local)'
         }[config.get('container', 'lxc')]
     elif config['type'] == 'openstack':
-        if config['auth-url'].endswith('hpcloudsvc.com:35357/v2.0/'):
-            return 'HPCloud'
-        elif config['auth-url'] == (
+        if config['auth-url'] == (
                 'https://keystone.canonistack.canonical.com:443/v2.0/'):
             return 'Canonistack'
         else:

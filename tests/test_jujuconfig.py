@@ -20,10 +20,6 @@ class TestDescribeSubstrate(TestCase):
         self.assertEqual('LXC (local)', describe_substrate(
             {'type': 'local'}))
 
-    def test_describe_substrate_hp(self):
-        self.assertEqual('HPCloud', describe_substrate(
-            {'type': 'openstack', 'auth-url': 'hpcloudsvc.com:35357/v2.0/'}))
-
     def test_describe_substrate_openstack(self):
         self.assertEqual('Openstack', describe_substrate(
             {'type': 'openstack', 'auth-url': 'pcloudsvc.com:35357/v2.0/'}))

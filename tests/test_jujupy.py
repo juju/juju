@@ -805,14 +805,6 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'action', 'bar', '-m', 'foo', 'baz', 'qux'),
             full)
 
-    def test_bootstrap_hpcloud(self):
-        env = SimpleEnvironment('hp')
-        with patch.object(env, 'hpcloud', lambda: True):
-            with patch.object(EnvJujuClient, 'juju') as mock:
-                EnvJujuClient(env, None, None).bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
-
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient, 'juju') as mock:
@@ -2178,14 +2170,6 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual((
             'juju', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
             full)
-
-    def test_bootstrap_hpcloud(self):
-        env = SimpleEnvironment('hp')
-        with patch.object(env, 'hpcloud', lambda: True):
-            with patch.object(EnvJujuClient1X, 'juju') as mock:
-                EnvJujuClient1X(env, None, None).bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
@@ -4171,12 +4155,6 @@ class TestSimpleEnvironment(TestCase):
         env = SimpleEnvironment('local',
                                 {'type': 'local', 'container': 'kvm'})
         self.assertTrue(env.kvm, 'Does not respect config type.')
-
-    def test_hpcloud_from_config(self):
-        env = SimpleEnvironment('cloud', {'auth-url': 'before.keystone.after'})
-        self.assertFalse(env.hpcloud, 'Does not respect config type.')
-        env = SimpleEnvironment('hp', {'auth-url': 'before.hpcloudsvc.after/'})
-        self.assertTrue(env.hpcloud, 'Does not respect config type.')
 
     def test_from_config(self):
         with temp_config():
