@@ -78,7 +78,7 @@ func (c *statusCommand) Info() *cmd.Info {
 		Args:    "[pattern ...]",
 		Purpose: "output status information about a model",
 		Doc:     statusDoc,
-		Aliases: []string{"stat"},
+		Aliases: []string{"show-status"},
 	}
 }
 

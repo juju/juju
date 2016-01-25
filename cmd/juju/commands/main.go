@@ -164,6 +164,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
+	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
 
 	// Manage authorized ssh keys.
 	r.Register(newAuthorizedKeysCommand())
@@ -200,6 +201,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
+	r.RegisterSuperAlias("run-action", "action", "do", nil)
+	r.RegisterSuperAlias("list-actions", "action", "defined", nil)
+	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
+	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
 
 	// Manage state server availability
 	r.Register(newEnsureAvailabilityCommand())
@@ -207,8 +212,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
 	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
-	r.RegisterSuperAlias("get", "service", "get", nil)
-	r.RegisterSuperAlias("set", "service", "set", nil)
+	r.RegisterSuperAlias("get-config", "service", "get", nil)
+	r.RegisterSuperAlias("set-config", "service", "set", nil)
 	r.RegisterSuperAlias("unset", "service", "unset", nil)
 
 	// Operation protection commands
@@ -217,12 +222,18 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewSuperCommand())
+	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
+	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
+	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
+	r.RegisterSuperAlias("add-space", "space", "create", nil)
+	r.RegisterSuperAlias("list-spaces", "space", "list", nil)
 
 	// Manage subnets
 	r.Register(subnet.NewSuperCommand())
+	r.RegisterSuperAlias("add-subnet", "subnet", "add", nil)
 
 	// Manage controllers
 	r.Register(controller.NewCreateEnvironmentCommand())

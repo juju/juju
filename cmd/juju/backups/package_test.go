@@ -46,7 +46,7 @@ func TestPackage(t *testing.T) {
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuHomeSuite
 
-	command    *backups.Command
+	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
 
@@ -56,7 +56,7 @@ type BaseBackupsSuite struct {
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewSuperCommand().(*backups.Command)
+	s.command = backups.NewSuperCommand()
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
