@@ -72,6 +72,8 @@ func (c *Context) Download(name string) (string, error) {
 	return path, nil
 }
 
+// contextDeps implements all the external dependencies
+// of ContextDownload().
 type contextDeps struct {
 	APIClient
 	name    string

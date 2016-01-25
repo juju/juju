@@ -73,10 +73,12 @@ type ContextDirectorySpec interface {
 	IsUpToDate(Content) (bool, error)
 }
 
+// ContextDownloadDirectory is an adapter for TempDirectorySpec.
 type ContextDownloadDirectory struct {
 	*TempDirectorySpec
 }
 
+// Open implements DownloadTarget.
 func (dir ContextDownloadDirectory) Open() (DownloadDirectory, error) {
 	return dir.TempDirectorySpec.Open()
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
+// Download downloads the resource from the provied source to the target.
 func Download(target DownloadTarget, remote ContentSource) error {
 	resDir, err := target.Open()
 	if err != nil {
@@ -25,14 +26,23 @@ func Download(target DownloadTarget, remote ContentSource) error {
 	return nil
 }
 
+// DownloadTarget exposes the functionality of a directory spec
+// needed by Download().
 type DownloadTarget interface {
+	// Open prepares the target directory and returns it.
 	Open() (DownloadDirectory, error)
 }
 
+// DownloadDirectory exposes the functionality of a resource directory
+// needed by Download().
 type DownloadDirectory interface {
+	// Write writes all the relevant files for the provided source
+	// to the directory.
 	Write(ContentSource) error
 }
 
+// DownloadIndirect downloads the resource from the source into a temp
+// directory. Then the target is replaced by the temp directory.
 func DownloadIndirect(target Resolver, remote ContentSource, deps DownloadIndirectDeps) error {
 	tempDirSpec, err := deps.NewTempDirSpec()
 	defer deps.CloseAndLog(tempDirSpec, "resource temp dir")
@@ -60,6 +70,8 @@ type Resolver interface {
 	Resolve(...string) string
 }
 
+// DownloadIndirectDeps exposes the external functionality needed
+// by DownloadIndirect.
 type DownloadIndirectDeps interface {
 	// NewTempDirSpec returns a directory spec for the resource under a temporary datadir.
 	NewTempDirSpec() (DownloadTempTarget, error)
@@ -72,6 +84,7 @@ type DownloadIndirectDeps interface {
 	ReplaceDirectory(tgt, src string) error
 }
 
+// DownloadTempTarget represents a temporary download directory.
 type DownloadTempTarget interface {
 	DownloadTarget
 	Resolver

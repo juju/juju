@@ -14,17 +14,21 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+// OpenedResourceClient exposes the API functionality needed by OpenResource.
 type OpenedResourceClient interface {
 	// GetResource returns the resource info and content for the given
 	// name (and unit-implied service).
 	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 
+// OpenedResource wraps the resource info and reader returned
+// from the API.
 type OpenedResource struct {
 	resource.Resource
 	io.ReadCloser
 }
 
+// OpenResource opens the identified resource using the provided client.
 func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, error) {
 	info, reader, err := client.GetResource(name)
 	if err != nil {
@@ -37,6 +41,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 	return or, nil
 }
 
+// Content returns the "content" for the opened resource.
 func (or OpenedResource) Content() Content {
 	return Content{
 		Data:        or.ReadCloser,
@@ -45,6 +50,7 @@ func (or OpenedResource) Content() Content {
 	}
 }
 
+// Info returns the info for the opened resource.
 func (or OpenedResource) Info() resource.Resource {
 	return or.Resource
 }

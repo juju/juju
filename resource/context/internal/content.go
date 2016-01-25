@@ -41,6 +41,8 @@ func (c Content) Verify(size int64, fp charmresource.Fingerprint) error {
 	return nil
 }
 
+// ContentSource represents the functionality of OpenedResource,
+// relative to Content.
 type ContentSource interface {
 	// Content returns the content for the opened resource.
 	Content() Content
@@ -51,6 +53,8 @@ type ContentSource interface {
 
 // TODO(ericsnow) Need a lockfile around create/write?
 
+// WriteContent writes the resource file to the target provided
+// by the deps.
 func WriteContent(content Content, deps WriteContentDeps) error {
 	checker := deps.NewChecker(content)
 	source := checker.WrapReader(content.Data)
@@ -73,26 +77,41 @@ func WriteContent(content Content, deps WriteContentDeps) error {
 	return nil
 }
 
+// WriteContentDeps exposes the external functionality needed by WriteContent.
 type WriteContentDeps interface {
+	//NewChecker provides a content checker for the given content.
 	NewChecker(Content) ContentChecker
 
+	// CreateTarget creates a new writer to which the resource file
+	// will be written.
 	CreateTarget() (io.WriteCloser, error)
 }
 
+// ContentChecker exposes functionality for verifying the data read from a reader.
 type ContentChecker interface {
+	// WrapReader wraps the provided reader in another reader
+	// that tracks the read data.
 	WrapReader(io.Reader) io.Reader
 
+	// Verify fails if the tracked data does not match
+	// the expected data.
 	Verify() error
 }
 
+// Checker provides the functionality for verifying that read data
+// is correct.
 type Checker struct {
+	// Content holds the expected content values.
 	Content Content
 
+	// SizeTracker tracks the number of bytes read.
 	SizeTracker SizeTracker
 
+	// ChecksumWriter tracks the checksum of the read bytes.
 	ChecksumWriter ChecksumWriter
 }
 
+// NewContentChecker returns a Checker for the provided data.
 func NewContentChecker(content Content, st SizeTracker, checksumWriter ChecksumWriter) *Checker {
 	return &Checker{
 		Content:        content,
@@ -101,11 +120,13 @@ func NewContentChecker(content Content, st SizeTracker, checksumWriter ChecksumW
 	}
 }
 
+// WrapReader implements ContentChecker.
 func (c Checker) WrapReader(reader io.Reader) io.Reader {
 	hashingReader := io.TeeReader(reader, c.ChecksumWriter)
 	return io.TeeReader(hashingReader, c.SizeTracker)
 }
 
+// Verify implements ContentChecker.
 func (c Checker) Verify() error {
 	size := c.SizeTracker.Size()
 	fp := c.ChecksumWriter.Fingerprint()
@@ -115,24 +136,31 @@ func (c Checker) Verify() error {
 	return nil
 }
 
+// NopChecker is a ContentChecker that accepts all data.
 type NopChecker struct{}
 
+// WrapReader implements ContentChecker.
 func (NopChecker) WrapReader(reader io.Reader) io.Reader {
 	return reader
 }
 
+// Verify implements ContentChecker.
 func (NopChecker) Verify() error {
 	return nil
 }
 
+// SizeTracker tracks the number of bytes written.
 type SizeTracker interface {
 	io.Writer
 
+	// Size returns the number of bytes written.
 	Size() int64
 }
 
+// ChecksumWriter tracks the checksum of all written bytes.
 type ChecksumWriter interface {
 	io.Writer
 
+	// Fingerprint is the fingerprint for the tracked checksum.
 	Fingerprint() charmresource.Fingerprint
 }
