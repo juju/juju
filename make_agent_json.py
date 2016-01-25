@@ -6,8 +6,9 @@ import hashlib
 import os
 import sys
 
+from simplestreams.generate_simplestreams import json_dump
+
 from build_package import juju_series
-from generate_simplestreams import json_dump
 
 
 supported_windows_releases = (
