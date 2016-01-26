@@ -156,7 +156,7 @@ environments:
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "models.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	es, err := environs.ReadEnvirons("")
@@ -227,7 +227,7 @@ environments:
 `
 	outfile, err := environs.WriteEnvirons("", env)
 	c.Assert(err, jc.ErrorIsNil)
-	path := gitjujutesting.HomePath(".juju", "models.yaml")
+	path := gitjujutesting.HomePath(".juju", "environments.yaml")
 	c.Assert(path, gc.Equals, outfile)
 
 	envs, err := environs.ReadEnvirons("")

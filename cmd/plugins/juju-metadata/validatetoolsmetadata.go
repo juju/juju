@@ -49,7 +49,7 @@ version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either ~/.juju/models.yaml, the -m option, or JUJU_MODEL.
+the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which

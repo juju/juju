@@ -227,7 +227,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, osenv.JujuHomePath("models.yaml"))
+	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
 
 	err = ioutil.WriteFile(osenv.JujuHomePath("dummymodel-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, jc.ErrorIsNil)
@@ -581,9 +581,9 @@ func (s *JujuConnSuite) ConfDir() string {
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/models.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
 	}
-	path := osenv.JujuHomePath("models.yaml")
+	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)

@@ -63,7 +63,7 @@ about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
 completed, you can run other juju commands against your model. You can change
 the default timeout and retry delays used during the bootstrap by changing the
-following settings in your models.yaml (all values represent number of seconds):
+following settings in your environments.yaml (all values represent number of seconds):
 
     # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
