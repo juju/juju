@@ -5,12 +5,11 @@ package internal_test
 
 import (
 	"io"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/testing/filetesting"
-	//jc "github.com/juju/testing/checkers"
-	//gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"
@@ -25,9 +24,9 @@ type internalStub struct {
 	ReturnOpenResource            internal.ContextOpenedResource
 	ReturnNewTempDirSpec          internal.DownloadTempTarget
 	ReturnNewChecker              internal.ContentChecker
+	ReturnCreateTarget            io.WriteCloser
 	ReturnCreateFile              io.WriteCloser
 	ReturnNewTempDir              string
-	ReturnJoin                    string
 }
 
 func newInternalStub() *internalStub {
@@ -96,6 +95,15 @@ func (s *internalStub) NewChecker(content internal.Content) internal.ContentChec
 	return s.ReturnNewChecker
 }
 
+func (s *internalStub) WriteContent(filename string, content internal.Content) error {
+	s.Stub.AddCall("WriteContent", filename, content)
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func (s *internalStub) CloseAndLog(closer io.Closer, label string) {
 	s.Stub.AddCall("CloseAndLog", closer, label)
 	s.Stub.NextErr() // Pop one off.
@@ -108,6 +116,15 @@ func (s *internalStub) MkdirAll(dirname string) error {
 	}
 
 	return nil
+}
+
+func (s *internalStub) CreateTarget() (io.WriteCloser, error) {
+	s.Stub.AddCall("CreateTarget")
+	if err := s.Stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnCreateTarget, nil
 }
 
 func (s *internalStub) CreateFile(filename string) (io.WriteCloser, error) {
@@ -146,11 +163,11 @@ func (s *internalStub) Move(target, source string) error {
 	return nil
 }
 
-func (s *internalStub) Join(path ...string) string {
-	s.Stub.AddCall("Join", path)
+func (s *internalStub) Join(pth ...string) string {
+	s.Stub.AddCall("Join", pth)
 	s.Stub.NextErr() // Pop one off.
 
-	return s.ReturnJoin
+	return path.Join(pth...)
 }
 
 type stubReadCloser struct {

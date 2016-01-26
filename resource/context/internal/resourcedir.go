@@ -7,8 +7,6 @@ package internal
 //  (e.g. top-level resource pkg, charm/resource)
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 )
 
@@ -20,8 +18,8 @@ type DirectorySpec struct {
 	// Dirname is the path to the resource directory.
 	Dirname string
 
-	// deps is the external dependencies of DirectorySpec.
-	deps DirectorySpecDeps
+	// Deps is the external dependencies of DirectorySpec.
+	Deps DirectorySpecDeps
 }
 
 // NewDirectorySpec returns a new directory spec for the given info.
@@ -32,14 +30,14 @@ func NewDirectorySpec(dataDir, name string, deps DirectorySpecDeps) *DirectorySp
 		Name:    name,
 		Dirname: dirname,
 
-		deps: deps,
+		Deps: deps,
 	}
 	return spec
 }
 
 // Resolve returns the fully resolved file path, relative to the directory.
 func (spec DirectorySpec) Resolve(path ...string) string {
-	return spec.deps.Join(append([]string{spec.Dirname}, path...)...)
+	return spec.Deps.Join(append([]string{spec.Dirname}, path...)...)
 }
 
 func (spec DirectorySpec) infoPath() string {
@@ -70,11 +68,11 @@ func (spec DirectorySpec) IsUpToDate(content Content) (bool, error) {
 
 // Open preps the spec'ed directory and returns it.
 func (spec DirectorySpec) Open() (*Directory, error) {
-	if err := spec.deps.MkdirAll(spec.Dirname); err != nil {
+	if err := spec.Deps.MkdirAll(spec.Dirname); err != nil {
 		return nil, errors.Annotate(err, "could not create resource dir")
 	}
 
-	return NewDirectory(&spec, spec.deps), nil
+	return NewDirectory(&spec, spec.Deps), nil
 }
 
 // DirectorySpecDeps exposes the external depenedencies of DirectorySpec.
@@ -119,8 +117,10 @@ func NewTempDirectorySpec(name string, deps TempDirDeps) (*TempDirectorySpec, er
 type TempDirDeps interface {
 	DirectorySpecDeps
 
+	// NewTempDir returns the path to a new temporary directory.
 	NewTempDir() (string, error)
 
+	// RemoveDir deletes the specified directory.
 	RemoveDir(string) error
 }
 
@@ -136,7 +136,8 @@ func (spec TempDirectorySpec) Close() error {
 type Directory struct {
 	*DirectorySpec
 
-	deps DirectoryDeps
+	// Deps holds the external dependencies of the directory.
+	Deps DirectoryDeps
 }
 
 // NewDirectory returns a new directory for the provided spec.
@@ -144,7 +145,7 @@ func NewDirectory(spec *DirectorySpec, deps DirectoryDeps) *Directory {
 	dir := &Directory{
 		DirectorySpec: spec,
 
-		deps: deps,
+		Deps: deps,
 	}
 	return dir
 }
@@ -171,10 +172,7 @@ func (dir *Directory) WriteContent(relPath []string, content Content) error {
 	}
 	filename := dir.Resolve(relPath...)
 
-	err := WriteContent(content, &dirWriteContentDeps{
-		DirectoryDeps: dir.deps,
-		filename:      filename,
-	})
+	err := dir.Deps.WriteContent(filename, content)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -183,19 +181,6 @@ func (dir *Directory) WriteContent(relPath []string, content Content) error {
 
 // DirectoryDeps exposes the external functionality needed by Directory.
 type DirectoryDeps interface {
-	// NewChecker returns a new content checker from
-	// the given content.
-	NewChecker(Content) ContentChecker
-
-	// CreateFile exposes the functionality of os.Create().
-	CreateFile(string) (io.WriteCloser, error)
-}
-
-type dirWriteContentDeps struct {
-	DirectoryDeps
-	filename string
-}
-
-func (deps dirWriteContentDeps) CreateTarget() (io.WriteCloser, error) {
-	return deps.CreateFile(deps.filename)
+	// WriteContent writes the content to the directory.
+	WriteContent(string, Content) error
 }

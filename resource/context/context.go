@@ -107,6 +107,10 @@ func (deps *contextDeps) NewTempDirSpec() (internal.DownloadTempTarget, error) {
 	return dir, nil
 }
 
+func (deps *contextDeps) WriteContent(filename string, content internal.Content) error {
+	return internal.ContextWriteContent(filename, content, deps)
+}
+
 func (deps contextDeps) CloseAndLog(closer io.Closer, label string) {
 	internal.CloseAndLog(closer, label, logger)
 }
