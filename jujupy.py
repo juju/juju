@@ -341,8 +341,10 @@ class EnvJujuClient:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def bootstrap(self, upload_tools=False):
-        args = self.get_bootstrap_args(upload_tools)
+    def bootstrap(self, upload_tools=False, to=None, agent_version=None,
+                  bootstrap_series=None):
+        args = self.get_bootstrap_args(upload_tools, to, agent_version,
+                                       bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
