@@ -90,7 +90,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
-	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -124,7 +123,6 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newMachiner              = machiner.NewMachiner
-	newNetworker             = networker.NewNetworker
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
@@ -833,25 +831,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			})
 		}
 	}
-
-	// Check if the network management is disabled.
-	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
-	if disableNetworkManagement {
-		logger.Infof("network management is disabled")
-	}
-
-	// Start networker depending on configuration and job.
-	intrusiveMode := false
-	for _, job := range machineJobs {
-		if job == multiwatcher.JobManageNetworking {
-			intrusiveMode = true
-			break
-		}
-	}
-	intrusiveMode = intrusiveMode && !disableNetworkManagement
-	runner.StartWorker("networker", func() (worker.Worker, error) {
-		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
-	})
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.

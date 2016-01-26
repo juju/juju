@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
@@ -286,12 +285,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 // required by the resumer worker.
 func (st *state) Resumer() *resumer.API {
 	return resumer.NewAPI(st)
-}
-
-// Networker returns a version of the state that provides functionality
-// required by the networker worker.
-func (st *state) Networker() networker.State {
-	return networker.NewState(st)
 }
 
 // Provisioner returns a version of the state that provides functionality
