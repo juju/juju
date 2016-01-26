@@ -31,7 +31,9 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 		Machines: map[string]params.MachineStatus{
 			"0": {
 				Id:         "0",
-				AgentState: "started",
+				Agent: params.AgentStatus{
+					Status: "started",
+				},
 				DNSName:    "10.0.0.1",
 				InstanceId: "juju-dummy-machine-0",
 				Series:     "trusty",
@@ -39,7 +41,9 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 			},
 			"1": {
 				Id:         "1",
-				AgentState: "pending",
+				Agent: params.AgentStatus{
+					Status: "pending",
+				},
 				DNSName:    "10.0.0.2",
 				InstanceId: "juju-dummy-machine-1",
 				Series:     "trusty",

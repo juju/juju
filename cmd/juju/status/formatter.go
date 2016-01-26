@@ -15,7 +15,7 @@ type statusFormatter struct {
 	isoTime   bool
 }
 
-func newStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
 		relations: make(map[int]params.RelationStatus),

@@ -99,7 +99,7 @@ func (c *listMachinesCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := status.NewStatusFormatter(fullStatus, 0, c.isoTime)
+	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
 	formatted := formatter.Machineformat(c.pattern)
 	return c.out.Write(ctx, formatted)
 }
