@@ -88,7 +88,6 @@ func (s *stubPersistence) SetUnitResource(serviceID, unitID string, res resource
 
 type stubStorage struct {
 	stub           *testing.Stub
-	ReturnGet      resource.Content
 	storageReturns []*bytes.Buffer
 }
 
