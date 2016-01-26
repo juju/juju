@@ -4,13 +4,25 @@
 package meterstatus
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"net"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/api/meterstatus"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
+)
+
+var (
+	newSocketListener = func(path string, handler spool.ConnectionHandler) (stopper, error) {
+		return spool.NewSocketListener(path, handler)
+	}
 )
 
 // connectedStatusHandler implements the NotifyWatchHandler interface.
@@ -19,13 +31,16 @@ type connectedStatusHandler struct {
 
 	code string
 	info string
+
+	stopListener func()
 }
 
 // ConnectedConfig contains all the dependencies required to create a new connected status worker.
 type ConnectedConfig struct {
-	Runner    HookRunner
-	StateFile *StateFile
-	Status    meterstatus.MeterStatusClient
+	Runner     HookRunner
+	StateFile  *StateFile
+	Status     meterstatus.MeterStatusClient
+	SocketPath string
 }
 
 // Validate validates the config structure and returns an error on failure.
@@ -48,6 +63,14 @@ func NewConnectedStatusWorker(cfg ConnectedConfig) (worker.Worker, error) {
 	handler, err := NewConnectedStatusHandler(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if cfg.SocketPath != "" {
+		statusHandler := handler.(*connectedStatusHandler)
+		listener, err := newSocketListener(cfg.SocketPath, &socketHandler{handler: statusHandler})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusHandler.stopListener = listener.Stop
 	}
 	return worker.NewNotifyWorker(handler), nil
 }
@@ -78,6 +101,9 @@ func (w *connectedStatusHandler) SetUp() (apiwatcher.NotifyWatcher, error) {
 
 // TearDown is part of the worker.NotifyWatchHandler interface.
 func (w *connectedStatusHandler) TearDown() error {
+	if w.stopListener != nil {
+		w.stopListener()
+	}
 	return nil
 }
 
@@ -102,7 +128,7 @@ func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
 }
 
 func (w *connectedStatusHandler) applyStatus(code, info string, abort <-chan struct{}) {
-	logger.Tracef("applying meter status change: %q (%q)", code, info)
+	logger.Errorf("applying meter status change: %q (%q)", code, info)
 	err := w.config.Runner.RunHook(code, info, abort)
 	cause := errors.Cause(err)
 	switch {
@@ -111,4 +137,36 @@ func (w *connectedStatusHandler) applyStatus(code, info string, abort <-chan str
 	case err != nil:
 		logger.Errorf("meter status worker encountered hook error: %v", err)
 	}
+}
+
+type meterStatus struct {
+	Code string `json:"code"`
+	Info string `json:"info"`
+}
+
+type socketHandler struct {
+	handler *connectedStatusHandler
+}
+
+// Handle implements the spool.ConnectionHandler interface.
+func (h *socketHandler) Handle(c net.Conn) (err error) {
+	defer func() {
+		if err != nil {
+			fmt.Fprintf(c, "%v\n", err)
+		} else {
+			fmt.Fprintf(c, "ok\n")
+		}
+		c.Close()
+	}()
+	message, err := bufio.NewReader(c).ReadString('\n')
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var status meterStatus
+	err = json.Unmarshal([]byte(message), &status)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	h.handler.applyStatus(status.Code, status.Info, nil)
+	return nil
 }

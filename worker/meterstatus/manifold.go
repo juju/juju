@@ -6,6 +6,7 @@
 package meterstatus
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/juju/errors"
@@ -13,16 +14,42 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/os"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/runner/context"
+)
+
+const (
+	defaultSocketName = "meter-status.socket"
 )
 
 var (
 	logger = loggo.GetLogger("juju.worker.meterstatus")
+
+	// readCharm function reads the charm directory and extracts declared metrics and the charm url.
+	readCharm = func(unitTag names.UnitTag, paths context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+		ch, err := corecharm.ReadCharm(paths.GetCharmDir())
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
+		}
+		chURL, err := charm.ReadCharmURL(path.Join(paths.GetCharmDir(), charm.CharmURLPath))
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		charmMetrics := map[string]corecharm.Metric{}
+		if ch.Metrics() != nil {
+			charmMetrics = ch.Metrics().Metrics
+		}
+		return chURL, charmMetrics, nil
+	}
 )
 
 // ManifoldConfig identifies the resource names upon which the status manifold depends.
@@ -50,6 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return newStatusWorker(config, getResource)
 		},
 	}
+}
+
+func socketName(baseDir, unitTag string) string {
+	if os.HostOS() == os.Windows {
+		return fmt.Sprintf(`\\.\pipe\meter-status-%s`, unitTag)
+	}
+	return path.Join(baseDir, defaultSocketName)
 }
 
 func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFunc) (worker.Worker, error) {
@@ -94,10 +128,18 @@ func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFu
 	logger.Tracef("Starting connected meter status worker.")
 	status := config.NewMeterStatusAPIClient(apiCaller, unitTag)
 
+	paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-collect")
+	charmURL, declaredMetrics, err := readCharm(unitTag, paths)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cfg := ConnectedConfig{
 		Runner:    runner,
 		StateFile: stateFile,
 		Status:    status,
+	}
+	if charmURL.Schema == "local" && len(declaredMetrics) > 0 {
+		cfg.SocketPath = socketName(paths.State.BaseDir, unitTag.String())
 	}
 	return config.NewConnectedStatusWorker(cfg)
 
