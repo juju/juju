@@ -56,81 +56,93 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
 }
 
+func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
+	s.assertScript(c, initial, expected, prefix, "", "")
+}
+
+func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string) {
+	s.assertScript(c, initial, expected, "", "", "")
+}
+
+func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string) {
+	s.assertScript(c, initial, expected, "", bridgeName, interfaceToBridge)
+}
+
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
 	_, code := s.runScript(c, "", "", "", "")
 	c.Check(code, gc.Equals, 1)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
-	s.assertScript(c, networkDHCPInitial, networkDHCPExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkDHCPInitial, networkDHCPExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptStatic(c *gc.C) {
-	s.assertScript(c, networkStaticInitial, networkStaticExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkStaticInitial, networkStaticExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDualNIC(c *gc.C) {
-	s.assertScript(c, networkDualNICInitial, networkDualNICExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkDualNICInitial, networkDualNICExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithAlias(c *gc.C) {
-	s.assertScript(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithAlias(c *gc.C) {
-	s.assertScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleStaticWithAliases(c *gc.C) {
-	s.assertScript(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithBond(c *gc.C) {
-	s.assertScript(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleAliases(c *gc.C) {
-	s.assertScript(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-", "", "")
+	s.assertScriptWithPrefix(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptSmorgasboard(c *gc.C) {
-	s.assertScript(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-", "", "")
+	s.assertScriptWithPrefix(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
-	s.assertScript(c, networkVLANInitial, networkVLANExpected, "vlan-br-", "", "")
+	s.assertScriptWithPrefix(c, networkVLANInitial, networkVLANExpected, "vlan-br-")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithMultipleNameservers(c *gc.C) {
-	s.assertScript(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithLoopbackOnly(c *gc.C) {
-	s.assertScript(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptBondWithVLANs(c *gc.C) {
-	s.assertScript(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptVLANWithInactive(c *gc.C) {
-	s.assertScript(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptVLANWithActiveDHCPDevice(c *gc.C) {
-	s.assertScript(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMultipleDNSValues(c *gc.C) {
-	s.assertScript(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptEmptyDNSValues(c *gc.C) {
-	s.assertScript(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs(c *gc.C) {
-	s.assertScript(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected, "br-", "", "")
+	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
@@ -146,15 +158,15 @@ func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) 
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
-	s.assertScript(c, networkStaticInitial, networkStaticInitial, "", "juju-br0", "eth1234567890")
+	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIfaceButMissingAutoStanza(c *gc.C) {
-	s.assertScript(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "", "juju-br0", "eth1")
+	s.assertScriptWithoutPrefix(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "juju-br0", "eth1")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc.C) {
-	s.assertScript(c, networkLP1532167Initial, networkLP1532167Expected, "", "juju-br0", "bond0")
+	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
 }
 
 func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {

@@ -86,6 +86,8 @@ class LogicalInterface(object):
 
     # Returns an ordered set of stanzas to bridge this interface.
     def bridge(self, prefix, bridge_name, add_auto_stanza):
+        if bridge_name is None:
+            bridge_name = prefix + self.name
         # Note: the testing order here is significant.
         if not self.is_active:
             return self._bridge_inactive(add_auto_stanza)
@@ -99,8 +101,6 @@ class LogicalInterface(object):
             return self._bridge_device(prefix, bridge_name)
 
     def _bridge_device(self, prefix, bridge_name):
-        if bridge_name is None:
-            bridge_name = prefix + self.name
         s1 = IfaceStanza(self.name, self.family, "manual", [])
         s2 = AutoStanza(bridge_name)
         options = list(self.options)
@@ -112,8 +112,6 @@ class LogicalInterface(object):
         stanzas = []
         s1 = IfaceStanza(self.name, self.family, "manual", self.options)
         stanzas.append(s1)
-        if bridge_name is None:
-            bridge_name = prefix + self.name
         if add_auto_stanza:
             stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("vlan")]
@@ -132,8 +130,6 @@ class LogicalInterface(object):
 
     def _bridge_bond(self, prefix, bridge_name, add_auto_stanza):
         stanzas = []
-        if bridge_name is None:
-            bridge_name = prefix + self.name
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
         s1 = IfaceStanza(self.name, self.family, "manual", list(self.options))
