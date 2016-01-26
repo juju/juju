@@ -248,7 +248,7 @@ var commandNames = []string{
 	"machines",
 	"publish",
 	"remove-all-blocks",
-	"remove-machine",  // alias for destroy-machine
+	"remove-machine", // alias for destroy-machine
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
