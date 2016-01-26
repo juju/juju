@@ -239,6 +239,9 @@ class FakeJujuClient:
     def is_jes_enabled(self):
         return self._jes_enabled
 
+    def get_cache_path(self):
+        return get_cache_path(self.env.juju_home, models=True)
+
     def get_juju_output(self, command, *args, **kwargs):
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
             return self._backing_state.token
@@ -774,6 +777,12 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('1.28', client2.version)
         self.assertEqual('other/path', client2.full_path)
         self.assertIs(False, client2.debug)
+
+    def test_get_cache_path(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', juju_home='/foo/'),
+                               '1.27', 'full/path', debug=True)
+        self.assertEqual('/foo/models/cache.yaml',
+                         client.get_cache_path())
 
     def test_full_args(self):
         env = SimpleEnvironment('foo')
@@ -2149,6 +2158,12 @@ class TestEnvJujuClient1X(ClientTest):
             EnvJujuClient1X.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
+    def test_get_cache_path(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo', juju_home='/foo/'),
+                                 '1.27', 'full/path', debug=True)
+        self.assertEqual('/foo/environments/cache.yaml',
+                         client.get_cache_path())
+
     def test_full_args(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
@@ -3513,6 +3528,10 @@ class TestGetCachePath(TestCase):
     def test_get_cache_path(self):
         path = get_cache_path('/home/jrandom/foo')
         self.assertEqual(path, '/home/jrandom/foo/environments/cache.yaml')
+
+    def test_get_cache_path_models(self):
+        path = get_cache_path('/home/jrandom/foo', models=True)
+        self.assertEqual(path, '/home/jrandom/foo/models/cache.yaml')
 
 
 class TestMakeJESHome(TestCase):

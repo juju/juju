@@ -122,7 +122,7 @@ class TestMain(FakeHomeTestCase):
         ds_mock.assert_called_once_with(client, 'prefix')
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
-        cache_path = get_cache_path(client.env.juju_home)
+        cache_path = get_cache_path(client.env.juju_home, models=True)
         dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
                                         {})
         self.assertEqual(0, ns_mock.call_count)
@@ -148,7 +148,7 @@ class TestMain(FakeHomeTestCase):
         di_mock.assert_called_once_with(client, 'i_id')
         ws_mock.assert_called_once_with('host', client, 'i_id')
         ns_mock.assert_called_once_with(error)
-        cache_path = get_cache_path(client.env.juju_home)
+        cache_path = get_cache_path(client.env.juju_home, models=True)
         dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
                                         {'0': 'new_host'})
 

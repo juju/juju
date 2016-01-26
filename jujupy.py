@@ -255,6 +255,9 @@ class EnvJujuClient:
             cls = self.__class__
         return cls(env, version, full_path, debug=debug)
 
+    def get_cache_path(self):
+        return get_cache_path(self.env.juju_home, models=True)
+
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
         if self.env is None or not include_e:
@@ -827,6 +830,9 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     _show_status = 'status'
 
+    def get_cache_path(self):
+        return get_cache_path(self.env.juju_home, models=False)
+
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
         if self.env is None or not include_e:
@@ -1170,8 +1176,12 @@ def jes_home_path(juju_home, dir_name):
     return os.path.join(juju_home, 'jes-homes', dir_name)
 
 
-def get_cache_path(juju_home):
-    return os.path.join(juju_home, 'environments', 'cache.yaml')
+def get_cache_path(juju_home, models=False):
+    if models:
+        root = os.path.join(juju_home, 'models')
+    else:
+        root = os.path.join(juju_home, 'environments')
+    return os.path.join(root, 'cache.yaml')
 
 
 @contextmanager
