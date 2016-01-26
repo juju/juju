@@ -27,7 +27,6 @@ from jujuconfig import (
 )
 from jujupy import (
     EnvJujuClient,
-    get_cache_path,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
@@ -557,7 +556,7 @@ class BootstrapManager:
             jes_home = jes_home_path(
                 self.client.env.juju_home, self.client.env.environment)
             with temp_juju_home(self.client, jes_home):
-                cache_path = get_cache_path(self.client.env.juju_home)
+                cache_path = self.client.get_cache_path()
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
@@ -617,7 +616,7 @@ class BootstrapManager:
         finally:
             safe_print_status(self.client)
             if self.jes_enabled:
-                runtime_config = get_cache_path(self.client.env.juju_home)
+                runtime_config = self.client.get_cache_path()
             else:
                 runtime_config = get_jenv_path(self.client.env.juju_home,
                                                self.client.env.environment)

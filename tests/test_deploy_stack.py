@@ -50,6 +50,7 @@ from jujupy import (
     DEFAULT_JES_COMMAND_1x,
     EnvJujuClient,
     EnvJujuClient1X,
+    get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
     SimpleEnvironment,
@@ -919,6 +920,8 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.env.config = {'type': 'baz'}
         client.get_matching_agent_version.return_value = '3.14'
         client.env.juju_home = use_context(self, temp_dir())
+        client.get_cache_path.return_value = get_cache_path(
+            client.env.juju_home)
         return client
 
     def test_bootstrap_context_tear_down(self):
@@ -1152,8 +1155,7 @@ class TestBootContext(FakeHomeTestCase):
                 call_index=help_index)
         self.assertEqual(po_count, po_mock.call_count)
         if jes:
-            runtime_config = os.path.join(client.env.juju_home, 'environments',
-                                          'cache.yaml')
+            runtime_config = client.get_cache_path()
         else:
             runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'bar.jenv')
