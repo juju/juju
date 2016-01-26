@@ -137,6 +137,30 @@ func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
+func (s *MigrationImportSuite) TestMachines(c *gc.C) {
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	// Machine 0 is already there.
+	c.Assert(allMachines, gc.HasLen, 1)
+	// Let's add machine 1 with an LXC container.
+	machine1 := s.Factory.MakeMachine(c, nil)
+	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newDescription(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	importedMachines, err := newSt.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedMachines, gc.HasLen, 3)
+}
+
 // newDescription replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // environment / model are unique together in a controller.
