@@ -39,6 +39,8 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]lease.Info) {
@@ -66,6 +68,8 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    lease.ErrInvalid,
@@ -127,6 +131,8 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    lease.ErrInvalid,
