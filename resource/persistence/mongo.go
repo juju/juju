@@ -116,7 +116,7 @@ type resourceDoc struct {
 	DocID     string `bson:"_id"`
 	EnvUUID   string `bson:"env-uuid"`
 	ServiceID string `bson:"service-id"`
-	UnitID    string `bson:"service-id"`
+	UnitID    string `bson:"unit-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
