@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -251,6 +252,7 @@ type dummyRecorder struct {
 	charmURL, unitTag string
 	metrics           map[string]corecharm.Metric
 	isDeclaredMetric  bool
+	err               string
 
 	// outputs
 	closed  bool
@@ -258,6 +260,9 @@ type dummyRecorder struct {
 }
 
 func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
+	if r.err != "" {
+		return errors.New(r.err)
+	}
 	then := time.Date(2015, 8, 20, 15, 48, 0, 0, time.UTC)
 	r.batches = append(r.batches, spool.MetricBatch{
 		CharmURL: r.charmURL,

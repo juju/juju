@@ -6,14 +6,13 @@
 package sender
 
 import (
-	"bufio"
+	"fmt"
 	"net"
-	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/os"
 
 	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/apiserver/params"
@@ -77,23 +76,24 @@ func (s *sender) sendMetrics(reader spool.MetricReader) error {
 }
 
 // Handle sends metrics from the spool directory to the
-func (s *sender) Handle(c net.Conn) error {
-	defer c.Close()
-	err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
+func (s *sender) Handle(c net.Conn) (err error) {
+	defer func() {
+		if err != nil {
+			fmt.Fprintf(c, "%v\n", err)
+		} else {
+			fmt.Fprintf(c, "ok\n")
+		}
+		c.Close()
+	}()
+	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
 	if err != nil {
 		return errors.Annotate(err, "failed to set the deadline")
 	}
-	tmpDir, err := bufio.NewReader(c).ReadString('\n')
+	reader, err := s.factory.Reader()
 	if err != nil {
-		return errors.Annotate(err, "failed to read the temporary spool directory")
-	}
-	spoolDir := strings.Trim(tmpDir, " \n\t")
-	reader, err := spool.NewJSONMetricReader(spoolDir)
-	if err != nil {
-		return errors.Annotate(err, "failed to create the metric reader")
+		return errors.Trace(err)
 	}
 	defer reader.Close()
-	defer os.RemoveAll(spoolDir)
 	return s.sendMetrics(reader)
 }
 
@@ -103,12 +103,19 @@ func (s *sender) stop() {
 	}
 }
 
-func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory, baseDir string) (*sender, error) {
+func socketName(baseDir, unitTag string) string {
+	if os.HostOS() == os.Windows {
+		return fmt.Sprintf(`\\.\pipe\send-metrics-%s`, unitTag)
+	}
+	return path.Join(baseDir, defaultSocketName)
+}
+
+func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFactory, baseDir, unitTag string) (*sender, error) {
 	s := &sender{
 		client:  client,
 		factory: factory,
 	}
-	listener, err := spool.NewSocketListener(path.Join(baseDir, defaultSocketName), s)
+	listener, err := spool.NewSocketListener(socketName(baseDir, unitTag), s)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

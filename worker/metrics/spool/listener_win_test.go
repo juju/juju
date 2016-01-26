@@ -8,6 +8,7 @@ package spool_test
 import (
 	"io"
 
+	"github.com/juju/errors"
 	"gopkg.in/natefinch/npipe.v2"
 )
 

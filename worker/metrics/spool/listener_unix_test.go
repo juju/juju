@@ -1,9 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package spool_test
-
 // +build !windows
+
+package spool_test
 
 import (
 	"io"

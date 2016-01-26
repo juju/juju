@@ -76,6 +76,20 @@ var newRunClient = func(env envcmd.EnvCommandBase) (runClient, error) {
 	return env.NewAPIClient()
 }
 
+func resultError(result params.RunResult) string {
+	if result.Error != "" {
+		return result.Error
+	}
+	stdout := strings.Trim(string(result.Stdout), " \t\n")
+	if stdout == "ok" {
+		return ""
+	}
+	if len(result.Stderr) != 0 && strings.Contains(string(result.Stderr), "No such file or directory") {
+		return "not a metered charm"
+	}
+	return ""
+}
+
 // Run implements Command.Run.
 func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	runnerClient, err := newRunClient(c.EnvCommandBase)
@@ -101,36 +115,47 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	resultChannel := make(chan string, len(runResults))
 	for _, result := range runResults {
 		r := result
-		if r.Error == "" {
+		errString := resultError(r)
+		if errString == "" {
 			go func() {
-				spoolDir := strings.Trim(string(r.Stdout), " \t\n")
-				if spoolDir == "" {
-					fmt.Println("failed to collect metrics for unit:", r.UnitId)
+				defer func() {
 					resultChannel <- r.UnitId
-					return
-				}
+				}()
 				sendParams := params.RunParams{
 					Timeout:  3 * time.Second,
 					Units:    []string{r.UnitId},
-					Commands: fmt.Sprintf("echo %v | sudo nc -U ../metrics-send.socket", spoolDir),
+					Commands: "nc -U ../metrics-send.socket",
 				}
 				sendResults, err := runnerClient.Run(sendParams)
-				if err != nil || len(sendResults) != 1 || sendResults[0].Error != "" {
-					fmt.Println("failed to send metrics for unit:", r.UnitId)
+				if err != nil {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", r.UnitId, err)
+					return
 				}
-				resultChannel <- r.UnitId
+				if len(sendResults) != 1 {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", r.UnitId)
+					return
+				}
+				errString := sendResults[0].Error
+				stdout := strings.Trim(string(sendResults[0].Stdout), " \t\n")
+				if stdout != "ok" {
+					errString = strings.Trim(string(sendResults[0].Stderr), " \t\n")
+				}
+				if errString != "" {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", r.UnitId, errString)
+				}
 			}()
 		} else {
-			fmt.Println("failed to collect metrics for unit:", r.UnitId)
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics for unit %v: %v\n", r.UnitId, errString)
+			resultChannel <- r.UnitId
 		}
 
 	}
 
 	for range runResults {
 		select {
-		case u := <-resultChannel:
+		case <-resultChannel:
 		case <-time.After(3 * time.Second):
-			fmt.Println("wait result timeout")
+			fmt.Fprintf(ctx.Stdout, "wait result timeout")
 			break
 		}
 	}

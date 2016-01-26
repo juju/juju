@@ -77,7 +77,7 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 	err = recorder.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn := &mockConnection{data: []byte(fmt.Sprintf("%v\n", tmpDir))}
@@ -95,7 +95,7 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {
 	apiSender := newTestAPIMetricSender()
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -120,7 +120,7 @@ func (s *senderSuite) TestSendingGetDuplicate(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -144,7 +144,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -167,7 +167,7 @@ func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {
 		"/some/random/spool/dir",
 	}
 
-	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -185,7 +185,7 @@ func (s *senderSuite) TestNoMetricsToSend(c *gc.C) {
 		newTmpSpoolDir,
 	}
 
-	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir)
+	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)

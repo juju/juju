@@ -8,6 +8,7 @@
 package collect
 
 import (
+	"fmt"
 	"path"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/os"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
@@ -108,6 +110,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+func socketName(baseDir, unitTag string) string {
+	if os.HostOS() == os.Windows {
+		return fmt.Sprintf(`\\.\pipe\collect-metrics-%s`, unitTag)
+	}
+	return path.Join(baseDir, defaultSocketName)
+}
+
 func newCollect(config ManifoldConfig, getResource dependency.GetResourceFunc) (*collect, error) {
 	period := defaultPeriod
 	if config.Period != nil {
@@ -149,12 +158,13 @@ func newCollect(config ManifoldConfig, getResource dependency.GetResourceFunc) (
 	}
 	if len(validMetrics) > 0 && charmURL.Schema == "local" {
 		h := newHandler(handlerConfig{
-			unitTag:      unitTag,
-			charmURL:     charmURL,
-			validMetrics: validMetrics,
-			runner:       runner,
+			unitTag:        unitTag,
+			charmURL:       charmURL,
+			validMetrics:   validMetrics,
+			metricsFactory: metricFactory,
+			runner:         runner,
 		})
-		listener, err = newSocketListener(path.Join(paths.State.BaseDir, defaultSocketName), h)
+		listener, err = newSocketListener(socketName(paths.State.BaseDir, unitTag.String()), h)
 		if err != nil {
 			return nil, err
 		}

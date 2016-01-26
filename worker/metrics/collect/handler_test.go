@@ -52,24 +52,42 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 	err := os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.recorder = &dummyRecorder{
+		charmURL: "local:trusty/metered-1",
+		unitTag:  "metered/0",
+		metrics: map[string]corecharm.Metric{
+			"pings": corecharm.Metric{
+				Description: "test metric",
+				Type:        corecharm.MetricTypeAbsolute,
+			},
+			"juju-units": corecharm.Metric{},
+		},
+	}
+
 	s.dummyResources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
+		"metric-spool-name": dt.StubResource{Output: &mockMetricFactory{recorder: s.recorder}},
 		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
 
-	s.recorder = &dummyRecorder{
-		charmURL: "local:trusty/metered-1",
-		unitTag:  "metered/0",
-	}
 	s.PatchValue(collect.NewRecorder,
 		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			// Return a dummyRecorder here, because otherwise a real one
 			// *might* get instantiated and error out, if the periodic worker
 			// happens to fire before the worker shuts down (as seen in
 			// LP:#1497355).
-			return s.recorder, nil
+			return &dummyRecorder{
+				charmURL: "local:trusty/metered-1",
+				unitTag:  "metered/0",
+				metrics: map[string]corecharm.Metric{
+					"pings": corecharm.Metric{
+						Description: "test metric",
+						Type:        corecharm.MetricTypeAbsolute,
+					},
+					"juju-units": corecharm.Metric{},
+				},
+			}, nil
 		},
 	)
 	s.PatchValue(collect.ReadCharm,
@@ -86,7 +104,6 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *handlerSuite) TestListenerStart(c *gc.C) {
-
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,19 +127,33 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	c.Assert(conn.Calls(), gc.HasLen, 3)
 	conn.CheckCall(c, 2, "Close")
 
-	tmpDir := strings.Trim(string(conn.data), " \n\t")
-	reader, err := spool.NewJSONMetricReader(tmpDir)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := reader.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		err = os.RemoveAll(string(conn.data))
-		c.Assert(err, jc.ErrorIsNil)
-	}()
+	responseString := strings.Trim(string(conn.data), " \n\t")
+	c.Assert(responseString, gc.Equals, "ok")
+	c.Assert(s.recorder.batches, gc.HasLen, 1)
 
-	batches, err := reader.Read()
+	worker.Kill()
+	err = worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batches, gc.HasLen, 1)
+	s.listener.CheckCall(c, 0, "Stop")
+}
+
+func (s *handlerSuite) TestHandlerError(c *gc.C) {
+	getResource := dt.StubGetResource(s.dummyResources)
+	worker, err := s.manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	c.Assert(s.listener.Calls(), gc.HasLen, 0)
+
+	s.recorder.err = "well, this is embarassing"
+
+	conn, err := s.listener.trigger()
+	c.Assert(err, gc.ErrorMatches, "failed to collect metrics: error adding 'juju-units' metric: well, this is embarassing")
+	c.Assert(conn.Calls(), gc.HasLen, 3)
+	conn.CheckCall(c, 2, "Close")
+
+	responseString := strings.Trim(string(conn.data), " \n\t")
+	c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
+	c.Assert(s.recorder.batches, gc.HasLen, 0)
 
 	worker.Kill()
 	err = worker.Wait()
@@ -139,7 +170,7 @@ func (l *mockListener) trigger() (*mockConnection, error) {
 	conn := &mockConnection{}
 	err := l.handler.Handle(conn)
 	if err != nil {
-		return nil, err
+		return conn, err
 	}
 	return conn, nil
 }
@@ -176,4 +207,14 @@ func (c *mockConnection) Write(data []byte) (int, error) {
 func (c *mockConnection) Close() error {
 	c.AddCall("Close")
 	return nil
+}
+
+type mockMetricFactory struct {
+	spool.MetricFactory
+	recorder *dummyRecorder
+}
+
+// Recorder implements the spool.MetricFactory interface.
+func (f *mockMetricFactory) Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
+	return f.recorder, nil
 }

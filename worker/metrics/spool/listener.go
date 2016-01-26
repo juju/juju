@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/tomb.v2"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker"
@@ -38,9 +38,10 @@ func NewSocketListener(socketPath string, handler ConnectionHandler) (*socketLis
 		return nil, errors.Trace(err)
 	}
 	sListener := &socketListener{listener: listener, handler: handler}
-	sListener.t.Go(func() error {
-		return sListener.loop()
-	})
+	go func() {
+		defer sListener.t.Done()
+		sListener.t.Kill(sListener.loop())
+	}()
 	return sListener, nil
 }
 
@@ -69,16 +70,16 @@ func (l *socketListener) loop() (_err error) {
 	for {
 		conn, err := l.listener.Accept()
 		if err != nil {
-			break
+			return errors.Trace(err)
 		}
-		l.t.Go(func() error {
+		go func() error {
 			err := l.handler.Handle(conn)
 			if err != nil {
 				// log the error and continue
 				logger.Errorf("request handling failed: %v", err)
 			}
 			return nil
-		})
+		}()
 	}
 	return
 }

@@ -66,7 +66,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"api-caller", "metric-spool"})
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent", "api-caller", "metric-spool"})
 }
 
 func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {

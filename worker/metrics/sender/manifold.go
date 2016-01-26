@@ -58,7 +58,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			var agent agent.Agent
 			if err := getResource(config.AgentName, &agent); err != nil {
-				logger.Errorf("XXX SENDER ERR: %v", err)
 				return nil, err
 			}
 			agentConfig := agent.CurrentConfig()
@@ -71,7 +70,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			client := newMetricAdderClient(apicaller)
 
-			s, err := newSender(client, factory, paths.State.BaseDir)
+			s, err := newSender(client, factory, paths.State.BaseDir, unitTag.String())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
