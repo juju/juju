@@ -24,8 +24,9 @@ import (
 var logger = loggo.GetLogger("juju.discoverspaces")
 
 type discoverspacesWorker struct {
-	api  *discoverspaces.API
-	tomb tomb.Tomb
+	api                        *discoverspaces.API
+	tomb                       tomb.Tomb
+	setDiscoverSpacesCompleted func()
 }
 
 var dashPrefix = regexp.MustCompile("^-*")
@@ -61,9 +62,10 @@ func convertSpaceName(name string, existing set.Strings) string {
 }
 
 // NewWorker returns a worker
-func NewWorker(api *discoverspaces.API) worker.Worker {
+func NewWorker(api *discoverspaces.API, setDiscoverSpacesCompleted func()) worker.Worker {
 	dw := &discoverspacesWorker{
 		api: api,
+		setDiscoverSpacesCompleted: setDiscoverSpacesCompleted,
 	}
 	go func() {
 		defer dw.tomb.Done()
@@ -113,6 +115,7 @@ func (dw *discoverspacesWorker) loop() (err error) {
 }
 
 func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) error {
+	defer dw.setDiscoverSpacesCompleted()
 	ok, err := env.SupportsSpaceDiscovery()
 	if err != nil {
 		return errors.Trace(err)

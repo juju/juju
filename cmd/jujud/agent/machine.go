@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
@@ -340,6 +341,10 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
+	// Used to signal that spaces have been discovered.
+	spacesDiscovered      bool
+	spacesDiscoveredMutex sync.Mutex
+
 	loopDeviceManager looputil.LoopDeviceManager
 }
 
@@ -578,6 +583,15 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.EndRestore()
 	}
 	return nil
+}
+
+func (a *MachineAgent) newDiscoverSpacesWorker(api *apidiscoverspaces.API) worker.Worker {
+	setDiscoverSpacesCompleted := func() {
+		a.spacesDiscoveredMutex.Lock()
+		defer a.spacesDiscoveredMutex.Unlock()
+		a.spacesDiscovered = true
+	}
+	return newDiscoverSpaces(api, setDiscoverSpacesCompleted)
 }
 
 // restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
@@ -1271,7 +1285,7 @@ func (a *MachineAgent) startEnvWorkers(
 		return newAddresser(apiSt.Addresser())
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		return newDiscoverSpaces(apiSt.DiscoverSpaces()), nil
+		return a.newDiscoverSpacesWorker(apiSt.DiscoverSpaces()), nil
 	})
 
 	if machine.IsManager() {
@@ -1457,7 +1471,36 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
+	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
+		return err
+	}
 	return a.limitLoginsDuringUpgrade(req)
+}
+
+// limitLoginsUntilSpacesDiscovered will prevent logins from clients until
+// space discovery is completed.
+func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
+	a.spacesDiscoveredMutex.Lock()
+	defer a.spacesDiscoveredMutex.Unlock()
+	if a.spacesDiscovered {
+		return nil
+	}
+	err := errors.New("space discovery still in progress")
+	authTag, parseErr := names.ParseTag(req.AuthTag)
+	if parseErr != nil {
+		return errors.Annotatef(err, "could not parse auth tag")
+	}
+	switch authTag := authTag.(type) {
+	case names.UserTag:
+		// use a restricted API mode
+		return err
+	case names.MachineTag:
+		if authTag == a.Tag() {
+			// allow logins from the local machine
+			return nil
+		}
+	}
+	return err
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
