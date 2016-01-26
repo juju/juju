@@ -29,6 +29,7 @@ from jujuconfig import (
     NoSuchEnvironment,
 )
 from jujupy import (
+    BootstrapMismatch,
     CannotConnectEnv,
     DEFAULT_JES_COMMAND_1x,
     DEFAULT_JES_COMMAND_2x,
@@ -878,6 +879,29 @@ class TestEnvJujuClient(ClientTest):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
+
+    def test_get_bootstrap_args_to(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient(env, None, None)
+        args = client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
+        self.assertEqual(args, ('--upload-tools', '--constraints',
+                                'mem=2G', '--to', 'ssh:foo'))
+
+    def test_get_bootstrap_args_agent_version(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient(env, None, None)
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         agent_version='2.0-zeta1')
+        self.assertEqual(args, ('--upload-tools', '--constraints',
+                                'mem=2G', '--agent-version', '2.0-zeta1'))
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient(env, None, None)
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, ('--upload-tools', '--constraints',
+                                'mem=2G', '--bootstrap-series', 'angsty'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
@@ -2250,6 +2274,47 @@ class TestEnvJujuClient1X(ClientTest):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
+
+    def test_get_bootstrap_args_to(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaisesRegexp(
+                BootstrapMismatch,
+                '--to ssh:foo does not match bootstrap-host: None'):
+            client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
+        env.config['bootstrap-host'] = 'ssh:foo'
+        args = client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
+        self.assertEqual(args, ('--upload-tools', '--constraints',
+                                'mem=2G'))
+
+    def test_get_bootstrap_args_agent_version(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaisesRegexp(
+                BootstrapMismatch,
+                '--agent-version 2.0-zeta1 does not match agent-version:'
+                ' None'):
+            client.get_bootstrap_args(upload_tools=True,
+                                      agent_version='2.0-zeta1')
+        env.config['agent-version'] = '2.0-zeta1'
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         agent_version='2.0-zeta1')
+        self.assertEqual(args, ('--upload-tools', '--constraints',
+                                'mem=2G'))
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaisesRegexp(
+                BootstrapMismatch,
+                '--bootstrap-series angsty does not match default-series:'
+                ' None'):
+            client.get_bootstrap_args(upload_tools=True,
+                                      bootstrap_series='angsty')
+        env.config['default-series'] = 'angsty'
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, ('--upload-tools', '--constraints', 'mem=2G'))
 
     def test_create_environment_system(self):
         self.do_create_environment(

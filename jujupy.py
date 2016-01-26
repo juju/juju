@@ -92,6 +92,14 @@ class ErroredUnit(Exception):
         self.state = state
 
 
+class BootstrapMismatch(Exception):
+
+    def __init__(self, arg_name, arg_val, env_name, env_val):
+        super(BootstrapMismatch, self).__init__(
+            '--{} {} does not match {}: {}'.format(
+                arg_name, arg_val, env_name, env_val))
+
+
 class JESNotSupported(Exception):
 
     def __init__(self):
@@ -312,7 +320,8 @@ class EnvJujuClient:
         for machine in machines:
             self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools):
+    def get_bootstrap_args(self, upload_tools, to=None, agent_version=None,
+                           bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -324,6 +333,12 @@ class EnvJujuClient:
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
+        if to is not None:
+            args = args + ('--to', to)
+        if agent_version is not None:
+            args = args + ('--agent-version', agent_version)
+        if bootstrap_series is not None:
+            args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
     def bootstrap(self, upload_tools=False):
@@ -949,6 +964,36 @@ class EnvJujuClient2A1(EnvJujuClient):
 
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
+
+    def get_bootstrap_args(self, upload_tools, to=None, agent_version=None,
+                           bootstrap_series=None):
+        """Bootstrap, using sudo if necessary."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        if to is not None:
+            env_val = self.env.config.get('bootstrap-host')
+            if to != env_val:
+                raise BootstrapMismatch('to', to, 'bootstrap-host', env_val)
+        if agent_version is not None:
+            env_val = self.env.config.get('agent-version')
+            if agent_version != env_val:
+                raise BootstrapMismatch(
+                    'agent-version', agent_version, 'agent-version', env_val)
+        if bootstrap_series is not None:
+            env_val = self.env.config.get('default-series')
+            if bootstrap_series != env_val:
+                raise BootstrapMismatch(
+                    'bootstrap-series', bootstrap_series, 'default-series',
+                    env_val)
+        return args
 
     def create_environment(self, controller_client, config_file):
         seen_cmd = self.get_jes_command()
