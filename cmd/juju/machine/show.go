@@ -55,13 +55,9 @@ func (c *showMachineCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *showMachineCommand) Init(args []string) (err error) {
-	err = nil
-	if args == nil {
-		fmt.Println("args is nil")
-	}
+func (c *showMachineCommand) Init(args []string) error {
 	c.machineId = args
-	return err
+	return nil
 }
 
 func (c *showMachineCommand) SetFlags(f *gnuflag.FlagSet) {
