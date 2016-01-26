@@ -33,7 +33,7 @@ var ErrNoEnvironmentSpecified = errors.New("no model specified")
 // There is simple ordering for the default environment.  Firstly check the
 // JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
 // set, look in the $JUJU_HOME/current-model file.  If neither are
-// available, read models.yaml and use the default environment therein.
+// available, read environments.yaml and use the default environment therein.
 // If no default is specified in the environments file, an empty string is returned.
 // Not having a default environment specified is not an error.
 func GetDefaultEnvironment() (string, error) {

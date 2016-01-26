@@ -123,7 +123,7 @@ and vice versa.
 
 2. User specified URLs
 
-These are initially specified in the models.yaml file (and then subsequently copied to the
+These are initially specified in the environments.yaml file (and then subsequently copied to the
 jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for tools,
 use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
 an address served by a http server, or even a shared directory accessible by all node instances

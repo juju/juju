@@ -58,7 +58,7 @@ Model
   a single Model configured, or when a default is explicitly defined.
   Depending on the type of Model, it may have to be bootstrapped before
   interactions with it may take place (e.g. EC2). The local model
-  configuration is defined in the ~/.juju/models.yaml file.
+  configuration is defined in the ~/.juju/environments.yaml file.
 
 Machine Agent
   Software which runs inside each machine that is part of a Model, and is

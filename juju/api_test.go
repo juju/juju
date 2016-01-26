@@ -717,7 +717,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
 	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
 
-	err = os.Remove(osenv.JujuHomePath("models.yaml"))
+	err = os.Remove(osenv.JujuHomePath("environments.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {

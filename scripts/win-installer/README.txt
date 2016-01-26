@@ -10,13 +10,13 @@ This tutorial will show you how to get started with Juju, including installing, 
 
 Configuring
 
-Now the Juju software is installed, it needs to be configured to use your particular cloud provider. This is done by generating and editing a file, "models.yaml", which will live in your %LOCALAPPDATA%\Juju directory. You can generate the models file manually, but Juju also includes a boilerplate configuration option that will flesh out most of the file for you and minimise the amount of work (and potential errors).
+Now the Juju software is installed, it needs to be configured to use your particular cloud provider. This is done by generating and editing a file, "environments.yaml", which will live in your %LOCALAPPDATA%\Juju directory. You can generate the models file manually, but Juju also includes a boilerplate configuration option that will flesh out most of the file for you and minimise the amount of work (and potential errors).
 
 To generate an initial config file, you simply need to run:
 
 > juju generate-config
 
-This causes the file to be written to your %LOCALAPPDATA%\Juju directory if an models.yaml file does not already exist. It will also create the %LOCALAPPDATA%\Juju directory if that does not exist.
+This causes the file to be written to your %LOCALAPPDATA%\Juju directory if an environments.yaml file does not already exist. It will also create the %LOCALAPPDATA%\Juju directory if that does not exist.
 
 This file will contain sample profiles for different types of cloud services, but you will need to edit the files to provide specific information for your cloud provider. Sections are created for Amazon (AWS) services, HPCloud and a generic OpenStack instance. For more specifics on what needs to be changed, see https://juju.ubuntu.com/docs/getting-started.html
 

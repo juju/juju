@@ -99,7 +99,7 @@ logging setup configured for the model.
 You can configure Juju's logging system using a number of different
 mechanisms:
 
-models.yaml
+environments.yaml
   - all models support 'logging-config' as a key
 model variable
   - export JUJU_LOGGING_CONFIG='...'

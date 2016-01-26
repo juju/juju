@@ -170,7 +170,7 @@ func MakeSampleJujuHome(c *gc.C) {
 // WriteEnvironments creates an environments file with envConfig and certs
 // from certNames.
 func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
-	envs := osenv.JujuHomePath("models.yaml")
+	envs := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, name := range certNames {

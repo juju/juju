@@ -35,7 +35,7 @@ model as defined by the file $JUJU_HOME/current-model.
 
 If a command line parameter is passed in, that value will is stored in the
 current model file if it represents a valid model name as
-specified in the models.yaml file.
+specified in the environments.yaml file.
 `
 
 const controllerSuffix = " (controller)"
