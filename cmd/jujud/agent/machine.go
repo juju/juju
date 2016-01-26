@@ -1949,8 +1949,8 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 
 	errors = append(errors, a.removeJujudSymlinks()...)
 
-	insideLXC := container.RunningInContainer()
-	if insideLXC {
+	insideContainer := container.RunningInContainer()
+	if insideContainer {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
 		//
