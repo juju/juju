@@ -7,8 +7,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/migration"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -122,7 +125,7 @@ func (i *importer) environmentUsers() error {
 }
 
 func (i *importer) machines() error {
-	for _, m := range i.model.Machines {
+	for _, m := range i.model.Machines() {
 		if err := i.machine(m); err != nil {
 			return errors.Annotate(err, m.Id().String())
 		}
@@ -135,20 +138,168 @@ func (i *importer) machine(m migration.Machine) error {
 	// Import this machine, then import its containers.
 
 	// 1. construct a machineDoc
-	// 2. construct enough MachineTemplate to pass into 'insertNewMahcineOps'
+	mdoc := i.makeMachineDoc(m)
+	// 2. construct enough MachineTemplate to pass into 'insertNewMachineOps'
 	//    - adds constraints doc
 	//    - adds status doc
 	//    - adds requested network doc
 	//    - adds machine block devices doc
-	// 3. create op for adding in instance data
-	// 4. gather prereqs and machine op, run ops.
+
+	// TODO: consider filesystems and volumes
 
 	// TODO: status and constraints for machines.
+	statusDoc := statusDoc{
+		Status:  StatusPending,
+		EnvUUID: i.st.EnvironUUID(),
+		Updated: GetClock().Now().UnixNano(),
+	}
+	cons := constraints.Value{}
+	networks := []string{}
+	prereqOps, machineOp := i.st.baseNewMachineOps(mdoc, statusDoc, cons, networks)
+
+	// 3. create op for adding in instance data
+	if instance := m.Instance(); instance != nil {
+		prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
+	}
+
+	if parentId := ParentId(mdoc.Id); parentId != "" {
+		prereqOps = append(prereqOps,
+			// Update containers record for host machine.
+			i.st.addChildToContainerRefOp(parentId, mdoc.Id),
+		)
+	}
+	// insertNewContainerRefOp adds an empty doc into the containerRefsC
+	// collection for the machine being added.
+	prereqOps = append(prereqOps, i.st.insertNewContainerRefOp(mdoc.Id))
+
+	// 4. gather prereqs and machine op, run ops.
+	ops := append(prereqOps, machineOp)
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 
 	for _, container := range m.Containers() {
-		if err != i.machine(container); err != nil {
+		if err := i.machine(container); err != nil {
 			return errors.Annotate(err, container.Id().String())
 		}
 	}
 	return nil
+}
+
+func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInstance) txn.Op {
+	doc := &instanceData{
+		DocID:      mdoc.DocID,
+		MachineId:  mdoc.Id,
+		InstanceId: instance.Id(inst.InstanceId()),
+		EnvUUID:    mdoc.EnvUUID,
+	}
+
+	if arch := inst.Architecture(); arch != "" {
+		doc.Arch = &arch
+	}
+	if mem := inst.Memory(); mem != 0 {
+		doc.Mem = &mem
+	}
+	if rootDisk := inst.RootDisk(); rootDisk != 0 {
+		doc.RootDisk = &rootDisk
+	}
+	if cores := inst.CpuCores(); cores != 0 {
+		doc.CpuCores = &cores
+	}
+	if power := inst.CpuPower(); power != 0 {
+		doc.CpuPower = &power
+	}
+	if tags := inst.Tags(); len(tags) > 0 {
+		doc.Tags = &tags
+	}
+	if az := inst.AvailabilityZone(); az != "" {
+		doc.AvailZone = &az
+	}
+
+	return txn.Op{
+		C:      instanceDataC,
+		Id:     mdoc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}
+}
+
+func (i *importer) makeMachineDoc(m migration.Machine) *machineDoc {
+	id := m.Id().Id()
+	supported, supportedSet := m.SupportedContainers()
+	supportedContainers := make([]instance.ContainerType, len(supported))
+	for i, c := range supported {
+		supportedContainers[i] = instance.ContainerType(c)
+	}
+	return &machineDoc{
+		DocID:                    i.st.docID(id),
+		Id:                       id,
+		EnvUUID:                  i.st.EnvironUUID(),
+		Nonce:                    m.Nonce(),
+		Series:                   m.Series(),
+		ContainerType:            m.ContainerType(),
+		Principals:               nil, // TODO
+		Life:                     Alive,
+		Tools:                    i.makeTools(m.Tools()),
+		Jobs:                     i.makeMachineJobs(m.Jobs()),
+		NoVote:                   true,  // no state servers yet.
+		HasVote:                  false, // TODO - check
+		PasswordHash:             m.PasswordHash(),
+		Clean:                    true, // check this later
+		Addresses:                i.makeAddresses(m.ProviderAddresses()),
+		MachineAddresses:         i.makeAddresses(m.MachineAddresses()),
+		PreferredPrivateAddress:  i.makeAddress(m.PreferredPrivateAddress()),
+		PreferredPublicAddress:   i.makeAddress(m.PreferredPublicAddress()),
+		SupportedContainersKnown: supportedSet,
+		SupportedContainers:      supportedContainers,
+		Placement:                m.Placement(),
+	}
+}
+
+func (i *importer) makeMachineJobs(jobs []string) []MachineJob {
+	// At the time this was originally written, there are three
+	// valid jobs. If any jobs gets deprecated or changed in the future,
+	// older models that specify those jobs need to be handled here.
+	result := make([]MachineJob, 0, len(jobs))
+	for _, job := range jobs {
+		switch job {
+		case "host-units":
+			result = append(result, JobHostUnits)
+		case "api-server":
+			result = append(result, JobManageEnviron)
+		case "manage-networking":
+			result = append(result, JobManageNetworking)
+		}
+	}
+	return result
+}
+
+func (i *importer) makeTools(t migration.AgentTools) *tools.Tools {
+	if t == nil {
+		return nil
+	}
+	return &tools.Tools{
+		Version: t.Version(),
+		URL:     t.URL(),
+		SHA256:  t.SHA256(),
+		Size:    t.Size(),
+	}
+}
+
+func (i *importer) makeAddress(addr migration.Address) address {
+	return address{
+		Value:       addr.Value(),
+		AddressType: addr.Type(),
+		NetworkName: addr.NetworkName(),
+		Scope:       addr.Scope(),
+		Origin:      addr.Origin(),
+	}
+}
+
+func (i *importer) makeAddresses(addrs []migration.Address) []address {
+	result := make([]address, len(addrs))
+	for j, addr := range addrs {
+		result[j] = i.makeAddress(addr)
+	}
+	return result
 }
