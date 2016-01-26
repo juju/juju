@@ -98,6 +98,9 @@ func (s *stubStorage) Get(path string) (io.ReadCloser, int64, error) {
 		return nil, 0, errors.Trace(err)
 	}
 
+	if readCloser, ok := s.ReturnGet.Data.(io.ReadCloser); ok {
+		return readCloser, s.ReturnGet.Size, nil
+	}
 	return ioutil.NopCloser(s.ReturnGet.Data), s.ReturnGet.Size, nil
 }
 

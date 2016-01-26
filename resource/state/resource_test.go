@@ -14,6 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/resource/state"
 )
 
@@ -210,6 +211,58 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 2, "SetResource", res.Name, "a-service", res)
 	s.stub.CheckCall(c, 3, "Remove", path)
 	s.stub.CheckCall(c, 4, "UnstageResource", res.Name, "a-service")
+}
+
+func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	s.storage.ReturnGet = opened.Content()
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	info, reader, err := st.OpenResource("a-service", "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ListResources", "Get")
+	c.Check(info, jc.DeepEquals, opened.Resource)
+	c.Check(reader, gc.Equals, opened.ReadCloser)
+}
+
+func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResource("a-service", "spam")
+
+	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
+	res := resourcetesting.NewPlaceholderResource(c, "spam")
+	s.persist.ReturnListResources = []resource.Resource{res}
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResource("a-service", "spam")
+
+	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	content := opened.Content()
+	content.Size += 1
+	s.storage.ReturnGet = content
+	st := state.NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResource("a-service", "spam")
+
+	s.stub.CheckCallNames(c, "ListResources", "Get")
+	c.Check(err, gc.ErrorMatches, `storage returned a size which doesn't match resource metadata`)
 }
 
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {
