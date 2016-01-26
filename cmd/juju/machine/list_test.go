@@ -30,7 +30,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 		EnvironmentName: "dummyenv",
 		Machines: map[string]params.MachineStatus{
 			"0": {
-				Id:         "0",
+				Id: "0",
 				Agent: params.AgentStatus{
 					Status: "started",
 				},
@@ -40,7 +40,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 				Hardware:   "availability-zone=us-east-1",
 			},
 			"1": {
-				Id:         "1",
+				Id: "1",
 				Agent: params.AgentStatus{
 					Status: "pending",
 				},
