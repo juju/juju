@@ -332,7 +332,8 @@ def main(args):
         if s.is_logical_interface:
             add_auto_stanza = s.iface.name in physical_interfaces
             if args.interface_to_bridge and args.interface_to_bridge != s.iface.name:
-                stanzas.append(AutoStanza(s.iface.name))
+                if add_auto_stanza:
+                    stanzas.append(AutoStanza(s.iface.name))
                 stanzas.append(s)
             else:
                 stanzas.extend(s.iface.bridge(args.bridge_prefix, args.bridge_name, add_auto_stanza))

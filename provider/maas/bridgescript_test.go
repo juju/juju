@@ -149,7 +149,11 @@ func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *
 	s.assertScript(c, networkStaticInitial, networkStaticInitial, "", "juju-br0", "eth1234567890")
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface(c *gc.C) {
+func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIfaceButMissingAutoStanza(c *gc.C) {
+	s.assertScript(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "", "juju-br0", "eth1")
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc.C) {
 	s.assertScript(c, networkLP1532167Initial, networkLP1532167Expected, "", "juju-br0", "bond0")
 }
 
@@ -1473,3 +1477,34 @@ iface bond1.1019 inet static
     vlan_id 1019
     dns-nameservers 10.38.160.10
     dns-search maas`
+
+const networkWithExistingSpecificIfaceInitial = `auto lo
+iface lo inet loopback
+
+# Note this has no auto stanza
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+iface eth1 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1`
+
+const networkWithExistingSpecificIfaceExpected = `auto lo
+iface lo inet loopback
+
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+iface eth1 inet manual
+
+auto juju-br0
+iface juju-br0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth1`
