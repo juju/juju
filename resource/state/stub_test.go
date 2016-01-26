@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"io"
+	"io/ioutil"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -78,6 +79,8 @@ func (s *stubPersistence) SetResource(id, serviceID string, res resource.Resourc
 
 type stubStorage struct {
 	stub *testing.Stub
+
+	ReturnGet resource.Content
 }
 
 func (s *stubStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
@@ -87,6 +90,15 @@ func (s *stubStorage) PutAndCheckHash(path string, r io.Reader, length int64, ha
 	}
 
 	return nil
+}
+
+func (s *stubStorage) Get(path string) (io.ReadCloser, int64, error) {
+	s.stub.AddCall("Get", path)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	return ioutil.NopCloser(s.ReturnGet.Data), s.ReturnGet.Size, nil
 }
 
 func (s *stubStorage) Remove(path string) error {
