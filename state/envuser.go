@@ -161,9 +161,9 @@ func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
 	return envUser, nil
 }
 
-// EnvModelSpec defines the attributes that can be set when adding a new
+// ModelUserSpec defines the attributes that can be set when adding a new
 // model user.
-type EnvModelSpec struct {
+type ModelUserSpec struct {
 	User        names.UserTag
 	CreatedBy   names.UserTag
 	DisplayName string
@@ -171,7 +171,7 @@ type EnvModelSpec struct {
 }
 
 // AddModelUser adds a new user to the database.
-func (st *State) AddModelUser(spec EnvModelSpec) (*ModelUser, error) {
+func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
 	if spec.User.IsLocal() {
 		localUser, err := st.User(spec.User)

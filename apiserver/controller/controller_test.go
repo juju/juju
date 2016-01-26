@@ -83,7 +83,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddModelUser(state.EnvModelSpec{
+	st.AddModelUser(state.ModelUserSpec{
 		User:        admin.UserTag(),
 		CreatedBy:   remoteUserTag,
 		DisplayName: "Foo Bar"})

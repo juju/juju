@@ -56,7 +56,7 @@ type stateInterface interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddModelUser(state.EnvModelSpec) (*state.ModelUser, error)
+	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
 	RemoveModelUser(names.UserTag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error

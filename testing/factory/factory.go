@@ -164,7 +164,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
-		_, err := factory.st.AddModelUser(state.EnvModelSpec{
+		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -199,7 +199,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Model
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddModelUser(state.EnvModelSpec{
+	envUser, err := factory.st.AddModelUser(state.ModelUserSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,

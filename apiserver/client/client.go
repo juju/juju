@@ -581,7 +581,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
-	// what's specified in the models.yaml file.
+	// what's specified in the environments.yaml file.
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
@@ -673,7 +673,7 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 		switch arg.Action {
 		case params.AddModelUser:
 			_, err := c.api.stateAccessor.AddModelUser(
-				state.EnvModelSpec{User: user, CreatedBy: createdBy})
+				state.ModelUserSpec{User: user, CreatedBy: createdBy})
 			if err != nil {
 				err = errors.Annotate(err, "could not share model")
 				result.Results[i].Error = common.ServerError(err)
