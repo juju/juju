@@ -116,6 +116,7 @@ type resourceDoc struct {
 	DocID     string `bson:"_id"`
 	EnvUUID   string `bson:"env-uuid"`
 	ServiceID string `bson:"service-id"`
+	UnitID    string `bson:"service-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
@@ -132,12 +133,13 @@ type resourceDoc struct {
 }
 
 // resource2doc converts the resource into a DB doc.
-func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
+func resource2doc(id, serviceID, unitID string, res resource.Resource) *resourceDoc {
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
+		UnitID:    unitID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),

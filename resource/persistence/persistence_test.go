@@ -58,7 +58,7 @@ func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, gc.HasLen, 0)
+	c.Check(resources.Resources, gc.HasLen, 0)
 	s.stub.CheckCallNames(c, "All")
 	s.stub.CheckCall(c, 0, "All",
 		"resources",
@@ -245,7 +245,7 @@ func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func newResources(c *gc.C, serviceID string, names ...string) ([]resource.Resource, []resourceDoc) {
+func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
 	var resources []resource.Resource
 	var docs []resourceDoc
 	for _, name := range names {
@@ -253,7 +253,7 @@ func newResources(c *gc.C, serviceID string, names ...string) ([]resource.Resour
 		resources = append(resources, res)
 		docs = append(docs, doc)
 	}
-	return resources, docs
+	return resource.ServiceResources{Resources: resources}, docs
 }
 
 func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDoc) {
@@ -297,13 +297,13 @@ func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDo
 	return res, doc
 }
 
-func checkResources(c *gc.C, resources, expected []resource.Resource) {
+func checkResources(c *gc.C, resources, expected resource.ServiceResources) {
 	resMap := make(map[string]resource.Resource)
-	for _, res := range resources {
+	for _, res := range resources.Resources {
 		resMap[res.Name] = res
 	}
 	expMap := make(map[string]resource.Resource)
-	for _, res := range expected {
+	for _, res := range expected.Resources {
 		expMap[res.Name] = res
 	}
 	c.Check(resMap, jc.DeepEquals, expMap)

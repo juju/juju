@@ -43,7 +43,7 @@ func NewFacade(data DataStore) *Facade {
 // for the ListResources endpoint.
 type resourceLister interface {
 	// ListResources returns the resources for the given service.
-	ListResources(service string) ([]resource.Resource, map[names.UnitTag][]resource.Resource, error)
+	ListResources(service string) (resource.ServiceResources, error)
 }
 
 // ListResources returns the list of resources for the given service.
@@ -59,7 +59,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		serviceResources, unitResources, err := f.lister.ListResources(tag.Id())
+		svcRes, err := f.lister.ListResources(tag.Id())
 		if err != nil {
 			r.Results = append(r.Results, api.ResourcesResult{
 				ErrorResult: params.ErrorResult{
@@ -70,14 +70,14 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		}
 
 		var result api.ResourcesResult
-		for _, res := range serviceResources {
+		for _, res := range svcRes.Resources {
 			result.Resources = append(result.Resources, api.Resource2API(res))
 		}
-		for tag, resources := range unitResources {
+		for _, unitRes := range svcRes.UnitResources {
 			unit := api.UnitResources{
-				Entity: params.Entity{Tag: tag.String()},
+				Entity: params.Entity{Tag: unitRes.Tag.String()},
 			}
-			for _, res := range resources {
+			for _, res := range unitRes.Resources {
 				unit.Resources = append(unit.Resources, api.Resource2API(res))
 			}
 			result.UnitResources = append(result.UnitResources, unit)

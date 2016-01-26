@@ -30,17 +30,15 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, [][]resource.Resource{
-		expected,
-	})
+	c.Check(results, jc.DeepEquals, []resource.ServiceResources{{Resources: expected}})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{
-			Entities: []params.Entity{{
+		&api.ListResourcesArgs{params.Entities{
+			[]params.Entity{{
 				Tag: "service-a-service",
 			}},
-		},
+		}},
 		&api.ResourcesResults{
 			Results: []api.ResourcesResult{
 				apiResult,
@@ -61,20 +59,20 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, [][]resource.Resource{
-		expected1,
-		expected2,
+	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
+		{Resources: expected1},
+		{Resources: expected2},
 	})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{
-			Entities: []params.Entity{{
+		&api.ListResourcesArgs{params.Entities{
+			[]params.Entity{{
 				Tag: "service-a-service",
 			}, {
 				Tag: "service-other-service",
 			}},
-		},
+		}},
 		&api.ResourcesResults{
 			Results: []api.ResourcesResult{
 				apiResult1,
@@ -124,7 +122,7 @@ func (s *ListResourcesSuite) TestServiceEmpty(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, [][]resource.Resource{
+	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
 		{},
 	})
 	s.stub.CheckCallNames(c, "FacadeCall")

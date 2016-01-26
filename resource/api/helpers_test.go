@@ -72,7 +72,7 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 	})
 }
 
-func (helpersSuite) TestAPIResult2ResourcesOkay(c *gc.C) {
+func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -109,19 +109,19 @@ func (helpersSuite) TestAPIResult2ResourcesOkay(c *gc.C) {
 		Timestamp: now,
 	}
 
-	resources, err := api.APIResult2Resources(api.ResourcesResult{
+	resources, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		Resources: []api.Resource{
 			apiRes,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, jc.DeepEquals, []resource.Resource{
+	c.Check(resources, jc.DeepEquals, resource.ServiceResources{Resources: []resource.Resource{
 		expected,
-	})
+	}})
 }
 
-func (helpersSuite) TestAPIResult2ResourcesFailure(c *gc.C) {
+func (helpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        "spam",
@@ -135,7 +135,7 @@ func (helpersSuite) TestAPIResult2ResourcesFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 
-	_, err := api.APIResult2Resources(api.ResourcesResult{
+	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: failure.Error(),
@@ -163,7 +163,7 @@ func (helpersSuite) TestAPIResult2ResourcesNotFound(c *gc.C) {
 		},
 	}
 
-	_, err := api.APIResult2Resources(api.ResourcesResult{
+	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: `service "a-service" not found`,

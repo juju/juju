@@ -70,49 +70,50 @@ This command shows the resources required by and those in use by an existing ser
 }
 
 func (s *ShowServiceSuite) TestRun(c *gc.C) {
-	data := [][]resource.Resource{{
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "openjdk",
-					Comment: "the java runtime",
+	data := []resource.ServiceResources{{
+		Resources: []resource.Resource{
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:    "openjdk",
+						Comment: "the java runtime",
+					},
+					Origin:   charmresource.OriginStore,
+					Revision: 7,
 				},
-				Origin:   charmresource.OriginStore,
-				Revision: 7,
 			},
-		},
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "website",
-					Comment: "your website data",
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:    "website",
+						Comment: "your website data",
+					},
+					Origin: charmresource.OriginUpload,
 				},
-				Origin: charmresource.OriginUpload,
 			},
-		},
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "rsc1234",
-					Comment: "a big comment",
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:    "rsc1234",
+						Comment: "a big comment",
+					},
+					Origin:   charmresource.OriginStore,
+					Revision: 15,
 				},
-				Origin:   charmresource.OriginStore,
-				Revision: 15,
+				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
-			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-		},
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:    "website2",
-					Comment: "awesome data",
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:    "website2",
+						Comment: "awesome data",
+					},
+					Origin: charmresource.OriginUpload,
 				},
-				Origin: charmresource.OriginUpload,
+				Username:  "Bill User",
+				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
-			Username:  "Bill User",
-			Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-		},
-	}}
+		}}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := &ShowServiceCommand{
@@ -153,10 +154,10 @@ func (s *stubShowServiceDeps) NewClient(c *ShowServiceCommand) (ShowServiceClien
 
 type stubServiceClient struct {
 	stub            *testing.Stub
-	ReturnResources [][]resource.Resource
+	ReturnResources []resource.ServiceResources
 }
 
-func (s *stubServiceClient) ListResources(services []string) ([][]resource.Resource, error) {
+func (s *stubServiceClient) ListResources(services []string) ([]resource.ServiceResources, error) {
 	s.stub.AddCall("ListResources", services)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

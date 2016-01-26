@@ -23,17 +23,20 @@ type ListResourcesSuite struct {
 func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
-	s.data.ReturnListResources = []resource.Resource{
-		res1,
-		res2,
+	s.data.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{
+			res1,
+			res2,
+		},
 	}
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: []params.Entity{{
-			Tag: "service-a-service",
-		}},
-	})
+		Entities: params.Entities{
+			Entities: []params.Entity{{
+				Tag: "service-a-service",
+			}},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
@@ -52,10 +55,11 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: []params.Entity{{
-			Tag: "service-a-service",
-		}},
-	})
+		Entities: params.Entities{
+			Entities: []params.Entity{{
+				Tag: "service-a-service",
+			}},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
@@ -72,10 +76,11 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: []params.Entity{{
-			Tag: "service-a-service",
-		}},
-	})
+		Entities: params.Entities{
+			Entities: []params.Entity{{
+				Tag: "service-a-service",
+			}},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{

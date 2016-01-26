@@ -1397,6 +1397,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		})
 	}
 	isUnassigned := bson.D{{"machineid", ""}}
+
 	asserts := append(isAliveDoc, isUnassigned...)
 	ops = append(ops, txn.Op{
 		C:      unitsC,

@@ -6,6 +6,7 @@ package persistence
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -40,23 +41,36 @@ func NewPersistence(base PersistenceBase) *Persistence {
 }
 
 // ListResources returns the resource data for the given service ID.
-func (p Persistence) ListResources(serviceID string) ([]resource.Resource, error) {
+func (p Persistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	docs, err := p.resources(serviceID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
-	var results []resource.Resource
+	units := map[names.UnitTag][]resource.Resource{}
+
+	var results resource.ServiceResources
 	for _, doc := range docs {
 		res, err := doc2resource(doc)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return resource.ServiceResources{}, errors.Trace(err)
 		}
-		results = append(results, res)
+		if doc.UnitID == "" {
+			results.Resources = append(results.Resources, res)
+			continue
+		}
+		tag := names.NewUnitTag(doc.UnitID)
+		units[tag] = append(units[tag], res)
+	}
+	for tag, res := range units {
+		results.UnitResources = append(results.UnitResources, resource.UnitResources{
+			Tag:       tag,
+			Resources: res,
+		})
 	}
 	return results, nil
 }

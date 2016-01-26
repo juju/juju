@@ -6,6 +6,7 @@ package api
 // TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -25,14 +26,13 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var args ListResourcesArgs
 	var errs []error
 	for _, service := range services {
-		tag, err := names.ParseServiceTag(service)
-		if err != nil {
+		if !names.IsValidService(service) {
+			err := errors.NewNotValid(nil, fmt.Sprintf("invalid service %q", service))
 			errs = append(errs, err)
 			continue
 		}
-
 		args.Entities.Entities = append(args.Entities.Entities, params.Entity{
-			Tag: tag.String(),
+			Tag: names.NewServiceTag(service).String(),
 		})
 	}
 	if err := resolveErrors(errs); err != nil {
