@@ -736,7 +736,7 @@ def _deploy_job(args, charm_prefix, series):
             assess_juju_run(client)
         if args.upgrade:
             client.show_status()
-            assess_upgrade(client, args.juju_path)
+            assess_upgrade(client, args.juju_bin)
             assess_juju_relations(client)
             if not skip_juju_run:
                 assess_juju_run(client)
