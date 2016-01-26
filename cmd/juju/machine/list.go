@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/juju/status"
 )
 
-const listMachinesCommandDoc = ` 
+const listMachinesCommandDoc = `
 List all the machines in a juju model.
 Default display is in tabular format with the following sections:
 ID, STATE, DNS, INS-ID, SERIES, AZ
@@ -23,15 +23,18 @@ ID, STATE, DNS, INS-ID, SERIES, AZ
 Note: AZ above is the cloud region's availability zone.
 `
 
+// statusAPI defines the API methods for the list-mahines and show-machine commands.
 type statusAPI interface {
 	Status(pattern []string) (*params.FullStatus, error)
 	Close() error
 }
 
+// NewListMachineCommand lists the machines in a model.
 func NewListMachinesCommand() cmd.Command {
 	return envcmd.Wrap(&listMachinesCommand{})
 }
 
+//listMachineCommand holds infomation about machines in a model.
 type listMachinesCommand struct {
 	envcmd.EnvCommandBase
 	out     cmd.Output
@@ -40,6 +43,7 @@ type listMachinesCommand struct {
 	api     statusAPI
 }
 
+// Info implements Command.Info.
 func (c *listMachinesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-machines",
@@ -49,6 +53,7 @@ func (c *listMachinesCommand) Info() *cmd.Info {
 	}
 }
 
+// Init ensures the list-machines Command does not take arguments.
 func (c *listMachinesCommand) Init(args []string) (err error) {
 	err = nil
 	if args != nil {
@@ -58,6 +63,7 @@ func (c *listMachinesCommand) Init(args []string) (err error) {
 	return err
 }
 
+// SetFlags sets utc and format flags based on user specified options.
 func (c *listMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -80,6 +86,7 @@ var newAPIClientForListMachines = func(c *listMachinesCommand) (statusAPI, error
 	return c.NewAPIClient()
 }
 
+// Run implements Command.Run for listMachineCommand.
 func (c *listMachinesCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newAPIClientForListMachines(c)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
+// NewGetCommand gets the config values for a service.
 func NewGetCommand() cmd.Command {
 	return envcmd.Wrap(&getCommand{})
 }

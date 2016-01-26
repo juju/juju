@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
+//NewSetCommand sets the config options for a service
 func NewSetCommand() cmd.Command {
 	return envcmd.Wrap(&setCommand{})
 }

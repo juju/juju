@@ -27,12 +27,15 @@ func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Comma
 	return envcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
+// NewListCommandForTest returns a listMachineCommand with specified api
 func NewListCommandForTest(api statusAPI) cmd.Command {
 	cmd := &listMachinesCommand{
 		api: api,
 	}
 	return envcmd.Wrap(cmd)
 }
+
+// NewShowCommandForTest returns a showMachineCommand with specified api
 func NewShowCommandForTest(api statusAPI) cmd.Command {
 	cmd := &showMachineCommand{
 		api: api,

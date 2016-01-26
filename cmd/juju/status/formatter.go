@@ -57,6 +57,7 @@ func (sf *statusFormatter) format() formattedStatus {
 	return out
 }
 
+// Machineformat takes stored model information (params.FullStatus) and formats machine status info.
 func (sf *statusFormatter) Machineformat(machineId []string) formattedMachineStatus {
 	if sf.status == nil {
 		return formattedMachineStatus{}

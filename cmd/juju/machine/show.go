@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/juju/status"
 )
 
-const showMachineCommandDoc = ` 
+const showMachineCommandDoc = `
 Show a specified machine on a model:
 
 juju show-machine <machineID[s]>
@@ -33,10 +33,12 @@ with the "--format" option.  Available formats are yaml,
 tabular, and json
 `
 
+// NewShowMachineCommand shows details on specified machine.
 func NewShowMachineCommand() cmd.Command {
 	return envcmd.Wrap(&showMachineCommand{})
 }
 
+// showMachineCommand struct holds details on specified machine.
 type showMachineCommand struct {
 	envcmd.EnvCommandBase
 	out       cmd.Output
@@ -45,6 +47,7 @@ type showMachineCommand struct {
 	api       statusAPI
 }
 
+// Info implements Command.Info.
 func (c *showMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-machine",
@@ -55,11 +58,13 @@ func (c *showMachineCommand) Info() *cmd.Info {
 	}
 }
 
+// Init captures machineId's to show from CL args.
 func (c *showMachineCommand) Init(args []string) error {
 	c.machineId = args
 	return nil
 }
 
+// SetFlags sets utc and format flags based on user specified options.
 func (c *showMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
@@ -76,6 +81,7 @@ var newAPIClientForShowMachine = func(c *showMachineCommand) (statusAPI, error) 
 	return c.NewAPIClient()
 }
 
+// Run implements Command.Run for showMachineCommand.
 func (c *showMachineCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newAPIClientForShowMachine(c)
 	if err != nil {
