@@ -70,7 +70,7 @@ var VerifyPrerequisites = func(containerType instance.ContainerType) error {
 	case instance.LXC:
 		return verifyLxc()
 	case instance.LXD:
-		return nil
+		return verifyLxd()
 	case instance.KVM:
 		return kvm.VerifyKVMEnabled()
 	}
