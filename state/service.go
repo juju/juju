@@ -792,14 +792,14 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	agentStatusDoc := statusDoc{
 		Status:    StatusAllocating,
 		Updated:   now.UnixNano(),
-		ModelUUID: s.st.EnvironUUID(),
+		ModelUUID: s.st.ModelUUID(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
-		ModelUUID:  s.st.EnvironUUID(),
+		ModelUUID:  s.st.ModelUUID(),
 	}
 
 	ops := []txn.Op{
@@ -1253,7 +1253,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
 				RefCount:  1,
-				ModelUUID: st.EnvironUUID()},
+				ModelUUID: st.ModelUUID()},
 		}, nil
 	}
 	return txn.Op{

@@ -35,9 +35,9 @@ type APICaller interface {
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
 
-	// EnvironTag returns the tag of the environment the client is
+	// ModelTag returns the tag of the environment the client is
 	// connected to.
-	EnvironTag() (names.EnvironTag, error)
+	ModelTag() (names.ModelTag, error)
 
 	// HTTPClient returns an httprequest.Client that can be used
 	// to make HTTP requests to the API. URLs passed to the client

@@ -55,7 +55,7 @@ func (s *suite) makeEnvironment(c *gc.C) *state.State {
 }
 
 func destroyEnvironment(c *gc.C, st *state.State) {
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,12 +72,12 @@ func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
 	}
 
 	c.Assert(seenEnvs, jc.SameContents,
-		[]string{s.State.EnvironUUID(), moreState.EnvironUUID()},
+		[]string{s.State.ModelUUID(), moreState.ModelUUID()},
 	)
 
 	destroyEnvironment(c, moreState)
 	dyingRunner := s.seeRunnersStart(c, 1)[0]
-	c.Assert(dyingRunner.modelUUID, gc.Equals, moreState.EnvironUUID())
+	c.Assert(dyingRunner.modelUUID, gc.Equals, moreState.ModelUUID())
 }
 
 func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
@@ -88,7 +88,7 @@ func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
 	// Create another environment and watch a runner be created for it.
 	st2 := s.makeEnvironment(c)
 	runner := s.seeRunnersStart(c, 1)[0]
-	c.Assert(runner.modelUUID, gc.Equals, st2.EnvironUUID())
+	c.Assert(runner.modelUUID, gc.Equals, st2.ModelUUID())
 }
 
 func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
 	s.seeRunnersStart(c, 1) // dying env runner
 
 	// Set environment to dead.
-	err := otherState.ProcessDyingEnviron()
+	err := otherState.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// See that the first runner is still running but the runner for
@@ -165,7 +165,7 @@ func newStateWithFailingGetEnvironment(realSt *state.State) *stateWithFailingGet
 	}
 }
 
-func (s *stateWithFailingGetEnvironment) GetEnvironment(tag names.EnvironTag) (*state.Environment, error) {
+func (s *stateWithFailingGetEnvironment) GetEnvironment(tag names.ModelTag) (*state.Model, error) {
 	if s.shouldFail {
 		return nil, errors.New("unable to GetEnvironment")
 	}
@@ -178,7 +178,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	// m.st.GetEnvironment(tag) fail with any error other than NotFound
 	otherSt := s.makeEnvironment(c)
 	st := newStateWithFailingGetEnvironment(s.State)
-	uuid := st.EnvironUUID()
+	uuid := st.ModelUUID()
 	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
 
@@ -188,7 +188,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	c.Assert(runners[0].killed, jc.IsFalse)
 
 	destroyEnvironment(c, otherSt)
-	st.sendEnvChange(otherSt.EnvironUUID())
+	st.sendEnvChange(otherSt.ModelUUID())
 	dyingRunner := s.seeRunnersStart(c, 1)[0]
 	c.Assert(dyingRunner.killed, jc.IsFalse)
 
@@ -215,7 +215,7 @@ func (s *suite) TestWorkerErrorIsPropagatedWhenKilled(c *gc.C) {
 			err: &cmdutil.FatalError{"an error"},
 		}, nil
 	}, s.dyingEnvWorker, time.Millisecond)
-	st.sendEnvChange(st.EnvironUUID())
+	st.sendEnvChange(st.ModelUUID())
 	s.State.StartSync()
 	<-started
 	m.Kill()
@@ -246,9 +246,9 @@ func (s *suite) TestNothingHappensWhenEnvIsSeenAgain(c *gc.C) {
 	// This could happen if there's a change to an environment doc but
 	// it's otherwise still alive (unlikely but possible).
 	st := newStateWithFakeWatcher(s.State)
-	uuid := st.EnvironUUID()
+	uuid := st.ModelUUID()
 	otherSt := s.makeEnvironment(c)
-	otherUUID := otherSt.EnvironUUID()
+	otherUUID := otherSt.ModelUUID()
 
 	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
@@ -282,7 +282,7 @@ func (s *suite) TestNothingHappensWhenUnknownEnvReported(c *gc.C) {
 	s.checkNoRunnersStart(c)
 
 	// Existing environment still works.
-	st.sendEnvChange(st.EnvironUUID())
+	st.sendEnvChange(st.ModelUUID())
 	s.seeRunnersStart(c, 1)
 }
 
@@ -330,7 +330,7 @@ func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	for {
 		select {
 		case r := <-s.runnerC:
-			c.Assert(r.ssEnvUUID, gc.Equals, s.State.EnvironUUID())
+			c.Assert(r.ssEnvUUID, gc.Equals, s.State.ModelUUID())
 
 			runners = append(runners, r)
 			if len(runners) == expectedCount {
@@ -363,8 +363,8 @@ func (s *suite) startEnvWorker(ssSt envworkermanager.InitialState, st *state.Sta
 		return nil, s.startErr
 	}
 	runner := &fakeRunner{
-		ssEnvUUID: ssSt.EnvironUUID(),
-		modelUUID: st.EnvironUUID(),
+		ssEnvUUID: ssSt.ModelUUID(),
+		modelUUID: st.ModelUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -378,8 +378,8 @@ func (s *suite) dyingEnvWorker(ssSt envworkermanager.InitialState, st *state.Sta
 		return nil, s.startErr
 	}
 	runner := &fakeRunner{
-		ssEnvUUID: ssSt.EnvironUUID(),
-		modelUUID: st.EnvironUUID(),
+		ssEnvUUID: ssSt.ModelUUID(),
+		modelUUID: st.ModelUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil

@@ -154,7 +154,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 		var doc bson.M
 		coll, closer := state.GetRawCollection(st, state.NetworkInterfacesC)
 		defer closer()
-		err := coll.Find(bson.D{{"model-uuid", st.EnvironUUID()}}).One(&doc)
+		err := coll.Find(bson.D{{"model-uuid", st.ModelUUID()}}).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		return doc["_id"].(bson.ObjectId)
 	}
@@ -347,7 +347,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
 					{"machineid", 99},
-					{"model-uuid", s.State.EnvironUUID()},
+					{"model-uuid", s.State.ModelUUID()},
 				})
 				c.Assert(err, jc.ErrorIsNil)
 				return machines0.Count()

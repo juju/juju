@@ -154,7 +154,7 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 	// stab at trying to determine if the user has specified a UUID
 	// instead of a name. For now, we only accept a properly formatted UUID,
 	// which means one with dashes in the right place.
-	if names.IsValidEnvironment(c.EnvName) {
+	if names.IsValidModel(c.EnvName) {
 		c.ModelUUID, c.EnvName = c.EnvName, ""
 	}
 
@@ -210,7 +210,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		// Need to make sure we check the username of the credentials,
 		// not just matching tags.
 		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
-		if endpoint.EnvironUUID == model.UUID && existingUsername == username {
+		if endpoint.ModelUUID == model.UUID && existingUsername == username {
 			ctx.Infof("You already have model details for %q cached locally.", c.LocalName)
 			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
 		}
@@ -231,7 +231,7 @@ func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, m
 	// Specify the model UUID. The server UUID will be the same as the
 	// endpoint that we have just connected to, as will be the CACert, addresses
 	// and hostnames.
-	endpoint.EnvironUUID = modelUUID
+	endpoint.ModelUUID = modelUUID
 	info.SetAPIEndpoint(endpoint)
 	return errors.Trace(info.Write())
 }

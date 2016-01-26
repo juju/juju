@@ -18,18 +18,18 @@ var logger = loggo.GetLogger("juju.api.highavailability")
 // Client provides access to the high availability service, used to manage state servers.
 type Client struct {
 	base.ClientFacade
-	facade     base.FacadeCaller
-	environTag names.EnvironTag
+	facade   base.FacadeCaller
+	modelTag names.ModelTag
 }
 
 // NewClient returns a new HighAvailability client.
 func NewClient(caller base.APICallCloser) *Client {
-	environTag, err := caller.EnvironTag()
+	modelTag, err := caller.ModelTag()
 	if err != nil {
 		logger.Errorf("ignoring invalid model tag: %v", err)
 	}
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
-	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
+	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
@@ -40,7 +40,7 @@ func (c *Client) EnsureAvailability(
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
-			EnvironTag:      c.environTag.String(),
+			ModelTag:        c.modelTag.String(),
 			NumStateServers: numStateServers,
 			Constraints:     cons,
 			Series:          series,

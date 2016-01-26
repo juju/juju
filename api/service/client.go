@@ -47,7 +47,7 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 
 // ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() string {
-	tag, err := c.RawAPICaller().EnvironTag()
+	tag, err := c.RawAPICaller().ModelTag()
 	if err != nil {
 		logger.Warningf("model tag not an model: %v", err)
 		return ""

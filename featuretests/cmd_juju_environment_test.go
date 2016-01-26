@@ -46,7 +46,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	envUser, err := s.State.EnvironmentUser(user)
+	envUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
@@ -60,7 +60,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
-	envuser, err := s.State.EnvironmentUser(user)
+	envuser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envuser, gc.NotNil)
 
@@ -75,7 +75,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
-	envuser, err = s.State.EnvironmentUser(user)
+	envuser, err = s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(envuser, gc.IsNil)
 }
@@ -85,7 +85,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
-	envuser, err := s.State.EnvironmentUser(user)
+	envuser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envuser, gc.NotNil)
 

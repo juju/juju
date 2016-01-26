@@ -34,7 +34,7 @@ var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
-	modelUUID := st.EnvironTag().Id()
+	modelUUID := st.ModelTag().Id()
 	db := st.MongoSession().DB(storageDBName)
 	return newStorageDBWrapper(db, storageMetaName, modelUUID)
 }

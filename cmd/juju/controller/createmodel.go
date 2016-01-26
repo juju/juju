@@ -148,7 +148,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 		}
 		info = store.CreateInfo(c.Name)
 		info.SetAPICredentials(creds)
-		endpoint.EnvironUUID = ""
+		endpoint.ModelUUID = ""
 		if err := info.Write(); err != nil {
 			if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
 				newErr := errors.AlreadyExistsf("model %q", c.Name)
@@ -187,7 +187,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	}
 	if creatingForSelf {
 		// update the cached details with the environment uuid
-		endpoint.EnvironUUID = env.UUID
+		endpoint.ModelUUID = env.UUID
 		info.SetAPIEndpoint(endpoint)
 		if err := info.Write(); err != nil {
 			return errors.Trace(err)

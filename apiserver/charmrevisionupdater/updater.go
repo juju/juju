@@ -52,7 +52,7 @@ func NewCharmRevisionUpdaterAPI(
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
 	// First get the uuid for the environment to use when querying the charm store.
-	env, err := api.state.Environment()
+	env, err := api.state.Model()
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}

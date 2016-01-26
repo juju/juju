@@ -89,7 +89,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
 	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
-	_, err = s.State.EnvironmentUser(user.UserTag())
+	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -124,15 +124,15 @@ func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnvironmentUser(user.UserTag())
+	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, nil)
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(envUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, envUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
@@ -143,9 +143,9 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User: "foobar123"})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(envUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, envUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
@@ -165,9 +165,9 @@ func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 		DisplayName: "Foo Bar",
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(envUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, envUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
 	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
@@ -182,7 +182,7 @@ func (s *factorySuite) TestMakeEnvUserInvalidCreatedBy(c *gc.C) {
 	}
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.EnvironmentUser(names.NewLocalUserTag("bob"))
+	saved, err := s.State.ModelUser(names.NewLocalUserTag("bob"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(saved, gc.IsNil)
 }
@@ -195,9 +195,9 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 		CreatedBy:   creator.UserTag(),
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(envUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, envUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
 	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Canonical())
@@ -511,12 +511,12 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	re := regexp.MustCompile(`^testenv-\d+$`)
 	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
-	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
-	origEnv, err := s.State.Environment()
+	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
+	origEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
 
@@ -538,10 +538,10 @@ func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, params)
 	defer st.Close()
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Name(), gc.Equals, "foo")
-	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
 	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
 
 	cfg, err := st.EnvironConfig()

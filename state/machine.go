@@ -937,7 +937,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresence()
-	p := presence.NewPinger(presenceCollection, m.st.environTag, m.globalKey())
+	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1531,9 +1531,9 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
+	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.EnvironUUID()),
+		assertEnvAliveOp(m.st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     m.st.docID(args.NetworkName),

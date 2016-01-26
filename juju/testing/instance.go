@@ -44,11 +44,11 @@ func FakeStateInfo(machineId string) *mongo.MongoInfo {
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:      []string{"0.1.2.3:1234"},
-		Tag:        names.NewMachineTag(machineId),
-		Password:   "unimportant",
-		CACert:     testing.CACert,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"0.1.2.3:1234"},
+		Tag:      names.NewMachineTag(machineId),
+		Password: "unimportant",
+		CACert:   testing.CACert,
+		ModelTag: testing.ModelTag,
 	}
 }
 

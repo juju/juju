@@ -93,11 +93,11 @@ func (s *updaterSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
 }
 
-type envGetter struct {
+type modelGetter struct {
 }
 
-func (e *envGetter) Environment() (*state.Environment, error) {
-	return &state.Environment{}, nil
+func (e *modelGetter) Model() (*state.Model, error) {
+	return &state.Model{}, nil
 }
 
 func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
@@ -106,7 +106,7 @@ func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 
-	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
+	fakeEnvConfig := func(_ *state.Model) (*config.Config, error) {
 		sConfig := coretesting.FakeConfig()
 		sConfig = sConfig.Merge(coretesting.Attrs{
 			"agent-version": "2.5.0",
@@ -124,12 +124,12 @@ func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 
 	var ver version.Number
-	fakeUpdate := func(_ *state.Environment, v version.Number) error {
+	fakeUpdate := func(_ *state.Model, v version.Number) error {
 		ver = v
 		return nil
 	}
 
-	err := updateToolsAvailability(&envGetter{}, fakeToolFinder, fakeUpdate)
+	err := updateToolsAvailability(&modelGetter{}, fakeToolFinder, fakeUpdate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
@@ -142,7 +142,7 @@ func (s *updaterSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 
-	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
+	fakeEnvConfig := func(_ *state.Model) (*config.Config, error) {
 		sConfig := coretesting.FakeConfig()
 		sConfig = sConfig.Merge(coretesting.Attrs{
 			"agent-version": "2.5.0",
@@ -157,11 +157,11 @@ func (s *updaterSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	}
 
 	// Update should never be called.
-	fakeUpdate := func(_ *state.Environment, v version.Number) error {
+	fakeUpdate := func(_ *state.Model, v version.Number) error {
 		c.Fail()
 		return nil
 	}
 
-	err := updateToolsAvailability(&envGetter{}, fakeToolFinder, fakeUpdate)
+	err := updateToolsAvailability(&modelGetter{}, fakeToolFinder, fakeUpdate)
 	c.Assert(err, jc.ErrorIsNil)
 }

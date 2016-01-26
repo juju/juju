@@ -53,7 +53,7 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

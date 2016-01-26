@@ -278,7 +278,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			return err
 		}
 
-		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
+		stor := newStateStorage(st.ModelUUID(), st.MongoSession())
 		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
 		}

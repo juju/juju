@@ -114,7 +114,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	}
 
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.EnvironTag, result.ControllerTag, servers, result.Facades)
+	err = st.setLoginResult(tag, result.ModelTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,26 +153,26 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	// server.  The JSON field names between the structures are disjoint, so only
 	// one should have an environ tag set.
 
-	var environTag string
+	var modelTag string
 	var controllerTag string
 	var servers [][]network.HostPort
 	var facades []params.FacadeVersions
 	// For quite old servers, it is possible that they don't send down
-	// the environTag.
-	if result.LoginResult.EnvironTag != "" {
-		environTag = result.LoginResult.EnvironTag
+	// the modelTag.
+	if result.LoginResult.ModelTag != "" {
+		modelTag = result.LoginResult.ModelTag
 		// If the server doesn't support login v1, it doesn't support
 		// multiple environments, so don't store a server tag.
 		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
-	} else if result.LoginResultV1.EnvironTag != "" {
-		environTag = result.LoginResultV1.EnvironTag
+	} else if result.LoginResultV1.ModelTag != "" {
+		modelTag = result.LoginResultV1.ModelTag
 		controllerTag = result.LoginResultV1.ControllerTag
 		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, controllerTag, servers, facades)
+	err = st.setLoginResult(tag, modelTag, controllerTag, servers, facades)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (st *state) loginV0(tag names.Tag, password, nonce string) error {
 	}
 	servers := params.NetworkHostsPorts(result.Servers)
 	// Don't set a server tag.
-	if err = st.setLoginResult(tag, result.EnvironTag, "", servers, result.Facades); err != nil {
+	if err = st.setLoginResult(tag, result.ModelTag, "", servers, result.Facades); err != nil {
 		return err
 	}
 	return nil

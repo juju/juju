@@ -106,7 +106,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		st: st,
 		doc: metricBatchDoc{
 			UUID:        batch.UUID,
-			ModelUUID:   st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 			Unit:        batch.Unit.Id(),
 			CharmUrl:    charmURL.String(),
 			Sent:        false,

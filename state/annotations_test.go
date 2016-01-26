@@ -161,7 +161,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RemoveEnvironment(s.State, st.EnvironUUID())
+	err = state.RemoveEnvironment(s.State, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected = "fail"
@@ -171,7 +171,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
-func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
+func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{

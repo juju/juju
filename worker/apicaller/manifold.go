@@ -46,14 +46,14 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 
 		// Add the environment uuid to agent config if not present.
 		currentConfig := a.CurrentConfig()
-		if currentConfig.Environment().Id() == "" {
+		if currentConfig.Model().Id() == "" {
 			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-				environTag, err := conn.EnvironTag()
+				modelTag, err := conn.ModelTag()
 				if err != nil {
 					return errors.Annotate(err, "no model uuid set on api")
 				}
 				return setter.Migrate(agent.MigrateParams{
-					Environment: environTag,
+					Environment: modelTag,
 				})
 			})
 			if err != nil {

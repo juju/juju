@@ -1539,7 +1539,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
-			c.Check(scope, gc.Equals, s.State.EnvironTag())
+			c.Check(scope, gc.Equals, s.State.ModelTag())
 			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
 		}
@@ -1944,7 +1944,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		if storageDir == "" {
 			// If this is the worker for the new environment,
 			// close the channel.
-			if scope == st.EnvironTag() {
+			if scope == st.ModelTag() {
 				close(started)
 			}
 		}
@@ -2074,7 +2074,7 @@ func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
 	// new environ workers.
 	_ = s.singularRecord.nextRunner(c)
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 

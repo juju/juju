@@ -98,7 +98,7 @@ func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
 }
 
 // ModelStatus returns a status summary for each model tag passed in.
-func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
+func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResults{}
 	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -113,9 +113,9 @@ func (c *Client) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, erro
 
 	results := make([]base.ModelStatus, len(result.Results))
 	for i, r := range result.Results {
-		model, err := names.ParseEnvironTag(r.ModelTag)
+		model, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.ModelTag, i)
+			return nil, errors.Annotatef(err, "ModelTag %q at position %d", r.ModelTag, i)
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {

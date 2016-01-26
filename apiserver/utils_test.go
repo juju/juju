@@ -30,7 +30,7 @@ func (s *utilsSuite) TestValidateEmpty(c *gc.C) {
 			statePool: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
 func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
@@ -46,21 +46,21 @@ func (s *utilsSuite) TestValidateController(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			modelUUID: s.State.EnvironUUID(),
+			modelUUID: s.State.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
 func (s *utilsSuite) TestValidateControllerStrict(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			modelUUID: s.State.EnvironUUID(),
+			modelUUID: s.State.ModelUUID(),
 			strict:    true,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
 func (s *utilsSuite) TestValidateBadModelUUID(c *gc.C) {
@@ -79,10 +79,10 @@ func (s *utilsSuite) TestValidateOtherModel(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			modelUUID: envState.EnvironUUID(),
+			modelUUID: envState.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, envState.EnvironUUID())
+	c.Assert(uuid, gc.Equals, envState.ModelUUID())
 }
 
 func (s *utilsSuite) TestValidateOtherModelControllerOnly(c *gc.C) {
@@ -92,7 +92,7 @@ func (s *utilsSuite) TestValidateOtherModelControllerOnly(c *gc.C) {
 	_, err := validateModelUUID(
 		validateArgs{
 			statePool:           s.pool,
-			modelUUID:           envState.EnvironUUID(),
+			modelUUID:           envState.ModelUUID(),
 			controllerModelOnly: true,
 		})
 	c.Assert(err, gc.ErrorMatches, `requested model ".*" is not the controller model`)

@@ -52,7 +52,7 @@ func (s *storageSuite) TearDownTest(c *gc.C) {
 
 func (s *storageSuite) metadata(c *gc.C) *backups.Metadata {
 	meta := backups.NewMetadata()
-	meta.Origin.Environment = s.State.EnvironUUID()
+	meta.Origin.Environment = s.State.ModelUUID()
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "localhost"
 	err := meta.MarkComplete(int64(42), "some hash")

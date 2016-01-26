@@ -125,7 +125,7 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 
 func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.EnvironmentUser(testAdmin)
+	owner, err := s.State.ModelUser(testAdmin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	localUser1 := s.makeLocalEnvUser(c, "ralphdoe", "Ralph Doe")
@@ -137,7 +137,7 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.ModelUserInfoResults
 	for _, r := range []struct {
-		user *state.EnvironmentUser
+		user *state.ModelUser
 		info *params.ModelUserInfo
 	}{
 		{
@@ -183,7 +183,7 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
+func lastConnPointer(c *gc.C, envUser *state.ModelUser) *time.Time {
 	lastConn, err := envUser.LastConnection()
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
@@ -202,10 +202,10 @@ func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
-func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.EnvironmentUser {
+func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.ModelUser {
 	// factory.MakeUser will create an EnvUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	envUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return envUser
 }
@@ -227,7 +227,7 @@ func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 
 func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	user := s.Factory.MakeEnvUser(c, nil)
-	_, err := s.State.EnvironmentUser(user.UserTag())
+	_, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelUsers{
@@ -242,7 +242,7 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	_, err = s.State.EnvironmentUser(user.UserTag())
+	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -261,7 +261,7 @@ func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
 
-	_, err = s.State.EnvironmentUser(user)
+	_, err = s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -279,7 +279,7 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	envUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
@@ -302,7 +302,7 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	envUser, err := s.State.EnvironmentUser(user)
+	envUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
@@ -329,7 +329,7 @@ func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
 	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
 
-	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	envUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
 }
@@ -1073,7 +1073,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
@@ -1119,7 +1119,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	environment, err := s.State.Environment()
+	environment, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	type taggedAnnotator interface {
 		state.Entity
@@ -1824,7 +1824,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:               s.State.EnvironUUID(),
+			ModelUUID:               s.State.ModelUUID(),
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
@@ -2217,7 +2217,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
+		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
@@ -3067,7 +3067,7 @@ func (s *clientSuite) TestDestroyModel(c *gc.C) {
 	err := s.APIState.Client().DestroyModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }

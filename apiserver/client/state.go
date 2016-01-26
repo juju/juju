@@ -45,9 +45,9 @@ type stateInterface interface {
 	EnvironConfig() (*config.Config, error)
 	UpdateEnvironConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 	SetEnvironConstraints(constraints.Value) error
-	EnvironUUID() string
-	EnvironTag() names.EnvironTag
-	Environment() (*state.Environment, error)
+	ModelUUID() string
+	ModelTag() names.ModelTag
+	Model() (*state.Model, error)
 	SetModelAgentVersion(version.Number) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	Annotations(state.GlobalEntity) (map[string]string, error)
@@ -56,8 +56,8 @@ type stateInterface interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddEnvironmentUser(state.EnvUserSpec) (*state.EnvironmentUser, error)
-	RemoveEnvironmentUser(names.UserTag) error
+	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
+	RemoveModelUser(names.UserTag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error
 	APIHostPorts() ([][]network.HostPort, error)

@@ -36,10 +36,10 @@ func (m *mockClient) mockCall(call string) {
 	m.calls <- call
 }
 
-func (m *mockClient) ProcessDyingEnviron() error {
-	defer m.mockCall("ProcessDyingEnviron")
+func (m *mockClient) ProcessDyingModel() error {
+	defer m.mockCall("ProcessDyingModel")
 	if m.mockEnviron.HasMachinesAndServices {
-		return errors.Errorf("found documents for model with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
+		return errors.Errorf("found documents for model with uuid %s: 1 cleanups doc, 1 constraints doc, 1 modelusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
 	}
 	m.mockEnviron.Life = state.Dead
 	t := time.Now()
@@ -54,8 +54,8 @@ func (m *mockClient) RemoveEnviron() error {
 	return nil
 }
 
-func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	defer m.mockCall("EnvironInfo")
+func (m *mockClient) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	defer m.mockCall("ModelInfo")
 	result := params.UndertakerEnvironInfo{
 		Life:        params.Life(m.mockEnviron.Life.String()),
 		UUID:        m.mockEnviron.UUID,
@@ -64,7 +64,7 @@ func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
 		IsSystem:    m.mockEnviron.IsSystem,
 		TimeOfDeath: m.mockEnviron.TimeOfDeath,
 	}
-	return params.UndertakerEnvironInfoResult{Result: result}, nil
+	return params.UndertakerModelInfoResult{Result: result}, nil
 }
 
 func (m *mockClient) EnvironConfig() (*config.Config, error) {

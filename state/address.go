@@ -23,15 +23,15 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.EnvironTag() != env.EnvironTag() {
+	if st.ModelTag() != env.ModelTag() {
 		// We are not using the state server environment, so get one.
-		logger.Debugf("getting a state server state connection, current env: %s", st.EnvironTag())
-		ssState, err = st.ForEnviron(env.EnvironTag())
+		logger.Debugf("getting a state server state connection, current env: %s", st.ModelTag())
+		ssState, err = st.ForEnviron(env.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer ssState.Close()
-		logger.Debugf("ssState env: %s", ssState.EnvironTag())
+		logger.Debugf("ssState env: %s", ssState.ModelTag())
 	}
 
 	type addressMachine struct {

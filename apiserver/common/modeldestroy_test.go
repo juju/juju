@@ -91,7 +91,7 @@ func (s *destroyModelSuite) TestMetrics(c *gc.C) {
 	metricSender := &testMetricSender{}
 	s.PatchValue(common.SendMetrics, metricSender.SendMetrics)
 
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
@@ -102,9 +102,9 @@ func (s *destroyModelSuite) TestDestroyModelManual(c *gc.C) {
 
 	// If there are any non-manager manual machines in state, DestroyModel will
 	// error. It will not set the Dying flag on the environment.
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy model: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
@@ -114,7 +114,7 @@ func (s *destroyModelSuite) TestDestroyModelManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = nonManager.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyModel(s.State, s.State.EnvironTag())
+	err = common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +136,7 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyModel(s.State, s.State.EnvironTag())
+	err = common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	runAllCleanups(c, s.State)
@@ -160,7 +160,7 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 		}
 	}
 	//   - environment is Dying or Dead.
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Not(gc.Equals), state.Alive)
 }
@@ -175,7 +175,7 @@ func (s *destroyModelSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
 }
 
@@ -183,14 +183,14 @@ func (s *destroyModelSuite) TestBlockDestroyDestroyHostedModel(c *gc.C) {
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 	info := s.APIInfo(c)
-	info.EnvironTag = otherSt.EnvironTag()
+	info.ModelTag = otherSt.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 
 	block := commontesting.NewBlockHelper(apiState)
 	defer block.Close()
 
 	block.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
-	err = common.DestroyModelIncludingHosted(s.State, s.State.EnvironTag())
+	err = common.DestroyModelIncludingHosted(s.State, s.State.ModelTag())
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
 }
 
@@ -198,7 +198,7 @@ func (s *destroyModelSuite) TestBlockRemoveDestroyModel(c *gc.C) {
 	// Setup model
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyModel")
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyModel")
 }
 
@@ -207,7 +207,7 @@ func (s *destroyModelSuite) TestBlockChangesDestroyModel(c *gc.C) {
 	s.setUpInstances(c)
 	// lock model: can't destroy locked model
 	s.BlockAllChanges(c, "TestBlockChangesDestroyModel")
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyModel")
 }
 
@@ -249,7 +249,7 @@ func (s *destroyTwoModelsSuite) TestCleanupModelResources(c *gc.C) {
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := common.DestroyModel(s.otherState, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.otherState, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert that the machines are not removed until the cleanup runs.
@@ -258,11 +258,11 @@ func (s *destroyTwoModelsSuite) TestCleanupModelResources(c *gc.C) {
 	runAllCleanups(c, s.otherState)
 	assertAllMachinesDeadAndRemove(c, s.otherState)
 
-	otherEnv, err := s.otherState.Environment()
+	otherEnv, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherEnv.Life(), gc.Equals, state.Dying)
 
-	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(otherEnv.Refresh(), jc.ErrorIsNil)
 	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
 
@@ -299,19 +299,19 @@ func (s *destroyTwoModelsSuite) TestDifferentStateModel(c *gc.C) {
 
 	// NOTE: pass in the main test State instance, which is 'bound'
 	// to the state server model.
-	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.State, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	runAllCleanups(c, s.otherState)
 	assertAllMachinesDeadAndRemove(c, s.otherState)
 
-	otherEnv, err := s.otherState.Environment()
+	otherEnv, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(otherEnv.Refresh(), jc.ErrorIsNil)
 	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
@@ -322,33 +322,33 @@ func (s *destroyTwoModelsSuite) TestDestroyStateServerAfterNonStateServerIsDestr
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := common.DestroyModel(s.State, s.State.EnvironTag())
+	err := common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, jc.IsFalse)
 
-	err = common.DestroyModel(s.State, s.otherState.EnvironTag())
+	err = common.DestroyModel(s.State, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyModel(s.State, s.State.EnvironTag())
+	err = common.DestroyModel(s.State, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure we can continue to take the hosted model down while the
 	// controller environ is dying.
 	runAllCleanups(c, s.otherState)
 	assertAllMachinesDeadAndRemove(c, s.otherState)
-	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
 
-	otherEnv, err := s.otherState.Environment()
+	otherEnv, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherEnv.Life(), gc.Equals, state.Dead)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
-	c.Assert(s.State.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
 }
@@ -359,7 +359,7 @@ func (s *destroyTwoModelsSuite) TestDestroyStateServerAndNonStateServer(c *gc.C)
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := common.DestroyModelIncludingHosted(s.State, s.State.EnvironTag())
+	err := common.DestroyModelIncludingHosted(s.State, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	runAllCleanups(c, s.State)
@@ -368,7 +368,7 @@ func (s *destroyTwoModelsSuite) TestDestroyStateServerAndNonStateServer(c *gc.C)
 
 	// Make sure we can continue to take the hosted model down while the
 	// controller model is dying.
-	c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
 }
 
 func (s *destroyTwoModelsSuite) TestCanDestroyNonBlockedModel(c *gc.C) {
@@ -377,10 +377,10 @@ func (s *destroyTwoModelsSuite) TestCanDestroyNonBlockedModel(c *gc.C) {
 
 	bh.BlockDestroyModel(c, "TestBlockDestroyDestroyModel")
 
-	err := common.DestroyModel(s.State, s.otherState.EnvironTag())
+	err := common.DestroyModel(s.State, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyModel(s.State, s.State.EnvironTag())
+	err = common.DestroyModel(s.State, s.State.ModelTag())
 	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyModel")
 }
 

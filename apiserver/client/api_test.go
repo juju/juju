@@ -119,7 +119,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.MongoInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(s.State.EnvironTag(), stateInfo, mongo.DialOpts{
+	st, err := state.Open(s.State.ModelTag(), stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
 	}, environs.NewStatePolicy())
 	if err == nil {

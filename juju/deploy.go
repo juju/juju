@@ -42,7 +42,7 @@ type DeployServiceParams struct {
 }
 
 type ServiceDeployer interface {
-	Environment() (*state.Environment, error)
+	Model() (*state.Model, error)
 	AddService(state.AddServiceArgs) (*state.Service, error)
 }
 
@@ -64,7 +64,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		}
 	}
 	if args.ServiceOwner == "" {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

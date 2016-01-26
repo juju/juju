@@ -134,7 +134,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		Insert: relationScopeDoc{
 			DocID:     rsDocID,
 			Key:       ruKey,
-			ModelUUID: ru.st.EnvironUUID(),
+			ModelUUID: ru.st.ModelUUID(),
 		},
 	})
 

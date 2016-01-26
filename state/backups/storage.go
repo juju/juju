@@ -529,14 +529,14 @@ type DB interface {
 	// MongoSession returns the underlying mongodb session.
 	MongoSession() *mgo.Session
 
-	// EnvironTag is the concrete environ tag for this database.
-	EnvironTag() names.EnvironTag
+	// ModelTag is the concrete environ tag for this database.
+	ModelTag() names.ModelTag
 }
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewStorage(st DB) filestorage.FileStorage {
-	modelUUID := st.EnvironTag().Id()
+	modelUUID := st.ModelTag().Id()
 	db := st.MongoSession().DB(storageDBName)
 	dbWrap := newStorageDBWrapper(db, storageMetaName, modelUUID)
 	defer dbWrap.Close()

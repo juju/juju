@@ -21,7 +21,7 @@ type requestedNetworksDoc struct {
 func (st *State) newRequestedNetworksDoc(id string, networks []string) *requestedNetworksDoc {
 	return &requestedNetworksDoc{
 		DocID:     st.docID(id),
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Networks:  networks,
 	}
 }

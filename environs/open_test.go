@@ -71,7 +71,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.NotNil)
 	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
-	c.Assert(info.APIEndpoint().EnvironUUID, gc.Not(gc.Equals), "")
+	c.Assert(info.APIEndpoint().ModelUUID, gc.Not(gc.Equals), "")
 	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
 	c.Assert(info.APICredentials().User, gc.Equals, "admin")
 }

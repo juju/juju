@@ -80,9 +80,9 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 		}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
 				c.Check(client.mockEnviron.Life, gc.Equals, state.Dying)
 				c.Check(client.mockEnviron.TimeOfDeath, gc.IsNil)
@@ -90,7 +90,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 				client.watcher.(*mockEnvironResourceWatcher).events <- struct{}{}
 				mClock.advanceAfterNextNow(undertaker.RIPTime)
 			}}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
 				c.Check(client.mockEnviron.Life, gc.Equals, state.Dead)
 				c.Check(client.mockEnviron.TimeOfDeath, gc.NotNil)
@@ -151,12 +151,12 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 			callback: func() {
 				mockWatcher.events <- struct{}{}
 			},
 		}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
 				c.Assert(client.mockEnviron.Life, gc.Equals, state.Dead)
 				c.Assert(client.mockEnviron.TimeOfDeath, gc.NotNil)
@@ -214,7 +214,7 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 			callback: func() {
 				// As environ was set to dead 12hrs earlier, assert that the
 				// undertaker picks up where it left off and RemoveEnviron

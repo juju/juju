@@ -38,10 +38,10 @@ func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	info := memstore.CreateInfo("testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"127.0.0.1:12345"},
-		Hostnames:   []string{"localhost:12345"},
-		CACert:      testing.CACert,
-		EnvironUUID: "model-uuid",
+		Addresses: []string{"127.0.0.1:12345"},
+		Hostnames: []string{"localhost:12345"},
+		CACert:    testing.CACert,
+		ModelUUID: "model-uuid",
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     "user-test",

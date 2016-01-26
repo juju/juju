@@ -44,7 +44,7 @@ func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *backupsCommonSuite) backupURL(c *gc.C) string {
-	environ, err := s.State.Environment()
+	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	uri := s.baseURL(c)
 	uri.Path = fmt.Sprintf("/model/%s/backups", environ.UUID())

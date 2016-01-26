@@ -109,7 +109,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st0, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
@@ -120,7 +120,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to look up models")
 	}
 	for _, env := range envs {
-		err := c.dumpLogsForEnv(ctx, st0, env.EnvironTag())
+		err := c.dumpLogsForEnv(ctx, st0, env.ModelTag())
 		if err != nil {
 			return errors.Annotatef(err, "failed to dump logs for model %s", env.UUID())
 		}
@@ -145,7 +145,7 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 	return "", errors.New("no machine agent configuration found")
 }
 
-func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.EnvironTag) error {
+func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
 	st, err := st0.ForEnviron(tag)
 	if err != nil {
 		return errors.Annotate(err, "failed open model")

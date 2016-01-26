@@ -19,26 +19,26 @@ var _ undertaker.UndertakerClient = (*undertaker.Client)(nil)
 
 func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "EnvironInfo", func(response interface{}) {
+	client := s.mockClient(c, "ModelInfo", func(response interface{}) {
 		called = true
-		result := response.(*params.UndertakerEnvironInfoResult)
+		result := response.(*params.UndertakerModelInfoResult)
 		result.Result = params.UndertakerEnvironInfo{}
 	})
 
-	result, err := client.EnvironInfo()
+	result, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(result, gc.Equals, params.UndertakerEnvironInfoResult{})
+	c.Assert(result, gc.Equals, params.UndertakerModelInfoResult{})
 }
 
 func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "ProcessDyingEnviron", func(response interface{}) {
+	client := s.mockClient(c, "ProcessDyingModel", func(response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
 	})
 
-	c.Assert(client.ProcessDyingEnviron(), jc.ErrorIsNil)
+	c.Assert(client.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -67,7 +67,7 @@ func (s *undertakerSuite) mockClient(c *gc.C, expectedRequest string, callback f
 
 			a, ok := args.(params.Entities)
 			c.Check(ok, jc.IsTrue)
-			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "environment-"}})
+			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "model-"}})
 
 			callback(response)
 			return nil
@@ -90,7 +90,7 @@ func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
 
 				a, ok := args.(params.Entities)
 				c.Check(ok, jc.IsTrue)
-				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "environment-"}})
+				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "model-"}})
 
 				resp.Results = []params.NotifyWatchResult{{NotifyWatcherId: "1"}}
 			} else {

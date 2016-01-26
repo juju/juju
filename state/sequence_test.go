@@ -20,11 +20,11 @@ type sequenceSuite struct {
 func (s *sequenceSuite) TestSequence(c *gc.C) {
 	s.incAndCheck(c, s.State, "foo", 0)
 	s.checkDocCount(c, 1)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 1)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 1)
 
 	s.incAndCheck(c, s.State, "foo", 1)
 	s.checkDocCount(c, 1)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 2)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 2)
 }
 
 func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
@@ -35,8 +35,8 @@ func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
 	s.incAndCheck(c, s.State, "bar", 2)
 
 	s.checkDocCount(c, 2)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 2)
-	s.checkDoc(c, s.State.EnvironUUID(), "bar", 3)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 2)
+	s.checkDoc(c, s.State.ModelUUID(), "bar", 3)
 }
 
 func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
@@ -51,8 +51,8 @@ func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	s.incAndCheck(c, state1, "foo", 2)
 
 	s.checkDocCount(c, 2)
-	s.checkDoc(c, state1.EnvironUUID(), "foo", 3)
-	s.checkDoc(c, state2.EnvironUUID(), "foo", 2)
+	s.checkDoc(c, state1.ModelUUID(), "foo", 3)
+	s.checkDoc(c, state2.ModelUUID(), "foo", 2)
 }
 
 func (s *sequenceSuite) incAndCheck(c *gc.C, st *state.State, name string, expectedCount int) {

@@ -93,7 +93,7 @@ LXC_BRIDGE="ignored"`[1:])
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:           testing.ServerCert,
@@ -153,15 +153,15 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has been set up.
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	uuid, ok := envCfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(env.UUID(), gc.Equals, uuid)
 
 	// Check that initial admin user has been set up correctly.
-	envTag := env.Tag().(names.EnvironTag)
-	s.assertCanLogInAsAdmin(c, envTag, pwHash)
+	modelTag := env.Tag().(names.ModelTag)
+	s.assertCanLogInAsAdmin(c, modelTag, pwHash)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -219,7 +219,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st1, err := state.Open(newCfg.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -232,7 +232,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,7 +257,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,7 +326,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.EnvironTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -335,7 +335,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.Environ
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(environTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

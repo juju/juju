@@ -221,7 +221,7 @@ func (s *cinderVolumeSourceSuite) TestListVolumes(c *gc.C) {
 			}, {
 				ID: "volume-3",
 				Metadata: map[string]string{
-					tags.JujuModel: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 			}}, nil
 		},

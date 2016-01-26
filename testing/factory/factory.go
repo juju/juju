@@ -155,7 +155,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
@@ -164,7 +164,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
-		_, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -182,7 +182,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 // attributes of EnvUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.EnvironmentUser {
+func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.ModelUser {
 	if params == nil {
 		params = &EnvUserParams{}
 	}
@@ -194,12 +194,12 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		params.DisplayName = uniqueString("display name")
 	}
 	if params.CreatedBy == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+	envUser, err := factory.st.AddModelUser(state.ModelUserSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
@@ -493,7 +493,7 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		params.Name = uniqueString("testenv")
 	}
 	if params.Owner == nil {
-		origEnv, err := factory.st.Environment()
+		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}

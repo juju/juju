@@ -54,7 +54,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 		return ctrData{}, nil, errors.New("no models found")
 	}
 
-	status, err := api.ModelStatus(names.NewEnvironTag(ctrUUID))
+	status, err := api.ModelStatus(names.NewModelTag(ctrUUID))
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
@@ -64,13 +64,13 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 	ctrStatus := status[0]
 
 	hostedEnvCount := len(envs) - 1
-	hostedTags := make([]names.EnvironTag, hostedEnvCount)
+	hostedTags := make([]names.ModelTag, hostedEnvCount)
 	envName := map[string]string{}
 	var i int
 	for _, env := range envs {
 		if env.UUID != ctrUUID {
 			envName[env.UUID] = env.Name
-			hostedTags[i] = names.NewEnvironTag(env.UUID)
+			hostedTags[i] = names.NewModelTag(env.UUID)
 			i++
 		}
 	}

@@ -76,7 +76,7 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 		st: st,
 		doc: metricsManagerDoc{
 			DocID:              st.docID(metricsManagerKey),
-			ModelUUID:          st.EnvironUUID(),
+			ModelUUID:          st.ModelUUID(),
 			LastSuccessfulSend: time.Time{},
 			ConsecutiveErrors:  0,
 			GracePeriod:        defaultGracePeriod,

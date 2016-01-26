@@ -70,11 +70,11 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		{otherSt, hostedAPI, false, "hostedenv"},
 		{st, api, true, "dummymodel"},
 	} {
-		env, err := test.st.Environment()
+		env, err := test.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-		result, err := test.api.EnvironInfo()
+		result, err := test.api.ModelInfo()
 		c.Assert(err, jc.ErrorIsNil)
 
 		info := result.Result
@@ -92,10 +92,10 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 
 func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.ProcessDyingEnviron()
+	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
@@ -104,14 +104,14 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	err = hostedAPI.ProcessDyingEnviron()
+	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
 }
 
 func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	_, err := otherSt.Environment()
+	_, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
@@ -120,7 +120,7 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dying
@@ -133,13 +133,13 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dead
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = hostedAPI.ProcessDyingEnviron()
+	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 
 	err = hostedAPI.RemoveEnviron()

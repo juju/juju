@@ -210,15 +210,15 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	// Update API addresses if they've changed. Error is non-fatal.
 	// For older servers, the environ tag or server tag may not be set.
 	// if they are not, we store empty values.
-	var environUUID string
+	var modelUUID string
 	var serverUUID string
-	if envTag, err := st.EnvironTag(); err == nil {
-		environUUID = envTag.Id()
+	if modelTag, err := st.ModelTag(); err == nil {
+		modelUUID = modelTag.Id()
 	}
 	if controllerTag, err := st.ControllerTag(); err == nil {
 		serverUUID = controllerTag.Id()
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, environUUID, serverUUID); localerr != nil {
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -265,17 +265,17 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-c
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var environTag names.EnvironTag
-	if names.IsValidEnvironment(endpoint.EnvironUUID) {
-		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
+	var modelTag names.ModelTag
+	if names.IsValidModel(endpoint.ModelUUID) {
+		modelTag = names.NewModelTag(endpoint.ModelUUID)
 	}
 
 	apiInfo := &api.Info{
-		Addrs:      endpoint.Addresses,
-		CACert:     endpoint.CACert,
-		Tag:        environInfoUserTag(info),
-		Password:   info.APICredentials().Password,
-		EnvironTag: environTag,
+		Addrs:    endpoint.Addresses,
+		CACert:   endpoint.CACert,
+		Tag:      environInfoUserTag(info),
+		Password: info.APICredentials().Password,
+		ModelTag: modelTag,
 	}
 	if apiInfo.Tag == nil {
 		apiInfo.UseMacaroons = true
@@ -358,13 +358,13 @@ func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error)
 // connected to the API server.
 func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
-	var environUUID string
-	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
-		environUUID = apiInfo.EnvironTag.Id()
+	var modelUUID string
+	if names.IsValidModel(apiInfo.ModelTag.Id()) {
+		modelUUID = apiInfo.ModelTag.Id()
 	} else {
 		// For backwards-compatibility, we have to allow connections
 		// with an empty UUID. Login will work for the same reasons.
-		logger.Warningf("ignoring invalid cached API endpoint model UUID %v", apiInfo.EnvironTag.Id())
+		logger.Warningf("ignoring invalid cached API endpoint model UUID %v", apiInfo.ModelTag.Id())
 	}
 	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
 	if err != nil {
@@ -380,8 +380,8 @@ func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.
 	)
 
 	endpoint := configstore.APIEndpoint{
-		CACert:      string(apiInfo.CACert),
-		EnvironUUID: environUUID,
+		CACert:    string(apiInfo.CACert),
+		ModelUUID: modelUUID,
 	}
 	if addrsChanged {
 		endpoint.Addresses = addrs
@@ -509,13 +509,13 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, environUUID, serverUUID string) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, modelUUID, serverUUID string) error {
 	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
 	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
 	endpoint := info.APIEndpoint()
 	needCaching := false
-	if endpoint.EnvironUUID != environUUID && environUUID != "" {
-		endpoint.EnvironUUID = environUUID
+	if endpoint.ModelUUID != modelUUID && modelUUID != "" {
+		endpoint.ModelUUID = modelUUID
 		needCaching = true
 	}
 	if endpoint.ServerUUID != serverUUID && serverUUID != "" {

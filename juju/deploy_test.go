@@ -227,7 +227,7 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	placement := []*instance.Placement{
-		{Scope: s.State.EnvironUUID(), Directive: "valid"},
+		{Scope: s.State.ModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
 		{Scope: "lxc", Directive: "1"},
 		{Scope: "lxc", Directive: ""},
@@ -253,7 +253,7 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 	serviceCons := constraints.MustParse("cpu-cores=2")
-	placement := []*instance.Placement{{Scope: s.State.EnvironUUID(), Directive: "valid"}}
+	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
 	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
 			ServiceName: "bob",

@@ -139,7 +139,7 @@ func (st *mockState) EnvironConfig() (*config.Config, error) {
 	panic("not implemented")
 }
 
-func (st *mockState) Environment() (*state.Environment, error) {
+func (st *mockState) Model() (*state.Model, error) {
 	panic("not implemented")
 }
 

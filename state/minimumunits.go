@@ -82,7 +82,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 			Assert: txn.DocMissing,
 			Insert: &minUnitsDoc{
 				ServiceName: serviceName,
-				ModelUUID:   service.st.EnvironUUID(),
+				ModelUUID:   service.st.ModelUUID(),
 			},
 		})
 	}

@@ -194,7 +194,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 // newToolsVersionAvailable will return a string representing a tools
 // version only if the latest check is newer than current tools.
 func (c *Client) newToolsVersionAvailable() (string, error) {
-	env, err := c.api.stateAccessor.Environment()
+	env, err := c.api.stateAccessor.Model()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get model")
 	}

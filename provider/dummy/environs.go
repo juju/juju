@@ -76,7 +76,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"uuid":                      testing.EnvironmentTag.Id(),
+		"uuid":                      testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
@@ -736,7 +736,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
 			panic(err)
 		}
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			panic(err)
 		}

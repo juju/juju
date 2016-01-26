@@ -67,10 +67,10 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	for _, env := range envList {
 		info := s.store.CreateInfo(env.name)
 		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses:   []string{"localhost"},
-			CACert:      testing.CACert,
-			EnvironUUID: env.modelUUID,
-			ServerUUID:  env.serverUUID,
+			Addresses:  []string{"localhost"},
+			CACert:     testing.CACert,
+			ModelUUID:  env.modelUUID,
+			ServerUUID: env.serverUUID,
 		})
 
 		err := info.Write()
@@ -148,10 +148,10 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 func (s *DestroySuite) resetEnvironment(c *gc.C) {
 	info := s.store.CreateInfo("test2")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: "test2-uuid",
-		ServerUUID:  "test1-uuid",
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ModelUUID:  "test2-uuid",
+		ServerUUID: "test1-uuid",
 	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)

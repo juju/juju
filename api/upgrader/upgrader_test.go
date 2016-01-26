@@ -103,7 +103,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateTools.Version, gc.Equals, current)
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		s.stateAPI.Addr(), coretesting.EnvironmentTag.Id(), current)
+		s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
 	c.Assert(stateTools.URL, gc.Equals, url)
 }
 

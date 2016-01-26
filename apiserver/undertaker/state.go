@@ -17,25 +17,25 @@ import (
 // for the work of the undertaker API.
 type State interface {
 
-	// Environment returns the environment entity.
-	Environment() (Environment, error)
+	// Model returns the model entity.
+	Model() (Model, error)
 
 	// IsStateServer returns true if this state instance has the bootstrap
-	// environment UUID.
+	// model UUID.
 	IsStateServer() bool
 
-	// ProcessDyingEnviron checks if there are any machines or services left in
-	// state. If there are none, the environment's life is changed from dying to dead.
-	ProcessDyingEnviron() (err error)
+	// ProcessDyingModel checks if there are any machines or services left in
+	// state. If there are none, the model's life is changed from dying to dead.
+	ProcessDyingModel() (err error)
 
-	// RemoveAllEnvironDocs removes all documents from multi-environment
+	// RemoveAllModelDocs removes all documents from multi-environment
 	// collections.
-	RemoveAllEnvironDocs() error
+	RemoveAllModelDocs() error
 
-	// AllMachines returns all machines in the environment ordered by id.
+	// AllMachines returns all machines in the model ordered by id.
 	AllMachines() ([]Machine, error)
 
-	// AllServices returns all deployed services in the environment.
+	// AllServices returns all deployed services in the model.
 	AllServices() ([]Service, error)
 
 	// EnvironConfig retrieves the environment configuration.
@@ -88,31 +88,31 @@ type Service interface {
 	Watch() state.NotifyWatcher
 }
 
-func (s *stateShim) Environment() (Environment, error) {
-	return s.State.Environment()
+func (s *stateShim) Model() (Model, error) {
+	return s.State.Model()
 }
 
-// Environment defines the needed methods of state.Environment for
+// Model defines the needed methods of state.Model for
 // the work of the undertaker API.
-type Environment interface {
+type Model interface {
 
-	// TimeOfDeath returns when the environment Life was set to Dead.
+	// TimeOfDeath returns when the model Life was set to Dead.
 	TimeOfDeath() time.Time
 
-	// Owner returns tag representing the owner of the environment.
-	// The owner is the user that created the environment.
+	// Owner returns tag representing the owner of the model.
+	// The owner is the user that created the model.
 	Owner() names.UserTag
 
-	// Life returns whether the environment is Alive, Dying or Dead.
+	// Life returns whether the model is Alive, Dying or Dead.
 	Life() state.Life
 
-	// Name returns the human friendly name of the environment.
+	// Name returns the human friendly name of the model.
 	Name() string
 
-	// UUID returns the universally unique identifier of the environment.
+	// UUID returns the universally unique identifier of the model.
 	UUID() string
 
-	// Destroy sets the environment's lifecycle to Dying, preventing
+	// Destroy sets the model's lifecycle to Dying, preventing
 	// addition of services or machines to state.
 	Destroy() error
 }

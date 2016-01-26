@@ -58,7 +58,7 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 	for _, collName := range collNames {
 		collection := allWatcherStateCollection{name: collName}
 		switch collName {
-		case environmentsC:
+		case modelsC:
 			collection.docType = reflect.TypeOf(backingEnvironment{})
 		case machinesC:
 			collection.docType = reflect.TypeOf(backingMachine{})
@@ -105,7 +105,7 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 	return collectionByName
 }
 
-type backingEnvironment environmentDoc
+type backingEnvironment modelDoc
 
 func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id string) error {
 	store.Update(&multiwatcher.ModelInfo{
@@ -135,7 +135,7 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.MachineInfo{
-		ModelUUID:                st.EnvironUUID(),
+		ModelUUID:                st.ModelUUID(),
 		Id:                       m.Id,
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
@@ -254,7 +254,7 @@ func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *Status
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.UnitInfo{
-		ModelUUID:   st.EnvironUUID(),
+		ModelUUID:   st.ModelUUID(),
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
@@ -377,12 +377,12 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	info := &multiwatcher.ServiceInfo{
-		ModelUUID:   st.EnvironUUID(),
+		ModelUUID:   st.ModelUUID(),
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
@@ -472,7 +472,7 @@ func (svc *backingService) removed(store *multiwatcherStore, modelUUID, id strin
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingService) fixOwnerTag(env *Environment) string {
+func (svc *backingService) fixOwnerTag(env *Model) string {
 	if svc.OwnerTag != "" {
 		return svc.OwnerTag
 	}
@@ -500,7 +500,7 @@ func (a *backingAction) removed(store *multiwatcherStore, modelUUID, id string, 
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.ActionInfo{
-		ModelUUID:  st.EnvironUUID(),
+		ModelUUID:  st.ModelUUID(),
 		Id:         id,
 		Receiver:   a.Receiver,
 		Name:       a.Name,
@@ -527,7 +527,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 		}
 	}
 	info := &multiwatcher.RelationInfo{
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Key:       r.Key,
 		Id:        r.Id,
 		Endpoints: eps,
@@ -553,7 +553,7 @@ type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.AnnotationInfo{
-		ModelUUID:   st.EnvironUUID(),
+		ModelUUID:   st.ModelUUID(),
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
 	}
@@ -582,7 +582,7 @@ type backingBlock blockDoc
 
 func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) error {
 	info := &multiwatcher.BlockInfo{
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Id:        id,
 		Tag:       a.Tag,
 		Type:      a.Type.ToParams(),
@@ -608,7 +608,7 @@ func (a *backingBlock) mongoId() string {
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), id)
+	parentID, ok := backingEntityIdForGlobalKey(st.ModelUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -696,7 +696,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceId, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), service.globalKey())
+	serviceId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
 	if !ok {
 		return nil
 	}
@@ -730,7 +730,7 @@ func (s *backingStatus) mongoId() string {
 type backingConstraints constraintsDoc
 
 func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), id)
+	parentID, ok := backingEntityIdForGlobalKey(st.ModelUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -764,7 +764,7 @@ func (c *backingConstraints) mongoId() string {
 type backingSettings settingsDoc
 
 func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, url, ok := backingEntityIdForSettingsKey(st.EnvironUUID(), id)
+	parentID, url, ok := backingEntityIdForSettingsKey(st.ModelUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -840,7 +840,7 @@ func backingEntityIdForSettingsKey(modelUUID, key string) (eid multiwatcher.Enti
 type backingOpenedPorts map[string]interface{}
 
 func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForOpenedPortsKey(st.EnvironUUID(), id)
+	parentID, ok := backingEntityIdForOpenedPortsKey(st.ModelUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -869,7 +869,7 @@ func (p *backingOpenedPorts) removed(store *multiwatcherStore, modelUUID, id str
 	if st == nil {
 		return nil
 	}
-	parentID, ok := backingEntityIdForOpenedPortsKey(st.EnvironUUID(), id)
+	parentID, ok := backingEntityIdForOpenedPortsKey(st.ModelUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -905,7 +905,7 @@ func (p *backingOpenedPorts) mongoId() string {
 
 // updateUnitPorts updates the Ports and PortRanges info of the given unit.
 func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
-	eid, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), u.globalKey())
+	eid, ok := backingEntityIdForGlobalKey(st.ModelUUID(), u.globalKey())
 	if !ok {
 		// This should never happen.
 		return errors.New("cannot retrieve entity id for unit")
@@ -1055,7 +1055,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	// in, such as settings changes to entities we don't care about.
 	err := col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		err := doc.removed(all, b.st.EnvironUUID(), id, b.st)
+		err := doc.removed(all, b.st.ModelUUID(), id, b.st)
 		return errors.Trace(err)
 	}
 	if err != nil {
@@ -1072,7 +1072,7 @@ func (b *allWatcherStateBacking) Release() error {
 
 func newAllEnvWatcherStateBacking(st *State) Backing {
 	collections := makeAllWatcherCollectionInfo(
-		environmentsC,
+		modelsC,
 		machinesC,
 		unitsC,
 		servicesC,
@@ -1111,7 +1111,7 @@ func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		return errors.Annotate(err, "error loading models")
 	}
 	for _, env := range envs {
-		st, err := b.st.ForEnviron(env.EnvironTag())
+		st, err := b.st.ForEnviron(env.ModelTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1142,7 +1142,7 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 
 	st, err := b.getState(change.C, modelUUID)
 	if err != nil {
-		_, envErr := b.st.GetEnvironment(names.NewEnvironTag(modelUUID))
+		_, envErr := b.st.GetEnvironment(names.NewModelTag(modelUUID))
 		if errors.IsNotFound(envErr) {
 			// The entity's environment is gone so remove the entity
 			// from the store.
@@ -1168,7 +1168,7 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 }
 
 func (b *allEnvWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
-	if change.C == environmentsC {
+	if change.C == modelsC {
 		modelUUID := change.Id.(string)
 		return modelUUID, modelUUID, nil
 	}
@@ -1181,7 +1181,7 @@ func (b *allEnvWatcherStateBacking) idForChange(change watcher.Change) (string, 
 }
 
 func (b *allEnvWatcherStateBacking) getState(collName, modelUUID string) (*State, error) {
-	if collName == environmentsC {
+	if collName == modelsC {
 		return b.st, nil
 	}
 

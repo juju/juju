@@ -225,7 +225,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
 	uuid := query.Get(":modeluuid")
 	if uuid == "" {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return "", err
 		}

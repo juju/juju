@@ -11,7 +11,7 @@ import (
 
 type stateInterface interface {
 	EnvironConfig() (*config.Config, error)
-	Environment() (*state.Environment, error)
+	Model() (*state.Model, error)
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -26,8 +26,8 @@ func (s stateShim) EnvironConfig() (*config.Config, error) {
 	return s.State.EnvironConfig()
 }
 
-func (s stateShim) Environment() (*state.Environment, error) {
-	return s.State.Environment()
+func (s stateShim) Model() (*state.Model, error) {
+	return s.State.Model()
 }
 
 func (s stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {

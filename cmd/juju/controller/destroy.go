@@ -61,7 +61,7 @@ type destroyControllerAPI interface {
 	EnvironmentConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
-	ModelStatus(envs ...names.EnvironTag) ([]base.ModelStatus, error)
+	ModelStatus(envs ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 }
 
@@ -103,7 +103,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
+	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
 		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.EnvName())
 	}
 
@@ -142,7 +142,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if c.destroyEnvs {
 		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
-		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
 		for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(ctrStatus))
 			for _, envStatus := range envsStatus {

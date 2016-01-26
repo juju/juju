@@ -252,11 +252,11 @@ func (s *UseModelSuite) assertCurrentEnvironment(c *gc.C, name, uuid string) {
 	info, err := store.ReadInfo(name)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
-		Addresses:   []string{"127.0.0.1:12345"},
-		Hostnames:   []string{"localhost:12345"},
-		CACert:      testing.CACert,
-		EnvironUUID: uuid,
-		ServerUUID:  serverUUID,
+		Addresses:  []string{"127.0.0.1:12345"},
+		Hostnames:  []string{"localhost:12345"},
+		CACert:     testing.CACert,
+		ModelUUID:  uuid,
+		ServerUUID: serverUUID,
 	})
 	c.Assert(info.APICredentials(), jc.DeepEquals, s.creds)
 }
@@ -273,7 +273,7 @@ func (s *UseModelSuite) makeLocalEnvironment(c *gc.C, name, uuid, owner string) 
 	}
 	info := store.CreateInfo(name)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		EnvironUUID: uuid,
+		ModelUUID: uuid,
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User: owner,

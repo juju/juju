@@ -47,7 +47,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err := s.State.EnvironmentUser(user)
+	envUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
@@ -62,7 +62,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err := s.State.EnvironmentUser(user)
+	envUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser, gc.NotNil)
 
@@ -70,16 +70,16 @@ func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	err = s.client.UnshareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err = s.State.EnvironmentUser(user)
+	envUser, err = s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(envUser, gc.IsNil)
 }
 
 func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	owner, err := s.State.EnvironmentUser(env.Owner())
+	owner, err := s.State.ModelUser(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained, err := s.client.ModelUserInfo()
@@ -101,7 +101,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 	})
 }
 
-func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
+func lastConnPointer(c *gc.C, envUser *state.ModelUser) *time.Time {
 	lastConn, err := envUser.LastConnection()
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
@@ -117,7 +117,7 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
 	info := s.APIInfo(c)
-	info.EnvironTag = otherState.EnvironTag()
+	info.ModelTag = otherState.ModelTag()
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer otherAPIState.Close()

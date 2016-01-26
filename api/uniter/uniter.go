@@ -301,8 +301,8 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}, nil
 }
 
-// Environment returns the environment entity.
-func (st *State) Environment() (*Environment, error) {
+// Model returns the model entity.
+func (st *State) Model() (*Model, error) {
 	var result params.ModelResult
 	err := st.facade.FacadeCall("CurrentEnvironment", nil, &result)
 	if params.IsCodeNotImplemented(err) {
@@ -315,7 +315,7 @@ func (st *State) Environment() (*Environment, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	return &Environment{
+	return &Model{
 		name: result.Name,
 		uuid: result.UUID,
 	}, nil
@@ -385,7 +385,7 @@ func (st *State) WatchRelationUnits(
 
 // environment1dot16 requests just the UUID of the current environment, when
 // using an older API server that does not support CurrentEnvironment API call.
-func (st *State) environment1dot16() (*Environment, error) {
+func (st *State) environment1dot16() (*Model, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("CurrentEnvironUUID", nil, &result)
 	if err != nil {
@@ -394,7 +394,7 @@ func (st *State) environment1dot16() (*Environment, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	return &Environment{
+	return &Model{
 		uuid: result.Result,
 	}, nil
 }

@@ -21,8 +21,8 @@ var sendMetrics = func(st *state.State) error {
 // model. This function assumes that all necessary authentication checks
 // have been done. If the model is a controller hosting other
 // models, they will also be destroyed.
-func DestroyModelIncludingHosted(st *state.State, environTag names.EnvironTag) error {
-	return destroyModel(st, environTag, true)
+func DestroyModelIncludingHosted(st *state.State, modelTag names.ModelTag) error {
+	return destroyModel(st, modelTag, true)
 }
 
 // DestroyModel sets the environment to dying. Cleanup jobs then destroy
@@ -30,14 +30,14 @@ func DestroyModelIncludingHosted(st *state.State, environTag names.EnvironTag) e
 // model. This function assumes that all necessary authentication checks
 // have been done. An error will be returned if this model is a
 // controller hosting other model.
-func DestroyModel(st *state.State, environTag names.EnvironTag) error {
-	return destroyModel(st, environTag, false)
+func DestroyModel(st *state.State, modelTag names.ModelTag) error {
+	return destroyModel(st, modelTag, false)
 }
 
-func destroyModel(st *state.State, environTag names.EnvironTag, destroyHostedModels bool) error {
+func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels bool) error {
 	var err error
-	if environTag != st.EnvironTag() {
-		if st, err = st.ForEnviron(environTag); err != nil {
+	if modelTag != st.ModelTag() {
+		if st, err = st.ForEnviron(modelTag); err != nil {
 			return errors.Trace(err)
 		}
 		defer st.Close()
@@ -49,7 +49,7 @@ func destroyModel(st *state.State, environTag names.EnvironTag, destroyHostedMod
 			return errors.Trace(err)
 		}
 		for _, env := range envs {
-			envSt, err := st.ForEnviron(env.EnvironTag())
+			envSt, err := st.ForEnviron(env.ModelTag())
 			defer envSt.Close()
 			if err != nil {
 				return errors.Trace(err)
@@ -66,7 +66,7 @@ func destroyModel(st *state.State, environTag names.EnvironTag, destroyHostedMod
 		}
 	}
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}

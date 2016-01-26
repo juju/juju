@@ -178,7 +178,7 @@ func (f *filesystem) validate() error {
 			return errors.Annotate(err, "parsing binding")
 		}
 		switch tag.(type) {
-		case names.EnvironTag:
+		case names.ModelTag:
 			// TODO(axw) support binding to environment
 			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:

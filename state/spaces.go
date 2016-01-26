@@ -79,7 +79,7 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
 		DocID:     spaceID,
-		ModelUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Life:      Alive,
 		Name:      name,
 		IsPublic:  isPublic,

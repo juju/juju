@@ -571,7 +571,7 @@ type FacadeVersions struct {
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
 	Servers        [][]HostPort     `json:"Servers"`
-	EnvironTag     string           `json:"EnvironTag"`
+	ModelTag       string           `json:"ModelTag"`
 	LastConnection *time.Time       `json:"LastConnection"`
 	Facades        []FacadeVersions `json:"Facades"`
 }
@@ -613,8 +613,8 @@ type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 
-	// EnvironTag is the tag for the environment that is being connected to.
-	EnvironTag string `json:"environ-tag,omitempty"`
+	// ModelTag is the tag for the environment that is being connected to.
+	ModelTag string `json:"environ-tag,omitempty"`
 
 	// ControllerTag is the tag for the environment that holds the API servers.
 	// This is the initial environment created when bootstrapping juju.
@@ -635,7 +635,7 @@ type LoginResultV1 struct {
 // StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
 type StateServersSpec struct {
-	EnvironTag      string
+	ModelTag        string
 	NumStateServers int               `json:"num-state-servers"`
 	Constraints     constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new state server machines.

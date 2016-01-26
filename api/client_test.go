@@ -141,7 +141,7 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	info := s.APIInfo(c)
-	info.EnvironTag = otherSt.EnvironTag()
+	info.ModelTag = otherSt.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	return otherSt, apiState
@@ -188,13 +188,13 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 
 // envEndpoint returns "/model/<model-uuid>/<destination>"
 func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
-	envTag, err := apiState.EnvironTag()
+	modelTag, err := apiState.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
-	return path.Join("/model", envTag.Id(), destination)
+	return path.Join("/model", modelTag.Id(), destination)
 }
 
 func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
-	environ, err := s.State.Environment()
+	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
@@ -472,10 +472,10 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 	// If the server supports it, we should log at "/model/UUID/log"
-	environ, err := s.State.Environment()
+	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.EnvironTag()
+	info.ModelTag = environ.ModelTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
@@ -487,22 +487,22 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
-	// Backwards compatibility, passing EnvironTag = "" should just work
-	info.EnvironTag = names.NewEnvironTag("")
+	// Backwards compatibility, passing ModelTag = "" should just work
+	info.ModelTag = names.NewModelTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in the correct environment UUID should also work
-	environ, err := s.State.Environment()
+	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	info.EnvironTag = environ.EnvironTag()
+	info.ModelTag = environ.ModelTag()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in a bad environment UUID should fail with a known error
-	info.EnvironTag = names.NewEnvironTag("dead-beef-123456")
+	info.ModelTag = names.NewModelTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)

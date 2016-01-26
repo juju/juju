@@ -244,7 +244,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		PreferIPv6:        cfg.PreferIPv6,
-		Environment:       cfg.APIInfo.EnvironTag,
+		Model:             cfg.APIInfo.ModelTag,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -332,7 +332,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.APIInfo == nil {
 		return errors.New("missing API info")
 	}
-	if cfg.APIInfo.EnvironTag.Id() == "" {
+	if cfg.APIInfo.ModelTag.Id() == "" {
 		return errors.New("missing model tag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
@@ -569,9 +569,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
-		Password:   passwordHash,
-		CACert:     caCert,
-		EnvironTag: names.NewEnvironTag(modelUUID),
+		Password: passwordHash,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID),
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
@@ -606,7 +606,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
 	uuid, _ := cfg.UUID()
-	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuStateServer] = "true"
 	}

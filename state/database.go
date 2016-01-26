@@ -96,8 +96,8 @@ type collectionSchema map[string]collectionInfo
 // Load causes all recorded collections to be created and indexed as specified;
 // the returned Database will filter queries and transactions according to the
 // suppplied environment UUID.
-func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Database, error) {
-	if !names.IsValidEnvironment(environUUID) {
+func (schema collectionSchema) Load(db *mgo.Database, modelUUID string) (Database, error) {
+	if !names.IsValidModel(modelUUID) {
 		return nil, errors.New("invalid model UUID")
 	}
 	for name, info := range schema {
@@ -115,9 +115,9 @@ func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Datab
 		}
 	}
 	return &database{
-		raw:         db,
-		schema:      schema,
-		environUUID: environUUID,
+		raw:       db,
+		schema:    schema,
+		modelUUID: modelUUID,
 	}, nil
 }
 
@@ -141,9 +141,9 @@ type database struct {
 	// schema specifies how the various collections must be handled.
 	schema collectionSchema
 
-	// environUUID is used to automatically filter queries and operations on
+	// modelUUID is used to automatically filter queries and operations on
 	// certain collections (as defined in .schema).
-	environUUID string
+	modelUUID string
 
 	// runner exists for testing purposes; if non-nil, the result of
 	// TransactionRunner will always ultimately use this value to run
@@ -159,11 +159,11 @@ type database struct {
 func (db *database) CopySession() (Database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:         db.raw.With(session),
-		schema:      db.schema,
-		environUUID: db.environUUID,
-		runner:      db.runner,
-		ownSession:  true,
+		raw:        db.raw.With(session),
+		schema:     db.schema,
+		modelUUID:  db.modelUUID,
+		runner:     db.runner,
+		ownSession: true,
 	}, session.Close
 }
 
@@ -186,7 +186,7 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	if !info.global {
 		collection = &envStateCollection{
 			WriteCollection: collection.Writeable(),
-			modelUUID:       db.environUUID,
+			modelUUID:       db.modelUUID,
 		}
 	}
 
@@ -215,7 +215,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 	}
 	return &multiEnvRunner{
 		rawRunner: runner,
-		modelUUID: db.environUUID,
+		modelUUID: db.modelUUID,
 		schema:    db.schema,
 	}, closer
 }

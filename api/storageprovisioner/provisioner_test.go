@@ -30,11 +30,11 @@ func (s *provisionerSuite) TestNewState(c *gc.C) {
 
 	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
 	c.Assert(st, gc.NotNil)
-	st = storageprovisioner.NewState(apiCaller, names.NewEnvironTag("87927ace-9e41-4fd5-8103-1a6fb5ff7eb4"))
+	st = storageprovisioner.NewState(apiCaller, names.NewModelTag("87927ace-9e41-4fd5-8103-1a6fb5ff7eb4"))
 	c.Assert(st, gc.NotNil)
 	c.Assert(func() {
 		storageprovisioner.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	}, gc.PanicMatches, "expected EnvironTag or MachineTag, got names.UnitTag")
+	}, gc.PanicMatches, "expected ModelTag or MachineTag, got names.UnitTag")
 }
 
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {

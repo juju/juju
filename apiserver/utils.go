@@ -54,7 +54,7 @@ type validateArgs struct {
 func validateModelUUID(args validateArgs) (string, error) {
 	ssState := args.statePool.SystemState()
 	if args.modelUUID == "" {
-		// We allow the environUUID to be empty for 2 cases
+		// We allow the modelUUID to be empty for 2 cases
 		// 1) Compatibility with older clients
 		// 2) TODO: server a limited API at the root (empty modelUUID)
 		//    with just the user manager and model manager
@@ -64,20 +64,20 @@ func validateModelUUID(args validateArgs) (string, error) {
 			return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 		}
 		logger.Debugf("validate model uuid: empty modelUUID")
-		return ssState.EnvironUUID(), nil
+		return ssState.ModelUUID(), nil
 	}
-	if args.modelUUID == ssState.EnvironUUID() {
+	if args.modelUUID == ssState.ModelUUID() {
 		logger.Debugf("validate model uuid: controller model - %s", args.modelUUID)
 		return args.modelUUID, nil
 	}
 	if args.controllerModelOnly {
 		return "", errors.Unauthorizedf("requested model %q is not the controller model", args.modelUUID)
 	}
-	if !names.IsValidEnvironment(args.modelUUID) {
+	if !names.IsValidModel(args.modelUUID) {
 		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
-	envTag := names.NewEnvironTag(args.modelUUID)
-	if _, err := ssState.GetEnvironment(envTag); err != nil {
+	modelTag := names.NewModelTag(args.modelUUID)
+	if _, err := ssState.GetEnvironment(modelTag); err != nil {
 		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 	}
 	logger.Debugf("validate model uuid: %s", args.modelUUID)

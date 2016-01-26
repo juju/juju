@@ -66,7 +66,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	// Check the log file for each environment
 	expectedLog := "machine-42: 2015-11-04 03:02:01 INFO module %d"
 	for _, st := range states {
-		logName := context.AbsPath(fmt.Sprintf("%s.log", st.EnvironUUID()))
+		logName := context.AbsPath(fmt.Sprintf("%s.log", st.ModelUUID()))
 		logFile, err := os.Open(logName)
 		c.Assert(err, jc.ErrorIsNil)
 		scanner := bufio.NewScanner(logFile)

@@ -67,7 +67,7 @@ func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(
 		cfg.UnknownAttrs()["controller-resource-group"],
 		gc.Equals,
-		"juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"juju-testenv-model-"+testing.ModelTag.Id(),
 	)
 }
 

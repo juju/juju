@@ -93,7 +93,7 @@ func (s *ToolsSuite) TestStorage(c *gc.C) {
 }
 
 func (s *ToolsSuite) TestStorageParams(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	var called bool

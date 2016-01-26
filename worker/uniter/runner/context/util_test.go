@@ -194,7 +194,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
@@ -246,7 +246,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(actual, gc.Equals, expect.Value)
 	c.Assert(actualErr, jc.DeepEquals, expectErr)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	name, uuid := context.ContextEnvInfo(ctx)
 	c.Assert(name, gc.Equals, env.Name())

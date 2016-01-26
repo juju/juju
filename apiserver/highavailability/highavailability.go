@@ -89,8 +89,8 @@ func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (pa
 		return params.StateServersChanges{}, errors.Trace(err)
 	}
 	// Validate the environment tag if present.
-	if spec.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(spec.EnvironTag)
+	if spec.ModelTag != "" {
+		tag, err := names.ParseModelTag(spec.ModelTag)
 		if err != nil {
 			return params.StateServersChanges{}, errors.Errorf("invalid model tag: %v", err)
 		}

@@ -170,7 +170,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		UpgradedToVersion: version.Current,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
@@ -231,7 +231,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -285,7 +285,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -315,7 +315,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -352,7 +352,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -373,7 +373,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -388,7 +388,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 }
 
 func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
-	st, err := state.Open(testing.EnvironmentTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(testing.ModelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
 	}
@@ -416,7 +416,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check we can log in to mongo as admin.
 	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
 	info.Tag, info.Password = nil, testPasswordHash()
-	st, err := state.Open(testing.EnvironmentTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(testing.ModelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -443,7 +443,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(testing.EnvironmentTag, stateinfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err = state.Open(testing.ModelTag, stateinfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -615,7 +615,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -740,7 +740,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata, []struct
 }
 
 func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -876,7 +876,7 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

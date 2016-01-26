@@ -104,7 +104,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := mm.st.Environment()
+		env, err := mm.st.Model()
 		if err != nil {
 			return nil, err
 		}

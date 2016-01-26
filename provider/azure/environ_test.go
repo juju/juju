@@ -124,7 +124,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.subnet = &network.Subnet{
 		ID:   to.StringPtr("subnet-id"),
-		Name: to.StringPtr("juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
+		Name: to.StringPtr("juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
 		Properties: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr("10.0.0.0/16"),
 		},
@@ -176,7 +176,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	// is created when the environment is created.
 	nsgID := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups", "juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
 		"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
 	)
 
@@ -321,7 +321,7 @@ func tokenRefreshSender() *azuretesting.MockSender {
 }
 
 func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
-	resourceGroupName := "juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	return azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/"+resourceGroupName, &resources.Group{}),
 		s.makeSender(".*/virtualnetworks/juju-internal", s.vnet),
@@ -336,7 +336,7 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
-		s.makeSender(".*/subnets/juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d", s.subnet),
+		s.makeSender(".*/subnets/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
@@ -390,11 +390,11 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
-		Addrs:      []string{"localhost:246"},
-		CACert:     testing.CACert,
-		Password:   "admin",
-		Tag:        machineTag,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"localhost:246"},
+		CACert:   testing.CACert,
+		Password: "admin",
+		Tag:      machineTag,
+		ModelTag: testing.ModelTag,
 	}
 
 	const secureServerConnections = true

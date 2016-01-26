@@ -1032,12 +1032,12 @@ func (s *uniterSuite) TestCharmArchiveURLs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressURLs := []string{
-		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
-		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.ModelTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.ModelTag.Id()),
 	}
 	dummyURLs := []string{
-		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
-		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.ModelTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.ModelTag.Id()),
 	}
 
 	c.Assert(result, jc.DeepEquals, params.StringsResults{
@@ -1050,7 +1050,7 @@ func (s *uniterSuite) TestCharmArchiveURLs(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.CurrentEnvironUUID()
@@ -1059,7 +1059,7 @@ func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.CurrentEnvironment()

@@ -55,7 +55,7 @@ func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bun
 	return insertAnyCharmOps(&charmDoc{
 		DocID:        curl.String(),
 		URL:          curl,
-		ModelUUID:    st.EnvironTag().Id(),
+		ModelUUID:    st.ModelTag().Id(),
 		Meta:         ch.Meta(),
 		Config:       safeConfig(ch),
 		Metrics:      ch.Metrics(),
@@ -75,7 +75,7 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
-		ModelUUID:   st.EnvironTag().Id(),
+		ModelUUID:   st.ModelTag().Id(),
 		Placeholder: true,
 	})
 }
@@ -90,7 +90,7 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
-		ModelUUID:     st.EnvironTag().Id(),
+		ModelUUID:     st.ModelTag().Id(),
 		PendingUpload: true,
 	})
 }

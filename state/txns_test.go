@@ -39,7 +39,7 @@ func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 		schema: collectionSchema{
 			machinesC:          {},
 			networkInterfacesC: {},
-			environmentsC:      {global: true},
+			modelsC:            {global: true},
 			"other":            {global: true},
 			"raw":              {rawAccess: true},
 		},
@@ -348,13 +348,13 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 
 func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
 	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     modelUUID,
 		Insert: bson.M{},
 	}})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.seenOps, jc.DeepEquals, []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     modelUUID,
 		Insert: bson.M{},
 	}})

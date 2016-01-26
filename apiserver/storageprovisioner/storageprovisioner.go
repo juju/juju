@@ -73,11 +73,11 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	getScopeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
-			case names.EnvironTag:
+			case names.ModelTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
 				isEnvironManager := authorizer.AuthEnvironManager()
-				return isEnvironManager && tag == st.EnvironTag()
+				return isEnvironManager && tag == st.ModelTag()
 			case names.MachineTag:
 				return canAccessStorageMachine(tag, false)
 			default:

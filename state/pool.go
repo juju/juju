@@ -30,7 +30,7 @@ type StatePool struct {
 // Get returns a State for a given environment from the pool, creating
 // one if required.
 func (p *StatePool) Get(modelUUID string) (*State, error) {
-	if modelUUID == p.systemState.EnvironUUID() {
+	if modelUUID == p.systemState.ModelUUID() {
 		return p.systemState, nil
 	}
 
@@ -42,7 +42,7 @@ func (p *StatePool) Get(modelUUID string) (*State, error) {
 		return st, nil
 	}
 
-	st, err := p.systemState.ForEnviron(names.NewEnvironTag(modelUUID))
+	st, err := p.systemState.ForEnviron(names.NewModelTag(modelUUID))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
 	}

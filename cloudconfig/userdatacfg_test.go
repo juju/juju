@@ -119,10 +119,10 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 		},
 	}
 	cfg.APIInfo = &api.Info{
-		Addrs:      []string{"state-addr.testing.invalid:54321"},
-		Password:   "bletch",
-		CACert:     "CA CERT\n" + testing.CACert,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"state-addr.testing.invalid:54321"},
+		Password: "bletch",
+		CACert:   "CA CERT\n" + testing.CACert,
+		ModelTag: testing.ModelTag,
 	}
 	cfg.setMachineID(defaultMachineID)
 	cfg.setSeries(series)
@@ -824,10 +824,10 @@ var verifyTests = []struct {
 			},
 		}
 		cfg.APIInfo = &api.Info{
-			Addrs:      []string{"foo:35"},
-			Tag:        names.NewMachineTag("99"),
-			CACert:     testing.CACert,
-			EnvironTag: testing.EnvironmentTag,
+			Addrs:    []string{"foo:35"},
+			Tag:      names.NewMachineTag("99"),
+			CACert:   testing.CACert,
+			ModelTag: testing.ModelTag,
 		}
 	}},
 	{"missing API hosts", func(cfg *instancecfg.InstanceConfig) {
@@ -840,9 +840,9 @@ var verifyTests = []struct {
 			Tag: names.NewMachineTag("99"),
 		}
 		cfg.APIInfo = &api.Info{
-			Tag:        names.NewMachineTag("99"),
-			CACert:     testing.CACert,
-			EnvironTag: testing.EnvironmentTag,
+			Tag:      names.NewMachineTag("99"),
+			CACert:   testing.CACert,
+			ModelTag: testing.ModelTag,
 		}
 	}},
 	{"missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
@@ -970,9 +970,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			Password: "password",
 		},
 		APIInfo: &api.Info{
-			Addrs:      []string{"host:9999"},
-			CACert:     testing.CACert,
-			EnvironTag: testing.EnvironmentTag,
+			Addrs:    []string{"host:9999"},
+			CACert:   testing.CACert,
+			ModelTag: testing.ModelTag,
 		},
 		Config:                  minimalEnvironConfig(c),
 		DataDir:                 jujuDataDir("quantal"),

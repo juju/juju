@@ -24,11 +24,11 @@ func (*instancecfgSuite) TestInstanceTagsStateServer(c *gc.C) {
 	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	nonStateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, stateServerJobs, map[string]string{
-		"juju-model-uuid": testing.EnvironmentTag.Id(),
+		"juju-model-uuid": testing.ModelTag.Id(),
 		"juju-is-state":   "true",
 	})
 	testInstanceTags(c, cfg, nonStateServerJobs, map[string]string{
-		"juju-model-uuid": testing.EnvironmentTag.Id(),
+		"juju-model-uuid": testing.ModelTag.Id(),
 	})
 }
 
@@ -49,7 +49,7 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 		"resource-tags": "a=b c=",
 	})
 	testInstanceTags(c, cfg, nil, map[string]string{
-		"juju-model-uuid": testing.EnvironmentTag.Id(),
+		"juju-model-uuid": testing.ModelTag.Id(),
 		"a":               "b",
 		"c":               "",
 	})

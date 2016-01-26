@@ -439,7 +439,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 
 		var docs []bson.M
 		err = settingsColl.Find(
-			bson.D{{"model-uuid", bson.D{{"$ne", s.state.EnvironUUID()}}}},
+			bson.D{{"model-uuid", bson.D{{"$ne", s.state.ModelUUID()}}}},
 		).Sort("_id").Select(bson.M{"txn-queue": 0}).All(&docs)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(docs, jc.DeepEquals, expected)

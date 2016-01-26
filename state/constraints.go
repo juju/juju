@@ -49,7 +49,7 @@ func (doc constraintsDoc) value() constraints.Value {
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		ModelUUID:    st.EnvironUUID(),
+		ModelUUID:    st.ModelUUID(),
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,

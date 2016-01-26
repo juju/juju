@@ -1640,7 +1640,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"juju-model-uuid": coretesting.EnvironmentTag.Id(),
+			"juju-model-uuid": coretesting.ModelTag.Id(),
 			"juju-is-state":   "true",
 		},
 	)
@@ -1660,7 +1660,7 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			openstack.InstanceServerDetail(instances[0]).Metadata,
 			jc.DeepEquals,
 			map[string]string{
-				"juju-model-uuid": coretesting.EnvironmentTag.Id(),
+				"juju-model-uuid": coretesting.ModelTag.Id(),
 				"juju-is-state":   "true",
 				extraKey:          extraValue,
 			},

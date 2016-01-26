@@ -19,7 +19,7 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	systemTag := controllerEnv.EnvironTag()
+	systemTag := controllerEnv.ModelTag()
 
 	if err = s.ensureNotBlocked(args); err != nil {
 		return errors.Trace(err)

@@ -514,7 +514,7 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 			"name":            "test",
 			"type":            "dummy",
-			"uuid":            coretesting.EnvironmentTag.Id(),
+			"uuid":            coretesting.ModelTag.Id(),
 			"ca-cert":         coretesting.CACert,
 			"ca-private-key":  coretesting.CAKey,
 			"authorized-keys": coretesting.FakeAuthKeys,

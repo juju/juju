@@ -62,7 +62,7 @@ func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 	return f.blocks, f.blocksErr
 }
 
-func (f *fakeDestroyAPI) ModelStatus(tags ...names.EnvironTag) ([]base.ModelStatus, error) {
+func (f *fakeDestroyAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
 		status[i] = f.envStatus[tag.Id()]
@@ -145,10 +145,10 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 		info := s.store.CreateInfo(env.name)
 		uuid := env.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses:   []string{"localhost"},
-			CACert:      testing.CACert,
-			EnvironUUID: uuid,
-			ServerUUID:  env.serverUUID,
+			Addresses:  []string{"localhost"},
+			CACert:     testing.CACert,
+			ModelUUID:  uuid,
+			ServerUUID: env.serverUUID,
 		})
 
 		if env.bootstrapCfg != nil {
@@ -283,10 +283,10 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 func (s *DestroySuite) resetController(c *gc.C) {
 	info := s.store.CreateInfo("test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: "test1-uuid",
-		ServerUUID:  "test1-uuid",
+		Addresses:  []string{"localhost"},
+		CACert:     testing.CACert,
+		ModelUUID:  "test1-uuid",
+		ServerUUID: "test1-uuid",
 	})
 	info.SetBootstrapConfig(createBootstrapInfo(c, "test1"))
 	err := info.Write()

@@ -197,8 +197,8 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		return errors.Errorf("admin-secret is not set")
 	} else {
 		endpoint = configstore.APIEndpoint{
-			CACert:      cert,
-			EnvironUUID: uuid,
+			CACert:    cert,
+			ModelUUID: uuid,
 		}
 	}
 
@@ -206,7 +206,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		User:     configstore.DefaultAdminUsername,
 		Password: cfg.AdminSecret(),
 	}
-	endpoint.ServerUUID = endpoint.EnvironUUID
+	endpoint.ServerUUID = endpoint.ModelUUID
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())

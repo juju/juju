@@ -47,7 +47,7 @@ func assertEnvHasBlock(c *gc.C, st *state.State, t state.BlockType, msg string) 
 	c.Assert(dBlock.Type(), gc.DeepEquals, t)
 	tag, err := dBlock.Tag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.DeepEquals, st.EnvironTag())
+	c.Assert(tag, gc.DeepEquals, st.ModelTag())
 	c.Assert(dBlock.Message(), gc.DeepEquals, msg)
 }
 
@@ -183,10 +183,10 @@ func (s *blockSuite) TestEnvUUID(c *gc.C) {
 	blocks, err := st.AllBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 1)
-	c.Assert(blocks[0].ModelUUID(), gc.Equals, st.EnvironUUID())
+	c.Assert(blocks[0].ModelUUID(), gc.Equals, st.ModelUUID())
 }
 
-func (s *blockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
+func (s *blockSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{

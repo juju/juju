@@ -951,13 +951,13 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 	if !ok {
 		return nil, nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	// Ensure storage is available during upgrades.
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
@@ -1048,7 +1048,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	modelUUID, err := st.EnvironTag()
+	modelUUID, err := st.ModelTag()
 	if err != nil {
 		return err
 	}
@@ -1183,7 +1183,7 @@ func (a *MachineAgent) startEnvWorkers(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	modelUUID := st.EnvironUUID()
+	modelUUID := st.ModelUUID()
 	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", modelUUID)
 	logger.Infof("starting workers for env %s", modelUUID)
 
@@ -1193,7 +1193,7 @@ func (a *MachineAgent) startEnvWorkers(
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
-	apiInfo.EnvironTag = st.EnvironTag()
+	apiInfo.ModelTag = st.ModelTag()
 	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1246,7 +1246,7 @@ func (a *MachineAgent) startEnvWorkers(
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), a.CurrentConfig()), nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-		scope := st.EnvironTag()
+		scope := st.ModelTag()
 		api := apiSt.StorageProvisioner(scope)
 		return newStorageWorker(
 			scope, "", api, api, api, api, api, api,
@@ -1314,7 +1314,7 @@ func (a *MachineAgent) undertakerWorker(
 	ssSt envworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	modelUUID := st.EnvironUUID()
+	modelUUID := st.ModelUUID()
 	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for env %s", modelUUID)
 	logger.Infof("starting undertaker worker for env %s", modelUUID)
 	singularRunner, runner, apiSt, err := a.newRunnersForAPIConn(ssSt, st)
@@ -1351,7 +1351,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 	if !ok {
 		return nil, nil, nil, errors.New("API info not available")
 	}
-	apiInfo.EnvironTag = st.EnvironTag()
+	apiInfo.ModelTag = st.ModelTag()
 	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -1372,7 +1372,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 		runner.Wait()
 		err := apiSt.Close()
 		if err != nil {
-			logger.Errorf("failed to close API connection for env %s: %v", st.EnvironUUID(), err)
+			logger.Errorf("failed to close API connection for env %s: %v", st.ModelUUID(), err)
 		}
 	}()
 
@@ -1747,7 +1747,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Environment(), info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -25,11 +25,11 @@ var (
 
 // EnvironGetter represents a struct that can provide a state.Environment.
 type EnvironGetter interface {
-	Environment() (*state.Environment, error)
+	Model() (*state.Model, error)
 }
 
 type toolsFinder func(environs.Environ, int, int, string, coretools.Filter) (coretools.List, error)
-type envVersionUpdater func(*state.Environment, version.Number) error
+type envVersionUpdater func(*state.Model, version.Number) error
 
 var newEnvirons = environs.New
 
@@ -62,17 +62,17 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	return newest, nil
 }
 
-var envConfig = func(e *state.Environment) (*config.Config, error) {
+var envConfig = func(e *state.Model) (*config.Config, error) {
 	return e.Config()
 }
 
 // Base implementation of envVersionUpdater
-func envVersionUpdate(env *state.Environment, ver version.Number) error {
+func envVersionUpdate(env *state.Model, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver)
 }
 
 func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVersionUpdater) error {
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")
 	}

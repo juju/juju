@@ -258,8 +258,8 @@ func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, er
 	}
 	newDoc := blockDoc{
 		DocID:     st.docID(id),
-		ModelUUID: st.EnvironUUID(),
-		Tag:       st.EnvironTag().String(),
+		ModelUUID: st.ModelUUID(),
+		Tag:       st.ModelTag().String(),
 		Type:      t,
 		Message:   msg,
 	}

@@ -298,7 +298,7 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 }
 
 func UserEnvNameIndex(username, envName string) string {
-	return userEnvNameIndex(username, envName)
+	return userModelNameIndex(username, envName)
 }
 
 func DocID(st *State, id string) string {
@@ -348,7 +348,7 @@ func Sequence(st *State, name string) (int, error) {
 // It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     uuid,
 		Assert: txn.DocExists,
 		Remove: true,
@@ -358,7 +358,7 @@ func RemoveEnvironment(st *State, uuid string) error {
 
 func SetEnvLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}

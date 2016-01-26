@@ -230,7 +230,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		}
 
 		ops := []txn.Op{
-			assertEnvAliveOp(p.st.EnvironUUID()),
+			assertEnvAliveOp(p.st.ModelUUID()),
 		}
 		if ports.areNew {
 			// Create a new document.
@@ -537,7 +537,7 @@ func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) 
 			DocID:       st.docID(key),
 			MachineID:   machineId,
 			NetworkName: networkName,
-			ModelUUID:   st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {

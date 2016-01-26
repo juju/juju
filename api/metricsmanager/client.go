@@ -37,12 +37,12 @@ func NewClient(st api.Connection) *Client {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
-	envTag, err := c.st.EnvironTag()
+	modelTag, err := c.st.ModelTag()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	p := params.Entities{Entities: []params.Entity{
-		{envTag.String()},
+		{modelTag.String()},
 	}}
 	results := new(params.ErrorResults)
 	err = c.facade.FacadeCall("CleanupOldMetrics", p, results)
@@ -54,12 +54,12 @@ func (c *Client) CleanupOldMetrics() error {
 
 // SendMetrics will send any unsent metrics to the collection service.
 func (c *Client) SendMetrics() error {
-	envTag, err := c.st.EnvironTag()
+	modelTag, err := c.st.ModelTag()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	p := params.Entities{Entities: []params.Entity{
-		{envTag.String()},
+		{modelTag.String()},
 	}}
 	results := new(params.ErrorResults)
 	err = c.facade.FacadeCall("SendMetrics", p, results)

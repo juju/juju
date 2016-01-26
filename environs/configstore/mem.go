@@ -63,7 +63,7 @@ func (m *memStore) List() ([]string, error) {
 	defer m.mu.Unlock()
 	for name, env := range m.envs {
 		api := env.APIEndpoint()
-		if api.ServerUUID == "" || api.EnvironUUID != "" {
+		if api.ServerUUID == "" || api.ModelUUID != "" {
 			envs = append(envs, name)
 		}
 	}
@@ -78,8 +78,8 @@ func (m *memStore) ListSystems() ([]string, error) {
 	for name, env := range m.envs {
 		api := env.APIEndpoint()
 		if api.ServerUUID == "" ||
-			api.ServerUUID == api.EnvironUUID ||
-			api.EnvironUUID == "" {
+			api.ServerUUID == api.ModelUUID ||
+			api.ModelUUID == "" {
 			servers = append(servers, name)
 		}
 	}

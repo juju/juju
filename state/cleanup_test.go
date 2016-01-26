@@ -77,14 +77,14 @@ func (s *CleanupSuite) TestCleanupControllerEnvironments(c *gc.C) {
 	// Create an environment.
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
-	otherEnv, err := otherSt.Environment()
+	otherEnv, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the controller and check the environment is unaffected, but a
 	// cleanup for the environment and services has been scheduled.
-	controllerEnv, err := s.State.Environment()
+	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = controllerEnv.DestroyIncludingHosted()
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +116,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy environment, check cleanup queued.
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +150,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 
 	// Destroy the environment and check the service and units are
 	// unaffected, but a cleanup for the service has been scheduled.
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
