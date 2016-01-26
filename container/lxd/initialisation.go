@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/utils/packaging/config"
@@ -50,6 +51,10 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 // apt.GetPreparePackages and runs each set of packages through
 // apt.GetInstall.
 func ensureDependencies(series string) error {
+	if series == "precise" {
+		return fmt.Errorf("LXD is not supported in precise.")
+	}
+
 	pacman, err := getPackageManager(series)
 	if err != nil {
 		return err
@@ -64,6 +69,10 @@ func ensureDependencies(series string) error {
 		if config.SeriesRequiresCloudArchiveTools(series) &&
 			pacconfer.IsCloudArchivePackage(pack) {
 			pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pack), " ")
+		}
+
+		if config.RequiresBackports(series, pack) {
+			pkg = fmt.Sprintf("--target-release %s-backports %d", series, pkg)
 		}
 
 		if err := pacman.Install(pkg); err != nil {
