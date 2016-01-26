@@ -43,9 +43,10 @@ Examples:
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-machine",
-		Args:    "<machine> ...",
+		Args:    "<machineID[s]> ...",
 		Purpose: "remove machines from the environment",
 		Doc:     destroyMachineDoc,
+		Aliases: []string{"remove-machines"},
 	}
 }
 

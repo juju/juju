@@ -193,8 +193,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 var commandNames = []string{
 	"action",
 	"add-machine",
+	"add-machines",
 	"add-relation",
 	"add-unit",
+	"add-units",
 	"api-endpoints",
 	"api-info",
 	"add-user",
@@ -212,7 +214,6 @@ var commandNames = []string{
 	"deploy",
 	"destroy-controller",
 	"destroy-environment",
-	"destroy-machine",
 	"destroy-model", // alias for destroy-environment
 	"destroy-relation",
 	"destroy-service",
@@ -224,6 +225,7 @@ var commandNames = []string{
 	"expose",
 	"generate-config", // alias for init
 	"get-config",
+	"get-configs",
 	"get-constraints",
 	"get-user-credentials",
 	"get-env", // alias for get-environment
@@ -236,14 +238,18 @@ var commandNames = []string{
 	"list-all-blocks",
 	"list-controllers",
 	"list-environments",
+	"list-machine",
+	"list-machines",
 	"list-models", // alias for list-environments
 	"list-shares",
 	"list-users",
 	"login",
 	"machine",
+	"machines",
 	"publish",
 	"remove-all-blocks",
 	"remove-machine",  // alias for destroy-machine
+	"remove-machines",
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
@@ -252,12 +258,15 @@ var commandNames = []string{
 	"run",
 	"scp",
 	"set-config",
+	"set-configs",
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
 	"set-model", // alias for set-environment
 	"share-environment",
 	"share-model", // alias for share-environment
+	"show-machine",
+	"show-machines",
 	"show-user",
 	"space",
 	"ssh",
@@ -268,7 +277,6 @@ var commandNames = []string{
 	"subnet",
 	"switch",
 	"sync-tools",
-	"terminate-machine", // alias for destroy-machine
 	"use-environment",
 	"use-model", // alias for use-environment
 	"unblock",

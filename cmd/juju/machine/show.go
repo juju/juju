@@ -48,8 +48,10 @@ type showMachineCommand struct {
 func (c *showMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-machine",
+		Args:    "<machineID[s]> ...",
 		Purpose: "show a machines status",
 		Doc:     showMachineCommandDoc,
+		Aliases: []string{"show-machines"},
 	}
 }
 
@@ -72,6 +74,9 @@ func (c *showMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 var newAPIClientForShowMachine = func(c *showMachineCommand) (statusAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewAPIClient()
 }
 

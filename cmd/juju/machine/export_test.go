@@ -27,6 +27,19 @@ func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Comma
 	return envcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
+func NewListCommandForTest(api statusAPI) cmd.Command {
+	cmd := &listMachinesCommand{
+		api: api,
+	}
+	return envcmd.Wrap(cmd)
+}
+func NewShowCommandForTest(api statusAPI) cmd.Command {
+	cmd := &showMachineCommand{
+		api: api,
+	}
+	return envcmd.Wrap(cmd)
+}
+
 type RemoveCommand struct {
 	*removeCommand
 }

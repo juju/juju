@@ -45,6 +45,7 @@ func (c *listMachinesCommand) Info() *cmd.Info {
 		Name:    "list-machines",
 		Purpose: "list machines on a model",
 		Doc:     listMachinesCommandDoc,
+		Aliases: []string{"machines", "machine", "list-machine"},
 	}
 }
 
@@ -73,6 +74,9 @@ Error details:
 %v
 `
 var newAPIClientForListMachines = func(c *listMachinesCommand) (statusAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewAPIClient()
 }
 

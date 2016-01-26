@@ -135,6 +135,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 		Args:    "<service name>",
 		Purpose: "add one or more units of an already-deployed service",
 		Doc:     addUnitDoc,
+		Aliases: []string{"add-units"},
 	}
 }
 

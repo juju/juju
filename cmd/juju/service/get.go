@@ -59,6 +59,7 @@ func (c *getCommand) Info() *cmd.Info {
 		Args:    "<service>",
 		Purpose: "get service configuration options",
 		Doc:     getDoc,
+		Aliases: []string{"get-configs"},
 	}
 }
 

@@ -38,9 +38,7 @@ type setCommand struct {
 }
 
 const setDoc = `
-Set one or more configuration options for the specified service. See also the
-unset command which sets one or more configuration options for a specified
-service to their default value.
+Set one or more configuration options for the specified service.
 
 In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
@@ -58,12 +56,13 @@ func (c *setCommand) Info() *cmd.Info {
 		Args:    "<service> name=value ...",
 		Purpose: "set service config options",
 		Doc:     setDoc,
+		Aliases: []string{"set-configs"},
 	}
 }
 
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
-	f.BoolVar(&c.SetDefault, "to-default", false, "set service option value to default")
+	f.BoolVar(&c.SetDefault, "to-default", false, "set service option values to default")
 }
 
 func (c *setCommand) Init(args []string) error {
@@ -75,7 +74,6 @@ func (c *setCommand) Init(args []string) error {
 	}
 	c.ServiceName = args[0]
 	if c.SetDefault == true {
-		fmt.Println("In set default")
 		c.Options = args[1:]
 		if len(c.Options) == 0 {
 			return errors.New("no configuration options specified")
