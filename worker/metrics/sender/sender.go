@@ -76,6 +76,7 @@ func (s *sender) sendMetrics(reader spool.MetricReader) error {
 }
 
 // Handle sends metrics from the spool directory to the
+// controller.
 func (s *sender) Handle(c net.Conn) (err error) {
 	defer func() {
 		if err != nil {

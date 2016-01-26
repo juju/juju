@@ -18,7 +18,7 @@ import (
 )
 
 const collectMetricsDoc = `
-debug-metrics
+collect-metrics
 trigger metrics collection
 `
 
@@ -148,10 +148,9 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics for unit %v: %v\n", r.UnitId, errString)
 			resultChannel <- r.UnitId
 		}
-
 	}
 
-	for range runResults {
+	for _ = range runResults {
 		select {
 		case <-resultChannel:
 		case <-time.After(3 * time.Second):
