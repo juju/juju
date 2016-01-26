@@ -423,14 +423,18 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju get %s' % (service))
 
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(self.get_juju_output('get-model-config'))
+
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-env', option)
+        return self.get_juju_output('get-model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('set-env', (option_value,))
+        return self.juju('set-model-config', (option_value,))
 
     def set_testing_tools_metadata_url(self):
         url = self.get_env_option('tools-metadata-url')
@@ -945,6 +949,19 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def get_config(self, service):
         return yaml_loads(self.get_juju_output('get', service))
+
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(self.get_juju_output('get-env'))
+
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-env', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-env', (option_value,))
 
 
 class EnvJujuClient1X(EnvJujuClient2A1):

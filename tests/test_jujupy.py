@@ -343,6 +343,9 @@ class FakeJujuClient:
     def get_config(self, service):
         pass
 
+    def get_model_config(self):
+        pass
+
     def deployer(self, bundle, name=None):
         pass
 
@@ -1521,6 +1524,17 @@ class TestEnvJujuClient(ClientTest):
                 'Timed out waiting for machines-not-0'):
             client.wait_for('machines-not-0', 'none')
 
+    def test_get_model_config(self):
+        env = SimpleEnvironment('foo', None)
+        fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
+            result = client.get_model_config()
+        assert_juju_call(
+            self, po_mock, client, (
+                'juju', '--show-log', 'get-model-config', '-m', 'foo'))
+        self.assertEqual({'bar': 'baz'}, result)
+
     def test_get_env_option(self):
         env = SimpleEnvironment('foo', None)
         fake_popen = FakePopen('https://example.org/juju/tools', None, 0)
@@ -1529,7 +1543,7 @@ class TestEnvJujuClient(ClientTest):
             result = client.get_env_option('tools-metadata-url')
         self.assertEqual(
             mock.call_args[0][0],
-            ('juju', '--show-log', 'get-env', '-m', 'foo',
+            ('juju', '--show-log', 'get-model-config', '-m', 'foo',
              'tools-metadata-url'))
         self.assertEqual('https://example.org/juju/tools', result)
 
@@ -1542,7 +1556,7 @@ class TestEnvJujuClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
-            ('juju', '--show-log', 'set-env', '-m', 'foo',
+            ('juju', '--show-log', 'set-model-config', '-m', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
 
     def test_set_testing_tools_metadata_url(self):
@@ -2938,6 +2952,17 @@ class TestEnvJujuClient1X(ClientTest):
                 Exception,
                 'Timed out waiting for machines-not-0'):
             client.wait_for('machines-not-0', 'none')
+
+    def test_get_model_config(self):
+        env = SimpleEnvironment('foo', None)
+        fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
+        client = EnvJujuClient1X(env, None, None)
+        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
+            result = client.get_model_config()
+        assert_juju_call(
+            self, po_mock, client, (
+                'juju', '--show-log', 'get-env', '-e', 'foo'))
+        self.assertEqual({'bar': 'baz'}, result)
 
     def test_get_env_option(self):
         env = SimpleEnvironment('foo', None)

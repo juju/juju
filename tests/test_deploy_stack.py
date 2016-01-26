@@ -787,7 +787,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
     STATUS = ('juju', '--show-log', 'show-status', '-m', 'foo')
-    GET_ENV = ('juju', '--show-log', 'get-env', '-m', 'foo',
+    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo',
                'tools-metadata-url')
 
     @classmethod
