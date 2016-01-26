@@ -23,18 +23,36 @@ import (
 // method since registered API handlers must handle *all* HTTP methods
 // currently.
 type LegacyHTTPHandler struct {
+	LegacyHTTPHandlerDeps
+}
+
+// LegacyHTTPHandlerDeps exposes the external dependencies
+// of LegacyHTTPHandler.
+type LegacyHTTPHandlerDeps interface {
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (UnitDataStore, error)
+	Connect(*http.Request) (UnitDataStore, error)
+
+	// UpdateDownloadResponse updates the HTTP response with the info
+	// from the resource.
+	UpdateDownloadResponse(http.ResponseWriter, resource.Resource)
+
+	// SendHTTPError wraps the error in an API error and writes it to the response.
+	SendHTTPError(http.ResponseWriter, error)
 
 	// HandleDownload provides the download functionality.
-	HandleDownload func(st UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error)
+	HandleDownload(UnitDataStore, *http.Request) (resource.Resource, io.ReadCloser, error)
+
+	// Copy implements the functionality of io.Copy().
+	Copy(io.Writer, io.Reader) error
 }
 
 // NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
 func NewLegacyHTTPHandler(connect func(*http.Request) (UnitDataStore, error)) *LegacyHTTPHandler {
+	deps := &legacyHTTPHandlerDeps{
+		connect: connect,
+	}
 	return &LegacyHTTPHandler{
-		Connect:        connect,
-		HandleDownload: handleDownload,
+		LegacyHTTPHandlerDeps: deps,
 	}
 }
 
@@ -42,7 +60,7 @@ func NewLegacyHTTPHandler(connect func(*http.Request) (UnitDataStore, error)) *L
 func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	st, err := h.Connect(req)
 	if err != nil {
-		api.SendHTTPError(resp, err)
+		h.SendHTTPError(resp, err)
 		return
 	}
 
@@ -55,15 +73,15 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 		resource, resourceReader, err := h.HandleDownload(st, req)
 		if err != nil {
 			logger.Errorf("cannot fetch resource reader: %v", err)
-			api.SendHTTPError(resp, err)
+			h.SendHTTPError(resp, err)
 			return
 		}
 		defer resourceReader.Close()
 
-		api.UpdateDownloadResponse(resp, resource)
+		h.UpdateDownloadResponse(resp, resource)
 
 		resp.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(resp, resourceReader); err != nil {
+		if err := h.Copy(resp, resourceReader); err != nil {
 			// We cannot use api.SendHTTPError here, so we log the error
 			// and move on.
 			logger.Errorf("unable to complete stream for resource: %v", err)
@@ -72,6 +90,33 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 
 		logger.Infof("resource download request successful")
 	default:
-		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		h.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
+}
+
+type legacyHTTPHandlerDeps struct {
+	connect func(*http.Request) (UnitDataStore, error)
+}
+
+func (deps legacyHTTPHandlerDeps) Connect(req *http.Request) (UnitDataStore, error) {
+	return deps.connect(req)
+}
+
+func (deps legacyHTTPHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
+	api.SendHTTPError(resp, err)
+}
+
+func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWriter, info resource.Resource) {
+	api.UpdateDownloadResponse(resp, info)
+}
+
+func (deps legacyHTTPHandlerDeps) HandleDownload(st UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
+	return HandleDownload(req, handleDownloadDeps{
+		DownloadDataStore: st,
+	})
+}
+
+func (deps legacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {
+	_, err := io.Copy(w, r)
+	return err
 }

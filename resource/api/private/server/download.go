@@ -22,13 +22,29 @@ type DownloadDataStore interface {
 	OpenResource(name string) (resource.Resource, io.ReadCloser, error)
 }
 
-// HandleRequest handles a resource download request.
-func handleDownload(store UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
-	name := api.ExtractDownloadRequest(req)
-	res, resourceReader, err := store.OpenResource(name)
+// HandleDownload handles a resource download request.
+func HandleDownload(req *http.Request, deps HandleDownloadDeps) (resource.Resource, io.ReadCloser, error) {
+	name := deps.ExtractDownloadRequest(req)
+	res, resourceReader, err := deps.OpenResource(name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
 	return res, resourceReader, nil
+}
+
+// HandledDownloadDeps exposes the external dependencies of HandleDownload.
+type HandleDownloadDeps interface {
+	DownloadDataStore
+
+	// ExtractDownloadRequest pulls the resource name from the request.
+	ExtractDownloadRequest(*http.Request) string
+}
+
+type handleDownloadDeps struct {
+	DownloadDataStore
+}
+
+func (handleDownloadDeps) ExtractDownloadRequest(req *http.Request) string {
+	return api.ExtractDownloadRequest(req)
 }
