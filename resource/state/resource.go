@@ -136,7 +136,7 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-	if resourceInfo.Fingerprint.IsZero() {
+	if resourceInfo.IsPlaceholder() {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
