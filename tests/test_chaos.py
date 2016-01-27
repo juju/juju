@@ -107,7 +107,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 }
             })
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -151,7 +151,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 }
             })
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -270,7 +270,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 ('get', 'jenkins'): charm_config,
                 ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
@@ -311,7 +311,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 ('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120',
                  'monkey-id=123412341234123412341234123412341234'
@@ -327,7 +327,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
-                call('show-status'),
+                call('show-status', '--format', 'yaml'),
                 call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
                 call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
@@ -343,7 +343,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             monkey_runner.unleash_once()
         self.assertEqual(
             [
-                call('show-status'),
+                call('show-status', '--format', 'yaml'),
                 call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',
@@ -382,7 +382,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 }
             })
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 ('run-action', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action fail',

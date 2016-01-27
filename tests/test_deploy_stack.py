@@ -47,12 +47,12 @@ from jujuconfig import (
     get_juju_home,
     )
 from jujupy import (
-    DEFAULT_JES_COMMAND_1x,
     EnvJujuClient,
     EnvJujuClient1X,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
+    KILL_CONTROLLER,
     SimpleEnvironment,
     Status,
 )
@@ -154,7 +154,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                     1, 'status', 'status error')
         ) as mock:
             safe_print_status(client)
-        mock.assert_called_once_with('show-status', ())
+        mock.assert_called_once_with('show-status', ('--format', 'yaml'))
 
     def test_update_env(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
@@ -577,7 +577,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
         def output(*args, **kwargs):
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 ('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT): 'fake-token',
             }
             return output[args]
@@ -602,7 +602,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status'),
+                call('show-status', '--format', 'yaml'),
             ],
             gjo_mock.call_args_list)
 
@@ -786,8 +786,9 @@ class TestTestUpgrade(FakeHomeTestCase):
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
-    STATUS = ('juju', '--show-log', 'show-status', '-m', 'foo')
-    GET_ENV = ('juju', '--show-log', 'get-env', '-m', 'foo',
+    STATUS = (
+        'juju', '--show-log', 'show-status', '-m', 'foo', '--format', 'yaml')
+    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo',
                'tools-metadata-url')
 
     @classmethod
@@ -1140,9 +1141,7 @@ class TestBootContext(FakeHomeTestCase):
                                  return_value=0))
         if jes:
             output = jes
-            po_count = 3
-            if keep_env:
-                po_count -= 1
+            po_count = 0
         else:
             output = ''
             po_count = 2
@@ -1189,7 +1188,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
             'mem=2G', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'show-status', '-m', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_bootstrap_context_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1203,7 +1203,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1217,7 +1218,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
             'mem=2G', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'show-status', '-m', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_keep_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1231,7 +1233,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_upload_tools(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1334,13 +1337,7 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'kill-controller', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 0)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 1)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 1)
-        self.assertEqual(3, po_mock.call_count)
+        self.assertEqual(0, po_mock.call_count)
 
     def test_with_bootstrap_failure_non_jes(self):
 
@@ -1393,7 +1390,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.26', 'path')
-        with self.bc_context(client, 'log_dir', jes=DEFAULT_JES_COMMAND_1x):
+        with self.bc_context(client, 'log_dir', jes=KILL_CONTROLLER):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
                 pass

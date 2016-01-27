@@ -39,19 +39,19 @@ from utility import (
 
 __metaclass__ = type
 
-
+AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND_2x = 'controller'
-DEFAULT_JES_COMMAND_1x = 'kill-controller'
-OPTIONAL_JES_COMMAND = 'system'
+CONTROLLER = 'controller'
+KILL_CONTROLLER = 'kill-controller'
+SYSTEM = 'system'
 
-_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
+_jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
-    'kill': DEFAULT_JES_COMMAND_1x,
+    'kill': KILL_CONTROLLER,
     }}
-for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
+for super_cmd in [SYSTEM, CONTROLLER]:
     _jes_cmds[super_cmd] = {
         'create': '{} create-environment'.format(super_cmd),
         'kill': '{} kill'.format(super_cmd),
@@ -118,6 +118,16 @@ def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
 
+def coalesce_agent_status(agent_item):
+    """Return the machine agent-state or the unit agent-status."""
+    state = agent_item.get('agent-state')
+    if state is None and agent_item.get('agent-status') is not None:
+        state = agent_item.get('agent-status').get('current')
+    if state is None:
+        state = 'no-agent'
+    return state
+
+
 def make_client(juju_path, debug, env_name, temp_env_name):
     env = SimpleEnvironment.from_config(env_name)
     if temp_env_name is not None:
@@ -169,6 +179,10 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
+    def get_jes_command(self):
+        """For Juju 2.0, this is always kill-controller."""
+        return KILL_CONTROLLER
+
     def is_jes_enabled(self):
         """Does the state-server support multiple environments."""
         try:
@@ -176,24 +190,6 @@ class EnvJujuClient:
             return True
         except JESNotSupported:
             return False
-
-    def get_jes_command(self):
-        """Return the JES command to destroy a controller.
-
-        Juju 2.x has 'controller kill'.
-        Juju 1.26 has 'destroy-controller'.
-        Juju 1.25 has 'system kill' when the jes feature flag is set.
-
-        :raises: JESNotSupported when the version of Juju does not expose
-            a JES command.
-        :return: The JES command.
-        """
-        commands = self.get_juju_output('help', 'commands', include_e=False)
-        for line in commands.splitlines():
-            for cmd in _jes_cmds.keys():
-                if line.startswith(cmd):
-                    return cmd
-        raise JESNotSupported()
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -404,7 +400,7 @@ class EnvJujuClient:
 
     def show_status(self):
         """Print the status to output."""
-        self.juju(self._show_status, ())
+        self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
@@ -414,7 +410,8 @@ class EnvJujuClient:
                 if raw:
                     return self.get_juju_output(self._show_status, *args)
                 return Status.from_text(
-                    self.get_juju_output(self._show_status))
+                    self.get_juju_output(
+                        self._show_status, '--format', 'yaml'))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -436,14 +433,18 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju get %s' % (service))
 
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(self.get_juju_output('get-model-config'))
+
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-env', option)
+        return self.get_juju_output('get-model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('set-env', (option_value,))
+        return self.juju('set-model-config', (option_value,))
 
     def set_testing_tools_metadata_url(self):
         url = self.get_env_option('tools-metadata-url')
@@ -599,10 +600,9 @@ class EnvJujuClient:
             for name, unit in status.service_subordinate_units(service):
                 if name.startswith(unit_prefix + '/'):
                     subordinate_unit_count += 1
-                    unit_states[unit.get(
-                        'agent-state', 'no-agent')].append(name)
+                    unit_states[coalesce_agent_status(unit)].append(name)
             if (subordinate_unit_count == service_unit_count and
-                    unit_states.keys() == ['started']):
+                    set(unit_states.keys()).issubset(AGENTS_READY)):
                 return None
             return unit_states
         reporter = GroupReporter(sys.stdout, 'started')
@@ -959,6 +959,19 @@ class EnvJujuClient2A1(EnvJujuClient):
     def get_config(self, service):
         return yaml_loads(self.get_juju_output('get', service))
 
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(self.get_juju_output('get-env'))
+
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-env', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-env', (option_value,))
+
 
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
@@ -987,9 +1000,27 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                     env_val)
         return args
 
+    def get_jes_command(self):
+        """Return the JES command to destroy a controller.
+
+        Juju 2.x has 'kill-controller'.
+        Some intermediate versions had 'controller kill'.
+        Juju 1.25 has 'system kill' when the jes feature flag is set.
+
+        :raises: JESNotSupported when the version of Juju does not expose
+            a JES command.
+        :return: The JES command.
+        """
+        commands = self.get_juju_output('help', 'commands', include_e=False)
+        for line in commands.splitlines():
+            for cmd in _jes_cmds.keys():
+                if line.startswith(cmd):
+                    return cmd
+        raise JESNotSupported()
+
     def create_environment(self, controller_client, config_file):
         seen_cmd = self.get_jes_command()
-        if seen_cmd == OPTIONAL_JES_COMMAND:
+        if seen_cmd == SYSTEM:
             controller_option = ('-s', controller_client.env.environment)
         else:
             controller_option = ('-c', controller_client.env.environment)
@@ -1367,7 +1398,7 @@ class Status:
         """Map agent states to the units and machines in those states."""
         states = defaultdict(list)
         for item_name, item in self.agent_items():
-            states[item.get('agent-state', 'no-agent')].append(item_name)
+            states[coalesce_agent_status(item)].append(item_name)
         return states
 
     def check_agents_started(self, environment_name=None):
@@ -1383,7 +1414,7 @@ class Status:
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
-        if states.keys() == ['started']:
+        if set(states.keys()).issubset(AGENTS_READY):
             return None
         for state, entries in states.items():
             if 'error' in state:
