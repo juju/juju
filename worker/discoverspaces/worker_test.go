@@ -47,7 +47,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *workerSuite) startWorker() {
-	s.Worker = discoverspaces.NewWorker(s.API)
+	s.Worker = discoverspaces.NewWorker(s.API, func() {})
 }
 
 func (s *workerSuite) TearDownTest(c *gc.C) {
@@ -205,7 +205,7 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 		}
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	newWorker := discoverspaces.NewWorker(s.API)
+	newWorker := discoverspaces.NewWorker(s.API, func() {})
 
 	// This ensures that the worker can handle re-importing without error.
 	defer func() {
@@ -230,7 +230,7 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "SupportsSpaceDiscovery")
 
-	newWorker := discoverspaces.NewWorker(s.API)
+	newWorker := discoverspaces.NewWorker(s.API, func() {})
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
 }
@@ -239,7 +239,7 @@ func (s *workerSuite) TestSpacesBroken(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
 	s.AssertConfigParameterUpdated(c, "broken", "Spaces")
 
-	newWorker := discoverspaces.NewWorker(s.API)
+	newWorker := discoverspaces.NewWorker(s.API, func() {})
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
 }
