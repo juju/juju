@@ -47,14 +47,8 @@ func minimalMachineMap(id string, containers ...interface{}) map[interface{}]int
 		"instance":      minimalCloudInstanceMap(),
 		"series":        "zesty",
 		"tools":         minimalAgentToolsMap(),
-		// jobs coming soon...
-		"jobs":       []interface{}{},
-		"containers": containers,
-		// addresses coming soon...
-		"provider-addresses":        []interface{}{},
-		"machine-addresses":         []interface{}{},
-		"preferred-public-address":  nil,
-		"preferred-private-address": nil,
+		"jobs":          []interface{}{"host-units"},
+		"containers":    containers,
 	}
 }
 
@@ -66,6 +60,7 @@ func minimalMachine(id string, containers ...*machine) *machine {
 		Instance_:     minimalCloudInstance(),
 		Series_:       "zesty",
 		Tools_:        minimalAgentTools(),
+		Jobs_:         []string{"host-units"},
 		Containers_:   containers,
 	}
 }
