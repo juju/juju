@@ -154,7 +154,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                     1, 'status', 'status error')
         ) as mock:
             safe_print_status(client)
-        mock.assert_called_once_with('show-status', ())
+        mock.assert_called_once_with('show-status', ('--format', 'yaml'))
 
     def test_update_env(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
@@ -1190,7 +1190,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'show-status', '-m', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_bootstrap_context_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1204,7 +1205,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_keep_env(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1218,7 +1220,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
+            'juju', '--show-log', 'show-status', '-m', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_keep_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1232,7 +1235,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+            'juju', '--show-log', 'status', '-e', 'bar',
+            '--format', 'yaml'), 1)
 
     def test_upload_tools(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))

@@ -401,7 +401,7 @@ class EnvJujuClient:
 
     def show_status(self):
         """Print the status to output."""
-        self.juju(self._show_status, ())
+        self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
