@@ -131,12 +131,14 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	code := cmd.Main(
 		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
 	)
-	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(code, gc.Equals, 0)
+	stdout := ctx.Stdout.(*bytes.Buffer).String()
+	stderr := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(stdout, "\n", "", -1)
 	c.Check(
 		strippedOut, gc.Matches,
 		`ImageIds:.*"1234".*Region:.*us-east-1.*Resolve Metadata:.*source: local metadata directory.*`)
+	c.Check(stderr, gc.Matches, "")
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {

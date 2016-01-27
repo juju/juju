@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -43,8 +44,13 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()
 	})
-	env, err := environs.PrepareFromName(
-		"erewhemos", envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":         "erewhemos",
+		"type":         "dummy",
+		"state-server": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)

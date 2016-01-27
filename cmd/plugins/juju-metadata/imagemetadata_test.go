@@ -223,13 +223,11 @@ var errTests = []errTestParams{
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 	testing.MakeSampleJujuHome(c)
-	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
-	})
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
 		code := cmd.Main(newImageMetadataCommand(), ctx, t.args)
 		c.Check(code, gc.Equals, 1)
+		dummy.Reset()
 	}
 }
