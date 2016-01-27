@@ -43,15 +43,15 @@ AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
-DEFAULT_JES_COMMAND_2x = 'controller'
-DEFAULT_JES_COMMAND_1x = 'kill-controller'
-OPTIONAL_JES_COMMAND = 'system'
+CONTROLLER = 'controller'
+KILL_CONTROLLER = 'kill-controller'
+SYSTEM = 'system'
 
-_jes_cmds = {DEFAULT_JES_COMMAND_1x: {
+_jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
-    'kill': DEFAULT_JES_COMMAND_1x,
+    'kill': KILL_CONTROLLER,
     }}
-for super_cmd in [OPTIONAL_JES_COMMAND, DEFAULT_JES_COMMAND_2x]:
+for super_cmd in [SYSTEM, CONTROLLER]:
     _jes_cmds[super_cmd] = {
         'create': '{} create-environment'.format(super_cmd),
         'kill': '{} kill'.format(super_cmd),
@@ -171,6 +171,10 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
+    def get_jes_command(self):
+        """For Juju 2.0, this is always kill-controller."""
+        return KILL_CONTROLLER
+
     def is_jes_enabled(self):
         """Does the state-server support multiple environments."""
         try:
@@ -178,24 +182,6 @@ class EnvJujuClient:
             return True
         except JESNotSupported:
             return False
-
-    def get_jes_command(self):
-        """Return the JES command to destroy a controller.
-
-        Juju 2.x has 'controller kill'.
-        Juju 1.26 has 'destroy-controller'.
-        Juju 1.25 has 'system kill' when the jes feature flag is set.
-
-        :raises: JESNotSupported when the version of Juju does not expose
-            a JES command.
-        :return: The JES command.
-        """
-        commands = self.get_juju_output('help', 'commands', include_e=False)
-        for line in commands.splitlines():
-            for cmd in _jes_cmds.keys():
-                if line.startswith(cmd):
-                    return cmd
-        raise JESNotSupported()
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -977,9 +963,27 @@ class EnvJujuClient2A1(EnvJujuClient):
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
+    def get_jes_command(self):
+        """Return the JES command to destroy a controller.
+
+        Juju 2.x has 'kill-controller'.
+        Some intermediate versions had 'controller kill'.
+        Juju 1.25 has 'system kill' when the jes feature flag is set.
+
+        :raises: JESNotSupported when the version of Juju does not expose
+            a JES command.
+        :return: The JES command.
+        """
+        commands = self.get_juju_output('help', 'commands', include_e=False)
+        for line in commands.splitlines():
+            for cmd in _jes_cmds.keys():
+                if line.startswith(cmd):
+                    return cmd
+        raise JESNotSupported()
+
     def create_environment(self, controller_client, config_file):
         seen_cmd = self.get_jes_command()
-        if seen_cmd == OPTIONAL_JES_COMMAND:
+        if seen_cmd == SYSTEM:
             controller_option = ('-s', controller_client.env.environment)
         else:
             controller_option = ('-c', controller_client.env.environment)

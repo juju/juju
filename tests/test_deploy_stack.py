@@ -47,12 +47,12 @@ from jujuconfig import (
     get_juju_home,
     )
 from jujupy import (
-    DEFAULT_JES_COMMAND_1x,
     EnvJujuClient,
     EnvJujuClient1X,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
+    KILL_CONTROLLER,
     SimpleEnvironment,
     Status,
 )
@@ -1141,9 +1141,7 @@ class TestBootContext(FakeHomeTestCase):
                                  return_value=0))
         if jes:
             output = jes
-            po_count = 3
-            if keep_env:
-                po_count -= 1
+            po_count = 0
         else:
             output = ''
             po_count = 2
@@ -1338,13 +1336,7 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'kill-controller', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 0)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 1)
-        assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 1)
-        self.assertEqual(3, po_mock.call_count)
+        self.assertEqual(0, po_mock.call_count)
 
     def test_with_bootstrap_failure_non_jes(self):
 
@@ -1397,7 +1389,7 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call', autospec=True))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.26', 'path')
-        with self.bc_context(client, 'log_dir', jes=DEFAULT_JES_COMMAND_1x):
+        with self.bc_context(client, 'log_dir', jes=KILL_CONTROLLER):
             with boot_context('bar', client, None, [], None, None, None,
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
