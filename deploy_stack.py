@@ -541,6 +541,9 @@ class BootstrapManager:
         if omit_config is not None:
             for key in omit_config:
                 kwargs.pop(key.replace('-', '_'), None)
+            agent_version = bool('agent-version' not in omit_config)
+        else:
+            agent_version = True
         update_env(self.client.env, self.temp_env_name, **kwargs)
         ssh_machines = list(machines)
         if bootstrap_host is not None:
@@ -568,7 +571,8 @@ class BootstrapManager:
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
-                                permanent=self.permanent, set_home=False):
+                                permanent=self.permanent, set_home=False,
+                                agent_version=agent_version):
             try:
                 try:
                     if not torn_down:
