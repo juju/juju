@@ -199,14 +199,14 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 
 func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForModelConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	environConfigChanges = modelWatcher.Changes()
+	defer watcher.Stop(modelWatcher, &p.tomb)
 
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+	p.environ, err = worker.WaitForEnviron(modelWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
@@ -229,7 +229,7 @@ func (p *environProvisioner) loop() error {
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return watcher.EnsureErr(modelWatcher)
 			}
 			environConfig, err := p.st.ModelConfig()
 			if err != nil {
@@ -293,12 +293,12 @@ func NewContainerProvisioner(
 
 func (p *containerProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForModelConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return err
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	environConfigChanges = modelWatcher.Changes()
+	defer watcher.Stop(modelWatcher, &p.tomb)
 
 	config, err := p.st.ModelConfig()
 	if err != nil {
@@ -322,7 +322,7 @@ func (p *containerProvisioner) loop() error {
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return watcher.EnsureErr(modelWatcher)
 			}
 			environConfig, err := p.st.ModelConfig()
 			if err != nil {

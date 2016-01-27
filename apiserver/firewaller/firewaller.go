@@ -62,7 +62,7 @@ func NewFirewallerAPI(
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.
-	environWatcher := common.NewModelWatcher(
+	modelWatcher := common.NewModelWatcher(
 		st,
 		resources,
 		authorizer,
@@ -92,7 +92,7 @@ func NewFirewallerAPI(
 
 	return &FirewallerAPI{
 		LifeGetter:           lifeGetter,
-		ModelWatcher:         environWatcher,
+		ModelWatcher:         modelWatcher,
 		AgentEntityWatcher:   entityWatcher,
 		UnitsWatcher:         unitsWatcher,
 		ModelMachinesWatcher: machinesWatcher,

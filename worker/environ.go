@@ -70,11 +70,11 @@ type ModelConfigObserver interface {
 // and makes it available. It discards invalid environment
 // configurations.
 type EnvironObserver struct {
-	tomb           tomb.Tomb
-	environWatcher apiwatcher.NotifyWatcher
-	st             ModelConfigObserver
-	mu             sync.Mutex
-	environ        environs.Environ
+	tomb         tomb.Tomb
+	modelWatcher apiwatcher.NotifyWatcher
+	st           ModelConfigObserver
+	mu           sync.Mutex
+	environ      environs.Environ
 }
 
 // NewEnvironObserver waits for the environment to have a valid
@@ -90,18 +90,18 @@ func NewEnvironObserver(st ModelConfigObserver) (*EnvironObserver, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a model")
 	}
-	environWatcher, err := st.WatchForModelConfigChanges()
+	modelWatcher, err := st.WatchForModelConfigChanges()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot watch model config")
 	}
 	obs := &EnvironObserver{
-		st:             st,
-		environ:        environ,
-		environWatcher: environWatcher,
+		st:           st,
+		environ:      environ,
+		modelWatcher: modelWatcher,
 	}
 	go func() {
 		defer obs.tomb.Done()
-		defer watcher.Stop(environWatcher, &obs.tomb)
+		defer watcher.Stop(modelWatcher, &obs.tomb)
 		obs.tomb.Kill(obs.loop())
 	}()
 	return obs, nil
@@ -112,9 +112,9 @@ func (obs *EnvironObserver) loop() error {
 		select {
 		case <-obs.tomb.Dying():
 			return nil
-		case _, ok := <-obs.environWatcher.Changes():
+		case _, ok := <-obs.modelWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(obs.environWatcher)
+				return watcher.EnsureErr(obs.modelWatcher)
 			}
 		}
 		config, err := obs.st.ModelConfig()
