@@ -17,7 +17,7 @@ import (
 
 type modelSuite struct {
 	testing.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.ModelWatcherTest
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -32,7 +32,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -47,6 +47,6 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
 		s.api, s.State, s.resources, commontesting.NoSecrets)
 }

@@ -317,7 +317,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	err = envcmd.SetCurrentEnvironment(ctx, envName)
+	err = envcmd.SetCurrentModel(ctx, envName)
 	if err != nil {
 		return errors.Trace(err)
 	}

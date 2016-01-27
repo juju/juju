@@ -49,7 +49,7 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert string
 
-	// ModelTag holds the environ tag for the environment we are
+	// ModelTag holds the model tag for the model we are
 	// trying to connect to.
 	ModelTag names.ModelTag
 
@@ -132,9 +132,9 @@ type Connection interface {
 	// This should not be used outside the api/* packages or tests.
 	base.APICaller
 
-	// ControllerTag returns the environment tag of the controller
-	// (as opposed to the environment tag of the currently connected
-	// environment inside that controller).
+	// ControllerTag returns the model tag of the controller
+	// (as opposed to the model tag of the currently connected
+	// model inside that controller).
 	// This could be defined on base.APICaller.
 	ControllerTag() (names.ModelTag, error)
 

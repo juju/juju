@@ -48,7 +48,7 @@ func (s *StateServerAddressesSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Make sure there is a machine with manage state in existence.
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron, state.JobHostUnits},
+		Jobs: []state.MachineJob{state.JobManageModel, state.JobHostUnits},
 		Addresses: []network.Address{
 			{Value: "192.168.2.144", Type: network.IPv4Address},
 			{Value: "10.0.1.2", Type: network.IPv4Address},

@@ -179,16 +179,16 @@ func (st *State) WatchIPAddresses() StringsWatcher {
 // WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all environment-scoped volumes.
 func (st *State) WatchEnvironVolumes() StringsWatcher {
-	return st.watchEnvironMachineStorage(volumesC)
+	return st.watchModelMachinestorage(volumesC)
 }
 
 // WatchEnvironFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all environment-scoped filesystems.
 func (st *State) WatchEnvironFilesystems() StringsWatcher {
-	return st.watchEnvironMachineStorage(filesystemsC)
+	return st.watchModelMachinestorage(filesystemsC)
 }
 
-func (st *State) watchEnvironMachineStorage(collection string) StringsWatcher {
+func (st *State) watchModelMachinestorage(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -231,17 +231,17 @@ func (st *State) watchMachineStorage(m names.MachineTag, collection string) Stri
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
-	return st.watchEnvironMachineStorageAttachments(volumeAttachmentsC)
+	return st.watchModelMachinestorageAttachments(volumeAttachmentsC)
 }
 
 // WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
 func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
-	return st.watchEnvironMachineStorageAttachments(filesystemAttachmentsC)
+	return st.watchModelMachinestorageAttachments(filesystemAttachmentsC)
 }
 
-func (st *State) watchEnvironMachineStorageAttachments(collection string) StringsWatcher {
+func (st *State) watchModelMachinestorageAttachments(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -345,9 +345,9 @@ func (s *Service) WatchRelations() StringsWatcher {
 	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of changes to
+// WatchModelMachines returns a StringsWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the environment.
-func (st *State) WatchEnvironMachines() StringsWatcher {
+func (st *State) WatchModelMachines() StringsWatcher {
 	members := bson.D{{"$or", []bson.D{
 		{{"containertype", ""}},
 		{{"containertype", bson.D{{"$exists", false}}}},
@@ -1234,23 +1234,23 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	}
 }
 
-// EnvironConfigWatcher observes changes to the
+// ModelConfigWatcher observes changes to the
 // environment configuration.
-type EnvironConfigWatcher struct {
+type ModelConfigWatcher struct {
 	commonWatcher
 	out chan *config.Config
 }
 
-var _ Watcher = (*EnvironConfigWatcher)(nil)
+var _ Watcher = (*ModelConfigWatcher)(nil)
 
-// WatchEnvironConfig returns a watcher for observing changes
+// WatchModelConfig returns a watcher for observing changes
 // to the environment configuration.
-func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(st)
+func (st *State) WatchModelConfig() *ModelConfigWatcher {
+	return newModelConfigWatcher(st)
 }
 
-func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
-	w := &EnvironConfigWatcher{
+func newModelConfigWatcher(s *State) *ModelConfigWatcher {
+	w := &ModelConfigWatcher{
 		commonWatcher: commonWatcher{st: s},
 		out:           make(chan *config.Config),
 	}
@@ -1265,12 +1265,12 @@ func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
 // Changes returns a channel that will receive the new environment
 // configuration when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
-func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+func (w *ModelConfigWatcher) Changes() <-chan *config.Config {
 	return w.out
 }
 
-func (w *EnvironConfigWatcher) loop() (err error) {
-	sw := w.st.watchSettings(environGlobalKey)
+func (w *ModelConfigWatcher) loop() (err error) {
+	sw := w.st.watchSettings(modelGlobalKey)
 	defer sw.Stop()
 	out := w.out
 	out = nil
@@ -1382,7 +1382,7 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 
 // WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
 func (st *State) WatchStateServerInfo() NotifyWatcher {
-	return newEntityWatcher(st, stateServersC, environGlobalKey)
+	return newEntityWatcher(st, stateServersC, modelGlobalKey)
 }
 
 // Watch returns a watcher for observing changes to a machine.
@@ -1424,11 +1424,11 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
-// WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
-// Config to change. This differs from WatchEnvironConfig in that the watcher
+// WatchForModelConfigChanges returns a NotifyWatcher waiting for the Environ
+// Config to change. This differs from WatchModelConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
-func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
+func (st *State) WatchForModelConfigChanges() NotifyWatcher {
+	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
 
 // WatchForUnitAssignment watches for new services that request units to be

@@ -36,7 +36,7 @@ type uploadCommand struct {
 // SetFlags implements Command.SetFlags.
 func (c *uploadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ShowMeta, "verbose", false, "show the uploaded metadata")
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the new backup ID")
+	f.BoolVar(&c.Quiet, "no-metadata", false, "do not print the new backup ID")
 }
 
 // Info implements Command.Info.

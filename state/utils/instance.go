@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var getEnvironment = GetEnvironment
+var getEnvironment = GetModel
 
 // AvailabilityZone returns the availability zone associated with
 // an instance ID.

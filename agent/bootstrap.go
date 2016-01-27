@@ -58,7 +58,7 @@ const BootstrapMachineId = "0"
 // state server, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
 //
-// The envCfg values will be stored in the state's EnvironConfig; the
+// The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
 // and its constraints will be also be used for the environment-level
 // constraints. The connection to the state server will respect the
@@ -222,8 +222,8 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	switch job {
 	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
+	case multiwatcher.JobManageModel:
+		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
 	case multiwatcher.JobManageStateDeprecated:

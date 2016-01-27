@@ -29,9 +29,9 @@ type environmentStorageDataSource struct {
 	requireSigned bool
 }
 
-// NewEnvironmentStorageDataSource returns a new datasource that retrieves
+// NewModelStorageDataSource returns a new datasource that retrieves
 // metadata from environment storage.
-func NewEnvironmentStorageDataSource(stor storage.Storage, priority int, requireSigned bool) simplestreams.DataSource {
+func NewModelStorageDataSource(stor storage.Storage, priority int, requireSigned bool) simplestreams.DataSource {
 	return environmentStorageDataSource{stor, priority, requireSigned}
 }
 
@@ -84,7 +84,7 @@ func (d environmentStorageDataSource) RequireSigned() bool {
 
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
 func registerSimplestreamsDataSource(stor storage.Storage, requireSigned bool) {
-	ds := NewEnvironmentStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA, requireSigned)
+	ds := NewModelStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA, requireSigned)
 	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})

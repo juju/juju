@@ -280,7 +280,7 @@ func openEnviron(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	cfg := makeTestEnvironConfig(c, attrs...)
+	cfg := makeTestModelConfig(c, attrs...)
 	env, err := provider.Open(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -301,7 +301,7 @@ func prepareForBootstrap(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	cfg := makeTestEnvironConfig(c, attrs...)
+	cfg := makeTestModelConfig(c, attrs...)
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
@@ -438,7 +438,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 }
 
 func (s *environSuite) TestOpen(c *gc.C) {
-	cfg := makeTestEnvironConfig(c)
+	cfg := makeTestModelConfig(c)
 	env, err := s.provider.Open(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)

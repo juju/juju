@@ -98,7 +98,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
-	fmt.Fprintf(ctx.Stdout, "model ID:        %q\n", result.Environment)
+	fmt.Fprintf(ctx.Stdout, "model ID:        %q\n", result.Model)
 	fmt.Fprintf(ctx.Stdout, "machine ID:      %q\n", result.Machine)
 	fmt.Fprintf(ctx.Stdout, "created on host: %q\n", result.Hostname)
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)

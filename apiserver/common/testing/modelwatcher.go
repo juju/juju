@@ -19,34 +19,34 @@ const (
 	NoSecrets  = false
 )
 
-type EnvironmentWatcher interface {
-	WatchForEnvironConfigChanges() (params.NotifyWatchResult, error)
-	EnvironConfig() (params.EnvironConfigResult, error)
+type ModelWatcher interface {
+	WatchForModelConfigChanges() (params.NotifyWatchResult, error)
+	ModelConfig() (params.ModelConfigResult, error)
 }
 
-type EnvironWatcherTest struct {
-	envWatcher EnvironmentWatcher
-	st         *state.State
-	resources  *common.Resources
-	hasSecrets bool
+type ModelWatcherTest struct {
+	modelWatcher ModelWatcher
+	st           *state.State
+	resources    *common.Resources
+	hasSecrets   bool
 }
 
-func NewEnvironWatcherTest(
-	envWatcher EnvironmentWatcher,
+func NewModelWatcherTest(
+	modelWatcher ModelWatcher,
 	st *state.State,
 	resources *common.Resources,
-	hasSecrets bool) *EnvironWatcherTest {
-	return &EnvironWatcherTest{envWatcher, st, resources, hasSecrets}
+	hasSecrets bool) *ModelWatcherTest {
+	return &ModelWatcherTest{modelWatcher, st, resources, hasSecrets}
 }
 
-// AssertEnvironConfig provides a method to test the config from the
+// AssertModelConfig provides a method to test the config from the
 // envWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
-func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher EnvironmentWatcher, hasSecrets bool) {
-	envConfig, err := s.st.EnvironConfig()
+func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher, hasSecrets bool) {
+	envConfig, err := s.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := envWatcher.EnvironConfig()
+	result, err := envWatcher.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	configAttributes := envConfig.AllAttrs()
@@ -62,17 +62,17 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher Environment
 		}
 	}
 
-	c.Assert(result.Config, jc.DeepEquals, params.EnvironConfig(configAttributes))
+	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(configAttributes))
 }
 
-func (s *EnvironWatcherTest) TestEnvironConfig(c *gc.C) {
-	s.AssertEnvironConfig(c, s.envWatcher, s.hasSecrets)
+func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
+	s.AssertModelConfig(c, s.modelWatcher, s.hasSecrets)
 }
 
-func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
+func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	result, err := s.envWatcher.WatchForEnvironConfigChanges()
+	result, err := s.modelWatcher.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",

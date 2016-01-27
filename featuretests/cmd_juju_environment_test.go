@@ -105,20 +105,20 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 }
 
 func (s *cmdEnvironmentSuite) TestGet(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "get-model", "special")
+	context := s.run(c, "get-model-config", "special")
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
 func (s *cmdEnvironmentSuite) TestSet(c *gc.C) {
-	s.run(c, "set-model", "special=known")
+	s.run(c, "set-model-config", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
 func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "unset-model", "special")
@@ -127,7 +127,7 @@ func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
 
 func (s *cmdEnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	ctx := s.run(c, "retry-provisioning", "0")
 	output := testing.Stderr(ctx)
@@ -136,7 +136,7 @@ func (s *cmdEnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 }
 
 func (s *cmdEnvironmentSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
@@ -144,7 +144,7 @@ func (s *cmdEnvironmentSuite) assertEnvValue(c *gc.C, key string, expected inter
 }
 
 func (s *cmdEnvironmentSuite) assertEnvValueMissing(c *gc.C, key string) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)

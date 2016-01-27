@@ -207,7 +207,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	allJobs := []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}

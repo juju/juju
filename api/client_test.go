@@ -493,7 +493,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
-	// Passing in the correct environment UUID should also work
+	// Passing in the correct model UUID should also work
 	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = environ.ModelTag()
@@ -501,7 +501,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
-	// Passing in a bad environment UUID should fail with a known error
+	// Passing in a bad model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef-123456"`)
@@ -513,12 +513,12 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)

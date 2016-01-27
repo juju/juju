@@ -34,6 +34,6 @@ func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
 	c.Assert(AnyJobNeedsState(JobHostUnits), jc.IsFalse)
 	c.Assert(AnyJobNeedsState(JobManageNetworking), jc.IsFalse)
 	c.Assert(AnyJobNeedsState(JobManageStateDeprecated), jc.IsFalse)
-	c.Assert(AnyJobNeedsState(JobManageEnviron), jc.IsTrue)
-	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageEnviron), jc.IsTrue)
+	c.Assert(AnyJobNeedsState(JobManageModel), jc.IsTrue)
+	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageModel), jc.IsTrue)
 }

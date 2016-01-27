@@ -12,7 +12,7 @@ import (
 
 type modelSuite struct {
 	jujutesting.JujuConnSuite
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 }
 
 var _ = gc.Suite(&modelSuite{})
@@ -25,6 +25,6 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	modelAPI := stateAPI.Model()
 	c.Assert(modelAPI, gc.NotNil)
 
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
 		modelAPI, s.BackingState, apitesting.NoSecrets)
 }

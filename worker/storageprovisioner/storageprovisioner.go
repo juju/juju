@@ -158,16 +158,16 @@ type StatusSetter interface {
 	SetStatus([]params.EntityStatusArgs) error
 }
 
-// EnvironAccessor defines an interface used to enable a storage provisioner
+// ModelAccessor defines an interface used to enable a storage provisioner
 // worker to watch changes to and read environment config, to use when
 // provisioning storage.
-type EnvironAccessor interface {
-	// WatchForEnvironConfigChanges returns a watcher that will be notified
+type ModelAccessor interface {
+	// WatchForModelConfigChanges returns a watcher that will be notified
 	// whenever the environment config changes in state.
-	WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error)
+	WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error)
 
-	// EnvironConfig returns the current environment config.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig returns the current environment config.
+	ModelConfig() (*config.Config, error)
 }
 
 // NewStorageProvisioner returns a Worker which manages
@@ -184,7 +184,7 @@ func NewStorageProvisioner(
 	v VolumeAccessor,
 	f FilesystemAccessor,
 	l LifecycleManager,
-	e EnvironAccessor,
+	e ModelAccessor,
 	m MachineAccessor,
 	s StatusSetter,
 	clock clock.Clock,
@@ -218,7 +218,7 @@ type storageprovisioner struct {
 	volumes     VolumeAccessor
 	filesystems FilesystemAccessor
 	life        LifecycleManager
-	environ     EnvironAccessor
+	environ     ModelAccessor
 	machines    MachineAccessor
 	status      StatusSetter
 	clock       clock.Clock
@@ -248,7 +248,7 @@ func (w *storageprovisioner) loop() error {
 	var machineBlockDevicesChanges <-chan struct{}
 	machineChanges := make(chan names.MachineTag)
 
-	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
+	environConfigWatcher, err := w.environ.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "watching environ config")
 	}
@@ -342,7 +342,7 @@ func (w *storageprovisioner) loop() error {
 			if !ok {
 				return watcher.EnsureErr(environConfigWatcher)
 			}
-			environConfig, err := w.environ.EnvironConfig()
+			environConfig, err := w.environ.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "getting environ config")
 			}

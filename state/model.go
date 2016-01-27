@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// environGlobalKey is the key for the environment, its
+// modelGlobalKey is the key for the model, its
 // settings and constraints.
-const environGlobalKey = "e"
+const modelGlobalKey = "e"
 
 // Model represents the state of a model.
 type Model struct {
@@ -48,60 +48,60 @@ type modelDoc struct {
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
 }
 
-// ControllerEnvironment returns the environment that was bootstrapped.
-// This is the only environment that can have state server machines.
-// The owner of this environment is also considered "special", in that
+// ControllerModel returns the model that was bootstrapped.
+// This is the only model that can have state server machines.
+// The owner of this model is also considered "special", in that
 // they are the only user that is able to create other users (until we
 // have more fine grained permissions), and they cannot be disabled.
-func (st *State) ControllerEnvironment() (*Model, error) {
+func (st *State) ControllerModel() (*Model, error) {
 	ssinfo, err := st.StateServerInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get state server info")
 	}
 
-	environments, closer := st.getCollection(modelsC)
+	models, closer := st.getCollection(modelsC)
 	defer closer()
 
 	env := &Model{st: st}
 	uuid := ssinfo.ModelTag.Id()
-	if err := env.refresh(environments.FindId(uuid)); err != nil {
+	if err := env.refresh(models.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return env, nil
 }
 
-// Environment returns the environment entity.
+// Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	environments, closer := st.getCollection(modelsC)
+	models, closer := st.getCollection(modelsC)
 	defer closer()
 
 	env := &Model{st: st}
 	uuid := st.modelTag.Id()
-	if err := env.refresh(environments.FindId(uuid)); err != nil {
+	if err := env.refresh(models.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return env, nil
 }
 
-// GetEnvironment looks for the environment identified by the uuid passed in.
-func (st *State) GetEnvironment(tag names.ModelTag) (*Model, error) {
-	environments, closer := st.getCollection(modelsC)
+// GetModel looks for the model identified by the uuid passed in.
+func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
+	models, closer := st.getCollection(modelsC)
 	defer closer()
 
 	env := &Model{st: st}
-	if err := env.refresh(environments.FindId(tag.Id())); err != nil {
+	if err := env.refresh(models.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return env, nil
 }
 
-// AllEnvironments returns all the environments in the system.
-func (st *State) AllEnvironments() ([]*Model, error) {
-	environments, closer := st.getCollection(modelsC)
+// AllModels returns all the models in the system.
+func (st *State) AllModels() ([]*Model, error) {
+	models, closer := st.getCollection(modelsC)
 	defer closer()
 
 	var envDocs []modelDoc
-	err := environments.Find(nil).All(&envDocs)
+	err := models.Find(nil).All(&envDocs)
 	if err != nil {
 		return nil, err
 	}
@@ -114,23 +114,23 @@ func (st *State) AllEnvironments() ([]*Model, error) {
 	return result, nil
 }
 
-// NewEnvironment creates a new environment with its own UUID and
-// prepares it for use. Environment and State instances for the new
-// environment are returned.
+// NewModel creates a new model with its own UUID and
+// prepares it for use. Model and State instances for the new
+// model are returned.
 //
-// The state server environment's UUID is attached to the new
-// environment's document. Having the server UUIDs stored with each
-// environment document means that we have a way to represent external
-// environments, perhaps for future use around cross environment
+// The state server model's UUID is attached to the new
+// model's document. Having the server UUIDs stored with each
+// model document means that we have a way to represent external
+// models, perhaps for future use around cross model
 // relations.
-func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Model, _ *State, err error) {
+func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ *State, err error) {
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
 			return nil, nil, errors.Annotate(err, "cannot create model")
 		}
 	}
 
-	ssEnv, err := st.ControllerEnvironment()
+	ssEnv, err := st.ControllerModel()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not load controller model")
 	}
@@ -160,9 +160,9 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Mod
 		// which will cause the insert to fail if there is another record with
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
-		environments, closer := st.getCollection(modelsC)
+		models, closer := st.getCollection(modelsC)
 		defer closer()
-		envCount, countErr := environments.Find(bson.D{
+		envCount, countErr := models.Find(bson.D{
 			{"owner", owner.Canonical()},
 			{"name", cfg.Name()}},
 		).Count()
@@ -186,69 +186,69 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Mod
 	return newEnv, newState, nil
 }
 
-// Tag returns a name identifying the environment.
+// Tag returns a name identifying the model.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
 func (e *Model) Tag() names.Tag {
 	return e.ModelTag()
 }
 
-// ModelTag is the concrete environ tag for this environment.
+// ModelTag is the concrete model tag for this model.
 func (e *Model) ModelTag() names.ModelTag {
 	return names.NewModelTag(e.doc.UUID)
 }
 
-// ControllerTag is the environ tag for the controller that the environment is
+// ControllerTag is the model tag for the controller that the model is
 // running within.
 func (e *Model) ControllerTag() names.ModelTag {
 	return names.NewModelTag(e.doc.ServerUUID)
 }
 
-// UUID returns the universally unique identifier of the environment.
+// UUID returns the universally unique identifier of the model.
 func (e *Model) UUID() string {
 	return e.doc.UUID
 }
 
 // ControllerUUID returns the universally unique identifier of the controller
-// in which the environment is running.
+// in which the model is running.
 func (e *Model) ControllerUUID() string {
 	return e.doc.ServerUUID
 }
 
-// Name returns the human friendly name of the environment.
+// Name returns the human friendly name of the model.
 func (e *Model) Name() string {
 	return e.doc.Name
 }
 
-// Life returns whether the environment is Alive, Dying or Dead.
+// Life returns whether the model is Alive, Dying or Dead.
 func (e *Model) Life() Life {
 	return e.doc.Life
 }
 
-// TimeOfDying returns when the environment Life was set to Dying.
+// TimeOfDying returns when the model Life was set to Dying.
 func (e *Model) TimeOfDying() time.Time {
 	return e.doc.TimeOfDying
 }
 
-// TimeOfDeath returns when the environment Life was set to Dead.
+// TimeOfDeath returns when the model Life was set to Dead.
 func (e *Model) TimeOfDeath() time.Time {
 	return e.doc.TimeOfDeath
 }
 
-// Owner returns tag representing the owner of the environment.
-// The owner is the user that created the environment.
+// Owner returns tag representing the owner of the model.
+// The owner is the user that created the model.
 func (e *Model) Owner() names.UserTag {
 	return names.NewUserTag(e.doc.Owner)
 }
 
-// Config returns the config for the environment.
+// Config returns the config for the model.
 func (e *Model) Config() (*config.Config, error) {
 	if e.st.modelTag.Id() == e.UUID() {
-		return e.st.EnvironConfig()
+		return e.st.ModelConfig()
 	}
 	envState := e.st
 	if envState.modelTag != e.ModelTag() {
-		// The active environment isn't the same as the environment
+		// The active model isn't the same as the model
 		// we are querying.
 		var err error
 		envState, err = e.st.ForEnviron(e.ModelTag())
@@ -257,7 +257,7 @@ func (e *Model) Config() (*config.Config, error) {
 		}
 		defer envState.Close()
 	}
-	return envState.EnvironConfig()
+	return envState.ModelConfig()
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -297,15 +297,15 @@ func (e *Model) LatestToolsVersion() version.Number {
 	return v
 }
 
-// globalKey returns the global database key for the environment.
+// globalKey returns the global database key for the model.
 func (e *Model) globalKey() string {
-	return environGlobalKey
+	return modelGlobalKey
 }
 
 func (e *Model) Refresh() error {
-	environments, closer := e.st.getCollection(modelsC)
+	models, closer := e.st.getCollection(modelsC)
 	defer closer()
-	return e.refresh(environments.FindId(e.UUID()))
+	return e.refresh(models.FindId(e.UUID()))
 }
 
 func (e *Model) refresh(query *mgo.Query) error {
@@ -316,7 +316,7 @@ func (e *Model) refresh(query *mgo.Query) error {
 	return err
 }
 
-// Users returns a slice of all users for this environment.
+// Users returns a slice of all users for this model.
 func (e *Model) Users() ([]*ModelUser, error) {
 	if e.st.ModelUUID() != e.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
@@ -365,7 +365,7 @@ func (e *Model) destroy(destroyHostedModels bool) (err error) {
 			// ...but on subsequent attempts, we read fresh environ
 			// state from the DB. Note that we do *not* refresh `e`
 			// itself, as detailed in doc/hacking-state.txt
-			if e, err = e.st.GetEnvironment(e.ModelTag()); err != nil {
+			if e, err = e.st.GetModel(e.ModelTag()); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -392,24 +392,24 @@ func (e *Model) destroy(destroyHostedModels bool) (err error) {
 }
 
 // errModelNotAlive is a signal emitted from destroyOps to indicate
-// that environment destruction is already underway.
+// that model destruction is already underway.
 var errModelNotAlive = errors.New("model is no longer alive")
 
-type hasHostedEnvironsError int
+type hasHostedModelsError int
 
-func (e hasHostedEnvironsError) Error() string {
+func (e hasHostedModelsError) Error() string {
 	return fmt.Sprintf("hosting %d other models", e)
 }
 
-func IsHasHostedEnvironsError(err error) bool {
-	_, ok := errors.Cause(err).(hasHostedEnvironsError)
+func IsHasHostedModelsError(err error) bool {
+	_, ok := errors.Cause(err).(hasHostedModelsError)
 	return ok
 }
 
-// destroyOps returns the txn operations necessary to begin environ
+// destroyOps returns the txn operations necessary to begin model
 // destruction, or an error indicating why it can't.
-func (e *Model) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
-	// Ensure we're using the environment's state.
+func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
+	// Ensure we're using the model's state.
 	st := e.st
 	var err error
 	if e.UUID() != e.st.ModelUUID() {
@@ -439,15 +439,15 @@ func (e *Model) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
 			{"time-of-dying", nowToTheSecond()},
 		}}},
 	}}
-	if uuid == e.doc.ServerUUID && !destroyHostedEnvirons {
-		if count, err := hostedEnvironCount(st); err != nil {
+	if uuid == e.doc.ServerUUID && !destroyHostedModels {
+		if count, err := hostedModelCount(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if count != 0 {
-			return nil, errors.Trace(hasHostedEnvironsError(count))
+			return nil, errors.Trace(hasHostedModelsError(count))
 		}
 		ops = append(ops, assertNoHostedEnvironsOp())
 	} else {
-		// If this environment isn't hosting any environments, no further
+		// If this model isn't hosting any models, no further
 		// checks are necessary -- we just need to make sure we update the
 		// refcount.
 		ops = append(ops, decHostedEnvironCountOp())
@@ -471,7 +471,7 @@ func (e *Model) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
 // checkManualMachines checks if any of the machines in the slice were
 // manually provisioned, and are non-manager machines. These machines
 // must (currently) be manually destroyed via destroy-machine before
-// destroy-environment can successfully complete.
+// destroy-model can successfully complete.
 func checkManualMachines(machines []*Machine) error {
 	var ids []string
 	for _, m := range machines {
@@ -499,10 +499,10 @@ func (e *Model) ensureDestroyable() error {
 	// TODO(waigani) bug #1475212: Environment destroy can miss manual
 	// machines. We need to be able to assert the absence of these as
 	// part of the destroy txn, but in order to do this  manual machines
-	// need to add refcounts to their environments.
+	// need to add refcounts to their models.
 
 	// Check for manual machines. We bail out if there are any,
-	// to stop the user from prematurely hobbling the environment.
+	// to stop the user from prematurely hobbling the model.
 	machines, err := e.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -516,7 +516,7 @@ func (e *Model) ensureDestroyable() error {
 }
 
 // createEnvironmentOp returns the operation needed to create
-// an environment document with the given name and UUID.
+// an model document with the given name and UUID.
 func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
 	doc := &modelDoc{
 		UUID:       uuid,
@@ -533,19 +533,19 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 	}
 }
 
-const hostedEnvCountKey = "hostedEnvironCount"
+const hostedModelCountKey = "hostedModelCount"
 
 type hostedEnvCountDoc struct {
 
-	// RefCount is the number of environments in the Juju system. We do not count
-	// the system environment.
+	// RefCount is the number of models in the Juju system. We do not count
+	// the system model.
 	RefCount int `bson:"refcount"`
 }
 
 func assertNoHostedEnvironsOp() txn.Op {
 	return txn.Op{
 		C:      stateServersC,
-		Id:     hostedEnvCountKey,
+		Id:     hostedModelCountKey,
 		Assert: bson.D{{"refcount", 0}},
 	}
 }
@@ -561,26 +561,26 @@ func decHostedEnvironCountOp() txn.Op {
 func hostedEnvironCountOp(amount int) txn.Op {
 	return txn.Op{
 		C:  stateServersC,
-		Id: hostedEnvCountKey,
+		Id: hostedModelCountKey,
 		Update: bson.M{
 			"$inc": bson.M{"refcount": amount},
 		},
 	}
 }
 
-func hostedEnvironCount(st *State) (int, error) {
+func hostedModelCount(st *State) (int, error) {
 	var doc hostedEnvCountDoc
 	stateServers, closer := st.getCollection(stateServersC)
 	defer closer()
 
-	if err := stateServers.Find(bson.D{{"_id", hostedEnvCountKey}}).One(&doc); err != nil {
+	if err := stateServers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
 		return 0, errors.Trace(err)
 	}
 	return doc.RefCount, nil
 }
 
 // createUniqueOwnerEnvNameOp returns the operation needed to create
-// an usermodelnameC document with the given owner and environment name.
+// an usermodelnameC document with the given owner and model name.
 func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
@@ -590,13 +590,13 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 	}
 }
 
-// assertAliveOp returns a txn.Op that asserts the environment is alive.
+// assertAliveOp returns a txn.Op that asserts the model is alive.
 func (e *Model) assertAliveOp() txn.Op {
 	return assertEnvAliveOp(e.UUID())
 }
 
 // assertEnvAliveOp returns a txn.Op that asserts the given
-// environment UUID refers to an Alive environment.
+// model UUID refers to an Alive model.
 func assertEnvAliveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      modelsC,

@@ -70,7 +70,7 @@ all-changes includes all alteration commands
     run
     set
     set-constraints
-    set-model
+    set-model-config
     sync-tools
     unexpose
     unset

@@ -147,7 +147,7 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 // they are not already Dying or Dead. It's expected to be used when a
 // controller is destroyed.
 func (st *State) cleanupEnvironmentsForDyingController() (err error) {
-	environs, err := st.AllEnvironments()
+	environs, err := st.AllModels()
 	if err != nil {
 		return errors.Trace(err)
 	}

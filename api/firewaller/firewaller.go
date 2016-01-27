@@ -18,15 +18,15 @@ const firewallerFacade = "Firewaller"
 // State provides access to the Firewaller API facade.
 type State struct {
 	facade base.FacadeCaller
-	*common.EnvironWatcher
+	*common.ModelWatcher
 }
 
 // NewState creates a new client-side Firewaller API facade.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &State{
-		facade:         facadeCaller,
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
+		facade:       facadeCaller,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
 	}
 }
 
@@ -36,7 +36,7 @@ func (st *State) BestAPIVersion() int {
 	return st.facade.BestAPIVersion()
 }
 
-// ModelTag returns the current environment's tag.
+// ModelTag returns the current model's tag.
 func (st *State) ModelTag() (names.ModelTag, error) {
 	return st.facade.RawAPICaller().ModelTag()
 }
@@ -73,12 +73,12 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}, nil
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of
+// WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the life cycles of the top level machines in the current
-// environment.
-func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// model.
+func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -90,11 +90,11 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 }
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
-// changes to the opened ports for the current environment.
+// changes to the opened ports for the current model.
 func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	modelTag, err := st.ModelTag()
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid environ tag")
+		return nil, errors.Annotatef(err, "invalid model tag")
 	}
 	var results params.StringsWatchResults
 	args := params.Entities{

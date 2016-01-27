@@ -30,8 +30,8 @@ type API interface {
 // Backing defines the state methods this facede needs, so they can be
 // mocked for testing.
 type Backing interface {
-	// EnvironConfig returns the configuration of the environment.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig returns the configuration of the environment.
+	ModelConfig() (*config.Config, error)
 
 	// AddSpace creates a space.
 	AddSpace(name string, subnetIds []string, public bool) error
@@ -172,7 +172,7 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 // supportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func (api *spacesAPI) supportsSpaces() error {
-	config, err := api.backing.EnvironConfig()
+	config, err := api.backing.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "getting model config")
 	}

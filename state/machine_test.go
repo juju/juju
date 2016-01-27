@@ -46,7 +46,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")
@@ -194,7 +194,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err = s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,8 +241,8 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 	c.Assert(container.IsContainer(), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
-	// A JobManageEnviron machine must never advance lifecycle.
+func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
+	// A JobManageModel machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
@@ -1391,7 +1391,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Machine.WatchHardwareCharacteristics
 	//  Service.Watch
 	//  Unit.Watch
-	//  State.WatchForEnvironConfigChanges
+	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
 	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
@@ -1899,7 +1899,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 
 	// Now simulate prefer-ipv6: true
 	c.Assert(
-		s.State.UpdateEnvironConfig(
+		s.State.UpdateModelConfig(
 			map[string]interface{}{"prefer-ipv6": true},
 			nil, nil,
 		),

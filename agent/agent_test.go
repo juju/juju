@@ -305,7 +305,7 @@ func (*suite) TestMigrate(c *gc.C) {
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
 		Jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
 		},
 		CACert:         "ca cert",

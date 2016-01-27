@@ -86,7 +86,7 @@ func (s *LoggerSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *LoggerSuite) TestInitialState(c *gc.C) {
-	config, err := s.State.EnvironConfig()
+	config, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := config.LoggingConfig()
 

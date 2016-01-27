@@ -28,10 +28,10 @@ func init() {
 type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
-	EnvironmentConfig() (params.ModelConfigResults, error)
+	ModelConfig() (params.ModelConfigResults, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
-	WatchAllEnvs() (params.AllWatcherId, error)
+	WatchAllModels() (params.AllWatcherId, error)
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
@@ -87,7 +87,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	// cannot see. The reason we do this is to get the LastConnection time for
 	// the environments that the user is able to see, so we have consistent
 	// output when listing with or without --all when an admin user.
-	environments, err := s.state.EnvironmentsForUser(s.apiUser)
+	environments, err := s.state.ModelsForUser(s.apiUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -108,7 +108,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 		})
 	}
 
-	allEnvs, err := s.state.AllEnvironments()
+	allEnvs, err := s.state.AllModels()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -157,7 +157,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	}
 
 	for uuid, blocks := range envBlocks {
-		envInfo, err := s.state.GetEnvironment(names.NewModelTag(uuid))
+		envInfo, err := s.state.GetModel(names.NewModelTag(uuid))
 		if err != nil {
 			logger.Debugf("Unable to get name for model: %s", uuid)
 			continue
@@ -176,13 +176,13 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	return results, nil
 }
 
-// EnvironmentConfig returns the environment config for the controller
+// ModelConfig returns the environment config for the controller
 // environment.  For information on the current environment, use
 // client.ModelGet
-func (s *ControllerAPI) EnvironmentConfig() (params.ModelConfigResults, error) {
+func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 
-	stateServerEnv, err := s.state.ControllerEnvironment()
+	stateServerEnv, err := s.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -204,11 +204,11 @@ func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 	return errors.Trace(s.state.RemoveAllBlocksForController())
 }
 
-// WatchAllEnvs starts watching events for all environments in the
+// WatchAllModels starts watching events for all environments in the
 // controller. The returned AllWatcherId should be used with Next on the
-// AllEnvWatcher endpoint to receive deltas.
-func (c *ControllerAPI) WatchAllEnvs() (params.AllWatcherId, error) {
-	w := c.state.WatchAllEnvs()
+// AllModelWatcher endpoint to receive deltas.
+func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
+	w := c.state.WatchAllModels()
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
 	}, nil

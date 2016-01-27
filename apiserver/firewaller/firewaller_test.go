@@ -22,7 +22,7 @@ import (
 
 type firewallerSuite struct {
 	firewallerBaseSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.ModelWatcherTest
 
 	firewaller *firewaller.FirewallerAPI
 }
@@ -40,7 +40,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
@@ -59,8 +59,8 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	s.testInstanceId(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
-	s.testWatchEnvironMachines(c, s.firewaller)
+func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
+	s.testWatchModelMachines(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatch(c *gc.C) {

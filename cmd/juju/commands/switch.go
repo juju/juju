@@ -164,6 +164,6 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		if configControllers.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
 			return envcmd.SetCurrentController(ctx, newEnv)
 		}
-		return envcmd.SetCurrentEnvironment(ctx, newEnv)
+		return envcmd.SetCurrentModel(ctx, newEnv)
 	}
 }

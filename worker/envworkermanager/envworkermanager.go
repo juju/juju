@@ -50,7 +50,7 @@ func NewEnvWorkerManager(
 type InitialState interface {
 	WatchEnvironments() state.StringsWatcher
 	ForEnviron(names.ModelTag) (*state.State, error)
-	GetEnvironment(names.ModelTag) (*state.Model, error)
+	GetModel(names.ModelTag) (*state.Model, error)
 	ModelUUID() string
 	Machine(string) (*state.Machine, error)
 	MongoSession() *mgo.Session
@@ -104,7 +104,7 @@ func (m *envWorkerManager) loop() error {
 
 func (m *envWorkerManager) envHasChanged(uuid string) error {
 	modelTag := names.NewModelTag(uuid)
-	env, err := m.st.GetEnvironment(modelTag)
+	env, err := m.st.GetModel(modelTag)
 	if errors.IsNotFound(err) {
 		return m.envNotFound(modelTag)
 	} else if err != nil {

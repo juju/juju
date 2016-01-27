@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// GetEnvironment returns the environs.Environ ("provider") associated
+// GetModel returns the environs.Environ ("provider") associated
 // with the environment.
-func GetEnvironment(st *state.State) (environs.Environ, error) {
-	envcfg, err := st.EnvironConfig()
+func GetModel(st *state.State) (environs.Environ, error) {
+	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

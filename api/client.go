@@ -429,7 +429,7 @@ func (c *Client) UnshareModel(users ...names.UserTag) error {
 	return result.Combine()
 }
 
-// WatchAll holds the id of the newly-created AllWatcher/AllEnvWatcher.
+// WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.
 type WatchAll struct {
 	AllWatcherId string
 }
@@ -456,7 +456,7 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 
 // SetAnnotations sets the annotation pairs on the given entity.
 // Currently annotations are supported on machines, services,
-// units and the environment itself.
+// units and the model itself.
 // This API is now deprecated - "Annotations" client should be used instead.
 // TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {

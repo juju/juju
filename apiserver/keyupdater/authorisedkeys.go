@@ -84,7 +84,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 			continue
 		}
 		// 3. Watch for changes
-		watch := api.state.WatchForEnvironConfigChanges()
+		watch := api.state.WatchForModelConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)
@@ -107,7 +107,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 
 	// For now, authorised keys are global, common to all machines.
 	var keys []string
-	config, configErr := api.state.EnvironConfig()
+	config, configErr := api.state.ModelConfig()
 	if configErr == nil {
 		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
 	}

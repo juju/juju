@@ -151,7 +151,7 @@ type maasEnviron struct {
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked       *maasEnvironConfig
+	ecfgUnlocked       *maasModelConfig
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
 
@@ -251,9 +251,9 @@ func (env *maasEnviron) StateServerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
-// ecfg returns the environment's maasEnvironConfig, and protects it with a
+// ecfg returns the environment's maasModelConfig, and protects it with a
 // mutex.
-func (env *maasEnviron) ecfg() *maasEnvironConfig {
+func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.ecfgUnlocked

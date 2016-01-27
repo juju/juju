@@ -27,7 +27,7 @@ func init() {
 type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
@@ -164,7 +164,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	return &StorageProvisionerAPI{
 		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
-		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		ModelWatcher:     common.NewModelWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
@@ -544,7 +544,7 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	envConfig, err := s.st.EnvironConfig()
+	envConfig, err := s.st.ModelConfig()
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -630,7 +630,7 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	envConfig, err := s.st.EnvironConfig()
+	envConfig, err := s.st.ModelConfig()
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}

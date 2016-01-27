@@ -46,14 +46,14 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 func (s *environSuite) TestStop(c *gc.C) {
 	s.st.SetErrors(
-		nil,                // WatchForEnvironConfigChanges
+		nil,                // WatchForModelConfigChanges
 		errors.New("err1"), // Changes (closing the channel)
 	)
 	s.st.SetConfig(c, coretesting.Attrs{
 		"type": "invalid",
 	})
 
-	w, err := s.st.WatchForEnvironConfigChanges()
+	w, err := s.st.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
@@ -72,7 +72,7 @@ func (s *environSuite) TestStop(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout waiting for the WaitForEnviron to stop")
 	}
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges", "Changes")
+	s.st.CheckCallNames(c, "WatchForModelConfigChanges", "Changes")
 }
 
 func stopWatcher(c *gc.C, w apiwatcher.NotifyWatcher) {
@@ -85,7 +85,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 		"type": "unknown",
 	})
 
-	w, err := s.st.WatchForEnvironConfigChanges()
+	w, err := s.st.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
@@ -96,9 +96,9 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	}()
 	<-worker.LoadedInvalid
 	s.st.CheckCallNames(c,
-		"WatchForEnvironConfigChanges",
+		"WatchForModelConfigChanges",
 		"Changes",
-		"EnvironConfig",
+		"ModelConfig",
 		"Changes",
 	)
 }
@@ -113,7 +113,7 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 		`cannot create a model: no registered provider for "unknown"`,
 	)
 	c.Assert(obs, gc.IsNil)
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
-	originalConfig, err := s.st.EnvironConfig()
+	originalConfig, err := s.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st.SetConfig(c, coretesting.Attrs{
@@ -187,23 +187,23 @@ type fakeState struct {
 	config  map[string]interface{}
 }
 
-var _ worker.EnvironConfigObserver = (*fakeState)(nil)
+var _ worker.ModelConfigObserver = (*fakeState)(nil)
 
-// WatchForEnvironConfigChanges implements EnvironConfigObserver.
-func (s *fakeState) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
-	s.MethodCall(s, "WatchForEnvironConfigChanges")
+// WatchForModelConfigChanges implements ModelConfigObserver.
+func (s *fakeState) WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error) {
+	s.MethodCall(s, "WatchForModelConfigChanges")
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-// EnvironConfig implements EnvironConfigObserver.
-func (s *fakeState) EnvironConfig() (*config.Config, error) {
+// ModelConfig implements ModelConfigObserver.
+func (s *fakeState) ModelConfig() (*config.Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.MethodCall(s, "EnvironConfig")
+	s.MethodCall(s, "ModelConfig")
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (s *fakeState) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	attrs["broken"] = ""
 	attrs["state-id"] = "42"
 
-	s.config = coretesting.CustomEnvironConfig(c, attrs).AllAttrs()
+	s.config = coretesting.CustomModelConfig(c, attrs).AllAttrs()
 	s.changes <- struct{}{}
 }
 

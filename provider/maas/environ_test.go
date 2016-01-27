@@ -117,10 +117,10 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	// bug #1256179 is that when using an older version of Juju (<1.16.2)
 	// we didn't include maas-agent-name in the database, so it was 'nil'
 	// in the OldConfig. However, when setting an environment, we would set
-	// it to "" (because maasEnvironConfig.Validate ensures it is a 'valid'
+	// it to "" (because maasModelConfig.Validate ensures it is a 'valid'
 	// string). We can't create that from NewEnviron or newConfig because
 	// both of them Validate the contents. 'cmd/juju/environment
-	// SetEnvironmentCommand' instead uses conn.State.EnvironConfig() which
+	// SetEnvironmentCommand' instead uses conn.State.ModelConfig() which
 	// just reads the content of the database into a map, so we just create
 	// the map ourselves.
 

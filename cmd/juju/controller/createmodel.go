@@ -99,7 +99,7 @@ func (c *createEnvironmentCommand) Init(args []string) error {
 
 type CreateEnvironmentAPI interface {
 	Close() error
-	ConfigSkeleton(provider, region string) (params.EnvironConfig, error)
+	ConfigSkeleton(provider, region string) (params.ModelConfig, error)
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
@@ -193,7 +193,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 			return errors.Trace(err)
 		}
 		ctx.Infof("created model %q", c.Name)
-		return envcmd.SetCurrentEnvironment(ctx, c.Name)
+		return envcmd.SetCurrentModel(ctx, c.Name)
 	} else {
 		ctx.Infof("created model %q for %q", c.Name, c.Owner)
 	}
@@ -201,7 +201,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	return nil
 }
 
-func (c *createEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.EnvironConfig) (map[string]interface{}, error) {
+func (c *createEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
 	// The reading of the config YAML is done in the Run
 	// method because the Read method requires the cmd Context
 	// for the current directory.

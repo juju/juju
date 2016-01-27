@@ -298,7 +298,7 @@ loop:
 }
 
 func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders(cfg.Name(), provider.TmpfsProviderType)
 }

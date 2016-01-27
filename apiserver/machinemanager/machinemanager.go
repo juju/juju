@@ -95,7 +95,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	}
 
 	if p.Series == "" {
-		conf, err := mm.st.EnvironConfig()
+		conf, err := mm.st.ModelConfig()
 		if err != nil {
 			return nil, err
 		}

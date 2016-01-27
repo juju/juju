@@ -54,11 +54,11 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 	return result, nil
 }
 
-// EnvironmentConfig returns all environment settings for the
-// controller environment.
-func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
+// ModelConfig returns all model settings for the
+// controller model.
+func (c *Client) ModelConfig() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("EnvironmentConfig", nil, &result)
+	err := c.facade.FacadeCall("ModelConfig", nil, &result)
 	return result.Config, err
 }
 
@@ -87,14 +87,14 @@ func (c *Client) RemoveBlocks() error {
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)
 }
 
-// WatchAllEnvs returns an AllEnvWatcher, from which you can request
+// WatchAllModels returns an AllWatcher, from which you can request
 // the Next collection of Deltas (for all models).
-func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
+func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
 	info := new(api.WatchAll)
-	if err := c.facade.FacadeCall("WatchAllEnvs", nil, info); err != nil {
+	if err := c.facade.FacadeCall("WatchAllModels", nil, info); err != nil {
 		return nil, err
 	}
-	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
+	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
 // ModelStatus returns a status summary for each model tag passed in.

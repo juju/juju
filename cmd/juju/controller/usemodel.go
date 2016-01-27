@@ -212,7 +212,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
 		if endpoint.ModelUUID == model.UUID && existingUsername == username {
 			ctx.Infof("You already have model details for %q cached locally.", c.LocalName)
-			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
+			return envcmd.SetCurrentModel(ctx, c.LocalName)
 		}
 		ctx.Infof("You have an existing model called %q, use --name to specify a different local name.", c.LocalName)
 		return errors.New("existing model")
@@ -223,7 +223,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "failed to cache model details")
 	}
 
-	return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
+	return envcmd.SetCurrentModel(ctx, c.LocalName)
 }
 
 func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, modelUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {

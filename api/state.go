@@ -151,7 +151,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
 	// server.  The JSON field names between the structures are disjoint, so only
-	// one should have an environ tag set.
+	// one should have an model tag set.
 
 	var modelTag string
 	var controllerTag string
@@ -162,7 +162,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	if result.LoginResult.ModelTag != "" {
 		modelTag = result.LoginResult.ModelTag
 		// If the server doesn't support login v1, it doesn't support
-		// multiple environments, so don't store a server tag.
+		// multiple model, so don't store a server tag.
 		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.ModelTag != "" {
@@ -324,7 +324,7 @@ func (st *state) DiskManager() (*diskmanager.State, error) {
 // The scope tag defines the type of storage that is provisioned, either
 // either attached directly to a specified machine (machine scoped),
 // or provisioned on the underlying cloud for use by any machine in a
-// specified environment (environ scoped).
+// specified model (model scoped).
 func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
 	return storageprovisioner.NewState(st, scope)
 }

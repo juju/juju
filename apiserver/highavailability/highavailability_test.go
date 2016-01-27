@@ -67,7 +67,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.

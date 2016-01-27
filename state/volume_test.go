@@ -115,7 +115,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "default-block",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

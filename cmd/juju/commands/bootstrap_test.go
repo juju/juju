@@ -426,14 +426,14 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
 }
 
-func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	const envName = "devenv"
 	s.patchVersionAndSeries(c, envName)
 
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv", "--auto-upgrade")
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
-	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	currentEnv, err := envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentEnv, gc.Equals, "devenv")
 }

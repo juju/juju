@@ -218,7 +218,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) makeStateAgentVersion(c *gc.C, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	_, config, _ := s.configureMachine(c, machine.Id(), vers)

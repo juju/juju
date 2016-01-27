@@ -30,7 +30,7 @@ type CertificateUpdater struct {
 	addressWatcher  AddressWatcher
 	getter          StateServingInfoGetter
 	setter          StateServingInfoSetter
-	configGetter    EnvironConfigGetter
+	configGetter    ModelConfigGetter
 	hostPortsGetter APIHostPortsGetter
 	addresses       []network.Address
 }
@@ -42,10 +42,10 @@ type AddressWatcher interface {
 	Addresses() (addresses []network.Address)
 }
 
-// EnvironConfigGetter is an interface that is provided to NewCertificateUpdater
+// ModelConfigGetter is an interface that is provided to NewCertificateUpdater
 // which can be used to get environment config.
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
 }
 
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
@@ -68,7 +68,7 @@ type APIHostPortsGetter interface {
 // machine addresses and then generates a new state server certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
+	configGetter ModelConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
@@ -131,7 +131,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 		return nil
 	}
 	// Grab the env config and update a copy with ca cert private key.
-	envConfig, err := c.configGetter.EnvironConfig()
+	envConfig, err := c.configGetter.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "cannot read model config")
 	}

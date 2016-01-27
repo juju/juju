@@ -301,7 +301,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to validate unknown attrs")
 	}
-	localConfig := newEnvironConfig(cfg, validated)
+	localConfig := newModelConfig(cfg, validated)
 	// Set correct default network bridge if needed
 	// fix for http://pad.lv/1394450
 	localConfig.setDefaultNetworkBridge()
@@ -423,5 +423,5 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newEnvironConfig(valid, valid.UnknownAttrs()), nil
+	return newModelConfig(valid, valid.UnknownAttrs()), nil
 }

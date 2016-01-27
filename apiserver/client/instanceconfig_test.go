@@ -48,7 +48,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	mongoAddrs := s.State.MongoConnectionInfo().Addrs
 	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}

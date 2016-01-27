@@ -30,7 +30,7 @@ var _ = gc.Suite(&UserSuite{})
 
 func (s *UserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	envcmd.WriteCurrentEnvironment("dummymodel")
+	envcmd.WriteCurrentModel("dummymodel")
 }
 
 func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {

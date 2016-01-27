@@ -10,9 +10,9 @@ import (
 
 const apiName = "Model"
 
-// Facade provides access to a machine environment worker's view of the world.
+// Facade provides access to a machine model worker's view of the world.
 type Facade struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*ToolsVersionUpdater
 }
 
@@ -20,7 +20,7 @@ type Facade struct {
 func NewFacade(caller base.APICaller) *Facade {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
 	return &Facade{
-		EnvironWatcher:      common.NewEnvironWatcher(facadeCaller),
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		ToolsVersionUpdater: NewToolsVersionUpdater(facadeCaller),
 	}
 }

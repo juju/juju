@@ -38,7 +38,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// ModelUUID returns the model UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
 func (a *APIAddresser) ModelUUID() (string, error) {
 	var result params.StringResult

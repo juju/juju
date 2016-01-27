@@ -47,7 +47,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 
 	// Create a manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

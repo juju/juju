@@ -61,8 +61,8 @@ type ProvisionerAPI struct {
 	*common.LifeGetter
 	*common.StateAddresser
 	*common.APIAddresser
-	*common.EnvironWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
@@ -116,23 +116,23 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
-		Remover:                common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st, resources),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
-		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
-		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		getAuthFunc:            getAuthFunc,
+		Remover:              common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:       common.NewStateAddresser(st),
+		APIAddresser:         common.NewAPIAddresser(st, resources),
+		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		getAuthFunc:          getAuthFunc,
 	}, nil
 }
 
@@ -239,7 +239,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -298,7 +298,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -580,7 +580,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	envConfig, err := p.st.EnvironConfig()
+	envConfig, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -1093,7 +1093,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 }
 
 func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
@@ -1431,7 +1431,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1584,7 +1584,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 // obtainEnvCloudConfig returns environment specific cloud information
 // to be used in search for compatible images and their metadata.
 func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}

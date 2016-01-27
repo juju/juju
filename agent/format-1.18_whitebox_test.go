@@ -78,7 +78,7 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	config, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
+	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 
@@ -89,7 +89,7 @@ datadir: /home/user/.juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
-- JobManageEnviron
+- JobManageModel
 upgradedToVersion: 1.17.5.1
 cacert: '-----BEGIN CERTIFICATE-----
 
@@ -238,7 +238,7 @@ datadir: /home/user/.juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
-- JobManageEnviron
+- JobManageModel
 upgradedToVersion: 1.17.5.1
 cacert: '-----BEGIN CERTIFICATE-----
 

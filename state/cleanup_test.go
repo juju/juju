@@ -71,7 +71,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertCleanupCount(c, 1)
 }
 
-func (s *CleanupSuite) TestCleanupControllerEnvironments(c *gc.C) {
+func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create an environment.
@@ -102,7 +102,7 @@ func (s *CleanupSuite) TestCleanupControllerEnvironments(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
 	// Create a state and hosted machine.
-	stateMachine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()

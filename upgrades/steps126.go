@@ -38,11 +38,11 @@ func stateStepsFor126() []Step {
 			description: "upgrade model config",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				// TODO(axw) updateEnvironConfig should be
+				// TODO(axw) updateModelConfig should be
 				// called for all upgrades, to decouple this
 				// package from provider-specific upgrades.
 				st := context.State()
-				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
+				return upgradeModelConfig(st, st, environs.GlobalProviderRegistry())
 			},
 		},
 		//TODO(perrito666) make this an unconditional upgrade step.
@@ -52,7 +52,7 @@ func stateStepsFor126() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				st := context.State()
-				env, err := utils.GetEnvironment(st)
+				env, err := utils.GetModel(st)
 				if err != nil {
 					return errors.Annotate(err, "getting provider for upgrade")
 				}

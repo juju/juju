@@ -24,7 +24,7 @@ func (st *State) ProcessDyingModel() (err error) {
 		}
 
 		if st.IsStateServer() {
-			envs, err := st.AllEnvironments()
+			envs, err := st.AllModels()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -101,8 +101,8 @@ type BackingSpace interface {
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
-	// EnvironConfig returns the current environment config.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig returns the current environment config.
+	ModelConfig() (*config.Config, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).

@@ -129,7 +129,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
 		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
 			multiwatcher.JobManageNetworking,
 		}

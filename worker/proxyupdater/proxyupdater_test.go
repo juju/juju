@@ -143,7 +143,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 		attrs[k] = v
 	}
 
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return proxySettings, aptProxySettings

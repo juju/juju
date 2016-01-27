@@ -20,8 +20,8 @@ type instancecfgSuite struct {
 var _ = gc.Suite(&instancecfgSuite{})
 
 func (*instancecfgSuite) TestInstanceTagsStateServer(c *gc.C) {
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{})
-	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	cfg := testing.CustomModelConfig(c, testing.Attrs{})
+	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 	nonStateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, stateServerJobs, map[string]string{
 		"juju-model-uuid": testing.ModelTag.Id(),
@@ -45,7 +45,7 @@ func (*instancecfgSuite) TestInstanceTagsNoUUID(c *gc.C) {
 }
 
 func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"resource-tags": "a=b c=",
 	})
 	testInstanceTags(c, cfg, nil, map[string]string{

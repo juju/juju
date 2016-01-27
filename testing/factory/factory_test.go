@@ -228,7 +228,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	series := "quantal"
-	jobs := []state.MachineJob{state.JobManageEnviron}
+	jobs := []state.MachineJob{state.JobManageModel}
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
@@ -520,7 +520,7 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "trusty")
 }
@@ -544,7 +544,7 @@ func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
 	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
 	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")
 }

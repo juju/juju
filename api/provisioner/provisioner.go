@@ -18,7 +18,7 @@ import (
 
 // State provides access to the Machiner API facade.
 type State struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.APIAddresser
 
 	facade base.FacadeCaller
@@ -30,9 +30,9 @@ const provisionerFacade = "Provisioner"
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller}
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		APIAddresser: common.NewAPIAddresser(facadeCaller),
+		facade:       facadeCaller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -53,12 +53,12 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}, nil
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of
+// WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the lifecycles of the machines (but not containers) in
-// the current environment.
-func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// the current model.
+func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +92,14 @@ func (st *State) StateAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// ContainerManagerConfig returns information from the environment config that is
+// ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerManagerConfig", args, &result)
 	return result, err
 }
 
-// ContainerConfig returns information from the environment config that is
+// ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerConfig", nil, &result)

@@ -61,12 +61,12 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 		}
 	}()
 
-	fw.environWatcher, err = st.WatchForEnvironConfigChanges()
+	fw.environWatcher, err = st.WatchForModelConfigChanges()
 	if err != nil {
 		return nil, err
 	}
 
-	fw.machinesWatcher, err = st.WatchEnvironMachines()
+	fw.machinesWatcher, err = st.WatchModelMachines()
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (fw *Firewaller) loop() error {
 			if !ok {
 				return watcher.EnsureErr(fw.environWatcher)
 			}
-			config, err := fw.st.EnvironConfig()
+			config, err := fw.st.ModelConfig()
 			if err != nil {
 				return err
 			}

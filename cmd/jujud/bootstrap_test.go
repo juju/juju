@@ -153,7 +153,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	if len(jobs) == 0 {
 		// Add default jobs.
 		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
 			multiwatcher.JobManageNetworking,
 		}
@@ -257,7 +257,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.envcfg.AuthorizedKeys()+"\npublic-key")
 }
@@ -295,7 +295,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -343,7 +343,7 @@ func uint64p(v uint64) *uint64 {
 
 func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
-		state.JobManageEnviron,
+		state.JobManageModel,
 		state.JobHostUnits,
 		state.JobManageNetworking,
 	}
@@ -367,7 +367,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 	_, cmd, err := s.initBootstrapCommand(c, jobs, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -384,7 +384,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 }
 
 func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {

@@ -48,7 +48,7 @@ var (
 	bootstrapConstraints = constraints.MustParse("mem=4G")
 
 	allMachineJobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}
@@ -158,9 +158,9 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
-// maybeSetEnvironConfig sets the Config field to the given envConfig, if not
+// maybeSetModelConfig sets the Config field to the given envConfig, if not
 // nil.
-func (cfg *testInstanceConfig) maybeSetEnvironConfig(envConfig *config.Config) *testInstanceConfig {
+func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil {
 		cfg.Config = envConfig
 	}
@@ -228,7 +228,7 @@ type cloudinitTest struct {
 	inexactMatch bool
 }
 
-func minimalEnvironConfig(c *gc.C) *config.Config {
+func minimalModelConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
@@ -539,9 +539,9 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Logf("test %d", i)
 		var envConfig *config.Config
 		if test.setEnvConfig {
-			envConfig = minimalEnvironConfig(c)
+			envConfig = minimalModelConfig(c)
 		}
-		testConfig := test.cfg.maybeSetEnvironConfig(envConfig).render()
+		testConfig := test.cfg.maybeSetModelConfig(envConfig).render()
 		ci, err := cloudinit.New(testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
@@ -594,7 +594,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
-		testConfig := test.cfg.maybeSetEnvironConfig(minimalEnvironConfig(c)).render()
+		testConfig := test.cfg.maybeSetModelConfig(minimalModelConfig(c)).render()
 		c.Logf("test %d (Configure)", i)
 		cloudcfg, err := cloudinit.New(testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
@@ -607,8 +607,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-	envConfig := minimalEnvironConfig(c)
-	instConfig := makeBootstrapConfig("quantal").maybeSetEnvironConfig(envConfig)
+	envConfig := minimalModelConfig(c)
+	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(envConfig)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Series)
 	c.Assert(err, jc.ErrorIsNil)
@@ -641,8 +641,8 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
-	envConfig := minimalEnvironConfig(c)
-	testConfig := cloudinitTests[0].cfg.maybeSetEnvironConfig(envConfig).render()
+	envConfig := minimalModelConfig(c)
+	testConfig := cloudinitTests[0].cfg.maybeSetModelConfig(envConfig).render()
 	udata, err := cloudconfig.NewUserdataConfig(&testConfig, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -974,7 +974,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			CACert:   testing.CACert,
 			ModelTag: testing.ModelTag,
 		},
-		Config:                  minimalEnvironConfig(c),
+		Config:                  minimalModelConfig(c),
 		DataDir:                 jujuDataDir("quantal"),
 		LogDir:                  jujuLogDir("quantal"),
 		MetricsSpoolDir:         metricsSpoolDir("quantal"),
@@ -1025,7 +1025,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 }
 
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
-	environConfig := minimalEnvironConfig(c)
+	environConfig := minimalModelConfig(c)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
 	cloudcfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1039,7 +1039,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
-	environConfig := minimalEnvironConfig(c)
+	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
@@ -1058,7 +1058,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 }
 
 func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
-	environConfig := minimalEnvironConfig(c)
+	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"http-proxy": "http://user@10.0.0.1",
 		"no-proxy":   "localhost,10.0.3.1",
@@ -1096,7 +1096,7 @@ export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:u
 }
 
 func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
-	environConfig := minimalEnvironConfig(c)
+	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
 	})
@@ -1105,7 +1105,7 @@ func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
 }
 
 func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
-	environConfig := minimalEnvironConfig(c)
+	environConfig := minimalModelConfig(c)
 	s.testAptMirror(c, environConfig, "")
 }
 

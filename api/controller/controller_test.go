@@ -66,9 +66,9 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
+func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
-	env, err := sysManager.EnvironmentConfig()
+	env, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env["name"], gc.Equals, "dummymodel")
 }
@@ -115,12 +115,12 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
-	// The WatchAllEnvs infrastructure is comprehensively tested
+func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)
 
-	w, err := sysManager.WatchAllEnvs()
+	w, err := sysManager.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := w.Stop()

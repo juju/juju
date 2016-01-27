@@ -24,10 +24,10 @@ var loadedInvalid = func() {}
 
 var logger = loggo.GetLogger("juju.worker")
 
-// EnvironConfigGetter interface defines a way to read the environment
+// ModelConfigGetter interface defines a way to read the environment
 // configuration.
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
 }
 
 // TODO(rog) remove WaitForEnviron, as we now should always
@@ -36,7 +36,7 @@ type EnvironConfigGetter interface {
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
 // it receives a value on dying.
-func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
+func WaitForEnviron(w apiwatcher.NotifyWatcher, st ModelConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
 		case <-dying:
@@ -45,7 +45,7 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-
 			if !ok {
 				return nil, watcher.EnsureErr(w)
 			}
-			config, err := st.EnvironConfig()
+			config, err := st.ModelConfig()
 			if err != nil {
 				return nil, err
 			}
@@ -59,11 +59,11 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-
 	}
 }
 
-// EnvironConfigObserver interface defines a way to read the
+// ModelConfigObserver interface defines a way to read the
 // environment configuration and watch for changes.
-type EnvironConfigObserver interface {
-	EnvironConfigGetter
-	WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error)
+type ModelConfigObserver interface {
+	ModelConfigGetter
+	WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error)
 }
 
 // EnvironObserver watches the current environment configuration
@@ -72,7 +72,7 @@ type EnvironConfigObserver interface {
 type EnvironObserver struct {
 	tomb           tomb.Tomb
 	environWatcher apiwatcher.NotifyWatcher
-	st             EnvironConfigObserver
+	st             ModelConfigObserver
 	mu             sync.Mutex
 	environ        environs.Environ
 }
@@ -81,8 +81,8 @@ type EnvironObserver struct {
 // environment configuration and returns a new environment observer.
 // While waiting for the first environment configuration, it will
 // return with tomb.ErrDying if it receives a value on dying.
-func NewEnvironObserver(st EnvironConfigObserver) (*EnvironObserver, error) {
-	config, err := st.EnvironConfig()
+func NewEnvironObserver(st ModelConfigObserver) (*EnvironObserver, error) {
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func NewEnvironObserver(st EnvironConfigObserver) (*EnvironObserver, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a model")
 	}
-	environWatcher, err := st.WatchForEnvironConfigChanges()
+	environWatcher, err := st.WatchForModelConfigChanges()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot watch model config")
 	}
@@ -117,7 +117,7 @@ func (obs *EnvironObserver) loop() error {
 				return watcher.EnsureErr(obs.environWatcher)
 			}
 		}
-		config, err := obs.st.EnvironConfig()
+		config, err := obs.st.ModelConfig()
 		if err != nil {
 			logger.Warningf("error reading model config: %v", err)
 			continue

@@ -35,7 +35,7 @@ Machines
     the user interface does not allow for direct creation of machines, but
     `juju deploy` and `juju add-unit` may create machines as a consequence of
     unit creation.
-  * If a machine has the JobManageEnviron job, it cannot become Dying or Dead.
+  * If a machine has the JobManageModel job, it cannot become Dying or Dead.
     Other jobs do not affect the lifecycle directly.
   * If a machine has the JobHostUnits job, principal units can be assigned to it
     while it is Alive.
@@ -51,7 +51,7 @@ Machines
     making the machine Dead; not an issue now because the machine can't yet
     become Dying with units assigned.)
   * Once a machine has been set to Dead, the agent for some other machine (with
-    JobManageEnviron) will release the underlying instance back to the provider
+    JobManageModel) will release the underlying instance back to the provider
     and remove the machine entity from state. (Future uncertainty: should the
     provisioner provision an instance for a Dying machine? At the moment, no,
     because a Dying machine can't have any units in the first place; in the
@@ -89,7 +89,7 @@ Units
       * Set its unit to Dead.
   * As just noted, when a subordinate unit is Dead, it is removed from state by
     its principal's UA; the relationship is the same as that of a principal unit
-    to its assigned machine agent, and of a machine to the JobManageEnviron
+    to its assigned machine agent, and of a machine to the JobManageModel
     machine agent.
 
 Services
@@ -240,7 +240,7 @@ responsible for:
   * detecting deployed principals not assigned to it, and recalling them.
   * detecting its machine's Dying state, and setting it to Dead.
 
-...while one whose machine has JobManageEnviron is responsible for:
+...while one whose machine has JobManageModel is responsible for:
 
   * detecting Alive machines without instance IDs and provisioning provider
     instances to run their agents.

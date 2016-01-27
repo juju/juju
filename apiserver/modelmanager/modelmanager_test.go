@@ -198,7 +198,7 @@ func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	// looks for a random open port.
 	apiPort := s.Environ.Config().APIPort()
 
-	c.Assert(skeleton.Config, jc.DeepEquals, params.EnvironConfig{
+	c.Assert(skeleton.Config, jc.DeepEquals, params.ModelConfig{
 		"type":       "dummy",
 		"ca-cert":    coretesting.CACert,
 		"state-port": 1234,

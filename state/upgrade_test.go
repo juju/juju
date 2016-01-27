@@ -57,7 +57,7 @@ func (s *UpgradeSuite) assertUpgrading(c *gc.C, expect bool) {
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	stateServer, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	stateServer, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := stateServer.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

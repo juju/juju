@@ -269,19 +269,19 @@ func (e *UserModel) LastConnection() (time.Time, error) {
 	return lastConnDoc.LastConnection, nil
 }
 
-// EnvironmentsForUser returns a list of enviroments that the user
+// ModelsForUser returns a list of models that the user
 // is able to access.
-func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserModel, error) {
+func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	// Since there are no groups at this stage, the simplest way to get all
-	// the environments that a particular user can see is to look through the
-	// environment user collection. A raw collection is required to support
-	// queries across multiple environments.
-	envUsers, userCloser := st.getRawCollection(modelUsersC)
+	// the models that a particular user can see is to look through the
+	// model user collection. A raw collection is required to support
+	// queries across multiple models.
+	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
-	// TODO: consider adding an index to the envUsers collection on the username.
+	// TODO: consider adding an index to the modelUsers collection on the username.
 	var userSlice []modelUserDoc
-	err := envUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err := modelUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserModel, error) {
 	var result []*UserModel
 	for _, doc := range userSlice {
 		modelTag := names.NewModelTag(doc.ModelUUID)
-		env, err := st.GetEnvironment(modelTag)
+		env, err := st.GetModel(modelTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

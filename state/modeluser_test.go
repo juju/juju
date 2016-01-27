@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type EnvUserSuite struct {
+type ModelUserSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&EnvUserSuite{})
+var _ = gc.Suite(&ModelUserSuite{})
 
-func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
+func (s *ModelUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
@@ -57,7 +57,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestAddReadOnlyEnvironmentUser(c *gc.C) {
+func (s *ModelUserSuite) TestAddReadOnlyEnvironmentUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddModelUser(state.ModelUserSpec{
@@ -75,7 +75,7 @@ func (s *EnvUserSuite) TestAddReadOnlyEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.ReadOnly(), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
+func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -87,7 +87,7 @@ func (s *EnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	c.Assert(user.ID(), gc.Equals, state.DocID(s.State, "bob@randomprovider"))
 }
 
-func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
+func (s *ModelUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
@@ -99,7 +99,7 @@ func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
+func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 	assertIsolated := func(st1, st2 *state.State, usernames ...string) {
 		f := factory.NewFactory(st1)
 		expectedUser := f.MakeEnvUser(c, &factory.EnvUserParams{User: usernames[0]})
@@ -130,7 +130,7 @@ func (s *EnvUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 	)
 }
 
-func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
+func (s *ModelUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
 	envUserDefault := s.Factory.MakeEnvUser(c, nil)
 	c.Assert(envUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
 
@@ -138,7 +138,7 @@ func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
 	c.Assert(envUser.DisplayName(), gc.Equals, "Override user display name")
 }
 
-func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
+func (s *ModelUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	_, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewLocalUserTag("validusername"),
@@ -146,7 +146,7 @@ func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
-func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
+func (s *ModelUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	_, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      user.UserTag(),
@@ -154,7 +154,7 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
-func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
+func (s *ModelUserSuite) TestRemoveModelUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validUsername"})
 	_, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,13 +166,13 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
+func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 	err := s.State.RemoveModelUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
+func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
@@ -187,7 +187,7 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
+func (s *ModelUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
 	now := state.NowToTheSecond()
 
 	// Create a user and add them to the inital environment.
@@ -227,23 +227,23 @@ func (s *EnvUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserNone(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUserNone(c *gc.C) {
 	tag := names.NewUserTag("non-existent@remote")
-	environments, err := s.State.EnvironmentsForUser(tag)
+	environments, err := s.State.ModelsForUser(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 0)
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserNewLocalUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUserNewLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
-	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	environments, err := s.State.ModelsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 0)
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	environments, err := s.State.ModelsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
 	c.Assert(environments[0].UUID(), gc.Equals, s.State.ModelUUID())
@@ -252,39 +252,39 @@ func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
-func (s *EnvUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Model {
+func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Model {
 	// Don't use the factory to call MakeEnvironment because it may at some
 	// time in the future be modified to do additional things.  Instead call
 	// the state method directly to create an environment to make sure that
 	// the owner is able to access the environment.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": name,
 		"uuid": uuid.String(),
 	})
-	env, st, err := s.State.NewEnvironment(cfg, owner)
+	env, st, err := s.State.NewModel(cfg, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	return env
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUserEnvOwner(c *gc.C) {
 	owner := names.NewUserTag("external@remote")
 	env := s.newEnvWithOwner(c, "test-model", owner)
 
-	environments, err := s.State.EnvironmentsForUser(owner)
+	environments, err := s.State.ModelsForUser(owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
 	s.checkSameEnvironment(c, environments[0].Model, env)
 }
 
-func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Model) {
+func (s *ModelUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Model) {
 	c.Check(env1.Name(), gc.Equals, env2.Name())
 	c.Check(env1.UUID(), gc.Equals, env2.UUID())
 }
 
-func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Model {
+func (s *ModelUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Model {
 	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
 	defer envState.Close()
 	newEnv, err := envState.Model()
@@ -296,17 +296,17 @@ func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) 
 	return newEnv
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUserOfNewEnv(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	env := s.newEnvWithUser(c, "test-model", userTag)
 
-	environments, err := s.State.EnvironmentsForUser(userTag)
+	environments, err := s.State.ModelsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
 	s.checkSameEnvironment(c, environments[0].Model, env)
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
+func (s *ModelUserSuite) TestModelsForUserMultiple(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	expected := []*state.Model{
 		s.newEnvWithUser(c, "user1", userTag),
@@ -317,7 +317,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	}
 	sort.Sort(UUIDOrder(expected))
 
-	environments, err := s.State.EnvironmentsForUser(userTag)
+	environments, err := s.State.ModelsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, len(expected))
 	sort.Sort(userUUIDOrder(environments))
@@ -326,7 +326,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	}
 }
 
-func (s *EnvUserSuite) TestIsControllerAdministrator(c *gc.C) {
+func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
 	isAdmin, err := s.State.IsControllerAdministrator(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
@@ -342,7 +342,7 @@ func (s *EnvUserSuite) TestIsControllerAdministrator(c *gc.C) {
 	c.Assert(isAdmin, jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
+func (s *ModelUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 
 	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Owner: user.UserTag()})

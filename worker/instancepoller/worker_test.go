@@ -36,7 +36,7 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	s.api = s.apiSt.InstancePoller()
 }
 

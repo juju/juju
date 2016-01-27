@@ -114,7 +114,7 @@ func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 	c.Assert(e, gc.IsNil)
 }
 
-func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
+func (*OpenSuite) TestNewFromNameWithInvalidModelConfig(c *gc.C) {
 	store := configstore.NewMem()
 
 	e, err := environs.NewFromName("erewhemos", store)

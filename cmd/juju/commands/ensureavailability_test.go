@@ -250,7 +250,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo0(c *gc.C) {
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityEndToEnd(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	ctx, err := coretesting.RunCommand(c, newEnsureAvailabilityCommand(), "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)

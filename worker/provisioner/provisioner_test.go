@@ -69,7 +69,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -144,7 +144,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -159,7 +159,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		Series:     "quantal",
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
+		Jobs:       []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
@@ -1216,7 +1216,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
-	machineWatcher, err := s.provisioner.WatchEnvironMachines()
+	machineWatcher, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)

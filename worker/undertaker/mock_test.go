@@ -48,15 +48,15 @@ func (m *mockClient) ProcessDyingModel() error {
 	return nil
 }
 
-func (m *mockClient) RemoveEnviron() error {
-	defer m.mockCall("RemoveEnviron")
+func (m *mockClient) RemoveModel() error {
+	defer m.mockCall("RemoveModel")
 	m.mockEnviron.Removed = true
 	return nil
 }
 
 func (m *mockClient) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	defer m.mockCall("ModelInfo")
-	result := params.UndertakerEnvironInfo{
+	result := params.UndertakerModelInfo{
 		Life:        params.Life(m.mockEnviron.Life.String()),
 		UUID:        m.mockEnviron.UUID,
 		Name:        "dummy",
@@ -67,11 +67,11 @@ func (m *mockClient) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	return params.UndertakerModelInfoResult{Result: result}, nil
 }
 
-func (m *mockClient) EnvironConfig() (*config.Config, error) {
+func (m *mockClient) ModelConfig() (*config.Config, error) {
 	return m.cfg, nil
 }
 
-func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+func (m *mockClient) WatchModelResources() (watcher.NotifyWatcher, error) {
 	return m.watcher, nil
 }
 

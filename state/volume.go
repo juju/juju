@@ -771,7 +771,7 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}

@@ -152,7 +152,7 @@ func (s *suite) TestKillPropagates(c *gc.C) {
 }
 
 // stateWithFailingGetEnvironment wraps a *state.State, overriding the
-// GetEnvironment to generate an error.
+// GetModel to generate an error.
 type stateWithFailingGetEnvironment struct {
 	*stateWithFakeWatcher
 	shouldFail bool
@@ -165,17 +165,17 @@ func newStateWithFailingGetEnvironment(realSt *state.State) *stateWithFailingGet
 	}
 }
 
-func (s *stateWithFailingGetEnvironment) GetEnvironment(tag names.ModelTag) (*state.Model, error) {
+func (s *stateWithFailingGetEnvironment) GetModel(tag names.ModelTag) (*state.Model, error) {
 	if s.shouldFail {
-		return nil, errors.New("unable to GetEnvironment")
+		return nil, errors.New("unable to GetModel")
 	}
-	return s.State.GetEnvironment(tag)
+	return s.State.GetModel(tag)
 }
 
 func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	// If something causes EnvWorkerManager.loop to exit that isn't Kill() then it should stop the runner.
 	// Currently the best way to cause this is to make
-	// m.st.GetEnvironment(tag) fail with any error other than NotFound
+	// m.st.GetModel(tag) fail with any error other than NotFound
 	otherSt := s.makeEnvironment(c)
 	st := newStateWithFailingGetEnvironment(s.State)
 	uuid := st.ModelUUID()
@@ -198,7 +198,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 
 	// This should kill the manager
 	err := waitOrFatal(c, m.Wait)
-	c.Assert(err, gc.ErrorMatches, "error loading model .*: unable to GetEnvironment")
+	c.Assert(err, gc.ErrorMatches, "error loading model .*: unable to GetModel")
 
 	// And that should kill all the runners
 	c.Assert(runners[0].killed, jc.IsTrue)

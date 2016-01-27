@@ -98,7 +98,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	var obtained []string
 	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
-		stateEnv, err := s.State.GetEnvironment(names.NewModelTag(env.UUID))
+		stateEnv, err := s.State.GetModel(names.NewModelTag(env.UUID))
 		c.Assert(err, jc.ErrorIsNil)
 		s.checkEnvironmentMatches(c, env.Model, stateEnv)
 	}
@@ -147,13 +147,13 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 	c.Assert(list.Models, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
-	env, err := s.controller.EnvironmentConfig()
+func (s *controllerSuite) TestModelConfig(c *gc.C) {
+	env, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
-func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
+func (s *controllerSuite) TestModelConfigFromNonStateServer(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "test"})
 	defer st.Close()
@@ -161,7 +161,7 @@ func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
 	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := controller.EnvironmentConfig()
+	env, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
@@ -189,8 +189,8 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
-func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
-	watcherId, err := s.controller.WatchAllEnvs()
+func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
@@ -232,7 +232,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageEnviron}})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
 	s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: s.Factory.MakeCharm(c, nil),

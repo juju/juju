@@ -57,7 +57,7 @@ func (u *updaterWorker) loop() (err error) {
 		}
 	}()
 	var w apiwatcher.StringsWatcher
-	w, err = u.st.WatchEnvironMachines()
+	w, err = u.st.WatchModelMachines()
 	if err != nil {
 		return err
 	}

@@ -31,8 +31,8 @@ type ToolsURLGetter interface {
 	ToolsURL(v version.Binary) (string, error)
 }
 
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
 }
 
 // APIHostPortsGetter is an interface providing the APIHostPorts method.
@@ -51,7 +51,7 @@ type ToolsStorageGetter interface {
 // facades.
 type ToolsGetter struct {
 	entityFinder       state.EntityFinder
-	configGetter       EnvironConfigGetter
+	configGetter       ModelConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
@@ -59,7 +59,7 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c ModelConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -103,7 +103,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	// Get the Agent Version requested in the Environment Config
 	nothing := version.Number{}
-	cfg, err := t.configGetter.EnvironConfig()
+	cfg, err := t.configGetter.ModelConfig()
 	if err != nil {
 		return nothing, err
 	}
@@ -197,14 +197,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter       EnvironConfigGetter
+	configGetter       ModelConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c ModelConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 
@@ -254,7 +254,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	cfg, err := f.configGetter.EnvironConfig()
+	cfg, err := f.configGetter.ModelConfig()
 	if err != nil {
 		return nil, err
 	}

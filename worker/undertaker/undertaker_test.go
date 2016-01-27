@@ -95,7 +95,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 				c.Check(client.mockEnviron.Life, gc.Equals, state.Dead)
 				c.Check(client.mockEnviron.TimeOfDeath, gc.NotNil)
 			}}, {
-			call: "RemoveEnviron",
+			call: "RemoveModel",
 			callback: func() {
 				oneDayLater := startTime.Add(undertaker.RIPTime)
 				c.Check(mClock.Now().Equal(oneDayLater), jc.IsTrue)
@@ -122,7 +122,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	assertNoMoreCalls(c, client)
 }
 
-func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) {
+func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
 	mockWatcher := &mockEnvironResourceWatcher{
 		events: make(chan struct{}, 1),
 	}
@@ -185,7 +185,7 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 	assertNoMoreCalls(c, client)
 }
 
-func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
+func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)
 	halfDayEarlier := mClock.Now().Add(-12 * time.Hour)
@@ -206,7 +206,7 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	// We expect RemoveEnviron not to be called, as we have to wait another
+	// We expect RemoveModel not to be called, as we have to wait another
 	// 12hrs.
 	go func() {
 		defer wg.Done()
@@ -217,12 +217,12 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 			call: "ModelInfo",
 			callback: func() {
 				// As environ was set to dead 12hrs earlier, assert that the
-				// undertaker picks up where it left off and RemoveEnviron
+				// undertaker picks up where it left off and RemoveModel
 				// is called 12hrs later.
 				mClock.Advance(12 * time.Hour)
 			},
 		}, {
-			call: "RemoveEnviron",
+			call: "RemoveModel",
 			callback: func() {
 				c.Assert(client.mockEnviron.Removed, gc.Equals, true)
 			}},

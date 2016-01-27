@@ -188,7 +188,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	env, err := w.api.EnvironConfig()
+	env, err := w.api.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	w.first = false
 	Started()
-	return w.api.WatchForEnvironConfigChanges()
+	return w.api.WatchForModelConfigChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

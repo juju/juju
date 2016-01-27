@@ -196,12 +196,12 @@ type ConfigSettingsResults struct {
 	Results []ConfigSettingsResult
 }
 
-// EnvironConfig holds an environment configuration.
-type EnvironConfig map[string]interface{}
+// ModelConfig holds an model configuration.
+type ModelConfig map[string]interface{}
 
-// EnvironConfigResult holds environment configuration or an error.
-type EnvironConfigResult struct {
-	Config EnvironConfig
+// ModelConfigResult holds model configuration or an error.
+type ModelConfigResult struct {
+	Config ModelConfig
 }
 
 // RelationUnit holds a relation and a unit tag.

@@ -35,7 +35,7 @@ type servingInfoSuite struct {
 var _ = gc.Suite(&servingInfoSuite{})
 
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
 	ssi := state.StateServingInfo{
 		PrivateKey:   "some key",
@@ -72,7 +72,7 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 	}
 	s.PatchValue(&apiserveragent.MongoIsMaster, fakeMongoIsMaster)
 
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	expected := true
 	result, err := st.Agent().IsMaster()
 

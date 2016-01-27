@@ -106,7 +106,7 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	}
 	result.Notes = meta.Notes
 
-	result.Environment = meta.Origin.Environment
+	result.Model = meta.Origin.Model
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
@@ -123,7 +123,7 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	if !result.Finished.IsZero() {
 		meta.Finished = &result.Finished
 	}
-	meta.Origin.Environment = result.Environment
+	meta.Origin.Model = result.Model
 	meta.Origin.Machine = result.Machine
 	meta.Origin.Hostname = result.Hostname
 	meta.Origin.Version = result.Version

@@ -720,7 +720,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	var isEnvironManager bool
 	for _, job := range machineJobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			isEnvironManager = true
 			break
 		}
@@ -750,7 +750,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 	})
 
-	envConfig, err := st.Model().EnvironConfig()
+	envConfig, err := st.Model().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -876,7 +876,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case multiwatcher.JobManageEnviron:
+		case multiwatcher.JobManageModel:
 			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 				inner := func(<-chan struct{}) error {
 					agentConfig := a.CurrentConfig()
@@ -1058,7 +1058,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		cfg, err := pr.EnvironConfig()
+		cfg, err := pr.ModelConfig()
 		if err != nil {
 			return errors.Annotate(err, "unable to get environ config")
 		}
@@ -1114,7 +1114,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
-		case state.JobManageEnviron:
+		case state.JobManageModel:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
 				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
@@ -1392,7 +1392,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	envConfig, err := apiSt.Model().EnvironConfig()
+	envConfig, err := apiSt.Model().ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read model config")
 	}

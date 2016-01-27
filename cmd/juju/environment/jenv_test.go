@@ -192,7 +192,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
-func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
+func (*jenvSuite) TestSwitchErrorCannotWriteCurrentModel(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Cannot test on windows because it uses chmod")
 	}
@@ -201,7 +201,7 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
 	defer f.Close()
 
 	// Create the current environment file without write permissions.
-	currentEnvPath := gitjujutesting.HomePath(".juju", envcmd.CurrentEnvironmentFilename)
+	currentEnvPath := gitjujutesting.HomePath(".juju", envcmd.CurrentModelFilename)
 	currentEnvFile, err := os.Create(currentEnvPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer currentEnvFile.Close()
@@ -230,7 +230,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentEnvironment()
+	currEnv, err := envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "testing")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> testing\n")
@@ -247,7 +247,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertJenvContents(c, contents, "another")
 
-	currEnv, err = envcmd.ReadCurrentEnvironment()
+	currEnv, err = envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "another")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "testing -> another\n")
@@ -269,7 +269,7 @@ func (*jenvSuite) TestSuccessCustomEnvironmentName(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentEnvironment()
+	currEnv, err := envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "my-env")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> my-env\n")

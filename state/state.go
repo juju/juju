@@ -76,11 +76,11 @@ type State struct {
 	pwatcher          *presence.Watcher
 	leadershipManager leadership.ManagerWorker
 
-	// mu guards allManager, allEnvManager & allEnvWatcherBacking
-	mu                   sync.Mutex
-	allManager           *storeManager
-	allEnvManager        *storeManager
-	allEnvWatcherBacking Backing
+	// mu guards allManager, allModelManager & allModelWatcherBacking
+	mu                     sync.Mutex
+	allManager             *storeManager
+	allModelManager        *storeManager
+	allModelWatcherBacking Backing
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
@@ -318,18 +318,18 @@ func (st *State) Watch() *Multiwatcher {
 	return NewMultiwatcher(st.allManager)
 }
 
-func (st *State) WatchAllEnvs() *Multiwatcher {
+func (st *State) WatchAllModels() *Multiwatcher {
 	st.mu.Lock()
-	if st.allEnvManager == nil {
-		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
-		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	if st.allModelManager == nil {
+		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st)
+		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
 	}
 	st.mu.Unlock()
-	return NewMultiwatcher(st.allEnvManager)
+	return NewMultiwatcher(st.allModelManager)
 }
 
-func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, environGlobalKey)
+func (st *State) ModelConfig() (*config.Config, error) {
+	settings, err := readSettings(st, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -337,8 +337,8 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-// checkEnvironConfig returns an error if the config is definitely invalid.
-func checkEnvironConfig(cfg *config.Config) error {
+// checkModelConfig returns an error if the config is definitely invalid.
+func checkModelConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {
 		return errors.Errorf("admin-secret should never be written to the state")
 	}
@@ -442,7 +442,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, environGlobalKey)
+		settings, err := readSettings(st, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -471,7 +471,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     st.docID(environGlobalKey),
+				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
 					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
@@ -493,7 +493,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	return errors.Trace(err)
 }
 
-func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -504,7 +504,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 			return nil, errors.Trace(err)
 		}
 	}
-	if err := checkEnvironConfig(newConfig); err != nil {
+	if err := checkModelConfig(newConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st.validate(newConfig, oldConfig)
@@ -512,10 +512,10 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
-// UpdateEnvironConfig adds, updates or removes attributes in the current
+// UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -526,7 +526,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-	settings, err := readSettings(st, environGlobalKey)
+	settings, err := readSettings(st, modelGlobalKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -542,7 +542,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 			return errors.Trace(err)
 		}
 	}
-	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -560,7 +560,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 
 // EnvironConstraints returns the current environment constraints.
 func (st *State) EnvironConstraints() (constraints.Value, error) {
-	cons, err := readConstraints(st, environGlobalKey)
+	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
@@ -573,7 +573,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	return writeConstraints(st, environGlobalKey, cons)
+	return writeConstraints(st, modelGlobalKey, cons)
 }
 
 // AllMachines returns all machines in the environment
@@ -714,9 +714,9 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			// environment's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
 			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, env.UUID())
-			conf, err := st.EnvironConfig()
+			conf, err := st.ModelConfig()
 			if err != nil {
-				logger.Warningf("EnvironConfig failed: %v", err)
+				logger.Warningf("ModelConfig failed: %v", err)
 			} else if id != conf.Name() {
 				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
 			}
@@ -2201,7 +2201,7 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 	stateServers := db.C(stateServersC)
 
 	var doc stateServersDoc
-	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
+	err := stateServers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}

@@ -178,7 +178,7 @@ To by-pass the block, where available, run desired remove command with --force o
     run
     set
     set-constraints
-    set-model
+    set-model-config
     sync-tools
     unexpose
     unset

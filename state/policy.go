@@ -84,7 +84,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value, placeme
 	if st.policy == nil {
 		return nil
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	if st.policy == nil {
 		return defaultValidator, nil
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (st *State) supportsUnitPlacement() error {
 	if st.policy == nil {
 		return nil
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

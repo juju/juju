@@ -878,12 +878,12 @@ func (s *provisionerSuite) TestLifeServerError(c *gc.C) {
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
 }
 
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
+func (s *provisionerSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchForEnvironConfigChanges")
+		c.Check(request, gc.Equals, "WatchForModelConfigChanges")
 		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "abc",
@@ -891,25 +891,25 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 		return errors.New("FAIL")
 	})
 	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
-	_, err := st.WatchForEnvironConfigChanges()
+	_, err := st.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	inputCfg := coretesting.EnvironConfig(c)
+func (s *provisionerSuite) TestModelConfig(c *gc.C) {
+	inputCfg := coretesting.ModelConfig(c)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "EnvironConfig")
-		c.Assert(result, gc.FitsTypeOf, &params.EnvironConfigResult{})
-		*(result.(*params.EnvironConfigResult)) = params.EnvironConfigResult{
+		c.Check(request, gc.Equals, "ModelConfig")
+		c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResult{})
+		*(result.(*params.ModelConfigResult)) = params.ModelConfigResult{
 			Config: inputCfg.AllAttrs(),
 		}
 		return nil
 	})
 	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
-	outputCfg, err := st.EnvironConfig()
+	outputCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outputCfg.AllAttrs(), jc.DeepEquals, inputCfg.AllAttrs())
 }

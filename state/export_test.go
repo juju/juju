@@ -366,7 +366,7 @@ func SetEnvLifeDead(st *State, modelUUID string) error {
 }
 
 func HostedEnvironCount(c *gc.C, st *State) int {
-	count, err := hostedEnvironCount(st)
+	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }

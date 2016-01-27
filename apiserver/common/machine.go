@@ -28,8 +28,8 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	switch job {
 	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
+	case multiwatcher.JobManageModel:
+		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
 	case multiwatcher.JobManageStateDeprecated:

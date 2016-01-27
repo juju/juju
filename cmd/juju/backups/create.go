@@ -72,7 +72,7 @@ func (c *createCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
+	f.BoolVar(&c.Quiet, "no-metadata", false, "do not print the metadata")
 	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }

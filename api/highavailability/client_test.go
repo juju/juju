@@ -48,7 +48,7 @@ func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *
 }
 
 func assertEnsureAvailability(c *gc.C, s *jujutesting.JujuConnSuite) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.

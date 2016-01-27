@@ -35,14 +35,14 @@ type fakeEnvironAccessor struct {
 	envConfigError error
 }
 
-func (*fakeEnvironAccessor) WatchForEnvironConfigChanges() state.NotifyWatcher {
+func (*fakeEnvironAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
 	changes := make(chan struct{}, 1)
 	// Simulate initial event.
 	changes <- struct{}{}
 	return &fakeNotifyWatcher{changes: changes}
 }
 
-func (f *fakeEnvironAccessor) EnvironConfig() (*config.Config, error) {
+func (f *fakeEnvironAccessor) ModelConfig() (*config.Config, error) {
 	if f.envConfigError != nil {
 		return nil, f.envConfigError
 	}
@@ -57,63 +57,63 @@ func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironWatcher(
+	e := common.NewModelWatcher(
 		&fakeEnvironAccessor{},
 		resources,
 		nil,
 	)
-	result, err := e.WatchForEnvironConfigChanges()
+	result, err := e.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
+func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
 	testingEnvConfig := testingEnvConfig(c)
-	e := common.NewEnvironWatcher(
+	e := common.NewModelWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
 		authorizer,
 	)
-	result, err := e.EnvironConfig()
+	result, err := e.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
 	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
 }
 
-func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
+func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
-	e := common.NewEnvironWatcher(
+	e := common.NewModelWatcher(
 		&fakeEnvironAccessor{
 			envConfigError: fmt.Errorf("pow"),
 		},
 		nil,
 		authorizer,
 	)
-	_, err := e.EnvironConfig()
+	_, err := e.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*environWatcherSuite) TestEnvironConfigMaskedSecrets(c *gc.C) {
+func (*environWatcherSuite) TestModelConfigMaskedSecrets(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: false,
 	}
 	testingEnvConfig := testingEnvConfig(c)
-	e := common.NewEnvironWatcher(
+	e := common.NewModelWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
 		authorizer,
 	)
-	result, err := e.EnvironConfig()
+	result, err := e.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure the secret attribute is masked.
 	c.Check(result.Config["secret"], gc.Equals, "not available")

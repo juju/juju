@@ -91,7 +91,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 // newMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins. This is just a helper function for authCtxt.macaroonAuth.
 func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, error) {
-	envCfg, err := st.EnvironConfig()
+	envCfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
 	}

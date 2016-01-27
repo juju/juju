@@ -141,7 +141,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		createInitialUserOp(st, owner, info.Password),
 		txn.Op{
 			C:      stateServersC,
-			Id:     environGlobalKey,
+			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{
 				ModelUUID: st.ModelUUID(),
@@ -161,7 +161,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 		txn.Op{
 			C:      stateServersC,
-			Id:     hostedEnvCountKey,
+			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
 			Insert: &hostedEnvCountDoc{},
 		},
@@ -177,7 +177,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 }
 
 func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
-	if err := checkEnvironConfig(cfg); err != nil {
+	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -188,8 +188,8 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	}
 	envUserOp := createEnvUserOp(modelUUID, owner, owner, owner.Name(), false)
 	ops := []txn.Op{
-		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
-		createSettingsOp(environGlobalKey, cfg.AllAttrs()),
+		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
+		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedEnvironCountOp(),
 		createEnvironmentOp(st, owner, cfg.Name(), modelUUID, serverUUID),
 		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
@@ -288,11 +288,11 @@ func (st *State) Close() (err error) {
 	if st.allManager != nil {
 		handle("allwatcher manager", st.allManager.Stop())
 	}
-	if st.allEnvManager != nil {
-		handle("allenvwatcher manager", st.allEnvManager.Stop())
+	if st.allModelManager != nil {
+		handle("allModelWatcher manager", st.allModelManager.Stop())
 	}
-	if st.allEnvWatcherBacking != nil {
-		handle("allenvwatcher backing", st.allEnvWatcherBacking.Release())
+	if st.allModelWatcherBacking != nil {
+		handle("allModelWatcher backing", st.allModelWatcherBacking.Release())
 	}
 	st.session.Close()
 	st.mu.Unlock()

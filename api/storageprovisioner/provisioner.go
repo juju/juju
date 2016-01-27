@@ -20,7 +20,7 @@ type State struct {
 	facade base.FacadeCaller
 	scope  names.Tag
 
-	*common.EnvironWatcher
+	*common.ModelWatcher
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
@@ -35,7 +35,7 @@ func NewState(caller base.APICaller, scope names.Tag) *State {
 	return &State{
 		facadeCaller,
 		scope,
-		common.NewEnvironWatcher(facadeCaller),
+		common.NewModelWatcher(facadeCaller),
 	}
 }
 

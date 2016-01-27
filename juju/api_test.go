@@ -455,7 +455,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 	ep := info.APIEndpoint()
-	// We should have cached the environ tag, but not disturbed the
+	// We should have cached the model tag, but not disturbed the
 	// Addresses
 	c.Check(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
@@ -466,7 +466,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 	called := 0
 	// State returns a new set of APIHostPorts but not a new ModelTag. We
-	// shouldn't override the cached value with environ tag of "".
+	// shouldn't override the cached value with model tag of "".
 	expectState := mockedAPIState(mockedHostPort)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)

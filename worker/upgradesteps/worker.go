@@ -186,7 +186,7 @@ func (w *upgradesteps) run() error {
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range w.jobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			w.isStateServer = true
 		}
 	}
@@ -453,7 +453,7 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {
 		switch job {
-		case multiwatcher.JobManageEnviron:
+		case multiwatcher.JobManageModel:
 			targets = append(targets, upgrades.StateServer)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)

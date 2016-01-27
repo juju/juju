@@ -44,7 +44,7 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 	}
 
 	if destroyHostedModels {
-		envs, err := st.AllEnvironments()
+		envs, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
 		}

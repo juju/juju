@@ -137,7 +137,7 @@ func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
 // zones, an error satisfying errors.IsNotSupported() will be
 // returned.
 func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
-	envConfig, err := api.backing.EnvironConfig()
+	envConfig, err := api.backing.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}
@@ -157,7 +157,7 @@ func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 // environment does not support environs.Networking, an error
 // satisfying errors.IsNotSupported() will be returned.
 func (api *subnetsAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
-	envConfig, err := api.backing.EnvironConfig()
+	envConfig, err := api.backing.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}

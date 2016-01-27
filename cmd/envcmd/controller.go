@@ -211,7 +211,7 @@ func (w *sysCommandWrapper) getDefaultControllerName() (string, error) {
 	} else if currentController != "" {
 		return currentController, nil
 	}
-	if currentEnv, err := ReadCurrentEnvironment(); err != nil {
+	if currentEnv, err := ReadCurrentModel(); err != nil {
 		return "", errors.Trace(err)
 	} else if currentEnv != "" {
 		return currentEnv, nil
