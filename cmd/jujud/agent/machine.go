@@ -340,8 +340,8 @@ type MachineAgent struct {
 	mongoInitialized bool
 
 	// Used to signal that spaces have been discovered.
-	spacesDiscovered      bool
-	spacesDiscoveredMutex sync.Mutex
+	discoveringSpaces      bool
+	discoveringSpacesMutex sync.Mutex
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -585,9 +585,9 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 
 func (a *MachineAgent) newDiscoverSpacesWorker(api *apidiscoverspaces.API) worker.Worker {
 	setDiscoverSpacesCompleted := func() {
-		a.spacesDiscoveredMutex.Lock()
-		defer a.spacesDiscoveredMutex.Unlock()
-		a.spacesDiscovered = true
+		a.discoveringSpacesMutex.Lock()
+		defer a.discoveringSpacesMutex.Unlock()
+		a.discoveringSpaces = true
 	}
 	return newDiscoverSpaces(api, setDiscoverSpacesCompleted)
 }
@@ -1459,9 +1459,9 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 // limitLoginsUntilSpacesDiscovered will prevent logins from clients until
 // space discovery is completed.
 func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	a.spacesDiscoveredMutex.Lock()
-	defer a.spacesDiscoveredMutex.Unlock()
-	if a.spacesDiscovered {
+	a.discoveringSpacesMutex.Lock()
+	defer a.discoveringSpacesMutex.Unlock()
+	if !a.discoveringSpaces {
 		return nil
 	}
 	err := errors.New("space discovery still in progress")
